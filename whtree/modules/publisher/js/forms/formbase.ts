@@ -81,11 +81,26 @@ export interface FormSubmitResult {
 type RichValues = Array<{ field: string; value: string }>;
 
 type FormCondition = {
-  matchtype: "IN" | "HAS" | "IS" | "HASVALUE" | "AGE<" | "AGE>=";
+  matchtype: "IN" | "HAS" | "IS";
   field: string;
   value: unknown;
   options?: {
     matchcase?: boolean;
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "HASVALUE";
+  field: string;
+  value: boolean;
+  options?: {
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "AGE<" | "AGE>=";
+  field: string;
+  value: number;
+  options?: {
+    checkdisabled?: boolean;
   };
 } | {
   matchtype: "AND" | "OR";
@@ -990,7 +1005,7 @@ export default class FormBase {
     return this._matchesConditionRecursive(this.parseCondition(conditiontext));
   }
 
-  _getConditionRawValue(fieldname: string, options?) {
+  _getConditionRawValue(fieldname: string, options?: { checkdisabled?: boolean }) {
     if (this.node.hasAttribute("data-wh-form-var-" + fieldname))
       return this.node.getAttribute("data-wh-form-var-" + fieldname);
 
@@ -1028,7 +1043,7 @@ export default class FormBase {
     return matchfield.value;
   }
 
-  _getVariableValueForConditions(conditionfield: string, options?) {
+  _getVariableValueForConditions(conditionfield: string, options?: { matchcase?: boolean; checkdisabled?: boolean }) {
     if (this.node.hasAttribute("data-wh-form-var-" + conditionfield))
       return this.node.getAttribute("data-wh-form-var-" + conditionfield);
 
@@ -1047,26 +1062,26 @@ export default class FormBase {
       return currentvalue;
 
     // Look for an extrafield match
-    const matchfield = this.elements[fields[0]];
+    const matchfield = this.elements.namedItem(fields[0]);
     if (!matchfield) {
       console.error(`No match for conditional required field '${conditionfield}'`);
       return null;
     }
 
-    if (matchfield.nodeName == "SELECT") {
+    if (matchfield instanceof HTMLSelectElement) {
       if (Array.isArray(currentvalue)) {
         const selectedvalue = currentvalue;
         currentvalue = [];
         for (const val of selectedvalue) {
-          const selected = dompack.qS(matchfield, `option[value="${val}"]`);
-          if (!selected.dataset.__extrafields)
+          const selected = dompack.qS<HTMLOptionElement>(matchfield, `option[value="${CSS.escape(val)}"]`);
+          if (!selected?.dataset.__extrafields)
             return null;
           const extrafields = JSON.parse(selected.dataset.__extrafields);
           currentvalue.push(extrafields[fields[1]]);
         }
       } else {
-        const selected = dompack.qS(matchfield, `option[value="${currentvalue}"]`);
-        if (!selected.dataset.__extrafields)
+        const selected = dompack.qS<HTMLOptionElement>(matchfield, `option[value="${CSS.escape(currentvalue)}"]`);
+        if (!selected?.dataset.__extrafields)
           return null;
         const extrafields = JSON.parse(selected.dataset.__extrafields);
         currentvalue = extrafields[fields[1]];
@@ -1080,18 +1095,38 @@ export default class FormBase {
 
 
   _matchesConditionRecursive(condition: FormCondition): boolean {
-    if (condition.matchtype == "AND") {
-      for (const subcondition of condition.conditions)
-        if (!this._matchesConditionRecursive(subcondition))
+    switch (condition.matchtype) {
+      case "AND":
+        for (const subcondition of condition.conditions)
+          if (!this._matchesConditionRecursive(subcondition))
+            return false;
+        return true;
+
+      case "OR":
+        for (const subcondition of condition.conditions)
+          if (this._matchesConditionRecursive(subcondition))
+            return true;
+        return false;
+
+      case "NOT":
+        return !this._matchesConditionRecursive(condition.condition);
+
+      case "AGE<":
+      case "AGE>=": {
+        const currentvalue = this._getVariableValueForConditions(condition.field);
+        if (!currentvalue)
           return false;
-      return true;
-    } else if (condition.matchtype == "OR") {
-      for (const subcondition of condition.conditions)
-        if (this._matchesConditionRecursive(subcondition))
-          return true;
-      return false;
-    } else if (condition.matchtype == "NOT") {
-      return !this._matchesConditionRecursive(condition.condition);
+
+        const now = new Date, birthdate = new Date(currentvalue);
+        let age = now.getFullYear() - birthdate.getFullYear();
+        //birthdate not hit yet this year? then you lose a year
+        if (now.getMonth() < birthdate.getMonth()
+          || (now.getMonth() == birthdate.getMonth() && now.getDate() < birthdate.getDate())) {
+          --age;
+        }
+
+        return (condition.matchtype == 'AGE<' ? age < condition.value : age >= condition.value);
+      }
     }
 
     let currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
@@ -1128,21 +1163,6 @@ export default class FormBase {
       return true;
     }
 
-    if (["AGE<", "AGE>="].includes(condition.matchtype)) {
-      if (!currentvalue)
-        return false;
-
-      const now = new Date, birthdate = new Date(currentvalue);
-      let age = now.getFullYear() - birthdate.getFullYear();
-      //birthdate not hit yet this year? then you lose a year
-      if (now.getMonth() < birthdate.getMonth()
-        || (now.getMonth() == birthdate.getMonth() && now.getDate() < birthdate.getDate())) {
-        --age;
-      }
-
-      return (condition.matchtype == 'AGE<' && age < condition.value)
-        || (condition.matchtype == 'AGE>=' && age >= condition.value);
-    }
     return console.error(`No support for conditional type '${condition.matchtype}'`), false;
   }
 
