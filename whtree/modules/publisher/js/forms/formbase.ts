@@ -193,6 +193,8 @@ export default class FormBase {
   private validationqueue = new Array<ValidationQueueElement>;
   private _submitter: HTMLElement | null = null;
   private _submittimeout: NodeJS.Timeout | undefined;
+  /** Is the form considered interactive yet? Used to ignore changes done by code/setFieldValue */
+  private isInteractive = true;
 
   constructor(formnode: HTMLFormElement) {
     this.node = formnode;
@@ -242,6 +244,12 @@ export default class FormBase {
   sendFormEvent(eventtype: string, vars?: pxl.PxlEventData) {
     const now = Date.now();
     const isfirst = !this._firstinteraction;
+
+    if (isfirst && !this.isInteractive) { //ignore events triggered by code. we didn't explicitly do this earlier because applyPrefills() happened to run before enabling form processing (_setupFormHandler)
+      if (eventtype)
+        console.warn(`[forms] Got a '${eventtype}' event due to a non-interactive change, ignoring`);
+      return;
+    }
     this._firstinteraction ||= now;
 
     const pagestate = this._getPageState();
@@ -1203,10 +1211,16 @@ export default class FormBase {
 
     //TODO we should also understand value sets toward fields with custom value support (those which dompack.changeValue can't understand)
     if (fieldnode.matches('input[type=radio], input[type=checkbox]')) {
-      dompack.changeValue(fieldnode, Boolean(value));
-      return;
+      value = Boolean(value);
     }
-    dompack.changeValue(fieldnode, value);
+
+    const saveInteractive = this.isInteractive;
+    try {
+      this.isInteractive = false;
+      dompack.changeValue(fieldnode, value);
+    } finally {
+      this.isInteractive = saveInteractive;
+    }
   }
 
   _isPartOfForm(el: HTMLElement) {
