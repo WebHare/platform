@@ -7,7 +7,6 @@ import { Loader, transformSync, version as esbuildversion } from "esbuild";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 
 let debug = false, cachepath = '';
 
@@ -101,9 +100,12 @@ function transpile(code: string, filename: string): string {
   }
 }
 
-export function installResolveHook(setdebug: boolean) {
-  debug = setdebug;
-  cachepath = process.env.WEBHARE_TSBUILDCACHE ?? path.join(os.homedir(), ".ts-esbuild-runner-cache");
+export function installResolveHook(config: { debug: boolean; cachePath: string }) {
+  debug = config.debug;
+  cachepath = config.cachePath;
+  if (!cachepath)
+    throw new Error(`No cache path specified`);
+
   if (!fs.existsSync(cachepath)) {
     fs.mkdirSync(cachepath, { recursive: true });
     fs.writeFile(path.join(cachepath, "CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n", () => { return; }); //ignoring errors
