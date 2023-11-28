@@ -1,4 +1,4 @@
-/* The require plugin that turs 'node' into 'wh node'. Adds typescript support, webhare/services env variables.
+/* The require plugin that turns 'node' into 'wh node'. Adds typescript support, webhare/services env variables.
    We replace the role of ts-esbuild-runner/index.ts
 
    Changes to us don't take effect immediately. Rerun wh finalize-webhare to rebuild this plugin and reset the compile cache
