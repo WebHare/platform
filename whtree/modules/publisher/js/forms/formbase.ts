@@ -283,12 +283,15 @@ export default class FormBase {
   }
 
   _rewriteEnableOn() { //ADDME move this to webhare server
+    // EnablingComponents may set data-wh-form-enable. input(radio/checkbox) and option qualify
+    type EnablingComponent = HTMLInputElement | HTMLOptionElement;
+
     // This is the initialization, check the enable components for all elements within the form
-    for (const control of dompack.qSA(this.node, "*[data-wh-form-enable]"))
+    for (const control of dompack.qSA<EnablingComponent>(this.node, "*[data-wh-form-enable]"))
       for (const element of control.dataset.whFormEnable!.split(" ")) {
         const target = this.node.elements.namedItem(element);
-        if (target) {
-          const name = (control.nodeName == "OPTION" ? control.closest<HTMLSelectElement>("select") : control)?.name;
+        if (target && target instanceof HTMLElement) {
+          const name = (control instanceof HTMLOptionElement ? control.closest<HTMLSelectElement>("select") : control)?.name;
           if (!name) //duplicated node?
             continue;
 
