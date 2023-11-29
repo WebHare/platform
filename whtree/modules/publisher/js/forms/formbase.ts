@@ -46,7 +46,7 @@ declare global {
 
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
-    "wh:form-require": CustomEvent<{ enabled: boolean }>;
+    "wh:form-require": CustomEvent<{ required: boolean }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>;
   }
 }
@@ -821,11 +821,11 @@ export default class FormBase {
     if (anychanges)
       this._updatePageNavigation();
 
-    const tovalidate = [];
+    const tovalidate = new Array<HTMLElement>;
     const hiddengroups = [], enabledgroups = [], requiredgroups = [];
     for (const formgroup of dompack.qSA(this.node, ".wh-form__fieldgroup")) {
-      const visible = !hiddenPages.includes(formgroup.closest(".wh-form__page"))
-        && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
+      const groupPage = formgroup.closest<HTMLElement>(".wh-form__page");
+      const visible = (!groupPage || !hiddenPages.includes(groupPage)) && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
 
       if (!visible)
         hiddengroups.push(formgroup);
@@ -862,7 +862,9 @@ export default class FormBase {
     }
 
     for (const formline of dompack.qSA(this.node, ".wh-form__fieldline")) {
-      const formgroup = formline.closest(".wh-form__fieldgroup");
+      const formgroup = formline.closest<HTMLElement>(".wh-form__fieldgroup");
+      if (!formgroup)
+        continue;
       const visible = !hiddengroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormVisibleIf);
       const enabled = visible && enabledgroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormEnabledIf);
       const required = enabled && requiredgroups.includes(formgroup);
@@ -878,10 +880,10 @@ export default class FormBase {
       for (const node of inputtargets) {
         //Record initial states
         if (node.propWhFormSavedEnabled === undefined)
-          node.propWhFormSavedEnabled = !node.disabled && !("whFormDisabled" in node.dataset);
+          node.propWhFormSavedEnabled = "disabled" in node ? !node.disabled : !("whFormDisabled" in node.dataset);
 
         if (node.propWhFormSavedRequired === undefined)
-          node.propWhFormSavedRequired = Boolean(node.required);
+          node.propWhFormSavedRequired = Boolean("required" in node && node.required);
 
         // The field is enabled if all of these are matched:
         // - we're setting it to enabled now
@@ -961,7 +963,7 @@ export default class FormBase {
           }
         }
 
-        if (!isinit && !tovalidate.includes(selectnode))
+        if (selectnode && !isinit && !tovalidate.includes(selectnode))
           tovalidate.push(selectnode); // to clear errors for this option's select field
       }
     }
@@ -1001,7 +1003,7 @@ export default class FormBase {
     return (JSON.parse(conditiontext) as FormConditionWrapper).c;
   }
 
-  _matchesCondition(conditiontext: string) {
+  _matchesCondition(conditiontext: string | undefined) {
     if (!conditiontext)
       return true;
 
@@ -1120,7 +1122,7 @@ export default class FormBase {
         if (!currentvalue)
           return false;
 
-        const now = new Date, birthdate = new Date(currentvalue);
+        const now = new Date, birthdate = new Date(Array.isArray(currentvalue) ? currentvalue[0] : currentvalue); //should never be an array, but _getVariableValueForConditions is generic
         let age = now.getFullYear() - birthdate.getFullYear();
         //birthdate not hit yet this year? then you lose a year
         if (now.getMonth() < birthdate.getMonth()
@@ -1140,27 +1142,25 @@ export default class FormBase {
     if (["IN", "HAS", "IS"].includes(condition.matchtype)) {
       const matchcase = condition.options?.matchcase !== false; // Defaults to true
       const compareagainst = Array.isArray(condition.value) ? condition.value : condition.value ? [condition.value] : [];
-
-      if (!Array.isArray(currentvalue))
-        currentvalue = currentvalue ? [currentvalue] : [];
+      const currentValArray: string[] = Array.isArray(currentvalue) ? currentvalue : currentvalue ? [currentvalue] : [];
 
       // If the match is not case-sensitive, the condition value is already uppercased, so we only have to uppercase the
       // current value(s) when checking
       if (!matchcase)
-        currentvalue = currentvalue.map(value => value.toUpperCase());
+        currentValArray.forEach((_, idx) => currentValArray[idx] = currentValArray[idx].toUpperCase());
 
       // The current value and the condition value should (at least) overlap
-      if (!currentvalue.some(value => compareagainst.includes(value)))
+      if (!currentValArray.some(value => compareagainst.includes(value)))
         return false;
 
       // For "HAS" and "IS" conditions, all of the required values should be selected (there shouldn't be required values
       // that are not selected)
-      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && compareagainst.some(value => !currentvalue.includes(value)))
+      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && compareagainst.some(value => !currentValArray.includes(value)))
         return false;
 
       // For an "IS" condition, all of the selected values should be required (there shouldn't be selected values that are
       // not required)
-      if (condition.matchtype == "IS" && currentvalue.some(value => !compareagainst.includes(value)))
+      if (condition.matchtype == "IS" && currentValArray.some(value => !compareagainst.includes(value)))
         return false;
 
       return true;
@@ -1393,15 +1393,13 @@ export default class FormBase {
 
   //get the option lines associated with a specific radio/checkbox group
   getOptions(name: string) {
-    let nodes = this.getElementByName(name);
-    if (!nodes)
+    const nodes = this.getElementByName(name);
+    if (!(nodes instanceof RadioNodeList))
       return [];
-    if (nodes.length === undefined)
-      nodes = [nodes];
 
-    return Array.from(nodes).map(node => ({
+    return [...nodes].map(node => ({
       inputnode: node,
-      fieldline: node.closest('.wh-form__fieldline'),
+      fieldline: node.closest<HTMLElement>('.wh-form__fieldline'),
       value: node.value
     }));
   }
@@ -1422,15 +1420,12 @@ export default class FormBase {
   }
 
   /** get the fieldgroup for an element */
-  getFieldGroup(name: string) {
+  getFieldGroup(name: string): HTMLElement | null {
     let node = this.getElementByName(name);
-    if (!node)
-      return null;
-
-    if (node.length !== undefined)
+    if (node instanceof RadioNodeList)
       node = node[0];
 
-    return node.closest('.wh-form__fieldgroup');
+    return node ? node.closest<HTMLElement>('.wh-form__fieldgroup') : null;
   }
 
   /** get the values of the currently selected radio/checkbox group */
