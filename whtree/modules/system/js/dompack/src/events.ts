@@ -10,9 +10,9 @@ export type DocEvent<EventType extends Event, CurrentTargetType extends HTMLElem
   currentTarget: CurrentTargetType;
 };
 
-export interface addDocEventListenerOptions extends AddEventListenerOptions {
+export interface AddDocEventListenerOptions extends AddEventListenerOptions {
   /** Add to listenerset to allow easy deregistration */
-  listenerset?: EventListenerSet;
+  listenerSet?: EventListenerSet;
 }
 
 export type DomEventOptions =
@@ -354,7 +354,7 @@ export class EventListenerSet {
     for (const listener of this.listeners)
       listener.node.removeEventListener(listener.type, listener.listener, listener.options);
 
-    this.listeners.splice(0, this.listeners.length); //clear array
+    this.listeners.splice(0); //clear array
   }
   [Symbol.dispose]() {
     this.removeAll();
@@ -362,11 +362,11 @@ export class EventListenerSet {
 }
 
 /** Add an event listener to HTMLElements inside a document (which allows us to ensure that 'target' is a HTMLElement for easier typings) */
-export function addDocEventListener<CurrentTargetType extends HTMLElement, Type extends keyof HTMLElementEventMap>(node: CurrentTargetType, type: Type, listener: (this: CurrentTargetType, ev: DocEvent<HTMLElementEventMap[Type], CurrentTargetType>) => void, options?: addDocEventListenerOptions): void;
-export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (evt: DocEvent<Event, CurrentTargetType>) => void, options?: addDocEventListenerOptions): void;
+export function addDocEventListener<CurrentTargetType extends HTMLElement, Type extends keyof HTMLElementEventMap>(node: CurrentTargetType, type: Type, listener: (this: CurrentTargetType, ev: DocEvent<HTMLElementEventMap[Type], CurrentTargetType>) => void, options?: AddDocEventListenerOptions): void;
+export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (this: CurrentTargetType, evt: DocEvent<Event, CurrentTargetType>) => void, options?: AddDocEventListenerOptions): void;
 
-export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (evt: DocEvent<Event, CurrentTargetType>) => void, options?: addDocEventListenerOptions): void {
+export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (this: CurrentTargetType, evt: DocEvent<Event, CurrentTargetType>) => void, options?: AddDocEventListenerOptions): void {
   node.addEventListener(type, listener as EventListener, options);
-  if (options?.listenerset)
-    options?.listenerset.listeners.push({ node, type, listener: listener as EventListener, options });
+  if (options?.listenerSet)
+    options.listenerSet.listeners.push({ node, type, listener: listener as EventListener, options });
 }
