@@ -309,6 +309,9 @@ export default class FormBase {
       ...vars
     };
 
+    if (this._submitstart) //is set during a pending submission
+      vars.dn_formmeta_waittime = Date.now() - this._submitstart;
+
     /* if isfirst and eventtype !== null, the user might eg. try to submit or nextpage *immediately* without ever having
        any other form interation. to make sure our stats make sense (counting started vs submitted), we'll send the
        formstarted anyway since WH 5.02 */
@@ -606,7 +609,6 @@ export default class FormBase {
         this.sendFormEvent('publisher:formfailed', {
           ds_formmeta_errorfields: getErrorFields(validationresult),
           ds_formmeta_errorsource: 'client',
-          dn_formmeta_waittime: Date.now() - this._submitstart
         });
       }
     } finally {
@@ -616,12 +618,12 @@ export default class FormBase {
         clearTimeout(this._submittimeout);
         this._submittimeout = undefined;
       }
+      this._submitstart = undefined;
     }
   }
 
   _submitHasTimedOut() { //TODO extend this to (background) RPCs too, and make waitfor more specific. also check whether we're stuck on client or server side
     this.sendFormEvent('publisher:formslow', {
-      dn_formmeta_waittime: Date.now() - this._submitstart,
       ds_formmeta_waitfor: "submit"
     });
     this._submittimeout = undefined;

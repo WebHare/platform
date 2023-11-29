@@ -259,7 +259,7 @@ export default class RPCFormBase extends FormBase {
 
       if (result.success) {
         dompack.dispatchCustomEvent(this.node, "wh:form-values", { bubbles: true, cancelable: false, detail: eventdetail });
-        this.sendFormEvent('publisher:formsubmitted', { dn_formmeta_waittime: Date.now() - this._submitstart });
+        this.sendFormEvent('publisher:formsubmitted');
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
           merge.run(this.node, { form: await this.getFormValue() });
 
@@ -270,8 +270,7 @@ export default class RPCFormBase extends FormBase {
         const failedfields = result.errors.map(error => error.name || "*").sort().join(" ");
         this.sendFormEvent('publisher:formfailed', {
           ds_formmeta_errorfields: failedfields,
-          ds_formmeta_errorsource: 'server',
-          dn_formmeta_waittime: Date.now() - this._submitstart
+          ds_formmeta_errorsource: 'server'
         });
 
         if (globalerrors.length) {
@@ -286,8 +285,7 @@ export default class RPCFormBase extends FormBase {
     } catch (e) {
       this.sendFormEvent('publisher:formexception', {
         ds_formmeta_exception: String(e),
-        ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client',
-        dn_formmeta_waittime: Date.now() - this._submitstart
+        ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client'
       });
 
       if (dompack.dispatchCustomEvent(this.node, "wh:form-exception", { bubbles: true, cancelable: true, detail: eventdetail }))
