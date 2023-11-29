@@ -1197,7 +1197,7 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
 
   GetPrimary()->PopWork();
   IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
-    testfw->WaitForPublishCompletion(webtoolsfolder->id);
+    testfw->WaitForPublishCompletion(customformfile2->id);
 
   RETURN [ url := customformfile2->indexurl
          , id := customformfile2->id

@@ -22,7 +22,13 @@ PUBLIC STATIC OBJECTTYPE FormHandlerTaskBase EXTEND ManagedTaskBase
 
   UPDATE PUBLIC MACRO PrepareTask(RECORD data)
   {
-    this->formfsobject := OpenWHFSObject(data.formid);
+    this->formfsobject := OpenWHFSObject(data.formid, [ expectstate := "live" ]);
+    IF(NOT ObjectExists(this->formfsobject))
+    {
+      this->ResolveByCancellation(DEFAULT RECORD, `Form #${data.formid} is no longer available`);
+      RETURN;
+    }
+
     this->handlerguid := data.formhandler;
 
     IF(ObjectExists(this->formfsobject))

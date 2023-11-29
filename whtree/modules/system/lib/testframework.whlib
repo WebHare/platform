@@ -1552,13 +1552,13 @@ STATIC OBJECTTYPE TestFramework
 
   }
 
-  PUBLIC MACRO WaitForPublishCompletion(INTEGER startingfolder)
+  PUBLIC MACRO WaitForPublishCompletion(INTEGER startingpoint)
   {
-    IF(NOT WaitForPublishCompletion(startingfolder, [ deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
+    IF(NOT WaitForPublishCompletion(startingpoint, [ deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
                                                     , reportfrequency := 15000
                                                     ]))
     {
-      ABORT("Publication in folder #" || startingfolder || " isn't completing");
+      ABORT(`Publication of ${SELECT AS STRING whfspath FROM system.fs_objects WHERE id = startingpoint} (#${startingpoint}) isn't completing`);
     }
     Sleep(1); // Make sure GetCurrentDatetime() will return something larger than lastpublishdate
   }
