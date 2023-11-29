@@ -3,7 +3,7 @@ import { DocEvent, TakeFocusEvent, addDocEventListener } from '@webhare/dompack'
 import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
-import { executeSubmitInstruction } from '@mod-system/js/wh/integration';
+import { SubmitInstruction, executeSubmitInstruction } from '@mod-system/js/wh/integration';
 import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
@@ -74,14 +74,23 @@ export interface FormSubmitEmbeddedResult {
   [key: string]: unknown;
   //webtool submit additions:
   submittype?: string;
+  richvalues?: RichValues;
+  resultsguid?: string;
+  submitinstruction?: SubmitInstruction;
+}
+
+export interface FormSubmitMessage {
+  name: string;
+  message: string;
+  metadata: unknown;
 }
 
 export interface FormSubmitResult {
   success: boolean;
   //TODO a next form iteration should not mix all these additional props into the form user's 'result'
   result: FormSubmitEmbeddedResult;
-  errors: Array<{ name: string; message: string; metadata: unknown }>;
-  warnings: Array<{ name: string; message: string; metadata: unknown }>;
+  errors: FormSubmitMessage[];
+  warnings: FormSubmitMessage[];
 }
 
 type RichValues = Array<{ field: string; value: string }>;

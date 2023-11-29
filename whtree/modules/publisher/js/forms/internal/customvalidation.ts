@@ -31,7 +31,11 @@ function setupServerErrorClear(field: HTMLElement) {
 }
 
 
-export function setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
+export function setFieldError(field: Element, error: string, options?: Partial<FieldErrorOptions>) {
+  if (!(field instanceof HTMLElement)) {
+    console.error(`Field is not a valid target for setting errors`, field);
+    return;
+  }
   if (debugFlags.fhv)
     console.log(`[fhv] ${error ? "Setting" : "Clearing"} error for field ${"name" in field ? field.name : field.dataset.whFormName}`, field, error, options);
 
@@ -67,8 +71,11 @@ export function setFieldError(field: HTMLElement, error: string, options?: Parti
   if (supportsValidity(field)) {
     field.setCustomValidity(error || "");
     if (options?.reportimmediately)
-      field.reportValidity?.(); //report
+      field.reportValidity(); //report
+    return;
   }
+
+  console.error(`Field is not a valid target for setting errors`, field);
 }
 
 export function setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<string> | string) {
