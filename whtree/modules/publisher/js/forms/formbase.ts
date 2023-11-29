@@ -196,10 +196,6 @@ function getName(field: HTMLElement) {
   return field.dataset.whFormName || (field as HTMLInputElement).name || "";
 }
 
-function isInput(node: HTMLElement): node is HTMLInputElement {
-  return node.nodeName == 'INPUT';
-}
-
 function releasePendingValidations() {
   if (!delayvalidation)
     return;
@@ -1134,7 +1130,7 @@ export default class FormBase {
       }
     }
 
-    let currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
+    const currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
 
     if (condition.matchtype == "HASVALUE")
       return Boolean(currentvalue) == Boolean(condition.value);
@@ -1219,7 +1215,12 @@ export default class FormBase {
       if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
         return deferred.promise;
     }
-    if (isInput(field) && field.type == 'file') {
+    if (!isFormControl(field)) {
+      console.error(`Cannot set value on non-FormControl`, field);
+      return undefined; //TODO throw? but wasn't currently fatal
+    }
+
+    if (field.type == 'file' && field instanceof HTMLInputElement) { //note that field:FormControl.type===file actually implies HTMLInputElement
       //FIXME multiple support
       if (!field.files || field.files.length == 0)
         return null;
@@ -1254,9 +1255,13 @@ export default class FormBase {
       // Event is not cancelled, set node value directly
     }
 
-    //TODO we should also understand value sets toward fields with custom value support (those which dompack.changeValue can't understand)
-    if (fieldnode.matches('input[type=radio], input[type=checkbox]')) {
-      value = Boolean(value);
+    if (!isFormControl(fieldnode)) {
+      console.error(`Cannot set value on non-FormControl`, fieldnode, value);
+      return; //TODO throw? but wasn't currently fatal
+    }
+    if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+      console.error(`Setting value of type ${typeof value} on a FormControl`, fieldnode, value);
+      return; //TODO throw? but wasn't currently fatal
     }
 
     const saveInteractive = this.isInteractive;
@@ -1341,7 +1346,7 @@ export default class FormBase {
   getFormValue(): Promise<FormResultValue> {
     return new Promise<FormResultValue>((resolve, reject) => {
       const outdata = {};
-      const fieldpromises = new Array<Promise<unknown>>;
+      const fieldpromises = new Array<Promise<void>>;
 
       for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
         this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
@@ -1352,7 +1357,7 @@ export default class FormBase {
 
   _isNowSettable(node: HTMLElement) {
     // If the node is disabled, it's not settable
-    if (node.disabled)
+    if ("disabled" in node && node.disabled)
       return false;
 
     // If the node's field group is disabled or hidden, it's not settable
