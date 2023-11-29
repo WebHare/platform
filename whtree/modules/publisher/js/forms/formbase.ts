@@ -1,5 +1,5 @@
 import * as dompack from '@webhare/dompack';
-import { DocEvent, TakeFocusEvent, addDocEventListener } from '@webhare/dompack';
+import { DocEvent, FormControlElement, TakeFocusEvent, addDocEventListener, isFormControl } from '@webhare/dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
@@ -11,7 +11,7 @@ import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
 import { debugFlags } from '@webhare/env';
-import { FormControlElement, getErrorForValidity, isFormControl, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
+import { getErrorForValidity, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 
 declare global {
   interface HTMLElement {

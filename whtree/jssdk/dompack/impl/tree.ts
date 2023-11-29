@@ -1,5 +1,5 @@
 /** Elements you can set a value on and would have to trigger change and/or input events */
-export type FillableFormElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+export type FormControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 export function qS<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E | null;
 export function qS<E extends Element = HTMLElement>(selector: string): E | null;
@@ -55,4 +55,9 @@ export function qSA<E extends Element>(node_or_selector: ParentNode | string, se
     return Array.from(node_or_selector.querySelectorAll(selector));
 
   return [];
+}
+
+/** Return whether the passed element is a FormControlElement */
+export function isFormControl(field: Element): field is FormControlElement {
+  return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement;
 }

@@ -1,4 +1,4 @@
-import { FillableFormElement } from "@webhare/dompack/dompack";
+import { FormControlElement } from "@webhare/dompack/dompack";
 
 export const CustomEvent = globalThis.CustomEvent;
 /** Wrap an event to ensure it's target is a HTMLElement
@@ -68,7 +68,7 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
  * @param options - Event options
  * @deprecated Use changeValue so we can figure out the proper events to fire
  */
-export function fireModifiedEvents(element: FillableFormElement, options?: DomEventOptions) {
+export function fireModifiedEvents(element: FormControlElement, options?: DomEventOptions) {
   dispatchDomEvent(element, 'input', options);
   dispatchDomEvent(element, 'change', options);
 }
@@ -140,7 +140,7 @@ export function dispatchCustomEvent<K extends string>(
     @param element - Element to change
     @param newvalue - New value
  */
-export function changeValue(element: FillableFormElement, newvalue: string | number | boolean) {
+export function changeValue(element: FormControlElement, newvalue: string | number | boolean) {
   if (element.matches(`input[type=radio], input[type=checkbox]`)) {
     if (Boolean((element as HTMLInputElement).checked) == Boolean(newvalue))
       return;
