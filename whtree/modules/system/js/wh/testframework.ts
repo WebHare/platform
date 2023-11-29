@@ -433,14 +433,14 @@ export function qS<E extends Element = TestQueriedElement>(node_or_selector: Par
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E[];
-export function qSA<E extends Element = TestQueriedElement>(selector: string): E[];
+export function qSA<E extends HTMLElement = TestQueriedElement>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends HTMLElement = TestQueriedElement>(selector: string): E[];
 
 /** Find elements in the test window
     @param node_or_selector - Starting node (optional)
     @param selector - CSS selector to use
     @returns An array of matching elements */
-export function qSA<E extends Element = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E[] {
+export function qSA<E extends HTMLElement = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E[] {
   if (typeof node_or_selector !== 'string')
     return Array.from(node_or_selector.querySelectorAll(selector));
 
@@ -449,14 +449,14 @@ export function qSA<E extends Element = TestQueriedElement>(node_or_selector: Pa
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qR<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E;
-export function qR<E extends Element = TestQueriedElement>(selector: string): E;
+export function qR<E extends HTMLElement = TestQueriedElement>(startnode: ParentNode, selector: string): E;
+export function qR<E extends HTMLElement = TestQueriedElement>(selector: string): E;
 
 /** Find a unique element in the test window, throw if not found
     @param node_or_selector - Starting node (optional)
     @param selector - CSS selector to use
     @returns The only matching element. Throws if not found */
-export function qR<E extends Element = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E {
+export function qR<E extends HTMLElement = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E {
   const matches = qSA<E>(node_or_selector, selector);
   if (matches.length === 1)
     return matches[0];
