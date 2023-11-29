@@ -7,6 +7,14 @@ import "./form.lang.json";
 import { FieldErrorOptions } from '../formbase';
 import { debugFlags } from '@webhare/env';
 
+///Fired at nodes to apply error
+export type SetFieldErrorData = {
+  error: string;
+  reportimmediately: boolean;
+  serverside: boolean;
+  metadata: unknown;
+}
+
 function setupServerErrorClear(field: HTMLElement) {
   const group = field.closest<HTMLElement>('.wh-form__fieldgroup') || field;
   field.propWhCleanupFunction = () => {
@@ -33,8 +41,7 @@ export function setFieldError(field: HTMLElement, error: string, options?: Field
   options = { serverside: false, reportimmediately: false, ...options };
   field.propWhSetFieldError = error;
 
-  if (error && options.serverside) //we need to reset the check when the user changed something
-  {
+  if (error && options.serverside) { //we need to reset the check when the user changed something
     setupServerErrorClear(field);
     field.propWhErrorServerSide = true;
   } else {

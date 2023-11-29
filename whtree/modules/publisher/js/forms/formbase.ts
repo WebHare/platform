@@ -2,19 +2,19 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from '@webhare/dompack';
+import { DocEvent, TakeFocusEvent, addDocEventListener } from '@webhare/dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
 import { executeSubmitInstruction } from '@mod-system/js/wh/integration';
 import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
-import { setFieldError, setupValidator } from './internal/customvalidation';
+import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
 import { debugFlags } from '@webhare/env';
 import { FormControlElement, getErrorForValidity, isFormControl, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
-import { TakeFocusEvent } from 'dompack';
 
 declare global {
   interface HTMLElement {
@@ -47,6 +47,7 @@ declare global {
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
     "wh:form-require": CustomEvent<{ enabled: boolean }>;
+    "wh:form-setfielderror": CustomEvent<SetFieldErrorData>;
   }
 }
 
@@ -145,7 +146,11 @@ interface ValidationQueueElement {
   defer: DeferredPromise<ValidationResult>;
 }
 
+//Query used to find valid submittors
 const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
+//Must match possible types returned by the submitselector
+type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
+
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 
 function getErrorFields(validationresult: ValidationResult) {
@@ -235,7 +240,7 @@ export default class FormBase {
   private _firstinteraction: number | undefined;
   protected _submitstart: number | undefined;
   private validationqueue = new Array<ValidationQueueElement>;
-  private _submitter: HTMLElement | null = null;
+  private _submitter: SubmitSelectorType | null = null;
   private _submittimeout: NodeJS.Timeout | undefined;
   /** Is the form considered interactive yet? Used to ignore changes done by code/setFieldValue */
   private isInteractive = true;
@@ -253,17 +258,17 @@ export default class FormBase {
     //Implement webhare fields extensions, eg 'now' for date fields or 'enablecomponents'
     webharefields.setup(this.node);
     //Implement page navigation
-    this.node.addEventListener("click", evt => this._checkClick(evt));
-    this.node.addEventListener("dompack:takefocus", evt => this._onTakeFocus(evt), true);
-    this.node.addEventListener("input", evt => this._onInputChange(), true);
-    this.node.addEventListener("change", evt => this._onInputChange(), true);
-    this.node.addEventListener('submit', evt => this._submit(evt, null));
-    this.node.addEventListener('wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
-    this.node.addEventListener("wh:form-setfielderror", evt => this._doSetFieldError(evt));
-    this.node.addEventListener("mousedown", doDelayValidation);
-    this.node.addEventListener("focusout", handleFocusOutEvent, true);
-    this.node.addEventListener("input", handleValidateAfterEvent, true);
-    this.node.addEventListener("change", handleValidateAfterEvent, true);
+    addDocEventListener(this.node, "click", evt => this._checkClick(evt));
+    addDocEventListener(this.node, "dompack:takefocus", evt => this._onTakeFocus(evt));
+    addDocEventListener(this.node, "input", evt => this._onInputChange(), { capture: true });
+    addDocEventListener(this.node, "change", evt => this._onInputChange(), { capture: true });
+    addDocEventListener(this.node, 'submit', evt => this._submit(evt, null));
+    addDocEventListener(this.node, 'wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
+    addDocEventListener(this.node, "wh:form-setfielderror", evt => this._doSetFieldError(evt));
+    addDocEventListener(this.node, "mousedown", doDelayValidation);
+    addDocEventListener(this.node, "focusout", handleFocusOutEvent, { capture: true });
+    addDocEventListener(this.node, "input", handleValidateAfterEvent, { capture: true });
+    addDocEventListener(this.node, "change", handleValidateAfterEvent, { capture: true });
     this.node.noValidate = true;
 
     this._rewriteEnableOn();
@@ -511,7 +516,7 @@ export default class FormBase {
     this._updateFieldGroupMessageState(field, 'suggestion', failedfield => failedfield.propWhValidationSuggestion || '');
   }
 
-  _doSetFieldError(evt) {
+  _doSetFieldError(evt: DocEvent<CustomEvent<SetFieldErrorData>>) {
     //FIXME properly handle multiple fields in this group reporting errors
     dompack.stop(evt);
 
@@ -635,7 +640,7 @@ export default class FormBase {
     return {};
   }
 
-  _onTakeFocus(evt: TakeFocusEvent) {
+  _onTakeFocus(evt: DocEvent<TakeFocusEvent>) {
     const containingpage = evt.target.closest('.wh-form__page');
     if (containingpage && containingpage.classList.contains('wh-form__page--hidden')) {
       //make sure the page containing the errored component is visible
@@ -645,10 +650,10 @@ export default class FormBase {
     }
   }
 
-  _checkClick(evt: MouseEvent) {
-    const actionnode = evt.target?.closest("*[data-wh-form-action]");
+  _checkClick(evt: DocEvent<MouseEvent>) {
+    const actionnode = evt.target?.closest<HTMLElement>("*[data-wh-form-action]");
     if (!actionnode) {
-      const submitter = evt.target.closest(submitselector);
+      const submitter = evt.target.closest<SubmitSelectorType>(submitselector);
       if (submitter) {
         this._submitter = submitter; //store as submitter in case a submit event actually occurs
         setTimeout(() => this._submitter = null); //but clear it as soon as event processing ends
