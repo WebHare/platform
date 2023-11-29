@@ -1788,15 +1788,18 @@ OBJECTTYPE WHFSFile EXTEND WHFSObject
 /** Returns a WHFS file or folder object from the id of the object. Returns DEFAULT OBJECT for id 0, use
     [OpenWHFSRootObject](#OpenWHFSRootObject) to open the root folder object.
     @param findid Id of the object
+    @cell options.expectstate Expected object state ('live' will not open objects in the recyclebin)
     @return(object %WHFSFolder %WHFSFile) WHFS file or folder object (DEFAULT OBJECT if the object does not exist)
     @see OpenWHFSRootObject, OpenWHFSObjectByPath
     @topic sitedev/whfs
     @public
     @loadlib mod::system/lib/whfs.whlib
 */
-PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid)
+PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  IF(findid=0)
+  options := ValidateOptions(CELL[ expectstate := "any" ], options, [ enums := [ expectstate := ["any", "live"]]]);
+
+  IF(findid <= 0)
     RETURN DEFAULT OBJECT;
 
   RECORD objinfo := SELECT id, isfolder, parent, highestparent, parentsite, fullpath, whfspath, objecturl, indexurl
@@ -1806,7 +1809,11 @@ PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid)
                          , publish, published, firstpublishdate, lastpublishdate
                       FROM system.fs_objects
                      WHERE fs_objects.id = VAR findid;
+
   IF(NOT RecordExists(objinfo))
+    RETURN DEFAULT OBJECT;
+
+  IF(options.expectstate = "live" AND IsReadonlyWHFSSpace(objinfo.whfspath))
     RETURN DEFAULT OBJECT;
 
   RETURN objinfo.isfolder ? NEW WHFSFolder(objinfo) : NEW WHFSFile(objinfo);
