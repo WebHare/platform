@@ -1,19 +1,17 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from '@webhare/dompack';
+import { DocEvent, FormControlElement, TakeFocusEvent, addDocEventListener, isFormControl } from '@webhare/dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
-import { executeSubmitInstruction } from '@mod-system/js/wh/integration';
+import { SubmitInstruction, executeSubmitInstruction } from '@mod-system/js/wh/integration';
 import './internal/requiredstyles.css';
-import { getTid } from "@mod-tollium/js/gettid";
 import "./internal/form.lang.json";
-import { setFieldError, setupValidator } from './internal/customvalidation';
+import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
 import { debugFlags } from '@webhare/env';
+import { getErrorForValidity, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 
 declare global {
   interface HTMLElement {
@@ -29,6 +27,7 @@ declare global {
     //TODO It's suspicious that both propWhFormCurrent... and propWhNodeCurrent... exist
     propWhNodeCurrentEnabled?: boolean;
     propWhNodeCurrentRequired?: boolean;
+    propWhNodeCurrentHidden?: boolean;
     propWhFormlineCurrentVisible?: boolean;
     propWhValidationSuggestion?: HTMLElement | null;
     propWhValidationError?: string | null;
@@ -39,33 +38,84 @@ declare global {
     whFormsApiChecker?: () => Promise<void> | void;
     propWhFormNativeError?: boolean;
     whUseFormGetValue?: boolean;
+    __didPlaceholderWarning?: boolean;
   }
 
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
-    "wh:form-require": CustomEvent<{ enabled: boolean }>;
+    "wh:form-require": CustomEvent<{ required: boolean }>;
+    "wh:form-setfielderror": CustomEvent<SetFieldErrorData>;
   }
 }
 
 type ExtraData = unknown;
 
+type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
+
+// Constrains the RadioNodeList type to only return HTMLInputElements. reduces number of casts we need
+function isRadioNodeList(el: RadioNodeList | Element): el is ConstrainedRadioNodeList {
+  return el instanceof RadioNodeList;
+}
+
+type FormControlDescription = {
+  name: string;
+  multi: false;
+  node: HTMLElement;
+} | {
+  name: string;
+  multi: true;
+  nodes: HTMLInputElement[];
+};
+
 export type FormResultValue = Record<string, unknown>;
+
+export interface FormSubmitEmbeddedResult {
+  //form webtool Submit result. can add anything and is mixed with our properties
+  [key: string]: unknown;
+  //webtool submit additions:
+  submittype?: string;
+  richvalues?: RichValues;
+  resultsguid?: string;
+  submitinstruction?: SubmitInstruction;
+}
+
+export interface FormSubmitMessage {
+  name: string;
+  message: string;
+  metadata: unknown;
+}
 
 export interface FormSubmitResult {
   success: boolean;
-  result: unknown;
-  errors: Array<{ name: string; message: string; metadata: unknown }>;
-  warnings: Array<{ name: string; message: string; metadata: unknown }>;
+  //TODO a next form iteration should not mix all these additional props into the form user's 'result'
+  result: FormSubmitEmbeddedResult;
+  errors: FormSubmitMessage[];
+  warnings: FormSubmitMessage[];
 }
 
 type RichValues = Array<{ field: string; value: string }>;
 
 type FormCondition = {
-  matchtype: "IN" | "HAS" | "IS" | "HASVALUE" | "AGE<" | "AGE>=";
+  matchtype: "IN" | "HAS" | "IS";
   field: string;
   value: unknown;
   options?: {
     matchcase?: boolean;
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "HASVALUE";
+  field: string;
+  value: boolean;
+  options?: {
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "AGE<" | "AGE>=";
+  field: string;
+  value: number;
+  options?: {
+    checkdisabled?: boolean;
   };
 } | {
   matchtype: "AND" | "OR";
@@ -76,8 +126,8 @@ type FormCondition = {
 };
 
 export interface FieldErrorOptions {
-  serverside?: boolean;
-  reportimmediately?: boolean;
+  serverside: boolean;
+  reportimmediately: boolean;
   metadata?: unknown;
 }
 
@@ -102,7 +152,16 @@ interface ValidationQueueElement {
   defer: DeferredPromise<ValidationResult>;
 }
 
+interface PageState {
+  pages: HTMLElement[];
+  curpage: number;
+}
+
+//Query used to find valid submittors
 const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
+//Must match possible types returned by the submitselector
+type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
+
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 
 function getErrorFields(validationresult: ValidationResult) {
@@ -148,10 +207,6 @@ function getName(field: HTMLElement) {
   return field.dataset.whFormName || (field as HTMLInputElement).name || "";
 }
 
-function isInput(node: HTMLElement): node is HTMLInputElement {
-  return node.nodeName == 'INPUT';
-}
-
 function releasePendingValidations() {
   if (!delayvalidation)
     return;
@@ -186,12 +241,13 @@ function handleValidateAfterEvent(event: Event) {
 
 export default class FormBase {
   readonly node: HTMLFormElement;
+  /** @deprecated Use node.elements if you want a true HTMLFormControlsCollection, use getElementByName since WH5.4+ for properly typed elements */
   readonly elements: HTMLFormControlsCollection;
   private _formsessionid = pxl.generateId();
   private _firstinteraction: number | undefined;
   protected _submitstart: number | undefined;
   private validationqueue = new Array<ValidationQueueElement>;
-  private _submitter: HTMLElement | null = null;
+  private _submitter: SubmitSelectorType | null = null;
   private _submittimeout: NodeJS.Timeout | undefined;
   /** Is the form considered interactive yet? Used to ignore changes done by code/setFieldValue */
   private isInteractive = true;
@@ -209,17 +265,17 @@ export default class FormBase {
     //Implement webhare fields extensions, eg 'now' for date fields or 'enablecomponents'
     webharefields.setup(this.node);
     //Implement page navigation
-    this.node.addEventListener("click", evt => this._checkClick(evt));
-    this.node.addEventListener("dompack:takefocus", evt => this._onTakeFocus(evt), true);
-    this.node.addEventListener("input", evt => this._onInputChange(), true);
-    this.node.addEventListener("change", evt => this._onInputChange(), true);
-    this.node.addEventListener('submit', evt => this._submit(evt, null));
-    this.node.addEventListener('wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
-    this.node.addEventListener("wh:form-setfielderror", evt => this._doSetFieldError(evt));
-    this.node.addEventListener("mousedown", doDelayValidation);
-    this.node.addEventListener("focusout", handleFocusOutEvent, true);
-    this.node.addEventListener("input", handleValidateAfterEvent, true);
-    this.node.addEventListener("change", handleValidateAfterEvent, true);
+    addDocEventListener(this.node, "click", evt => this._checkClick(evt));
+    addDocEventListener(this.node, "dompack:takefocus", evt => this._onTakeFocus(evt));
+    addDocEventListener(this.node, "input", evt => this._onInputChange(), { capture: true });
+    addDocEventListener(this.node, "change", evt => this._onInputChange(), { capture: true });
+    addDocEventListener(this.node, 'submit', evt => this._submit(evt, null));
+    addDocEventListener(this.node, 'wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
+    addDocEventListener(this.node, "wh:form-setfielderror", evt => this._doSetFieldError(evt));
+    addDocEventListener(this.node, "mousedown", doDelayValidation);
+    addDocEventListener(this.node, "focusout", handleFocusOutEvent, { capture: true });
+    addDocEventListener(this.node, "input", handleValidateAfterEvent, { capture: true });
+    addDocEventListener(this.node, "change", handleValidateAfterEvent, { capture: true });
     this.node.noValidate = true;
 
     this._rewriteEnableOn();
@@ -234,6 +290,11 @@ export default class FormBase {
 
   static getForNode(node: HTMLElement): FormBase | null {
     return node.propWhFormhandler || null;
+  }
+
+  ///like namedItem but improves on the types returned. does *not* lookup by data-wh-form-name!
+  getElementByName(name: string): FormControlElement | ConstrainedRadioNodeList | null {
+    return this.node.elements.namedItem(name) as FormControlElement | ConstrainedRadioNodeList | null;
   }
 
   /** Get language for this form */
@@ -260,6 +321,9 @@ export default class FormBase {
       ...vars
     };
 
+    if (this._submitstart) //is set during a pending submission
+      vars.dn_formmeta_waittime = Date.now() - this._submitstart;
+
     /* if isfirst and eventtype !== null, the user might eg. try to submit or nextpage *immediately* without ever having
        any other form interation. to make sure our stats make sense (counting started vs submitted), we'll send the
        formstarted anyway since WH 5.02 */
@@ -275,12 +339,15 @@ export default class FormBase {
   }
 
   _rewriteEnableOn() { //ADDME move this to webhare server
+    // EnablingComponents may set data-wh-form-enable. input(radio/checkbox) and option qualify
+    type EnablingComponent = HTMLInputElement | HTMLOptionElement;
+
     // This is the initialization, check the enable components for all elements within the form
-    for (const control of dompack.qSA(this.node, "*[data-wh-form-enable]"))
+    for (const control of dompack.qSA<EnablingComponent>(this.node, "*[data-wh-form-enable]"))
       for (const element of control.dataset.whFormEnable!.split(" ")) {
-        const target = this.node.elements.namedItem(element);
-        if (target) {
-          const name = (control.nodeName == "OPTION" ? control.closest<HTMLSelectElement>("select") : control)?.name;
+        const target = this.getElementByName(element);
+        if (target && target instanceof HTMLElement) {
+          const name = (control instanceof HTMLOptionElement ? control.closest<HTMLSelectElement>("select") : control)?.name;
           if (!name) //duplicated node?
             continue;
 
@@ -303,10 +370,10 @@ export default class FormBase {
       if (field.multi && field.nodes[0].type == 'checkbox') {
         for (const node of field.nodes) {
           const shouldbechecked = allvalues.includes(node.value);
-          if (shouldbechecked != field.checked)
+          if (shouldbechecked != node.checked) //NOTE: used to read 'field.checked' which doesn't exist so this if() would always evaluate to true
             this.setFieldValue(node, shouldbechecked);
         }
-      } else if (field.multi && field.nodes[0].type == 'radio') {
+      } else if (field.multi) { //implies radio
         const tocheck = field.nodes.filter(_ => _.value == allvalues[allvalues.length - 1])[0];
         if (tocheck && !tocheck.checked)
           this.setFieldValue(tocheck, true);
@@ -331,7 +398,7 @@ export default class FormBase {
    * .wh-form__error             - The error message container
    * .wh-form_suggestion         - The suggestion message container
    */
-  _updateFieldGroupMessageState(field, type, getError) {
+  _updateFieldGroupMessageState(field: HTMLElement, type: "error" | "suggestion", getError: (field: HTMLElement) => string | HTMLElement) {
     /*
     ADDME: ability to show multiple messages in case both the toplevel and a subfield have an error/suggestion.
            Example: a checkboxgroup in which too many options are selected AND the required textfield of a selected option is empty.
@@ -347,7 +414,7 @@ export default class FormBase {
            - have the progressive enchancement code add an attribute to the native form element
              with the ID of the (group)element.
     */
-    const fieldgroup = field.closest(".wh-form__fieldgroup");
+    const fieldgroup = field.closest<HTMLElement>(".wh-form__fieldgroup");
     //console.log("_updateFieldGroupMessageState", field, fieldgroup);
     if (!fieldgroup)
       return null;
@@ -355,7 +422,7 @@ export default class FormBase {
     // Within the group this field belongs to we lookup the first node we can find which is marked as having the
     // type of message we want ("error" or "suggestion").
     // First we'll see if the fieldgroup wants to report something, otherwise whe'll look for the first node which has a message.
-    const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector(".wh-form__field--" + type);
+    const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector<HTMLElement>(".wh-form__field--" + type);
 
 
     // Now mark the whole .wh-form__fieldgroup as having an error/suggestion
@@ -377,26 +444,9 @@ export default class FormBase {
 
     // Find the first role="group" we can find
     // (ineither the .wh-form__subfield or .wh-form__field)
-    let group = field;
-    while (group) {
-      if (!group.getAttribute)
-        console.error(group);
-
-      if (group.getAttribute("role") == "group") {
-        break;
-      }
-
-      if (group.classList.contains("wh-form__subfield")
-        || group.classList.contains("wh-form__fieldgroup")) {
-        group = null;
-        break;
-      }
-
-      group = group.parentNode;
-    }
-
+    const potentialgroupnode = field.closest<HTMLElement>("[role=group],.wh-form__subfield,wh-form__fieldgroup");
+    const group = potentialgroupnode?.role === "group" ? potentialgroupnode : null;
     const contextnode = group ?? field;
-
 
     let messageid = "";
     let messagenode = fieldgroup.querySelector(".wh-form__" + type); //either wh-form__error or wh-form__suggestion
@@ -423,7 +473,7 @@ export default class FormBase {
 
 
     if (error) { // Do we show a message?
-      messagenode.appendChild(error);
+      messagenode.append(error);
       this._addDescribedBy(contextnode, messageid);
 
       if (type == "error")
@@ -466,14 +516,14 @@ export default class FormBase {
   }
 
   _updateFieldGroupErrorState(field: HTMLElement) {
-    this._updateFieldGroupMessageState(field, 'error', failedfield => failedfield.propWhSetFieldError || failedfield.propWhValidationError);
+    this._updateFieldGroupMessageState(field, 'error', failedfield => failedfield.propWhSetFieldError || failedfield.propWhValidationError || '');
   }
 
   _updateFieldGroupSuggestionState(field: HTMLElement) {
-    this._updateFieldGroupMessageState(field, 'suggestion', failedfield => failedfield.propWhValidationSuggestion);
+    this._updateFieldGroupMessageState(field, 'suggestion', failedfield => failedfield.propWhValidationSuggestion || '');
   }
 
-  _doSetFieldError(evt) {
+  _doSetFieldError(evt: DocEvent<CustomEvent<SetFieldErrorData>>) {
     //FIXME properly handle multiple fields in this group reporting errors
     dompack.stop(evt);
 
@@ -544,7 +594,7 @@ export default class FormBase {
   //reset any serverside generated errors (generally done when preparing a new submission)
   resetServerSideErrors() {
     for (const field of this._getFieldsToValidate())
-      if (field.propWhSetFieldError && field.propWhErrorServerSide)
+      if (field.propWhSetFieldError && field.propWhErrorServerSide && field.propWhCleanupFunction)
         field.propWhCleanupFunction();
   }
 
@@ -571,7 +621,6 @@ export default class FormBase {
         this.sendFormEvent('publisher:formfailed', {
           ds_formmeta_errorfields: getErrorFields(validationresult),
           ds_formmeta_errorsource: 'client',
-          dn_formmeta_waittime: Date.now() - this._submitstart
         });
       }
     } finally {
@@ -581,24 +630,24 @@ export default class FormBase {
         clearTimeout(this._submittimeout);
         this._submittimeout = undefined;
       }
+      this._submitstart = undefined;
     }
   }
 
   _submitHasTimedOut() { //TODO extend this to (background) RPCs too, and make waitfor more specific. also check whether we're stuck on client or server side
     this.sendFormEvent('publisher:formslow', {
-      dn_formmeta_waittime: Date.now() - this._submitstart,
       ds_formmeta_waitfor: "submit"
     });
     this._submittimeout = undefined;
   }
 
   //default submission function. eg. RPC will override this
-  async submit(extradata?: ExtraData): Promise<{ result: unknown }> {
+  async submit(extradata?: ExtraData): Promise<{ result?: FormSubmitEmbeddedResult }> {
     this.node.submit();
-    return { result: null };
+    return {};
   }
 
-  _onTakeFocus(evt: TakeFocusEvent) {
+  _onTakeFocus(evt: DocEvent<TakeFocusEvent>) {
     const containingpage = evt.target.closest('.wh-form__page');
     if (containingpage && containingpage.classList.contains('wh-form__page--hidden')) {
       //make sure the page containing the errored component is visible
@@ -608,10 +657,10 @@ export default class FormBase {
     }
   }
 
-  _checkClick(evt: MouseEvent) {
-    const actionnode = evt.target?.closest("*[data-wh-form-action]");
+  _checkClick(evt: DocEvent<MouseEvent>) {
+    const actionnode = evt.target?.closest<HTMLElement>("*[data-wh-form-action]");
     if (!actionnode) {
-      const submitter = evt.target.closest(submitselector);
+      const submitter = evt.target.closest<SubmitSelectorType>(submitselector);
       if (submitter) {
         this._submitter = submitter; //store as submitter in case a submit event actually occurs
         setTimeout(() => this._submitter = null); //but clear it as soon as event processing ends
@@ -620,10 +669,10 @@ export default class FormBase {
     }
 
     dompack.stop(evt);
-    this.executeFormAction(actionnode.dataset.whFormAction);
+    this.executeFormAction(actionnode.dataset.whFormAction!);
   }
 
-  _getPageState() {
+  private _getPageState(): PageState {
     const pages = dompack.qSA<HTMLElement>(this.node, '.wh-form__page');
     const curpage = pages.findIndex(page => !page.classList.contains('wh-form__page--hidden'));
     return { pages, curpage };
@@ -693,7 +742,7 @@ export default class FormBase {
     dompack.dispatchCustomEvent(state.pages[pageidx], "wh:form-pagechange", { bubbles: true, cancelable: false });
   }
 
-  _getDestinationPage(pagestate, direction) {
+  private _getDestinationPage(pagestate: PageState, direction: number) {
     let pagenum = pagestate.curpage + direction;
     while (pagenum >= 0 && pagenum < pagestate.pages.length && pagestate.pages[pagenum].propWhFormCurrentVisible === false)
       pagenum = pagenum + direction;
@@ -709,7 +758,7 @@ export default class FormBase {
     return pagenode.dataset.whFormPagetitle || ("#" + (pagenum + 1));
   }
 
-  async executeFormAction(action) {
+  async executeFormAction(action: string) {
     switch (action) {
       case 'previous':
         {
@@ -779,11 +828,11 @@ export default class FormBase {
     if (anychanges)
       this._updatePageNavigation();
 
-    const tovalidate = [];
+    const tovalidate = new Array<HTMLElement>;
     const hiddengroups = [], enabledgroups = [], requiredgroups = [];
     for (const formgroup of dompack.qSA(this.node, ".wh-form__fieldgroup")) {
-      const visible = !hiddenPages.includes(formgroup.closest(".wh-form__page"))
-        && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
+      const groupPage = formgroup.closest<HTMLElement>(".wh-form__page");
+      const visible = (!groupPage || !hiddenPages.includes(groupPage)) && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
 
       if (!visible)
         hiddengroups.push(formgroup);
@@ -820,7 +869,9 @@ export default class FormBase {
     }
 
     for (const formline of dompack.qSA(this.node, ".wh-form__fieldline")) {
-      const formgroup = formline.closest(".wh-form__fieldgroup");
+      const formgroup = formline.closest<HTMLElement>(".wh-form__fieldgroup");
+      if (!formgroup)
+        continue;
       const visible = !hiddengroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormVisibleIf);
       const enabled = visible && enabledgroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormEnabledIf);
       const required = enabled && requiredgroups.includes(formgroup);
@@ -836,10 +887,10 @@ export default class FormBase {
       for (const node of inputtargets) {
         //Record initial states
         if (node.propWhFormSavedEnabled === undefined)
-          node.propWhFormSavedEnabled = !node.disabled && !("whFormDisabled" in node.dataset);
+          node.propWhFormSavedEnabled = "disabled" in node ? !node.disabled : !("whFormDisabled" in node.dataset);
 
         if (node.propWhFormSavedRequired === undefined)
-          node.propWhFormSavedRequired = Boolean(node.required);
+          node.propWhFormSavedRequired = Boolean("required" in node && node.required);
 
         // The field is enabled if all of these are matched:
         // - we're setting it to enabled now
@@ -853,7 +904,7 @@ export default class FormBase {
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-enable", { bubbles: true, cancelable: true, detail: { enabled: node_enabled } })) {
             // Not cancelled, so run our default handler
-            if (node.matches("input,select,textarea")) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
+            if (isFormControl(node)) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
               node.disabled = !node_enabled;
             else if (node_enabled)
               node.removeAttribute("data-wh-form-disabled");
@@ -872,8 +923,7 @@ export default class FormBase {
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-require", { bubbles: true, cancelable: true, detail: { required: node_required } })) {
             // Not cancelled, so run our default handler
-            if (node.matches("input,select,textarea")) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
-            {
+            if (isFormControl(node)) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
               if (node.type != 'checkbox') //don't set required on checkboxes, that doesn't do what you want
                 node.required = node_required;
             } else if (node_required)
@@ -907,10 +957,9 @@ export default class FormBase {
         option.hidden = option_hidden;
 
         // If this option was the selected option, but is now disabled (but not the placeholder), reset the select's value
-        const selectnode = option.closest("select");
-        if (option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined) {
-          if (selectnode.options[0].dataset.whPlaceholder !== undefined) //we have a placeholder...
-          {
+        const selectnode = option.closest<HTMLSelectElement>("select");
+        if (selectnode && option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined) {
+          if (selectnode.options[0].dataset.whPlaceholder !== undefined) { //we have a placeholder...
             selectnode.selectedIndex = 0;
           } else {
             selectnode.selectedIndex = -1;
@@ -921,7 +970,7 @@ export default class FormBase {
           }
         }
 
-        if (!isinit && !tovalidate.includes(selectnode))
+        if (selectnode && !isinit && !tovalidate.includes(selectnode))
           tovalidate.push(selectnode); // to clear errors for this option's select field
       }
     }
@@ -932,7 +981,7 @@ export default class FormBase {
     this.fixupMergeFields(mergeNodes);
   }
 
-  async fixupMergeFields(nodes) {
+  async fixupMergeFields(nodes: HTMLElement[]) {
     // Rename the data-wh-merge attribute to data-wh-dont-merge on hidden pages and within hidden formgroups to prevent
     // merging invisible nodes
     // FIXME 'merge' has a filter option now - convert to that!
@@ -961,24 +1010,24 @@ export default class FormBase {
     return (JSON.parse(conditiontext) as FormConditionWrapper).c;
   }
 
-  _matchesCondition(conditiontext: string) {
+  _matchesCondition(conditiontext: string | undefined) {
     if (!conditiontext)
       return true;
 
     return this._matchesConditionRecursive(this.parseCondition(conditiontext));
   }
 
-  _getConditionRawValue(fieldname: string, options?) {
+  _getConditionRawValue(fieldname: string, options?: { checkdisabled?: boolean }) {
     if (this.node.hasAttribute("data-wh-form-var-" + fieldname))
       return this.node.getAttribute("data-wh-form-var-" + fieldname);
 
-    const matchfield = this.elements.namedItem(fieldname);
+    const matchfield = this.getElementByName(fieldname);
     if (!matchfield) {
       console.error(`No match for conditional required field '${fieldname}'`);
       return null;
     }
 
-    if (matchfield instanceof RadioNodeList) {
+    if (isRadioNodeList(matchfield)) {
       let currentvalue = null;
 
       for (const field of matchfield)
@@ -998,15 +1047,15 @@ export default class FormBase {
     }
 
     if (matchfield.type == "checkbox")
-      return matchfield.checked ? [matchfield.value] : null;
+      return (matchfield as HTMLInputElement).checked ? [matchfield.value] : null;
 
     if (matchfield.type == "radio")
-      return matchfield.checked ? matchfield.value : null;
+      return (matchfield as HTMLInputElement).checked ? matchfield.value : null;
 
     return matchfield.value;
   }
 
-  _getVariableValueForConditions(conditionfield: string, options?) {
+  _getVariableValueForConditions(conditionfield: string, options?: { matchcase?: boolean; checkdisabled?: boolean }) {
     if (this.node.hasAttribute("data-wh-form-var-" + conditionfield))
       return this.node.getAttribute("data-wh-form-var-" + conditionfield);
 
@@ -1025,26 +1074,26 @@ export default class FormBase {
       return currentvalue;
 
     // Look for an extrafield match
-    const matchfield = this.elements[fields[0]];
+    const matchfield = this.getElementByName(fields[0]);
     if (!matchfield) {
       console.error(`No match for conditional required field '${conditionfield}'`);
       return null;
     }
 
-    if (matchfield.nodeName == "SELECT") {
+    if (matchfield instanceof HTMLSelectElement) {
       if (Array.isArray(currentvalue)) {
         const selectedvalue = currentvalue;
         currentvalue = [];
         for (const val of selectedvalue) {
-          const selected = dompack.qS(matchfield, `option[value="${val}"]`);
-          if (!selected.dataset.__extrafields)
+          const selected = dompack.qS<HTMLOptionElement>(matchfield, `option[value="${CSS.escape(val)}"]`);
+          if (!selected?.dataset.__extrafields)
             return null;
           const extrafields = JSON.parse(selected.dataset.__extrafields);
           currentvalue.push(extrafields[fields[1]]);
         }
       } else {
-        const selected = dompack.qS(matchfield, `option[value="${currentvalue}"]`);
-        if (!selected.dataset.__extrafields)
+        const selected = dompack.qS<HTMLOptionElement>(matchfield, `option[value="${CSS.escape(currentvalue)}"]`);
+        if (!selected?.dataset.__extrafields)
           return null;
         const extrafields = JSON.parse(selected.dataset.__extrafields);
         currentvalue = extrafields[fields[1]];
@@ -1058,21 +1107,41 @@ export default class FormBase {
 
 
   _matchesConditionRecursive(condition: FormCondition): boolean {
-    if (condition.matchtype == "AND") {
-      for (const subcondition of condition.conditions)
-        if (!this._matchesConditionRecursive(subcondition))
+    switch (condition.matchtype) {
+      case "AND":
+        for (const subcondition of condition.conditions)
+          if (!this._matchesConditionRecursive(subcondition))
+            return false;
+        return true;
+
+      case "OR":
+        for (const subcondition of condition.conditions)
+          if (this._matchesConditionRecursive(subcondition))
+            return true;
+        return false;
+
+      case "NOT":
+        return !this._matchesConditionRecursive(condition.condition);
+
+      case "AGE<":
+      case "AGE>=": {
+        const currentvalue = this._getVariableValueForConditions(condition.field);
+        if (!currentvalue)
           return false;
-      return true;
-    } else if (condition.matchtype == "OR") {
-      for (const subcondition of condition.conditions)
-        if (this._matchesConditionRecursive(subcondition))
-          return true;
-      return false;
-    } else if (condition.matchtype == "NOT") {
-      return !this._matchesConditionRecursive(condition.condition);
+
+        const now = new Date, birthdate = new Date(Array.isArray(currentvalue) ? currentvalue[0] : currentvalue); //should never be an array, but _getVariableValueForConditions is generic
+        let age = now.getFullYear() - birthdate.getFullYear();
+        //birthdate not hit yet this year? then you lose a year
+        if (now.getMonth() < birthdate.getMonth()
+          || (now.getMonth() == birthdate.getMonth() && now.getDate() < birthdate.getDate())) {
+          --age;
+        }
+
+        return (condition.matchtype == 'AGE<' ? age < condition.value : age >= condition.value);
+      }
     }
 
-    let currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
+    const currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
 
     if (condition.matchtype == "HASVALUE")
       return Boolean(currentvalue) == Boolean(condition.value);
@@ -1080,47 +1149,30 @@ export default class FormBase {
     if (["IN", "HAS", "IS"].includes(condition.matchtype)) {
       const matchcase = condition.options?.matchcase !== false; // Defaults to true
       const compareagainst = Array.isArray(condition.value) ? condition.value : condition.value ? [condition.value] : [];
-
-      if (!Array.isArray(currentvalue))
-        currentvalue = currentvalue ? [currentvalue] : [];
+      const currentValArray: string[] = Array.isArray(currentvalue) ? currentvalue : currentvalue ? [currentvalue] : [];
 
       // If the match is not case-sensitive, the condition value is already uppercased, so we only have to uppercase the
       // current value(s) when checking
       if (!matchcase)
-        currentvalue = currentvalue.map(value => value.toUpperCase());
+        currentValArray.forEach((_, idx) => currentValArray[idx] = currentValArray[idx].toUpperCase());
 
       // The current value and the condition value should (at least) overlap
-      if (!currentvalue.some(value => compareagainst.includes(value)))
+      if (!currentValArray.some(value => compareagainst.includes(value)))
         return false;
 
       // For "HAS" and "IS" conditions, all of the required values should be selected (there shouldn't be required values
       // that are not selected)
-      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && compareagainst.some(value => !currentvalue.includes(value)))
+      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && compareagainst.some(value => !currentValArray.includes(value)))
         return false;
 
       // For an "IS" condition, all of the selected values should be required (there shouldn't be selected values that are
       // not required)
-      if (condition.matchtype == "IS" && currentvalue.some(value => !compareagainst.includes(value)))
+      if (condition.matchtype == "IS" && currentValArray.some(value => !compareagainst.includes(value)))
         return false;
 
       return true;
     }
 
-    if (["AGE<", "AGE>="].includes(condition.matchtype)) {
-      if (!currentvalue)
-        return false;
-
-      const now = new Date, birthdate = new Date(currentvalue);
-      let age = now.getFullYear() - birthdate.getFullYear();
-      //birthdate not hit yet this year? then you lose a year
-      if (now.getMonth() < birthdate.getMonth()
-        || (now.getMonth() == birthdate.getMonth() && now.getDate() < birthdate.getDate())) {
-        --age;
-      }
-
-      return (condition.matchtype == 'AGE<' && age < condition.value)
-        || (condition.matchtype == 'AGE>=' && age >= condition.value);
-    }
     return console.error(`No support for conditional type '${condition.matchtype}'`), false;
   }
 
@@ -1174,7 +1226,12 @@ export default class FormBase {
       if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
         return deferred.promise;
     }
-    if (isInput(field) && field.type == 'file') {
+    if (!isFormControl(field)) {
+      console.error(`Cannot set value on non-FormControl`, field);
+      return undefined; //TODO throw? but wasn't currently fatal
+    }
+
+    if (field.type == 'file' && field instanceof HTMLInputElement) { //note that field:FormControl.type===file actually implies HTMLInputElement
       //FIXME multiple support
       if (!field.files || field.files.length == 0)
         return null;
@@ -1195,11 +1252,6 @@ export default class FormBase {
     return field.value;
   }
 
-  /* Override this to overwrite the processing of radios and checkboxes. */
-  getMultifieldValue(name, fields) {
-    return fields.map(node => node.value);
-  }
-
   /* Override this to overwrite the setting of individual fields. In contrast
      to getFieldValue, this function will also be invoked for radio and checkboxes */
   setFieldValue(fieldnode: HTMLElement, value: unknown) {
@@ -1209,9 +1261,13 @@ export default class FormBase {
       // Event is not cancelled, set node value directly
     }
 
-    //TODO we should also understand value sets toward fields with custom value support (those which dompack.changeValue can't understand)
-    if (fieldnode.matches('input[type=radio], input[type=checkbox]')) {
-      value = Boolean(value);
+    if (!isFormControl(fieldnode)) {
+      console.error(`Cannot set value on non-FormControl`, fieldnode, value);
+      return; //TODO throw? but wasn't currently fatal
+    }
+    if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+      console.error(`Setting value of type ${typeof value} on a FormControl`, fieldnode, value);
+      return; //TODO throw? but wasn't currently fatal
     }
 
     const saveInteractive = this.isInteractive;
@@ -1224,11 +1280,9 @@ export default class FormBase {
   }
 
   _isPartOfForm(el: HTMLElement) {
-    if (!el.hasAttribute("form"))
-      return true;
-    if (this.node.id && el.getAttribute("form").toUpperCase() == this.node.id.toUpperCase())
-      return true;
-    return false;
+    //In HTML terms, an input must either have *no* form attribute or explicitly point to us. eg <input form> is *outside* a form
+    //However nodes may live in fragments (eg arrayedits) that are not in the DOM and not attached anywhere, so we also consider anything outside the DOM to be in our form...
+    return !("form" in el) || el.form === this.node || !document.contains(el);
   }
 
   _queryAllFields(options?: {
@@ -1236,14 +1290,8 @@ export default class FormBase {
     skipfield?: HTMLElement;
     onlysettable?: boolean;
     startnode?: HTMLElement;
-  }) {
-    const foundfields = new Array<{
-      name: string;
-      multi: boolean;
-      node?: HTMLElement;
-      nodes?: HTMLElement[];
-    }>;
-
+  }): FormControlDescription[] {
+    const foundfields = new Array<FormControlDescription>;
     const skiparraymembers = options && options.skiparraymembers;
 
     for (const field of this._getFieldsToValidate(options?.startnode)) {
@@ -1261,11 +1309,13 @@ export default class FormBase {
         continue;
 
       let addto = foundfields.find(_ => _.name == name);
-      if ((field as HTMLInputElement).type == 'radio' || (field as HTMLInputElement).type == 'checkbox') //expect multiple inputs with this name?
-      {
+      if (isRadioOrCheckbox(field)) { //expect multiple inputs with this name?
         if (!addto) {
           addto = { name: name, multi: true, nodes: [] };
           foundfields.push(addto);
+        } else if (!addto.multi) {
+          console.error(`[fhv] Encountered duplicate field '${name}'`, field);
+          continue;
         }
         addto.nodes.push(field);
       } else {
@@ -1288,19 +1338,18 @@ export default class FormBase {
 
   /** getValue from a field as returned by _queryAllFields (supporting both multilevel and plain fields)
       @returns promise */
-  _getQueryiedFieldValue(field) {
+  _getQueryiedFieldValue(field: FormControlDescription) {
     if (!field.multi)
       return this.getFieldValue(field.node);
 
-    const fields = field.nodes.filter(node => node.checked);
-    return this.getMultifieldValue(field.name, fields);
+    return field.nodes.filter(node => node.checked).map(node => node.value);
   }
 
   /** Return a promise resolving to the submittable form value */
   getFormValue(): Promise<FormResultValue> {
     return new Promise<FormResultValue>((resolve, reject) => {
       const outdata = {};
-      const fieldpromises = new Array<Promise<unknown>>;
+      const fieldpromises = new Array<Promise<void>>;
 
       for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
         this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
@@ -1311,7 +1360,7 @@ export default class FormBase {
 
   _isNowSettable(node: HTMLElement) {
     // If the node is disabled, it's not settable
-    if (node.disabled)
+    if ("disabled" in node && node.disabled)
       return false;
 
     // If the node's field group is disabled or hidden, it's not settable
@@ -1352,15 +1401,13 @@ export default class FormBase {
 
   //get the option lines associated with a specific radio/checkbox group
   getOptions(name: string) {
-    let nodes = this.node.elements.namedItem(name);
-    if (!nodes)
+    const nodes = this.getElementByName(name);
+    if (!(nodes instanceof RadioNodeList))
       return [];
-    if (nodes.length === undefined)
-      nodes = [nodes];
 
-    return Array.from(nodes).map(node => ({
+    return [...nodes].map(node => ({
       inputnode: node,
-      fieldline: node.closest('.wh-form__fieldline'),
+      fieldline: node.closest<HTMLElement>('.wh-form__fieldline'),
       value: node.value
     }));
   }
@@ -1381,15 +1428,12 @@ export default class FormBase {
   }
 
   /** get the fieldgroup for an element */
-  getFieldGroup(name: string) {
-    let node = this.node.elements.namedItem(name);
-    if (!node)
-      return null;
-
-    if (node.length !== undefined)
+  getFieldGroup(name: string): HTMLElement | null {
+    let node = this.getElementByName(name);
+    if (node instanceof RadioNodeList)
       node = node[0];
 
-    return node.closest('.wh-form__fieldgroup');
+    return node ? node.closest<HTMLElement>('.wh-form__fieldgroup') : null;
   }
 
   /** get the values of the currently selected radio/checkbox group */
@@ -1402,44 +1446,17 @@ export default class FormBase {
     return vals.length ? vals[0] : null;
   }
 
-  setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
-    setFieldError(field, error, options);
+  /** @deprecated Just import setupValidator from \@mod-publisher/js/forms */
+  static setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<string> | string) {
+    setupValidator(node, checker);
   }
 
-  _getErrorForValidity(field: HTMLElement, validity: ValidityStateFlags) {
-    if (validity.customError && field.validationMessage)
-      return field.validationMessage;
-
-    if (validity.valueMissing)
-      return getTid("publisher:site.forms.commonerrors.required");
-    if (validity.rangeOverflow) {
-      const max = field.type === 'date' ? webharefields.reformatDate(field.max) : field.max;
-      return getTid("publisher:site.forms.commonerrors.max", max);
-    }
-    if (validity.rangeUnderflow) {
-      const min = field.type === 'date' ? webharefields.reformatDate(field.min) : field.min;
-      return getTid("publisher:site.forms.commonerrors.min", min);
-    }
-    if (validity.badInput)
-      return getTid("publisher:site.forms.commonerrors.default");
-    if (validity.tooShort)
-      return getTid("publisher:site.forms.commonerrors.minlength", field.minLength);
-    if (validity.tooLong)
-      return getTid("publisher:site.forms.commonerrors.maxlength", field.maxLength);
-    if (validity.stepMismatch)
-      if (!field.step || parseInt(field.step) == 1)
-        return getTid("publisher:site.forms.commonerrors.step1mismatch");
-      else
-        return getTid("publisher:site.forms.commonerrors.stepmismatch", field.step);
-    if (validity.typeMismatch)
-      if (["email", "url", "number"].includes(field.type))
-        return getTid("publisher:site.forms.commonerrors." + field.type);
-
-    for (const key of ["badInput", "customError", "patternMismatch", "rangeOverflow", "rangeUnderflow", "stepMismatch", "typeMismatch", "valueMissing"] as const)
-      if (validity[key])
-        return key;
-
-    return '?';
+  /** @deprecated Just import setFieldError from \@mod-publisher/js/forms */
+  static setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
+    setFieldError(field, error, options);
+  }
+  setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
+    setFieldError(field, error, options);
   }
 
   async validateSingleFormField(field: HTMLElement): Promise<boolean> {
@@ -1451,11 +1468,11 @@ export default class FormBase {
 
     //browser checks go first, any additional checks are always additive (just disable browserchecks you don't want to apply)
     field.propWhFormNativeError = false;
-    if (!alreadyfailed && field.checkValidity && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
+    if (!alreadyfailed && supportsValidity(field) && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
       const validitystatus = field.checkValidity();
 
       //we need a separate prop for our errors, as we shouldn't clear explicit errors
-      field.propWhValidationError = validitystatus ? '' : this._getErrorForValidity(field, field.validity);
+      field.propWhValidationError = validitystatus ? '' : getErrorForValidity(field);
 
       if (!validitystatus) {
         field.propWhFormNativeError = true;
@@ -1578,6 +1595,3 @@ export default class FormBase {
 
 window.addEventListener("mouseup", releasePendingValidations, true);
 window.addEventListener("focusin", handleFocusInEvent, true);
-
-FormBase.setFieldError = setFieldError;
-FormBase.setupValidator = setupValidator;

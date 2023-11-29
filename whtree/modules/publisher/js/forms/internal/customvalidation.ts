@@ -1,11 +1,16 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from '@webhare/dompack';
-import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";
 import { FieldErrorOptions } from '../formbase';
 import { debugFlags } from '@webhare/env';
+import { supportsValidity } from '@webhare/forms/src/domsupport';
+
+///Fired at nodes to apply error
+export type SetFieldErrorData = {
+  error: string;
+  reportimmediately: boolean;
+  serverside: boolean;
+  metadata: unknown;
+};
 
 function setupServerErrorClear(field: HTMLElement) {
   const group = field.closest<HTMLElement>('.wh-form__fieldgroup') || field;
@@ -26,15 +31,18 @@ function setupServerErrorClear(field: HTMLElement) {
 }
 
 
-export function setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
+export function setFieldError(field: Element, error: string, options?: Partial<FieldErrorOptions>) {
+  if (!(field instanceof HTMLElement)) {
+    console.error(`Field is not a valid target for setting errors`, field);
+    return;
+  }
   if (debugFlags.fhv)
-    console.log(`[fhv] ${error ? "Setting" : "Clearing"} error for field ${field.name}`, field, error, options);
+    console.log(`[fhv] ${error ? "Setting" : "Clearing"} error for field ${"name" in field ? field.name : field.dataset.whFormName}`, field, error, options);
 
-  options = { serverside: false, reportimmediately: false, ...options };
+  const finalopts: FieldErrorOptions = { serverside: false, reportimmediately: false, ...options };
   field.propWhSetFieldError = error;
 
-  if (error && options.serverside) //we need to reset the check when the user changed something
-  {
+  if (error && finalopts.serverside) { //we need to reset the check when the user changed something
     setupServerErrorClear(field);
     field.propWhErrorServerSide = true;
   } else {
@@ -51,33 +59,31 @@ export function setFieldError(field: HTMLElement, error: string, options?: Field
       cancelable: true,
       detail: {
         error: error,
-        reportimmediately: options.reportimmediately,
-        serverside: options.serverside,
-        metadata: options.metadata
+        reportimmediately: finalopts.reportimmediately,
+        serverside: finalopts.serverside,
+        metadata: finalopts.metadata
       }
     })) {
     return;
   }
 
   //fallback to HTML5 validation
-  if (field.setCustomValidity) {
-    if (typeof error == "object") //we got a DOM?
-      error = error.textContent || getTid("publisher:site.forms.commonerrors.default"); //we don't want to suddenly change from 'we had an error' to 'no error'
-
+  if (supportsValidity(field)) {
     field.setCustomValidity(error || "");
     if (options?.reportimmediately)
-      field.reportValidity?.(); //report
+      field.reportValidity(); //report
+    return;
   }
+
+  console.error(`Field is not a valid target for setting errors`, field);
 }
 
-export function setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<void> | void) {
+export function setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<string> | string) {
   const check = async () => {
     let error = checker(node);
 
-    // If error is a thenable (Promise or something like it) await it. Stay synchronous if not.
-    if (typeof error === "object" && error && error.then)
-      error = await error;
-
+    // If error is a thenable (Promise or something like it) await it. Stay synchronous if not. TODO actually do that, we shouldn't be async() but use then() for our tail
+    error = await error;
     if (debugFlags.fhv)
       console.log(`[fhv] Custom check ${error ? `setting error '${error}'` : 'clearing error'} for `, node);
 

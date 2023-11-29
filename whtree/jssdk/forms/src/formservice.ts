@@ -1,6 +1,7 @@
 // import * as rpc from '@mod-system/js/wh/rpc';
 import createClient from "@webhare/jsonrpc-client";
 import type { AddressValidationOptions, AddressValidationResult, AddressValue } from "./address";
+import { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 
 export interface EmailValidationResult { /** If blocked, the suggested error message */
   blocked?: string;
@@ -41,12 +42,7 @@ export interface PublisherFormService {
   /** Verify address */
   verifyAddress(url: string, address: AddressValue, options: AddressValidationOptions): Promise<AddressValidationResult>;
 
-  formSubmit(submitinfo: FormSubmitInfo): Promise<{
-    success: boolean;
-    result: unknown;
-    errors: Array<{ name: string; message: string; metadata: unknown }>;
-    warnings: Array<{ name: string; message: string; metadata: unknown }>;
-  }>;
+  formSubmit(submitinfo: FormSubmitInfo): Promise<FormSubmitResult>;
 
   formInvoke(submitinfo: FormSubmitInfo & { methodname: string; args: unknown[] }): Promise<{
     messages: Array<{ field: string; prop: string; data: unknown }>;

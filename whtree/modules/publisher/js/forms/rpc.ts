@@ -1,10 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from '@webhare/dompack';
 import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
-import FormBase, { FormResultValue } from './formbase';
+import FormBase, { FormResultValue, FormSubmitEmbeddedResult, FormSubmitMessage } from './formbase';
 import publisherFormService from "@webhare/forms/src/formservice";
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
@@ -12,6 +9,7 @@ import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
 import { debugFlags, isLive } from "@webhare/env";
 import { createDeferred, pick } from '@webhare/std';
+import { setFieldError } from "@mod-publisher/js/forms";
 
 function getServiceSubmitInfo(formtarget: string) {
   return {
@@ -23,6 +21,16 @@ function getServiceSubmitInfo(formtarget: string) {
 function unpackObject(formvalue: FormResultValue) {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
 }
+
+interface FormSubmitDetails {
+  form: HTMLElement;
+  rpchandler: RPCFormBase;
+  extrasubmitdata?: unknown;
+  submitted: FormResultValue;
+  result: unknown;
+  errors: FormSubmitMessage[];
+}
+
 
 /** Directly submit a RPC form to WebHare
  *  @param target - Formtarget as obtained from
@@ -121,7 +129,7 @@ export default class RPCFormBase extends FormBase {
 
   /* Override this to implement support for incoming field messages */
   processFieldMessage(field: string, prop: string, value: unknown) {
-    const fieldnode = this.node.querySelector(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
+    const fieldnode = this.node.querySelector<HTMLElement>(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
     if (!fieldnode) {
       console.warn("Message for non-existent field: " + field + ", prop: " + prop + ", value: " + String(value));
       return;
@@ -177,7 +185,7 @@ export default class RPCFormBase extends FormBase {
     }
   }
 
-  async submit(extradata?: object): Promise<{ result: unknown }> {
+  async submit(extradata?: object): Promise<{ result?: FormSubmitEmbeddedResult }> {
     //ADDME timeout and free the form after some time
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
       throw new Error("The form is already being submitted");
@@ -186,28 +194,29 @@ export default class RPCFormBase extends FormBase {
     let insubmitrpc = false;
     this.onRPC(waiter.promise);
 
-    const eventdetail = {
+    const eventdetail: FormSubmitDetails = {
       form: this.node,
-      rpchandler: this
+      rpchandler: this,
+      submitted: {},
+      errors: [],
+      result: null
     };
     await this._flushPendingRPCs();
     try {
       this.__formhandler.submitting = true;
 
       //Request extrasubmit first, so that if it returns a promise, it can execute in parallel with getFormValue
-      let extrasubmit = this.getFormExtraSubmitData();
+      const extraSubmitAwaitable = this.getFormExtraSubmitData();
+      const formValueAwaitable = this.getFormValue();
+
+      const extrasubmit = {
+        ...extradata,
+        ...(await extraSubmitAwaitable)
+      };
       eventdetail.extrasubmitdata = extrasubmit;
 
-      const formvalue = await this.getFormValue();
+      const formvalue = await formValueAwaitable;
       eventdetail.submitted = formvalue;
-
-      if (extrasubmit && extrasubmit.then) //got a promise? expand it
-        extrasubmit = await extrasubmit;
-
-      extrasubmit = {
-        ...extradata,
-        ...extrasubmit
-      };
 
       /* make sure no getFormValue RPCs are still pending, assuming they went through us, eg if an address validation is
          still running (and could update)
@@ -254,12 +263,12 @@ export default class RPCFormBase extends FormBase {
           dompack.focus(failednode);
           didfirstfocus = true;
         }
-        FormBase.setFieldError(failednode, error.message, { reportimmediately: true, serverside: true, metadata: error.metadata });
+        setFieldError(failednode, error.message, { reportimmediately: true, serverside: true, metadata: error.metadata });
       }
 
       if (result.success) {
         dompack.dispatchCustomEvent(this.node, "wh:form-values", { bubbles: true, cancelable: false, detail: eventdetail });
-        this.sendFormEvent('publisher:formsubmitted', { dn_formmeta_waittime: Date.now() - this._submitstart });
+        this.sendFormEvent('publisher:formsubmitted');
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
           merge.run(this.node, { form: await this.getFormValue() });
 
@@ -270,8 +279,7 @@ export default class RPCFormBase extends FormBase {
         const failedfields = result.errors.map(error => error.name || "*").sort().join(" ");
         this.sendFormEvent('publisher:formfailed', {
           ds_formmeta_errorfields: failedfields,
-          ds_formmeta_errorsource: 'server',
-          dn_formmeta_waittime: Date.now() - this._submitstart
+          ds_formmeta_errorsource: 'server'
         });
 
         if (globalerrors.length) {
@@ -286,12 +294,11 @@ export default class RPCFormBase extends FormBase {
     } catch (e) {
       this.sendFormEvent('publisher:formexception', {
         ds_formmeta_exception: String(e),
-        ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client',
-        dn_formmeta_waittime: Date.now() - this._submitstart
+        ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client'
       });
 
       if (dompack.dispatchCustomEvent(this.node, "wh:form-exception", { bubbles: true, cancelable: true, detail: eventdetail }))
-        this.onSubmitException(e);
+        this.onSubmitException(e as Error);
 
       throw e;
     } finally {
@@ -300,12 +307,13 @@ export default class RPCFormBase extends FormBase {
     }
   }
 
-  displayGlobalErrors(globalerrors) {
+  displayGlobalErrors(globalerrors: FormSubmitMessage[]) {
     try {
       const errors = globalerrors.map(error => dompack.create("p", { textContent: error.message }));
       runMessageBox(errors, [{ title: "OK" }]); //TODO: language?
     } catch (e) {
       console.error("runMessageBox failed", e);
+      // eslint-disable-next-line no-alert -- alert is our fallback without message boxes
       alert(globalerrors.map(error => error.message).join("\n"));
     }
   }
@@ -316,7 +324,7 @@ export default class RPCFormBase extends FormBase {
   }
 
   //override this to deal with succesful submissions
-  onSubmitSuccess(result) {
+  onSubmitSuccess(result: FormSubmitEmbeddedResult) {
     const formpos = this.node.getBoundingClientRect();
     if (formpos.top < 0)
       this.node.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -329,15 +337,15 @@ export default class RPCFormBase extends FormBase {
   }
 
   //override this to deal with failed submissions
-  onSubmitFailed(errors, result) {
+  onSubmitFailed(errors: FormSubmitMessage[], result: unknown) {
   }
 
   //override this to deal with form exceptions
-  onSubmitException(e) {
+  onSubmitException(e: Error) {
   }
 
   async validateSingleFormField(field: HTMLElement): Promise<boolean> {
-    if (field.type == "email") { //TODO perhaps move this to webharefields.es ?
+    if (field instanceof HTMLInputElement && field.type == "email") { //TODO perhaps move this to webharefields.es ?
       if (focus.getCurrentlyFocusedElement() == field) { //TODO clearing suggestion on change should probably be generalized
         if (field.propWhValidationSuggestion) {
           field.propWhValidationSuggestion = null;

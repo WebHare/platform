@@ -6,7 +6,7 @@ import * as upload from '@mod-system/js/compat/upload';
 import * as formservice from '../internal/form.rpc.json';
 import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
-import FormBase from '../formbase';
+import { setFieldError } from '@mod-publisher/js/forms';
 
 function isAcceptableType(fileType, masks) {
   if (masks.includes(fileType))
@@ -45,9 +45,9 @@ export default class FileEditBase {
   }
   _check() {
     if (this.isrequired && !this.getFieldValueLink())
-      FormBase.setFieldError(this.node, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
+      setFieldError(this.node, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
     else
-      FormBase.setFieldError(this.node, "", { reportimmediately: false });
+      setFieldError(this.node, "", { reportimmediately: false });
   }
   _handleEnable(evt) {
     dompack.stop(evt);
@@ -114,7 +114,7 @@ export default class FileEditBase {
       if (!this._isAcceptableType(res[0].type)) {
         //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
         const msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
-        FormBase.setFieldError(this.node, msg, { reportimmediately: true });
+        setFieldError(this.node, msg, { reportimmediately: true });
         return;
       }
 

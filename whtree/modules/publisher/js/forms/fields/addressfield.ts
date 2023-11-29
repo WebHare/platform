@@ -12,7 +12,7 @@ class SubField {
   fieldgroup: HTMLElement;
   pos: number;
 
-  constructor(node: dompack.FillableFormElement, pos: number) {
+  constructor(node: dompack.FormControlElement, pos: number) {
     this.node = node;
     this.pos = pos;
     this.fieldgroup = node.closest(".wh-form__fieldgroup") ?? orThrow("Could not find fieldgroup for field");
