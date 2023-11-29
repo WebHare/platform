@@ -356,10 +356,10 @@ export class EventListenerSet {
 }
 
 /** Add an event listener to HTMLElements inside a document (which allows us to ensure that 'target' is a HTMLElement for easier typings) */
-export function addDocEventListener<E extends HTMLElement, K extends keyof HTMLElementEventMap>(node: E, type: K, listener: (this: E, ev: DocEvent<HTMLElementEventMap[K]>) => void, options?: addDocEventListenerOptions): void;
-export function addDocEventListener(node: HTMLElement, type: string, listener: (evt: DocEvent<Event>) => void, options?: addDocEventListenerOptions): void;
+export function addDocEventListener<CurrentTargetType extends HTMLElement, Type extends keyof HTMLElementEventMap>(node: CurrentTargetType, type: Type, listener: (this: CurrentTargetType, ev: DocEvent<HTMLElementEventMap[Type], CurrentTargetType>) => void, options?: addDocEventListenerOptions): void;
+export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (evt: DocEvent<Event, CurrentTargetType>) => void, options?: addDocEventListenerOptions): void;
 
-export function addDocEventListener(node: HTMLElement, type: string, listener: (evt: DocEvent<Event>) => void, options?: addDocEventListenerOptions): void {
+export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (evt: DocEvent<Event, CurrentTargetType>) => void, options?: addDocEventListenerOptions): void {
   node.addEventListener(type, listener as EventListener, options);
   if (options?.listenerset)
     options?.listenerset.listeners.push({ node, type, listener: listener as EventListener, options });

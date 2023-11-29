@@ -95,13 +95,15 @@ test.registerTests(
       function takeFocusHandler(evt: webhare_dompack.DocEvent<MyCustomEvent>) {
         evt.target.click();
       }
-      function unknownHandler(evt: webhare_dompack.DocEvent<Event>) {
+      function unknownHandler(evt: webhare_dompack.DocEvent<Event, HTMLBodyElement>) {
         evt.target.click();
       }
 
       webhare_dompack.addDocEventListener(document.body, "click", clickHandler);
       webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:mycustomevent", takeFocusHandler);
-      webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:unknownevent", unknownHandler);
+      //@ts-expect-errora a div is not a body element, and unknownHandler expects a HTMLBodyElement
+      webhare_dompack.addDocEventListener(document.createElement("div"), "webhare_testsuite:unknownevent", unknownHandler);
+      webhare_dompack.addDocEventListener(document.createElement("body"), "webhare_testsuite:unknownevent", unknownHandler);
 
       webhare_dompack.addDocEventListener(document.body, "click", evt => { evt.target.click(); });
       webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:mycustomevent", evt => { evt.target.click(); });
