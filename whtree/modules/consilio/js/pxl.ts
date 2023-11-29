@@ -70,7 +70,7 @@ let useAltRecordURL = false; //send events for this page to the altrecordurl
 let seqnr = 0;
 
 /** Set global pxl options
-    @param options - Set to null to reset the global options to their defaults
+    @param options - Option updates
 */
 export function setPxlOptions(options: Partial<PxlOptions> | null) {
   Object.assign(globalOptions, options);
