@@ -117,8 +117,8 @@ type FormCondition = {
 };
 
 export interface FieldErrorOptions {
-  serverside?: boolean;
-  reportimmediately?: boolean;
+  serverside: boolean;
+  reportimmediately: boolean;
   metadata?: unknown;
 }
 
@@ -1438,15 +1438,15 @@ export default class FormBase {
   }
 
   /** @deprecated Just import setupValidator from \@mod-publisher/js/forms */
-  static setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<void> | void) {
+  static setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<string> | string) {
     setupValidator(node, checker);
   }
 
   /** @deprecated Just import setFieldError from \@mod-publisher/js/forms */
-  static setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
+  static setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
     setFieldError(field, error, options);
   }
-  setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
+  setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
     setFieldError(field, error, options);
   }
 
