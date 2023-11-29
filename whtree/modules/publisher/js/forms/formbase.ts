@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from '@webhare/dompack';
 import { DocEvent, TakeFocusEvent, addDocEventListener } from '@webhare/dompack';
 import * as domfocus from 'dompack/browserfix/focus';
@@ -144,6 +141,11 @@ interface ValidationQueueElement {
   limitset?: LimitSet;
   options?: ValidationOptions;
   defer: DeferredPromise<ValidationResult>;
+}
+
+interface PageState {
+  pages: HTMLElement[];
+  curpage: number;
 }
 
 //Query used to find valid submittors
@@ -658,10 +660,10 @@ export default class FormBase {
     }
 
     dompack.stop(evt);
-    this.executeFormAction(actionnode.dataset.whFormAction);
+    this.executeFormAction(actionnode.dataset.whFormAction!);
   }
 
-  _getPageState() {
+  private _getPageState(): PageState {
     const pages = dompack.qSA<HTMLElement>(this.node, '.wh-form__page');
     const curpage = pages.findIndex(page => !page.classList.contains('wh-form__page--hidden'));
     return { pages, curpage };
@@ -731,7 +733,7 @@ export default class FormBase {
     dompack.dispatchCustomEvent(state.pages[pageidx], "wh:form-pagechange", { bubbles: true, cancelable: false });
   }
 
-  _getDestinationPage(pagestate, direction) {
+  private _getDestinationPage(pagestate: PageState, direction: number) {
     let pagenum = pagestate.curpage + direction;
     while (pagenum >= 0 && pagenum < pagestate.pages.length && pagestate.pages[pagenum].propWhFormCurrentVisible === false)
       pagenum = pagenum + direction;
@@ -747,7 +749,7 @@ export default class FormBase {
     return pagenode.dataset.whFormPagetitle || ("#" + (pagenum + 1));
   }
 
-  async executeFormAction(action) {
+  async executeFormAction(action: string) {
     switch (action) {
       case 'previous':
         {
@@ -970,7 +972,7 @@ export default class FormBase {
     this.fixupMergeFields(mergeNodes);
   }
 
-  async fixupMergeFields(nodes) {
+  async fixupMergeFields(nodes: HTMLElement[]) {
     // Rename the data-wh-merge attribute to data-wh-dont-merge on hidden pages and within hidden formgroups to prevent
     // merging invisible nodes
     // FIXME 'merge' has a filter option now - convert to that!
@@ -1241,11 +1243,6 @@ export default class FormBase {
     return field.value;
   }
 
-  /* Override this to overwrite the processing of radios and checkboxes. */
-  getMultifieldValue(name, fields) {
-    return fields.map(node => node.value);
-  }
-
   /* Override this to overwrite the setting of individual fields. In contrast
      to getFieldValue, this function will also be invoked for radio and checkboxes */
   setFieldValue(fieldnode: HTMLElement, value: unknown) {
@@ -1274,11 +1271,9 @@ export default class FormBase {
   }
 
   _isPartOfForm(el: HTMLElement) {
-    if (!el.hasAttribute("form"))
-      return true;
-    if (this.node.id && el.getAttribute("form").toUpperCase() == this.node.id.toUpperCase())
-      return true;
-    return false;
+    //In HTML terms, an input must either have *no* form attribute or explicitly point to us. eg <input form> is *outside* a form
+    //However nodes may live in fragments (eg arrayedits) that are not in the DOM and not attached anywhere, so we also consider anything outside the DOM to be in our form...
+    return !("form" in el) || el.form === this.node || !document.contains(el);
   }
 
   _queryAllFields(options?: {
@@ -1338,8 +1333,7 @@ export default class FormBase {
     if (!field.multi)
       return this.getFieldValue(field.node);
 
-    const fields = field.nodes.filter(node => node.checked);
-    return this.getMultifieldValue(field.name, fields);
+    return field.nodes.filter(node => node.checked).map(node => node.value);
   }
 
   /** Return a promise resolving to the submittable form value */
