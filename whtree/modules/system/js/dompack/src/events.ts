@@ -1,8 +1,21 @@
 import { FillableFormElement } from "@webhare/dompack/dompack";
 
 export const CustomEvent = globalThis.CustomEvent;
+/** Wrap an event to ensure it's target is a HTMLElement
+ * @typeParam EventType - The expected event type
+ * @typeParam CurrentTargetType - The type of the elemnt you're binding the event to. Optional, defaults to HTMLElement
+*/
+export type DocEvent<EventType extends Event, CurrentTargetType extends HTMLElement = HTMLElement> = EventType & {
+  target: HTMLElement;
+  currentTarget: CurrentTargetType;
+};
 
-type DomEventOptions =
+export interface addDocEventListenerOptions extends AddEventListenerOptions {
+  /** Add to listenerset to allow easy deregistration */
+  listenerset?: EventListenerSet;
+}
+
+export type DomEventOptions =
   {
     bubbles?: boolean;
     cancelable?: boolean;
@@ -327,4 +340,33 @@ export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboa
 export function stop(event: Event) {
   event.preventDefault();
   event.stopImmediatePropagation();
+}
+
+export class EventListenerSet {
+  listeners = new Array<{
+    node: HTMLElement;
+    type: string;
+    listener: EventListener;
+    options?: AddEventListenerOptions;
+  }>();
+
+  removeAll() {
+    for (const listener of this.listeners)
+      listener.node.removeEventListener(listener.type, listener.listener, listener.options);
+
+    this.listeners.splice(0, this.listeners.length); //clear array
+  }
+  [Symbol.dispose]() {
+    this.removeAll();
+  }
+}
+
+/** Add an event listener to HTMLElements inside a document (which allows us to ensure that 'target' is a HTMLElement for easier typings) */
+export function addDocEventListener<E extends HTMLElement, K extends keyof HTMLElementEventMap>(node: E, type: K, listener: (this: E, ev: DocEvent<HTMLElementEventMap[K]>) => void, options?: addDocEventListenerOptions): void;
+export function addDocEventListener(node: HTMLElement, type: string, listener: (evt: DocEvent<Event>) => void, options?: addDocEventListenerOptions): void;
+
+export function addDocEventListener(node: HTMLElement, type: string, listener: (evt: DocEvent<Event>) => void, options?: addDocEventListenerOptions): void {
+  node.addEventListener(type, listener as EventListener, options);
+  if (options?.listenerset)
+    options?.listenerset.listeners.push({ node, type, listener: listener as EventListener, options });
 }

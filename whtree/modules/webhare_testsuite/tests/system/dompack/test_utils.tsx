@@ -11,12 +11,14 @@ function anyEventHandler(evt: Event) {
   ++eventcount;
 }
 
+type MyCustomEvent = CustomEvent<{
+  test: 42;
+}>;
+
 declare global {
   //Test extending events
   interface GlobalEventHandlersEventMap {
-    "webhare_testsuite:mycustomevent": CustomEvent<{
-      test: 42;
-    }>;
+    "webhare_testsuite:mycustomevent": MyCustomEvent;
   }
 }
 
@@ -100,5 +102,26 @@ test.registerTests(
       //an unregistered event should not be bothered at all
       webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:unknownevent", { bubbles: true, cancelable: true });
       webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:unknownevent", { bubbles: true, cancelable: true, detail: { nosuch: 43 } });
+
+      function clickHandler(evt: webhare_dompack.DocEvent<MouseEvent>) {
+        evt.target.click();
+      }
+      function takeFocusHandler(evt: webhare_dompack.DocEvent<MyCustomEvent>) {
+        evt.target.click();
+      }
+      function unknownHandler(evt: webhare_dompack.DocEvent<Event>) {
+        evt.target.click();
+      }
+
+      webhare_dompack.addDocEventListener(document.body, "click", clickHandler);
+      webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:mycustomevent", takeFocusHandler);
+      webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:unknownevent", unknownHandler);
+
+      webhare_dompack.addDocEventListener(document.body, "click", evt => { evt.target.click(); });
+      webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:mycustomevent", evt => { evt.target.click(); });
+      webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:unknownevent", evt => { evt.target.click(); });
+
+      using mylisteners = new webhare_dompack.EventListenerSet;
+      webhare_dompack.addDocEventListener(document.body, "click", evt => { evt.target.click(); }, { listenerset: mylisteners, capture: true });
     }
   ]);
