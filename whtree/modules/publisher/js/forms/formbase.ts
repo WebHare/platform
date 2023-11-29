@@ -429,26 +429,9 @@ export default class FormBase {
 
     // Find the first role="group" we can find
     // (ineither the .wh-form__subfield or .wh-form__field)
-    let group = field;
-    while (group) {
-      if (!group.getAttribute)
-        console.error(group);
-
-      if (group.getAttribute("role") == "group") {
-        break;
-      }
-
-      if (group.classList.contains("wh-form__subfield")
-        || group.classList.contains("wh-form__fieldgroup")) {
-        group = null;
-        break;
-      }
-
-      group = group.parentNode;
-    }
-
+    const potentialgroupnode = field.closest<HTMLElement>("[role=group],.wh-form__subfield,wh-form__fieldgroup");
+    const group = potentialgroupnode?.role === "group" ? potentialgroupnode : null;
     const contextnode = group ?? field;
-
 
     let messageid = "";
     let messagenode = fieldgroup.querySelector(".wh-form__" + type); //either wh-form__error or wh-form__suggestion
@@ -475,7 +458,7 @@ export default class FormBase {
 
 
     if (error) { // Do we show a message?
-      messagenode.appendChild(error);
+      messagenode.append(error);
       this._addDescribedBy(contextnode, messageid);
 
       if (type == "error")
@@ -596,7 +579,7 @@ export default class FormBase {
   //reset any serverside generated errors (generally done when preparing a new submission)
   resetServerSideErrors() {
     for (const field of this._getFieldsToValidate())
-      if (field.propWhSetFieldError && field.propWhErrorServerSide)
+      if (field.propWhSetFieldError && field.propWhErrorServerSide && field.propWhCleanupFunction)
         field.propWhCleanupFunction();
   }
 
