@@ -350,9 +350,6 @@ export class EventListenerSet {
 
     this.listeners.splice(0); //clear array
   }
-  [Symbol.dispose]() {
-    this.removeAll();
-  }
 }
 
 /** Add an event listener to HTMLElements inside a document (which allows us to ensure that 'target' is a HTMLElement for easier typings) */

@@ -109,7 +109,8 @@ test.registerTests(
       webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:mycustomevent", evt => { evt.target.click(); });
       webhare_dompack.addDocEventListener(document.body, "webhare_testsuite:unknownevent", evt => { evt.target.click(); });
 
-      using mylisteners = new webhare_dompack.EventListenerSet;
+      const mylisteners = new webhare_dompack.EventListenerSet;
       webhare_dompack.addDocEventListener(document.body, "click", evt => { evt.target.click(); }, { listenerSet: mylisteners, capture: true });
+      mylisteners.removeAll();
     }
   ]);
