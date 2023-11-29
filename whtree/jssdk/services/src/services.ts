@@ -4,6 +4,7 @@ import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
 import { openBackendService } from "./backendservice";
 import { ConfigClient } from "@mod-platform/js/configure/configservice";
+import { backendConfig } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
@@ -19,6 +20,18 @@ export { WebHareBlob } from "./webhareblob";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
+
+export async function isWebHareRunning() {
+  /* TODO it would be better to attempt to connect to the bridge to test online-ness *if* we can get the bridge to immediately report it cannot connect?
+          pid analysis is even less reliable in node as we can't test process names */
+  try {
+    const pidfile = fs.readFileSync(backendConfig.dataroot + ".webhare.pid", 'utf-8');
+    const pid = parseInt(pidfile);
+    return Boolean(pid);
+  } catch (e) {
+    return false;
+  }
+}
 
 export async function applyConfiguration(options: Parameters<typeof ConfigClient["prototype"]["applyConfiguration"]>[0] = {}) {
   if (!options.source)

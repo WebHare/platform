@@ -297,8 +297,8 @@ exec_runscript()
 get_webhare_pid()
 {
   local XPID
-  XPID="`cat "$WEBHARE_DATAROOT"/.webhare.pid < /dev/null 2>/dev/null`"
-  eval $1=\$XPID
+  XPID="$(cat "$WEBHARE_DATAROOT"/.webhare.pid < /dev/null 2>/dev/null)"
+  eval "$1"=\$XPID
 }
 
 is_webhare_running()
