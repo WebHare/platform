@@ -8,7 +8,7 @@ export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
   return field instanceof HTMLInputElement && ["radio", "checkbox"].includes(field.type);
 }
 
-///Test if the field is a valid target for various form APIs we have (It's a FormControlElement OR it has data-wh-form-name. WE hope to someday merge those into 'real' inputs too)
+///Test if the field is a valid target for various form APIs we have (it's a FormControlElement OR it has data-wh-form-name. We hope to someday merge those into 'real' inputs too)
 export function isValidFormFieldTarget(field: Element): field is HTMLElement {
   return isFormControl(field) || Boolean(field instanceof HTMLElement && field.dataset.whFormName);
 }
