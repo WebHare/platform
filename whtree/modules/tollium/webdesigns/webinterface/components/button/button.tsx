@@ -77,8 +77,6 @@ export default class ObjButton extends ActionableBase {
     }, { stopmapped: true });
   }
   setMenu(newmenu) {
-    //this.menu = this.owner.addComponent(this, newmenu);
-    //dompack.toggleClasses (this.node, { showmenu: this.isToolbarButton() && this.menu });
     this.menuname = newmenu;
     dompack.toggleClasses(this.node, { showmenu: this.isToolbarButton() && this.menuname });
   }

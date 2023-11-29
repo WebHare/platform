@@ -81,7 +81,7 @@ export function canFocusTo(node: Element) { //returns if a -visible- node is foc
   }
 }
 
-export function getFocusableComponents(startnode: Element | null, recurseframes: boolean) {
+export function getFocusableComponents(startnode: Element | null, recurseframes?: boolean) {
   let focusable: Element[] = [];
   if (!startnode)
     return focusable;

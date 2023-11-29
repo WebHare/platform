@@ -123,7 +123,7 @@ class ControlledCall {
     @cell options.timeout Default timeout for all calls
     @cell options.debug Debug (Follows 'rpc' debugflag if not explicity specified) */
 export default class RPCClient {
-  constructor(url, options) {
+  constructor(url, options?) {
     this.options = {
       timeout: 0,
       debug: dompack.debugflags.rpc,

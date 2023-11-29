@@ -180,7 +180,10 @@ export function setupBusyModal(bmc: NonNullable<typeof busymodalcontent>) {
 }
 
 interface LockOptions {
-  modal: boolean;
+  ///Whether this lock should enable a modality laayer
+  modal?: boolean;
+  ///Component triggering the lock
+  component?: HTMLElement; //this is currently unused but was considered to be useful in the future in eg tollium where you only block an app, not the entire UI
 }
 
 class BusyLock implements UIBusyLock {

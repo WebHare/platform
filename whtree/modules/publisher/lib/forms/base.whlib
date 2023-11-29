@@ -642,7 +642,11 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
       VARIANT toset := vals[matchvals[0]].value;
       IF(options.rpcjs)
+      {
+        IF(NOT field.obj->IsFrontendVisible()) // The component was never sent to the client, so it cannot have been updated
+          CONTINUE;
         field.obj->UpdateFromJS(toset);
+      }
       ELSE
         field.obj->value := toset;
 

@@ -32,60 +32,17 @@ OBJECT FUNCTION GetFormObject(RECORD submitinfo)
   OBJECT form;
   STRING url := GetWebOriginURL(submitinfo.url);
   originalformrequesturl := url; //Allows GetFormVariable to work in RPCs
-
-  IF(CellExists(submitinfo, 'formid') AND submitinfo.formid LIKE "__formwidget:*")
-  {
-    /* This path ONLY exists for legacy formwidgets that actually need a republish to get their new 'target'
-       So it's basically a merge of the old code, discarding non-webtool-form stuff, and only manually tested
-
-       It can go awawy post 4.35 once we're sure the relevant sites using formwidgets have seen a republish */
-    INTEGER target := DecryptForThisServer("publisher:formwidget", Substring(submitinfo.formid,13)).target;
-    RECORD lookupres := LookupPublisherURL(url);
-    LogDebug("publisher:rpc","Legacy formwidget RPC call!", target, submitinfo, lookupres);
-    IF(lookupres.folder=0)
-      THROW NEW Exception(`Unable to determine the source of the request (${url})`);
-
-    INTEGER objid := lookupres.file ?? lookupres.folder;
-    OBJECT applytester := GetApplyTesterForObject(objid);
-    OBJECT webcontext := __GetWebContextForApplyTester(applytester, objid);
-
-    IF(url != "")
-    {
-      webcontext->baseurl := url;
-      originalformrequesturl := url;
-    }
-
-    SetTidLanguage(webcontext->languagecode);
-
-    OBJECT formdefs := OpenWHFSFormDefinitionsFile(OpenWHFSObject(target));
-
-    OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
-    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [ webtoolformid := target
-                                                                                        ]);
-    IF(parseresult.objectname = "")
-      parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
-
-    form := OpenFormByDef(parseresult, [ webcontext := webcontext
-                                       , applytester := applytester
-                                       ]);
-  }
-  ELSE
-  {
-    form := OpenFormByTarget(submitinfo.target, [ __applycontext := TRUE ]);
-  }
-
+  form := OpenFormByTarget(submitinfo.target, [ __applycontext := TRUE ]);
   RETURN form;
 }
 
-RECORD FUNCTION Submit(RECORD submitinfo)
+PUBLIC RECORD FUNCTION RPC_FormSubmit(RECORD submitinfo)
 {
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
   form->formcheckratelimits := TRUE;
-  IF(CellExists(submitinfo,'fields')) // older form (pre- WH 5.0)
-    form->__FormSetData(submitinfo.fields);
-  ELSE //ignoring non-existent fields.. might be client/server out of sync but not worth rejecting a submissionover
-    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE, ignorenonexisting := TRUE ]);
+  //ignoring non-existent fields.. might be client/server out of sync but not worth rejecting a submissionover
+  form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE, ignorenonexisting := TRUE ]);
 
   RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
   RECORD submitres := form->FormExecuteSubmit(CELL[extradata]);
@@ -94,7 +51,7 @@ RECORD FUNCTION Submit(RECORD submitinfo)
   RETURN submitres;
 }
 
-VARIANT FUNCTION Invoke(RECORD submitinfo)
+PUBLIC RECORD FUNCTION RPC_FormInvoke(RECORD submitinfo)
 {
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
@@ -184,16 +141,6 @@ PUBLIC RECORD FUNCTION RPC_ValidateEmbeddedObjects(STRING ARRAY objrefs)
     IF(NOT ValidateObjectDataRef(objref))
       INSERT objref INTO tokill AT END;
   RETURN [ tokill := tokill ];
-}
-
-PUBLIC VARIANT FUNCTION RPC_CallFormService(STRING method, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
-{
-  SWITCH (ToUppercase(method))
-  {
-    CASE "SUBMIT"                  { RETURN Submit(args[0]); }
-    CASE "INVOKE"                  { RETURN Invoke(args[0]); }
-  }
-  THROW NEW Exception(`Unknown form request method '${method}'`);
 }
 
 PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING langcode, STRING emailaddress)

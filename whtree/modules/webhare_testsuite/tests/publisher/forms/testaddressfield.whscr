@@ -3,7 +3,9 @@
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/testfw/forms.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -33,16 +35,10 @@ PUBLIC MACRO TestAddressField()
   TestEq(DEFAULT OBJECT, addressform->GetFormField("^ADDRESS"));
   TestEq(addressform->^address->^country, addressform->GetFormField("address.country"));
 
-  STRING formservice := ResolveToAbsoluteURL(OpenTestsuiteSite()->webroot, "/wh_services/publisher/forms");
-
-  RECORD formdata := [ extrasubmit :=     DEFAULT RECORD
-                     , fields :=          DEFAULT RECORD
-                     //can formapi give us this data?
-                     , target :=          addressform->GetFormTarget()
-                     , url :=             "testoutput/webhare_testsuite.testsite/testpages/formtest/?address=1"
-                     ];
-
-  RECORD formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.testsite/testpages/formtest/?address=1"));
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD fields := DEFAULT RECORD;
+  RECORD formresult := tester->SubmitForm(fields);
 
   TestEQMembers(
       [ errors :=     [ [ message :=    "Dit veld is verplicht."
@@ -55,8 +51,8 @@ PUBLIC MACRO TestAddressField()
       , result :=     [ address :=      DEFAULT RECORD ]
       ], formresult, "*");
 
-  formdata.fields := [ "address.country" := "NL" ];
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  fields := [ "address.country" := "NL" ];
+  formresult := tester->SubmitForm(fields);;
 
   TestEQMembers(
       [ [ name := "address.nr_detail",  message := "Dit veld is verplicht." ]
@@ -68,43 +64,43 @@ PUBLIC MACRO TestAddressField()
   TestEQ([ country := "NL", city := "", nr_detail := "", street := "", zip := "" ], formresult.result.address);
 
   // no errors when invisible
-  INSERT CELL visiblefields := VARIANT[] INTO formdata.fields;
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  INSERT CELL visiblefields := VARIANT[] INTO fields;
+  formresult := tester->SubmitForm(fields);;
   TestEQ([ [ name := "address2.country", metadata := DEFAULT RECORD, message := "Dit veld is verplicht." ] ], formresult.errors);
-  formdata.fields.visiblefields := INTEGER[1];
+  fields.visiblefields := INTEGER[1];
 
-  INSERT CELL visiblegroup := VARIANT[] INTO formdata.fields;
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  INSERT CELL visiblegroup := VARIANT[] INTO fields;
+  formresult := tester->SubmitForm(fields);;
   TestEQ(VARIANT[], formresult.errors);
-  formdata.fields.visiblegroup := INTEGER[1];
+  fields.visiblegroup := INTEGER[1];
 
   // no errors when disabled
-  INSERT CELL enablefields := VARIANT[] INTO formdata.fields;
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  INSERT CELL enablefields := VARIANT[] INTO fields;
+  formresult := tester->SubmitForm(fields);;
   TestEQ([ [ name := "address2.country", metadata := DEFAULT RECORD, message := "Dit veld is verplicht." ] ], formresult.errors);
 
-  formdata.fields.enablefields := INTEGER[1];
-  INSERT CELL enablegroup := VARIANT[] INTO formdata.fields;
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  fields.enablefields := INTEGER[1];
+  INSERT CELL enablegroup := VARIANT[] INTO fields;
+  formresult := tester->SubmitForm(fields);;
   TestEQ(VARIANT[], formresult.errors);
-  formdata.fields.enablegroup := INTEGER[1];
+  fields.enablegroup := INTEGER[1];
 
   // still errors when all visible + enabled
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.nr_detail",  message := "Dit veld is verplicht." ]
       , [ name := "address.zip",        message := "Dit veld is verplicht." ]
       , [ name := "address2.country",   message := "Dit veld is verplicht." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     ""
                       , "address.nr_detail" :=  "296"
                       , "address.zip" :=        "7521AM"
                       , "address.city" :=       ""
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQ([ [ name := "address2.country", metadata := DEFAULT RECORD, message := "Dit veld is verplicht." ] ], formresult.errors);
   TestEQ(
       [ country :=    "NL"
@@ -116,14 +112,14 @@ PUBLIC MACRO TestAddressField()
 
   // Regression: The 'address' field has the 'nl-zip-force' option activated, so street and city are not editable. They
   // should be update however if zip and nr_detail have changed.
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     "Teststraat"
                       , "address.nr_detail" :=  "296"
                       , "address.zip" :=        "7521AM"
                       , "address.city" :=       "PLAATSNAAM"
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQ(
       [ country :=    "NL"
       , street :=     "Hengelosestraat"
@@ -133,7 +129,7 @@ PUBLIC MACRO TestAddressField()
       ], formresult.result.address);
 
   // zip not found error
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     ""
                       , "address.nr_detail" :=  "2" // zip not found
                       , "address.zip" :=        "7500 OO"
@@ -145,7 +141,7 @@ PUBLIC MACRO TestAddressField()
                       , "address2.city" :=      ""
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.zip",        message := "Combinatie van postcode en huisnummer komt niet voor." ]
       , [ name := "address2.city",      message := "Dit veld is verplicht." ]
@@ -153,7 +149,7 @@ PUBLIC MACRO TestAddressField()
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // zip not found error
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     ""
                       , "address.nr_detail" :=  "2" // zip not found
                       , "address.zip" :=        "7500 OO"
@@ -165,27 +161,27 @@ PUBLIC MACRO TestAddressField()
                       , "address2.city" :=      "Stad"
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.zip",        message := "Combinatie van postcode en huisnummer komt niet voor." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // address not found error
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     ""
                       , "address.nr_detail" :=  "3" // address not found
                       , "address.zip" :=        "7500 OO"
                       , "address.city" :=       ""
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.zip",        message := "Het adres kon niet worden gevonden." ]
       , [ name := "address2.country",   message := "Dit veld is verplicht." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // invalid zip error
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     ""
                       , "address.nr_detail" :=  "5" // simulates invalid zip code
                       , "address.zip" :=        "7500 OO"
@@ -197,14 +193,14 @@ PUBLIC MACRO TestAddressField()
                       , "address2.city" :=       "Stad"
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.zip",  message := "Ongeldige postcode." ]
       , [ name := "address2.zip", message := "Ongeldige postcode." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // real invalid zip (syntax, requires no lookups)
-  formdata.fields :=  [ "address.country" :=    "NL"
+  fields :=  [ "address.country" :=    "NL"
                       , "address.street" :=     ""
                       , "address.nr_detail" :=  "100"
                       , "address.zip" :=        "7500" //syntax error
@@ -216,7 +212,7 @@ PUBLIC MACRO TestAddressField()
                       , "address2.city" :=       ""
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.zip",        message := "Ongeldige postcode." ]
       , [ name := "address2.city",      message := "Dit veld is verplicht." ]
@@ -224,53 +220,53 @@ PUBLIC MACRO TestAddressField()
       , [ name := "address2.zip",       message := "Ongeldige postcode." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
-  formdata.fields."address.zip" := "7521 AM";
+  fields."address.zip" := "7521 AM";
   //For some reason a lonely bad ZIP was't rejected if all other fields are good for a nl-zip-suggest
-  formdata.fields."address2.city" := "Stad";
-  formdata.fields."address2.street" := "Straat";
+  fields."address2.city" := "Stad";
+  fields."address2.street" := "Straat";
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address2.zip",       message := "Ongeldige postcode." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
-  formdata.fields."address2.city" := "Stad";
-  formdata.fields."address2.street" := "Straat";
+  fields."address2.city" := "Stad";
+  fields."address2.street" := "Straat";
 
   //We also need to reject overlong nr_details because they point to someone pasting a phonenumber into a nr_detail
-  formdata.fields."address2.city" := "Stad";
-  formdata.fields."address2.street" := "Straat";
+  fields."address2.city" := "Stad";
+  fields."address2.street" := "Straat";
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address2.zip",       message := "Ongeldige postcode." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   //Some NL incorrect housenumber are also easy to reject
-  formdata.fields."address2.zip" := "7521 AM";
-  formdata.fields."address2.nr_detail" := "Eh";
+  fields."address2.zip" := "7521 AM";
+  fields."address2.nr_detail" := "Eh";
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address2.nr_detail",       message := "Ongeldig huisnummer." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
-  formdata.fields."address2.zip" := "7521 AM";
-  formdata.fields."address2.nr_detail" := "31533053003";
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  fields."address2.zip" := "7521 AM";
+  fields."address2.nr_detail" := "31533053003";
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address2.nr_detail",       message := "Ongeldig huisnummer." ]
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // real invalid zip - BE
-  formdata.fields :=  [ "address2.country" :=    "BE"
+  fields :=  [ "address2.country" :=    "BE"
                       , "address2.street" :=     "Brusselsestraat"
                       , "address2.nr_detail" :=  "296"
                       , "address2.zip" :=        "7521PA" // invalid zip code
                       , "address2.city" :=       "Brussel"
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
 
   TestEQMembers(
       [ [ name := "address.country",   message := "Dit veld is verplicht." ]
@@ -278,14 +274,14 @@ PUBLIC MACRO TestAddressField()
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // incorrect city names
-  formdata.fields :=  [ "address2.country" :=    "BE"
+  fields :=  [ "address2.country" :=    "BE"
                       , "address2.street" :=     "Baron Opsomerlaan"
                       , "address2.nr_detail" :=  "Lier"
                       , "address2.zip" :=        "2500"
                       , "address2.city" :=       "1"
                       ];
 
-  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  formresult := tester->SubmitForm(fields);;
   TestEQMembers(
       [ [ name := "address.country",   message := "Dit veld is verplicht." ]
       , [ name := "address2.city",     message := "Het adres kon niet worden gevonden." ]

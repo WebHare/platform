@@ -1,12 +1,52 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from "dompack";
-import * as domdebug from "dompack/src/debug";
-import { browser } from "@webhare/dompack";
-import * as cookie from "dompack/extra/cookie";
+import * as dompack from "@webhare/dompack";
 import { generateRandomId } from "@webhare/std";
-import { isLive } from "@webhare/env";
+import { debugFlags, isLive } from "@webhare/env";
+
+interface PxlEventDetails {
+  event: string;
+  data: PxlEventData;
+  options: PxlOptions;
+  isaltsample: boolean;
+}
+
+export type PxlEvent = CustomEvent<PxlEventDetails>;
+
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "consilio:pxl": PxlEvent;
+  }
+  interface Window {
+    whPxlLog?: PxlEventDetails[];
+  }
+}
+
+export type PxlEventData = {
+  [K in `ds_${string}` | `db_${string}` | `dn_${string}`]: (K extends `ds_${string}` ? string :
+    (K extends `db_${string}` ? boolean :
+      (K extends `dn_${string}` ? number : never)))
+};
+
+export interface PxlOptions {
+  /**  Set to "0" or "1" to explicitly allow resp. refuse tracking, or set to "unspecified", which means the browser's Do Not Track setting is used. Defaults to "0". */
+  donottrack: "0" | "1" | "unspecified";
+  /**  Base url to which to send PXL events. Defaults to "/.px/". */
+  recordurl: string;
+  /**  Sample rate for the alternative record url as a fraction of the number of events, for example, setting it to 1/100 sends 1 in 100 events to the alternative record url. Defaults to 0 (no sampling). */
+  altsamplerate: number;
+  /**  Alternative record url. Defaults to "/.px/alt/". */
+  altrecordurl: string;
+  /** The number of days the user id is valid. Defaults to 30. */
+  sessionexpiration: number; //TODO if we ever camel this, also add 'Days' to the name
+  /** Set to true to omit some browser context fields ("bu", "bs" and "bp"). This option can
+      be used to reduce the length of the pxl url. Defaults to false. */
+  nobrowserenvironment: boolean;
+  /** Enable debug messages */
+  debug: boolean;
+  /** Node responsible for generating this event (if not set, 'window' is assumed). Used for the event handlers */
+  node?: HTMLElement;
+  /** Send pixels as beacons */
+  beacon: boolean;
+}
 
 const eventname_regex = /^[\w:]+$/;
 const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
@@ -14,52 +54,43 @@ const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
 const max_data_length = 600; // The maximum number of bytes stored for the request*/
 const max_sessionid_age = 30;
 
-let globalOptions;
-let pagesession; //current page session id (used to track multiple events from single page)
-let isaltsample; //send events for this page to the altrecordurl
+const globalOptions: PxlOptions = {
+  donottrack: "0",
+  recordurl: "/.px/",
+  altsamplerate: 0,
+  altrecordurl: "/.px/alt/",
+  sessionexpiration: max_sessionid_age,
+  nobrowserenvironment: false,
+  debug: Boolean(debugFlags.pxl),
+  beacon: false
+};
+
+let pagesession: string | undefined; //current page session id (used to track multiple events from single page)
+let useAltRecordURL = false; //send events for this page to the altrecordurl
 let seqnr = 0;
 
-/** @short Set global pxl options
-    @param options Set to null to reset the global options to their defaults
-    @cell options.donottrack Set to "0" or "1" to explicitly allow resp. refuse tracking, or set to "unspecified", which
-        means the browser's Do Not Track setting is used. Defaults to "0".
-    @cell options.recordurl Base url to which to send PXL events. Defaults to "/.px/".
-    @cell options.altsamplerate Sample rate for the alternative record url as a fraction of the number of events, for example,
-        setting it to 1/100 sends 1 in 100 events to the alternative record url. Defaults to 0 (no sampling).
-    @cell options.altrecordurl Alternative record url. Defaults to "/.px/alt/".
-    @cell options.sessionexpiration The number of days the user id is valid. Defaults to 30.
-    @cell options.nobrowserenvironment Set to true to omit some browser context fields ("bu", "bs" and "bp"). This option can
-        be used to reduce the length of the pxl url. Defaults to false.
+/** Set global pxl options
+    @param options - Option updates
 */
-export function setPxlOptions(options) {
-  globalOptions = {
-    donottrack: "0",
-    recordurl: "/.px/",
-    altsamplerate: 0,
-    altrecordurl: "/.px/alt/",
-    sessionexpiration: max_sessionid_age,
-    nobrowserenvironment: false,
-    debug: Boolean(domdebug.debugflags.pxl),
-    ...(!options ? null : globalOptions), // Keep existing options if not resetting to default
-    ...options // And apply the new ones
-  };
+export function setPxlOptions(options: Partial<PxlOptions> | null) {
+  Object.assign(globalOptions, options);
 
   if (globalOptions.altrecordurl && globalOptions.altsamplerate) {
-    isaltsample = Math.random() < globalOptions.altsamplerate;
+    useAltRecordURL = Math.random() < globalOptions.altsamplerate;
     if (globalOptions.debug)
-      console.log(`[pxl] using altrecordurl for ${100 * globalOptions.altsamplerate}% of pageloads, this session is sent to the ${isaltsample ? "alternative" : "normal"} url`);
+      console.log(`[pxl] using altrecordurl for ${100 * globalOptions.altsamplerate}% of pageloads, this session is sent to the ${useAltRecordURL ? "alternative" : "normal"} url`);
   } else
-    isaltsample = false;
+    useAltRecordURL = false;
 }
 
-function pxlFailed(errormessage, ...params) {
+function pxlFailed(errormessage: string, ...params: unknown[]) {
   console.error('[pxl] ' + errormessage, ...params);
   if (!isLive)
     throw new Error(errormessage); //big errors on test servers
   return null;
 }
 
-export function makePxlURL(baseurl, eventname, data, options) {
+export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventData | null, options?: Partial<PxlOptions>) {
   options = { ...globalOptions, ...options };
 
   if (typeof eventname != "string")
@@ -73,108 +104,104 @@ export function makePxlURL(baseurl, eventname, data, options) {
     pagesession = generateId();
 
   //not using URL object, simplifies support of relative URLs
-  const var_sep = baseurl.includes("?") ? "&" : "?";
-  let url = `${baseurl}${var_sep}pe=${encodeURIComponent(eventname)}&pp=${encodeURIComponent(pagesession)}&pc=${++seqnr}`;
+  const url = new URL(baseurl, document.baseURI);
+  url.searchParams.set("pe", eventname);
+  url.searchParams.set("pp", pagesession);
+  url.searchParams.set("pc", String(++seqnr));
 
   // See: https://developer.mozilla.org/en-US/docs/Web/API/navigator/doNotTrack
   // The 'doNotTrack' option overrides the browser setting if not "unspecified"
-  const donottrack = options.donottrack == "1" || (options.donottrack == "unspecified" && (window.navigator.doNotTrack == "1" || window.navigator.doNotTrack == "yes" || window.navigator.msDoNotTrack == "1"));
-  if (!donottrack)
-    url += `&pi=${encodeURIComponent(getPxlId())}&ps=${encodeURIComponent(getPxlSessionId())}`;
-  else if (globalOptions.debug)
+  const donottrack = options.donottrack == "1" || (options.donottrack == "unspecified" && (window.navigator.doNotTrack == "1" || window.navigator.doNotTrack == "yes"));
+  if (!donottrack) {
+    url.searchParams.set("pi", getPxlId());
+    url.searchParams.set("ps", getPxlSessionId());
+  } else if (options.debug)
     console.log(`[pxl] Do Not Track is set, not adding pi and ps`);
 
-  if (globalOptions.altsamplerate)
-    url += `&pr=${globalOptions.altsamplerate}`;
+  if (options.altsamplerate)
+    url.searchParams.set("pr", String(options.altsamplerate));
 
   if (document.location)
-    url += `&bl=${encodeURIComponent(document.location.href)}`;
+    url.searchParams.set("bl", document.location.href);
   if (document.referrer)
-    url += `&br=${encodeURIComponent(document.referrer)}`;
-  url += `&bt=${encodeURIComponent(browser.triplet)}`;
-  const device = browser.device;
-  if (device)
-    url += `&bd=${encodeURIComponent(device)}`;
+    url.searchParams.set("br", document.referrer.substring(0, 1000));
+  url.searchParams.set("bt", dompack.browser.triplet);
+  if (dompack.browser.device)
+    url.searchParams.set("bd", dompack.browser.device);
   if (!options.nobrowserenvironment) {
-    url += `&bu=${encodeURIComponent(window.navigator.userAgent)}`;
+    url.searchParams.set("bu", window.navigator.userAgent);
     if (window.screen.width && window.screen.height)
-      url += `&bs=${window.screen.width}x${window.screen.height}`;
+      url.searchParams.set("bs", `${window.screen.width}x${window.screen.height}`);
     if (window.devicePixelRatio)
-      url += `&bp=${window.devicePixelRatio}`;
+      url.searchParams.set("bp", String(window.devicePixelRatio));
   }
 
   if (data) {
-    for (const name of Object.keys(data)) {
+    for (const [name, value] of Object.entries(data)) {
       const test = datakey_regex.exec(name);
       if (!test)
-        return pxlFailed(`Invalid data field name '${name}', should be ds_XXX, dn_XXX or db_XXX with X consisting of characters in the range 0-9, a-z or an underscore`);
+        return pxlFailed(`Invalid data field name '${name}', should be ds_XXX, dn_XXX or db_XXX with X consisting of characters in the range 0 - 9, a - z or an underscore`);
 
-      let value = data[name];
-      const type = typeof data[name];
+      const type = typeof value;
 
-      if (test[1]) // String
-      {
-        if (!value)
-          value = "";
-        else if (type != "string")
+      if (test[1]) { // String
+        if (value && type !== "string")
           return pxlFailed(`Invalid value type '${type}', expected 'string' for field '${name}'`);
 
-        url += `&${name}=${encodeURIComponent(value)}`;
-      } else if (test[2]) // Number
-      {
-        if (!value)
-          value = 0;
-        else if (type != "number")
+        url.searchParams.set(name, value as string || '');
+      } else if (test[2]) { // Number
+        if (value && type != "number")
           return pxlFailed(`Invalid value type '${type}', expected 'number' for field '${name}'`);
 
-        url += `&${name}=${value}`;
-      } else if (test[3]) // Boolean
-      {
-        if (!value)
-          value = false;
-        else if (type != "boolean")
+        url.searchParams.set(name, String(value) || '0');
+      } else if (test[3]) { // Boolean
+        if (value && type != "boolean")
           return pxlFailed(`Invalid value type '${type}', expected 'boolean' for field '${name}'`);
 
-        url += `&${name}=${value}`;
+        url.searchParams.set(name, value ? "true" : "false");
       }
     }
   }
   return url;
 }
 
-export function getPxlId(options) {
+export function getPxlId(options?: Partial<PxlOptions>) {
   options = { ...globalOptions, ...options };
 
   //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
-  let havelocalstorage = true;
-  try { window.localStorage.getItem("_wh.pi"); } catch (ignore) { havelocalstorage = false; }
+  const havelocalstorage = dompack.isStorageAvailable();
+
+  const sessionExpireDays = (options?.sessionexpiration ?? max_sessionid_age);
 
   // Use localStorage if available, otherwise just use a cookie
   if (havelocalstorage) {
     let expiration = new Date();
     let id = localStorage.getItem("_wh.pi");
     if (id) {
-      const timestamp = new Date(localStorage.getItem("_wh.ti"));
-      if (timestamp > expiration) {
-        if (options.debug)
-          console.log(`[pxl] Using id ${id} from localStorage`);
-        return id;
+      const timestampvar = localStorage.getItem("_wh.ti");
+      if (timestampvar) {
+        const timestamp = new Date(timestampvar);
+        if (timestamp > expiration) {
+          if (options.debug)
+            console.log(`[pxl] Using id ${id} from localStorage`);
+          return id;
+        } else if (options.debug)
+          console.log(`[pxl] Id from localStorage has expired(${timestamp} <= ${expiration})`);
       }
-      if (options.debug)
-        console.log(`[pxl] Id from localStorage has expired (${timestamp} <= ${expiration})`);
     }
+
     id = generateId();
-    expiration = new Date(expiration.getTime() + options.sessionexpiration * 24 * 60 * 60 * 1000);
+    expiration = new Date(expiration.getTime() + sessionExpireDays * 24 * 60 * 60 * 1000);
     localStorage.setItem("_wh.pi", id);
     localStorage.setItem("_wh.ti", expiration.toISOString());
     if (options.debug)
-      console.log(`[pxl] Storing id ${id} in localStorage with expiration date ${expiration}`);
+      console.log(`[pxl] Storing id ${id} in localStorage with expiration date ${expiration} `);
     return id;
   } else {
-    let id = cookie.read("_wh.pi");
+    let id = dompack.getCookie("_wh.pi");
     if (!id) {
       id = generateId();
-      cookie.write("_wh.pi", id, { duration: options.sessionexpiration });
+      dompack.setCookie("_wh.pi", id, { duration: sessionExpireDays });
       if (options.debug)
         console.log(`[pxl] Storing user id ${id} in cookie`);
     } else if (options.debug)
@@ -183,13 +210,13 @@ export function getPxlId(options) {
   }
 }
 
-function getPxlSessionId(options) {
+function getPxlSessionId(options?: Partial<PxlOptions>) {
   options = { ...globalOptions, ...options };
 
-  let id = cookie.read("_wh.ps");
+  let id = dompack.getCookie("_wh.ps");
   if (!id) {
     id = generateId();
-    cookie.write("_wh.ps", id);
+    dompack.setCookie("_wh.ps", id);
     if (options.debug)
       console.log(`[pxl] Storing session id ${id} in cookie`);
   } else if (options.debug)
@@ -198,21 +225,26 @@ function getPxlSessionId(options) {
 }
 
 /** Send a pxl event
-    @param event Event type, preferably in the format 'module:event'
-    @param data Event data. A map whose keys must start with either ds_ (string), db_ (boolean) or dn_ (number)
-    @param options
-    @cell options.node Node responsible for generating this event (if not set, 'window' is assumed). Used for the event handlers
+    @param event - Event type, preferably in the format 'module:event'
+    @param data - Event data. A map whose keys must start with either ds_ (string), db_ (boolean) or dn_ (number)
 */
-export function sendPxlEvent(event, data, options) {
-  options = { ...globalOptions, ...options };
+export function sendPxlEvent(event: string, data?: PxlEventData | null, options?: Partial<PxlOptions>) {
+  const finaloptions: PxlOptions = { ...globalOptions, ...options };
 
-  if (!dompack.dispatchCustomEvent(options.node || window, "consilio:pxl", { bubbles: true, cancelable: true, defaulthandler: pingPxlEvent, detail: { event, data, options, isaltsample } })) {
-    if (options.debug)
+  if (!dompack.dispatchCustomEvent(finaloptions.node || window, "consilio:pxl", {
+    bubbles: true, cancelable: true, defaulthandler: pingPxlEvent, detail: {
+      event,
+      data: data || {},
+      options: finaloptions,
+      isaltsample: useAltRecordURL
+    }
+  })) {
+    if (finaloptions.debug)
       console.log(`[pxl] Event of type '${event}' cancelled by consilio:pxl event handler`);
   }
 }
 
-function pingPxlEvent(evt) {
+function pingPxlEvent(evt: PxlEvent) {
   // determine the recordurl for this page
   const isaltsample = evt.detail.isaltsample;
   const event = evt.detail.event;
@@ -232,20 +264,21 @@ function pingPxlEvent(evt) {
     console.log(`[pxl] Event '${event}'`, data);
 
   if (options.beacon) {
+    //@ts-ignore Older browsers might not have sendBeacon
     if (window.navigator.sendBeacon) {
       if (options.debug)
-        console.log(`[pxl] Beacon-pinging pxl '${url}' (sendBeacon)`);
+        console.log(`[pxl] Beacon - pinging pxl '${url}'(sendBeacon)`);
       navigator.sendBeacon(url);
     } else {
       if (options.debug)
-        console.log(`[pxl] Beacon-pinging pxl '${url}' (sync XHR)`);
+        console.log(`[pxl] Beacon - pinging pxl '${url}'(sync XHR)`);
 
       const xhr = new XMLHttpRequest();
       xhr.open("HEAD", url, false);
       xhr.send();
 
       if (options.debug)
-        console.log(`[pxl] Beacon-pinging pxl '${url}' - sync XHR done!`);
+        console.log(`[pxl] Beacon - pinging pxl '${url}' - sync XHR done!`);
     }
   } else {
     // Load the pxl file using fetch TODO DOES IE11 support no-cors? Or just switch to <img> loading

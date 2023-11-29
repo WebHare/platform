@@ -1,38 +1,20 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";
+import { FieldErrorOptions } from '../formbase';
+import { debugFlags } from '@webhare/env';
 
-//show HTML5-style validity errors
-export function reportValidity(node) {
-  if (node.reportValidity) //not present on all browsers, clicking a submit is a workaround
-  {
-    node.reportValidity();
-    return true;
-  }
-  const form = node.closest('form');
-  if (!form)
-    return false;
-
-  const submitbutton = form.querySelector("button[type=submit], input[type=submit]");
-  if (!submitbutton)
-    return false;
-
-  submitbutton.click();
-  return true;
-}
-
-
-function setupServerErrorClear(field) {
-  const group = field.closest('.wh-form__fieldgroup') || field;
+function setupServerErrorClear(field: HTMLElement) {
+  const group = field.closest<HTMLElement>('.wh-form__fieldgroup') || field;
   field.propWhCleanupFunction = () => {
-    group.removeEventListener("change", field.propWhCleanupFunction, true);
-    group.removeEventListener("input", field.propWhCleanupFunction, true);
-    group.removeEventListener("blur", field.propWhCleanupFunction, true);
+    group.removeEventListener("change", field.propWhCleanupFunction!, true);
+    group.removeEventListener("input", field.propWhCleanupFunction!, true);
+    group.removeEventListener("blur", field.propWhCleanupFunction!, true);
     setFieldError(field, '', { serverside: true });
-    field.propWhCleanupFunction = null;
+    field.propWhCleanupFunction = undefined;
   };
 
   // to be rightly paranoid (plugins and JS directly editing other fields) we'll blur when anything anywhere seems to change
@@ -44,8 +26,8 @@ function setupServerErrorClear(field) {
 }
 
 
-export function setFieldError(field: HTMLElement, error: string, options?) {
-  if (dompack.debugflags.fhv)
+export function setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
+  if (debugFlags.fhv)
     console.log(`[fhv] ${error ? "Setting" : "Clearing"} error for field ${field.name}`, field, error, options);
 
   options = { serverside: false, reportimmediately: false, ...options };
@@ -60,8 +42,8 @@ export function setFieldError(field: HTMLElement, error: string, options?) {
   }
 
   //if the error is being cleared, reset any html5 validity stuff to clear custom errors set before wh:form-setfielderror was intercepted
-  if (!error && field.setCustomValidity)
-    field.setCustomValidity("");
+  if (!error && (field as HTMLInputElement).setCustomValidity)
+    (field as HTMLInputElement).setCustomValidity("");
 
   if (!dompack.dispatchCustomEvent(field, 'wh:form-setfielderror', //this is where parsley hooks in and cancels to handle the rendering of faults itself
     {
@@ -83,12 +65,12 @@ export function setFieldError(field: HTMLElement, error: string, options?) {
       error = error.textContent || getTid("publisher:site.forms.commonerrors.default"); //we don't want to suddenly change from 'we had an error' to 'no error'
 
     field.setCustomValidity(error || "");
-    if (!options.reportimmediately || reportValidity(field))
-      return;
+    if (options?.reportimmediately)
+      field.reportValidity?.(); //report
   }
 }
 
-export function setupValidator(node, checker) {
+export function setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<void> | void) {
   const check = async () => {
     let error = checker(node);
 
@@ -96,7 +78,7 @@ export function setupValidator(node, checker) {
     if (typeof error === "object" && error && error.then)
       error = await error;
 
-    if (dompack.debugflags.fhv)
+    if (debugFlags.fhv)
       console.log(`[fhv] Custom check ${error ? `setting error '${error}'` : 'clearing error'} for `, node);
 
     //FIXME shouldn't we set propWhValidationError instead ?

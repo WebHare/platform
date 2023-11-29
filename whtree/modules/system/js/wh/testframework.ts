@@ -470,7 +470,11 @@ export function qR<E extends Element = TestQueriedElement>(node_or_selector: Par
   }
 }
 
-export async function invoke(libfunc, ...params) {
+/** Invoke any remote function as long as its name starts with TESTFW_. This allows you to quickly run code in the backend without having to set up explicit RPCs
+ * @param libfunc - `<library>#TESTFW_<function>` to call
+*/
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- just returning 'any' as you're not hurting anyone but yourself if you misinterpret an invoke result
+export async function invoke(libfunc: string, ...params: unknown[]): Promise<any> {
   if (!libfunc.includes('#')) {
     libfunc += '#' + params[0];
     params.shift();
