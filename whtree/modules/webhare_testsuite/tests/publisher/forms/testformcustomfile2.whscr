@@ -259,6 +259,9 @@ PUBLIC MACRO CustomForm()
   TestEq(FALSE, result.success);
   TestEqLike("A result with guid '*' already exists", result.error);
 
+  // Make sure no email tasks are running anymore
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+
   // Delete current results and import again
   testfw->BeginWork();
   webtoolresults->DeleteAllResults();
