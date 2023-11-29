@@ -4,6 +4,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 
@@ -75,5 +76,14 @@ IF(ObjectExists(snoozestype))
 {
   GetPrimary()->BeginWork();
   snoozestype->DeleteSelf();
+  GetPrimary()->CommitWork();
+}
+
+//5.4 - Drop COMPILED-SITEPROFILES.BIN in WHFS
+OBJECT oldsiteprofiles := OpenWHFSObjectByPath("/webhare-private/publisher/compiled-siteprofiles.bin");
+IF(ObjectExists(oldsiteprofiles))
+{
+  GetPrimary()->BeginWork();
+  oldsiteprofiles->DeleteSelf();
   GetPrimary()->CommitWork();
 }

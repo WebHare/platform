@@ -543,29 +543,17 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
 
 MACRO SaveCompiledSiteProfiles(RECORD result)
 {
-  OBJECT cspparent :=OpenWHFSPrivateFolder("publisher");
-  OBJECT cspfile := cspparent->OpenByName("COMPILED-SITEPROFILES.BIN");
-  IF(NOT ObjectExists(cspfile))
-  {
-    OBJECT oldfile := cspparent->OpenByName("compiled-siteprofiles.hson");
-    IF(ObjectExists(oldfile))
-      oldfile->DeleteSelf();
-
-    cspfile := cspparent->CreateFile( [ name := "compiled-siteprofiles.bin"
-                                      , title := "Precompiled site profiles"
-                                      , description := "This file stores the results of the last successful site profile compilation"
-                                      , type := 0
-                                      ]);
-  }
+  /* We stored this in WHFS to be able to share it in a potential cluster, but we're not there yet and JS stores it on disk anyway... so sort it out later
+     If CSP in WHFS we need a working WHFS to read/write is ... but CreateFile/UpdateMetadata may use SetInstanceData and thus rely on CSP to be there */
 
   INTEGER str := CreateStream();
   __HS_MarshalWriteTo(str, result);
   BLOB blobdata := MakeBlobFromStream(str);
-  cspfile->UpdateMetaData([ data := blobdata ]);
 
   STRING configpath := GetModuleStorageRoot("system") || "config";
   CreateDiskDirectoryRecursive(configpath, TRUE);
   StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result), [ overwrite := TRUE ]);
+  StoreDiskFile(configpath || "/siteprofiles.bin", blobdata, [ overwrite := TRUE ]);
 }
 
 PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, BOOLEAN reportmissing)
