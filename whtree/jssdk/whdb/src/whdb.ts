@@ -578,6 +578,11 @@ export function broadcastOnCommit(event: string, data?: BackendEventData) {
   getConnection().broadcastOnCommit(event, data);
 }
 
+export function finishHandlerFactory<T extends FinishHandler>(obj: new () => T): () => T {
+  const symbol = Symbol(`onFinishWork: ${obj.name}`);
+  return () => onFinishWork(() => new obj, { uniqueTag: symbol });
+}
+
 /** Get a new, indepedent database connection.
 */
 export function __getNewConnection(): WHDBConnection {
