@@ -83,11 +83,36 @@ OBJECT FUNCTION ExecuteRouter(INTEGER fileid, RECORD redirectinfo, BOOLEAN servi
   RETURN pageobject;
 }
 
+INTEGER debugstream, savestream := -1;
+
+PUBLIC MACRO StartPageDebugLog()
+{
+  IF(savestream != -1)
+    THROW NEW Exception(`Duplicate StartPageDebugLog call`);
+
+  debugstream := CreateStream();
+  savestream := RedirectOutputTo(debugstream);
+}
+PUBLIC BLOB FUNCTION FinishPageDebugLog()
+{
+  IF(debugstream = 0) //too bad, nothing was recorded
+    RETURN DEFAULT BLOB;
+
+  BLOB result := MakeBlobFromStream(debugstream);
+  RedirectOutputTo(savestream);
+  debugstream := 0;
+  savestream := -1;
+
+  RETURN result;
+}
+
 PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER contentobjectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   OBJECT pageobject;
   MACRO PTR pagemacro;
   BOOLEAN isjsonrpc := IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),";")[0] = "application/json";
+
+  StartPageDebugLog();
 
   INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(redirectinfo.webpageobjectname ?? redirectinfo.startmacro,'#')[0]) INTO __pageinfo; //FIXME we have Resolve, don't use pagefolder, deprecate it!
   IF(redirectinfo.routerfunction != "")
@@ -187,16 +212,19 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
 
   IF(ObjectExists(pageobject) AND NOT MemberExists(pageobject, "__is_newstyle_pagebase"))
   {
+    FinishPageDebugLog(); //TODO but where to send it ?
     pageobject->RunPageForWHFSId(fileid);
     RETURN pageobject;
   }
   ELSE IF(pagemacro != DEFAULT MACRO PTR)
   {
+    FinishPageDebugLog(); //TODO but where to send it ?
     pagemacro();
     RETURN DEFAULT OBJECT;
   }
   ELSE IF (CellExists(__pageinfo, "webdesign") AND ObjectExists(__pageinfo.webdesign))
   {
+    __pageinfo.webdesign->__finaldebuglog := FinishPageDebugLog();
     __pageinfo.webdesign->RunPage();
     RETURN pageobject;
   }
@@ -204,6 +232,7 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
   {
     // Possibly a prepublished page, just run it
     OBJECT webdesign := GetWebDesign(fileid);
+    webdesign->__finaldebuglog := FinishPageDebugLog();
     webdesign->RunPage();
     RETURN DEFAULT OBJECT;
   }

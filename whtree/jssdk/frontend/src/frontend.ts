@@ -1,4 +1,17 @@
+import { onDomReady } from "@webhare/dompack";
 import "./reset.css";
 export { frontendConfig } from "@webhare/env/src/frontend-config";
 export { startSSOLogin } from "./auth";
 export { navigateTo, NavigateInstruction } from "./navigation";
+
+function postRenderChecks() {
+  const log = document.getElementById("wh-console-log");
+  if (log) {
+    const logtext = atob(log.textContent || "");
+    console.group("[etr] Server-side debug output");
+    console.log(logtext);
+    console.groupEnd();
+  }
+}
+
+onDomReady(postRenderChecks);

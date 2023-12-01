@@ -1138,8 +1138,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       Print(`<script type="application/x-hson" id="wh-consiliofields">${EncodeHSON(this->consiliofields)}</script>`);
     }
 
-    IF (IsRequest() AND IsWHDebugOptionSet("win"))
-      PrintInvokedWitties();
+    IF (IsRequest())
+    {
+      IF(IsWHDebugOptionSet("win"))
+        PrintInvokedWitties();
+      IF((IsWHDebugOptionSet("etr") OR IsDebugTagEnabled("etr")) AND Length(this->__finaldebuglog) > 0)
+        Print(`\n<script type="application/x-console-log" id="wh-console-log">${EncodeBase64(BlobToString(this->__finaldebuglog))}</script>\n`);
+    }
 
     this->DoInserts("body-devbottom"); //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
   }

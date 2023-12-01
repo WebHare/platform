@@ -115,6 +115,9 @@ PUBLIC STATIC OBJECTTYPE WebContext
   PUBLIC STRING languagecode;
   ///The country code for the language (eg 'GB', 'US'), uppercase, if set.
   PUBLIC STRING languagecountry;
+  ///Completed debug log (if any)
+  PUBLIC BLOB __finaldebuglog;
+
   /// The object we've navigated to. The same as the targetobject unless this is an A/B test
   PUBLIC PROPERTY navigationobject(pvt_navigationobject, -);
   /// The object being published/displayed
