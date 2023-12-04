@@ -5,7 +5,7 @@
 */
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, KeysToSnakeCase, KeysToCamelCase, toSnakeCase, toCamelCase } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase } from "@webhare/hscompat";
 import { compare, lowerBound, upperBound } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -474,14 +474,17 @@ function testOmitHareScriptDefaultValues() {
 }
 
 function testCaseChanging() {
-  test.typeAssert<test.Equals<{ message_text: string }, KeysToSnakeCase<{ messageText: string }>>>();
-  test.typeAssert<test.Equals<{ _a_b_c: string }, KeysToSnakeCase<{ ABC: string }>>>();
-  test.typeAssert<test.Equals<{ messageText: string }, KeysToCamelCase<{ message_text: string }>>>();
+
+  test.typeAssert<test.Equals<{ message_text: string }, ToSnakeCase<{ messageText: string }>>>();
+  test.typeAssert<test.Equals<{ a_b: { c_d: string } }, ToSnakeCase<{ aB: { cD: string } }>>>();
+  test.typeAssert<test.Equals<{ _a_b_c: string }, ToSnakeCase<{ ABC: string }>>>();
+  test.typeAssert<test.Equals<{ messageText: string }, ToCamelCase<{ message_text: string }>>>();
+  test.typeAssert<test.Equals<{ aB: { cD: string } }, ToCamelCase<{ a_b: { c_d: string } }>>>();
 
   test.eq({ message_text: "test" }, toSnakeCase({ messageText: "test" }));
-  test.eq([{ message_text: "abc" }, { message_text: "test" }], toSnakeCase([{ messageText: "abc" }, { messageText: "test" }]));
+  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test" }] }, toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test" }] }));
   test.eq({ messageText: "test" }, toCamelCase({ message_text: "test" }));
-  test.eq([{}, { messageText: "test" }], toCamelCase([{}, { message_text: "test" }]));
+  test.eq({ deepArray: [{}, { messageText: "test" }] }, toCamelCase({ deep_array: [{}, { message_text: "test" }] }));
 }
 
 test.run([
