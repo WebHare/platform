@@ -131,7 +131,7 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
         this->verified_address := newaddr;
 
         IF (also_report_ok)
-          this->RunMessageBox("wrd:commondialogs.addressverify_ok");
+          this->owner->RunMessageBox("wrd:commondialogs.addressverify_ok");
         RETURN TRUE;
       }
       CASE "incomplete"
