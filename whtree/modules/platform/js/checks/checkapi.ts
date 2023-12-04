@@ -1,5 +1,5 @@
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
-import { KeysToSnakeCase, toSnakeCase } from "@webhare/hscompat";
+import { ToSnakeCase, toSnakeCase } from "@webhare/hscompat";
 import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { resolveResource } from "@webhare/services/src/resources";
 
@@ -23,7 +23,7 @@ export interface CheckResult {
 
 export type CheckFunction = () => CheckResult[] | Promise<CheckResult[]>;
 
-type HS_CheckResult = KeysToSnakeCase<CheckResult>;
+type HS_CheckResult = ToSnakeCase<CheckResult>;
 
 export async function runIntervalChecks(): Promise<HS_CheckResult[]> {
   //Gather modules
