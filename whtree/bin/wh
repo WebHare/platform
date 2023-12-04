@@ -4,12 +4,9 @@ source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 REQUIRENPMVERSION="7.13.0"
 DEBUGSTARTUP=""
 
-export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
-
 if [ "$WEBHARE_PLATFORM" == "darwin" ]; then #macoS
   export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
 fi
-
 
 if [[ $WEBHARE_DEBUG =~ ((^|[,])startup([,]|$))+ ]] ; then
   DEBUGSTARTUP=1
@@ -57,6 +54,13 @@ fi
 if [ -f "${WEBHARE_DATAROOT}dbase/translog.whdb" ]; then
   echo "The dbserver is no longer suppported by WebHare 5.0 and up. Downgrade and convert first!"
   exit 1
+fi
+
+export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
+if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  export PGHOST="/opt/wh/whtree/currentinstall/pg/"
+else
+  export PGHOST="$WEBHARE_DATAROOT/postgresql/"
 fi
 
 # Oracle's instantclient requires additional libraries we can't ship with WebHare or through npm so we offer an option
@@ -462,7 +466,6 @@ case $INSTR in
     getwhparameters
     setup_webhare_envsettings
     echo "Installation:  $WEBHARE_DIR"
-    echo "Log files:     $LOGFILEPATH"
     echo "Rescue port:   http://127.0.0.1:${WEBHARE_BASEPORT}/"
     echo ""
     echo "Data root:     $WEBHARE_DATAROOT"

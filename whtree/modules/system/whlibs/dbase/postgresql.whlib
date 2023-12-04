@@ -1808,8 +1808,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
 
   // Use GetEnvironmentVariable to we don't need to loadlib the system module
   transinfo := ValidateOptions(
-      [ dbasefolder :=  MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql")
-      , auto :=         TRUE
+      [ auto :=         TRUE
       , user :=         ""
       , passwd :=       ""
       , clientname :=   ""
@@ -1842,9 +1841,6 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
     transresult :=  __PGSQL_CONNECT(
         [ [ name :=   "dbname"
           , value :=  dbasename
-          ]
-        , [ name :=   "host"
-          , value :=  transinfo.dbasefolder
           ]
         , [ name :=   "application_name"
           , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()

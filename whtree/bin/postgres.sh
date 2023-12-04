@@ -14,6 +14,11 @@ fi
 
 mkdir -p "$PSROOT"
 
+if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  mkdir -p /opt/wh/whtree/currentinstall/pg/
+  chown postgres:root /opt/wh/whtree/currentinstall/pg/
+fi
+
 function generateConfigFile()
 {
   echo "include '$WEBHARE_PGCONFIGFILE'"
