@@ -91,6 +91,7 @@ function testMoney() {
   // testAddition()
   testEqMoney("0.5", Money.add("0.50", "0"));
   testEqMoney("119.5", Money.add("119.00", "0.50"));
+  testEqMoney("0.52", Money.add("0.50", "0", "0.02"));
 
   // testMultiplicationAndPercentages()
   testEqMoney("415.5", Money.multiply("138.5", '3'));
