@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -22,18 +23,11 @@ PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
 
 RECORD FUNCTION DoGetCacheableSiteProfiles()
 {
-  RECORD fileinfo := SELECT files.data
-                       FROM system.fs_objects AS files, system.fs_objects AS folders
-                      WHERE ToUppercase(files.name)="COMPILED-SITEPROFILES.BIN"
-                            AND files.parent=folders.id
-                            AND folders.parent = whconstant_whfsid_private
-                            AND folders.name="publisher";
-  IF(NOT RecordExists(fileinfo))
-    THROW NEW Exception("Site profiles not yet available");
+  BLOB data := GetWebhareResource("storage::system/config/siteprofiles.bin");
 
   RETURN
       [ ttl :=          60 * 60 * 1000 // 1 hour
-      , value :=        __HS_MarshalReadFromBlob(fileinfo.data)
+      , value :=        __HS_MarshalReadFromBlob(data)
       , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
       ];
 }
