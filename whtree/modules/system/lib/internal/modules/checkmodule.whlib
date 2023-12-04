@@ -179,8 +179,11 @@ OBJECTTYPE CheckerObject
       FOREVERY (RECORD issue FROM typescriptresult.issues)
       {
         //We can't limit what TSC checks, but we can at least ignore the messages
-        IF(GetNameFromPath(issue.resourcename) NOT LIKE this->options.filemask
-           OR MatchesPathMasks(issue.resourcename, exclusions))
+        IF(GetNameFromPath(issue.resourcename) NOT LIKE this->options.filemask)
+          CONTINUE;
+
+        //Exclusions are relative to the module root, so we need to compare with the module local part (TODO and perhaps we should be dropping anything outside the current module path given the filtering we had to do inside TSC ?)
+        IF(issue.resourcename LIKE `mod::${modname}/*` AND MatchesPathMasks(Substring(issue.resourcename,SearchSubstring(issue.resourcename,'/')+1), exclusions))
           CONTINUE;
 
         this->AddIssue(issue, issue.category);
