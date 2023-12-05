@@ -12,8 +12,7 @@ ENV LC_ALL=C \
   WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
-  JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64/ \
-  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-17-openjdk-amd64/bin
+  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Base image setup
 RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
@@ -53,8 +52,7 @@ ENV LC_ALL=C \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
-  JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64/ \
-  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-17-openjdk-amd64/bin
+  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Expose usual WebHare hostingports
 EXPOSE 13684

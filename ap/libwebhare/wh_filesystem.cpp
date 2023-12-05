@@ -862,6 +862,8 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
             *libname = "wh::" + std::string(libname->begin() + 19, libname->end());
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits" //arm64 has unsigned char
 HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &keeper, std::string const &_liburi) const
 {
         Context context(keeper);
@@ -944,6 +946,7 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
 
         return file;
 }
+#pragma GCC diagnostic pop
 
 bool WHFileSystem::ManualRecompile(std::string const &_liburi, HareScript::ErrorHandler *handler, bool force)
 {
