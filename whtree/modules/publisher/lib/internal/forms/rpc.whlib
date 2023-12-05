@@ -55,10 +55,7 @@ PUBLIC RECORD FUNCTION RPC_FormInvoke(RECORD submitinfo)
 {
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
-  IF(CellExists(submitinfo,'fields')) // older form (pre- WH 5.0)
-    form->__FormSetData(submitinfo.fields);
-  ELSE //ignoring non-existent fields.. might be client/server out of sync but not worth rejecting a submissionover
-    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE, ignorenonexisting := TRUE ]);
+  form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE, ignorenonexisting := TRUE ]);
   RETURN form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
 }
 
