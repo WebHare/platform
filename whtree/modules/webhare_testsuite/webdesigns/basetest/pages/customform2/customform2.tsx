@@ -1,31 +1,24 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import { RPCFormBase, registerHandler, setupValidator } from "@mod-publisher/js/forms";
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
 
 class CustomForm2 extends RPCFormBase {
-  constructor(node) {
+  constructor(node: HTMLFormElement) {
     super(node);
 
     node.textarea.parentNode.appendChild(
-      <button id="rpc_test" type="button" onclick={evt => this.gotClick(evt)}>Run RPC</button>);
+      <button id="rpc_test" type="button" onclick={(evt: MouseEvent) => this.gotClick(evt)}>Run RPC</button>);
   }
 
-  async gotClick(evt) {
+  async gotClick(evt: MouseEvent) {
     evt.stopPropagation();
     evt.preventDefault();
 
-    const retval = await this.invokeRPC("TestRPC");
-
+    const retval = await this.invokeRPC("TestRPC") as { textarea: string };
     this.node.textarea.value = retval.textarea;
   }
 }
 
-registerHandler("webhare_testsuite:customform2", node => new CustomForm2(node));
-
-// Add async validation via setupValidator
-dompack.register(`form[data-wh-form-handler="webhare_testsuite:customform2"] [name=textarea]`, node => setupValidator(node, async () => {
+async function myValidator(node: HTMLInputElement) {
   // make it async and really slow
   await new Promise(resolve => setTimeout(resolve, 250));
 
@@ -33,5 +26,11 @@ dompack.register(`form[data-wh-form-handler="webhare_testsuite:customform2"] [na
     return "RPC not called yet";
   }
 
-  return null;
-}));
+  return "";
+}
+
+registerHandler("webhare_testsuite:customform2", node => new CustomForm2(node));
+
+// Add async validation via setupValidator
+dompack.register<HTMLInputElement>(`form[data-wh-form-handler="webhare_testsuite:customform2"] [name=textarea]`,
+  node => setupValidator(node, myValidator));
