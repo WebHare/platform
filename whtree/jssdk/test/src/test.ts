@@ -15,6 +15,8 @@ export {
   RevEquals,
   Assignable,
   Extends,
+  RecursiveOrRegExp,
+  RecursivePartialOrRegExp,
   typeAssert,
 } from './checks';
 

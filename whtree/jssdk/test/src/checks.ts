@@ -16,16 +16,19 @@ type LoggingCallback = (...args: unknown[]) => void;
 
 // Disallows type inferences when a parameter type is wrapped with this type. From: https://github.com/Microsoft/TypeScript/issues/14829#issuecomment-504042546
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type NoInfer<T> = [T][T extends any ? 0 : never];
+export type NoInfer<T> = [T][T extends any ? 0 : never];
 
 type PrimitiveType = Money | Date | RegExp;
 
-/** Recursively apply `Partial<>`  on records in a type but also allow Regexps to match strings
+/** Recursively apply `Partial<>` on records in a type but also allow Regexps to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-type RecursivePartialOrRegexp<T> = T extends Array<infer U> ? Array<RecursivePartialOrRegexp<U>> : T extends string ? T | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]?: RecursivePartialOrRegexp<T[K]> } : T;
+export type RecursivePartialOrRegExp<T> = T extends Array<infer U> ? Array<RecursivePartialOrRegExp<U>> : T extends string ? T | `${T}` | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]?: RecursivePartialOrRegExp<T[K]> } : T;
 
-type RecursiveOrRegexp<T> = T extends Array<infer U> ? Array<RecursiveOrRegexp<U>> : T extends string ? (string & T & { __?: false }) | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]: RecursiveOrRegexp<T[K]> } : T;
+/** Recursively allow Regexps to match strings. Also allow the string values for string enums.
+ * @typeParam T - Type to convert
+*/
+export type RecursiveOrRegExp<T> = T extends Array<infer U> ? Array<RecursiveOrRegExp<U>> : T extends string ? T | `${T}` | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]: RecursiveOrRegExp<T[K]> } : T;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
@@ -180,8 +183,13 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
     const actualkeys = Object.keys(actual);
 
     for (const key of expectedkeys) {
-      if (!actualkeys.includes(key))
+      if (!actualkeys.includes(key)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((expected as any)[key] === undefined) // allow undefined to function as missing-property indicator too
+          continue;
+
         throw new Error("Expected key: " + key + ", didn't actually exist" + (path != "" ? " at " + path : ""));
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       testDeepEq((expected as any)[key], (actual as any)[key] as any, path + "." + key);
@@ -226,7 +234,7 @@ function toTestableString(val: unknown): string {
  * @param actual - The actual value
  * @throws If the values are not equal
  */
-export function eq<T>(expected: NoInfer<RecursiveOrRegexp<T>>, actual: T, annotation?: Annotation): void {
+export function eq<T>(expected: NoInfer<RecursiveOrRegExp<T>>, actual: T, annotation?: Annotation): void {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
@@ -365,14 +373,20 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
  *  @param actual - Actual value
  *  @param ignore - List of properties to ignore
  *  @param annotation - Message to display when the test fails */
-export function eqProps<T>(expect: NoInfer<RecursivePartialOrRegexp<T>>, actual: T, ignore: string[] = [], annotation?: Annotation) {
+export function eqProps<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, ignore: string[] = [], annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", ignore, annotation);
   return actual;
 }
 
-function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegexp<T>>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
   switch (typeof expect) {
-    case "undefined": return;
+    case "undefined": {
+      if (expect !== actual) {
+        onLog({ expect, actual });
+        throw Error(`Mismatched value at ${path}`);
+      }
+      return;
+    }
     case "object":
       {
         if (isDate(expect) || isDate(actual) || Money.isMoney(expect) || Money.isMoney(actual)) {
@@ -427,6 +441,9 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegexp<T>>, actual:
             continue;
 
           if (!gotkeys.includes(key)) {
+            // allow undefined to match a missing property
+            if (value === undefined)
+              continue;
             onLog({ expect, actual });
             throw Error(`Expected property '${key}', didn't find it, at ${path}`);
           }
