@@ -54,6 +54,27 @@ async function testChecks() {
   ///@ts-expect-error - TS will also complain about the promise
   test.throws(/cannot.*assert.*promise/, () => test.assert(Promise.resolve(true)));
 
+  // test that 'undefined' is also matches missing cells
+  {
+    const myVar: { a: number; b?: string } = { a: 6, b: "2" };
+    const myVarNoB: { a: number; b?: string } = { a: 6 };
+
+    test.eqProps({ a: 6 }, myVarNoB);
+    test.eqProps({ a: 6, b: undefined }, myVarNoB);
+    test.throws(/^Expected property 'b', didn't find it, at root$/, () => test.eqProps({ a: 6, b: "2" }, myVarNoB), "b is missing, so a value should not match it");
+
+    test.eq({ a: 6 }, myVarNoB);
+    test.eq({ a: 6, b: undefined }, myVarNoB);
+
+    test.eqProps({ a: 6 }, myVar);
+    test.eqProps({ a: 6, b: "2" }, myVar);
+    test.throws(/Mismatched value at root.b/, () => test.eqProps({ a: 6, b: undefined }, myVar), "b is present and defined, so undefined should not match it");
+
+    test.throws(/^Key unexpectedly exists: b$/, () => test.eq({ a: 6 }, myVar), "b is present so should be marked as extra property");
+    test.throws(/^Expected type: undefined actual type: string at .b$/, () => test.eq({ a: 6, b: undefined }, myVar), "b is set and not undefined, so should be treated as mismatch");
+    test.eq({ a: 6, b: "2" }, myVar);
+  }
+
   {
 
     const v_ts = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`);

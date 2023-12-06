@@ -152,10 +152,13 @@ export class Money {
     return new Money(String(value));
   }
 
-  /** Adds two numbers together
+  /** Adds numbers together
   */
-  static add(left: MoneyParameter, right: MoneyParameter): Money {
-    return new Money(finmath.add(Money.parseParameter(left), Money.parseParameter(right)));
+  static add(left: MoneyParameter, ...right: MoneyParameter[]): Money {
+    let sum = Money.parseParameter(left);
+    for (const item of right)
+      sum = finmath.add(sum, Money.parseParameter(item));
+    return new Money(sum);
   }
 
   /** Subtracts a number from another number
