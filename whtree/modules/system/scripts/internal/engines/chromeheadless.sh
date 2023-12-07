@@ -39,17 +39,22 @@ ARGS="--disable-gpu
       --mute-audio
       --user-data-dir=$PROFILEDIR"
 
+
+if [ "`uname`" == "Darwin" ]; then
+  BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+elif [ -x /usr/bin/google-chrome ]; then
+  BROWSER="/usr/bin/google-chrome"
+else
+  BROWSER="/usr/bin/chromium-browser"
+fi
+
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   # http://smarden.org/runit/chpst.8.html - part of runit tools
   # start chrome sa safe user. keep it away from stdin just in case.
   export HOME=/home/chrome
   chown -R chrome:chrome -- "$PROFILEDIR"
-  exec chpst -u chrome:chrome /usr/bin/google-chrome $ARGS "$@" < /dev/null
+  exec chpst -u chrome:chrome "$BROWSER" $ARGS "$@" < /dev/null
 else
   # Starting chrome 'normally'
-  if [ "`uname`" == "Darwin" ]; then
-    exec "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" $ARGS "$@"
-  else
-    exec "/usr/bin/google-chrome" $ARGS "$@"
-  fi
+  exec "$BROWSER" $ARGS "$@"
 fi

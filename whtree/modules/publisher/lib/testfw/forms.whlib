@@ -7,15 +7,33 @@ LOADLIB "wh::internet/urls.whlib";
 STATIC OBJECTTYPE FormsapiFormTester
 <
   STRING baseurl;
-  OBJECT node;
+  STRING target;
   RECORD formdata;
   OBJECT browser;
 
-  MACRO NEW(OBJECT browser, STRING baseurl, OBJECT node)
+  MACRO NEW(OBJECT browser, STRING baseurl, STRING target)
   {
     this->browser := browser;
     this->baseurl := baseurl;
-    this->node := node;
+    this->target := target;
+  }
+
+  PUBLIC RECORD FUNCTION Invoke(RECORD fields, STRING methodname, VARIANT ARRAY args, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ extrasubmit := DEFAULT RECORD
+                               ], options);
+
+    STRING formservice := ResolveToAbsoluteURL(this->baseurl, "/wh_services/publisher/forms");
+    RECORD formdata := CELL[ vals := (SELECT name := ToLowercase(name), value FROM UnpackRecord(fields))
+                           , this->target
+                           , url := UnpackURL(this->baseurl).urlpath
+                           , methodname
+                           , args
+                           , options.extrasubmit
+                           ];
+
+    RECORD result := this->browser->CallJSONRPC(formservice,"FormInvoke",formdata);
+    RETURN result;
   }
 
   /** Submit the form
@@ -28,10 +46,10 @@ STATIC OBJECTTYPE FormsapiFormTester
                                ], options);
 
     STRING formservice := ResolveToAbsoluteURL(this->baseurl, "/wh_services/publisher/forms");
-    RECORD formdata := [ vals := (SELECT name := ToLowercase(name), value FROM UnpackRecord(fields))
-                       , target := this->node->GetAttribute("data-wh-form-target")
-                       , url := UnpackURL(this->baseurl).urlpath
-                       ];
+    RECORD formdata := CELL[ vals := (SELECT name := ToLowercase(name), value FROM UnpackRecord(fields))
+                           , target := this->target
+                           , url := UnpackURL(this->baseurl).urlpath
+                           ];
 
     IF(RecordExists(options.extrasubmit))
       INSERT CELL extrasubmit := options.extrasubmit INTO formdata;
@@ -47,13 +65,21 @@ STATIC OBJECTTYPE FormsapiFormTester
 */
 PUBLIC OBJECT FUNCTION OpenFormsapiFormTester(OBJECT browser, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ selector := "form[data-wh-form-target]" ], options);
+  options := ValidateOptions([ selector := "form[data-wh-form-target]"
+                             , target := ""
+                             ], options);
 
-  OBJECT ARRAY candidates := browser->document->GetElements(options.selector);
-  IF(Length(candidates)=0)
-    THROW NEW Exception(`No matches for selector '${options.selector}' on ${browser->href}`);
-  IF(Length(candidates)>1)
-    THROW NEW Exception(`Multiple matches (${Length(candidates)}) for selector '${options.selector}' on ${browser->href}`);
+  STRING target := options.target;
+  IF(target = "")
+  {
+    OBJECT ARRAY candidates := browser->document->GetElements(options.selector);
+    IF(Length(candidates)=0)
+      THROW NEW Exception(`No matches for selector '${options.selector}' on ${browser->href}`);
+    IF(Length(candidates)>1)
+      THROW NEW Exception(`Multiple matches (${Length(candidates)}) for selector '${options.selector}' on ${browser->href}`);
 
-  RETURN NEW FormsapiFormTester(browser, browser->href, candidates[0]);
+    target := candidates[0]->GetAttribute("data-wh-form-target");
+  }
+
+  RETURN NEW FormsapiFormTester(browser, browser->href, target);
 }

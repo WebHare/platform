@@ -10,6 +10,12 @@
 GETFILE=opensearch-2.6.0-linux-x64.tar.gz
 DLPATH=/tmp/downloads/$GETFILE
 
+if [ "$(uname -m)" == "aarch64" ]; then
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+else
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+fi
+
 if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
   rm -f $DLPATH
   echo "Download failed"

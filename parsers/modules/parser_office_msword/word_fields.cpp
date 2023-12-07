@@ -224,6 +224,8 @@ std::string GetParam(std::string const &fielddata,unsigned num)
 
 } //end anonymous namespace
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits" //arm64 has unsigned char
 std::string FixupWordLink(std::string const &linktodata)
 {
         if(linktodata.size()>2 && linktodata[0]=='\\' && linktodata[1]=='\\') //UNC paths?
@@ -250,6 +252,7 @@ std::string FixupWordLink(std::string const &linktodata)
         }
         return linkto;
 }
+#pragma GCC diagnostic pop
 
 FieldsManager::FieldsManager(BiffDoc &parentdoc)
 : doc(parentdoc)

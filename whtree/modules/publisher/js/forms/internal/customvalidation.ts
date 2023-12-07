@@ -78,7 +78,7 @@ export function setFieldError(field: Element, error: string, options?: Partial<F
   console.error(`Field is not a valid target for setting errors`, field);
 }
 
-export function setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<string> | string) {
+export function setupValidator<NodeType extends HTMLElement>(node: NodeType, checker: (node: NodeType) => Promise<string> | string) {
   const check = async () => {
     let error = checker(node);
 

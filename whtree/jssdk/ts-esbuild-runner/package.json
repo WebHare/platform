@@ -10,7 +10,6 @@
   "author": "WebHare bv",
   "license": "MIT",
   "dependencies": {
-    "@webhare/env": "file:../env",
     "esbuild": "^0.17.6"
   }
 }

@@ -150,5 +150,13 @@ make install
 cd /opt
 git clone https://github.com/emscripten-core/emsdk.git
 cd /opt/emsdk
-./emsdk install "3.1.44"
-./emsdk activate "3.1.44"
+
+if [ "$(uname -m)" == "aarch64" ]; then
+  # not all releases are available for arm64: https://github.com/emscripten-core/emsdk/issues/547
+  EMSDKVERSION=latest-arm64-linux
+else
+  EMSDKVERSION=3.1.44
+fi
+
+./emsdk install "$EMSDKVERSION"
+./emsdk activate "$EMSDKVERSION"
