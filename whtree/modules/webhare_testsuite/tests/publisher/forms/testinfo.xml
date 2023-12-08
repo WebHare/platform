@@ -1,28 +1,28 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="forms" ignoremasks="lib data">
-  <test script="testformrpc.whscr"/>
-  <test script="testformfile.whscr"/>
-  <test script="testformfile_lowlevel.whscr"/>
-  <test script="testformfile_conditions.whscr"/>
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="lib data" tags="forms">
+  <test script="testformrpc.whscr" />
+  <test script="testformfile.whscr" />
+  <test script="testformfile_lowlevel.whscr" />
+  <test script="testformfile_conditions.whscr" />
   <test script="testformfile-aswidget.whscr" />
-  <test script="testformfile-pagetitles-infotexts.whscr"/>
+  <test script="testformfile-pagetitles-infotexts.whscr" />
   <test script="testformapi.whscr" />
-  <test script="testformcustomfile2.whscr"/>
-  <test script="testformcustomformdeffile.whscr"/>
-  <test script="testformfile-mailoptions.whscr"/>
-  <test script="testformfile-formeditapp.whscr"/>
+  <test script="testformcustomfile2.whscr" />
+  <test script="testformcustomformdeffile.whscr" />
+  <test script="testformfile-mailoptions.whscr" />
+  <test script="testformfile-formeditapp.whscr" />
   <jstest name="testcore-plaincomponents" file="testcore.ts">
-    <arg value="plaincomponents"/>
+    <arg value="plaincomponents" />
   </jstest>
   <jstest name="testcore-replacedcomponents" file="testcore.ts">
-    <arg value="replacedcomponents"/>
+    <arg value="replacedcomponents" />
   </jstest>
   <jstest file="testvalidation.ts" />
   <jstest file="testvalidation-delay.ts" />
   <jstest name="testconditionalfields-plaincomponents" file="testconditionalfields.ts">
-    <arg value="plaincomponents"/>
+    <arg value="plaincomponents" />
   </jstest>
   <jstest name="testconditionalfields-replacedcomponents" file="testconditionalfields.ts">
-    <arg value="replacedcomponents"/>
+    <arg value="replacedcomponents" />
   </jstest>
   <jstest file="testmultipage.ts" />
   <jstest file="testdynamic.ts" />
@@ -38,11 +38,12 @@
   <jstest file="testformfile-custom-online.ts" />
   <jstest file="testformfile-conditions.ts" />
   <jstest file="testformfile-captcha.ts" />
+  <jstest file="testformfile-datalayer.ts" />
   <jstest file="testredirect.ts" />
   <jstest file="testarrays.ts" />
-  <test script="testmailconfirmation.whscr"/>
+  <test script="testmailconfirmation.whscr" />
   <jstest file="testmailconfirmation-online.ts" />
-  <test script="testformfile-editconditions.whscr"/>
+  <test script="testformfile-editconditions.whscr" />
   <jstest file="testvisibleconditions.ts" />
   <jstest file="testformfile-webtoolformhook-rpc.ts" />
 </group>

@@ -315,6 +315,14 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
 
     IF (IsRequest() AND GetFormWebVariable("sethiddenfield") = "harescript")
       ^hidden->value := "value-harescript";
+
+    IF (IsRequest() AND GetFormWebVariable("addgtmdatalayer") != "")
+    {
+      INSERT CELL "gtm-submit" := EncodeJSON([ form := GetFormWebVariable("addgtmdatalayer") ]) INTO this->formdataset;
+      ^checkboxes->options[2].dataset := [ "gtm-tag" := "Checkbox custom datalayer title" ];
+      ^radiotest->options[2].dataset := [ "gtm-tag" := "Radio custom datalayer title" ];
+      ^pulldowntest->options[5].dataset := [ "gtm-tag" := "Option custom datalayer title" ];
+    }
   }
 
   UPDATE PUBLIC MACRO PrepareForFrontend()

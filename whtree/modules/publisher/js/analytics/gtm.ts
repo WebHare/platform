@@ -144,7 +144,7 @@ function collectFormValues(formnode: HTMLFormElement): DataLayerVars {
 
     for (const node of checkboxes.filter(cbox => cbox.checked)) {
       const keyname = 'form_' + multifield.name + (idx ? '_' + idx : '');
-      let labelsfornode = dompack.qSA(`label[for="${CSS.escape(node.id)}"]`).map(labelnode => labelnode.textContent).filter(labelnode => Boolean(labelnode)).join(' ');
+      let labelsfornode = node.dataset.gtmTag || dompack.qSA(`label[for="${CSS.escape(node.id)}"]`).map(labelnode => labelnode.textContent).filter(labelnode => Boolean(labelnode)).join(' ');
       labelsfornode = labelsfornode.trim(); //TODO normalize whitespace
       outdata[keyname] = node.value;
       outdata[keyname + '_label'] = labelsfornode;
