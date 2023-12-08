@@ -81,7 +81,7 @@
                     onrowedit="doaddunit"
                     onrowdelete="dodeleteunit"
                     emptytid=".allunits"
-                    rowkeydebugtype="wrd:entity">
+                    rowkeytype="entityid">
             <column name="title" type="text" tid="~title" />
           </listedit>
           <select tid=".targetlang" composition="newsitem" cellname="target_language" type="pulldown" rowkeytype="integer" required="false">

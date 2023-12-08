@@ -68,22 +68,19 @@ PUBLIC STRING ARRAY FUNCTION GetComponentNames(OBJECT ARRAY comps)
 
 PUBLIC MACRO ExecuteDebugAction(OBJECT screen, RECORD action, VARIANT data)
 {
-  STRING ARRAY acttoks := Tokenize(action.type,':');
-  IF(Length(acttoks)!=2)
-    THROW NEW Exception(`Invalid debug action '${action.type}'`);
-
-  OBJECT modxml := GetModuleDefinitionXML(acttoks[0]);
-  OBJECT tolliumnode := modxml->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","tollium")->Item(0);
-  IF(ObjectExists(tolliumnode))
-    FOREVERY(OBJECT debugactionnode FROM tolliumnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","debugaction")->GetCurrentElements())
+  SWITCH(action.type)
+  {
+    CASE "entityid", "wrd:entity"//wrd:entity is the old name, might still be used in a module or two
     {
-      IF(debugactionnode->GetAttribute("name") = acttoks[1])
-      {
-        STRING torun := MakeAbsoluteResourcePath(GetModuleDefinitionXMLResourceName(acttoks[0]), debugactionnode->GetAttribute("startmacro"));
-        MACRO PTR startmacro := MakeFunctionPtr(torun, 0, [TYPEID(OBJECT), TYPEID(VARIANT)]);
-        startmacro(screen, data);
-        RETURN;
-      }
+      screen->tolliumcontroller->SendApplicationMessage("wrd:browser", [ entityid := data ], DEFAULT RECORD, FALSE);
     }
-  THROW NEW Exception(`Cannot find debug action handler for '${action.type}'`);
+    CASE "fsobjectid"
+    {
+      MakeFunctionPtr("mod::pubolisher/lib/dialogs.whlib#RunFSObjectInspectDialog")(screen, data);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Cannot find debug action handler for '${action.type}'`);
+    }
+  }
 }

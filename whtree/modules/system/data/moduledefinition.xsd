@@ -1058,12 +1058,6 @@
           <xs:attribute name="candownloadflags" type="CheckFlags" />
         </xs:complexType>
       </xs:element>
-      <xs:element name="debugaction" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="name" type="xs:string" use="required" />
-          <xs:attribute name="startmacro" type="xs:string" use="required" />
-        </xs:complexType>
-      </xs:element>
     </xs:sequence>
   </xs:complexType>
 

@@ -37,7 +37,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->SetRowlayout(this->contexts->user->GetRegistryKey("publisher.feedback.feedbackrowlayout", "multirow"));
 
     ^feedback->eventmasks := this->contexts->wrdschema->^feedback->GetEventMasks();
-    ^feedback->debugactions := [[ type := "wrd:entity", cellname := "rowkey" ]];
     ^loglistener->masks := this->contexts->wrdschema->^log->GetEventMasks();
 
     ^feedbackdetails->contents := this->LoadScreen(Resolve("main.xml#feedback"), [ embedded := TRUE ]);

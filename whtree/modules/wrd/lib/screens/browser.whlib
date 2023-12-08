@@ -101,9 +101,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->maintabs->selectedtab := this->browsertab;
 
     this->resultcount->visible := FALSE;
-
-    ^links->debugactions := [[ type := "wrd:entity", cellname := "linkid" ]];
-    ^results_frees->debugactions := [[ type := "wrd:entity", cellname := "id" ]];
   }
 
   RECORD ARRAY FUNCTION ConstructMenuItems(RECORD ARRAY items, OBJECT receivingmenu)

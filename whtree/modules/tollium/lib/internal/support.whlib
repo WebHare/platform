@@ -567,7 +567,7 @@ PUBLIC INTEGER FUNCTION ParseRowKeyType(STRING rowkeytype)
 {
   SWITCH (ToUppercase(rowkeytype))
   {
-    CASE "INTEGER"
+    CASE "INTEGER", "ENTITYID", "FSOBJECTID"
     {
       RETURN TypeID(INTEGER);
     }

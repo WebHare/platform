@@ -20,6 +20,47 @@ function collectFlags(iterable) {
   return flags;
 }
 
+interface DebugAction {
+  type: string;
+  cellname: string; //still hardcoded on the HS side
+}
+
+interface FlatRowMeta {
+  rowkey: unknown;
+}
+
+interface DataColumn {
+  align: string;
+  checkbox: string;
+  checkboxenabledidx: number;
+  checkboxidx: number;
+  checkboxtype: string;
+  collapsedidx: number;
+  dataidx: number;
+  edittype: string;
+  hintidx: number;
+  iconidx: number;
+  iconlink: boolean;
+  linkidx: number;
+  minwidth: number;
+  name: string;
+  overlayidx: number;
+  sort: string;
+  sortable: boolean;
+  sortidx: number;
+  title: string;
+  tree: boolean;
+  type: string;
+  width: string;
+  render: unknown;
+  rowspan: number;
+  colspan: number;
+  x: number;
+  y: number;
+}
+
+type FlatRow = unknown[];
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  LIST                                                                                                                    *
@@ -29,6 +70,10 @@ function collectFlags(iterable) {
 export default class ObjList extends ComponentBase {
   componenttype = "list";
   list: ListView;
+  debugactions: DebugAction[];
+  cols;
+  flatrows: FlatRow[] = [];
+  datacolumns: DataColumn[] = [];
 
   constructor(parentcomp, data) {
     super(parentcomp, data);
@@ -45,13 +90,11 @@ export default class ObjList extends ComponentBase {
 
     this.selectionupdates = 0;
     this.selectionoriginal = null;
-    this.datacolumns = [];
     this.cols = [];
     this.columnwidths = [];
     this.rowlayout = null;
     this.dragrowlayout = null;
     this.borders = null;
-    this.flatrows = [];
     this.footerrows = [];
     this.highlightidx = -1;
     this.emptytext = "";
@@ -100,6 +143,7 @@ export default class ObjList extends ComponentBase {
       }
     });
 
+    console.log(data);
     if (data.colheaders.length) {
       for (let i = 0; i < data.colheaders.length; ++i)
         this.cols.push(
@@ -128,9 +172,9 @@ export default class ObjList extends ComponentBase {
     this.newcontextmenu = data.newcontextmenu;
 
     if (this.selectcontextmenu)
-      this.owner.addComponent(this, data.selectcontextmenu);
+      this.owner.addComponent(this.owner, data.selectcontextmenu);
     if (this.newcontextmenu)
-      this.owner.addComponent(this, data.newcontextmenu);
+      this.owner.addComponent(this.owner, data.newcontextmenu);
 
     let small_left_padding = false;
 
@@ -572,16 +616,26 @@ export default class ObjList extends ComponentBase {
       this.queueMessage("celledit", { rowkey: row[0].rowkey, cellidx: event.detail.cellidx, newvalue: event.detail.newvalue }, false);
     }
   }
-  onMagicMenu(event) {
+
+  private getCellByName(row: FlatRow, cell: string) {
+    if (cell === "rowkey")
+      return (row[0] as FlatRowMeta).rowkey;
+    const datacell = this.datacolumns.findIndex(_ => _.name === cell);
+    return row[datacell + 1] ?? null;
+  }
+
+  onMagicMenu(event: CustomEvent) {
     event.stopPropagation();
     const row = this.list.getRowForNode(event.target);
     if (!row)
       return;
 
-    const actions = [
-      <li onClick={() => this._requestMagicAction('inspectrow', row.rownum)}>Inspect row #{row.rownum}</li>,
-      ...this.debugactions.map((action, idx) => <li onClick={() => this._requestMagicAction('debugaction:' + idx, row.rownum)}>{action.type}</li>)
-    ];
+    const actions: HTMLElement[] = [<li onClick={() => this._requestMagicAction('inspectrow', row.rownum)}>Inspect row #{row.rownum}</li>];
+    for (const [idx, action] of this.debugactions.entries()) {
+      const target = this.getCellByName(this.flatrows[row.rownum], action.cellname);
+      const title = action.type == "entityid" ? `Inspect WRD entity #${target}` : action.type == "fsobjectid" ? `Inspect fsobject #${target}` : action.type;
+      actions.push(<li onClick={() => this._requestMagicAction('debugaction:' + idx, row.rownum)}>{title}</li>);
+    }
     event.detail.submenu.prepend(...actions);
   }
 
@@ -1161,7 +1215,7 @@ export default class ObjList extends ComponentBase {
 
   /** yield selected rows
       @param checkcolidx Column to check. Normally '1' for selection, but can be set to a checkbox column */
-  *getSelectedRows(checkcolidx = 1) {
+  * getSelectedRows(checkcolidx = 1) {
     for (let i = 0; i < this.flatrows.length; ++i)
       if (this.flatrows[i][checkcolidx])
         yield this.flatrows[i];

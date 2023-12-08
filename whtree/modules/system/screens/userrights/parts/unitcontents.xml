@@ -80,7 +80,8 @@
             gid="tolliumapps.userrights.common"
             borders="all"
             emptytid="userrights.empty.usersinunits"
-            flags="isrole canedit candelete canopenas">
+            flags="isrole canedit candelete canopenas"
+            rowkeytype="entityid">
         <acceptdrops ondrop="ontypeddrop">
           <accepttype type="system:role" targetflags="canmanage" sourceflags="candelete" dropeffects="move" />
           <accepttype type="system:user" targetflags="canmanage" sourceflags="candelete" dropeffects="move" />

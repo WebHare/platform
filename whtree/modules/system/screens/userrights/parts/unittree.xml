@@ -60,7 +60,7 @@
             icons="tollium:users/user tollium:users/users tollium:users/mask tollium:actions/search"
             selectcontextmenu="selectcontextmenu"
             selectableflags="canselect"
-            rowkeytype="integer"
+            rowkeytype="entityid"
             borders="all"
             >
 

@@ -47,6 +47,8 @@ PUBLIC OBJECTTYPE StoredListComponentBase
   */
   OBJECT storage;
 
+  STRING rowkeydebugtype;
+
   /** @short Returns the rowkey(s) of the current selected element. Throws if rowkey type is unknown.
       @long For single-select lists, this property returns the rowkey of the current selected row. If no
             row is selected, the default value for the rowkey type is returned (0 for integer rowkeys, ""
@@ -87,7 +89,7 @@ PUBLIC OBJECTTYPE StoredListComponentBase
   MACRO StaticInitStoredListComponentBase(RECORD def)
   {
     IF (def.rowkeytype != "")
-      this->storage->rowkeytype := ParseRowKeyType(def.rowkeytype);
+      this->SetRowkeyType(def.rowkeytype);
   }
 
   VARIANT FUNCTION GetValue()
@@ -127,11 +129,23 @@ PUBLIC OBJECTTYPE StoredListComponentBase
     RETURN this->storage->rowkeytype;
   }
 
-  MACRO SetRowkeyType(INTEGER newtype)
+  MACRO SetRowkeyType(VARIANT newtype)
   {
-    this->storage->rowkeytype := newtype;
+    IF(TYPEID(newtype) = TYPEID(INTEGER))
+    {
+      this->storage->rowkeytype := newtype;
+      this->rowkeydebugtype := "";
+    }
+    ELSE IF(TYPEID(newtype) = TYPEID(STRING))
+    {
+      this->rowkeydebugtype := newtype IN ["entityid","fsobjectid"] ? newtype : "";
+      this->storage->rowkeytype := ParseRowKeyType(newtype);
+    }
+    ELSE
+    {
+      THROW NEW Exception(`rowketype should be set as a STRING or a TYPEID (INTEGER)`);
+    }
   }
-
 >;
 
 /** @short List
@@ -466,8 +480,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   PUBLIC PROPERTY acceptdrops(pvt_acceptdrops, SetAcceptDrops);
 
-  PUBLIC STRING rowkeydebugtype;
-
   /** Action called when a row is opened
   */
   PUBLIC PROPERTY openaction(pvt_openaction, SetOpenAction);
@@ -589,7 +601,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->oniconclick := def.oniconclick;
     this->onsortorderchange := def.onsortorderchange;
     this->pvt_acceptdrops := def.acceptdrops;
-    this->rowkeydebugtype := def.rowkeydebugtype;
 
     this->selectevent := def.selectevent;
     this->columnselectmode := def.columnselectmode;
@@ -2243,7 +2254,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   {
     RECORD ARRAY actions;
     IF(this->rowkeydebugtype != "")
-      INSERT [[ type := "wrd:entity", cellname := "rowkey" ]] INTO actions AT END;
+      INSERT [[ type := this->rowkeydebugtype, cellname := "rowkey" ]] INTO actions AT END;
     RETURN actions CONCAT this->debugactions;
   }
 

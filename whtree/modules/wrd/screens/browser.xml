@@ -171,6 +171,7 @@
                         openaction="editentity"
                         selectcontextmenu="resultscontextmenu"
                         onfocusin="onmainlistfocus"
+                        rowkeytype="entityid"
                         >
                       <style name="notavailable" textcolor="#9a9a9a" />
                   </list>
@@ -202,7 +203,8 @@
                               selectcontextmenu="selection_links"
                               newcontextmenu="noselection_links"
                               openaction="openlink"
-                              onfocusin="onlinksfocus">
+                              onfocusin="onlinksfocus"
+                              rowkeytype="entityid">
                           <column name="creationdate" type="datetime" width="16x" storeutc="true" /><!-- for easy finding of recently added links (for example a game played by a wrd_person) -->
                           <column name="type" type="text" width="1pr" />
                           <column name="col1" type="text" width="1pr" title="" />

@@ -53,6 +53,10 @@
         <item action="editselectnode" disablemode="hidden" />
         <item action="delete" />
       </menu>
+
+      <menu name="resultscontextmenu">
+
+      </menu>
     </menus>
 
     <toolbar>
@@ -115,7 +119,7 @@
         </part>
         <part height="1pr" spacers="top">
           <heading tid=".results"/>
-          <list name="results" />
+          <list name="results" selectcontextmenu="resultscontextmenu" selectmode="single" />
         </part>
       </split>
     </body>
