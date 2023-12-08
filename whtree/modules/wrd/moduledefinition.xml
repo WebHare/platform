@@ -28,7 +28,6 @@
 
   <tollium>
     <components namespace="http://www.webhare.net/xmlns/wrd/components" xmlschema="components.xsd" />
-    <debugaction name="entity" startmacro="lib/internal/debugactions.whlib#DebugWRDEntity" />
   </tollium>
 
   <services>

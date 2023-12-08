@@ -111,7 +111,8 @@
                 selectcontextmenu="selectcontext"
                 selectmode="single"
                 sortascending="false"
-                sortcolumn="wrd_modificationdate">
+                sortcolumn="wrd_modificationdate"
+                rowkeytype="entityid">
             <column name="feedbackid" type="text" width="12x" />
             <column name="status" type="text" width="10x" optiongid="tolliumapps.feedback.types" />
             <column name="wrd_creationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />

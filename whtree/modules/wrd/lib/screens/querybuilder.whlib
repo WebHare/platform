@@ -6,7 +6,7 @@ LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
-
+LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
@@ -536,6 +536,7 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
 
   PUBLIC MACRO RebuildScreens()
   {
+    RECORD ARRAY newmenuitems;
     IF (this->root_node != DEFAULT OBJECT)
     {
       // Build list of selects
@@ -545,10 +546,10 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
       ^query->rows := GetQueryRows(this->selectresults, this->root_node);
 
       // Build the results view
-      RECORD ARRAY columns, debugactions;
-      FOREVERY (OBJECT sel FROM this->selectresults)
+      RECORD ARRAY columns;
+      FOREVERY (OBJECT sel FROM this->selectresults) //The sources in the query (of type SelectResult)))
       {
-        INSERT [[ type := "wrd:entity", cellname := sel->rowkey || "_ID" ]] INTO debugactions AT END;
+        newmenuitems := newmenuitems CONCAT sel->menuitems;
         FOREVERY (RECORD selattr FROM sel->selected_attrs)
         {
           RECORD col :=
@@ -576,7 +577,6 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
 
       ^results->rows := DEFAULT RECORD ARRAY;
       ^results->columns := columns;
-      ^results->debugactions := debugactions;
 
       this->frame->flags.havequery := TRUE;
     }
@@ -586,9 +586,15 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
       ^query->rows := DEFAULT RECORD ARRAY;
       ^results->rows := DEFAULT RECORD ARRAY;
       ^results->columns := DEFAULT RECORD ARRAY;
-      ^results->debugactions := RECORD[];
       this->frame->flags.havequery := FALSE;
     }
+
+    ^resultscontextmenu->items := newmenuitems;
+  }
+
+  PUBLIC MACRO OnOpenResultRow(STRING rowkey)
+  {
+    ExecuteDebugAction(this, [type := "entityid"], GetCell(^results->selection, rowkey || "_id"));
   }
 
   /** Returns whether two types can be associated with each other (no reversing and such)
@@ -636,7 +642,7 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
 
       FOREVERY (RECORD normal_attr FROM accs.on_right)
       {
-        OBJECT newobj := NEW SelectResult(wrdtype, this->GetUniqueKey());
+        OBJECT newobj := NEW SelectResultSource(this, wrdtype, this->GetUniqueKey());
         this->AssociateTypes(top, newobj, normal_attr, FALSE);
 
         RECORD newtrace := trace;
@@ -646,7 +652,7 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
       }
       FOREVERY (RECORD reversed_attr FROM accs.on_left)
       {
-        OBJECT newobj := NEW SelectResult(wrdtype, this->GetUniqueKey());
+        OBJECT newobj := NEW SelectResultSource(this, wrdtype, this->GetUniqueKey());
         this->AssociateTypes(top, newobj, reversed_attr, TRUE);
 
         // Ignore links when they are the exact reverse on the parent (and the original was not a reverse attr)
@@ -677,7 +683,7 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
     // If no node is present yet, we may add the new node immediately
     IF (LENGTH(this->selectresults) = 0)
     {
-      OBJECT obj := NEW SelectResult(wrdtype, this->GetUniqueKey());
+      OBJECT obj := NEW SelectResultSource(this, wrdtype, this->GetUniqueKey());
       INSERT obj INTO this->selectresults AT END;
       this->root_node := obj;
       RETURN obj;
@@ -832,24 +838,6 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
           }
         }
       }
-
-    //  ABORT(AnyToString(rows[0], "boxed"));
-    /*
-      FOREVERY (RECORD result FROM results)
-      {
-        RECORD row := [ rowkey := #result ];
-        FOREVERY (OBJECT sel FROM this->selectresults)
-        {
-          RECORD rec := GetCell(result, sel->name);
-
-          FOREVERY (RECORD selattr FROM sel->selected_attrs)
-          {
-            VARIANT value := GetCell(rec, selattr.attr.tag);
-            row := CellInsert(row, sel->rowkey || "_#" || #selattr, ConvertToNiceType(selattr.attr.attributetype, value));
-          }
-        }
-        INSERT row INTO rows AT end;
-      } */
 
       IF (LENGTH(rows) > 100)
       {
@@ -1151,7 +1139,7 @@ PUBLIC OBJECTTYPE EditJoinType EXTEND TolliumScreenBase
 >;
 
 
-OBJECTTYPE SelectResult
+OBJECTTYPE SelectResultSource
 < /// Name of this selectresult
   PUBLIC STRING name;
 
@@ -1199,6 +1187,28 @@ OBJECTTYPE SelectResult
 
   /// Join type (how to couple to the parent, from the parent's perspective!)
   PUBLIC STRING jointype;
+
+  PUBLIC RECORD ARRAY menuitems;
+
+  /////////////////////////////////////////////////////////////////////
+  //
+  // SelectResult
+  //
+  PUBLIC MACRO NEW(OBJECT owner, OBJECT type, STRING rowkey)
+  {
+    this->name := ToLowercase(type->tag) || "_" || rowkey;
+    OBJECT openentity := owner->CreateTolliumComponent("item");
+    openentity->action := owner->CreateTolliumComponent("action");
+    openentity->action->onexecute := PTR owner->OnOpenResultRow(rowkey);
+    openentity->title := "Inspect " || this->name;
+    INSERT [ isdivider := FALSE, menuitem := openentity ] INTO this->menuitems AT END;
+
+    this->wrdtype := type;
+    this->rowkey := rowkey;
+    this->history_mode := "now";
+    this->jointype := "default";
+  }
+
 
   // , BOOLEAN temp_used            // Has this node been included in the query view already?
   // , BOOLEAN has_query_children   // Has this node children (excluding filters) in the query view?
@@ -1281,19 +1291,6 @@ OBJECTTYPE SelectResult
       INSERT child->BuildQueryTree(FALSE) INTO data.subnodes AT END;
 
     RETURN data;
-  }
-
-  /////////////////////////////////////////////////////////////////////
-  //
-  // SelectResult
-  //
-  PUBLIC MACRO NEW(OBJECT type, STRING rowkey)
-  {
-    this->name := type->title || "_" || rowkey;
-    this->wrdtype := type;
-    this->rowkey := rowkey;
-    this->history_mode := "now";
-    this->jointype := "default";
   }
 
 >;

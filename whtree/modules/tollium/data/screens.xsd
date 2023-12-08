@@ -211,12 +211,6 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="DebugTypes">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="wrd:entity" />
-    </xs:restriction>
-  </xs:simpleType>
-
   <xs:simpleType name="SelectMode">
     <xs:restriction base="xs:string">
       <xs:enumeration value="none" />
@@ -4662,11 +4656,6 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="rowkeydebugtype" type="DebugTypes">
-      <xs:annotation>
-        <xs:documentation>Setup a potential inspect/debug action for the rowkey, eg 'wrd:entity' to inspect the entity with that ID</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="rowiconname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
@@ -5321,6 +5310,8 @@ To change a <xs:attribute /> for adding descriptions
           <xs:enumeration value="integer" />
           <xs:enumeration value="integer64" />
           <xs:enumeration value="string" />
+          <xs:enumeration value="entityid" />
+          <xs:enumeration value="fsobjectid" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>

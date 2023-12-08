@@ -31,11 +31,11 @@ ASYNC FUNCTION TestQueryBuilder()
   IF(testfw->debug)
     DumpValue(exprows,'boxed');
 
-  exprows := SELECT * FROM exprows ORDER BY COLUMN "person_1.email address";
+  exprows := SELECT * FROM exprows ORDER BY COLUMN "wrd_person_1.email address";
   TestEq(3, Length(exprows));
-  TestEq("sysop@beta.webhare.net", exprows[2]."person_1.email address");
-  TestEqLike("WEBHARE-AUTHENTICATIONSETTINGS:*", exprows[2]."person_1.user password hash");
-  TestEq([x:=42], DecodeJSON(exprows[2]."person_1.record attribute"));
+  TestEq("sysop@beta.webhare.net", exprows[2]."wrd_person_1.email address");
+  TestEqLike("WEBHARE-AUTHENTICATIONSETTINGS:*", exprows[2]."wrd_person_1.user password hash");
+  TestEq([x:=42], DecodeJSON(exprows[2]."wrd_person_1.record attribute"));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close export
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close querybuilder
