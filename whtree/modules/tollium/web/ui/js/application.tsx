@@ -754,7 +754,7 @@ export class BackendApplication extends ApplicationBase {
     this.queueEventNoLock(actionname, param, synchronous, finalcallback);
   }
 
-  queueEventNoLock(actionname, param, synchronous, callback, skipStateTransfer) {
+  queueEventNoLock(actionname: string, param: unknown, synchronous?: boolean, callback?: () => void, skipStateTransfer?: boolean) {
     if (!this.appcomm)
       console.error("Trying to send event after the application link closed: ", actionname, param);
 
