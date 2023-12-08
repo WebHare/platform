@@ -5,7 +5,7 @@ import { dtapStage } from "@webhare/env";
 let magicmenuactive = false;
 const clicks = new Array<number>();
 
-const ClicksReuqired = 3;
+const ClicksRequired = 3;
 const ClicksWithinMsecs = 1000;
 
 ///Is the magic menu active? (Always on development but we'll still let you play the animation on Dev)
@@ -17,7 +17,7 @@ function onTopbarClick(event: MouseEvent) {
   if (magicmenuactive)
     return;
 
-  clicks.splice(0, clicks.length - (ClicksReuqired - 1)); //Keep last two clicks
+  clicks.splice(0, clicks.length - (ClicksRequired - 1)); //Keep last two clicks
   clicks.push(Date.now()); //and add our click
   if (clicks.length == 3 && (clicks[2] - clicks[0]) < ClicksWithinMsecs) {
     magicmenuactive = true;
