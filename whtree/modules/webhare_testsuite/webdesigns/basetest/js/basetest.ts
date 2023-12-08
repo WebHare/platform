@@ -12,10 +12,10 @@ import * as formrpc from '@mod-publisher/js/forms/rpc';
 import { verifyAddress } from "@webhare/forms";
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
+import { configureGTMFormSubmit } from "@mod-publisher/js/analytics/gtm.ts";
 import * as whintegration from "@mod-system/js/wh/integration";
 
 import '@mod-publisher/js/richcontent/all';
-import '@mod-publisher/js/analytics/gtm';
 import './components';
 import '@mod-webhare_testsuite/data/test/rte-structure.css';
 import '@mod-webhare_testsuite/tests/publisher/contentlibraries/libs/actestpage';

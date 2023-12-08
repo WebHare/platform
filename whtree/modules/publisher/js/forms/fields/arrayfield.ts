@@ -104,6 +104,9 @@ export default class ArrayField {
   }
 
   _onSetValue(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
     // Remove all current rows
     while (this.insertPoint.previousSibling?.classList.contains("wh-form__arrayrow"))
       this._removeRowNode(this.insertPoint.previousSibling);
