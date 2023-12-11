@@ -1,3 +1,4 @@
+import { ServiceClientFactoryFunction } from "@mod-platform/js/nodeservices/nodeservices";
 import { BackendServiceController } from "@webhare/services";
 
 class Controller implements BackendServiceController {
@@ -82,3 +83,5 @@ export async function openDemoService(testdata: string) {
 }
 
 export type { ClusterTestLink };
+
+openDemoService satisfies ServiceClientFactoryFunction;

@@ -110,7 +110,7 @@ definitions:
         additionalProperties: false
         properties:
           clientFactory:
-            description: "Function to create a client for this service"
+            description: "Function to create a client for this service. Must satisfy ServiceClientFactoryFunction"
             type: string
           controllerFactory:
             description: "Function to create a controller for this service which will create the clients. Must satisfy ServiceControllerFactoryFunction"

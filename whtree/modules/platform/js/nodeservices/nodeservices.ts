@@ -5,7 +5,8 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
 
 export type ServiceControllerFactoryFunction = () => Promise<services.BackendServiceController> | services.BackendServiceController;
-export type ServiceClientFactoryFunction = (...args: unknown[]) => Promise<services.BackendServiceController> | services.BackendServiceController;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
+export type ServiceClientFactoryFunction = (...args: any[]) => Promise<object> | object;
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
   const client = await (await resourcetools.loadJSFunction<ServiceClientFactoryFunction>(service.clientFactory))(...args);
