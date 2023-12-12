@@ -29,10 +29,12 @@ export { isSameUploadedBlob } from "./blobs";
 
 // Export kysely helper stuff for use in external modules
 export {
-  sql,
+  sql
+} from "kysely";
+export type {
   ColumnType,
   Generated,
-  GeneratedAlways,
+  GeneratedAlways
 } from "kysely";
 
 // A finish handler is invoked when a transaction is committed or rolled back.

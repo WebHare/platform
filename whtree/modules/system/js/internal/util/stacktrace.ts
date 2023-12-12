@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import Module from "node:module";
 import { StackTraceItem } from "@webhare/js-api-tools";
-export { StackTraceItem };
+export type { StackTraceItem };
 
 /* this api takes over source mapping of an entire stack trace, so getCallerLocation only needs to
    do one source map lookup (accelerating logging for console log)

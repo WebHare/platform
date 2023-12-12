@@ -7,7 +7,7 @@ import addFormats from "ajv-formats";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { Money } from "@webhare/std";
 
-export { LoadTSTypeOptions } from "./testsupport";
+export type { LoadTSTypeOptions } from "./testsupport";
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);

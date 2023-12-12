@@ -1,6 +1,6 @@
 //import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames } from "./types";
 import { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
-export { SchemaTypeDefinition } from "./types";
+export { type SchemaTypeDefinition } from "./types";
 //import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 //import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 //import { WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
