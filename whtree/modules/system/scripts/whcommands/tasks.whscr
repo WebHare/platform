@@ -110,7 +110,7 @@ MACRO ExportTask(STRING ARRAY params)
 MACRO RunTask(STRING ARRAY params)
 {
   RECORD subargs := ParseArguments(params,
-      [ [ name := "taskid", type := "param", required := TRUE ]
+      [ [ name := "taskids", type := "paramlist", required := TRUE ]
       ]);
 
   IF(NOT RecordExists(subargs))
@@ -119,39 +119,40 @@ MACRO RunTask(STRING ARRAY params)
     TerminateScriptWithError("");
   }
 
-  IF(subargs.taskid LIKE "m*")
-  {
-    RECORD taskdata := SELECT *, isephemeral := FALSE, queueid := "db" || Substring(subargs.taskid,1)
-                           FROM system.managedtasks
-                          WHERE id = ToInteger(Substring(subargs.taskid,1),0);
-
-    IF(NOT RecordExists(taskdata))
-      THROW NEW Exception(`No such task '${subargs.taskid}'`);
-
-    RECORD taskinfo := SELECT * FROM GetAllTaskTypeInfo().tasktypes WHERE ephemeral = FALSE AND tasktype = taskdata.tasktype;
-    IF(NOT RecordExists(taskinfo))
-      THROW NEW Exception(`No definition for tasks of type '${taskdata.tasktype}'`);
-    IF (taskinfo.applyerror != "")
-      THROW NEW Exception(`Task type '${taskdata.tasktype}' is not enabled on this installation: ${taskinfo.applyerror}`);
-
-    RECORD executeinfo := GetTaskExecuteInfo(taskdata, taskinfo);
-    SetupFunctionProfiling("system:tasks", "Run managed task " || subargs.taskid);
-    TRY
+  FOREVERY(STRING taskid FROM subargs.taskids)
+    IF(taskid LIKE "m*")
     {
-      RECORD res := ExecuteManagedTask(executeinfo, TRUE);//<-- debug. make option?
-      dumpvalue(res, [ name := "taskresult", format := "tree" ]);
-      RETURN;
+      RECORD taskdata := SELECT *, isephemeral := FALSE, queueid := "db" || Substring(taskid,1)
+                            FROM system.managedtasks
+                            WHERE id = ToInteger(Substring(taskid,1),0);
+
+      IF(NOT RecordExists(taskdata))
+        THROW NEW Exception(`No such task '${taskid}'`);
+
+      RECORD taskinfo := SELECT * FROM GetAllTaskTypeInfo().tasktypes WHERE ephemeral = FALSE AND tasktype = taskdata.tasktype;
+      IF(NOT RecordExists(taskinfo))
+        THROW NEW Exception(`No definition for tasks of type '${taskdata.tasktype}'`);
+      IF (taskinfo.applyerror != "")
+        THROW NEW Exception(`Task type '${taskdata.tasktype}' is not enabled on this installation: ${taskinfo.applyerror}`);
+
+      RECORD executeinfo := GetTaskExecuteInfo(taskdata, taskinfo);
+      SetupFunctionProfiling("system:tasks", "Run managed task " || taskid);
+      TRY
+      {
+        RECORD res := ExecuteManagedTask(executeinfo, TRUE);//<-- debug. make option?
+        dumpvalue(res, [ name := "taskresult", format := "tree" ]);
+      }
+      FINALLY
+      {
+        __DestroyProfiling();
+        ReportFunctionProfile("system:tasks", "Run managed task " || taskid);
+      }
     }
-    FINALLY
+    ELSE
     {
-      ReportFunctionProfile("system:tasks", "Run managed task " || subargs.taskid);
+      THROW NEW Exception(`Task id '${subargs.taskid}' is not a valid task id`);
     }
   }
-  ELSE
-  {
-    THROW NEW Exception(`Task id '${subargs.taskid}' is not a valid task id`);
-  }
-}
 
 MACRO Main()
 {
