@@ -1596,12 +1596,15 @@
           <text tid="watchcount">Kijkers</text>
         </textgroup>
         <textgroup gid="bundleprops">   <!-- tolliumapps.dashboard.assetpackcontrol.bundleprops -->
+          <text tid="aboutmetafile">Upload de metafile bij de esbuild <html:a href="https://esbuild.github.io/analyze/">Bundle Size Analyzer</html:a></text>
           <text tid="bundleprops">Bundeleigenschappen</text>
+          <text tid="downloadmetafile">Download metafile</text>
           <text tid="entrypoint">Beginpunt</text>
           <text tid="environment">Omgeving</text>
           <text tid="errors">Fouten</text>
           <text tid="extrarequires">Aanvullende 'require's</text>
           <text tid="languages">Beschikbare talen</text>
+          <text tid="metafile">Metafile</text>
           <text tid="missingdependencies">Missende afhankelijkheden</text>
           <text tid="outputtag">Uitvoertag</text>
           <text tid="path">Pad</text>

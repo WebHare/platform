@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -8,6 +9,7 @@ LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
@@ -259,13 +261,16 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
   OBJECT assetpackcontrol;
   STRING uuid;
   INTEGER id;
+  RECORD info;
 
   MACRO Init(RECORD data)
   {
     this->assetpackcontrol := data.assetpackcontrol;
     this->uuid := data.uuid;
     this->id := data.id;
+    this->info := DecodeJSONBlob(GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/info.json"), [ allowmissing := TRUE ]);
     ^listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
+    ^aboutmetafile->htmlvalue := this->GetHTMLTid(".aboutmetafile");
 
     IF(this->id != 0)
     {
@@ -277,6 +282,13 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
       ^dev->visible := FALSE;
     }
     this->Reload();
+  }
+
+  MACRO DoDownloadmetafile(OBJECT filereceiver)
+  {
+    BLOB metafile := GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/metafile.json", [ allowmissing := TRUE ]);
+    IF(Length(metafile) > 0)
+      filereceiver->SendFile(metafile, "application/json", "metafile-" || Substitute(this->uuid, ":", "-") || ".json");
   }
 
   MACRO GotEvents(RECORD ARRAY events)
