@@ -33,6 +33,7 @@ function getTestRoots() {
 function findBestStackLocation(stacktrace) {
   const filtered = stacktrace.filter(({ filename }) =>
     !filename.endsWith("/ap.js") &&
+    !filename.endsWith("/ap.mjs") &&
     !filename.endsWith("/testframework.ts") &&
     !filename.endsWith("/testframework-rte.ts") &&
     !filename.endsWith("/checks.ts") &&

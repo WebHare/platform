@@ -17,3 +17,9 @@ backendServices:
 
 selfChecks:
   - checker: tests/system/modules/data/checker.ts#runTestsuiteCheck
+
+assetPacks:
+  basetestjs:
+    entryPoint: webdesigns/basetestjs/frontend/frontend
+    supportedLanguages: [en, nl, ps]
+    module: true

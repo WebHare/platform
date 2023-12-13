@@ -162,6 +162,7 @@ export interface BundleConfig {
   //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
   esbuildsettings: string;
   extrarequires: string[];
+  module: boolean;
 }
 
 export interface Bundle {
@@ -225,6 +226,9 @@ export async function recompile(data: RecompileSettings) {
     minify: !bundle.isdev,
     sourcemap: true,
     outdir,
+    format: bundle.bundleconfig.module ? 'esm' : 'iife',
+    outExtension: bundle.bundleconfig.module ? { ".js": ".mjs" } : {},
+    splitting: bundle.bundleconfig.module,
     entryNames: "ap",
     jsxFactory: 'dompack.jsxcreate',
     jsxFragment: 'dompack.jsxfragment',
@@ -381,6 +385,12 @@ export async function recompile(data: RecompileSettings) {
 
     const apmanifestpath = path.join(esbuild_configuration.outdir, "apmanifest.json");
     fs.writeFileSync(apmanifestpath, JSON.stringify(assetoverview));
+
+    if (bundle.bundleconfig.module) {
+      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.js"), `import("./ap.mjs");`);
+    } else {
+      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.mjs"), `import("./ap.mjs");`);
+    }
   }
 
   const statspath = services.toFSPath("storage::platform/assetpacks/" + bundle.outputtag.replaceAll(":", "/"));
