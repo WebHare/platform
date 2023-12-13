@@ -42,6 +42,7 @@
     <managedtask type="timelimitedtask_js"  taskrunner="tests/system/queues/data/testtasks.ts#timelimitedtaskJS" timeout="300" />
     <managedtask type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
     <managedtask type="doublescheduletask" cluster="testcluster" objectname="lib/internal/tasks.whlib#DoubleScheduleTask" />
+    <managedtask type="doublescheduletask_js" cluster="testcluster" taskrunner="tests/system/queues/data/testtasks.ts#doubleScheduleTaskJS" />
 
     <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask" />
     <ephemeraltask type="nodetask" library="js/task.es" />
