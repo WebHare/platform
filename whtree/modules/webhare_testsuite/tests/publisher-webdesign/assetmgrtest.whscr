@@ -157,9 +157,9 @@ MACRO TestAssetpackManifestModule()
   TestEq([ jslink := "/.ap/webhare_testsuite.basetestjs/ap.mjs", outputtag := "webhare_testsuite:basetestjs", jstype := "module" ], ExtractBundleOutputTag(testfw->browser->document));
 }
 
-RunTestframework([/* PTR PrepTest
+RunTestframework([ PTR PrepTest
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR TestBasics
                  , PTR TestAssetpackManifest
-                 , */PTR TestAssetpackManifestModule
+                 , PTR TestAssetpackManifestModule
                  ]);
