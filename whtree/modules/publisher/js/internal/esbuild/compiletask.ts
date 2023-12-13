@@ -389,7 +389,7 @@ export async function recompile(data: RecompileSettings) {
     if (bundle.bundleconfig.module) {
       fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.js"), `import("./ap.mjs");`);
     } else {
-      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.mjs"), `import("./ap.mjs");`);
+      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.mjs"), `import("./ap.js");`);
     }
   }
 
