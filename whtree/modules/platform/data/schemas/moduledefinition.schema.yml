@@ -160,6 +160,9 @@ definitions:
           webharePolyfills:
             description: "Whether to include WebHare polyfills (defaults to true)"
             type: boolean
+          module:
+            description: "Output an ES module"
+            type: boolean
           afterCompileTask:
             description: "Task to run after compiling the asset pack"
             type: string

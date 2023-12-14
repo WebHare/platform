@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
+LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
@@ -125,16 +126,40 @@ MACRO TestAssetpackManifest()
   TestEq(TRUE, testfw->browser->GotoWebPage(manifesturl));
   RECORD manifest := DecodeJSONBlob(testfw->browser->content);
 
-  dumpvalue(manifest.assets,'boxed');
+  // dumpvalue(manifest.assets,'boxed');
 
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.js.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.js"));
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(testfw->GetTestSite()->webroot));
+  TestEq([ jslink := "/.ap/webhare_testsuite.basetest/ap.js", outputtag := "webhare_testsuite:basetest", jstype := "" ], ExtractBundleOutputTag(testfw->browser->document));
+}
+
+MACRO TestAssetpackManifestModule()
+{
+  //TODO verify a gzip version is available too of the manifest (accept-encoding gzip or something like that)
+  OBJECT testsitejs := OpenSiteByName("webhare_testsuite.testsitejs");
+  STRING manifesturl := ResolvetoAbsoluteURL(testsitejs->webroot, `/.ap/webhare_testsuite.basetestjs/apmanifest.json`);
+  TestEq(TRUE, testfw->browser->GotoWebPage(manifesturl));
+  RECORD manifest := DecodeJSONBlob(testfw->browser->content);
+
+  // dumpvalue(manifest.assets,'boxed');
+
+  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.mjs.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
+  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
+  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.js"));
+  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.mjs"));
+  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(testsitejs->webroot));
+  TestEq([ jslink := "/.ap/webhare_testsuite.basetestjs/ap.mjs", outputtag := "webhare_testsuite:basetestjs", jstype := "module" ], ExtractBundleOutputTag(testfw->browser->document));
 }
 
 RunTestframework([ PTR PrepTest
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR TestBasics
                  , PTR TestAssetpackManifest
+                 , PTR TestAssetpackManifestModule
                  ]);

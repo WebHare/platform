@@ -10,6 +10,7 @@ import * as compileutils from './compileutils';
 import { promisify } from 'util';
 import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
+import { storeDiskFile } from '@webhare/system-tools';
 
 const compressGz = promisify(zlib.gzip);
 
@@ -161,6 +162,7 @@ export interface BundleConfig {
   //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
   esbuildsettings: string;
   extrarequires: string[];
+  module: boolean;
 }
 
 export interface Bundle {
@@ -224,6 +226,9 @@ export async function recompile(data: RecompileSettings) {
     minify: !bundle.isdev,
     sourcemap: true,
     outdir,
+    format: bundle.bundleconfig.module ? 'esm' : 'iife',
+    outExtension: bundle.bundleconfig.module ? { ".js": ".mjs" } : {},
+    splitting: bundle.bundleconfig.module,
     entryNames: "ap",
     jsxFactory: 'dompack.jsxcreate',
     jsxFragment: 'dompack.jsxfragment',
@@ -257,6 +262,7 @@ export async function recompile(data: RecompileSettings) {
       ".jpeg": "file",
       ".jpg": "file"
     },
+    metafile: true,
     // TODO use incremental for even faster builds?  just need to drop the memory usage at some point, and probably avoid/arrange for affinity separate ephemeral tasks. but esbuild is fast enough to juist build a separate build server process...
     //,incremental:true
 
@@ -379,13 +385,18 @@ export async function recompile(data: RecompileSettings) {
 
     const apmanifestpath = path.join(esbuild_configuration.outdir, "apmanifest.json");
     fs.writeFileSync(apmanifestpath, JSON.stringify(assetoverview));
+
+    if (bundle.bundleconfig.module) {
+      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.js"), `import("./ap.mjs");`);
+    } else {
+      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.mjs"), `import("./ap.js");`);
+    }
   }
 
-  // if(buildresult.metafile)
-  // {
-  //   //TODO the inputs have an 'imports' key that might contain further useful dependencies?
-  //   result.fileDependencies = Object.keys(buildresult.metafile.inputs);
-  // }
+  const statspath = services.toFSPath("storage::platform/assetpacks/" + bundle.outputtag.replaceAll(":", "/"));
+  fs.mkdirSync(statspath, { recursive: true });
+  await storeDiskFile(statspath + "/info.json", JSON.stringify(info, null, 2), { overwrite: true });
+  await storeDiskFile(statspath + "/metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
 
   return {
     "name": "compileresult",

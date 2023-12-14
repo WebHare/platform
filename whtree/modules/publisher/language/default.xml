@@ -1597,12 +1597,15 @@
           <text tid="watchcount">Viewers</text>
         </textgroup>
         <textgroup gid="bundleprops">   <!-- tolliumapps.dashboard.assetpackcontrol.bundleprops -->
+          <text tid="aboutmetafile">Submit the metafle to the esbuild <html:a href="https://esbuild.github.io/analyze/">Bundle Size Analyzer</html:a></text>
           <text tid="bundleprops">Bundle properties</text>
+          <text tid="downloadmetafile">Download metafile</text>
           <text tid="entrypoint">Entrypoint</text>
           <text tid="environment">Environment</text>
           <text tid="errors">Errors</text>
           <text tid="extrarequires">Extra 'require's</text>
           <text tid="languages">Available languages</text>
+          <text tid="metafile">Metafile</text>
           <text tid="missingdependencies">Missing dependencies</text>
           <text tid="outputtag">Outputtag</text>
           <text tid="path">Path</text>

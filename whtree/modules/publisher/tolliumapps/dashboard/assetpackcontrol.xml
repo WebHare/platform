@@ -80,6 +80,9 @@
   </screen>
 
   <screen name="bundleprops" width="60x" allowresize="true" footerbuttons="ok cancel" gid=".bundleprops" savestate="size">
+    <actions>
+      <downloadaction name="downloadmetafile" ondownload="dodownloadmetafile" />
+    </actions>
     <compositions>
       <eventlistener name="listener" onevents="gotevents" />
     </compositions>
@@ -92,6 +95,11 @@
           <textedit name="entrypoint" width="1pr" enabled="false" />
           <textedit name="languages" width="1pr" enabled="false" />
           <textedit name="environment" width="1pr" enabled="false" />
+          <heading tid=".metafile" />
+          <lines layout="left">
+            <text name="aboutmetafile" title="" />
+            <button action="downloadmetafile" />
+          </lines>
         </tab>
         <tab tid="~properties">
           <textarea name="stats" width="1pr" height="8x" enabled="false" />

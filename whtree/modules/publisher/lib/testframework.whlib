@@ -101,7 +101,7 @@ PUBLIC RECORD FUNCTION ExtractBundleOutputTag(OBJECT doc)
   TestEq(TRUE, Length(scripts) > 0);
 
   STRING jslink := scripts[0]->GetAttribute("src");
-  TestEq(TRUE, jslink LIKE "/.ap/*/ap.js");
+  TestEqLike("/.ap/*/ap.*js",jslink);
 
   STRING outputtag := Tokenize(jslink,'/')[2];
   INTEGER firstdot := SearchSubstring(outputtag,'.');
@@ -109,6 +109,7 @@ PUBLIC RECORD FUNCTION ExtractBundleOutputTag(OBJECT doc)
 
   RETURN [ outputtag := outputtag
          , jslink := jslink
+         , jstype := scripts[0]->GetAttribute("type")
          ];
 }
 
@@ -131,4 +132,3 @@ PUBLIC MACRO SetupTestModuleToLoadBaseProfile(STRING profile)
      </module>`]);
   TestSiteProfilesNoErrors();
 }
-

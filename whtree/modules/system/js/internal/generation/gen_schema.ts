@@ -12,7 +12,7 @@ async function buildSchema(schema: string) {
       `/* eslint-disable */
 /* This schema was generated from ${sourceres}
 
-To update: wh update-gnerated-files --only schema
+To update: wh update-generated-files --only schema
 */`
   });
 }

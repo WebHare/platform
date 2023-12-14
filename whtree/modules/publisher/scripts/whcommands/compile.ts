@@ -8,11 +8,25 @@
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { Bundle, RecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
 import * as services from "@webhare/services";
+program.name('wh publisher:compile')
+  .option('-v, --verbose', 'verbose log level')
+  .option('--production', 'force production compile')
+  .option('--development', 'force development compile')
+  .argument('<assetpack>', 'Assetpack to compile')
+  .parse();
 
-async function main(bundlename: string, options: { verbose: boolean }) {
+async function main() {
+  const verbose = program.opts().verbose;
+  const bundlename = program.args[0];
 
   const bundle = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetBundle', [bundlename]) as Bundle;
-  console.log(bundle);
+  if (program.opts().development)
+    bundle.isdev = true;
+  if (program.opts().production)
+    bundle.isdev = false;
+
+  if (verbose)
+    console.log(JSON.stringify(bundle, null, 2));
 
   const data: RecompileSettings = {
     bundle: bundle,
@@ -20,11 +34,15 @@ async function main(bundlename: string, options: { verbose: boolean }) {
   };
 
   try {
-    if (options.verbose)
+    if (verbose)
       data.logLevel = "verbose";
 
     const result = await recompile(data);
-    console.log(JSON.stringify(result, null, 2));
+    if (verbose)
+      console.log(JSON.stringify(result, null, 2));
+
+    if (result.haserrors)
+      console.error("There were errors", result.errors);
     process.exit(result.haserrors === false ? 0 : 1);
   } catch (e) {
     console.error(e);
@@ -32,10 +50,4 @@ async function main(bundlename: string, options: { verbose: boolean }) {
   }
 }
 
-program.name('wh publisher:compile')
-  .option('-v, --verbose', 'verbose log level')
-  .argument('<assetpack>', 'Assetpack to compile')
-  .parse();
-
-const verbose = program.opts().verbose;
-main(program.args[0], { verbose });
+main().then(() => { }, (e) => { console.error(e); process.exit(1); });
