@@ -331,8 +331,13 @@ STRING FUNCTION AcceptLink(OBJECT port)
   RETURN retval;
 }
 
-MACRO TestDoubleSchedule()
+MACRO TestDoubleSchedule(STRING engine)
 {
+  IF (engine != "js" AND engine != "hs")
+    THROW NEW Exception(`Invalid engine ${engine}`);
+  STRING doublescheduletask_taskname := engine = "js" ? "webhare_testsuite:doublescheduletask_js" : "webhare_testsuite:doublescheduletask";
+  STRING doublescheduletask_portname := engine = "js" ? "webhare_testsuite:doubleschedule_connectport_js" : "webhare_testsuite:doubleschedule_connectport";
+
   /* Tests double scheduling of tasks that have resolved by restart.
      The tasks increasingly fill the event pipe so the event signalling the
      task table update interferes with the handling of the task finish report by
@@ -341,11 +346,11 @@ MACRO TestDoubleSchedule()
   INTEGER iters := 200;
   testfw->BeginWork();
 
-  OBJECT port := CreateGlobalIPCPort("webhare_testsuite:doubleschedule_connectport");
-  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 1 ]);
-  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 2 ]);
-  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 3 ]);
-  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 4 ]);
+  OBJECT port := CreateGlobalIPCPort(doublescheduletask_portname);
+  ScheduleManagedTask(doublescheduletask_taskname, CELL[ stage := 1, iters, t := 1 ]);
+  ScheduleManagedTask(doublescheduletask_taskname, CELL[ stage := 1, iters, t := 2 ]);
+  ScheduleManagedTask(doublescheduletask_taskname, CELL[ stage := 1, iters, t := 3 ]);
+  ScheduleManagedTask(doublescheduletask_taskname, CELL[ stage := 1, iters, t := 4 ]);
   testfw->CommitWork();
 
   STRING ARRAY messages;
@@ -378,7 +383,8 @@ RunTestframework([ PTR TestEphemeralTasks
                  , PTR TestMarkAsTemporaryFailure("js")
                  , PTR TestNotBeforeTasks("hs")
                  , PTR TestNotBeforeTasks("js")
-                 , PTR TestDoubleSchedule()
+                 , PTR TestDoubleSchedule("hs")
+                 , PTR TestDoubleSchedule("js")
                  ],
                  [ wrdschema := FALSE
                  ]);

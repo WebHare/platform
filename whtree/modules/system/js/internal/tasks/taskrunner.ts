@@ -5,6 +5,7 @@ import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/w
 import bridge from "../whmanager/bridge";
 import { addDuration, pick } from "@webhare/std";
 import { parseTrace } from "@webhare/js-api-tools";
+import { IPCMarshallableData, encodeHSON } from "../whmanager/hsmarshalling";
 
 interface TaskInfo {
   queueid: string;
@@ -18,11 +19,16 @@ const failreschedule = 15 * 60 * 1000;
 const restartdelay = 1000;
 
 
-async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Managedtasks>) {
+async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Managedtasks>, { skipCancelled }: { skipCancelled?: boolean } = {}) {
   if (!isWorkOpen())
     throw new Error("Task did not open work");
 
-  await db<PlatformDB>().updateTable("system.managedtasks").where("id", "=", taskinfo.dbid).set(updates).execute();
+  await db<PlatformDB>()
+    .updateTable("system.managedtasks")
+    .where("id", "=", taskinfo.dbid)
+    .$call(qb => skipCancelled ? qb.where("iscancelled", "=", false) : qb)
+    .set(updates)
+    .execute();
   await commitWork();
 
   broadcast("system:managedtasks.any." + taskinfo.dbid);
@@ -82,6 +88,27 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
           lasterrors: taskresponse.error,
           ...await splitretval(taskresponse.result)
         });
+      } break;
+
+      case "restart": {
+        let nextRetry = new Date;
+        if (taskresponse.when && taskresponse.when.getTime() > nextRetry.getTime())
+          nextRetry = taskresponse.when;
+
+        //do not restart tasks marked as cancelled (which may happen in parallel, especially in CI)
+        const iterations = (await db<PlatformDB>().selectFrom("system.managedtasks").select("iterations").where("id", "=", taskinfo.dbid).executeTakeFirst())?.iterations || 0;
+        await finalizeTaskResult(taskinfo, {
+          nextattempt: nextRetry,
+          iterations: iterations + 1,
+          ...(taskresponse.newData === undefined ? {} : { taskdata: encodeHSON(taskresponse.newData as IPCMarshallableData) }),
+          ...(taskresponse.auxData === undefined ? {} : { auxdata: WebHareBlob.from(encodeHSON(taskresponse.auxData as IPCMarshallableData)) }),
+          lasterrors: "",
+        }, { skipCancelled: true });
+
+        if (taskresponse.newData === undefined)
+          delete taskresponse.newData;
+        if (taskresponse.auxData === undefined)
+          delete taskresponse.auxData;
       } break;
 
       default:

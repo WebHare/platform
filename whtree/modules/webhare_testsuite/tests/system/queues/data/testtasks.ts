@@ -45,3 +45,24 @@ export async function failingTaskJS(req: TaskRequest<{ temporary?: boolean; next
   } else
     return req.resolveByPermanentFailure("Permanent failure", { result: { type: "failed" } });
 }
+
+export async function doubleScheduleTaskJS(req: TaskRequest<{ t: number; iters: number; stage: number }>): Promise<TaskResponse> {
+  const link = bridge.connect("webhare_testsuite:doubleschedule_connectport_js", { global: true });
+  await link.activate();
+  link.send({ msg: `I'm alive ${req.taskdata.t}: stage ${req.taskdata.stage.toString().padStart(6, "0")}` });
+  link.close();
+
+  await beginWork();
+  if (req.taskdata.stage < req.taskdata.iters) {
+    // Sleep a bit after the commit
+    //GetPrimary()->RegisterCommitHandler("", PTR this->GotCommit);
+
+    for (let i = 0; i < req.taskdata.stage; i++) {
+      bridge.sendEvent(`webhare_testsuite:eventpilefiller.${req.taskdata.stage}.${i}`, {});
+    }
+
+    return req.resolveByRestart(new Date(), { newData: { ...req.taskdata, stage: req.taskdata.stage + 1 } });
+  } else {
+    return req.resolveByCompletion({});
+  }
+}

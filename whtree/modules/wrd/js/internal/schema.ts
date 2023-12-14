@@ -540,10 +540,10 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     }
   }
 
-  limit(limit: number | null) {
+  limit(limit: number | null): WRDSingleQueryBuilder<S, T, O> {
     if (limit && limit < 0)
       throw new Error(`Illegal negative query result limit`);
-    this._limit = limit;
+    return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, this._historyMode, limit);
   }
 
   private async executeInternal(): Promise<QueryReturnArrayType<S, T, O>> {

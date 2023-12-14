@@ -25,7 +25,15 @@ interface TaskResponseFailedTemporarily {
   nextretry?: Date | null;
 }
 
-export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskResponseFailed | TaskResponseFailedTemporarily;
+interface TaskResponseRestart {
+  type: "restart";
+  when: Date;
+  newData?: unknown;
+  auxData?: unknown;
+  result: null;
+}
+
+export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskResponseFailed | TaskResponseFailedTemporarily | TaskResponseRestart;
 
 export type TaskFunction = (req: TaskRequest<unknown>) => Promise<TaskResponse>;
 
@@ -52,6 +60,10 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
 
   resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
     return { type: "failedtemporarily", error, result, nextretry: nextRetry ?? null };
+  }
+
+  resolveByRestart(when: Date, { newData, auxData }: { newData?: unknown; auxData?: unknown } = {}): TaskResponse {
+    return { type: "restart", when, newData, auxData, result: null };
   }
 }
 
