@@ -1,5 +1,6 @@
 import { decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
-export { ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase } from "./types";
+export { toSnakeCase, toCamelCase } from "./types";
+export type { ToSnakeCase, ToCamelCase } from "./types";
 export { encodeHSON, decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 export { isLike, isNotLike } from "./strings";
 export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound } from "./algorithms";

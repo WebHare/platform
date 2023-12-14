@@ -1,5 +1,6 @@
 export { describeContentType, openType } from "./contenttypes";
-export { Tag, TagManager, openTagManager } from "./tagmanager";
+export { openTagManager } from "./tagmanager";
+export type { TagManager, Tag } from "./tagmanager";
 export { isValidName } from "./support";
 
 export type { CreateFSObjectMetadata, CreateFileMetadata, CreateFolderMetadata, UpdateFileMetadata, UpdateFolderMetadata, WHFSFile, WHFSFolder, WHFSObject } from "./objects";

@@ -2,7 +2,8 @@ import { onDomReady } from "@webhare/dompack";
 import "./reset.css";
 export { frontendConfig } from "@webhare/env/src/frontend-config";
 export { startSSOLogin } from "./auth";
-export { navigateTo, NavigateInstruction } from "./navigation";
+export { navigateTo } from "./navigation";
+export type { NavigateInstruction } from "./navigation";
 
 function postRenderChecks() {
   const log = document.getElementById("wh-console-log");

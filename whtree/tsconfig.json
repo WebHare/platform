@@ -10,6 +10,7 @@
     "jsx": "react",
     "jsxFactory": "dompack.jsxcreate",
     "jsxFragmentFactory": "dompack.jsxfragment",
+    "isolatedModules": true, //disallow constructs that tsc supports but esbuild wouldn't
     "noEmit": true, //prevent accidental TS Compiler invocations from generating code
     "paths": {
       "dompack": [

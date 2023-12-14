@@ -10,14 +10,15 @@ export {
   setupLogging,
   wait,
   loadTSType,
-  loadJSONSchema,
+  loadJSONSchema, typeAssert
+} from './checks';
+export type {
   Equals,
   RevEquals,
   Assignable,
   Extends,
   RecursiveOrRegExp,
-  RecursivePartialOrRegExp,
-  typeAssert,
+  RecursivePartialOrRegExp
 } from './checks';
 
 export type TestList = Array<string | (() => void | Promise<void>)>;

@@ -20,8 +20,8 @@ import { isMainThread, TransferListItem, workerData } from "node:worker_threads"
 import { formatLogObject, LoggableRecord } from "@webhare/services/src/logmessages";
 import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
 
-export { IPCMessagePacket, IPCLinkType } from "./ipc";
-export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
+export type { IPCMessagePacket, IPCLinkType } from "./ipc";
+export type { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 export { dumpActiveIPCMessagePorts } from "./transport";
 
 const logmessages = envbackend.debugFlags.ipc;

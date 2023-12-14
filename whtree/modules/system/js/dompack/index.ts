@@ -13,11 +13,12 @@ export {
   before, after, replaceWith, remove, prepend, append,
   toggleClass, toggleClasses,
   setStyles,
-  getBaseURI, getRelativeBounds,
-  Rect
+  getBaseURI, getRelativeBounds
 } from './src/tree';
+export type { Rect } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
-export { focus, register, registerMissed, scrollIntoView, TakeFocusEvent } from './src/components';
+export { focus, register, registerMissed, scrollIntoView } from './src/components';
+export type { TakeFocusEvent } from './src/components';
 
 import { debugFlags } from "@webhare/env";
 

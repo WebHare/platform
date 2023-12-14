@@ -8,13 +8,17 @@ import { backendConfig } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
-export { openBackendService, BackendServiceController } from "./backendservice";
-export { backendConfig, WebHareBackendConfiguration } from "./config";
-export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
+export { openBackendService } from "./backendservice";
+export type { BackendServiceController } from "./backendservice";
+export { backendConfig } from "./config";
+export type { WebHareBackendConfiguration } from "./config";
+export { broadcast, subscribe } from "./backendevents";
+export type { BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
-export { TaskFunction, TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
+export { TaskRequest, scheduleTask, scheduleTimedTask } from "./tasks";
+export type { TaskFunction, TaskResponse } from "./tasks";
 export { readRegistryKey } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 
