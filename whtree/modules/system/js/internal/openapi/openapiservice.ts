@@ -60,7 +60,8 @@ export class RestService {
     };
 
     //TODO get rid of unsafe-inline, but where to store our own JS/CSS to initalize openapi?
-    const metapageheaders = { "content-security-policy": "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' https://cdnjs.cloudflare.com; img-src data: 'self' https://cdnjs.cloudflare.com;" };
+    //     looks like swagger itself also needs a bit of inline styling, so adding that
+    const metapageheaders = { "content-security-policy": "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: 'self' https://cdnjs.cloudflare.com;" };
 
     if (relurl == "" || relurl == relurl_swaggerui) { //webpage
       const witty = await loadWittyResource("mod::system/js/internal/openapi/openapi.witty");
