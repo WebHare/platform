@@ -970,14 +970,6 @@ STATIC OBJECTTYPE AssetPackController
     {
       DeleteDiskFile(obsolete_gzippedfile.path);
     }
-
-    // Make sure an ap.css exists in the output directory
-    STRING finalcsspath := MergePath(bundle.outputpath, "ap.css");
-    IF(NOT RecordExists(GetDiskFileProperties(finalcsspath)))
-    {
-      //Create a dummy to suppress 404s. It's usually only tests (adhoc) that manages to create a css-less bundle
-      StoreDiskFile(finalcsspath, StringToBlob("/* The bundle did not generate any CSS */\n"), [ overwrite := TRUE ]);
-    }
   }
 
   /** Mark a bundle as uncompileable (because pre-compile checks failed)
@@ -1035,13 +1027,6 @@ STATIC OBJECTTYPE AssetPackController
     // Convert to asset paths, calculate the event masks
     RECORD rec := this->ProcessDependencies(dependencies);
 
-    RECORD ARRAY generatedassets;
-    IF (NOT haserrors)
-    {
-      this->MoveGeneratedFiles(bundle);
-      generatedassets := this->ListAssetsOnDisk(bundle);
-    }
-
     // Apply the result to the bundles list.
     RECORD compileresult :=
         CELL[ haserrors
@@ -1057,7 +1042,6 @@ STATIC OBJECTTYPE AssetPackController
             , info :=          message.info
             , dependencies :=  rec.dependencies
             , masks :=         rec.masks
-            , generatedassets := generatedassets
             ];
 
     UPDATE this->bundles
@@ -1136,7 +1120,6 @@ STATIC OBJECTTYPE AssetPackController
         , lastcompiletoken := bundle.lastcompiletoken
         , requirecompile :=   bundle.requirecompile
         , dependencies :=     bundle.dependencies
-        , generatedassets :=  bundle.generatedassets
         ];
 
     IF (debug)
@@ -1199,7 +1182,6 @@ STATIC OBJECTTYPE AssetPackController
                  , compilestart :=        DEFAULT DATETIME
                  , dependencies :=        DEFAULT RECORD
                  , cachebreaker :=        GenerateUFS128BitId()
-                 , generatedassets :=     DEFAULT RECORD ARRAY
                  , retries :=             0
                  ]);
 
