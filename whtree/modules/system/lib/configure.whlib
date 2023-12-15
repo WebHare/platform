@@ -248,7 +248,7 @@ PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
   OBJECT service := WaitForPromise(OpenWebHareService("platform:configuration"));
   TRY
   {
-    service->applyConfiguration(options);
+    WaitForPromise(service->applyConfiguration(options));
   }
   FINALLY
   {

@@ -122,7 +122,10 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
       }
       ELSE
       {
-        hit.resolve(msg.msg.result);
+        IF(CellExists(msg.msg,'result'))
+          hit.resolve(msg.msg.result); //No ?…:… here... result may not be boolean
+        ELSE
+          hit.resolve(FALSE);
       }
       RETURN;
     }
