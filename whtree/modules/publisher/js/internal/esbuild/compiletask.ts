@@ -136,7 +136,7 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
 
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
   return {
-    message: error.detail?.formatted ?? error.text,
+    message: error.detail?.formatted as string ?? error.text,
     resource: file,
     line: error.detail?.line ?? error.location?.line ?? 0,
     col: error.detail?.column ?? error.location?.column ?? 0,
@@ -195,7 +195,28 @@ function getPossibleNodeModulePaths(startingpoint: string) {
   return paths;
 }
 
-export async function recompile(data: RecompileSettings) {
+interface CompileResult {
+  bundle: string;
+  haserrors: boolean;
+  errors: string;
+  compiletoken: string;
+  info: {
+    dependencies: {
+      start: number;
+      fileDependencies: string[];
+      missingDependencies: string[];
+    };
+    errors: Array<{
+      message: string;
+      resource: string;
+      line: number;
+      col: number;
+      length: number;
+    }>;
+  };
+}
+
+export async function recompile(data: RecompileSettings): Promise<CompileResult> {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
@@ -306,7 +327,6 @@ export async function recompile(data: RecompileSettings) {
     dependencies: {
       start: start,
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
-      contextDependencies: new Array<string>,
       missingDependencies: new Array<string>
     },
     ///@ts-ignore TS bug already present, see satisfies FIXME above
@@ -347,6 +367,7 @@ export async function recompile(data: RecompileSettings) {
       for (const ext of missingextensions)
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
+
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
@@ -399,17 +420,10 @@ export async function recompile(data: RecompileSettings) {
   await storeDiskFile(statspath + "/metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
 
   return {
-    "name": "compileresult",
-    "bundle": bundle.outputtag,
+    bundle: bundle.outputtag,
     errors: buildresult.errors.map(_ => _.text).join("\n"),
-    stats: buildresult.warnings.map(_ => _.text).join("\n"),
-    // , statsjson:            data.getjsonstats && compileresult.stats ? JSON.stringify(compileresult.stats.toJson()) : ""
-    statsjson: "",
     haserrors: haserrors,
     info: info,
-    assetoverview,
-    compiletoken: data.compiletoken,
-    compiler: "esbuild"
-    // , fullrecompile
+    compiletoken: data.compiletoken
   };
 }

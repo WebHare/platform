@@ -131,7 +131,7 @@ MACRO TestCrashJson()
   //print( GetModuleinstallationroot(mytempmodulename) || "webdesigns/testdesign\n" );
   //DumpValue(ReadDiskDirectory( GetModuleinstallationroot(mytempmodulename) || "webdesigns/testdesign", "*"),'boxed');
   //DumpValue(ReadDiskDirectory( GetModuleinstallationroot(mytempmodulename) || "webdesigns/testdesign/js", "*"),'boxed');
-  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats);
+  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag);
   CheckTestUsedFilePaths(status, 1);
 
   //Now kill the package.json
@@ -155,7 +155,7 @@ MACRO TestRecompileAfterModuleReplace()
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
   RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
-  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats);
+  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag);
 
   CheckTestUsedFilePaths(status, 2);
 
@@ -165,7 +165,7 @@ MACRO TestRecompileAfterModuleReplace()
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
   status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
-  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats || ", resetting Module._pathCache probably didn't reset the path cache correctly");
+  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || ", resetting Module._pathCache probably didn't reset the path cache correctly");
 
   CheckTestUsedFilePaths(status, 1);
 }
