@@ -320,7 +320,6 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
     ^filedependencies->rows := ToRecordArray(status.dependencies.filedependencies, "path");
     ^missingdependencies->rows := ToRecordArray(status.dependencies.missingdependencies,"path");
     ^outputtag->value := status.outputtag;
-    ^stats->value := status.stats;
     ^errors->value := errors;
     ^entrypoint->value := status.entrypoint;
     IF (RecordExists(status.bundleconfig))

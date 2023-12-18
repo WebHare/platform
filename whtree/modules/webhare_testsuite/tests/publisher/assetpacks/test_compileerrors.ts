@@ -32,7 +32,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   JSON.stringify(result); //detect cycles etc;
   if (!result.haserrors) {
     //verify the manifest
-    const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/build/apmanifest.json").toString()) as AssetPackManifest;
+    const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
     if (!entrypoint.endsWith('.scss')) {
       test.assert(manifest.assets.find(file => file.subpath == 'ap.js' && !file.compressed && !file.sourcemap));
@@ -41,7 +41,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
 
     manifest.assets.forEach(file => {
       const subpath = file.subpath;
-      const fullpath = path.join("/tmp/compileerrors-build-test/build/", subpath.toLowerCase());
+      const fullpath = path.join("/tmp/compileerrors-build-test/", subpath.toLowerCase());
       if (!fs.existsSync(fullpath))
         throw new Error(`Missing file ${fullpath}`);
     });
@@ -173,7 +173,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/regressions.scss")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/deeper/deeper.scss")));
 
-    const css = fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css").toString();
+    const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
     const urls = [...css.matchAll(/(url\(.*\))/g)].map(_ => _[1]);
     test.assert(urls.length == 1);
     test.assert(urls[0].startsWith("url("));
@@ -235,7 +235,7 @@ async function testCompileerrors() {
 
     test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/system/js/dompack/browserfix/reset.css")));
 
-    const css = fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css").toString();
+    const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
     test.assert(css.match(/.test2{.*margin-left:1px.*}/));
     test.assert(css.match(/.test3{.*margin-left:2px.*}/));
   }
@@ -254,7 +254,7 @@ async function testCompileerrors() {
     //   became
     //    margin: 0 unset;
 
-    const css = fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css").toString();
+    const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
     test.assert(css.match(/.test1a{.*margin-left:unset.*}/));
     test.assert(css.match(/.test1a{.*padding-left:initial.*}/));
     // Check if numerical values are collapsed properly

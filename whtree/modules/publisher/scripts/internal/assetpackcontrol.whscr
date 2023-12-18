@@ -168,7 +168,6 @@ STATIC OBJECTTYPE AssetPackController
       @cell(boolean) hasstatus Whether a current status is known
       @cell(boolean) iscompiling Whether this bundle is currently compiling
       @cell(boolean) haserrors Whether any errors were returned in the last compilation
-      @cell stats Statistics of last compilation
       @cell errors Errors of last compilation
       @cell info Info about last compilation
       @cell(datetime) lastcompile Time of last compile
@@ -335,12 +334,10 @@ STATIC OBJECTTYPE AssetPackController
     STRING ARRAY defaultmasks := [ "system:npmlinkroot.filechange" ];
 
     RECORD file := this->TranslateDiskPaths(dependencies.filedependencies, defaultmasks, FALSE);
-    RECORD context := this->TranslateDiskPaths(dependencies.contextdependencies, file.masks, FALSE);
-    RECORD missing := this->TranslateDiskPaths(dependencies.missingdependencies, context.masks, TRUE);
+    RECORD missing := this->TranslateDiskPaths(dependencies.missingdependencies, file.masks, TRUE);
 
     dependencies := CELL[ ...dependencies
                         , filedependencies := STRING ARRAY(file.paths)
-                        , contextdependencies := STRING ARRAY(context.paths)
                         , missingdependencies := STRING ARRAY(missing.paths)
                         ];
 
@@ -356,7 +353,6 @@ STATIC OBJECTTYPE AssetPackController
   {
     STRING ARRAY deps :=
           STRING ARRAY(bundle.dependencies.filedependencies) CONCAT
-          STRING ARRAY(bundle.dependencies.contextdependencies) CONCAT
           STRING ARRAY(bundle.dependencies.missingdependencies);
 
     IF (debug)
@@ -432,10 +428,7 @@ STATIC OBJECTTYPE AssetPackController
             , value := modtime * 1000i64
             ];
 
-        IF (file IN bundle.dependencies.contextdependencies)
-          INSERT rec INTO timestamps.dirs AT END;
-        ELSE
-          INSERT rec INTO timestamps.files AT END;
+        INSERT rec INTO timestamps.files AT END;
       }
       ELSE
       {
@@ -619,7 +612,6 @@ STATIC OBJECTTYPE AssetPackController
             , compiletoken := compiletoken
             , bundle :=       bundledata
             , timestamps :=   this->GetTimeStamps(bundle, DEFAULT OBJECT)
-            , getjsonstats := bundle.getjsonstats
             ]]);/*, FIXME what is/was this for? updateinteractive at least seems irrelevant given esbuild's speed?
             [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
             , priority :=             bundle.isdev ? "updateinteractive" : "update"
@@ -919,7 +911,6 @@ STATIC OBJECTTYPE AssetPackController
     deps := deps ??
         [ start :=                GetUnixTimestampMsecs(GetCurrentDatetime())
         , filedependencies :=     DEFAULT STRING ARRAY
-        , contextdependencies :=  DEFAULT STRING ARRAY
         , missingdependencies :=  DEFAULT STRING ARRAY
         ];
 
@@ -979,14 +970,6 @@ STATIC OBJECTTYPE AssetPackController
     {
       DeleteDiskFile(obsolete_gzippedfile.path);
     }
-
-    // Make sure an ap.css exists in the output directory
-    STRING finalcsspath := MergePath(bundle.outputpath, "ap.css");
-    IF(NOT RecordExists(GetDiskFileProperties(finalcsspath)))
-    {
-      //Create a dummy to suppress 404s. It's usually only tests (adhoc) that manages to create a css-less bundle
-      StoreDiskFile(finalcsspath, StringToBlob("/* The bundle did not generate any CSS */\n"), [ overwrite := TRUE ]);
-    }
   }
 
   /** Mark a bundle as uncompileable (because pre-compile checks failed)
@@ -998,14 +981,11 @@ STATIC OBJECTTYPE AssetPackController
         , info :=       [ dependencies :=
                               [ start :=                GetUnixTimestampMsecs(startofcompile)
                               , filedependencies :=     depfiles
-                              , contextdependencies :=  DEFAULT STRING ARRAY
                               , missingdependencies :=  missing
                               ]
                         , errors := DEFAULT RECORD ARRAY
                         , uncompilable := TRUE // trigger for recheck on softreset
                         ]
-        , stats :=      ""
-        , statsjson :=  ""
         , errors :=     error
         , haserrors :=  TRUE
         , compiletoken := this->GetBundleCompiletoken(bundle)
@@ -1047,13 +1027,6 @@ STATIC OBJECTTYPE AssetPackController
     // Convert to asset paths, calculate the event masks
     RECORD rec := this->ProcessDependencies(dependencies);
 
-    RECORD ARRAY generatedassets;
-    IF (NOT haserrors)
-    {
-      this->MoveGeneratedFiles(bundle);
-      generatedassets := this->ListAssetsOnDisk(bundle);
-    }
-
     // Apply the result to the bundles list.
     RECORD compileresult :=
         CELL[ haserrors
@@ -1065,13 +1038,10 @@ STATIC OBJECTTYPE AssetPackController
         CELL[ ...compileresult
             , hasstatus :=     TRUE
             , iscompiling :=   FALSE
-            , stats :=         message.stats
-            , statsjson :=     message.statsjson
             , errors :=        message.errors
             , info :=          message.info
             , dependencies :=  rec.dependencies
             , masks :=         rec.masks
-            , generatedassets := generatedassets
             ];
 
     UPDATE this->bundles
@@ -1144,15 +1114,12 @@ STATIC OBJECTTYPE AssetPackController
     RECORD savedstate :=
         [ hasstatus :=        bundle.hasstatus
         , haserrors :=        bundle.haserrors
-        , stats :=            bundle.stats
-        , statsjson :=        bundle.statsjson
         , errors :=           bundle.errors
         , info :=             bundle.info
         , lastcompile :=      bundle.lastcompile
         , lastcompiletoken := bundle.lastcompiletoken
         , requirecompile :=   bundle.requirecompile
         , dependencies :=     bundle.dependencies
-        , generatedassets :=  bundle.generatedassets
         ];
 
     IF (debug)
@@ -1201,8 +1168,6 @@ STATIC OBJECTTYPE AssetPackController
                  [ hasstatus :=           FALSE
                  , haserrors :=           FALSE
                  , diskpath :=            ""
-                 , stats :=               ""
-                 , statsjson :=           ""
                  , errors :=              ""
                  , info :=                DEFAULT RECORD
                  , iscompiling :=         FALSE
@@ -1217,8 +1182,6 @@ STATIC OBJECTTYPE AssetPackController
                  , compilestart :=        DEFAULT DATETIME
                  , dependencies :=        DEFAULT RECORD
                  , cachebreaker :=        GenerateUFS128BitId()
-                 , getjsonstats :=        FALSE
-                 , generatedassets :=     DEFAULT RECORD ARRAY
                  , retries :=             0
                  ]);
 
@@ -1408,13 +1371,6 @@ STATIC OBJECTTYPE AssetPackController
   PUBLIC MACRO OnInterrupt()
   {
     CancelEventLoop();
-  }
-
-  PUBLIC MACRO SetBundleJSONStats(STRING outputtag, BOOLEAN getstats)
-  {
-    UPDATE this->bundles
-       SET getjsonstats := getstats
-     WHERE COLUMN outputtag LIKE VAR outputtag;
   }
 
   PUBLIC MACRO RecompileBundleByoutputtag(STRING outputtag, BOOLEAN rebuild DEFAULTSTO FALSE)
@@ -1610,11 +1566,6 @@ OBJECTTYPE AssetPackControl
     IF(debug)
       Print("Recompile requested for '" || outputtag || "', rebuild=" || (rebuild?'true':'false')||'\n');
     controller->RecompileBundleByoutputtag(outputtag, rebuild);
-  }
-
-  PUBLIC MACRO SetBundleJSONStats(STRING outputtag, BOOLEAN getstats)
-  {
-    controller->SetBundleJSONStats(outputtag, getstats);
   }
 
   PUBLIC MACRO SetWatched(STRING outputtag, BOOLEAN watched)

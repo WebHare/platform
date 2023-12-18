@@ -102,7 +102,6 @@
           </lines>
         </tab>
         <tab tid="~properties">
-          <textarea name="stats" width="1pr" height="8x" enabled="false" />
           <textarea name="errors" width="1pr" height="8x" enabled="false" />
           <textarea name="extrarequires" width="1pr" height="8x" enabled="false" />
         </tab>

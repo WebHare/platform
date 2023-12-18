@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import * as fs from "fs";
+import { existsSync, promises as fs } from "fs";
 import whSassPlugin from "./plugin-sass";
 import whSourceMapPathsPlugin from "./plugin-sourcemappaths";
 import whTolliumLangPlugin from "@mod-tollium/js/internal/lang";
@@ -29,7 +29,7 @@ export class CaptureLoadPlugin {
   }
   setup(build: esbuild.PluginBuild) {
     build.onLoad({ filter: /./ }, (args: esbuild.OnLoadArgs) => {
-      if (fs.existsSync(args.path))
+      if (existsSync(args.path))
         this.loadcache.add(args.path);
       else if (debugFlags["assetpack"]) //this may happen if a file is blocked through package.json - https://github.com/evanw/esbuild/issues/3459
         console.error(`[assetpack] got a load for nonexisting file ${args.path} - ignoring`);
@@ -64,15 +64,15 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
     }
   });
 
-  build.onResolve({ filter: /^~/ }, args => { // we need to drop all ~s, they're an alternative module reference
+  build.onResolve({ filter: /^~/ }, async args => { // we need to drop all ~s, they're an alternative module reference
     const filepath = args.path.substring(1).split('?')[0].split('#')[0];
     const tryextensions = (args.kind == 'url-token' || args.kind == 'import-rule') ? ['', '.scss', '.sass', '.css'] : [];
     for (const modulepath of getPossibleNodeModulePaths(services.toResourcePath(args.importer)))
       for (const ext of tryextensions) {
         let trypath = path.join(modulepath, filepath) + ext;
 
-        if (fs.existsSync(trypath)) {
-          trypath = fs.realpathSync(trypath);
+        if (existsSync(trypath)) {
+          trypath = await fs.realpath(trypath);
           if (debugFlags["assetpack"])
             console.log(`[assetpack] URL with ~@ should be considered to start with @ (sass passes these through): ${args.path}, resolved to ${trypath}`);
 
@@ -136,7 +136,7 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
 
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
   return {
-    message: error.detail?.formatted ?? error.text,
+    message: error.detail?.formatted as string ?? error.text,
     resource: file,
     line: error.detail?.line ?? error.location?.line ?? 0,
     col: error.detail?.column ?? error.location?.column ?? 0,
@@ -195,7 +195,28 @@ function getPossibleNodeModulePaths(startingpoint: string) {
   return paths;
 }
 
-export async function recompile(data: RecompileSettings) {
+interface CompileResult {
+  bundle: string;
+  haserrors: boolean;
+  errors: string;
+  compiletoken: string;
+  info: {
+    dependencies: {
+      start: number;
+      fileDependencies: string[];
+      missingDependencies: string[];
+    };
+    errors: Array<{
+      message: string;
+      resource: string;
+      line: number;
+      col: number;
+      length: number;
+    }>;
+  };
+}
+
+export async function recompile(data: RecompileSettings): Promise<CompileResult> {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
@@ -306,7 +327,6 @@ export async function recompile(data: RecompileSettings) {
     dependencies: {
       start: start,
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
-      contextDependencies: new Array<string>,
       missingDependencies: new Array<string>
     },
     ///@ts-ignore TS bug already present, see satisfies FIXME above
@@ -348,6 +368,18 @@ export async function recompile(data: RecompileSettings) {
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
 
+  const result: CompileResult = {
+    bundle: bundle.outputtag,
+    errors: buildresult.errors.map(_ => _.text).join("\n"),
+    haserrors: haserrors,
+    info: info,
+    compiletoken: data.compiletoken
+  };
+
+  if (haserrors)
+    return result;
+
+
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
     version: 1,
@@ -358,58 +390,87 @@ export async function recompile(data: RecompileSettings) {
     }>
   };
 
-  //TODO should this be more async-y ? especially with compression..
-  if (buildresult.outputFiles) {
-    try { fs.mkdirSync(esbuild_configuration.outdir); } catch (ignore) { }
+  if (!buildresult.outputFiles)
+    throw new Error(`No errors but no outputfiles either?`);
 
-    for (const file of buildresult.outputFiles) {
-      //write to disk in lowercase because that's how WebHare wants it. but register the original names in the manifest in case it needs to be exported/packaged
-      const subpath = file.path.substr(esbuild_configuration.outdir.length + 1);
-      const diskpath = path.join(esbuild_configuration.outdir, subpath.toLowerCase());
-      fs.writeFileSync(diskpath, file.contents);
+  const finalpack = new Map<string, Uint8Array>();
+
+  const expected_css_path = path.join(outdir, "ap.css");
+  //Ensure ap.css exists in the outputFiles set (we want it to be in the manifest too, so we'll append it there)
+  if (!buildresult.outputFiles.find(_ => _.path == expected_css_path)) {
+    // WebHare will try to load an ap.css so make sure it exists to prevent 404s
+    const csstext = "/* The bundle did not generate any CSS */";
+    buildresult.outputFiles.push({
+      path: expected_css_path,
+      text: csstext,
+      hash: '',//noone will be using it from this point forward anyway
+      contents: Buffer.from(csstext)
+    });
+  }
+
+  for (const file of buildresult.outputFiles) {
+    const subpath = file.path.substring(esbuild_configuration.outdir.length + 1);
+    finalpack.set(subpath, file.contents);
+    assetoverview.assets.push({
+      subpath: subpath,
+      compressed: false,
+      sourcemap: subpath.endsWith(".map")
+    });
+
+    if (!bundle.isdev) {
+      finalpack.set(subpath + '.gz', await compressGz(file.contents));
       assetoverview.assets.push({
-        subpath: subpath,
-        compressed: false,
+        subpath: subpath + '.gz',
+        compressed: true,
         sourcemap: subpath.endsWith(".map")
       });
-
-      if (!bundle.isdev) {
-        fs.writeFileSync(diskpath + '.gz', await compressGz(file.contents, { level: 9 }));
-        assetoverview.assets.push({
-          subpath: subpath + '.gz',
-          compressed: true,
-          sourcemap: subpath.endsWith(".map")
-        });
-      }
     }
+  }
 
-    const apmanifestpath = path.join(esbuild_configuration.outdir, "apmanifest.json");
-    fs.writeFileSync(apmanifestpath, JSON.stringify(assetoverview));
+  //Now prepare the other files which will be in the result dir but not in the manifest
+  finalpack.set("apmanifest.json", Buffer.from(JSON.stringify(assetoverview)));
+  if (bundle.bundleconfig.module) {
+    finalpack.set("ap.js", Buffer.from(`import("./ap.mjs");`));
+  } else {
+    finalpack.set("ap.mjs", Buffer.from(`import("./ap.js");`));
+  }
 
-    if (bundle.bundleconfig.module) {
-      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.js"), `import("./ap.mjs");`);
-    } else {
-      fs.writeFileSync(path.join(esbuild_configuration.outdir, "ap.mjs"), `import("./ap.js");`);
+  //Write all files to disk in a temp location
+  await fs.mkdir(esbuild_configuration.outdir, { recursive: true });
+  for (const [name, filedata] of finalpack.entries()) {
+    await fs.writeFile(path.join(esbuild_configuration.outdir, name), filedata);
+    console.log(`Written ${path.join(esbuild_configuration.outdir, name)}`);
+  }
+
+  //Move them in place. Also fix the casing in this final step
+  const removefiles = new Set<string>();
+  for (const file of await fs.readdir(bundle.outputpath))
+    if (file.toLowerCase() !== file)
+      await fs.unlink(path.join(esbuild_configuration.outdir, file)); //delete mixed case files immediately - it's not safe to wait until the end if the FS is case insensitive
+    else
+      removefiles.add(file); //add to the cleanup list
+
+  for (const [name] of finalpack.entries()) {
+    const outputname = name.toLowerCase();
+    await fs.rename(path.join(esbuild_configuration.outdir, name), path.join(bundle.outputpath, outputname)); //always lowercase on disk (but original case in manifest)
+    removefiles.delete(outputname);
+  }
+
+  const cutoff = Date.now() - 86400 * 1000; //delete files older than one day. but gz files should go away immediately *iff* we're building for dev mode
+  for (const name of removefiles) {
+    const props = await fs.lstat(path.join(bundle.outputpath, name)).catch(_ => null);
+    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && name.endsWith('.gz')))) {
+      if (props?.isDirectory())
+        await fs.rm(path.join(bundle.outputpath, name), { recursive: true });
+      else
+        await fs.unlink(path.join(bundle.outputpath, name));
     }
   }
 
   const statspath = services.toFSPath("storage::platform/assetpacks/" + bundle.outputtag.replaceAll(":", "/"));
-  fs.mkdirSync(statspath, { recursive: true });
+  await fs.mkdir(statspath, { recursive: true });
   await storeDiskFile(statspath + "/info.json", JSON.stringify(info, null, 2), { overwrite: true });
   await storeDiskFile(statspath + "/metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
 
-  return {
-    "name": "compileresult",
-    "bundle": bundle.outputtag,
-    errors: buildresult.errors.map(_ => _.text).join("\n"),
-    stats: buildresult.warnings.map(_ => _.text).join("\n"),
-    // , statsjson:            data.getjsonstats && compileresult.stats ? JSON.stringify(compileresult.stats.toJson()) : ""
-    statsjson: "",
-    haserrors: haserrors,
-    info: info,
-    assetoverview,
-    compiletoken: data.compiletoken,
-    compiler: "esbuild"
-    // , fullrecompile
-  };
+  return result;
 }

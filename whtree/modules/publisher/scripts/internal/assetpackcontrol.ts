@@ -8,7 +8,6 @@ export interface AssetPackControlClient {
   getBundleStatus(uuid: string): Promise<unknown>;
   clearCaches(): Promise<void>;
   recompleBundle(outputtag: string, rebuild: boolean): Promise<void>;
-  setBundleJSONStats(outputtag: string, getstats: boolean): Promise<void>;
   setWatched(outputtag: string, watched: boolean): Promise<void>;
   setFullSourceMap(outputtag: string, fullsourcemap: boolean): Promise<void>;
   reload(): Promise<number>;
