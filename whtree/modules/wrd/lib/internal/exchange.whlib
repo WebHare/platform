@@ -316,7 +316,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
   }
   RECORD FUNCTION AttrsFilter(RECORD inrec)
   {
-    DELETE CELL creationdate, limitdate, confidential, keephistory, ordering, maxlength, maxwidth, required_fields, unique_fields FROM inrec;
+    DELETE CELL creationdate, limitdate, confidential, keephistory, ordering, maxlength, maxwidth, required_fields, unique_fields, typedeclaration FROM inrec;
     RETURN inrec;
   }
 
