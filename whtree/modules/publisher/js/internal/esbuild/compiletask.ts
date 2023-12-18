@@ -403,7 +403,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     buildresult.outputFiles.push({
       path: expected_css_path,
       text: csstext,
-      hash: '',//noone will be using it from this point forward anyweay
+      hash: '',//noone will be using it from this point forward anyway
       contents: Buffer.from(csstext)
     });
   }
@@ -434,8 +434,6 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
   } else {
     finalpack.set("ap.mjs", Buffer.from(`import("./ap.js");`));
   }
-
-  console.log(finalpack.keys());
 
   //Write all files to disk in a temp location
   await fs.mkdir(esbuild_configuration.outdir, { recursive: true });
