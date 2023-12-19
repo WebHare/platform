@@ -1,9 +1,10 @@
-import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode } from "@webhare/router";
+import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode, WebRequest } from "@webhare/router";
 import * as services from "@webhare/services";
 import { WebRequestInfo, WebResponseInfo } from "./types";
 import { StackTrace, parseTrace, } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { RequestID, type JSONRPCErrorResponse } from "@webhare/jsonrpc-client/src/jsonrpc-client";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
 /*
 Status codes
 
@@ -20,6 +21,8 @@ Code                Message                Meaning
 interface WebServiceDefinition {
   service: string;
 }
+
+let currentrequest: WebRequest | undefined;
 
 /** Create a webresponse returning a JSON body
  * @param jsonbody - The JSON body to return
@@ -44,6 +47,13 @@ export class JSONRPCError {
   static readonly MethodNotFound = -32601;
 }
 
+/** Get the request info for the current API call. NOTE we're looking for a cleaner way to invoke JSONRPCs with this context */
+export function getJSONAPICallWebRequest(): WebRequest {
+  if (currentrequest)
+    return currentrequest;
+  throw new Error(`getJSONAPICallWebRequest must be invoked directly upon entry of a JSON/RPC call handler`); //and this is why we need a cleaner approach or just pass it as an arugment
+}
+
 async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponse> {
   let id: RequestID = null;
   try {
@@ -60,7 +70,11 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
     if (!instance[jsonrpcreq.method])
       throw new JSONRPCError(HTTPErrorCode.NotFound, JSONRPCError.MethodNotFound, `Method '${jsonrpcreq.method}' not found`);
 
-    const result = await instance[jsonrpcreq.method](...jsonrpcreq.params);
+    currentrequest = await newWebRequestFromInfo(req); //will be available until the first 'tick'
+    const promise = instance[jsonrpcreq.method](...jsonrpcreq.params);
+    currentrequest = undefined;
+    const result = await promise;
+
     return createJSONResponse(HTTPSuccessCode.Ok, { id, error: null, result });
   } catch (e) {
     if (e instanceof JSONRPCError)

@@ -1,4 +1,4 @@
-import * as env from "@webhare/env";
+import { debugFlags, getDefaultRPCBase } from "@webhare/env";
 import { StackTrace, parseTrace, prependStackTrace } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
@@ -20,6 +20,8 @@ export interface RPCCallOptions {
   /** Wrap result with response info */
   wrapresult?: boolean;
   keepalive?: boolean;
+  /** Headers to submit (Eg Authorization) */
+  headers?: Record<string, string>;
 }
 
 export type RequestID = number | string | null;
@@ -199,11 +201,7 @@ class RPCClient {
   }
 
   get debug() {
-    return this.options.debug || env.flags.rpc;
-  }
-
-  setOptions(options: RPCCallOptions) {
-    this.options = { ...this.options, ...options };
+    return this.options.debug || debugFlags.rpc;
   }
 
   _tryLogError(requestStack: StackTrace, error: Error) {
@@ -219,7 +217,7 @@ class RPCClient {
   //calculate the final URL. delayed here so services can be created on import (getDefaultRPCBase may require waiting for service.ready)
   private getURL() {
     if (this.whservicematch)
-      return `${env.getDefaultRPCBase()}wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}`;
+      return `${getDefaultRPCBase()}wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}`;
     else
       return this.url;
   }
@@ -244,7 +242,8 @@ class RPCClient {
       credentials: 'same-origin', //this is the default since 2017-08-25, but Edge pre-18 is still around and will fail here
       headers: {
         "Accept": "application/json",
-        "Content-Type": "application/json; charset=utf-8"
+        "Content-Type": "application/json; charset=utf-8",
+        ...this.options.headers
       },
       body: JSON.stringify(
         {
@@ -259,10 +258,9 @@ class RPCClient {
   }
 }
 
-type ServiceBase<T> =
-  {
-    withOptions(options: RPCCallOptions): T;
-  };
+type ServiceBase<T> = {
+  withOptions(options: RPCCallOptions): T & ServiceBase<T>;
+};
 
 class ServiceProxy<T> {
   client: RPCClient;
@@ -272,8 +270,16 @@ class ServiceProxy<T> {
   }
 
   get(target: object, prop: string, receiver: unknown) {
-    if (prop === 'withOptions') //create a withOptions function
-      return (options: RPCCallOptions) => createClient<T>(this.client.url, { ...this.client.options, ...options });
+    if (prop === 'withOptions') { //create a withOptions function
+      return (options: RPCCallOptions) => {
+        const newoptions = {
+          ...this.client.options,
+          ...options,
+          headers: { ...this.client.options.headers, ...options.headers }
+        };
+        return createClient<T>(this.client.url, newoptions);
+      };
+    }
 
     return (...args: unknown[]) => this.client.invoke(prop, args);
   }
