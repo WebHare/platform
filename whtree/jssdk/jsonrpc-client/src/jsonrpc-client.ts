@@ -1,4 +1,4 @@
-import { debugFlags, getDefaultRPCBase } from "@webhare/env";
+import { debugFlags } from "@webhare/env";
 import { StackTrace, parseTrace, prependStackTrace } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
@@ -22,6 +22,8 @@ export interface RPCCallOptions {
   keepalive?: boolean;
   /** Headers to submit (Eg Authorization) */
   headers?: Record<string, string>;
+  /** Base URL for service paths */
+  baseUrl?: string;
 }
 
 export type RequestID = number | string | null;
@@ -213,10 +215,13 @@ class RPCClient {
 
   //calculate the final URL. delayed here so services can be created on import (getDefaultRPCBase may require waiting for service.ready)
   private getURL() {
-    if (this.whservicematch)
-      return `${getDefaultRPCBase()}wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}`;
+    const url = this.whservicematch ? `wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}` : this.url;
+    if (this.options.baseUrl)
+      return new URL(url, this.options.baseUrl).toString();
+    else if (typeof location !== "undefined")
+      return new URL(url, location.origin).toString();
     else
-      return this.url;
+      throw new Error(`You must set the baseUrl option when using JSONRPC in a non-browser environment`);
   }
 
   invoke(method: string, params: unknown[]) {
