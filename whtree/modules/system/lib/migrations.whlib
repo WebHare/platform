@@ -120,10 +120,10 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
     IF(CellExists(data, 'whfstype'))
       data.whfstype := desttype->namespace;
 
-    desttype->SetInstanceDataByDirectRef(instance.directref, data, [ isvisibleedit := FALSE ]);
+    desttype->SetInstanceDataByDirectRef(instance.directref, data, [ isvisibleedit := FALSE, ifreadonly := "update" ]);
 
     IF(desttype->namespace != type->namespace AND instance.settingid = 0) //top level, so we should explicitly delete..
-      type->SetInstanceData(instance.fsobject, type->defaultinstance, [ isvisibleedit := FALSE ]);
+      type->SetInstanceData(instance.fsobject, type->defaultinstance, [ isvisibleedit := FALSE, ifreadonly := "update" ]);
   }
 
   RETURN refs;
