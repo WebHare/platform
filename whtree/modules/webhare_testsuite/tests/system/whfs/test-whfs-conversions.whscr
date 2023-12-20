@@ -131,6 +131,10 @@ MACRO TestContentTypeConversions()
 
   OBJECT convertdoc := testsite->rootobject->CreateFile([name := "convertme", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
   convertdoc->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := deepobject ]);
+
+  OBJECT recycledoc := testsite->rootobject->CreateFile([name := "recycleme", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
+  recycledoc->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := deepobject ]);
+  recycledoc->RecycleSelf();
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -149,6 +153,13 @@ MACRO TestContentTypeConversions()
   ConvertContentType("http://www.webhare.net/xmlns/beta/conversionstest", [ mapcallback := PTR Add42ToStr ]); //basically a no-op, but a way to get existing users
 
   deepobject := convertdoc->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data;
+  TestEq("Level0|42", officialtype->GetInstanceData(testsite->id).str); //nothing changed
+  TestEq("Level1|42", deepobject.instances[0].data.str);
+  TestEq("Level1b|42", deepobject.instances[1].data.str);
+  TestEq("Level2|42", deepobject.instances[0].data.rich.instances[0].data.str);
+  TestEq("Level2b|42", deepobject.instances[0].data.rich.instances[1].data.str);
+
+  deepobject := recycledoc->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data;
   TestEq("Level0|42", officialtype->GetInstanceData(testsite->id).str); //nothing changed
   TestEq("Level1|42", deepobject.instances[0].data.str);
   TestEq("Level1b|42", deepobject.instances[1].data.str);

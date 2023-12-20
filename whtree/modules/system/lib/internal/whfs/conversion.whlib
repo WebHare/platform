@@ -108,6 +108,6 @@ PUBLIC MACRO CopyAndConvertWHFSMembers(OBJECT srctype, STRING srcmember, OBJECT 
     {
       destdata := CellInsert(DEFAULT RECORD, destmember, ConvertWHFSCell(srctype, desttype, srcmemberinfo, destfinalmember, indata));
     }
-    desttype->SetInstanceData(relv.fs_object, destdata);
+    desttype->SetInstanceData(relv.fs_object, destdata, [ ifreadonly := "update" ]);
   }
 }

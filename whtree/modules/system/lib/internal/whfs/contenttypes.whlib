@@ -1764,7 +1764,8 @@ STATIC OBJECTTYPE WHFSType
   {
     options := ValidateOptions(
         [ isvisibleedit :=    this->cloneoncopy
-        ], options);
+        , ifreadonly := "fail"
+        ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
     IF (CellExists(data, "WHFSTYPE") AND data.whfstype != this->namespace)
       THROW NEW Exception(`Setting data with 'WHFSTYPE' set to the wrong type (expected ${this->namespace}, got ${data.whfstype}`);
