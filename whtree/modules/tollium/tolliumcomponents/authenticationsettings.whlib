@@ -177,7 +177,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(description);
 
-    this->managementmode := description.managementmode AND NOT description.managementmode;
+    this->managementmode := description.managementmode;
     this->allowsecondfactor := description.allowsecondfactor;
   }
 
