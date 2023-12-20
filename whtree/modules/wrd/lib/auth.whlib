@@ -2,6 +2,7 @@
 /** @short WRD authentication
     @topic wrdauth/api
 */
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
@@ -170,3 +171,19 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
   }
 >;
 
+/** Check whether the URL has its own checks (eg authorization or hashed URLs) and should be excepted from login checks */
+PUBLIC BOOLEAN FUNCTION IsWHSafePublicEndpoint(STRING url)
+{
+  IF(url NOT LIKE "http:*" AND url NOT LIKE "https:*")
+    RETURN FALSE;
+
+  // Safe URLs. Too many, so we will slowly transition to moving all behind /.wh/
+  STRING relpath := UnpackURL(url).urlpath;
+  RETURN relpath LIKE ".wh/*" //this should be the ONLY url in the future
+          OR relpath LIKE "wh_services/*"
+          OR relpath LIKE ".ap/*"
+          OR relpath LIKE ".se/*" // used for tracking by publisher/js/analytics/gtm.es
+          OR relpath LIKE ".uc/*"
+          OR relpath LIKE ".wrd/*"
+          OR relpath LIKE ".publisher/sd/*";
+}
