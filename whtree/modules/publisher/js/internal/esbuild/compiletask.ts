@@ -437,10 +437,8 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   //Write all files to disk in a temp location
   await fs.mkdir(esbuild_configuration.outdir, { recursive: true });
-  for (const [name, filedata] of finalpack.entries()) {
+  for (const [name, filedata] of finalpack.entries())
     await fs.writeFile(path.join(esbuild_configuration.outdir, name), filedata);
-    console.log(`Written ${path.join(esbuild_configuration.outdir, name)}`);
-  }
 
   //Move them in place. Also fix the casing in this final step
   const removefiles = new Set<string>();
