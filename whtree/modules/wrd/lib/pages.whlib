@@ -8,7 +8,6 @@ LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 
 /** Implement standard login/passwordreset etc pages
     @param(object %WebdesignBase) webdesign Webdesign
-    @cell options.logincomponent Component to use for loginpage
     @cell options.ongetloginwittydata Callback invoked for extra witty variables for the login page, if rendered
     @cell options.fallbacktologin Fallback to the login page if not logged in. Defaults to true
     @return Page to render, if current state requires one (DEFAULT OBJECT if no special page and currently logged in or fallbacktologin unset)
@@ -16,8 +15,7 @@ LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-    [ logincomponent := "" //FIXME remove this, only cooper needs it
-    , ongetloginwittydata := DEFAULT FUNCTION PTR
+    [ ongetloginwittydata := DEFAULT FUNCTION PTR
     , fallbacktologin := TRUE //Return loginpage if no explicit route found
     ], options);
 

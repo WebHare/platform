@@ -8,4 +8,11 @@ export interface MyService {
 
   ///Test error handling
   serverCrash(): Promise<void>;
+
+  ///Describe me!
+  describeMyRequest(): Promise<{
+    baseURL: string;
+    url: string;
+    requestHeaders: Record<string, string>;
+  }>;
 }

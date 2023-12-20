@@ -4,12 +4,13 @@ import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
+import { WebRequestInfo } from '@mod-system/js/internal/types';
 
 async function testRPCCaller() {
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
-  const request = {
+  const request: WebRequestInfo = {
     sourceip: "127.0.0.1",
-    url: "",
+    url: "http://127.0.0.1/test",
     headers: {},
     body: WebHareBlob.from(JSON.stringify({ id: 5, method: "validateEmail", params: ["nl", "pietje@webhare.net"] })),
     method: HTTPMethod.POST
@@ -44,6 +45,11 @@ async function testTypedClient() {
   //verify I can see client and server side
   test.assert(trace.find(t => t.func === "TestNoAuthJS.serverCrash"));
   test.assert(trace.find(t => t.func.includes("testTypedClient")));
+
+  const serviceWithHeaders = noAuthJSService.withOptions({ headers: { "Authorization": "grizzly bearer" } });
+  const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
+  test.eqProps({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
+
 }
 
 test.run([

@@ -1,3 +1,4 @@
+import { getJSONAPICallWebRequest } from "@mod-system/js/internal/jsonrpccaller";
 import { MyService } from "./type";
 
 export class TestNoAuthJS implements MyService {
@@ -6,5 +7,9 @@ export class TestNoAuthJS implements MyService {
   }
   async serverCrash() {
     throw new Error("this is a server crash");
+  }
+  async describeMyRequest() {
+    const info = getJSONAPICallWebRequest();
+    return { baseURL: info.baseURL, url: info.url.toString(), requestHeaders: Object.fromEntries(info.headers.entries()) };
   }
 }
