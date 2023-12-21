@@ -607,38 +607,7 @@ PUBLIC OBJECT FUNCTION MakeWRDImportWizardDialog(OBJECT parentform, OBJECT intyp
 // Other stuff (simplified wrappers who do not rely on public properties)
 //
 
-/** @short Make a WRD create schema dialog
-*/
-PUBLIC OBJECT FUNCTION MakeWRDCreateSchemaDialog(OBJECT parentform)
-{
-  RETURN parentform->LoadScreen("wrd:schemamanager.newschema");
-}
 
-/** @short Make a WRD manage types dialog
-*/
-PUBLIC OBJECT FUNCTION MakeWRDManageTypesDialog(OBJECT parentform, OBJECT wrdschema)
-{
-  OBJECT dialog := parentform->LoadScreen("wrd:types.managetypes", [ curschema := wrdschema ]);
-  RETURN dialog;
-}
-
-/** @short Make a WRD edit type dialog
-*/
-PUBLIC OBJECT FUNCTION MakeWRDEditTypeDialog(OBJECT parentform, OBJECT wrdtype)
-{
-  OBJECT dialog := parentform->LoadScreen("wrd:types.edittype");
-  dialog->Setup(wrdtype->wrdschema, wrdtype->id);
-  RETURN dialog;
-}
-
-/** @short Make a WRD manage attributes dialog
-*/
-PUBLIC OBJECT FUNCTION MakeWRDManageAttributesDialog(OBJECT parentform, OBJECT wrdtype)
-{
-  OBJECT dialog := parentform->LoadScreen("wrd:types.manageattrs");
-  dialog->Setup(wrdtype->wrdschema, wrdtype->id);
-  RETURN dialog;
-}
 
 /** @short Make a WRD simple query builder dialog
 */
