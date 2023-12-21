@@ -88,7 +88,7 @@ MACRO DeletePort(STRING ARRAY params)
   ReloadWebhareConfig(TRUE, FALSE);
 }
 
-MACRO AddBackend(STRING ARRAY params)
+MACRO AddWebserver(STRING ARRAY params, BOOLEAN isbackend)
 {
   RECORD subargs := ParseArguments(params,
       [ [ name := "url", type := "param", required := TRUE ]
@@ -98,7 +98,7 @@ MACRO AddBackend(STRING ARRAY params)
 
   IF(NOT RecordExists(subargs))
   {
-    Print("Syntax: wh webserver addbackend [--virtual] [--primary] <url>\n");
+    Print(`Syntax: wh webserver ${isbackend ? "addbackend" : "addoutput"} [--virtual]${isbackend ? ' [--primary]' : ''} <url>\n`);
     SetConsoleExitCode(1);
     TerminateScript();
   }
@@ -122,17 +122,20 @@ MACRO AddBackend(STRING ARRAY params)
   }
 
   IF(RecordExists(SELECT FROM system_internal.webservers WHERE baseurl = subargs.url))
-    TerminateScriptWithError(`A backend ${subargs.url} already exists`);
+    TerminateScriptWithError(`A webserver for ${subargs.url} already exists`);
 
   INTEGER webserverid := MakeAutoNumber(system_internal.webservers,"id");
-  INSERT INTO system_internal.webservers(id, port, type, baseurl, outputextension)
-         VALUES (webserverid, webserver_port_id, 1, subargs.url, '.html');
+  INSERT INTO system_internal.webservers(id, port, type, baseurl, outputextension, stricttransportsecurity, diskfolder)
+         VALUES (webserverid, webserver_port_id, isbackend ? 1 : 0, subargs.url, '.html', unpacked.scheme = "https" ? 31536000 : 0, isbackend ? "" : unpacked.host);
 
-  BOOLEAN have_interface := RecordExists(SELECT FROM system_internal.webservers WHERE type = 1);
-  IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0 OR subargs.primary)
+  IF(isbackend)
   {
-    OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
-    backendsite->SetPrimaryOutput(webserverid, "/");
+    BOOLEAN have_interface := RecordExists(SELECT FROM system_internal.webservers WHERE type = 1);
+    IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0 OR subargs.primary)
+    {
+      OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
+      backendsite->SetPrimaryOutput(webserverid, "/");
+    }
   }
 
   GetPrimary()->CommitWork();
@@ -387,9 +390,9 @@ MACRO Main()
     {
       AddPort(cmdargs.params);
     }
-    CASE "addbackend"
+    CASE "addbackend", "addoutput"
     {
-      AddBackend(cmdargs.params);
+      AddWebserver(cmdargs.params, cmdargs.command = "addbackend");
     }
     CASE "deleteport"
     {
@@ -426,6 +429,7 @@ MACRO Main()
       Print("Syntax: wh webserver <command>\n");
       Print("  addport [--virtual] <port>: Create the specified port (binding)\n");
       Print("  addbackend <webserver>:     Add a backend webserver\n");
+      Print("  addoutput <webserver>:      Add an output webserver\n");
       Print("  deleteport <id>:            Delete the specified port\n");
       Print("  list:                       List available webservers\n");
       Print("  listports:                  List configured webserver ports\n");
