@@ -5,12 +5,14 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
+OBJECT announcemententity;
+
 ASYNC MACRO TestWRDBrowser()
 {
   //Enable history on wrd_persons so we can test the history browser
   testfw->BeginWork();
   testfw->GetWRDSchema()->^wrd_person->UpdateMetadata([ keephistorydays := 7 ]);
-  testfw->GetWRDSchema()->^whuser_announcement->CreateEntity( [ ANNOUNCEMENT_TITLE := "Announcement test"]) ; //helps trigger selectentity crash
+  announcemententity := testfw->GetWRDSchema()->^whuser_announcement->CreateEntity( [ ANNOUNCEMENT_TITLE := "Announcement test"]) ; //helps trigger selectentity crash
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
@@ -67,9 +69,20 @@ ASYNC MACRO TestWRDBrowser()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectAndAnswerMessageBox("YES", DEFAULT MACRO PTR);
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestWRDBrowserGoto()
+{
+  AWAIT ExpectScreenChange(+2, PTR TTLaunchApp("wrd:browser"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Find by wrdId"));
+  TT("id")->value := announcemententity->id;
+  AWAIT ExpectScreenChange(-2, PTR TTClick(":OK"));
+  TestEq(announcemententity->id, TT("results_frees")->value[0]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestWRDBrowser
+                 , PTR TestWRDBrowserGoto
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

@@ -544,8 +544,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="gotoid" limitlanguages="en nl">   <!-- gotoid -->
-    <text tid="entityid">Id</text>
-    <text tid="gotoid">Quick search</text>
   </textgroup>
   <textgroup gid="links" limitlanguages="en nl">   <!-- links -->
     <textgroup gid="update">   <!-- links.update -->
@@ -1137,6 +1135,10 @@
         <text tid="confirmmoduleowneddeletion">Yes, I want to delete a schema that's still referenced by module '<param p="1"/>'</text>
         <text tid="deleteschema">Delete schema '<param p="1"/>'</text>
         <text tid="prodwarning">This is a production environment. Verify you're on the right server and have selected the right schema for deletion.</text>
+      </textgroup>
+      <textgroup gid="gotoid">   <!-- tolliumapps.schemamanager.gotoid -->
+        <text tid="gotoid">Find by wrdId</text>
+        <text tid="id">Id</text>
       </textgroup>
     </textgroup>
   </textgroup>

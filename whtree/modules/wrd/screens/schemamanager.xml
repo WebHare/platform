@@ -25,6 +25,7 @@
       </action>
       <action name="close" onexecute="cancel" />
 
+      <action name="gotoid" onexecute="dogotoid" frameflags="right_superuser" shortcut="ctrl+shift+g" tid="tolliumapps.schemamanager.gotoid.gotoid" />
       <action name="newschema" onexecute="doaddschema" frameflags="right_schemacreate" />
       <action name="delschema" onexecute="dodelschema" frameflags="right_superuser" >
         <enableon source="schemas" min="1" />
@@ -67,6 +68,8 @@
             <button action="newschema" tid="~add" width="1pr" />
             <button action="editschema" tid="~edit" width="1pr" />
             <button action="delschema" tid="~delete" width="1pr"  />
+            <spacer height="1gr" />
+            <button action="gotoid" width="1pr" />
             <button action="importschema" tid="~import" width="1pr" />
             <button action="synchronize" tid="~synchronize" width="1pr" />
           </cell>
@@ -193,6 +196,12 @@
         <button name="cancelbutton" tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
+  </screen>
+
+  <screen name="gotoid" footerbuttons="ok cancel" gid="tolliumapps.schemamanager.gotoid">
+    <body>
+      <textedit name="id" valuetype="integer" required="true" emptyvalue="0" />
+    </body>
   </screen>
 
 </screens>

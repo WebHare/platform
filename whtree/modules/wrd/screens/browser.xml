@@ -74,8 +74,6 @@
         <enableon source="results_frees" min="1" max="1" onexecute="doshowhistory_results" />
       </action>
 
-      <action name="gotoid" onexecute="dogotoid" />
-
       <action name="togglelinks" onexecute="dotogglelinks" />
       <action name="toggledataviewer" onexecute="dotoggledataviewer" />
 
@@ -240,15 +238,6 @@
 
       </tabs>
     </body>
-  </screen>
-
-  <screen name="gotoid" gid="gotoid">
-    <body>
-      <textedit name="entityid" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="chooselinktype" gid="chooselinktype">
