@@ -635,7 +635,7 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
     ArrayListEditBase::StaticInit(description);
 
     this->list->selectmode := description.selectmode;
-    this->list->rowkeytype := ParseRowKeyType(description.rowkeytype);
+    this->list->rowkeytype := description.rowkeytype;
     this->eventmasks := description.eventmasks;
 
     this->ongetchildren := description.ongetchildren;
