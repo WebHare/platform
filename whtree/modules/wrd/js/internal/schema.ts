@@ -206,12 +206,16 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
 
-  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>) {
+  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>): Promise<number> {
     return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
   }
 
-  update<T extends keyof S & string>(type: T, wrd_id: number, value: Updatable<S[T]>) {
+  update<T extends keyof S & string>(type: T, wrd_id: number, value: Updatable<S[T]>): Promise<void> {
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
+  }
+
+  upsert<T extends keyof S & string>(type: T, keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryModes }): Promise<[number, boolean]> {
+    return checkPromiseErrorsHandled(this.getType(type).upsert(keys, value, options));
   }
 
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: HistoryModeData }): Promise<number | null> {
@@ -289,7 +293,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateMetadata(newmetadata);
   }
 
-  async createEntity(value: Updatable<S[T]>): Promise<number> {
+  async createEntity(value: Insertable<S[T]>): Promise<number> {
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
@@ -306,6 +310,36 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       await this.ensureAttributes();
 
     await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
+  }
+
+  async upsert(keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryModes }): Promise<[number, boolean]> {
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
+    if (!this.attrs)
+      await this.ensureAttributes();
+    if (!keys.length)
+      throw new Error(`Upsert requires at least one key field`);
+    if ((value as unknown as { wrdLimitDate: Date | null }).wrdLimitDate === null && options?.historyMode !== "all")
+      throw new Error(`Resetting wrdLimitDate requires historyMode: all`);
+
+    let lookup = this.schema.selectFrom(this.tag).select(["wrdId"]).historyMode(options?.historyMode ?? "now");
+    for (const key of keys) {
+      if (!Object.hasOwn(value, key))
+        throw new Error(`Upsert requires a value for key field '${key as string}'`);
+      lookup = lookup.where(key as string, "=", value[key]);
+    }
+
+    const result = await lookup.execute() as Array<{ wrdId: number }>; //TODO not sure why it's not being inferred
+    if (result.length > 1)
+      throw new Error(`Upsert matched multiple records`);
+
+    if (result.length === 1) {
+      await this.updateEntity(result[0].wrdId, value);
+      return [result[0].wrdId, false];
+    }
+
+    const newId = await this.createEntity({ ...value, ...options?.ifNew });
+    return [newId, true];
   }
 
   async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData }): Promise<number | null> {

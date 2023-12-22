@@ -1178,6 +1178,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
               ELSE IF (condition->match_type = "<=")
                 matchtype := "=";
               dbquery->AddConstraint(query_name || "." || condition->attr.cellname, matchtype, value);
+              RETURN TRUE;
             }
             ELSE IF (condition->value_holder.data < 0)
             {
