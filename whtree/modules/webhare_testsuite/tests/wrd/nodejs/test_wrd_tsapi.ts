@@ -476,7 +476,7 @@ async function testTSTypes() {
 async function testUpsert() {
   await whdb.beginWork();
   test.eq(1, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
-  ///@ts-expect-error -- TS should also detect wrdTagXX bieng invalid
+  ///@ts-expect-error -- TS should also detect wrdTagXX being invalid
   await test.throws(/Cannot find attribute/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTagXX"], { wrdLeftEntity: null, wrdTagXX: "TAG" }));
   await test.throws(/requires a value for.*wrdTag/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null }));
 
