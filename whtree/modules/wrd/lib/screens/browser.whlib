@@ -87,14 +87,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       IF(RecordExists(data.message) AND data.message.task = "selectschema")
         curschema := data.message.id;
 
-      OBJECT dialog := this->LoadScreen("schemamanager.main", [ curschema := curschema ]);
-      data.message := DEFAULT RECORD;
-      IF(dialog->RunModal() != "ok")
+      RECORD result := this->RunScreen("mod::wrd/screens/schemamanager.xml#main", [ curschema := curschema ]);
+      IF(NOT RecordExists(result))
       {
         this->tolliumresult := "cancel";
         RETURN;
       }
-      this->OpenASchema(dialog->value,0);
+      this->OpenASchema(result.wrdschema, result.wrdid);
     }
 
     //Initialize!
@@ -205,9 +204,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoManageSchemas()
   {
-    OBJECT dialog := this->LoadScreen("schemamanager.main", [ curschema := this->contexts->wrdschema->id ]);
-    INTEGER openschemaid := dialog->RunModal() = "ok" ? dialog->value : this->contexts->wrdschema->id;
-    this->OpenASchema(openschemaid, 0);
+    RECORD result := this->RunScreen("mod::wrd/screens/schemamanager.xml#main", [ curschema := this->contexts->wrdschema->id ]);
+    IF(RecordExists(result))
+      this->OpenASchema(result.wrdschema, result.wrdid);
   }
 
   MACRO DoManageTypes()
@@ -305,6 +304,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->DoQueryAndShowResults(this->current_type, [[ field := "WRD_ID", match_type := "=", value := openforentity]]);
       this->GotoEntity(this->current_type, openforentity);
       this->freetype->value := entityrec.wrdtype;
+      ^results_frees->SetVAlueIfValid([openforentity]);
+      this->frame->focused := ^results_frees;
     }
     ELSE
     {
@@ -432,19 +433,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   //
   // Search
   //
-  PUBLIC MACRO DoGotoId()
-  {
-    //ADDME: Also allow GotoId without a selected schema/to jump between schemas. Add WRD GUID support
-    OBJECT screen := this->LoadScreen(".gotoid", [ curentity := this->current_entity, curschema := this->contexts->wrdschema ]);
-    IF(screen->RunModal()="ok")
-    {
-      OBJECT type := this->contexts->wrdschema->GetTypeById(screen->explained.wrdtype);
-      this->DoQueryAndShowResults(type, [[ field := "WRD_ID", match_type := "=", value := screen->explained.id]]);
-
-      this->GotoEntity(type, screen->explained.id);
-    }
-  }
-
 
   PUBLIC MACRO DoToggleLinks()
   {

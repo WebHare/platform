@@ -174,7 +174,7 @@ ASYNC MACRO TestImportExport()
   // The imported schema is now added in the schema manager, select and open it
   topscreen->schemas->selection := SELECT * FROM topscreen->schemas->rows WHERE tag = schemaobj->tag;
   TestEq(TRUE, RecordExists(topscreen->schemas->selection));
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
 
   // No more personal data after re-importing the schema
   TestEq(FALSE, RecordExists(schemaobj->^wrd_person->RunQuery([ outputcolumns := [ "wrd_id" ] ])));

@@ -54,6 +54,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       ^delschema->enableon[0].max := 1;
   }
 
+  MACRO DoGotoId()
+  {
+    RECORD gotoschema := this->RunScreen("#gotoid");
+    IF(RecordExists(gotoschema))
+      this->__SetScreenResult(gotoschema);
+  }
+
   MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
   {
     this->OnImport(WrapBlob(dragdata.items[0].data, dragdata.items[0].filename));
@@ -82,7 +89,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     this->value := this->schemas->value[0];
     this->tolliumuser->SetRegistryKey("wrd.lastopenedaccount", this->value);
-    this->tolliumresult := "ok";
+    this->__SetScreenResult([ wrdschema := this->value, wrdid := 0]);
   }
 
   MACRO DoAddSchema()
@@ -137,6 +144,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoSynchronize()
   {
     this->RunScreen("#synchronizeschema", DEFAULT RECORD, [ contexts := [ wrdschema := OpenWRDSchemaById(this->schemas->value[0]) ] ]);
+  }
+
+  RECORD FUNCTION Submit() //we're not using this submit but we need to register it so Cancel can determine the return type
+  {
+    RETURN DEFAULT RECORD;
   }
 >;
 
@@ -475,5 +487,25 @@ PUBLIC STATIC OBJECTTYPE DeleteSchemaProd EXTEND TolliumScreenBase
     OBJECT work := this->BeginUnvalidatedWork();
     OpenWRDSchema(this->tag)->DeleteSelf();
     RETURN work->Finish();
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE GotoId EXTEND TolliumScreenBase
+<
+  RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    IF(NOT work->HasFailed())
+    {
+      RECORD entity := DescribeWRDEntity(^id->value);
+      IF(RecordExists(entity))
+      {
+        work->Finish();
+        RETURN CELL[ ...entity, wrdid := ^id->value ];
+      }
+    }
+    work->Finish();
+    RETURN DEFAULT RECORD;
   }
 >;

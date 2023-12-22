@@ -544,8 +544,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="gotoid">   <!-- gotoid -->
-    <text tid="entityid">Id</text>
-    <text tid="gotoid">Snelzoeken</text>
   </textgroup>
   <textgroup gid="links">   <!-- links -->
     <textgroup gid="update">   <!-- links.update -->
@@ -1137,6 +1135,10 @@
         <text tid="confirmmoduleowneddeletion">Ja, ik wil een schema verwijderen waaraan module '<param p="1"/>' nog steeds refereert</text>
         <text tid="deleteschema">Verwijder schema '<param p="1"/>'</text>
         <text tid="prodwarning">Dit is een productieomgeving. Verzeker je ervan dat je je op de juiste server bevindt en het juiste schema geselecteerd hebt om te verwijderen.</text>
+      </textgroup>
+      <textgroup gid="gotoid">   <!-- tolliumapps.schemamanager.gotoid -->
+        <text tid="gotoid">Zoek obv wrdId</text>
+        <text tid="id">Id</text>
       </textgroup>
     </textgroup>
   </textgroup>
