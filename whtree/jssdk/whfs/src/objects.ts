@@ -137,7 +137,7 @@ export class WHFSObject {
       if (!type)
         throw new Error(`No such type: ${metadata.type}`);
 
-      storedata = { ...metadata, type: metadata.type || null } as Updateable<PlatformDB, "system.fs_objects">; //#0 can't be stored so convert to null
+      storedata = { ...metadata, type: type.id || null } as Updateable<PlatformDB, "system.fs_objects">; //#0 can't be stored so convert to null
     } else {
       storedata = metadata as Updateable<PlatformDB, "system.fs_objects">;
     }

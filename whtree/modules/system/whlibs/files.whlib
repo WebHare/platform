@@ -873,9 +873,16 @@ PUBLIC RECORD FUNCTION ScanBlob(BLOB toscan, STRING filename DEFAULTSTO "", RECO
     {
       RECORD imginfo := WaitForPromise(ImportJS("@webhare/services/src/descriptor.ts")->analyzeImage(toscan, options.extractdominantcolor));
       //deal with potential nulls
-      imginfo := EnforceStructure([ width := 0, height := 0, rotation := 0, mirrored := FALSE, dominantcolor := ""], imginfo);
+      imginfo := EnforceStructure([ width := 0, height := 0, rotation := 0, mirrored := FALSE, dominantcolor := "", mediatype := "" ], imginfo);
       BOOLEAN isrotated := imginfo.rotation IN [ 90, 270];
-      base := CELL[ ...base, ...imginfo, width := isrotated ? imginfo.height : imginfo.width, height := isrotated ? imginfo.width : imginfo.height ];
+      base := CELL
+          [ ...base
+          , ...imginfo
+          , width := isrotated ? imginfo.height : imginfo.width
+          , height := isrotated ? imginfo.width : imginfo.height
+          , mimetype := imginfo.mediatype ?? base.mimetype
+          , DELETE mediatype
+          ];
     }
     ELSE
     {

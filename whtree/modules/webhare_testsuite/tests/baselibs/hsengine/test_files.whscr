@@ -2,6 +2,7 @@
 /// @short File library tests
 
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/filetypes.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::internal/interface.whlib";
@@ -815,6 +816,7 @@ MACRO ScanBlobTest()
   TestEq("bladiebla.png", detect.filename);
 
   detect := ScanBlob(dummygif,"bladiebla.png");
+  ValidateScannedData(detect); // Make sure it doesn't contain a 'mediaType' property from WASM's analyzeImage
   TestEq("image/gif", detect.mimetype);
   TestEq(".gif", detect.extension);
 

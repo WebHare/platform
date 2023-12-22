@@ -327,9 +327,14 @@ MACRO GetSetTest()
 
   OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
 
+  DATETIME moddate := MakeDateTime(2020, 2, 2, 20, 20, 20);
   betatype->SetInstanceData(testfile->id, [ stringtest := "a" ] );
+  testfile->UpdateMetaData([ modificationdate := moddate ]);
 
   testfw->CommitWork();
+  /*TODO: Fails, because SetInstanceData triggers an empty update on commit, causing the modification date to be updated to 'now'
+  TestEq(moddate, SELECT AS DATETIME modificationdate FROM system.fs_objects WHERE id = testfile->id);
+  */
   testfw->BeginWork();
 
   TestEq("a", betatype->GetInstanceData(testfile->id).stringtest);
