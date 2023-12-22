@@ -473,6 +473,43 @@ async function testTSTypes() {
   }
 }
 
+async function testUpsert() {
+  await whdb.beginWork();
+  test.eq(1, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
+  ///@ts-expect-error -- TS should also detect wrdTagXX being invalid
+  await test.throws(/Cannot find attribute/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTagXX"], { wrdLeftEntity: null, wrdTagXX: "TAG" }));
+  await test.throws(/requires a value for.*wrdTag/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null }));
+
+  const [firstUnitId, firstUnitIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { ifNew: { wrdTitle: "Unit #1" } });
+  test.assert(firstUnitIsNew);
+  const [secondUnitId] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "SECONDUNIT" }, { ifNew: { wrdTitle: "Unit #2" } });
+  test.eq(3, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
+  test.assert(firstUnitId);
+  test.assert(secondUnitId);
+  test.eq("Unit #1", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"]))?.wrdTitle);
+
+  const [firstUnitId2, firstUnitIsNew2] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { ifNew: { wrdTitle: "Unit #1b" } });
+  test.eq(firstUnitId, firstUnitId2);
+  test.assert(!firstUnitIsNew2);
+  test.eq("Unit #1", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"]))?.wrdTitle);
+
+  await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdTitle: "Unit #1b" });
+  test.eq(3, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
+  test.eq("Unit #1b", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"]))?.wrdTitle);
+
+  await test.throws(/Upsert requires at least one key field/, wrdTestschemaSchema.upsert("whuserUnit", [], { wrdTitle: "Unit without key" }));
+
+  await wrdTestschemaSchema.update("whuserUnit", firstUnitId, { wrdLimitDate: new Date() });
+
+  await test.throws(/requires.*historyMode/i, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" } }));
+
+  const [recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" }, historyMode: "all" });
+  test.eq(firstUnitId, recreateId);
+  test.assert(!recreateIsNew);
+
+  await whdb.commitWork();
+}
+
 async function testComparisons() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new WRDSchema<Combined>("wrd:testschema");
@@ -568,6 +605,7 @@ test.run([
   testTSTypes,
   createWRDTestSchema,
   testNewAPI,
+  testUpsert,
   testComparisons,
   testGeneratedWebHareWRDAPI
 ], { wrdauth: true });
