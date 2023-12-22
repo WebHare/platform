@@ -808,7 +808,10 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    query = addWhere(query, this.getAttrBaseCells(), fixed_db_cv.condition, fixed_db_cv.value);
+    if (fixed_db_cv.condition == '=' && fixed_db_cv.value === null)
+      query = addWhere(query, this.getAttrBaseCells(), "is", null);
+    else
+      query = addWhere(query, this.getAttrBaseCells(), fixed_db_cv.condition, fixed_db_cv.value);
 
     return {
       needaftercheck: false,

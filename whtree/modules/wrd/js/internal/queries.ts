@@ -174,7 +174,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   for (const filter of wheres) {
     const attr = typerec.rootAttrMap.get(filter.field);
     if (!attr)
-      throw new Error(`No such attribute ${JSON.stringify(filter.field)}`);
+      throw new Error(`Cannot find attribute ${JSON.stringify(filter.field)}`);
 
     const accessor = getAccessor(attr, typerec.parentAttrMap);
     accessor.checkFilter(filter as never);
