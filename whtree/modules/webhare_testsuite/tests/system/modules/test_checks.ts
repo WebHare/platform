@@ -1,6 +1,5 @@
 import { systemConfigSchema } from "@mod-system/js/internal/generated/wrd/webhare";
-import { loadlib } from "@webhare/harescript";
-import { callHareScript, scheduleTimedTask } from "@webhare/services";
+import { callHareScript, scheduleTimedTask, writeRegistryKey } from "@webhare/services";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 
@@ -167,7 +166,7 @@ async function listTestSuiteIntervalIssues() {
 async function testTheChecks() {
   //Cleanup curent checks and schedule the interval checks
   await whdb.beginWork();
-  await loadlib("mod::system/lib/configure.whlib").writeRegistryKey("webhare_testsuite.tests.response", "checker.ts test");
+  await writeRegistryKey("webhare_testsuite.tests.response", "checker.ts test");
   for (const row of await listTestSuiteIntervalIssues())
     await systemConfigSchema.delete("serverCheck", row.wrdId);
 
@@ -179,7 +178,7 @@ async function testTheChecks() {
 
   //clear the test error
   await whdb.beginWork();
-  await loadlib("mod::system/lib/configure.whlib").writeRegistryKey("webhare_testsuite.tests.response", "");
+  await writeRegistryKey("webhare_testsuite.tests.response", "");
   await scheduleTimedTask("system:intervalchecks");
   await whdb.commitWork();
 

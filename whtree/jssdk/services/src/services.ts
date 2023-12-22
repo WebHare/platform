@@ -19,7 +19,7 @@ export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
 export { TaskRequest, scheduleTask, scheduleTimedTask } from "./tasks";
 export type { TaskFunction, TaskResponse } from "./tasks";
-export { readRegistryKey } from "./registry";
+export { readRegistryKey, writeRegistryKey } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 
 export type { RichDocument } from "./richdocument";
