@@ -1,9 +1,9 @@
-import { callHareScript } from "./services";
+import { loadlib } from "@webhare/harescript";
 
 export async function readRegistryKey<ExpectedType>(key: string, defaultValue?: ExpectedType): Promise<ExpectedType> {
-  const args: unknown[] = [key];
-  if (defaultValue !== undefined)
-    args.push({ fallback: defaultValue });
+  return (await loadlib("mod::system/lib/configure.whlib").ReadRegistryKey(key, { fallback: defaultValue })) as ExpectedType;
+}
 
-  return callHareScript("mod::system/lib/configure.whlib#ReadRegistryKey", args, { openPrimary: true }) as ExpectedType;
+export async function writeRegistryKey<ValueType>(key: string, value: ValueType, options?: { createIfNeeded?: boolean; initialCreate?: boolean }): Promise<void> {
+  await loadlib("mod::system/lib/configure.whlib").WriteRegistryKey(key, value, options);
 }
