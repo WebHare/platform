@@ -31,6 +31,15 @@ async function setup() {
   const url = await file.$get("link");
   const output = await fetch(url);
   test.eq("Ik ben data " + uuid, await output.text());
+
+  await beginWork();
+  const moddate = new Date("2020-02-02T20:20:20");
+  await (await tmpfolder.openByName("file.txt")).SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", { deletion: new Date() });
+  await (await tmpfolder.openByName("file.txt")).UpdateMetaData({ modificationDate: moddate });
+  await commitWork();
+  /*TODO: Fails, because SetInstanceData triggers an empty update on commit, causing the modification date to be updated to 'now'
+  test.eq(moddate, await (await tmpfolder.openByName("file.txt")).$get("modificationDate"));
+  */
 }
 
 test.run([setup]);

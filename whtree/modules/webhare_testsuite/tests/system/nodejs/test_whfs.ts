@@ -130,7 +130,7 @@ async function testWHFS() {
   const ensuredfolder2 = await tmpfolder.ensureFolder("sub1");
   test.eq(ensuredfolder.id, ensuredfolder2.id);
 
-  const ensuredfile = await tmpfolder.ensureFile("file1");
+  const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   const ensuredfile2 = await tmpfolder.ensureFile("file1");
   test.eq(ensuredfile.id, ensuredfile2.id);
 

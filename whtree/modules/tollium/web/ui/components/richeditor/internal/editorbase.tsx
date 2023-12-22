@@ -1304,31 +1304,6 @@ export default class EditorBase {
     this.updateTableEditors();
   }
 
-  onFocusOut(event) {
-    // On focus out, try to get the current selection (will work when we still have focus)
-    // This will save the current selection to this.currentrange, so we can restore upon focusin
-    this.getSelectionRange({ skipnormalize: true });
-
-    /* The RTE has a tendency to regain focus on Chrome. Easily tested by selecting
-       a range, select 'create hyperlink' and immediately typing - the tollium
-       hyperlink window is not taking focus.
-       APply workaround from http://jsfiddle.net/pfsNx/26/ ( https://code.google.com/p/chromium/issues/detail?id=89026 )
-       */
-    if (/AppleWebKit\/([\d.]+)/.exec(navigator.userAgent)) {
-      if (!editableFix) {
-        editableFix = document.createElement('input');
-        editableFix.style.cssText = "width:1px;height:1px;border:none;margin:0;padding:0;position:absolute;bottom:0;left:0";
-        document.body.appendChild(editableFix);
-      }
-
-      editableFix.setSelectionRange(0, 0);
-      if (event.relatedTarget) {
-        editableFix.focus(); //ensure defocus of RTD, some elements like a checkbox may not fully take focus away
-        event.relatedTarget.focus();
-      }
-    }
-  }
-
   onFocusIn(event) {
     // Restore the selection (FIXME: this might cause problems when focus lies within an embedded object)
     if (this.currentrange && !this.ignorenextfocus)
@@ -1981,7 +1956,6 @@ export default class EditorBase {
     if (!this.bodydiv.__wh_rte_doneevents) {
       this.bodydiv.__wh_rte_doneevents = true;
       this.bodydiv.addEventListener('focus', this.onFocus.bind(this));
-      this.bodydiv.addEventListener('focusout', this.onFocusOut.bind(this));
       this.bodydiv.addEventListener('focusin', this.onFocusIn.bind(this));
       new KeyboardHandler.default(this.bodydiv,
         {
