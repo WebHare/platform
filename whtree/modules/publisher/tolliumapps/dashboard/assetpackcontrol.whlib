@@ -268,7 +268,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
     this->assetpackcontrol := data.assetpackcontrol;
     this->uuid := data.uuid;
     this->id := data.id;
-    this->info := DecodeJSONBlob(GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/info.json"), [ allowmissing := TRUE ]);
+    this->info := DecodeJSONBlob(GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/info.json", [ allowmissing := TRUE ]));
     ^listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
     ^aboutmetafile->htmlvalue := this->GetHTMLTid(".aboutmetafile");
 
