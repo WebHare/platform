@@ -444,7 +444,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
   const removefiles = new Set<string>();
   for (const file of await fs.readdir(bundle.outputpath))
     if (file.toLowerCase() !== file)
-      await fs.unlink(path.join(esbuild_configuration.outdir, file)); //delete mixed case files immediately - it's not safe to wait until the end if the FS is case insensitive
+      await fs.unlink(path.join(bundle.outputpath, file)); //delete mixed case files immediately - it's not safe to wait until the end if the FS is case insensitive
     else
       removefiles.add(file); //add to the cleanup list
 
