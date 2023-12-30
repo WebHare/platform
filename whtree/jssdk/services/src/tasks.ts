@@ -85,11 +85,23 @@ export async function scheduleTimedTask(taskname: string, options?: { when?: Dat
   await loadlib("mod::system/lib/tasks.whlib").scheduleTimedTask(taskname, options ?? {});
 }
 
+export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: { acceptTimeout: false }): Promise<T>;
+export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: { acceptTimeout: boolean }): Promise<T | null>;
+
+/** Get the result of a scheduled task
+ * @param taskId - Task to look up
+ * @param timeout - How long to wait for the task to finish
+ * @param options - acceptCancel: Don't throw if the task is cancelled
+ *                  acceptTempFailure: Don't throw if the task is temporarily failed but will still retry
+ *                  acceptTimeout: Return null in case of timeout (by default, throws)
+ * @returns The result of the task
+ * @throws if the task is cancelled, failed or timed out
+ */
 export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: {
   acceptCancel?: boolean;
   acceptTempFailure?: boolean;
   acceptTimeout?: boolean;
-}) {
+}): Promise<T | null> {
   options = {
     acceptCancel: false,
     acceptTempFailure: false,
