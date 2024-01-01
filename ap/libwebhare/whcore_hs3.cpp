@@ -490,57 +490,6 @@ void ScriptEnvironment::OnNewVM(HSVM *)
 JobManagerIntegrator::JobManagerIntegrator(ScriptEnvironment &/*scriptenv*/, Connection &conn, HareScript::JobManager *jobmgr)
 : mcregistrar(conn.mgrconn, jobmgr)
 {
-/*      This code is disabled because the contents of hsvmbootstrap.whscr is currently empty.
-
-        //Code taken from runscript.cpp
-        HareScript::VMGroup *vmgroup = jobmgr->CreateVMGroup(true);
-        HSVM *hsvm = scriptenv.ConstructWHVM(vmgroup);
-        HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
-
-        bool any_error = !HSVM_LoadScript(hsvm, "modulescript::system/internal/hsvmbootstrap.whscr");
-        bool fail=any_error;
-
-        if (!any_error)
-        {
-                jobmgr->StartVMGroup(vmgroup);
-                jobmgr->WaitFinished(vmgroup);
-        }
-        if (vmgroup->GetErrorHandler().AnyErrors())
-        {
-                fail=true;
-                HareScript::ErrorHandler const &errorhandler = vmgroup->GetErrorHandler();
-                bool showpath=false;
-
-                for (std::list<HareScript::Message>::const_iterator it = errorhandler.GetWarnings().begin(); it != errorhandler.GetWarnings().end(); ++it)
-                    DisplayMessage(scriptenv.GetFileSystem(), &HareScript::GetVirtualMachine(hsvm)->GetContextKeeper(), *it, showpath, "");
-
-                for (std::list<HareScript::Message>::const_iterator it = errorhandler.GetErrors().begin(); it != errorhandler.GetErrors().end(); ++it)
-                    DisplayMessage(scriptenv.GetFileSystem(),& HareScript::GetVirtualMachine(hsvm)->GetContextKeeper(), *it, showpath, "");
-
-                for (HareScript::ErrorHandler::StackTrace::const_iterator itr=errorhandler.GetStackTrace().begin(); itr!=errorhandler.GetStackTrace().end();++itr)
-                {
-                        DisplayStackLocation(scriptenv.GetFileSystem(), &HareScript::GetVirtualMachine(hsvm)->GetContextKeeper(), *itr, showpath, "");
-                }
-
-                std::map< std::string, std::string > params;
-                params["script"] = Blex::AnyToJSON(std::string("modulescript::system/internal/hsvmbootstrap.whscr"));
-                params["contextinfo"] = Blex::AnyToJSON(jobmgr->GetGroupErrorContextInfo(vmgroup));
-                LogHarescriptError(conn, "runscript", jobmgr->GetGroupId(vmgroup), jobmgr->GetGroupExternalSessionData(vmgroup), errorhandler, params);
-        }
-        else
-        {
-                if (*vmgroup->GetAbortFlag() == HSVM_ABORT_TIMEOUT)
-                {
-                        std::cerr << "Script was terminated due to timeout" << std::endl;
-                        fail=true;
-                }
-        }
-
-        jobmgr->AbortVMGroup(vmgroup);
-        jobmgr->ReleaseVMGroup(vmgroup);
-        if(fail)
-                throw std::runtime_error("Bootstrap of WebHare HareScript environment failed");
-*/
 }
 
 JobManagerIntegrator::~JobManagerIntegrator()

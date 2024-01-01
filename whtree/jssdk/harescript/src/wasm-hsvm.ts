@@ -240,6 +240,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.integrateEvents();
     this.onScriptDone = startupoptions.onScriptDone || null;
 
+    //by default a HSVM will write to stdout but not stderr, that always requires setup
+    this.captureErrors(this.writeToStderr.bind(this));
+
     this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
 
   }
@@ -250,7 +253,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
         this.onOutput?.(Buffer.copyBytesFrom(this.wasmmodule.HEAPU8, data, numbytes));
         return numbytes;
       };
-      this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii"); //TODO where do we remove this?
+      this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii");
       this.wasmmodule._HSVM_SetOutputCallback(this.hsvm, 0, this.gotOutputCallbackId);
     }
     this.onOutput = onOutput;
@@ -262,10 +265,14 @@ export class HareScriptVM implements HSVM_HSVMSource {
         this.onErrors?.(Buffer.copyBytesFrom(this.wasmmodule.HEAPU8, data, numbytes));
         return numbytes;
       };
-      this.gotErrorCallbackId = this.wasmmodule.addFunction(error, "iiiiii"); //TODO where do we remove this?
+      this.gotErrorCallbackId = this.wasmmodule.addFunction(error, "iiiiii");
       this.wasmmodule._HSVM_SetErrorCallback(this.hsvm, 0, this.gotErrorCallbackId);
     }
     this.onErrors = onErrors;
+  }
+
+  writeToStderr(data: Buffer) {
+    process.stderr.write(data);
   }
 
   async run(script: string): Promise<void> {
