@@ -536,18 +536,6 @@ PUBLIC STRING FUNCTION GetConsilioRPCToken(STRING catalogtag, RECORD options DEF
   RETURN EncryptForThisServer("consilio:suggest", tok);
 }
 
-RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
-{
-  RETURN SELECT catalogid, fsobject
-           FROM consilio.contentsources
-          WHERE fsobject IN candidateids
-                AND contentprovider = VAR whconstant_consilio_contentprovider_site
-                AND orphansince = DEFAULT DATETIME
-                AND tag NOT LIKE "$consilio$deleted$*"
-       ORDER BY SearchElement(candidateids, fsobject) DESC; //prefer closest match
-
-}
-
 /** @short Look up the 'best' catalog for a folder/site
     @long Lookup the catalog to use. Prefers catalog that more specifically target this folder and catalogs that contain less other contentsources
     @param folder Folder it to look up. If you're not specifically targetting folders we recommend specifying the site id

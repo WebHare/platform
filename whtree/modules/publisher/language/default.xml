@@ -296,11 +296,13 @@
         <text tid="cannotinspectconsilio">Unable to find this object in the Publisher search index</text>
         <text tid="consilio_subfiles">Subfiles</text>
         <text tid="inspectconsilio">Inspect in Consilio</text>
+        <text tid="inspectsource">Inspect source</text>
         <text tid="nosearchinfo">No searchinfo available</text>
         <text tid="pagelist">Pagelist</text>
         <text tid="refreshingpagelist">Refreshing page list...</text>
         <text tid="refreshingpagelisterror">There was an error refreshing the pagelist</text>
         <text tid="reindex">Reindex</text>
+        <text tid="root">Source root</text>
         <text tid="searchinfoerror">There was an error refreshing the subfiles</text>
         <text tid="subfile">Subfile</text>
         <text tid="url">URL</text>

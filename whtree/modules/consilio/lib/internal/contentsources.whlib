@@ -10,7 +10,6 @@ PUBLIC CONSTANT STRING ARRAY supported_field_types :=
     [ "boolean", "completion", "datetime", "float", "integer", "integer64", "ipaddress", "keyword", "latlng", "money", "record", "nested", "text" ];
 
 /** @short Get all content providers as offered by all modules
-    @param resourcemanager A WebHare resource manager
     @return All available content providers
     @cell return.name The content provider name
     @cell return.tid Tid for the content provider title
@@ -129,4 +128,3 @@ PUBLIC RECORD ARRAY FUNCTION GetContentSourceFieldMapping(STRING catalogtag, REC
 
   RETURN fields;
 }
-

@@ -192,6 +192,13 @@
     <text tid="nocontentsources">No search paths are assigned to the catalog</text>
     <text tid="unavailable">The catalog is being filled; results can temporarily be incomplete</text>
   </textgroup>
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="terms" keepemptyreason="Global terms">   <!-- common.terms -->
+      <text tid="catalog">Catalog</text>
+      <text tid="contentsource">Content source</text>
+      <text tid="contentsources">Content sources</text>
+    </textgroup>
+  </textgroup>
   <textgroup gid="contentproviders">   <!-- contentproviders -->
     <textgroup gid="custom">   <!-- contentproviders.custom -->
       <text tid="contentobject">Indexing object</text>
