@@ -14,7 +14,7 @@ PUBLIC RECORD ARRAY FUNCTION ListCertficates()
   FOREVERY (RECORD keypair_rec FROM ListKeyPairs())
   {
     OBJECT keypair := OpenKeyPair(keypair_rec.id);
-    IF(Length(keypair->certificate)=0)
+    IF(NOT ObjectExists(keypair) OR Length(keypair->certificate)=0)
       CONTINUE;
 
     RECORD certdata;
