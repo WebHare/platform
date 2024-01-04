@@ -56,7 +56,7 @@
 
     <menus>
       <menu name="mainmenu">
-        <item tid=".catalog">
+        <item tid="common.terms.catalog">
           <item name="addcontentsource_menu" action="addcontentsource" tid=".addcontentsource" />
           <divider />
           <item name="edititem_menu" action="edititem" tid=".edititem" />

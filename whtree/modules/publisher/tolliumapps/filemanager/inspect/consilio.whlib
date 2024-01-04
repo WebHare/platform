@@ -1,16 +1,20 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/pagelists.whlib";
 LOADLIB "mod::consilio/lib/screens/catalog.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib";
 LOADLIB "mod::consilio/lib/whfscatalog.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -51,6 +55,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
     this->fsobj := fsobj;
     this->RefreshSubFiles();
     this->RefreshConsilioPagelist(FALSE);
+    this->RefreshContentSources();
   }
 
   MACRO DoReindex()
@@ -148,5 +153,33 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
     }
   }
 
+  MACRO RefreshContentSources()
+  {
+    INTEGER ARRAY whfstree := GetWHFSTree(this->objid, 0);
+    RECORD ARRAY candidates := GetContentSourceMatches(whfstree);
+    RECORD ARRAY sources;
+    FOREVERY(RECORD candidate FROM candidates)
+    {
+      OBJECT contentsource := OpenContentSourceById(candidate.contentsourceid);
+      IF(NOT ObjectExists(contentsource))
+        CONTINUE;
 
+      INSERT [ catalog := contentsource->catalog->tag
+             , contentsource := contentsource->tag ?? "#" || contentsource->id
+             , contentsourceid := contentsource->id
+             , root := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id = candidate.fsobject)
+             ] INTO sources AT END;
+    }
+    ^contentsources->rows := sources;
+  }
+
+  MACRO DoInspectSource()
+  {
+    RECORD toinspect := ^contentsources->selection;
+    OBJECT csource := OpenContentSourceById(toinspect.contentsourceid)->__OpenProvider();
+    STRING groupid := ToString(this->objid);
+    RECORD ARRAY objs := csource->ListObjects(GetCurrentDatetime(), groupid);
+    objs := SELECT *, fetched := csource->FetchObject(GetCurrentDatetime(), groupid, id) FROM objs;
+    Reflect(objs);
+  }
 >;

@@ -296,11 +296,13 @@
         <text tid="cannotinspectconsilio">Kan dit object niet vinden in de Publisher zoekindex</text>
         <text tid="consilio_subfiles">Subbestanden</text>
         <text tid="inspectconsilio">Inspect in Consilio</text>
+        <text tid="inspectsource">Inspecteer bron</text>
         <text tid="nosearchinfo">Geen searchinfo beschikbaar</text>
         <text tid="pagelist">Paginalijst</text>
         <text tid="refreshingpagelist">Paginalijst wordt ververst...</text>
         <text tid="refreshingpagelisterror">Er is een fout opgetreden bij het ophalen van de paginalijst</text>
         <text tid="reindex">Herindexeer</text>
+        <text tid="root">Bron beginpunt</text>
         <text tid="searchinfoerror">Er is een fout opgetreden bij het ophalen van de subbestanden</text>
         <text tid="subfile">Subbestand</text>
         <text tid="url">URL</text>

@@ -192,6 +192,13 @@
     <text tid="nocontentsources">Er zijn geen zoekpaden toegewezen aan de catalogus</text>
     <text tid="unavailable">De catalogus wordt gevuld; tijdelijk kunnen resultaten onvolledig zijn</text>
   </textgroup>
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="terms">   <!-- common.terms -->
+      <text tid="catalog">Catalogus</text>
+      <text tid="contentsource">Contentbron</text>
+      <text tid="contentsources">Contentbronnen</text>
+    </textgroup>
+  </textgroup>
   <textgroup gid="contentproviders">   <!-- contentproviders -->
     <textgroup gid="custom">   <!-- contentproviders.custom -->
       <text tid="contentobject">Indexeringsobject</text>

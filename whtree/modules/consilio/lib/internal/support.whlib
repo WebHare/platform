@@ -183,3 +183,14 @@ PUBLIC STRING FUNCTION GenerateConsilioIndexName()
   RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
 }
 
+PUBLIC RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
+{
+  RETURN SELECT catalogid, fsobject, contentsourceid := id
+           FROM consilio.contentsources
+          WHERE fsobject IN candidateids
+                AND contentprovider = VAR whconstant_consilio_contentprovider_site
+                AND orphansince = DEFAULT DATETIME
+                AND tag NOT LIKE "$consilio$deleted$*"
+       ORDER BY SearchElement(candidateids, fsobject) DESC; //prefer closest match
+
+}
