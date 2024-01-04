@@ -162,12 +162,14 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
   const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
+  const mediaType = (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
   return {
     width: metadata[isrotated ? "height" : "width"] || null,
     height: metadata[isrotated ? "width" : "height"] || null,
     dominantColor: istransparent ? "transparent" : stats?.dominant ? colorToHex(stats.dominant) : null,
-    mediaType: (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType,
+    mediaType,
+    extension: getExtensionForMediaType(mediaType),
     mirrored,
     rotation
   };
