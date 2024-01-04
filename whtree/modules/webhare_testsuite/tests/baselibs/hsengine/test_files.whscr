@@ -821,6 +821,7 @@ MACRO ScanBlobTest()
   TestEq(".gif", detect.extension);
 
   detect := WrapBlob(dummygif,"bladiebla.*");
+  ValidateWrappedData(detect);
   TestEq("image/gif", detect.mimetype);
   TestEq(".gif", detect.extension);
   TestEq("bladiebla.gif", detect.filename);
