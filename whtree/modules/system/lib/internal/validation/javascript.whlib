@@ -263,7 +263,10 @@ PUBLIC STRING FUNCTION RecursivelyFindTypeScriptFile(STRING root, STRING subpath
 
 BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
 {
-  // TS doesn't let us configure different settings for the postgresql-client dir so just discard the errors
+  IF(resourcename LIKE "mod::*") //TS errors currently inconsistently come in as full paths or resource paths
+    resourcename := GetWebHareResourceDiskPath(resourcename);
+
+  //TS doesn't let us configure different settings for the postgresql-client dir so just discard the errors
   IF(resourcename LIKE "*/jssdk/whdb/vendor/postgresql-client/*")
     RETURN TRUE;
 
@@ -282,7 +285,7 @@ BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
      Note that we get full paths in resourcename for files in jssdk but mod:: paths for files in eg mod::system
   */
   IF(modulename != "platform" AND (resourcename LIKE MergePath(GetInstallationRoot(), "jssdk") || "/*"
-                                   OR GetWebHareResourceDiskPath(resourcename) LIKE MergePath(GetInstallationRoot(), "modules") || "/*"))
+                                   OR resourcename LIKE MergePath(GetInstallationRoot(), "modules") || "/*"))
     RETURN TRUE;
 
   RETURN FALSE;
