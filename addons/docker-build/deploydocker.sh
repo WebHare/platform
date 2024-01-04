@@ -3,10 +3,8 @@
 if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
   # Running from a whtree
   source "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh"
-  # get_finaltag looks up branding.h so we need to set this:
-  export WEBHARE_CHECKEDOUT_TO="$(cd ${BASH_SOURCE%/*}/../.. ; pwd )"
 else
-  echo "Unrecognized environment for testdocker"
+  echo "Unrecognized environment for deploydocker"
   exit 1
 fi
 

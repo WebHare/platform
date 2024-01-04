@@ -88,5 +88,13 @@ setup_builddir()
   fi
 }
 
-export -f die setup_builddir
+getwebhareversion()
+{
+  [ -n "$WEBHARE_DIR" ] || die "WEBHARE_DIR not set - couldn't figure out where the WebHare tree is"
+  export WEBHARE_VERSION="$(grep ^version= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+  [ -n "$WEBHARE_VERSION" ] || die "Could not get version number from $WEBHARE_DIR/etc/platform.conf"
+}
+
+
+export -f die setup_builddir getwebhareversion
 export WEBHARE_NODE_BINARY WEBHARE_PLATFORM

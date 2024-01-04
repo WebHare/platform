@@ -27,22 +27,6 @@ testEq()
   fi
 }
 
-getbaseversioninfo()
-{
-  local WHNUMERICVERSION
-  if [ -n "$__MOCK_WHNUMERICVERSION" ]; then
-    WHNUMERICVERSION="$__MOCK_WHNUMERICVERSION"
-  else
-    WHNUMERICVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION_NUMBER / { print $3 }' < $WEBHARE_CHECKEDOUT_TO/blex/branding.h)`
-    if [ -z "$WHNUMERICVERSION" ]; then
-      echo "Unable to retrieve version # from branding.h"
-      exit 1
-    fi
-  fi
-
-  WEBHARE_VERSION=${WHNUMERICVERSION:0:1}.$((${WHNUMERICVERSION:1:2})).$((${WHNUMERICVERSION:3:2}))
-}
-
 # run a JS/TS script, assumes the resolveplugin is ready for use
 wh_runjs()
 {
@@ -356,7 +340,7 @@ get_finaltag()
 
   local MAINTAG
   local ADDTAGS
-  getbaseversioninfo
+  getwebhareversion
 
   # are we running on CI?
   if [ -n "$CI_COMMIT_SHA" ]; then
@@ -728,4 +712,4 @@ load_postgres_settings()
 }
 
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
-export -f setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters
+export -f setup_buildsystem wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters

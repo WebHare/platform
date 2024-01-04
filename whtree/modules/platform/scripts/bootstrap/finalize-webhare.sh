@@ -49,10 +49,7 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 # When running from source, rebuild buildinfo (for docker builddocker.sh generates this)
 if [ -z "$WEBHARE_IN_DOCKER" ]; then
   logWithTime "Build the resolveplugin"
-  getbaseversioninfo # from wh-functions.sh
-  if [ -z "$WEBHARE_VERSION" ]; then
-    die Cannot determine WebHare version
-  fi
+  getwebhareversion # from make-functions.sh
 
   cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
 committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"

@@ -6,7 +6,6 @@ if [ -z "$WEBHARE_BUILDDIR" ]; then
 fi
 
 DOCKERBUILDARGS=()
-DESTDIR="`pwd`"
 USEPODMAN=""
 cd `dirname $0`
 
@@ -175,16 +174,17 @@ fi
 
 # Recreate tocompile dir. we need 'whtree' to exist too so we can move the fonts in place
 [ -d tocompile ] && rm -rf tocompile
-mkdir -p tocompile/whtree tocompile/whtree/lib
+mkdir -p tocompile/whtree tocompile/whtree/lib tocompile/whtree/etc
 
 #TODO if we could move more into the 'builder' dir we could simplify this list
-cp -a $SOURCEDIR/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
+cp -a "$SOURCEDIR"/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
 
 # Fonts are also required for drawlib tests
 mv whtree/fonts tocompile/whtree/
 
 # make-functions.sh stores functions shared between the build and runtime process so we need it earlier.
 mv whtree/lib/make-functions.sh tocompile/whtree/lib/
+mv whtree/etc/platform.conf tocompile/whtree/etc/
 
 cat > .dockerignore << HERE
 **/engines/pdfbox*.jar
