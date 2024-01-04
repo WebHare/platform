@@ -369,6 +369,12 @@ async function testNewAPI() {
   test.eq('Hey everybody 2', await filerec.resource.text());
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
+  await schema.update("wrdPerson", newperson, { testFile: goldfish });
+  const goldfishrec: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select(["testFile"]).where("wrdId", "=", newperson).execute())[0].testFile!;
+  test.eq('image/png', goldfishrec.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishrec.hash);
+
   // FIXME: rich documents are not yet supported in the JS engine
   if (!debugFlags["wrd:usejsengine"]) {
     // Set the 'richie' rich document document

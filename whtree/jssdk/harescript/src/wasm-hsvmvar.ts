@@ -1,4 +1,4 @@
-import { IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Marshaller, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
@@ -384,6 +384,11 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Record: {
+        if (typeof value == "object" && value?.[Marshaller]?.setValue) {
+          value?.[Marshaller]?.setValue.apply(value, [this]);
+          return;
+        }
+
         const recval = value as IPCMarshallableRecord;
         if (!recval)
           this.setDefault(VariableType.Record);

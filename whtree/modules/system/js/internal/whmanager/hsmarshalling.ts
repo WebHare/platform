@@ -3,6 +3,20 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 import { Money } from "../../../../../jssdk/std/money";
 import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
 import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
+import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
+
+export const Marshaller = Symbol("Marshaller");
+
+export interface MarshallInfo {
+  type: VariableType;
+  setValue?: (hsvmvar: HSVMVar) => void;
+}
+
+declare global {
+  interface Object {
+    [Marshaller]?: MarshallInfo;
+  }
+}
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable
@@ -374,6 +388,8 @@ export function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
+      if (value?.[Marshaller])
+        return value[Marshaller].type;
       if (value instanceof WebHareBlob)
         return VariableType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
