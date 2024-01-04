@@ -55,9 +55,6 @@ function getDebugAppend() {
   return '';
 }
 
-/* this is the followup for net/jsonrpc.es - we can hopefully clear net/ someday
-   and move net/eventserver to wh/eventserver.es then */
-
 class ControlledCall {
   client: RPCClient;
   options: RPCCallOptions;
@@ -69,7 +66,7 @@ class ControlledCall {
   timedout?: boolean;
   aborted?: boolean;
 
-  constructor(client: RPCClient, method: string, stack: StackTrace, id: number, options: RPCCallOptions, callurl: string, fetchoptions: RequestInit) {
+  constructor(client: RPCClient, method: string, stack: StackTrace | null, id: number, options: RPCCallOptions, callurl: string, fetchoptions: RequestInit) {
     this.client = client;
     this.options = options;
 
@@ -102,7 +99,7 @@ class ControlledCall {
     this.abortcontroller.abort();
   }
 
-  async _completeCall(method: string, requestStack: StackTrace, id: number, fetchpromise: Promise<Response>) {
+  async _completeCall(method: string, requestStack: StackTrace | null, id: number, fetchpromise: Promise<Response>) {
     let response;
     try {
       for (; ;) { //loop to handle "429 Conflict"s
@@ -204,7 +201,7 @@ class RPCClient {
     return this.options.debug || debugFlags.rpc;
   }
 
-  _tryLogError(requestStack: StackTrace, error: Error) {
+  _tryLogError(requestStack: StackTrace | null, error: Error) {
     console.group();
     console.warn("RPC failed:", error);
     if (requestStack) {
@@ -230,10 +227,10 @@ class RPCClient {
     callurl += this.urlappend;
 
     const id = ++globalseqnr;
-    const requestStack: StackTrace = [];
+    let requestStack: StackTrace | null = null;
 
     if (this.debug) {
-      requestStack.push(...parseTrace(new Error));
+      requestStack = parseTrace(new Error);
       console.log(`[rpc] #${id} Invoking '${method}'`, params, callurl);
     }
 

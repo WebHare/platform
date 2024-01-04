@@ -1,4 +1,5 @@
 #!/bin/bash
 set -eo pipefail
-export NODE_OPTIONS="--enable-source-maps --require \"${BASH_SOURCE%/*}/../dist/resolveplugin.js\" $NODE_OPTIONS"
+SCRIPTPATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+export NODE_OPTIONS="--enable-source-maps --require \"${SCRIPTPATH}/../dist/resolveplugin.js\" $NODE_OPTIONS"
 exec node "$@"
