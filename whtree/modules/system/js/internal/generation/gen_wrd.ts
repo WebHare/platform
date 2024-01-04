@@ -308,8 +308,8 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
         if (subdef)
           typedef += `${indent}    ${tag}: ${subdef};\n`;
       }
-      typedef += `${indent}  };\n${indent}}>`;
     }
+    typedef += `${indent}  };\n${indent}}>`;
   } else if (attr.attributeType == WRDAttributeType.JSON) {
     const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { type: ${typedeclname} }>`;
