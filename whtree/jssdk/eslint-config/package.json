@@ -1,7 +1,7 @@
 {
   "name": "@webhare/eslint-config",
   "version": "",
-  "description": "",
+  "description": "ESLint settings as used by WebHare Platform",
   "main": ".eslintrc.json",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

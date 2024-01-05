@@ -1,4 +1,4 @@
 # The axioms are the base WebHare settings required to bootstrap the generators.
 
 # JSSDK packages we publish to NPM (in their dependency order)
-publishPackages: [ ts-esbuild-runner, std ]
+publishPackages: [ eslint-config, ts-esbuild-runner, std ]

@@ -1,7 +1,7 @@
 {
   "name": "@webhare/ts-esbuild-runner",
   "version": "",
-  "description": "",
+  "description": "Run TypeScript code from the command line (esbuild wrapper)",
   "main": "",
   "bin": {
     "tsrun": "bin/tsrun.sh"

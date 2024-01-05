@@ -74,7 +74,7 @@ async function main() {
     Object.assign(packagejson, fixedsettings);
 
     const src = packagejson.main;
-    if (src) {
+    if (src?.endsWith(".ts") || src?.endsWith(".tsx")) {
       //Do not extend from whtree/tsconfig.json - we'll pick up all the paths and not properly keep dependencies external
       await writeFile(join(pkgroot, "tsconfig.json"), JSON.stringify({
         include: [src],
@@ -83,7 +83,7 @@ async function main() {
           noEmit: false,
           declaration: true,
           module: "commonjs",
-          typeRoots: [join(backendConfig.installationroot, "node_modules/@types")]
+          types: [join(backendConfig.installationroot, "node_modules/@types/node")]
         }
       }, null, 2), "utf8");
 
@@ -101,10 +101,15 @@ async function main() {
     packagejson.version = versionfinal;
     await writeFile(join(pkgroot, "package.json"), JSON.stringify(packagejson, null, 2) + '\n', "utf8");
 
+    //Update README.md
+    const sourcelink = `https://gitlab.com/webhare/platform/-/tree/master/whtree/jssdk/${pkgname}`;
+    const readme = `${(await readFile(join(pkgroot, "README.md"), "utf8")).trim()}\n\n## Publication source\nThe [source code for @webhare/${pkgname}](${sourcelink}) is part of the WebHare Platform\n`;
+    await writeFile(join(pkgroot, "README.md"), readme, "utf8");
+
     //Install it
     const installResult = spawnSync("npm", ["install", "--omit=dev"], { cwd: pkgroot, stdio });
     if (installResult.status)
-      throw new Error(`Failed to pack ${pkgname} (use --verbose for more info)`);
+      throw new Error(`Failed to pack ${pkgname} (use--verbose for more info)`);
   }
 
   let accesstoken = '';
