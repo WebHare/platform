@@ -1,13 +1,11 @@
 {
   "name": "@webhare/std",
-  "version": "0.504.0",
+  "version": "",
   "description": "",
   "main": "std.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "WebHare bv",
-  "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -15,5 +13,6 @@
     "entryPoints": [
       "./std.ts"
     ]
-  }
+  },
+  "private": true
 }

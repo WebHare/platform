@@ -1,16 +1,15 @@
 {
   "name": "@webhare/dompack-overlays",
-  "version": "0.11.0",
+  "version": "",
   "description": "Support for user editable overlays",
   "main": "src/dompack-overlays.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "WebHare bv",
-  "license": "MIT",
   "typedocOptions": {
     "entryPoints": [
       "./src/dompack-overlays.ts"
     ]
-  }
+  },
+  "private": true
 }

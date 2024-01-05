@@ -1,16 +1,15 @@
 {
   "name": "@webhare/witty",
-  "version": "1.0.0",
+  "version": "",
   "description": "",
   "main": "src/witty.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "WebHare bv",
-  "license": "MIT",
   "typedocOptions": {
     "entryPoints": [
       "./src/witty.ts"
     ]
-  }
+  },
+  "private": true
 }

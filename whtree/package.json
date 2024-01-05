@@ -1,4 +1,8 @@
 {
+  "name": "@webhare/platform",
+  "author": "WebHare bv",
+  "license": "MIT",
+  "version": "",
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
     "@swc/wasm": "^1.3.14",
