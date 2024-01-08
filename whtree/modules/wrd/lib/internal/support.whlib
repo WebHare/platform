@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::money.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::internal/any.whlib";
@@ -1143,3 +1144,11 @@ PUBLIC RECORD ARRAY FUNCTION ListWRDSchemaSettings(INTEGER wrdschemaid)
     ORDER BY ToLowercase(name);
 }
 
+PUBLIC BOOLEAN FUNCTION IsValidUUID(STRING inuuid)
+{
+  RETURN NEW RegEx('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')->Test(inuuid);
+}
+PUBLIC BOOLEAN FUNCTION IsValidUUIDv4(STRING inuuid)
+{
+  RETURN NEW RegEx('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')->Test(inuuid);
+}

@@ -62,16 +62,6 @@ MACRO TestImageFileField(OBJECT persontype, INTEGER testpersonid, BOOLEAN curren
       ]));
 }
 
-BOOLEAN FUNCTION IsValidUUIDv4(STRING inuuid)
-{
-  RETURN NEW RegEx('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')->Test(inuuid);
-}
-STRING FUNCTION WRDGuidToUUId(STRING inguid)
-{
-  STRING uuid := ToLowercase(Substring(inguid,4));
-  RETURN `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-${Substring(uuid, 12, 4)}-${Substring(uuid, 16, 4)}-${Substring(uuid, 20)}`;
-}
-
 MACRO TestSchema()
 {
   BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
@@ -102,6 +92,8 @@ MACRO TestSchema()
   }
   //Verify well known GUIDs
   TestAssert(IsValidUUIDv4(WRDGuidToUUId(wrd_settings_guid)), "wrd_settings_guid failed validation");
+  TestEq("07004000-0000-4000-a000-00bea61ef00d", WRDGuidToUUId(wrd_settings_guid));
+  TestEq("wrd:0700400000004000A00000BEA61EF00D", UUIDToWRDGuid("07004000-0000-4000-a000-00bea61ef00d"));
 
   TestThrowsLike("*requires*transaction*", PTR persontype->GetNewEntityId());
   TestEqLike('wrd:*', persontype->GetNewEntityGUID(), 'GetNewEntityGUID should work outside work');

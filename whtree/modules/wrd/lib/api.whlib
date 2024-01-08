@@ -246,3 +246,19 @@ PUBLIC MACRO UpdateWRDSequenceParameters(INTEGER wrdschemaid, STRING statekey, R
   ELSE
     UpdateSourceOrderNumberParameters(wrdschemaid, statekey, options);
 }
+
+PUBLIC STRING FUNCTION WRDGuidToUUId(STRING inguid)
+{
+  IF(NOT IsValidWRDGuid(inguid))
+    THROW NEW Exception("Invalid WRD GUID: " || inguid);
+
+  STRING uuid := ToLowercase(Substring(inguid,4));
+  RETURN `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-${Substring(uuid, 12, 4)}-${Substring(uuid, 16, 4)}-${Substring(uuid, 20)}`;
+}
+PUBLIC STRING FUNCTION UUIdToWRDGuid(STRING inuuid)
+{
+  IF(NOT IsValidUUID(inuuid))
+    THROW NEW Exception("Invalid UUID: " || inuuid);
+
+  RETURN `wrd:${ToUppercase(Substitute(inuuid, "-", ""))}`;
+}
