@@ -19,10 +19,12 @@ will need a tsconfig.json in its root, eg:
   "compilerOptions": {
     "baseUrl": ".",
     "noEmit": true,
-    "target": "es2022"
+    "target": "es2022",
+    "isolatedModules": true
   }
 }
 ```
+The option `"isolatedModules": true` improves compatibility with esbuild
 
 Compiled TS files are cached in `$HOME/.ts-esbuild-runner-cache`.
 

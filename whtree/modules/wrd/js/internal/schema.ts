@@ -10,8 +10,8 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { omit } from "@webhare/std";
-import { EnrichmentResult, executeEnrichment, isTruthy } from "@mod-system/js/internal/util/algorithms";
+import { isTruthy, omit } from "@webhare/std";
+import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 

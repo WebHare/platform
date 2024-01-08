@@ -414,6 +414,12 @@ async function testCollections() {
   while (array[0] != 5)
     std.shuffle(array);
   test.eq([1, 2, 3, 4, 5], array.sort()); //shouldn't sort() a number array as it'll do a string compare, but safe with numbers < 10
+
+  const myarray: Array<Date | null> = [new Date, null];
+  ///@ts-expect-error -- to show the point of IsTruthy - TS doesn't recognize this simple filter as eliminating falsy values
+  myarray.filter(_ => _) satisfies Date[];
+  myarray.filter(std.isTruthy) satisfies Date[];
+  test.eq([myarray[0] as Date], myarray.filter(std.isTruthy));
 }
 
 

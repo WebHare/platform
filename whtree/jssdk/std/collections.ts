@@ -128,3 +128,14 @@ export function shuffle<T>(array: T[]): T[] {
   }
   return array;
 }
+
+/** Returns (and TypeScript-asserts) that the specified function is truthy. Handy for adjusting the type of an array when
+ * filtering out falsy values
+ * @example
+ * const myarray: Array&lt;number | null&gt; = [0, null];
+ * const filtered: number[] = myarray.filter(isTruthy);
+ **/
+// eslint-disable-next-line @typescript-eslint/ban-types
+export function isTruthy<T>(a: T): a is (T & {}) {
+  return Boolean(a);
+}
