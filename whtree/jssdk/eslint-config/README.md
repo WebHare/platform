@@ -6,10 +6,7 @@ plugins relative to your .eslintrc.json. (https://eslint.org/docs/latest/use/con
 
 So to fully install this module:
 ```bash
-npm install --save-dev @webhare/eslint-config
-npm install --save-dev @typescript-eslint/eslint-plugin@latest
-npm install --save-dev eslint-plugin-react@latest
-npm install --save-dev eslint-plugin-tsdoc@latest
+npm install --save-dev @webhare/eslint-config @typescript-eslint/eslint-plugin@latest eslint-plugin-react@latest eslint-plugin-tsdoc@latest
 ```
 
 and make sure your `.eslintrc.json` contains at leadt:
