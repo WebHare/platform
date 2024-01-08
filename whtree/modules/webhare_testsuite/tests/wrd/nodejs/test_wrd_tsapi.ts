@@ -206,9 +206,16 @@ async function testNewAPI() {
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
+  const sub_unit_id = await schema.insert("whuserUnit", { wrdTitle: "Sub unit", wrdTag: "SUBTAG", wrdLeftEntity: unit_id });
 
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
+
+  // test searches for null in wrdLeftEntity
+  test.eq([unit_id], await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", null).execute());
+  test.eq([sub_unit_id], await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "!=", null).execute());
+  test.eq([unit_id].sort(), (await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
+  test.eq([unit_id, sub_unit_id].sort(), (await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
 
   /* Verify that the Record type isn't constraining too much (it regressed no longer accepting interface types:
      'Type 'TestRecordDataInterface' is not assignable to type '{ [x: string]: IPCMarshallableData; }'.
@@ -481,7 +488,7 @@ async function testTSTypes() {
 
 async function testUpsert() {
   await whdb.beginWork();
-  test.eq(1, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
+  test.eq(2, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
   ///@ts-expect-error -- TS should also detect wrdTagXX being invalid
   await test.throws(/Cannot find attribute/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTagXX"], { wrdLeftEntity: null, wrdTagXX: "TAG" }));
   await test.throws(/requires a value for.*wrdTag/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null }));
@@ -489,7 +496,7 @@ async function testUpsert() {
   const [firstUnitId, firstUnitIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { ifNew: { wrdTitle: "Unit #1" } });
   test.assert(firstUnitIsNew);
   const [secondUnitId] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "SECONDUNIT" }, { ifNew: { wrdTitle: "Unit #2" } });
-  test.eq(3, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
+  test.eq(4, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
   test.assert(firstUnitId);
   test.assert(secondUnitId);
   test.eq("Unit #1", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"]))?.wrdTitle);
@@ -500,7 +507,7 @@ async function testUpsert() {
   test.eq("Unit #1", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"]))?.wrdTitle);
 
   await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdTitle: "Unit #1b" });
-  test.eq(3, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
+  test.eq(4, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
   test.eq("Unit #1b", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"]))?.wrdTitle);
 
   await test.throws(/Upsert requires at least one key field/, wrdTestschemaSchema.upsert("whuserUnit", [], { wrdTitle: "Unit without key" }));

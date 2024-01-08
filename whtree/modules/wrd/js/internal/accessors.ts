@@ -773,7 +773,7 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
 > {
   getDefaultValue(): number | null { return null; }
   checkFilter(cv: WRDDBDomainConditions) {
-    if (cv.condition === "in" || cv.condition === "mentionsany") {
+    if (cv.condition === "mentionsany") {
       if (cv.value.some(v => !v))
         throw new Error(`The value 'null' (or 0) is not allowed for matchtype ${JSON.stringify(cv.condition)}`);
     } else if (cv.condition === "mentions" && !cv.value)
@@ -808,10 +808,20 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    if (fixed_db_cv.condition == '=' && fixed_db_cv.value === null)
-      query = addWhere(query, this.getAttrBaseCells(), "is", null);
-    else
-      query = addWhere(query, this.getAttrBaseCells(), fixed_db_cv.condition, fixed_db_cv.value);
+    const fieldname = this.getAttrBaseCells();
+    if (fixed_db_cv.condition === "=" && !fixed_db_cv.value)
+      query = addWhere(query, fieldname, "is", null);
+    else if (fixed_db_cv.condition === "!=" && !fixed_db_cv.value)
+      query = addWhere(query, fieldname, "is not", null);
+    else if (fixed_db_cv.condition === "in" && fixed_db_cv.value.some(v => !v)) {
+      // convert `field in [ null, ...x ]` to `(field is null or field in [ ...x ])`
+      const nonnull = fixed_db_cv.value.filter(v => v);
+      if (nonnull.length)
+        query = query.where(qb => addOrWhere(addOrWhere(qb, fieldname, "in", nonnull), fieldname, "is", null));
+      else
+        query = addWhere(query, fieldname, "is", null);
+    } else
+      query = addWhere(query, fieldname, fixed_db_cv.condition, fixed_db_cv.value);
 
     return {
       needaftercheck: false,
