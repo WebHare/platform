@@ -1,15 +1,10 @@
 {
   "name": "@webhare/std",
-  "version": "0.504.0",
-  "description": "",
+  "version": "",
+  "description": "A standard library for WebHare modules",
   "main": "std.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "WebHare bv",
-  "license": "MIT",
-  "browser": {
-    "platformbased": "./platformbased-browser.ts"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -18,5 +13,6 @@
     "entryPoints": [
       "./std.ts"
     ]
-  }
+  },
+  "private": true
 }

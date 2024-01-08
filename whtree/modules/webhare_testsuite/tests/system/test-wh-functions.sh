@@ -81,7 +81,11 @@ testDockerTagCalculation()
   CI_COMMIT_TAG=
   CI_COMMIT_REF_SLUG=master
   MAINTAG=
-  __MOCK_WHNUMERICVERSION=50607
+
+  getwebhareversion() # mock version getter
+  {
+    export WEBHARE_VERSION=5.6.7
+  }
 
   # building 'master' should also tag release branches so users can 'target' those for their dockers
   get_finaltag
@@ -90,7 +94,11 @@ testDockerTagCalculation()
   testEq "webhare/platform:master registry.gitlab.com/webhare/platform:master webhare/platform:release-5-6 registry.gitlab.com/webhare/platform:release-5-6" "$PUBLIC_IMAGES"
   testEq "5.6.7-dev" "$WEBHARE_VERSION"
 
-  __MOCK_WHNUMERICVERSION=43500
+  getwebhareversion() # mock version getter
+  {
+    export WEBHARE_VERSION=4.35.0
+  }
+
   CI_COMMIT_REF_NAME=release/4.35
   CI_COMMIT_REF_SLUG=release-4-35
 

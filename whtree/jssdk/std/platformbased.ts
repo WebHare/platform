@@ -8,10 +8,24 @@ export function generateRandomId(encoding: "base64url" | "hex" | "uuidv4" = "bas
     if (bytes !== 16)
       throw new Error("UUIDv4 encoding only supports 16 bytes");
 
-    return crypto.randomUUID();
+    if (crypto.randomUUID) //NOTE: not available in non-secure contexts so the fallback can never go away
+      return crypto.randomUUID();
   }
 
   const u8array = new Uint8Array(bytes);
   crypto.getRandomValues(u8array);
-  return Buffer.from(u8array).toString(encoding);
+
+  if (encoding === "uuidv4") {
+    u8array[6] = (u8array[6] & 0x0f) | 0x40;
+    u8array[8] = (u8array[8] & 0x3f) | 0x80;
+    return [...u8array.values()].map(x => x.toString(16).padStart(2, "0")).join("").replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
+  }
+
+  if (encoding === "base64url")
+    return btoa(String.fromCharCode.apply(null, u8array as unknown as number[])).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
+
+  if (encoding === "hex")
+    return [...u8array.values()].map(x => x.toString(16).padStart(2, "0")).join("");
+
+  throw new Error(`Invalid encoding '${encoding}'`);
 }

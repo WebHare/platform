@@ -91,7 +91,7 @@ COPY whtree /opt/wh/whtree
 
 # Add built WebHare (ie 'wh make install' from the parallel build)
 RUN --mount=type=bind,from=builder,target=/builder \
-   cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/fonts /opt/wh/whtree/
+   cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/fonts /builder/opt/wh/whtree/etc /opt/wh/whtree/
 
 # Finalize WebHare (eg generate files in /opt/wh/) and shrinkwrap it (precompile/pregenerate files)
 RUN --mount=type=tmpfs,target=/tmp/ \

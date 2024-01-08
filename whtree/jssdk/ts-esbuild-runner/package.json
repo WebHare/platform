@@ -1,18 +1,17 @@
 {
   "name": "@webhare/ts-esbuild-runner",
-  "version": "0.503.0",
-  "description": "",
+  "version": "",
+  "description": "Run TypeScript code from the command line (esbuild wrapper)",
   "main": "",
   "bin": {
-    "tsrun": "./bin/tsrun.sh"
+    "tsrun": "bin/tsrun.sh"
   },
   "scripts": {
     "prepack": "./bin/prepack.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "WebHare bv",
-  "license": "MIT",
   "dependencies": {
-    "esbuild": "^0.17.6"
-  }
+    "esbuild": "^0.19.11"
+  },
+  "private": true
 }

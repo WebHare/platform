@@ -11,7 +11,7 @@
 #include "mangling.h"
 #include <blex/mime.h>
 #include "hsvm_debug.h"
-#include <blex/branding.h>
+#include <blex/platformconf.h>
 #include <harescript/vm/wasm-tools.h>
 
 // Show debug stuff

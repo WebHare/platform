@@ -4,8 +4,6 @@
 if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
   # Running from a whtree
   source "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh"
-  # get_finaltag looks up branding.h so we need to set this:
-  export WEBHARE_CHECKEDOUT_TO="$(cd ${BASH_SOURCE%/*}/../.. ; pwd )"
 elif [ -f "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
   # Running from a CI which directly downloaded wh-functions.sh
   source "${BASH_SOURCE%/*}/wh-functions.sh"

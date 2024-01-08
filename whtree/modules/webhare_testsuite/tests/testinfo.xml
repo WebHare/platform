@@ -26,6 +26,7 @@
       <arg value="webhare_testsuite" />
     </test>
     <test name="checkjssdk" script="mod::system/scripts/whcommands/checkjssdk.sh" />
+    <test name="validatejssdk" script="mod::platform/scripts/platformdev/validate_jssdk.ts" />
     <test name="platform" script="mod::system/scripts/whcommands/checkmodule.whscr">
       <arg value="--async" />
       <arg value="--hidehints" />

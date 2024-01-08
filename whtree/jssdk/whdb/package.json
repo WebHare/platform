@@ -1,16 +1,15 @@
 {
   "name": "@webhare/whdb",
-  "version": "1.0.0",
+  "version": "",
   "description": "",
   "main": "src/whdb.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "WebHare bv",
-  "license": "MIT",
   "typedocOptions": {
     "entryPoints": [
       "./src/whdb.ts"
     ]
-  }
+  },
+  "private": true
 }

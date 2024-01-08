@@ -160,7 +160,7 @@ check_webhare_not_running()
 
 setup_webhare_envsettings()
 {
-  export WEBHARE_VERSION=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$version" )
+  getwebhareversion
   WEBHARE_DISPLAYBUILDINFO="$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "branch $branch, commit ${committag:0:10}")"
 
   ORIGIN=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$origin" )

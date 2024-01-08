@@ -6,7 +6,7 @@
 #include "parser.h"
 #include <blex/lexer.h>
 #include <blex/path.h>
-#include <blex/branding.h>
+#include <blex/platformconf.h>
 
 #include "parser_tools.h"
 
@@ -1354,4 +1354,3 @@ void Parser::P_CompilerStatement(bool only_report)
 
 } // End of namespace Compiler
 } // End of namespace HareScript
-
