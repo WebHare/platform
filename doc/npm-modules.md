@@ -6,7 +6,7 @@ not made available to add-on modules (not even webhare_testsuite)
 ## Embedded JSSDK packages
 The packages inside `whtree/jssdk` are made available under the `@webhare` scope for all builtin and addon modules.
 
-A subset of these packages can be published directly to npm (see `publishPackges` in [axioms.yml](../whtree/modules/platform/data/axioms.yml)):
+A subset of these packages can be published directly to npm (see `publishPackages` in [axioms.yml](../whtree/modules/platform/data/axioms.yml)):
 
 ```bash
 # test first

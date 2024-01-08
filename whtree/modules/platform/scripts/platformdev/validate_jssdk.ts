@@ -64,10 +64,10 @@ async function main() {
       if (!fix || issues.find(_ => !_.toFix)) {
         process.exitCode = 1;
         for (const issue of issues)
-          console.log(`- @webare/${pkg.name}: ${issue.message}`);
+          console.log(`- @webhare/${pkg.name}: ${issue.message}`);
       } else { //fix them!
         for (const issue of issues) {
-          console.log(`- @webare/${pkg.name}: ${issue.message} (fixing)`);
+          console.log(`- @webhare/${pkg.name}: ${issue.message} (fixing)`);
           issue.toFix!();
         }
         await writeFile(join(pkgroot, "package.json"), JSON.stringify(pkgjson, null, 2) + "\n");

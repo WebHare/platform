@@ -28,7 +28,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$WHBUILD_ALLOW" ]; then
   die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
 fi
 
-# Update/regenrate platformconf.h
+# Update/regenerate platformconf.h
 getwebhareversion
 
 # Convert version number to 5 digit style used in C++/HareScript (GetWebHareVersionNumber)
