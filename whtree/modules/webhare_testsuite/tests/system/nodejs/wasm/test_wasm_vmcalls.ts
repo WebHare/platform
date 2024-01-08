@@ -1,9 +1,9 @@
 import * as stacktrace_parser from "stacktrace-parser";
 import { VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HSVMObject, createVM } from "@webhare/harescript";
+import { HSVMObject, createVM, loadlib } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, lockMutex } from "@webhare/services";
+import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 
 function testTypeAPIs() {
@@ -105,6 +105,23 @@ async function testCalls() {
   param.setString("wh::util/algorithms.whlib#GetSortedSet");
   test.eq(true, await rawvm.callWithHSVMVars("wh::system.whlib#MakeFunctionPtr", [param], undefined, retval));
   test.eq([1, 2, 3], await vm.loadlib("wh::system.whlib").CallAnyPtrVA(retval, [[3, 1, 2]]));
+
+  //test whether a ResourceDescriptor properly transforms into a WrappedBlob on the HS Side
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getDominantColor: true, getImageMetadata: true });
+  test.eqProps({
+    mimetype: 'image/png',
+    width: 385,
+    height: 236,
+    rotation: 0,
+    mirrored: false,
+    refpoint: null,
+    dominantcolor: '#080808',
+    hash: 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY',
+    extension: '.png',
+    __blobsource: '',
+    filename: 'goudvis.png',
+    source_fsobject: 0
+  }, await loadlib("mod::system/whlibs/internal/filetypes.whlib").ValidateWrappedData(goldfish));
 }
 
 async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes

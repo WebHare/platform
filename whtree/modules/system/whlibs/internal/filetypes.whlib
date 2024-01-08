@@ -33,6 +33,12 @@ PUBLIC RECORD FUNCTION ValidateScannedData(RECORD indata)
   RETURN indata;
 }
 
+PUBLIC RECORD FUNCTION ValidateWrappedData(RECORD indata)
+{
+  indata := ValidateOptions(CELL[ data := DEFAULT BLOB ], indata, [ title := "WrapBlob data", passthroughin := "passthroughin" ]);
+  RETURN CELL[ ...ValidateScannedData(indata.passthroughin), ...indata, DELETE passthroughin ];
+}
+
 RECORD FUNCTION MakeFile(STRING contenttype)
 {
   RETURN [ contenttype := contenttype

@@ -208,7 +208,8 @@ async function testGIFs() {
     width: 1,
     height: 1,
     rotation: null,
-    dominantColor: "transparent"
+    dominantColor: "transparent",
+    extension: '.gif'
   }, parsedgif.getMetaData());
 
   const brokengif = Buffer.from("47494638396101000100800000ffffffffffff21f90401000000002c0000", "hex");

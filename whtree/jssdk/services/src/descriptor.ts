@@ -6,6 +6,8 @@ import { WebHareBlob } from "./webhareblob";
 import { basename } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "./sharpwrapper";
+import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -162,12 +164,14 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
   const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
+  const mediaType = (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
   return {
     width: metadata[isrotated ? "height" : "width"] || null,
     height: metadata[isrotated ? "width" : "height"] || null,
     dominantColor: istransparent ? "transparent" : stats?.dominant ? colorToHex(stats.dominant) : null,
-    mediaType: (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType,
+    mediaType,
+    extension: getExtensionForMediaType(mediaType),
     mirrored,
     rotation
   };
@@ -265,6 +269,26 @@ export function decodeScanData(scandata: string): ResourceMetaData {
 export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
   private readonly _resource; // The resource itself
+  [Marshaller] = {
+    type: VariableType.Record,
+    setValue: function (this: ResourceDescriptor, value: HSVMVar) {
+      //Bit of an experiment...  allow ResourceDescriptor to convert to Wrapped Blobs when transferred to HareScript
+      value.setJSValue({
+        hash: this.hash || undefined,
+        mimetype: this.mediaType,
+        extension: this.extension || '',
+        width: this.width || 0,
+        height: this.height || 0,
+        rotation: this.rotation || 0,
+        mirrored: this.mirrored || false,
+        refPoint: this.refPoint || null,
+        dominantColor: this.dominantColor || 'transparent',
+        fileName: this.fileName,
+        data: this.resource,
+        // sourceFile: this.sourceFile
+      });
+    }
+  };
 
   constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
     this._resource = resource || WebHareBlob.from("");
