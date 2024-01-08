@@ -1,8 +1,7 @@
 import EventSource from "../eventsource";
-import { createDeferred, DeferredPromise } from "@webhare/std";
+import { createDeferred, DeferredPromise, isTruthy } from "@webhare/std";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
 import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, ForwardByRequestType } from "./debug";
-import { isTruthy } from "../util/algorithms";
 
 
 type ProcessRegistration = {

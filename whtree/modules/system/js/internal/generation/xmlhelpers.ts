@@ -1,7 +1,7 @@
 /* TODO These APIs are potential hscompat candidates? As the whole idea of XML support is HSCompat...
 */
 
-import { isTruthy } from "../util/algorithms";
+import { isTruthy } from "@webhare/std";
 
 export function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
   const items: T[] = [];
