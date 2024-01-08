@@ -5,7 +5,7 @@
 */
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase, wrdGuidToUUID, UUIDToWrdGuid } from "@webhare/hscompat";
 import { compare, lowerBound, upperBound } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -207,6 +207,11 @@ function testUpperBound() {
   test.eq(1, upperBound([null, 2], null));
   test.eq(1, upperBound([null, 2], 1));
   test.eq(2, upperBound([null, 2], 2));
+}
+
+function testWRDSupport() {
+  test.eq("07004000-0000-4000-a000-00bea61ef00d", wrdGuidToUUID("wrd:0700400000004000A00000BEA61EF00D")); //wrd_settings_guid
+  test.eq("wrd:0700400000004000A00000BEA61EF00D", UUIDToWrdGuid("07004000-0000-4000-a000-00bea61ef00d"));
 }
 
 function testHSONEnDeCode(encoded: string, toencode: IPCMarshallableData) {
@@ -495,6 +500,7 @@ test.run([
   testLowerBound,
   testUpperBound,
   testHSON,
+  testWRDSupport,
   testLocalizeDate,
   testOmitHareScriptDefaultValues,
   testCaseChanging
