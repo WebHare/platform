@@ -44,17 +44,6 @@ export function freezeRecursive<T>(value: T): RecursiveReadOnly<T> {
 */
 export type RecursivePartial<T> = T extends Array<infer U> ? Array<RecursivePartial<U>> : T extends object ? { [K in keyof T]?: RecursivePartial<T[K]> } : T;
 
-/** Returns (and Typescript-asserts) that the specified function is truthy. Handy for adjusting the type of a map when
- * filtering out falsy values
- * @example
- * const myarray: Array&lt;number | null&gt; = [0, null];
- * const filtered: number[] = myarray.filter(isTruthy);
- **/
-// eslint-disable-next-line @typescript-eslint/ban-types
-export function isTruthy<T>(a: T): a is (T & {}) {
-  return Boolean(a);
-}
-
 /** Returns the list of required keys of an object type
  * @typeParam T - Type to return the required keys of
  */
