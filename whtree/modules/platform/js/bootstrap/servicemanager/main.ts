@@ -154,7 +154,8 @@ class ProcessManager {
     this.process.stdout!.on('data', data => this.processOutput("stdout", data));
     this.process.stderr!.on('data', data => this.processOutput("stderr", data));
     this.process.on("spawn", () => this.processStarted());
-    this.process.on("exit", (code, signal) => this.processExit(code, signal));
+    this.process.on("exit", (code, signal) => this.processExit(code, signal, null));
+    this.process.on("error", err => this.processError(err));
   }
 
   processOutput(stream: "stdout" | "stderr", text: string) {
@@ -179,7 +180,14 @@ class ProcessManager {
     this.running = true;
   }
 
-  processExit(exitCode: number | null, signal: string | null) {
+  processError(e: Error) {
+    if (!this.running) //an error before processStarted.
+      this.processExit(null, null, e);
+    else
+      this.log(`Process error: ${e}`, { error: String(e) });
+  }
+
+  processExit(exitCode: number | null, signal: string | null, error: Error | null) {
     for (const stream of ["stdout", "stderr"] as const)
       if (this[stream])
         this.renderOutput(stream, [this[stream]]);
@@ -188,6 +196,8 @@ class ProcessManager {
       clearTimeout(this.killTimeout);
 
     this.running = false;
+    if (error)
+      this.log(`Failed to start: ${error.message}`, { message: error.message, stack: error.stack });
     if (signal)
       this.log(`Exited with signal ${signal}`, { exitSignal: signal });
     else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) //report on error, if it's an always-running service, or if debugging

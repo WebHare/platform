@@ -1,6 +1,7 @@
-import { backendConfig, resolveResource } from "@webhare/services";
-import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
+import { backendConfig, resolveResource, toFSPath } from "@webhare/services";
+import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { ServiceDefinition, Stage } from './smtypes';
+import { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 
@@ -74,6 +75,14 @@ export function getSpawnSettings(serviceManagerId: string, service: ServiceDefin
   };
 }
 
+function getServiceCommand(mod: ModDefYML, servicedef: ManagedServices[number]): string[] {
+  if (servicedef?.script.endsWith(".sh"))
+    return [toFSPath(resolveResource(mod.baseResourcePath, servicedef.script)), ...(servicedef?.arguments ?? [])];
+
+  const runner = servicedef?.script.endsWith(".whscr") && servicedef?.engine === "wasm" ? "runwasm" : "run";
+  return ["wh", runner, resolveResource(mod.baseResourcePath, servicedef.script), ...(servicedef?.arguments ?? [])];
+}
+
 export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
   const services: Record<string, ServiceDefinition> = {};
 
@@ -81,10 +90,8 @@ export async function gatherManagedServices(): Promise<Record<string, ServiceDef
     if (mod.managedServices)
       for (const [name, servicedef] of Object.entries(mod.managedServices)) {
         if (servicedef?.script) {
-          const runner = servicedef?.script.endsWith(".whscr") && servicedef?.engine === "wasm" ? "runwasm" : "run";
-          const cmd = ["wh", runner, resolveResource(mod.baseResourcePath, servicedef.script), ...(servicedef?.arguments ?? [])];
           services[`${mod.module}:${name}`] = {
-            cmd,
+            cmd: getServiceCommand(mod, servicedef),
             startIn: Stage.Active,
             run: servicedef.run
           };
