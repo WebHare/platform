@@ -1,6 +1,8 @@
 import { RestRequest, HTTPErrorCode, HTTPSuccessCode, RestDefaultErrorBody } from "@webhare/router";
 
 
+type NeverFallback<A, B> = [A] extends [never] ? B : A;
+
 /** Given a paths object (`{ "/path": { "get": Operation } }`) returns all strings "/path" and "get /path"
  * @typeParam Paths - Paths from generated openapi ts file
  * @typeParam Path - Do not provide, is used to iterate over the keys of Paths
@@ -75,7 +77,8 @@ export type IsMediaTypeJSON<MediaTypes extends object, K extends keyof MediaType
  * @typeParam Response - Response object
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type GetJSONContent<Response> = (Response extends { "content": infer M extends { "application/json": any } } ? M : { "application/json": unknown })["application/json"];
+//export type GetJSONContent<Response> = (Response extends { "content": infer M extends { "application/json": any } } ? [M] extends [never] ? { "application/json": unknown } : M : { "application/json": unknown })["application/json"];
+export type GetJSONContent<Response> = NeverFallback<Response extends { "content": { "application/json": infer C } } ? C : never, unknown>;
 
 /** Calculates the response types for a response
  * @typeParam Responses - Operation responses object
@@ -91,7 +94,7 @@ export type JSONResponseTypesFromResponses<Responses extends object, ResponseCod
     : (ResponseCode extends HTTPSuccessCode
       ? {
         status: ResponseCode;
-        isjson: Responses[ResponseCode] extends { "content": infer MediaTypes extends object } ? IsMediaTypeJSON<MediaTypes> : boolean;
+        isjson: NeverFallback<Responses[ResponseCode] extends { "content": infer MediaTypes extends object } ? IsMediaTypeJSON<MediaTypes> : never, false>;
         response: GetJSONContent<Responses[ResponseCode]>;
       }
       : never))

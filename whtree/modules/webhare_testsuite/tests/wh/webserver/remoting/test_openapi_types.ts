@@ -170,19 +170,28 @@ function testOpenAPITypes() {
   test.typeAssert<test.Equals<{ a: 1 } | { a: 1; b: 2 }, SimplifyIntersections<MergeParameters<{ path: { a: 1 }; query: { b: 2 } } | { path: { a: 1 } }>>>>();
 
   // No responses at all provided: none allowed
-  test.typeAssert<test.Equals<never, JSONResponseTypesFromResponses<object>>>;
+  test.typeAssert<test.Equals<never, JSONResponseTypesFromResponses<object>>>();
 
   // Response for a code provided, but no content: allow raw and unknown json
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
-    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>;
+    { status: HTTPSuccessCode.Ok; isjson: false; response: unknown },
+    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>();
+
+  // No response provided: don't allow to read the body via JSON
+  test.typeAssert<test.Equals<
+    { status: HTTPSuccessCode.Ok; isjson: false; response: unknown },
+    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: never }>>>();
+
+  test.typeAssert<test.Equals<
+    { status: HTTPSuccessCode.Ok; isjson: false; response: unknown },
+    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: never } }>>>();
 
   test.typeAssert<test.Equals<
     { status: HTTPSuccessCode.Ok; isjson: true; response: number },
-    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number } } }>>>;
+    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number } } }>>>();
   test.typeAssert<test.Equals<
     { status: HTTPSuccessCode.Ok; isjson: boolean; response: number },
-    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } } }>>>;
+    JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } } }>>>();
 
   test.typeAssert<test.Equals<
     { status: HTTPSuccessCode.Ok; isjson: boolean; response: number } |
@@ -192,7 +201,7 @@ function testOpenAPITypes() {
       [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } };
       [HTTPSuccessCode.Created]: { content: { "application/json": string } };
       [HTTPErrorCode.NotFound]: { content: { "application/json": { status: HTTPErrorCode; error: string } } };
-    }>>>;
+    }>>>();
 
   test.typeAssert<test.Equals<
     { status: HTTPSuccessCode.Ok; isjson: boolean; response: number } |
@@ -205,7 +214,7 @@ function testOpenAPITypes() {
       [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } };
       [HTTPErrorCode.NotFound]: { content: { "application/json": { status: HTTPErrorCode; error: string; extra: string } } };
       [HTTPErrorCode.InternalServerError]: { content: { "application/json": { status: HTTPErrorCode; error: string; extra: string } } };
-    }>>>;
+    }>>>();
 
   test.typeAssert<test.Equals<
     { status: HTTPSuccessCode.Ok; isjson: true; response: { status: "ok"; value: number } } |
@@ -231,7 +240,9 @@ function testOpenAPITypes() {
   test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: true; response: number }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number } } }>>>();
   test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: boolean; response: number }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": string } } }>>>();
   test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: false; response: unknown }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "image/png": string } } }>>>();
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>();
+  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: false; response: unknown }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>();
+  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: false; response: unknown }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: never }>>>();
+  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: false; response: unknown }, JSONResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: never } }>>>();
 
   // Delete has no responses defined, so JSONResponseTypes should be empty
   test.typeAssert<test.Equals<never, JSONResponseTypes<paths["/path/{bla}"]["get"] | paths["/path/{bla}"]["delete"]>>>();
