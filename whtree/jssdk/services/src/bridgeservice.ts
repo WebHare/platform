@@ -17,7 +17,6 @@ export async function getBridgeService() {
   if (!thepromise)
     thepromise = openBackendService("system:thebridge") as unknown as Promise<BridgeService>;
   if (!bridgeservice)
-    // eslint-disable-next-line require-atomic-updates -- all races would be updating bridgeservice with the same value
     bridgeservice = await thepromise;
   return bridgeservice;
 }
