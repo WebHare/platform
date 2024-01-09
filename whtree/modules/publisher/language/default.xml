@@ -222,7 +222,6 @@
       <text tid="foreignfolder">The selected folder is a foreign folder.</text>
       <text tid="internallink-errors">Errors have occurred while publishing the linked file.</text>
       <text tid="internallink-warnings">Warnings have occurred while publishing the linked file.</text>
-      <text tid="notviewable">This file may not be displayed correctly by the browser.</text>
       <text tid="previewzoomin">Zoom in</text>
       <text tid="previewzoomout">Zoom out</text>
       <text tid="previewzoomreset">Reset zoom level</text>
@@ -231,14 +230,6 @@
       <text tid="zoominhint">Zoom in</text>
       <text tid="zoomouthint">Zoom out</text>
       <text tid="zoomresethint">Reset zoom level</text>
-      <textgroup gid="showmessage">   <!-- components.previewbrowser.showmessage -->
-        <text tid="notviewable-message">Files of type '<param p="1"/>' may not be displayed correctly in this preview.</text>
-        <text tid="notviewable-title">This file has no preview</text>
-        <text tid="notviewable-urlmessage">Click here to open the file in a new browser window.</text>
-        <text tid="redirection-message">This page is trying to redirect to another URL '<param p="1"/>'.</text>
-        <text tid="redirection-title">Redirection</text>
-        <text tid="redirection-urlmessage">Click here to follow the redirection.</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="sharedblocks">   <!-- components.sharedblocks -->
       <text tid="blockstab">Blocks</text>

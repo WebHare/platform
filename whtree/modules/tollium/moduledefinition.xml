@@ -19,10 +19,6 @@
   <backend>
     <webrule path="root:/.tollium/integrations/" match="initial" redirecttodir="web:integrations/" />
 
-    <!-- TODO can we think of a nicer way to share the fonts between and outside tollium? we've opened them separately here
-         for the preview pages -->
-    <webrule path="allroots:/.tollium/roboto/" match="initial" handlebydir="webdesigns/webinterface/node_modules/typeface-roboto/" />
-
     <!-- We'll host the /ui/ on all paths. Nothing harmful there, only static assets -->
     <webrule path="allroots:/.tollium/ui/" match="initial" priority="after" redirecttodir="web:ui/" />
 
