@@ -23,13 +23,13 @@ export async function handleLintingCommand(indata: LintingCommand) {
 
   const eslint = new ESLint(options);
   const results = await eslint.lintText(contents, { filePath: indata.path });
-
   return {
     messages: results[0].messages.map((message) => ({
       line: message.line || 1,
       col: message.column || 1,
-      message: message.message,
-      fatal: message.fatal || false
+      //a simple JS parse error (eg Unexpected character '`'") will have ruleId null
+      message: `${message.message} ${message.ruleId ? `(eslint rule: ${message.ruleId})` : "(eslint)"}`,
+      fatal: message.severity === 2 //2 = error
     })),
     hasfixes: typeof results[0].output === "string",
     output: Buffer.from(results[0].output || "", "utf-8").toString("base64")
