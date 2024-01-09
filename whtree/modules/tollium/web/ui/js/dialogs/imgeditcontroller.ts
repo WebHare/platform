@@ -8,7 +8,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
 import * as dompack from 'dompack';
-const ExifParser = require("@mod-tollium/webdesigns/webinterface/node_modules/exif-parser");
+import ExifParser from "exif-parser";
 
 const getTid = require("@mod-tollium/js/gettid").getTid;
 
