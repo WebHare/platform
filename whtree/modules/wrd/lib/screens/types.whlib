@@ -497,7 +497,11 @@ PUBLIC OBJECTTYPE EditAttr EXTEND TolliumScreenBase
     IF(RecordExists(this->editattr))
     {
       INSERT CELL tag := this->tag->value INTO finalsettings;
-      this->wrdtype->UpdateAttribute(this->editattr.tag, finalsettings);
+      this->wrdtype->UpdateAttribute(this->editattr.tag, CELL
+        [ ...finalsettings
+        , tag := ^tag->value
+        , attributetypename := ^type->value
+        ]);
     }
     ELSE
     {
