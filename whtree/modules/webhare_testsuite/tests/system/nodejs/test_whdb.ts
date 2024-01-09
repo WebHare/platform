@@ -1,4 +1,4 @@
-import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor, subscribe } from "@webhare/services";
+import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor, subscribe, lockMutex } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -267,6 +267,38 @@ async function testCodeContexts2() {
 }
 */
 
+async function testMutex() {
+  let workGotLock = false;
+
+  //Test we're actually waiting for a lock
+  const dblock1 = await lockMutex("webhare_testsuite:dblock1");
+  const workpromise = beginWork({ mutex: ["webhare_testsuite:dblock1", "webhare_testsuite:dblock2"] }).then(() => workGotLock = true);
+  await sleep(50);
+  test.assert(!workGotLock);
+
+  //Verify lock order is honored (ie beginWork doesn't try to lock dblock2 before dblock1 is obtained. strict lock ordering is required for preventing deadlocks)
+  const dblock2 = await lockMutex("webhare_testsuite:dblock2");
+  dblock2.release();
+  test.assert(!workGotLock);
+
+  //Now release dblock1..
+  dblock1.release();
+  //Wait for the DB to obtain the locks
+  await test.wait(() => workGotLock == true);
+
+  //Now verify that we can't obtain the locks
+  test.eq(null, await lockMutex("webhare_testsuite:dblock2", { timeout: 0 }));
+  test.eq(null, await lockMutex("webhare_testsuite:dblock1", { timeout: 0 }));
+
+  //Commit the work
+  await workpromise;
+  await commitWork();
+
+  //Verify we can get the locks
+  (await lockMutex("webhare_testsuite:dblock1")).release();
+  (await lockMutex("webhare_testsuite:dblock2")).release();
+}
+
 async function testFinishHandlers() {
   const handlerresult: string[] = [];
   const allevents: BackendEvent[] = [];
@@ -377,6 +409,7 @@ test.run([
   testQueries,
   testTypes,
   testHSWorkSync,
+  testMutex,
   testFinishHandlers,
   testHSCommitHandlers,
   testCodeContexts

@@ -16,7 +16,7 @@ import {
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { WebHareBlob } from '@webhare/services/src/webhareblob';
-import { type BackendEvent } from '@webhare/services';
+import { Mutex, type BackendEvent, lockMutex } from '@webhare/services';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection } from './blobs';
@@ -36,6 +36,12 @@ export type {
   Generated,
   GeneratedAlways
 } from "kysely";
+
+/** Transaction options  */
+export interface WorkOptions {
+  /// Name of a mutex (or mutexes) to lock during the transaction
+  mutex?: string | string[];
+}
 
 // A finish handler is invoked when a transaction is committed or rolled back.
 interface FinishHandler {
@@ -86,8 +92,9 @@ class Work {
   private finishhandlers = new Map<string | symbol, FinishHandler>;
   private commituniqueevents = new Set<string>;
   private commitdataevents: BackendEvent[] = [];
+  private locks = new Array<Mutex>;
 
-  constructor(conn: WHDBConnectionImpl) {
+  constructor(conn: WHDBConnectionImpl, options?: WorkOptions) {
     this.conn = conn;
     this.open = true;
   }
@@ -172,8 +179,18 @@ class Work {
     } finally {
       //TODO if (pre)commit fails we should
       lock.release();
+      this.__releaseMutexes();
       this.conn.openwork = undefined;
     }
+  }
+
+  addMutex(m: Mutex) {
+    this.locks.push(m);
+  }
+
+  __releaseMutexes() {
+    const locks = this.locks.slice(0, this.locks.length);
+    locks.reverse().forEach(lock => lock.release());
   }
 
   async rollback() {
@@ -190,6 +207,7 @@ class Work {
       await this.invokeFinishHandlers(handlers, "onRollback");
     } finally {
       lock.release();
+      this.__releaseMutexes();
       this.conn.openwork = undefined;
     }
   }
@@ -312,17 +330,23 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     return this.openwork || null;
   }
 
-  async beginWork(): Promise<void> {
+  async beginWork(options?: WorkOptions): Promise<void> {
     this.checkState(false);
     if (debugFlags.async)
       this.lastopen = new Error(`Work was last opened here`);
 
     const lock = this.reftracker.getLock("work lock");
     this.openwork = new Work(this);
+
     try {
+      if (options?.mutex)
+        for (const name of Array.isArray(options.mutex) ? options.mutex : [options.mutex])
+          this.openwork.addMutex(await lockMutex(name));
+
       await sql`START TRANSACTION ISOLATION LEVEL read committed READ WRITE`.execute(this._db);
       //      this.pgclient.query("START TRANSACTION ISOLATION LEVEL read committed READ WRITE");
     } catch (e) {
+      await this.openwork.__releaseMutexes();
       this.openwork = undefined;
       throw e;
     } finally {
@@ -439,8 +463,8 @@ export function nextVals(table: string, howMany: number) {
 
 /** Begins a new transaction. Throws when a transaction is already in progress
 */
-export function beginWork() {
-  return checkPromiseErrorsHandled(getConnection().beginWork());
+export function beginWork(options?: WorkOptions) {
+  return checkPromiseErrorsHandled(getConnection().beginWork(options));
 }
 
 /** Commits the current transaction
