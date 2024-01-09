@@ -21,35 +21,35 @@ ASYNC MACRO TestTypesAttrs()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
   AWAIT ExpectScreenChange(+1, PTR topscreen->managetypes->TolliumClick());
-  TestEq(TRUE, RecordExists(SELECT FROM topscreen->types->rows WHERE tag = "WRD_PERSON")); //should be filled with -some- content..
+  TestEq(TRUE, RecordExists(SELECT FROM TT("types")->rows WHERE tag = "WRD_PERSON")); //should be filled with -some- content..
 
   //Add a type
-  AWAIT ExpectScreenChange(+1, PTR topscreen->addtype->TolliumClick());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
   topscreen->metatype->value := "domain";
   topscreen->tag->value := "MYNEWTYPE";
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
-  TestEq(TRUE, RecordExists(SELECT FROM topscreen->types->rows WHERE tag = "MYNEWTYPE"));
-  TestEq(testfw->GetWRDSchema()->^mynewtype->id, topscreen->types->value);
+  TestEq(TRUE, RecordExists(SELECT FROM TT("types")->rows WHERE tag = "MYNEWTYPE"));
+  TestEq(testfw->GetWRDSchema()->^mynewtype->id, TT("types")->value);
 
   //Edit the type
-  AWAIT ExpectScreenChange(+1, PTR topscreen->edittype->TolliumClick());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
   TestEq("MYNEWTYPE", topscreen->tag->value);
   //FIXME test modification
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   //should still be selected
-  TestEq(testfw->GetWRDSchema()->^mynewtype->id, topscreen->types->value);
+  TestEq(testfw->GetWRDSchema()->^mynewtype->id, TT("types")->value);
 
   //enter attributes window
-  AWAIT ExpectScreenChange(+1, PTR topscreen->manageattrs->TolliumClick());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Manage attributes"));
 
 
   topscreen->attrs->selection := SELECT * FROM topscreen->attrs->rows WHERE rows.tag = "WRD_TYPE";
 
   TestEq("WRD_TYPE", topscreen->attrs->value);
-  AWAIT ExpectNoScreenChange( PTR TTClick("deleteattr", [ allowfailure := TRUE ])); //should not be allowed to even try
+  AWAIT ExpectNoScreenChange( PTR TTClick(":Delete", [ allowfailure := TRUE ])); //should not be allowed to even try
 
 //FIXME geen domein wijziging na aanmaken!
   //Add an attribute
@@ -65,7 +65,7 @@ ASYNC MACRO TestTypesAttrs()
 
   topscreen->tag->value := "NEWDOMAINFIELD";
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   RECORD newdomainfieldrow := SELECT * FROM topscreen->attrs->rows WHERE rows.tag = "NEWDOMAINFIELD";
   TestEq(TRUE, RecordExists(newdomainfieldrow)); //row must have appeared
@@ -106,15 +106,15 @@ ASYNC MACRO TestTypesAttrs()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 
   //Edit values
-  AWAIT ExpectScreenChange(+1, PTR topscreen->editvalues->TolliumClick());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit values"));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 
   //Delete the type
-  AWAIT ExpectScreenChange(+1, PTR topscreen->deltype->TolliumClick());
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Delete"));
   topscreen->deletehow->value := "deltype";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
-  TestEq(FALSE, RecordExists(SELECT FROM topscreen->types->rows WHERE tag = "MYNEWTYPE"));
+  TestEq(FALSE, RecordExists(SELECT FROM TT("types")->rows WHERE tag = "MYNEWTYPE"));
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
@@ -130,8 +130,8 @@ ASYNC MACRO TestTypeImport()
   RECORD start := AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
   AWAIT ExpectScreenChange(+1, PTR topscreen->managetypes->TolliumClick());
 
-  topscreen->types->selection := SELECT * FROM topscreen->types->rows WHERE tag = "WRD_PERSON";
-  AWAIT ExpectScreenChange(+1, PTR topscreen->import->TolliumClick());
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE tag = "WRD_PERSON";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Import"));
 
   AWAIT ExpectOptionalProgressWindow(PTR topscreen->importfile->SetFile(GetWebhareResource("mod::webhare_testsuite/tests/wrd/browser/import-persons.xlsx"), "import.xlsx"));
   topscreen->incolumns->value := 0; //first column

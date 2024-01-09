@@ -18,25 +18,13 @@ BOOLEAN FUNCTION IsInLike(STRING val, STRING ARRAY masks)
   RETURN FALSE;
 }
 
-PUBLIC OBJECTTYPE ManageTypes EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ManageTypes EXTEND TolliumScreenBase
 <
   RECORD settings;
 
   MACRO Init(RECORD data)
   {
-    this->settings := ValidateOptions( [ domainsonly := FALSE
-                                       , hidetypes := DEFAULT STRING ARRAY
-                                       ], data);
-
-    this->types->eventmasks := this->contexts->wrdschema->GetEventMasks();
-
-    IF(this->settings.domainsonly)
-    {
-      //Update some buttons..
-      this->addtype->title :=  GetTid("wrd:schema.managetypes.adddomain");
-      this->edittype->title := GetTid("wrd:schema.managetypes.editdomain");
-      this->deltype->title :=  GetTid("wrd:schema.managetypes.deldomain");
-    }
+    ^types->eventmasks := this->contexts->wrdschema->GetEventMasks();
   }
 
   RECORD ARRAY FUNCTION OnGetTypes()
@@ -46,49 +34,47 @@ PUBLIC OBJECTTYPE ManageTypes EXTEND TolliumScreenBase
                 , tag
                 , isdomain
                 , metatype := ToString(metatype)
-            FROM this->contexts->wrdschema->ListTypes()
-           WHERE (this->settings.domainsonly ? isdomain = TRUE : TRUE)
-                 AND NOT IsInLike(tag, this->settings.hidetypes);
+            FROM this->contexts->wrdschema->ListTypes();
   }
 
   MACRO DoAddType()
   {
-    INTEGER newtype := this->RunSCreen("#addtype");
+    INTEGER newtype := this->RunScreen("#addtype");
     IF(newtype != 0)
-      this->types->value := newtype;
+      ^types->value := newtype;
   }
 
   MACRO DoManageAttrs()
   {
-    RunWRDAttributesDialog(this, this->contexts->wrdschema->GetTypeById(this->types->value));
+    RunWRDAttributesDialog(this, this->contexts->wrdschema->GetTypeById(^types->value));
   }
 
   MACRO DoImport()
   {
-    OBJECT dialog := MakeWRDImportWizardDialog(this, this->contexts->wrdschema->GetTypeById(this->types->value));
+    OBJECT dialog := MakeWRDImportWizardDialog(this, this->contexts->wrdschema->GetTypeById(^types->value));
     dialog->RunModal();
   }
 
   MACRO DoEditType()
   {
     OBJECT dialog := this->LoadScreen(".edittype");
-    dialog->Setup(this->contexts->wrdschema, this->types->value);
+    dialog->Setup(this->contexts->wrdschema, ^types->value);
     dialog->RunModal() ;
   }
 
   MACRO DoEditValues()
   {
-    IF(NOT RecordExists(this->types->selection))
+    IF(NOT RecordExists(^types->selection))
       RETURN;
 
-    OBJECT type := this->contexts->wrdschema->GetTypeById(this->types->value);
+    OBJECT type := this->contexts->wrdschema->GetTypeById(^types->value);
     OBJECT valueviewer := MakeWRDEntityBrowseDialog(this, type);
     valueviewer->RunDialog();
   }
 
   MACRO DoDelType()
   {
-    OBJECT type := this->contexts->wrdschema->GetTypeById(this->types->value);
+    OBJECT type := this->contexts->wrdschema->GetTypeById(^types->value);
     this->RunScreen("#deletetype", [ type := type ]);
   }
 
