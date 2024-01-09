@@ -33,7 +33,8 @@
         "no-unmodified-loop-condition": "error",
         "no-unreachable-loop": "error",
         "no-unused-private-class-members": "error",
-        "require-atomic-updates": "error",
+        //too many false alarms
+        "require-atomic-updates": "off",
         //flag accidentally referring to 'name' etc globals
         "no-restricted-globals": [
             "error",

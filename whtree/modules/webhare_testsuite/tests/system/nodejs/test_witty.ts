@@ -1,4 +1,3 @@
-/* eslint-disable require-atomic-updates -- too much noise about the witty = assignments */
 import * as test from "@webhare/test";
 import * as services from "@webhare/services/src/services";
 import { encodeString } from "@webhare/std";

@@ -421,7 +421,6 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
         return { id: -1, leftover: fullpath, route };
 
       limitparent = trynew;
-      // eslint-disable-next-line require-atomic-updates
       now = trynew;
       route.push(now);
       continue;
@@ -461,7 +460,6 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
         return { id: now, leftover: pathtoks.slice(i).join('/'), route };
       route.push(trynew);
     }
-    // eslint-disable-next-line require-atomic-updates
     now = trynew;
   }
 

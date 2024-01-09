@@ -359,7 +359,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     }
 
-    IF(this->currenturl = "") //still no preview
+    IF(this->currenturl = "" AND NOT this->suppressrendering) //still no preview
     {
       //We need to know if we can expect HTML if we show the file's URL. So we look at the target's type (and for internal & contentlink, we'll look at the final file)
       RECORD fileinfo := DescribeContentTypeById(targetfiletype, [ isfolder := selectedfile.isfolder, mockifmissing := TRUE ]);
@@ -372,8 +372,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       }
       ELSE
       {
-        STRING unknownpage := this->contexts->controller->baseurl || ".publisher/backend/preview/unknown.shtml";
-        this->currenturl := UpdateURLVariables(unknownpage, [ preview := this->GetPreviewToken(selectedfile, contentfile) ]);
+        INSERT [ level := 0
+              , message := GetTid("publisher:tolliumcomponents.previewbrowser.hasnopreview")
+              ] INTO this->previewmessages AT END;
+        this->suppressrendering := TRUE; // Nothing to show
       }
     }
 

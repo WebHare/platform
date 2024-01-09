@@ -222,7 +222,6 @@
       <text tid="foreignfolder">De geselecteerde map is een externe map.</text>
       <text tid="internallink-errors">Er zijn fouten opgetreden tijdens de publicatie van het gekoppelde bestand.</text>
       <text tid="internallink-warnings">Er zijn waarschuwingen opgetreden tijdens de publicatie van het gekoppelde bestand.</text>
-      <text tid="notviewable">Dit bestand wordt mogelijk niet goed door de browser weergegeven.</text>
       <text tid="previewzoomin">Inzoomen</text>
       <text tid="previewzoomout">Uitzoomen</text>
       <text tid="previewzoomreset">Zoomniveau herstellen</text>
@@ -231,14 +230,6 @@
       <text tid="zoominhint">Inzoomen</text>
       <text tid="zoomouthint">Uitzoomen</text>
       <text tid="zoomresethint">Zoomniveau herstellen</text>
-      <textgroup gid="showmessage">   <!-- components.previewbrowser.showmessage -->
-        <text tid="notviewable-message">Bestanden van het type '<param p="1"/>' worden mogelijk niet goed in dit voorbeeld weergegeven.</text>
-        <text tid="notviewable-title">Voorbeeldweergave niet mogelijk</text>
-        <text tid="notviewable-urlmessage">Klik hier om het bestand te openen in een nieuw browservenster.</text>
-        <text tid="redirection-message">Deze pagina probeert door te verwijzen naar een andere URL '<param p="1"/>'.</text>
-        <text tid="redirection-title">Doorverwijzing</text>
-        <text tid="redirection-urlmessage">Klik hier om de doorverwijzing te volgen.</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="sharedblocks">   <!-- components.sharedblocks -->
       <text tid="blockstab">Blokken</text>

@@ -247,7 +247,6 @@ export class RestAPI {
           const start = performance.now();
           const validator = this.getValidator(responseschema);
           const success = validator(await response.json());
-          // eslint-disable-next-line require-atomic-updates
           logger.timings.responsevalidation = performance.now() - start;
 
           if (!success) {
@@ -359,11 +358,9 @@ export class RestAPI {
         if (!authresult.authorized)
           return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
         else if (authresult.loginfo)
-          // eslint-disable-next-line require-atomic-updates
           logger.authorized = authresult.loginfo;
       } finally {
         authcontext.close();
-        // eslint-disable-next-line require-atomic-updates
         logger.timings.authorization = performance.now() - start;
       }
     }
@@ -396,7 +393,6 @@ export class RestAPI {
         });
       } finally {
         handlercontext.close();
-        // eslint-disable-next-line require-atomic-updates
         logger.timings.handling = performance.now() - start;
       }
     }
