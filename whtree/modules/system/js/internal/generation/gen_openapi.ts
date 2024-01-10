@@ -78,14 +78,9 @@ function recursiveRemoveDefs(node: unknown, path: string) {
         recursiveRemoveDefs(node[i], `${path}/${i}`);
     } else {
       if ("$defs" in node)
-        console.log(path, "$defs" in node);
-      if ("$ref" in node)
-        console.log(path, " $ref: ", `${node["$ref"]}`);
-      if ("$defs" in node)
         delete node["$defs"];
       for (const [key, value] of Object.entries(node))
         if (value && typeof value === "object")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           recursiveRemoveDefs(value, `${path}/${key}`);
     }
   }
