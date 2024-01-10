@@ -15,7 +15,7 @@ googleRecaptcha.setupGoogleRecaptcha();
 
 async function triggerGoogleRecaptcha(this: HTMLElement) {
   const result = await googleRecaptcha.runRecaptchaDialog(this.dataset.recaptchakey!,
-    { title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
+    { injectInto: null, title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
   dompack.qR<HTMLInputElement>('#googlerecaptcha_result').value = result || '';
 }
 

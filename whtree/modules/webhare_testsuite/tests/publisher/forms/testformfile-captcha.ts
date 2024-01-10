@@ -33,11 +33,11 @@ test.registerTests(
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
       await test.wait('ui');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have been blocked by captcha");
-      test.eq(1, test.qSA('.mydialog').length);
+      test.eq(1, test.qSA('.wh-captcha').length);
       test.click('.wh-captcha__mock input[type="checkbox"]');
 
       //ui waits don't really work here, so we'll wait for thankyou page to appear
-      await test.wait(() => test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
+      test.click('.wh-form__button--submit');
     },
 
     async function () {
@@ -52,8 +52,9 @@ test.registerTests(
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
       await test.wait('ui');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have been blocked by captcha");
-      test.eq(1, test.qSA('.mydialog').length);
+      test.eq(1, test.qSA('.wh-captcha').length);
       test.click('.wh-captcha__mock input[type="checkbox"]');
+      test.click('.wh-form__button--submit');
 
       //ui waits don't really work here, so we'll wait for thankyou page to appear
       await test.wait(() => test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));

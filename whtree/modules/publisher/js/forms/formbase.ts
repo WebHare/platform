@@ -165,6 +165,22 @@ type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
 
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 
+function getPageIdx(state: PageState, page: number | HTMLElement) {
+  if (typeof page == 'number') {
+    if (page < 0 || page >= state.pages.length)
+      throw new Error(`Cannot navigate to nonexisting page #${page}`);
+    return page;
+  }
+
+  const idx = state.pages.indexOf(page);
+  if (idx == -1) {
+    console.error(`Cannot find page by element`, page);
+    throw new Error(`Cannot find page`);
+  }
+
+  return idx;
+}
+
 function getErrorFields(validationresult: ValidationResult) {
   return validationresult.failed.map(field => getName(field) || field.dataset.whFormGroupFor || "?")
     .sort()
@@ -714,12 +730,11 @@ export default class FormBase {
 
   /** Goto a specific page
       @param pageidx - 0-based index of page to jump to */
-  async gotoPage(pageidx: number): Promise<void> {
+  async gotoPage(page: number | HTMLElement): Promise<void> {
     const state = this._getPageState();
+    const pageidx = getPageIdx(state, page);
     if (state.curpage == pageidx)
       return;
-    if (pageidx < 0 || pageidx >= state.pages.length)
-      throw new Error(`Cannot navigate to nonexisting page #${pageidx}`);
 
     const goingforward = pageidx > state.curpage;
     this.sendFormEvent(goingforward ? 'publisher:formnextpage' : 'publisher:formpreviouspage'
@@ -745,7 +760,7 @@ export default class FormBase {
 
   private _getDestinationPage(pagestate: PageState, direction: number) {
     let pagenum = pagestate.curpage + direction;
-    while (pagenum >= 0 && pagenum < pagestate.pages.length && pagestate.pages[pagenum].propWhFormCurrentVisible === false)
+    while (pagenum >= 0 && pagenum < pagestate.pages.length && (pagestate.pages[pagenum].propWhFormCurrentVisible === false || pagestate.pages[pagenum].dataset.whFormPagerole === "captcha"))
       pagenum = pagenum + direction;
     if (pagenum < 0 || pagenum >= pagestate.pages.length)
       return -1;
