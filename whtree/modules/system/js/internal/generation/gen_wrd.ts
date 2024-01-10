@@ -236,15 +236,20 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     return usename;
   }
 
+  // Sort on schema name
+  const schemasptrs = (await getModuleWRDSchemas(context, modulename)).schemas.sort((a, b) => a.wrdschema < b.wrdschema ? -1 : 1);
+
   const schemaconsts = [];
-  for (const schemaptr of (await getModuleWRDSchemas(context, modulename)).schemas) {
+  for (const schemaptr of schemasptrs) {
     if (context.verbose)
       console.time("generateWRDDefs " + schemaptr.wrdschema);
 
     const wrddef = await parseWRDDefinitionFile(schemaptr);
     let def = '';
     let fulldef = `export type ${wrddef.schemaTypeName} = {\n`;
-    for (const [tag, type] of Object.entries(wrddef.types)) {
+
+    // Process the types sorted on tag
+    for (const [tag, type] of Object.entries(wrddef.types).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
       def += `export type ${type.typeName} = WRDTypeBaseSettings`;
 
       const attrlines = [];

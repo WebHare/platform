@@ -1,6 +1,6 @@
 import { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from "@webhare/router";
 import { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
-import { JSONResponseCodes, JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
+import { JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, RestService } from "@mod-system/js/internal/openapi/openapiservice";
 import { WebHareBlob } from "@webhare/services";
 
@@ -21,6 +21,9 @@ type ParamsBaseType = Record<string, string | number | boolean>;
  */
 export type PathsForMethod<Paths, Method extends string, Path extends keyof Paths = keyof Paths> = Path extends keyof Paths ? Method extends keyof Paths[Path] ? Path & string : never : never;
 
+/** Possible returned status codes */
+type ReturnedStatusCodes<Responses extends RestResponsesBase> = Responses["status"] | HTTPErrorCode;
+
 /** Parameter options for a method and a path
  */
 type ParamOptions<Paths extends object, Path extends keyof Paths, Method extends Exclude<keyof Paths[Path], "parameters">> = object extends GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>>
@@ -30,7 +33,7 @@ type ParamOptions<Paths extends object, Path extends keyof Paths, Method extends
 /** Union of all allowed response types for an operation, by operation record
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type OpResponseTypesInternal<Responses extends RestResponsesBase, DefaultErrorFormat extends RestDefaultErrorBody, Status extends JSONResponseCodes<Responses> = JSONResponseCodes<Responses>> = Status extends any
+type OpResponseTypesInternal<Responses extends RestResponsesBase, DefaultErrorFormat extends RestDefaultErrorBody, Status extends ReturnedStatusCodes<Responses> = ReturnedStatusCodes<Responses>> = Status extends any
   ? { status: Status } & OpenAPIResponse<JSONResponseForCode<Responses, DefaultErrorFormat, Status>>
   : never;
 
