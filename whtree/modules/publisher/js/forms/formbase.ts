@@ -44,6 +44,7 @@ declare global {
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
     "wh:form-require": CustomEvent<{ required: boolean }>;
+    "wh:form-getvalue": CustomEvent<{ deferred: DeferredPromise<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>;
   }
 }
@@ -1221,7 +1222,7 @@ export default class FormBase {
   async getFieldValue(field: HTMLElement) {
     if (field.hasAttribute('data-wh-form-name') || field.whUseFormGetValue) {
       //create a deferred promise for the field to fulfill
-      const deferred = createDeferred();
+      const deferred = createDeferred<unknown>();
       //if cancelled, we'll assume the promise is taken over
       if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
         return deferred.promise;
@@ -1437,11 +1438,11 @@ export default class FormBase {
   }
 
   /** get the values of the currently selected radio/checkbox group */
-  getValues(name: string) {
+  private getValues(name: string) {
     return this.getSelectedOptions(name).map(node => node.value);
   }
   /** get the value of the first currently selected radio/checkbox group */
-  getValue(name: string) {
+  private getValue(name: string) {
     const vals = this.getValues(name);
     return vals.length ? vals[0] : null;
   }
@@ -1480,6 +1481,7 @@ export default class FormBase {
       }
     }
 
+    //FIXME why can't this return a string, be async and then immediately set that error, like setupvalidator can?
     if (!alreadyfailed && !(await this.validateSingleFormField(field)))
       alreadyfailed = true;
 

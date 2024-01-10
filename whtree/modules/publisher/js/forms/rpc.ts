@@ -272,6 +272,7 @@ export default class RPCFormBase extends FormBase {
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
           merge.run(this.node, { form: await this.getFormValue() });
 
+          //FIXME why is going to 'thank you' not in the formbase?
           this._navigateToThankYou(result.result && result.result.richvalues);
           this.onSubmitSuccess(result.result);
         }
