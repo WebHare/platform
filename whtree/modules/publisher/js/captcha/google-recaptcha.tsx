@@ -1,67 +1,109 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import * as dialogapi from 'dompack/api/dialog';
-import { getTid } from "@mod-tollium/js/gettid";
-import "./__captcha.lang.json";
 import "./__captcha.css";
-import { captcharegistry } from "@mod-publisher/js/captcha/api";
+import { CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
+import { DeferredPromise, createDeferred } from '@webhare/std';
 
 //recaptcha API: https://developers.google.com/recaptcha/docs/display
-let recaptchaload;
-let settings;
+let recaptchaload: DeferredPromise<void> | undefined;
+
+declare global {
+  interface Window {
+    $wh__ongooglerecaptchaloaded: () => void;
+    grecaptcha: {
+      render: (node: HTMLElement, options: { sitekey: string; callback: () => void }) => string;
+      getResponse: (id: string) => string;
+    };
+  }
+}
 
 window.$wh__ongooglerecaptchaloaded = function () {
-  recaptchaload.resolve();
+  recaptchaload!.resolve();
 };
 
 function makeRecaptchaLoadPromise() {
-  recaptchaload = dompack.createDeferred();
-  document.querySelector("head,body").appendChild(<script src="https://www.google.com/recaptcha/api.js?onload=$wh__ongooglerecaptchaloaded&amp;render=explicit" />);
+  recaptchaload = createDeferred<void>();
+  document.querySelector<HTMLElement>("head,body")!.append(<script src="https://www.google.com/recaptcha/api.js?onload=$wh__ongooglerecaptchaloaded&amp;render=explicit" />);
+  return recaptchaload.promise;
 }
 
-export async function runRecaptchaDialog(sitekey, options) {
-  options = { busycomponent: null, ...options };
-  const lock = dompack.flagUIBusy({ component: options.busycomponent, modal: true });
-
-  let diag = null;
+export async function runRecaptchaDialog(sitekey: string, settings: CaptchaSettings) {
+  let diag: dialogapi.DialogBase | undefined;
+  const lock = dompack.flagUIBusy({ modal: true });
   try {
-    if (!recaptchaload)
-      makeRecaptchaLoadPromise();
-    await recaptchaload.promise;
+    await (recaptchaload ? recaptchaload.promise : makeRecaptchaLoadPromise());
 
     const captchanode = <div class="wh-captcha__googlerecaptchaholder"></div>;
-    const title = (settings ? settings.title : '') || getTid("publisher:site.captcha.title");
-    const explain = (settings ? settings.explain : '') || getTid("publisher:site.captcha.explain");
-
     diag = dialogapi.createDialog();
-    diag.contentnode.appendChild(<div class="wh-captcha wh-captcha--googlerecaptcha">
-      <h2 class="wh-captcha__title">{title}</h2>
-      <p class="wh-captcha__explain">{explain}</p>
+    diag.contentnode!.appendChild(<div class="wh-captcha wh-captcha--googlerecaptcha">
+      <h2 class="wh-captcha__title">{settings.title}</h2>
+      <p class="wh-captcha__explain">{settings.explain}</p>
       {captchanode}
     </div>);
 
     if (sitekey == 'mock') {
-      captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => diag.resolve('mock') }} />I am a human, beep-bop</label>);
+      captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => diag!.resolve('mock') }} />I am a human, beep-bop</label>);
     } else {
-      let recaptchaid; //retained in closure for the callback handler
-      recaptchaid = window.grecaptcha.render(captchanode, {
-        sitekey, callback: evt => {
+      //@ts-ignore the recaptcha/api.js adds grecaptcha to the window
+      const recaptchaid = window.grecaptcha.render(captchanode, {
+        sitekey, callback: () => {
           const response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
-          diag.resolve(response);
+          diag!.resolve(response);
         }
       });
     }
   } finally {
     lock.release();
   }
-  return diag.runModal();
+
+  return diag?.runModal() || null;
 }
+
+const captchaDefer = Symbol("captchaDefer");
+
+export async function runRecaptcha(sitekey: string, settings: CaptchaSettings) {
+  if (!settings.injectInto)
+    return runRecaptchaDialog(sitekey, settings); //legacy implementation, remove once all pre-5.4s have been republished at least once
+
+  const injectinto = settings.injectInto as typeof settings.injectInto & { [captchaDefer]?: DeferredPromise<string> };
+  if (injectinto[captchaDefer])
+    return injectinto[captchaDefer].promise;
+
+  const defer = createDeferred<string>();
+  const lock = dompack.flagUIBusy({ modal: true });
+  try {
+    await (recaptchaload ? recaptchaload.promise : makeRecaptchaLoadPromise());
+
+    const captchanode = <div class="wh-captcha__googlerecaptchaholder"></div>;
+    injectinto.append(
+      <div class="wh-captcha wh-captcha--googlerecaptcha">
+        <h2 class="wh-captcha__title">{settings.title}</h2>
+        <p class="wh-captcha__explain">{settings.explain}</p>
+        {captchanode}
+      </div>);
+
+    if (sitekey == 'mock') {
+      captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => defer.resolve('mock') }} />I am a human, beep-bop</label>);
+    } else {
+      const recaptchaid = window.grecaptcha.render(captchanode, {
+        sitekey, callback: () => {
+          const response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
+          defer.resolve(response);
+        }
+      });
+    }
+  } finally {
+    lock.release();
+  }
+
+  injectinto[captchaDefer] = defer;
+  return defer.promise;
+}
+
 
 export function setupGoogleRecaptcha() {
   if (captcharegistry["google-recaptcha"])
     throw new Error("Duplicate google recaptcha initialization");
 
-  captcharegistry["google-recaptcha"] = { getResponse: runRecaptchaDialog };
+  captcharegistry["google-recaptcha"] = { getResponse: runRecaptcha };
 }

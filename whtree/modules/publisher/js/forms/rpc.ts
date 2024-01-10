@@ -107,7 +107,7 @@ export default class RPCFormBase extends FormBase {
     if (!background)
       this.onRPC(waiter.promise);
 
-    const lock = dompack.flagUIBusy({ modal: !background, component: this.node });
+    const lock = dompack.flagUIBusy({ modal: !background });
     try {
       //we used to accept options as first parameter but noone was using those anyway, so remove!
       const formvalue = await this.getFormValue();
@@ -272,6 +272,7 @@ export default class RPCFormBase extends FormBase {
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
           merge.run(this.node, { form: await this.getFormValue() });
 
+          //FIXME why is going to 'thank you' not in the formbase?
           this._navigateToThankYou(result.result && result.result.richvalues);
           this.onSubmitSuccess(result.result);
         }
