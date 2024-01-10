@@ -72,8 +72,8 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
 
   RETURN CELL
       [ messages :=
-          (SELECT resourcename :=  resourcename
-                , message := `${message} (eslint)` //clarify source
+          (SELECT resourcename := VAR resourcename
+                , message
                 , line
                 , col
                 , fatal
