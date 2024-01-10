@@ -92,8 +92,8 @@ function readApplicableToWebHareNode(xmlnode: Element, prefix: string) {
     minservertype: getAttr(xmlnode, prefix + "minservertype"),
     maxservertype: getAttr(xmlnode, prefix + "maxservertype"),
     restrictservers: getAttr(xmlnode, prefix + "restrictservers", []),
-    ifenvironset: getAttr(xmlnode, prefix + "ifenvironset"),
-    unlessenvironset: getAttr(xmlnode, prefix + "unlessenvironset"),
+    ifenvironset: getAttr(xmlnode, prefix + "ifenvironset", []),
+    unlessenvironset: getAttr(xmlnode, prefix + "unlessenvironset", []),
     ifmodules: getAttr(xmlnode, prefix + "ifmodules")
   };
 }
