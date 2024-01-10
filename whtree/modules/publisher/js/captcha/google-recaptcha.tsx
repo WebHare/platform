@@ -63,7 +63,7 @@ const captchaDefer = Symbol("captchaDefer");
 
 export async function runRecaptcha(sitekey: string, settings: CaptchaSettings) {
   if (!settings.injectInto)
-    return runRecaptchaDialog(sitekey, settings); //legacy implemetation, remove once all pre-5.4s have been republished at least once
+    return runRecaptchaDialog(sitekey, settings); //legacy implementation, remove once all pre-5.4s have been republished at least once
 
   const injectinto = settings.injectInto as typeof settings.injectInto & { [captchaDefer]?: DeferredPromise<string> };
   if (injectinto[captchaDefer])
