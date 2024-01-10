@@ -70,6 +70,27 @@ function addTags(root: object, node: object, tag: string, path: string) {
   }
 }
 
+/// Remove all properties with name $defs, recusively
+function recursiveRemoveDefs(node: unknown, path: string) {
+  if (node && typeof node === "object") {
+    if (Array.isArray(node)) {
+      for (let i = 0; i < node.length; ++i)
+        recursiveRemoveDefs(node[i], `${path}/${i}`);
+    } else {
+      if ("$defs" in node)
+        console.log(path, "$defs" in node);
+      if ("$ref" in node)
+        console.log(path, " $ref: ", `${node["$ref"]}`);
+      if ("$defs" in node)
+        delete node["$defs"];
+      for (const [key, value] of Object.entries(node))
+        if (value && typeof value === "object")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          recursiveRemoveDefs(value, `${path}/${key}`);
+    }
+  }
+}
+
 /** Adds optional property "__internal_format_tag": "openapi-subtag-propertykey" to all properties of nodes marked with "x-webhare-add-format-tags": "subtag"
  *
  */
@@ -114,6 +135,11 @@ export async function createOpenAPITypeDocuments(openapifilepath: string, servic
   const parsed = await SwaggerParser.validate(structuredClone(bundled)) as OpenAPIV3.Document;
   if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3."))
     throw new Error(`not the right OpenAPI version: got ${JSON.stringify(parsed.openapi)}, wanted 3.x.x`);
+
+  /* openapi-typescripts leaves $defs from the root of imported files as members of the objects defined in the root of
+     those files. Because all references have already been resolved, it's safe to remove them.
+  */
+  recursiveRemoveDefs(parsed, "");
 
   type OpenAPITS = (schema: string | URL | OpenAPI3 | Readable, options?: OpenAPITSOptions) => Promise<string>;
   const openapiTSfunc = (await import("openapi-typescript")).default as OpenAPITS;
