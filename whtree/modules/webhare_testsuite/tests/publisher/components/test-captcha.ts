@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 
 //TODO test with google's recaptcha in testmode - but we need a cross iframe test.click for that
@@ -20,7 +17,7 @@ test.registerTests(
       test.eq(0, test.qSA('.mydialog').length, 'dialog should be gone after clicking');
       test.click('#submit_googlerecaptcha');
       await test.wait('pageload');
-      test.eq('YES', test.qS('#googlerecaptcha_accepted').textContent);
+      test.eq('YES', test.qR('#googlerecaptcha_accepted').textContent);
     },
 
     "Test context api",
@@ -34,6 +31,6 @@ test.registerTests(
       test.eq(0, test.qSA('.mydialog').length, 'dialog should be gone after clicking');
       test.click('#submit_webcontextcaptcha');
       await test.wait('pageload');
-      test.eq('YES', test.qS('#webcontextcaptcha_accepted').textContent);
+      test.eq('YES', test.qR('#webcontextcaptcha_accepted').textContent);
     }
   ]);

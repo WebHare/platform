@@ -1,7 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import './testpage-captcha.scss';
 
 //activate minimum dialog support
@@ -16,18 +13,19 @@ dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
-async function triggerGoogleRecaptcha() {
-  const result = await googleRecaptcha.runRecaptchaDialog(this.dataset.recaptchakey);
-  dompack.qS('#googlerecaptcha_result').value = result;
+async function triggerGoogleRecaptcha(this: HTMLElement) {
+  const result = await googleRecaptcha.runRecaptchaDialog(this.dataset.recaptchakey!,
+    { title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
+  dompack.qR<HTMLInputElement>('#googlerecaptcha_result').value = result || '';
 }
 
-async function triggerCaptcha() {
-  const result = await getCaptchaResponse(this.dataset.apikey);
-  dompack.qS('#webcontextcaptcha_result').value = result;
+async function triggerCaptcha(this: HTMLElement) {
+  const result = await getCaptchaResponse(this.dataset.apikey!);
+  dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result || '';
 }
 
 function init() {
-  dompack.qS('#trigger_googlerecaptcha').addEventListener("click", triggerGoogleRecaptcha);
-  dompack.qS('#trigger_webcontextcaptcha').addEventListener("click", triggerCaptcha);
+  dompack.qR('#trigger_googlerecaptcha').addEventListener("click", triggerGoogleRecaptcha);
+  dompack.qR('#trigger_webcontextcaptcha').addEventListener("click", triggerCaptcha);
 }
 dompack.onDomReady(init);
