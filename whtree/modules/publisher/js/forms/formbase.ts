@@ -602,7 +602,7 @@ export default class FormBase {
     if (evt)
       evt.preventDefault();
 
-    const lock = dompack.flagUIBusy({ modal: true, component: this.node });
+    const lock = dompack.flagUIBusy({ modal: true });
     this._submitstart = Date.now();
     this._submittimeout = setTimeout(() => this._submitHasTimedOut(), 5000);
     this.node.classList.add('wh-form--submitting');

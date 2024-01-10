@@ -54,7 +54,7 @@ export class DialogBase {
   options: DialogOptions;
   private _borrowedfrom: Element | null = null;
   private _borrowednext: Element | null = null;
-  contentnode: Element | null;
+  contentnode: Element | null; //FIXME a successor to DialogBase should not allow these to be | null. have our child inform us through super() about the contentnode and buttonsnode so we can ensure its set
   buttonsnode: Element | null = null;
   private _deferred: DeferredPromise<string | null>;
   open: boolean;
