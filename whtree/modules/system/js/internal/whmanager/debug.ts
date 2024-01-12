@@ -60,7 +60,7 @@ export type ConsoleLogItem = {
   func: string;
   /** Logged data */
   data: string;
-  /** Clocation of caller */
+  /** Location of caller */
   location: { filename: string; line: number; col: number; func: string } | null;
 };
 

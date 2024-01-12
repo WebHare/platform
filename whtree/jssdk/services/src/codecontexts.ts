@@ -8,6 +8,7 @@ import { debugFlags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
 import { DebugFlags, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
+import type { ConsoleLogItem } from "@mod-system/js/internal/whmanager/debug";
 
 let contextcounter = 0;
 
@@ -64,6 +65,7 @@ export class CodeContext extends EventSource<CodeContextEvents>{
   readonly metadata: CodeContextMetadata;
   readonly storage = new Map<string | symbol, { resource: unknown; dispose?: (x: unknown) => void }>();
   private closed = false;
+  readonly consoleLog: ConsoleLogItem[] = [];
   debugFlagsOverrides: DebugFlags[] = [{}];
 
   constructor(title: string, metadata: CodeContextMetadata) {
