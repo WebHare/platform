@@ -3,10 +3,16 @@ import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { loadlib } from "@webhare/harescript";
+import { debugFlags } from "@webhare/env";
+
+const nonExistingDebugFlag = `nonexisting-flag-${crypto.randomUUID()}`;
 
 async function testContextSetup() {
   test.eq('root', getCodeContext().title);
   test.eq(true, isRootCodeContext());
+
+  test.eq(undefined, debugFlags[nonExistingDebugFlag]);
+  debugFlags[nonExistingDebugFlag] = true;
 
   const context1 = new CodeContext("test_codecontext:context setup", { context: 1 });
   const context2 = new CodeContext("test_codecontext:context setup", { context: 2 });
@@ -19,6 +25,17 @@ async function testContextSetup() {
   test.eq(context2.id, context2.run(contexttests.returnContextId));
   test.eq(context1.id, await context1.run(contexttests.returnContextIdAsync));
   test.eq(context2.id, await context2.run(contexttests.returnContextIdAsync));
+
+  // new contexts should inherit flags live from the root context
+  test.eq(true, context1.run(() => debugFlags[nonExistingDebugFlag]));
+  delete debugFlags[nonExistingDebugFlag];
+  test.eq(undefined, context1.run(() => debugFlags[nonExistingDebugFlag]));
+
+  // settings flags in context1 should not affect the root context or context2
+  context1.run(() => debugFlags[nonExistingDebugFlag] = true);
+  test.eq(true, context1.run(() => debugFlags[nonExistingDebugFlag]));
+  test.eq(undefined, debugFlags[nonExistingDebugFlag]);
+  test.eq(undefined, context2.run(() => debugFlags[nonExistingDebugFlag]));
 
   const contextgetter = context1.run(contexttests.getWrappedReturnContextId);
   test.eq(context1.id, contextgetter());

@@ -7,6 +7,7 @@ import { StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stack
 import { debugFlags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
+import { DebugFlags, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
 
 let contextcounter = 0;
 
@@ -63,6 +64,7 @@ export class CodeContext extends EventSource<CodeContextEvents>{
   readonly metadata: CodeContextMetadata;
   readonly storage = new Map<string | symbol, { resource: unknown; dispose?: (x: unknown) => void }>();
   private closed = false;
+  debugFlagsOverrides: DebugFlags[] = [{}];
 
   constructor(title: string, metadata: CodeContextMetadata) {
     super();
@@ -131,6 +133,12 @@ export class CodeContext extends EventSource<CodeContextEvents>{
 }
 
 export const rootstorage = new CodeContext("root", {});
+
+// The root storage allows direct access to the debug flags, so remove its flags override records
+rootstorage.debugFlagsOverrides = [];
+
+// Register the debug flags override getter function to use the override provided by the code context
+setDebugFlagsOverrideCB(() => als.getStore()?.debugFlagsOverrides ?? []);
 
 export function isRootCodeContext(): boolean {
   return als.getStore() === undefined;
