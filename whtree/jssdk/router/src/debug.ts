@@ -1,6 +1,6 @@
 import { DebugFlags } from "@webhare/env";
 import { WebRequest } from "./request";
-import { validateSignatureForThisServer } from "@webhare/services";
+import { getSignatureForThisServer, validateSignatureForThisServer } from "@webhare/services";
 
 const whconstant_whdebug_publicflags = ["apr"];
 
@@ -28,4 +28,12 @@ export function getDebugSettings(req: WebRequest, { skipChecks }: { skipChecks?:
   }
 
   return { flags };
+}
+
+export function getSignedWHDebugOptions({ debugFlags }: { debugFlags: DebugFlags }): string | null {
+  const debugCookie = [...Object.entries(debugFlags)].filter(([flag, enabled]) => enabled).map(([flag]) => flag).join(".");
+  if (!debugCookie)
+    return null;
+
+  return debugCookie + ".sig=" + getSignatureForThisServer("publisher:wh-debug", debugCookie); //adding .sig is backwards compatible with old dompacks, as it tokenizes on '.'
 }

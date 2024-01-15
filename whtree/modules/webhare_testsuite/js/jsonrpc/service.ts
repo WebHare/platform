@@ -12,4 +12,8 @@ export class TestNoAuthJS implements MyService {
     const info = getJSONAPICallWebRequest();
     return { baseURL: info.baseURL, url: info.url.toString(), requestHeaders: Object.fromEntries(info.headers.entries()) };
   }
+  async doConsoleLog() {
+    console.log(`my console log`);
+    return null;
+  }
 }

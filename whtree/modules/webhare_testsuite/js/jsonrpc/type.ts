@@ -15,4 +15,6 @@ export interface MyService {
     url: string;
     requestHeaders: Record<string, string>;
   }>;
+
+  doConsoleLog(): Promise<null>;
 }
