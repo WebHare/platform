@@ -1,4 +1,4 @@
-import { WHConfigScriptData } from "@webhare/env/src/frontend-config";
+import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";

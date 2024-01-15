@@ -43,10 +43,11 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
     return { path: args.path };
   });
   build.onLoad({ filter: /^\/\/:entrypoint\.js/ }, args => {
-    //generate entrypoint.js
+    //generate entrypoint.js.
     let prologue = "";
-    if (bundle.bundleconfig.environment == 'window') //declare our existence and dev mode
+    if (bundle.bundleconfig.environment == 'window')  //TODO not sure if anything relevant still relies on whBundles?
       prologue = `window.whBundles||=[];window.whBundles["${bundle.outputtag}"]={dev:${bundle.isdev}};`;
+    prologue += `import "@webhare/frontend/src/init";`; //it's side effects will initialize @webhare/env dtapstage
 
     const paths = JSON.parse(decodeURIComponent(args.path.split('?')[1])) as string[];
     //TODO escape quotes and backslashes..

@@ -7,7 +7,6 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "browser": {
-    "src/envsupport": "./src/envsupport-browser.ts",
     "src/envstartup": "./src/envstartup-browser.ts"
   },
   "typedocOptions": {
