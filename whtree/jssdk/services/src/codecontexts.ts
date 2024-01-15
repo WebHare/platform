@@ -132,6 +132,14 @@ export class CodeContext extends EventSource<CodeContextEvents>{
     this.storage.clear();
     this.closed = true;
   }
+
+  applyDebugSettings({ flags }: { flags: DebugFlags }) {
+    if (!this.debugFlagsOverrides.length)
+      throw new Error(`Cannot apply debug settings to the root context`);
+    for (const [flag, enabled] of Object.entries(flags))
+      if (enabled)
+        this.debugFlagsOverrides[0][flag] = true;
+  }
 }
 
 export const rootstorage = new CodeContext("root", {});
