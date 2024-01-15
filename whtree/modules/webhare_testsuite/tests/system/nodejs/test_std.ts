@@ -18,6 +18,7 @@ export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89a
 function testEnv() {
   test.eq(false, env.isLive);
   test.eq("development", env.dtapstage);
+  test.eq("development", env.dtapStage);
 }
 
 function testRoundingCall(base: number, mode: std.MoneyRoundingMode, expect: number[]) {

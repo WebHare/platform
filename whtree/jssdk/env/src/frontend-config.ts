@@ -14,38 +14,58 @@ export interface WHConfigScriptData {
   /** Site specific settings */
   site: { [key: string]: unknown };
 
-  /** True if the current WebHare is in production or acceptance DTAP stage. Often used to show/hide developer-targed runtime warnings */
-  islive: boolean;
-  /** Current WebHare's DTAP stage */
-  dtapstage: DTAPStage;
   /** Numeric server version number (eg 5.02.24 = 50224)
    *  @deprecated Interpreting numbers (or version strings) is dangerous. Feature flags/testing or limiting your entire module to compatible versions is safer
   */
   server: number;
+  /** Root URL of this site */
+  siteRoot: string;
+}
 
-  //TODO do we (still) need all these roots?
+//names fields can still have when not yet republished
+export interface WHConfigScriptData_OldPublishFields {
+  islive: boolean;
+  dtapstage: DTAPStage;
   siteroot: string;
 }
 
-function getIntegrationConfig(): WHConfigScriptData {
+//fallback names with deprecation warnings
+export interface WHConfigScriptData_LegacyFields {
+  //TODO: once 5.4 is the expected baseline everwhere: /** @deprecated use import { isLive } from "@webhare/env"; in WH5.4 */
+  islive: boolean;
+  //TODO: once 5.4 is the expected baseline everwhere:/** @deprecated use import { dtapStage } from "@webhare/env"; in WH5.4 */
+  dtapstage: DTAPStage;
+  //TODO: once 5.4 is the expected baseline everwhere:/** @deprecated Renamed to siteRoot in WH5.4 */
+  siteroot: string;
+}
+
+function getIntegrationConfig(): WHConfigScriptData & WHConfigScriptData_LegacyFields {
   let config;
+  let dtapStage = DTAPStage.Production;
   if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
     const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
     if (whconfigel?.textContent) {
-      config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData>;
+      config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
+
+      //WH5.3 fallbacks
+      if (config.siteroot)
+        config.siteRoot = config.siteroot;
+
+      //future versions of WebHare can just drop dtapStage and isLive on prod from the config object.
+      dtapStage = config.dtapstage ?? config.dtapStage ?? dtapStage;
     }
   }
 
   // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
   return {
-    islive: true,
-    dtapstage: DTAPStage.Production,
     server: 0,
     ...config,
     obj: config?.obj || {},
     site: config?.site || {},
-    siteroot: config?.siteroot || ""
-  };
+    siteRoot: config?.siteRoot || config?.siteroot || "",
+    dtapstage: dtapStage,
+    islive: ([DTAPStage.Production, DTAPStage.Acceptance]).includes(dtapStage!)
+  } as WHConfigScriptData & WHConfigScriptData_LegacyFields;
 }
 
 export const frontendConfig = getIntegrationConfig();

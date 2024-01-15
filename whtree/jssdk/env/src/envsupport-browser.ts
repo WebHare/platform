@@ -5,5 +5,5 @@ export function getDefaultRPCBase() {
 }
 
 export function getDtapStage() {
-  return frontendConfig.dtapstage;
+  return frontendConfig.dtapStage;
 }

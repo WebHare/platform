@@ -71,12 +71,10 @@ export class SiteResponse<T extends object = object> {
     this.settings = settings;
 
     this.frontendConfig = {
-      siteroot: "",
+      siteRoot: "",
       site: {},
       obj: {},
-      dtapstage: services.backendConfig.dtapstage,
-      //TODO should we have a services.backendConfig.islive? or just clientside or never generate that?
-      islive: ["production", "acceptance"].includes(services.backendConfig.dtapstage),
+      dtapStage: services.backendConfig.dtapstage,
       locale: this.settings.lang, //why doesn't JS just get the html lang= ?
       server: getVersionInteger() //TODO we intend to completely deprecate this. should never depend on server versions
     };
@@ -117,7 +115,7 @@ export class SiteResponse<T extends object = object> {
     page += head;
 
     //TODO do we (still) need all these roots?
-    this.frontendConfig.siteroot = urlpointers.siteroot;
+    this.frontendConfig.siteRoot = urlpointers.siteroot;
 
     if (this.insertions["dependencies-top"])
       page += await this.renderInserts("dependencies-top");
