@@ -21,7 +21,7 @@ PUBLIC VARIANT FUNCTION InvokeInsideJob(STRING func, VARIANT ARRAY args, RECORD 
 PUBLIC RECORD FUNCTION FoldHeaders(RECORD ARRAY webheaders)
 {
   RETURN RepackRecord(SELECT name := ANY(field)
-                           , value := Detokenize(GroupedValues(value), ", ")
+                           , value := Detokenize(GroupedValues(value), ToUppercase(ANY(field)) = "COOKIE" ? ";" : ", ")
                         FROM webheaders
                     GROUP BY ToUppercase(field));
 }

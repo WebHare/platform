@@ -3,8 +3,11 @@ import * as services from "@webhare/services";
 import { WebRequestInfo, WebResponseInfo } from "./types";
 import { StackTrace, parseTrace, } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { RequestID, type JSONRPCErrorResponse } from "@webhare/jsonrpc-client/src/jsonrpc-client";
+import type { RequestID, JSONRPCErrorResponse } from "@webhare/jsonrpc-client/src/jsonrpc-client";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
+import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
+import type { ConsoleLogItem } from "./whmanager/debug";
+
 /*
 Status codes
 
@@ -24,12 +27,42 @@ interface WebServiceDefinition {
 
 let currentrequest: WebRequest | undefined;
 
+type RequestDebugInfo = {
+  debug?: {
+    context: {
+      id: string;
+      metadata: CodeContext["metadata"];
+    };
+    consoleLog?: ConsoleLogItem[];
+  };
+};
+
+function getDebugData(): RequestDebugInfo {
+  if (debugFlags.etr) {
+    return {
+      debug: {
+        consoleLog: getCodeContext().consoleLog,
+        context: {
+          id: getCodeContext().id,
+          metadata: getCodeContext().metadata,
+        }
+      }
+    };
+  }
+  return {};
+}
+
 /** Create a webresponse returning a JSON body
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode
  */
 function createJSONRPCError(requestid: RequestID, status: HTTPErrorCode, errorCode: number, message: string, trace?: StackTrace) {
-  const response: JSONRPCErrorResponse = { id: requestid, error: { code: errorCode, message, ...(trace ? { data: { trace } } : null) }, result: null };
+  const response: JSONRPCErrorResponse & RequestDebugInfo = {
+    id: requestid,
+    error: { code: errorCode, message, ...(trace ? { data: { trace } } : null) },
+    result: null,
+    ...getDebugData()
+  };
   return createJSONResponse(status, response);
 }
 
@@ -75,7 +108,8 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
     currentrequest = undefined;
     const result = await promise;
 
-    return createJSONResponse(HTTPSuccessCode.Ok, { id, error: null, result });
+    const retval = { id, error: null, result, ...getDebugData() };
+    return createJSONResponse(HTTPSuccessCode.Ok, retval);
   } catch (e) {
     if (e instanceof JSONRPCError)
       return createJSONRPCError(id, e.status, e.errorCode, e.message);
@@ -91,13 +125,27 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
 }
 
 export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
-  const result = await runJSONAPICall(servicedef, req);
+  const context = new CodeContext("jsonrpc", {
+    url: req.url.toString(),
+  });
+
+  const debugSettings = (await newWebRequestFromInfo(req)).getDebugSettings();
+  context.applyDebugSettings(debugSettings);
+
+  const result = await context.run(() => runJSONAPICall(servicedef, req));
   return result.asWebResponseInfo();
 }
 
 class JSONAPICaller {
   async runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
-    const retval = await runJSONAPICall(servicedef, req);
+    const context = new CodeContext("jsonrpc", {
+      url: req.url.toString(),
+    });
+
+    const debugSettings = (await newWebRequestFromInfo(req)).getDebugSettings();
+    context.applyDebugSettings(debugSettings);
+
+    const retval = await context.run(() => runJSONAPICall(servicedef, req));
     return retval.asWebResponseInfo();
   }
 }

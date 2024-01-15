@@ -15,7 +15,7 @@ import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
 import { updateConfig } from "../configuration";
-import { getActiveCodeContexts } from "@webhare/services/src/codecontexts";
+import { getActiveCodeContexts, getCodeContext } from "@webhare/services/src/codecontexts";
 import { isMainThread, TransferListItem, workerData } from "node:worker_threads";
 import { formatLogObject, LoggableRecord } from "@webhare/services/src/logmessages";
 import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
@@ -1364,7 +1364,7 @@ function hookConsoleLog() {
         } else {
           source.func = key;
           source.when = new Date();
-          source.location = getCallerLocation(1); // 1 is location of parent
+          source.location = envbackend.debugFlags.conloc ? getCallerLocation(1) : null; // 1 is location of parent
           try {
             return (func as (...args: unknown[]) => unknown).apply(console, args);
           } finally {
@@ -1385,9 +1385,15 @@ function hookConsoleLog() {
     }
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
-    consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
+    const consoleLogItem = { func: source.func, data: tolog, when: source.when, location: source.location };
+    consoledata.push(consoleLogItem);
     if (consoledata.length > 100)
       consoledata.shift();
+    if (envbackend.debugFlags.etr) {
+      getCodeContext().consoleLog.push(consoleLogItem);
+      if (getCodeContext().consoleLog.length > 100)
+        getCodeContext().consoleLog.shift();
+    }
     return retval;
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1399,9 +1405,15 @@ function hookConsoleLog() {
     }
     const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
-    consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
+    const consoleLogItem = { func: source.func, data: tolog, when: source.when, location: source.location };
+    consoledata.push(consoleLogItem);
     if (consoledata.length > 100)
       consoledata.shift();
+    if (envbackend.debugFlags.etr) {
+      getCodeContext().consoleLog.push(consoleLogItem);
+      if (getCodeContext().consoleLog.length > 100)
+        getCodeContext().consoleLog.shift();
+    }
     return retval;
   };
 }

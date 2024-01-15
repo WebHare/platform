@@ -1,6 +1,10 @@
 <?wh
+
+LOADLIB "wh::javascript.whlib";
+
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 
 MACRO CryptTest()
 {
@@ -24,6 +28,19 @@ MACRO CryptTest()
 
   hson := EncryptForThisServer("mytest", EncodeHson(DEFAULT RECORD));
   TestEq(EncodeHson(DEFAULT RECORD), DecryptForThisServer("mytest",hson));
+}
+
+ASYNC MACRO CryptSignaturesTest()
+{
+  STRING sig := GetSignatureForThisServer("mytest", "IsATest");
+  TestEQ(sig, AWAIT ImportJS("@webhare/services")->GetSignatureForThisServer("mytest", "IsATest"));
+
+  TestEQ(TRUE, ValidateSignatureForThisServer("mytest", "IsATest", sig));
+  TestEQ(TRUE, AWAIT ImportJS("@webhare/services")->ValidateSignatureForThisServer("mytest", "IsATest", sig));
+
+  STRING failsig := (sig LIKE "a*" ? "b" : "a") || SubString(sig, 1);
+  TestEQ(FALSE, ValidateSignatureForThisServer("mytest", "IsATest", failsig));
+  TestEQ(FALSE, AWAIT ImportJS("@webhare/services")->ValidateSignatureForThisServer("mytest", "IsATest", failsig));
 }
 
 MACRO TestRatelimits()
@@ -51,5 +68,6 @@ MACRO TestRatelimits()
 }
 
 RunTestframework([ PTR CryptTest
+                 , PTR CryptSignaturesTest
                  , PTR TestRatelimits
                  ]);

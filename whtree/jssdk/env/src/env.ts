@@ -3,7 +3,7 @@ import { hookFetch } from "./fetchdebug";
 import { DTAPStage } from "./concepts";
 import * as envsupport from "./envsupport";
 
-export { debugFlags } from "./envbackend";
+export { debugFlags, type DebugFlags } from "./envbackend";
 export { DTAPStage } from "./concepts";
 
 /** DTAP stage set for this WebHare */

@@ -1,4 +1,6 @@
-import { WebRequestInfo } from "@mod-system/js/internal/types";
+import type { WebRequestInfo } from "@mod-system/js/internal/types";
+import type { DebugFlags } from "@webhare/env";
+import { getDebugSettings } from "./debug";
 
 export enum HTTPMethod {
   GET = "get",
@@ -32,6 +34,25 @@ export interface WebRequest {
   readonly baseURL: string;
   //Local path inside this route (URL decoded, lowercase, no variables, does not start with a slash)
   readonly localPath: string;
+
+
+  /** This returns all the cookies originally sent by the client. They are not decrypted.
+      @param req - The request to get the cookies from
+      @returns - The cookies
+  */
+  getAllCookies(): Record<string, string>;
+
+  /** This returns a single cookie originally sent by the client. It is not decrypted.
+      @param req - The request to get the cookie from
+      @param name - The name of the cookie
+      @returns - The cookie value or null if not found
+  */
+  getCookie(name: string): string | null;
+
+  /** The return value only contains the trusted flags set in this request (from both cookies and URL - either signed or part of the subset of flags that do not need a signature)
+      You should normally use debugFlags from \@webhare/env - request specific flags will be merged into this set for the current code context.
+  */
+  getDebugSettings(): { flags: DebugFlags };
 }
 
 export class IncomingWebRequest implements WebRequest {
@@ -72,6 +93,34 @@ export class IncomingWebRequest implements WebRequest {
   get localPath() {
     return decodeURIComponent(this.url.pathname).toLowerCase().substring(1);
   }
+
+  getAllCookies(): Record<string, string> {
+    const retval: Record<string, string> = {};
+    const cookieHeader = this.headers.get("cookie");
+    if (!cookieHeader)
+      return retval;
+
+    const cookies = cookieHeader.split(';');
+    for (let cookietok of cookies) {
+      cookietok = cookietok.trim();
+      const eqIdx = cookietok.indexOf('=');
+      if (eqIdx < 0)
+        continue;
+      const cookiename = cookietok.substring(0, eqIdx);
+      const cookievalue = cookietok.substring(eqIdx + 1);
+      retval[cookiename] = decodeURIComponent(cookievalue);
+    }
+    return retval;
+  }
+
+  getCookie(name: string): string | null {
+    const allCookies = this.getAllCookies();
+    return allCookies[name] ?? null;
+  }
+
+  getDebugSettings(): { flags: DebugFlags } {
+    return getDebugSettings(this);
+  }
 }
 
 class ForwardedWebRequest implements WebRequest {
@@ -91,6 +140,11 @@ class ForwardedWebRequest implements WebRequest {
   get clientWebServer() { return this.original.clientWebServer; } //FIXME is this corrrect or should it be updated for the new URL ?
   async text() { return this.original.text(); }
   async json() { return this.original.json(); }
+
+  getAllCookies(): Record<string, string> { return this.original.getAllCookies(); }
+  getCookie(name: string): string | null { return this.original.getCookie(name); }
+
+  getDebugSettings(): { flags: DebugFlags } { return this.original.getDebugSettings(); }
 }
 
 export async function newWebRequestFromInfo(req: WebRequestInfo): Promise<WebRequest> {
