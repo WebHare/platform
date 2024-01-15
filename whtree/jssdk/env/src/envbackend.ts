@@ -93,7 +93,13 @@ class DebugFlagsProxyHandler implements ProxyHandler<DebugFlags> {
   }
 }
 
-export const debugFlags = new Proxy<DebugFlags>({}, new DebugFlagsProxyHandler());
+export const debugFlags = new Proxy<DebugFlags>({
+  [Symbol.for('nodejs.util.inspect.custom')]: formatForConsoleLogs
+}, new DebugFlagsProxyHandler());
+
+function formatForConsoleLogs() {
+  return `DebugFlags [${[...Object.keys(debugFlags)]}]`;
+}
 
 /** Update the debugconfig as present in the system configuration record
     @param settings - debugconfig cell of the system configuration record
