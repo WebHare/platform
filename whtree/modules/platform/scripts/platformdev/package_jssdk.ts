@@ -1,5 +1,15 @@
 /*
-wh run mod::platform/scripts/platformdev/package_jssdk.ts
+Before attempting to publish:
+
+wh runtest checkmodules
+
+To simply verify the packges
+
+wh run mod::platform/scripts/platformdev/package_jssdk.ts --verbose
+
+To publish alpha versions to NPM:
+
+wh run mod::platform/scripts/platformdev/package_jssdk.ts --publish-alpha --verbose
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
@@ -72,6 +82,9 @@ async function main() {
     packagejson.private = false;
     packagejson.files = ["dist/", "bin/"];
     Object.assign(packagejson, fixedsettings);
+
+    if (verbose)
+      console.log(`--- Processing ${pkgname}`);
 
     const src = packagejson.main;
     if (src?.endsWith(".ts") || src?.endsWith(".tsx")) {

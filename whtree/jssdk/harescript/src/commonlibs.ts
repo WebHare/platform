@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- We don't want to spell out everything HS supports so we prefer any instead of unknown here */
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { type HSVMCallsProxy } from "./wasm-proxies";
 
 interface Mod_Publisher_Lib_Siteapi_Site {
@@ -14,6 +15,15 @@ interface Mod_System_Lib_WHFS_WHFSObject {
 
 interface Mod_Publisher_Lib_Siteapi_Base {
   openSiteByName(name: string): Promise<(Mod_Publisher_Lib_Siteapi_Site & HSVMCallsProxy) | null>;
+}
+
+interface Wh_Filetypes_Archiving {
+  unpackArchive(data: WebHareBlob): Promise<Array<{
+    path: string;
+    name: string;
+    modtime: Date;
+    data: WebHareBlob;
+  }>>;
 }
 
 interface Mod_System_Lib_Database_PrimaryObject {
@@ -34,6 +44,7 @@ export type Mod_Publisher_Lib_Siteapi = Mod_Publisher_Lib_Siteapi_Base & HSVMCal
 
 
 export interface CommonLibraries {
+  "wh::filetypes/archiving.whlib": Wh_Filetypes_Archiving;
   "mod::system/lib/database.whlib": Mod_System_Lib_Database;
   "mod::system/lib/whfs.whlib": Mod_System_Lib_WHFS;
   "mod::publisher/lib/siteapi.whlib": Mod_Publisher_Lib_Siteapi;

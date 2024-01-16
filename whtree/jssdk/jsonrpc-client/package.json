@@ -1,7 +1,7 @@
 {
   "name": "@webhare/jsonrpc-client",
   "version": "",
-  "description": "",
+  "description": "A JSON/RPC client built for nice integration into WebHare",
   "main": "src/jsonrpc-client.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

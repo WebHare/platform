@@ -1,7 +1,7 @@
 {
   "name": "@webhare/js-api-tools",
   "version": "",
-  "description": "",
+  "description": "Tools to build nicer JavaScript APIs",
   "main": "src/js-api-tools.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

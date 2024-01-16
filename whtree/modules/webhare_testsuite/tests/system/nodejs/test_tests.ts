@@ -19,6 +19,10 @@ async function testChecks() {
   test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
   test.throws(/Expected date/, () => test.eqProps({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
 
+  //Test promises not evaluating to true
+  test.throws(/Passing a Promise/, () => test.eq(Promise.resolve(1), Promise.resolve(1)));
+  test.throws(/Passing a Promise/, () => test.eq(Promise.resolve(1), Promise.resolve(2)));
+
   //test WH Money tye
   test.eq(std.Money.fromNumber(2.5), new std.Money("2.5"));
   test.eq(new std.Money("2.5"), new std.Money("2.500"));
