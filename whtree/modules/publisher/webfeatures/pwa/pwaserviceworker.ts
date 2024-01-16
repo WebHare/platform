@@ -229,12 +229,14 @@ async function onFetch(event: FetchEvent) {
   if (event.request.method != 'GET')
     return;
 
-  const urlpath = event.request.url.split('/').slice(3).join('/');
-  if (urlpath.startsWith('.publisher/common/outputtools/outputtools.')
-    || urlpath.startsWith('.dev/debug.js')
-    || urlpath.startsWith('.ap/dev.devtools/')
-    || urlpath.startsWith('.publisher/sd/dev/devtools/')
-    || urlpath.startsWith(".px/")) {
+  const urlpath = new URL(event.request.url).pathname;
+  if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
+    || urlpath.startsWith('/.wh/dev/')
+    || urlpath.startsWith('/.dev/debug.js')
+    || urlpath.startsWith('/.dev/debug.js')
+    || urlpath.startsWith('/.ap/dev.devtools/')
+    || urlpath.startsWith('/.publisher/sd/dev/devtools/')
+    || urlpath.startsWith("/.px/")) {
     return;  //well known never cached files
   }
 
