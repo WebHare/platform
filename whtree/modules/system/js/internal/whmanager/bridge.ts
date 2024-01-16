@@ -10,7 +10,8 @@ import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, AnyTy
 import { RefTracker } from "./refs";
 import { generateRandomId } from "@webhare/std";
 import * as stacktrace_parser from "stacktrace-parser";
-import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, ConsoleLogItem } from "./debug";
+import type { ConsoleLogItem } from "@webhare/env/src/concepts";
+import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType } from "./debug";
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
@@ -1348,28 +1349,33 @@ const consoleLogData = !isMainThread && workerData && "localHandlerInitData" in 
 // eslint-disable-next-line prefer-const -- eslint doesn't see that console log can be called before bridgeimpl has been set
 let bridgeimpl: LocalBridge | undefined;
 
+type ConsoleLogItemSource = Omit<ConsoleLogItem, 'data'> & { loggedlocation: boolean };
+
 function hookConsoleLog() {
-  const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date; loggedlocation: boolean } = {
-    func: "",
-    location: null,
+  const source: ConsoleLogItemSource = {
+    method: "",
     when: new Date(),
     loggedlocation: false
   };
+
   for (const [key, func] of Object.entries(old_console_funcs)) {
     if (key != "Console" && key != "trace") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (console as any)[key] = (...args: unknown[]) => {
-        if (source.func) {
+        if (source.method) {
           return (func as (...args: unknown[]) => unknown).apply(console, args);
         } else {
-          source.func = key;
+          source.method = key;
           source.when = new Date();
-          source.location = envbackend.debugFlags.conloc ? getCallerLocation(1) : null; // 1 is location of parent
+          if (envbackend.debugFlags.conloc) {
+            source.loggedlocation = false;
+            source.location = getCallerLocation(1); // 1 is location of parent
+          }
           try {
             return (func as (...args: unknown[]) => unknown).apply(console, args);
           } finally {
-            source.func = "";
-            source.location = null;
+            source.method = "";
+            source.location = undefined;
           }
         }
       };
@@ -1378,14 +1384,14 @@ function hookConsoleLog() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.debugFlags.conloc && source.location) {
+    if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
-      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.func === "table" ? "\n" : " "}`, "utf-8");
-      source.location = null;
+      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.method === "table" ? "\n" : " "}`, "utf-8");
+      source.loggedlocation = true;
     }
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
-    const consoleLogItem = { func: source.func, data: tolog, when: source.when, location: source.location };
+    const consoleLogItem = { method: source.method, data: tolog, when: source.when, ...(source.location ? { location: source.location } : null) };
     consoledata.push(consoleLogItem);
     if (consoledata.length > 100)
       consoledata.shift();
@@ -1398,14 +1404,14 @@ function hookConsoleLog() {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.debugFlags.conloc && source.location) {
+    if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
       old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
-      source.location = null;
+      source.loggedlocation = true;
     }
     const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
-    const consoleLogItem = { func: source.func, data: tolog, when: source.when, location: source.location };
+    const consoleLogItem = { method: source.method, data: tolog, when: source.when, ...(source.location ? { location: source.location } : null) };
     consoledata.push(consoleLogItem);
     if (consoledata.length > 100)
       consoledata.shift();

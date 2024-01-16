@@ -2,6 +2,7 @@ import type { IPCLinkType } from "./ipc";
 import type { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 import type { State as HMRState } from "../hmrinternal";
 import type { StackTraceItem } from "../util/stacktrace";
+import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 export { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 
 export type ProcessList = Array<{
@@ -52,17 +53,6 @@ export enum DebugResponseType {
   getWorkersResult,
   getEnvironmentResult
 }
-
-export type ConsoleLogItem = {
-  /** Date when console function was called */
-  when: Date;
-  /** console function that was called (eg 'log') */
-  func: string;
-  /** Logged data */
-  data: string;
-  /** Location of caller */
-  location: { filename: string; line: number; col: number; func: string } | null;
-};
 
 type DebugResponse = {
   type: DebugResponseType.register;
