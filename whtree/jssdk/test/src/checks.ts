@@ -146,6 +146,12 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
 
     throw new Error("Expected: " + expected + " actual: " + actual + (path != "" ? " at " + path : ""));
   }
+
+  if ((expected as Promise<unknown>)?.then)
+    throw new Error(`Passing a Promise to test.eq's expected value - did you mean to await it?`);
+  if ((actual as Promise<unknown>)?.then)
+    throw new Error(`Passing a Promise to test.eq's actual value - did you mean to await it?`);
+
   // Deeper type comparison
   const type_expected = myTypeOf(expected);
   const type_actual = myTypeOf(actual);
