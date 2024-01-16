@@ -233,7 +233,6 @@ async function onFetch(event: FetchEvent) {
   if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
     || urlpath.startsWith('/.wh/dev/')
     || urlpath.startsWith('/.dev/debug.js')
-    || urlpath.startsWith('/.dev/debug.js')
     || urlpath.startsWith('/.ap/dev.devtools/')
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
     || urlpath.startsWith("/.px/")) {
