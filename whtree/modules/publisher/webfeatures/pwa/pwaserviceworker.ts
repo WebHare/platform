@@ -1,5 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
+// Declare us as a service worker to TypeScript (load webworker types and inform TS that 'self' is actually a ServiceWorker)
+/// <reference lib="webworker"/>
+declare const self: ServiceWorkerGlobalScope;
 
 // when developing, to explicitly recompile our package: wh assetpack recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
@@ -221,7 +224,7 @@ self.addEventListener('activate', async function (event) {
 // Our cache/rewrite handling!
 //
 
-async function onFetch(event) {
+async function onFetch(event: FetchEvent) {
   // Let the browser do its default thing for non-GET requests.
   if (event.request.method != 'GET')
     return;
@@ -237,7 +240,8 @@ async function onFetch(event) {
 
   event.respondWith(ourFetch(event));
 }
-async function ourFetch(event) {
+
+async function ourFetch(event: FetchEvent) {
   const pwasettings = await getSwStoreValue("pwasettings");
   if (pwasettings && pwasettings.excludeurls && pwasettings.excludeurls.length) {
     for (const exclusionmask of pwasettings.excludeurls)
@@ -252,7 +256,7 @@ async function ourFetch(event) {
   const cache = await caches.open("pwacache-" + appname);
   const match = await cache.match(event.request);
   if (match) {
-    console.log(`${logprefix}We have ${event.request.url} + " in our cache`);
+    console.log(`${logprefix}We have ${event.request.url} in our cache`);
     return match;
   }
 
@@ -291,7 +295,7 @@ async function clientLoading(data) {
   startBackgroundVersionCheck(data); //no need to wait on this
 }
 
-async function onMessage(event) {
+async function onMessage(event: MessageEvent) {
   if (!event.data.swrequest)
     return;
 
