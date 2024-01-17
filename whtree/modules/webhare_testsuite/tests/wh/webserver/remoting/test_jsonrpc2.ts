@@ -6,6 +6,8 @@ import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
 import { WebRequestInfo } from '@mod-system/js/internal/types';
 import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
+import { MyService } from '@mod-webhare_testsuite/js/jsonrpc/type';
+import { createClient } from "@webhare/jsonrpc-client";
 
 async function testRPCCaller() {
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
@@ -59,6 +61,10 @@ async function testTypedClient() {
   const myservice = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
   test.eq(true, await myservice.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice.validateEmail("en", "klaasje@beta.webhare.net"));
+
+  const myservice2 = createClient<MyService>(backendConfig.backendURL + "wh_services/webhare_testsuite/testnoauthjs");
+  test.eq(true, await myservice2.validateEmail("nl", "pietje@webhare.dev"));
+  test.eq(false, await myservice2.validateEmail("en", "klaasje@beta.webhare.net"));
 
   const err = await test.throws(/this is a server crash/, myservice.withOptions({ silent: true }).serverCrash());
   const trace = parseTrace(err);

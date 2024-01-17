@@ -237,6 +237,9 @@ class RPCClient {
   //calculate the final URL. delayed here so services can be created on import (getDefaultRPCBase may require waiting for service.ready)
   private getURL() {
     const url = this.whservicematch ? `wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}` : this.url;
+    if (url.match(/^https?:\/\//))
+      return url;
+
     if (this.options.baseUrl)
       return new URL(url, this.options.baseUrl).toString();
     else if (typeof location !== "undefined")
