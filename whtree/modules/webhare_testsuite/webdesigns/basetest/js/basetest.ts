@@ -14,6 +14,8 @@ import { verifyAddress } from "@webhare/forms";
 import * as geoip from '@mod-publisher/js/analytics/geoip';
 import { configureGTMFormSubmit } from "@mod-publisher/js/analytics/gtm.ts";
 import * as whintegration from "@mod-system/js/wh/integration";
+import { debugFlags, isLive, dtapStage } from "@webhare/env";
+import { frontendConfig } from "@webhare/frontend";
 
 import '@mod-publisher/js/richcontent/all';
 import './components';
@@ -142,3 +144,8 @@ window.geoip_getIPInfo = geoip.getIPInfo;
 window.whintegration_config = whintegration.config;
 window.formrpc_submitForm = formrpc.submitForm;
 window.formrpc_validateAddress = verifyAddress;
+
+window.baseTestConfig = {
+  env: { debugFlags, isLive, dtapStage },
+  frontendConfig
+};

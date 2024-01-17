@@ -1,9 +1,10 @@
 //We implement the backend version of getWHDebugFlags so bridge can access us without going through a recursive dep
 
+import { DTAPStage } from "./concepts";
 import { getEnvironmentDebugFlags } from "./envstartup";
 
 /// An object with string keys and typed values
-interface WellKnownFlags {
+export interface WellKnownFlags {
   /** Log RPcs */
   rpc?: true;
   /** Log web traffic */
@@ -127,3 +128,26 @@ export function updateDebugConfig(settings: DebugConfig | null) {
 export function registerDebugConfigChangedCallback(cb: () => void) {
   settingschangedcallbacks.push(cb);
 }
+
+/** DTAP stage set for this WebHare */
+let dtapStage: DTAPStage = DTAPStage.Production as const;
+
+/** Whether we should (pretend) to be live/production ... true on production and acceptance */
+let isLive: boolean = true;
+
+//deprecated variants
+/** @deprecated For WH5.4 and up use 'dtapStage' */
+let dtapstage: DTAPStage = dtapStage;
+/** @deprecated For WH5.4 and up use 'isLive' */
+let islive: boolean = isLive;
+
+export function initEnv(setDtapStage: DTAPStage) {
+  dtapStage = setDtapStage;
+  isLive = dtapStage == DTAPStage.Production || dtapStage == DTAPStage.Acceptance;
+
+  dtapstage = dtapStage;
+  islive = isLive;
+}
+
+export { dtapStage, isLive };
+export { dtapstage, islive }; //deprecated variants

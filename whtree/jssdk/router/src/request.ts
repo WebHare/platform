@@ -1,5 +1,5 @@
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
-import type { DebugFlags } from "@webhare/env";
+import type { DebugFlags } from "@webhare/env/src/envbackend";
 import { getDebugSettings } from "./debug";
 
 export enum HTTPMethod {

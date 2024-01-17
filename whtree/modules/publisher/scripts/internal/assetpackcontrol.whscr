@@ -23,6 +23,11 @@ LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
+// These bundles should always recompile, even if dirty, as they aren't easily watched. TODO make it a setting in assetpacks yml
+PUBLIC CONSTANT STRING ARRAY always_recompile_bundles := [
+  "dev:devtools", //this one implements watching, so if it's broken there's noone to report it
+  "publisher:pwaserviceworker" //this package is never loaded on a page watched by dev:devtools
+  ];
 
 // Timeout for first compilation requests
 INTEGER compile_timeout := 10 * 60 * 1000; //TODO would prefer not to need 10 minutes but 2 isn't enough for an UT sized bundle on a cold cache
@@ -259,7 +264,7 @@ STATIC OBJECTTYPE AssetPackController
     {
       IF (rec.requirecompile AND NOT rec.iscompiling)
       {
-        BOOLEAN runnow := rec.forcecompile OR this->suspendautocompile = FALSE;
+        BOOLEAN runnow := rec.forcecompile OR this->suspendautocompile = FALSE OR rec.outputtag IN always_recompile_bundles;
         IF (NOT runnow)
         {
           RECORD pos := RecordLowerBound(this->watchcounts, rec, [ "OUTPUTTAG" ]);

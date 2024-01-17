@@ -2,7 +2,7 @@ import * as test from '@webhare/test';
 import { JSONAPICall } from '@mod-system/js/internal/jsonrpccaller';
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { HTTPMethod } from '@webhare/router';
-import { WebHareBlob } from '@webhare/services';
+import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
 import { WebRequestInfo } from '@mod-system/js/internal/types';
 import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
@@ -56,16 +56,17 @@ async function testRPCCaller() {
 }
 
 async function testTypedClient() {
-  test.eq(true, await noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
-  test.eq(false, await noAuthJSService.validateEmail("en", "klaasje@beta.webhare.net"));
+  const myservice = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
+  test.eq(true, await myservice.validateEmail("nl", "pietje@webhare.dev"));
+  test.eq(false, await myservice.validateEmail("en", "klaasje@beta.webhare.net"));
 
-  const err = await test.throws(/this is a server crash/, noAuthJSService.serverCrash());
+  const err = await test.throws(/this is a server crash/, myservice.serverCrash());
   const trace = parseTrace(err);
   //verify I can see client and server side
   test.assert(trace.find(t => t.func === "TestNoAuthJS.serverCrash"));
   test.assert(trace.find(t => t.func.includes("testTypedClient")));
 
-  const serviceWithHeaders = noAuthJSService.withOptions({ headers: { "Authorization": "grizzly bearer" } });
+  const serviceWithHeaders = myservice.withOptions({ headers: { "Authorization": "grizzly bearer" } });
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
   test.eqProps({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
 

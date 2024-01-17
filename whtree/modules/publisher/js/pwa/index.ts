@@ -129,7 +129,7 @@ export async function onReady(initfunction, options) {
 
     navigator.serviceWorker.ready.then(() => offlinedeferred.resolve());
   } catch (e) {
-    console.log("PWA Registration failed", e);
+    console.log("PWA Registration failed", (e as Error).message);
     offlinedeferred.reject(e);
   }
 }

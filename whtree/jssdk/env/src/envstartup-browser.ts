@@ -5,11 +5,13 @@ export function getEnvironmentDebugFlags(): string[] {
     flags.push(...urldebugvar.split(','));
 
   //not importing getCookie to solve some import ordering issues
-  const debugcookie = document.cookie.match('(?:^|;)\\s*wh-debug=([^;]*)');
-  if (debugcookie) {
-    const debugcookievalue = decodeURIComponent(debugcookie[1]);
-    if (debugcookievalue)
-      flags.push(... (debugcookievalue.split('.').filter(flag => !flag.startsWith('sig='))));
+  if (typeof document !== "undefined") { //'document' is undefined in a worker but assetpacks compiled for a ServiceWorker will also load us
+    const debugcookie = document.cookie.match('(?:^|;)\\s*wh-debug=([^;]*)');
+    if (debugcookie) {
+      const debugcookievalue = decodeURIComponent(debugcookie[1]);
+      if (debugcookievalue)
+        flags.push(... (debugcookievalue.split('.').filter(flag => !flag.startsWith('sig='))));
+    }
   }
 
   return flags;

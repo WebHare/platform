@@ -1,4 +1,4 @@
-import { DebugFlags } from "@webhare/env";
+import type { DebugFlags } from "@webhare/env/src/envbackend";
 import { WebRequest } from "./request";
 import { getSignatureForThisServer, validateSignatureForThisServer } from "@webhare/services";
 
