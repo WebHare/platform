@@ -118,7 +118,7 @@ export class WHFSObject {
   get title() { return this.dbrecord.title; }
   get parent() { return this.dbrecord.parent; }
   get isFile() { return !this.dbrecord.isfolder; }
-  get isFolder() { return !this.dbrecord.isfolder; }
+  get isFolder() { return this.dbrecord.isfolder; }
   get link() { return this.dbrecord.link; }
   get fullPath() { return this.dbrecord.fullpath; }
   get whfsPath() { return this.dbrecord.whfspath; }

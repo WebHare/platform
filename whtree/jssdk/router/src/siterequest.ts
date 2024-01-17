@@ -83,7 +83,7 @@ export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHF
     throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
   const targetSite = await openSite(targetObject.parentSite);
-  const targetFolder = await openFolder(targetObject.parent!); //parent must exist if we're in a site.
+  const targetFolder = targetObject.isFolder ? targetObject as WHFSFolder : await openFolder(targetObject.parent!); //parent must exist if we're in a site.
   return new SiteRequest(webRequest, targetSite, targetFolder, targetObject, { contentObject, navObject });
 }
 
