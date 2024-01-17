@@ -41,18 +41,15 @@ export interface WHConfigScriptData_LegacyFields {
 }
 
 
-let config;
+let config, siteroot;
 let dtapStage = DTAPStage.Production;
 if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
   const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
   if (whconfigel?.textContent) {
     config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
 
-    //WH5.3 fallbacks
-    if (config.siteroot)
-      config.siteRoot = config.siteroot;
-
-    //future versions of WebHare can just drop dtapStage and isLive on prod from the config object.
+    //Fallbacks for pages last published with WH5.3 *and* pages published from HareScript which still emit lowercase props
+    siteroot = config.siteRoot ?? config.siteroot;
     dtapStage = config.dtapstage ?? config.dtapStage ?? dtapStage;
   }
 }
@@ -65,8 +62,9 @@ export const frontendConfig = {
   ...config,
   obj: config?.obj || {},
   site: config?.site || {},
-  siteRoot: config?.siteRoot || config?.siteroot || "",
+  siteRoot: siteroot,
   //deprecated variables:
   dtapstage: dtapStage,
-  islive: ([DTAPStage.Production, DTAPStage.Acceptance]).includes(dtapStage!)
-} as WHConfigScriptData & WHConfigScriptData_LegacyFields;
+  islive: ([DTAPStage.Production, DTAPStage.Acceptance]).includes(dtapStage!),
+  siteroot
+} as WHConfigScriptData & WHConfigScriptData_LegacyFields; //in a future version we can either obsolete or even drop '& WHConfigScriptData_LegacyFields' and validation will fail without breaking existing JS code
