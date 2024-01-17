@@ -13,9 +13,11 @@ test.registerTests(
       test.assert(baseTestConfig.env.debugFlags);
       test.eq("development", baseTestConfig.env.dtapStage);
       test.eq(false, baseTestConfig.env.isLive);
+      test.eq(test.getTestSiteRoot(), baseTestConfig.frontendConfig.siteRoot);
 
       //vertify deprecated fields will work for now - but with WH5.4 we expect users to prefer @webhare/env
       test.eq(false, baseTestConfig.frontendConfig.islive);
       test.eq("development", baseTestConfig.frontendConfig.dtapstage);
+      test.eq(baseTestConfig.frontendConfig.siteRoot, baseTestConfig.frontendConfig.siteroot);
     }
   ]);
