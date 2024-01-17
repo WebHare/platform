@@ -133,7 +133,9 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
   context.applyDebugSettings(debugSettings);
 
   const result = await context.run(() => runJSONAPICall(servicedef, req));
-  return result.asWebResponseInfo();
+  const responseInfo = result.asWebResponseInfo();
+  setTimeout(() => context.close(), 1); //close the context after the response has been sent
+  return responseInfo;
 }
 
 class JSONAPICaller {
@@ -145,8 +147,10 @@ class JSONAPICaller {
     const debugSettings = (await newWebRequestFromInfo(req)).getDebugSettings();
     context.applyDebugSettings(debugSettings);
 
-    const retval = await context.run(() => runJSONAPICall(servicedef, req));
-    return retval.asWebResponseInfo();
+    const result = await context.run(() => runJSONAPICall(servicedef, req));
+    const responseInfo = result.asWebResponseInfo();
+    setTimeout(() => context.close(), 1); //close the context after the response has been sent
+    return responseInfo;
   }
 }
 
