@@ -6,7 +6,7 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import type { RequestID, JSONRPCErrorResponse } from "@webhare/jsonrpc-client/src/jsonrpc-client";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
-import type { ConsoleLogItem } from "./whmanager/debug";
+import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 
 /*
 Status codes
@@ -33,7 +33,7 @@ type RequestDebugInfo = {
       id: string;
       metadata: CodeContext["metadata"];
     };
-    consoleLog?: ConsoleLogItem[];
+    consoleLog: Serialized<ConsoleLogItem[]>;
   };
 };
 
@@ -41,7 +41,7 @@ function getDebugData(): RequestDebugInfo {
   if (debugFlags.etr) {
     return {
       debug: {
-        consoleLog: getCodeContext().consoleLog,
+        consoleLog: getCodeContext().consoleLog.map(log => ({ ...log, when: log.when.toISOString() })),
         context: {
           id: getCodeContext().id,
           metadata: getCodeContext().metadata,

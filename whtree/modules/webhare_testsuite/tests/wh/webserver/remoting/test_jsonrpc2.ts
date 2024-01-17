@@ -52,7 +52,7 @@ async function testRPCCaller() {
   callres = await JSONAPICall(servicedef, request);
   test.eq(200, callres.status);
   resultBody = JSON.parse(await callres.body.text());
-  test.eq(true, resultBody.debug?.consoleLog?.some((item: any) => item.func == "log" && item.data == "my console log\n"));
+  test.eq(true, resultBody.debug?.consoleLog?.some((item: any) => item.method == "log" && item.data == "This log statement was generated on the server by the TestNoAuthJS service\n"));
 }
 
 async function testTypedClient() {
@@ -60,7 +60,7 @@ async function testTypedClient() {
   test.eq(true, await myservice.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice.validateEmail("en", "klaasje@beta.webhare.net"));
 
-  const err = await test.throws(/this is a server crash/, myservice.serverCrash());
+  const err = await test.throws(/this is a server crash/, myservice.withOptions({ silent: true }).serverCrash());
   const trace = parseTrace(err);
   //verify I can see client and server side
   test.assert(trace.find(t => t.func === "TestNoAuthJS.serverCrash"));

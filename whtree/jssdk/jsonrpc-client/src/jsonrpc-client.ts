@@ -1,4 +1,5 @@
 import { debugFlags } from "@webhare/env";
+import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { StackTrace, parseTrace, prependStackTrace } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
@@ -15,6 +16,8 @@ export interface RPCCallOptions {
   signal?: AbortSignal;
   /** Retry on 429 */
   retry429?: boolean;
+  /** Silent - do not log errors */
+  silent?: boolean;
   /** Debug (Follows 'rpc' debugflag if not explicity specified) */
   debug?: boolean;
   /** Wrap result with response info */
@@ -28,14 +31,19 @@ export interface RPCCallOptions {
 
 export type RequestID = number | string | null;
 
-export interface JSONRPCSuccesfulResponse {
+export interface JSONRPCBaseResponse {
   id: RequestID;
+  debug?: {
+    consoleLog: Serialized<ConsoleLogItem[]>;
+  };
+}
+
+export interface JSONRPCSuccesfulResponse extends JSONRPCBaseResponse {
   error: null;
   result: unknown;
 }
 
-export interface JSONRPCErrorResponse {
-  id: RequestID;
+export interface JSONRPCErrorResponse extends JSONRPCBaseResponse {
   result: null;
   error: {
     code: number;
@@ -132,6 +140,18 @@ class ControlledCall {
     let jsonresponse;
     try {
       jsonresponse = await response.json() as JSONRPCResponse;
+      if (jsonresponse?.debug) {
+        if (jsonresponse.debug.consoleLog) {
+          for (const logitem of jsonresponse.debug.consoleLog) {
+            //should we log 'when'? it's getting more and more noisy then though....
+            //TODO should we match the remote's method (after validating) or just keep eveyrthing at 'log' ?
+            console.log(`[remote:${logitem.method}] ${logitem.location ? `${logitem.location.filename.split("/").at(-1)}:${logitem.location.line}: ` : ''}${logitem.data}`);
+          }
+        }
+
+        delete jsonresponse.debug; //reduce noise in later logs
+      }
+
       if (this.client.debug)
         console.log(`[rpc] #${id} Received response to '${method}'`, jsonresponse);
     } catch (exception) {
@@ -152,7 +172,8 @@ class ControlledCall {
         }
       }
 
-      this.client._tryLogError(requestStack, err);
+      if (!this.options.silent)
+        this.client._tryLogError(requestStack, err);
       throw err;
     }
 

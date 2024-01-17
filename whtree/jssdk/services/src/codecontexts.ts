@@ -8,7 +8,7 @@ import { debugFlags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
 import { DebugFlags, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
-import type { ConsoleLogItem } from "@mod-system/js/internal/whmanager/debug";
+import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 
 let contextcounter = 0;
 
