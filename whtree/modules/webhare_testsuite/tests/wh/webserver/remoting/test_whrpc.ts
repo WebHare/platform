@@ -4,7 +4,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 import RPCClient from '@mod-system/js/wh/rpc';
 import * as testnoauthservice from "./testnoauthservice.rpc.json";
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 
 test.registerTests(
   [
@@ -93,7 +93,7 @@ test.registerTests(
 
     "Use new JSONRPCClient",
     async function () {
-      const testnoauthclient = createRPCClient("webhare_testsuite:testnoauth");
+      const testnoauthclient = createClient("webhare_testsuite:testnoauth");
       test.eq('Hi', await testnoauthclient.echo('Hi'));
       test.eq({ x: 42 }, await testnoauthclient.complexResultsSlow({ x: 42 }));
 

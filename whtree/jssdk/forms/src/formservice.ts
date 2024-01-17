@@ -1,5 +1,5 @@
 // import * as rpc from '@mod-system/js/wh/rpc';
-import createClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 import type { AddressValidationOptions, AddressValidationResult, AddressValue } from "./address";
 import { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 

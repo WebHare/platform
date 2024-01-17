@@ -1,12 +1,12 @@
 import * as test from "@mod-system/js/wh/testframework";
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 
 test.registerTests(
   [
     "Use new JSONRPCClient in TS context",
     async function () {
-      const testnoauthclient = createRPCClient("webhare_testsuite:testnoauth") as any;
+      const testnoauthclient = createClient("webhare_testsuite:testnoauth") as any;
       test.eq('Hi', await testnoauthclient.echo('Hi'));
       test.eq({ x: 42 }, await testnoauthclient.complexResultsSlow({ x: 42 }));
 

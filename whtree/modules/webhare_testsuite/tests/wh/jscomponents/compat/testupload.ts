@@ -1,7 +1,7 @@
 //@ts-ignore - still needs porting
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as test from '@mod-tollium/js/testframework';
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 
 test.registerTests(
   [
@@ -17,8 +17,8 @@ test.registerTests(
       const blob2 = new Blob(['23456'], { type: "" });
 
       // Just add some names to emulate file
-      (blob1 as { name: string }).name = 'file1.txt';
-      (blob2 as { name: string }).name = 'file2.txt';
+      (blob1 as unknown as { name: string }).name = 'file1.txt';
+      (blob2 as unknown as { name: string }).name = 'file2.txt';
 
       const group: any = await new Promise(resolve => {
         ///@ts-ignore -- Yes it exists
@@ -39,7 +39,7 @@ test.registerTests(
       test.eq('loaded', group.getItems()[0].status);
       test.eq('loaded', group.getItems()[1].status);
 
-      const rpc = createRPCClient("webhare_testsuite:testnoauth") as any;
+      const rpc = createClient("webhare_testsuite:testnoauth") as any;
       const requestresult = await rpc.getWebserverUploadedFiles(group.getFileTokens());
 
       // checkuploadedfiles
@@ -73,8 +73,8 @@ test.registerTests(
       const blob2 = new Blob([megafile_2]);
 
       // Just add some names to emulate file
-      (blob1 as { name: string }).name = 'file1.txt';
-      (blob2 as { name: string }).name = 'file2.txt';
+      (blob1 as unknown as { name: string }).name = 'file1.txt';
+      (blob2 as unknown as { name: string }).name = 'file2.txt';
 
       const group: any = await new Promise(resolve => {
         ///@ts-ignore -- Yes it exists
@@ -91,7 +91,7 @@ test.registerTests(
       test.eq('loaded', group.getItems()[0].status);
       test.eq('loaded', group.getItems()[1].status);
 
-      const rpc = createRPCClient("webhare_testsuite:testnoauth") as any;
+      const rpc = createClient("webhare_testsuite:testnoauth") as any;
       const requestresult = await rpc.getWebserverUploadedFiles(group.getFileTokens());
 
       test.eq(

@@ -1,7 +1,7 @@
 import * as dompack from 'dompack';
 import * as storage from 'dompack/extra/storage';
 import * as dialogapi from 'dompack/api/dialog';
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 import { getFeedback, initFeedback, FeedbackSuccessResult } from "@mod-publisher/js/feedback";
 import { getTid } from "@mod-tollium/js/gettid";
 
@@ -19,7 +19,7 @@ interface AuthorService {
   submitFeedback(guid: string, form: { topic: string; remarks: string }): Promise<{ responsetext: string }>;
 }
 
-const authorservice = createRPCClient<AuthorService>("publisher:authorservice");
+const authorservice = createClient<AuthorService>("publisher:authorservice");
 
 
 // The form elements we want to address through the form.elements property
