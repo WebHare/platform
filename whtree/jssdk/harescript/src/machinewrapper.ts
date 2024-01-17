@@ -1,5 +1,5 @@
 import { debugFlags } from "@webhare/env";
-import { CommonLibraries, CommonLibraryType } from "./commonlibs";
+import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { HareScriptVM, StartupOptions, allocateHSVM } from "./wasm-hsvm";
 import { HSVMCallsProxy, HSVMLibraryProxy } from "./wasm-proxies";
 

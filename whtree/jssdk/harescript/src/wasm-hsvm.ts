@@ -11,7 +11,7 @@ import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
-import { CommonLibraries, CommonLibraryType } from "./commonlibs";
+import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
