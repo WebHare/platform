@@ -35,24 +35,24 @@ Setting a prefix (eg `RPC_`) helps prevent accidentally exporting callable servi
 You can use WebHare's builtin JSON-RPC 1.0 client. Construct the service and await:
 
 ```javascript
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 
-const client = createRPCClient("moduleservice:servicename");
+const client = createClient("moduleservice:servicename");
 let result = await client.myfunction(param1, param2);
 ```
 
 You can pass options such as `debug` and `signal` (for abort) as the options parameter
-to createRPCClient, but you can also change these for just one call:
+to createClient, but you can also change these for just one call:
 
 ```javascript
-const client = createRPCClient("moduleservice:servicename", {timeout: 500});
+const client = createClient("moduleservice:servicename", {timeout: 500});
 let result2 = await client.withOptions({debug: true}).myfunction(param1, param2);
 ```
 
 You can use TypeScript to define an interface for your RPC.
 
 ```typescript
-import createRPCClient from "@webhare/jsonrpc-client";
+import createClient from "@webhare/jsonrpc-client";
 
 export interface MyService
 {
@@ -64,7 +64,7 @@ export interface MyService
   validateEmail(langcode: string, emailaddress: string) : Promise<boolean>;
 }
 
-const client = createRPCClient<MyService>("publisher:forms");
+const client = createClient<MyService>("publisher:forms");
 ```
 
 ## Invoking HareScript services (rpc.json)

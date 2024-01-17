@@ -1,4 +1,4 @@
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 
 import { NavigateInstruction, navigateTo } from "./navigation";
 
@@ -11,7 +11,7 @@ interface SSOLoginOptions {
 }
 
 export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Promise<void> {
-  const client = createRPCClient<MyService>("wrd:auth");
+  const client = createClient<MyService>("wrd:auth");
 
   //Launch SSO login for the current page.
   navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, { passive: options?.passive }));

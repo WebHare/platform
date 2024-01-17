@@ -1,4 +1,4 @@
-import createRPCClient from "@webhare/jsonrpc-client";
+import { createClient } from "@webhare/jsonrpc-client";
 
 interface ApplicationPortalService {
   //TODO: this is just a dummy to get started, we'll write up the rest of the service during the transfer from IndyShell to TolliumShell
@@ -11,7 +11,7 @@ export default class TolliumShell {
   constructor(setup: {
     applicationportal: string;
   }) {
-    this.tolliumservice = createRPCClient<ApplicationPortalService>(setup.applicationportal);
+    this.tolliumservice = createClient<ApplicationPortalService>(setup.applicationportal);
   }
 
 }
