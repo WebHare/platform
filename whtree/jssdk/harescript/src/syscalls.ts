@@ -1,5 +1,6 @@
 import { backendConfig } from "@webhare/services";
 import * as vm from 'node:vm';
+import { readFileSync } from "node:fs";
 import * as services from '@webhare/services';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { callExportNowrap, describe } from "@mod-system/js/internal/util/jssupport";
@@ -104,6 +105,17 @@ export function localizeDateTime(_hsvm: HareScriptVM, params: {
   return {
     result: localizeDate(params.formatstring, params.date, params.locale, params.timezone || "UTC")
   };
+}
+
+//TODO cache the country mapping - allow users to get a subset?
+let countrycodes: string[] | undefined;
+export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: string[] }): Array<Record<string, string>> {
+  countrycodes ||= [...Object.keys(JSON.parse(readFileSync(backendConfig.installationroot + "node_modules/country-list-js/data/iso_alpha_3.json", "utf8")))].sort();
+  const regionmaps = locales.map(lang => ({ lang, names: new Intl.DisplayNames(lang, { type: "region" }) }));
+  return countrycodes.map(code => ({
+    code: code,
+    ...Object.fromEntries(regionmaps.map(_ => [_.lang, _.names.of(code)]))
+  }));
 }
 
 export function importDescribe(hsvm: HareScriptVM, { name }: { name: string }) {
