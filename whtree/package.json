@@ -2,29 +2,17 @@
   "name": "@webhare/platform",
   "author": "WebHare bv",
   "license": "MIT",
+  "homepage": "https://www.webhare.dev/",
+  "bugs": {
+    "url": "https://gitlab.com/webhare/platform/-/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/webhare/platform.git"
+  },
   "version": "",
   "workspaces": [
-    "jssdk/dompack",
-    "jssdk/dompack-overlays",
-    "jssdk/env",
-    "jssdk/eslint-config",
-    "jssdk/forms",
-    "jssdk/frontend",
-    "jssdk/harescript",
-    "jssdk/hscompat",
-    "jssdk/js-api-tools",
-    "jssdk/jsonrpc-client",
-    "jssdk/router",
-    "jssdk/services",
-    "jssdk/std",
-    "jssdk/system-tools",
-    "jssdk/test",
-    "jssdk/test-frontend",
-    "jssdk/ts-esbuild-runner",
-    "jssdk/whdb",
-    "jssdk/whfs",
-    "jssdk/witty",
-    "jssdk/wrd"
+    "jssdk/*"
   ],
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",

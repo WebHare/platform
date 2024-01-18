@@ -11,8 +11,8 @@ import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { backendConfig } from "@webhare/services/src/config";
 import { readFile, readdir, writeFile } from "fs/promises";
 import { join } from 'path';
-import YAML from "yaml";
 import { existsSync } from 'fs';
+import { readAxioms } from '@mod-platform/js/configure/axioms';
 
 program.name("package_jssdk")
   .option("-v, --verbose", "verbose log level")
@@ -23,7 +23,7 @@ const verbose: boolean = program.opts().verbose;
 const fix: boolean = program.opts().fix;
 
 async function main() {
-  const packages = YAML.parse(await readFile(backendConfig.module.platform.root + "data/axioms.yml", 'utf8')).publishPackages;
+  const axioms = await readAxioms();
 
   for (const pkg of await readdir(backendConfig.installationroot + "/jssdk", { withFileTypes: true })) {
     if (!pkg.isDirectory())
@@ -49,11 +49,11 @@ async function main() {
       if (dep.startsWith("@webhare/") && version)
         issues.push({ message: `Dependency on peer package '${dep}' should not specify an explicit version`, toFix: () => pkgjson.dependencies[dep] = "" });
 
-    for (const forbiddenfield of ["author", "license"]) //TODO maybe we'll have scripts in the future?
+    for (const forbiddenfield of axioms.copyPackageFields)
       if (forbiddenfield in pkgjson)
         issues.push({ message: `Field '${forbiddenfield}' is maintained centrally, not per package`, toFix: () => delete pkgjson[forbiddenfield] });
 
-    if (packages.includes(pkg.name)) { //this package will be published
+    if (axioms.publishPackages.includes(pkg.name)) { //this package will be published
       if (!existsSync(join(pkgroot, "README.md")))
         issues.push({ message: `Package has no README.md` });
       if (!pkgjson.description)

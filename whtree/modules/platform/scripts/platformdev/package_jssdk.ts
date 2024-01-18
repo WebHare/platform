@@ -18,7 +18,7 @@ import { StdioOptions, spawnSync } from "child_process";
 import { cp, mkdir, rm, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { pick } from '@webhare/std';
-import YAML from "yaml";
+import { readAxioms } from '@mod-platform/js/configure/axioms';
 
 program.name("package_jssdk")
   .option("-v, --verbose", "verbose log level")
@@ -54,15 +54,14 @@ async function main() {
   if (verbose)
     console.log("Version", versionfinal);
 
-  // Build the esbuild-runner first. Also: keep this list in dependency order
-  const packages = YAML.parse(await readFile(backendConfig.module.platform.root + "data/axioms.yml", 'utf8')).publishPackages;
+  const axioms = await readAxioms();
 
   // Throw the packages in place
   const jssdkPath = join(workdir, "jssdk");
   await rm(jssdkPath, { recursive: true, force: true });
   await mkdir(jssdkPath, { recursive: true });
 
-  for (const pkgname of packages) {
+  for (const pkgname of axioms.publishPackages) {
     const destdir = join(jssdkPath, pkgname);
     if (verbose)
       console.log("Writing", destdir);
@@ -73,10 +72,10 @@ async function main() {
   }
 
   const rootpackagejson = JSON.parse(await readFile(join(backendConfig.installationroot, "package.json"), "utf8"));
-  const fixedsettings = pick(rootpackagejson, ["author", "license"]);
+  const fixedsettings = pick(rootpackagejson, ["author", "license", "homepage", "repository", "bugs"]);
 
   //let's patch the packages for distribution outside the WebHare tree
-  for (const pkgname of packages) {
+  for (const pkgname of axioms.publishPackages) {
     const pkgroot = join(jssdkPath, pkgname);
     const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8"));
     packagejson.private = false;
@@ -132,7 +131,7 @@ async function main() {
       throw new Error(`WEBHARE_JSSDK_PUBLISHTOKEN must be set to an Automation token with publish rights`);
   }
 
-  for (const pkgname of packages) {
+  for (const pkgname of axioms.publishPackages) {
     const pkgroot = join(jssdkPath, pkgname);
 
     if (publish) {
