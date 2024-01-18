@@ -38,13 +38,15 @@ export type EncodedValue = {
 };
 
 export function encodeWRDGuid(guid: Buffer) {
-  return `wrd:${guid.toString("hex").toUpperCase()}`;
-}
+  const guidhex = guid.toString("hex");
+  return `${guidhex.substring(0, 8)}-${guidhex.substring(8, 12)}-${guidhex.substring(12, 16)}-${guidhex.substring(16, 20)}-${guidhex.substring(20)}`;
 
+}
 export function decodeWRDGuid(wrdGuid: string) {
-  if (!/^wrd:[0-9a-fA-F]{32}$/.exec(wrdGuid))
-    throw new Error(`Invalid guid value`);
-  return Buffer.from(wrdGuid.substring(4), "hex");
+  if (!wrdGuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/))  //TODO or should we be case insensitive ?
+    throw new Error("Invalid wrdGuid: " + wrdGuid);
+
+  return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");
 }
 
 /** Base for an attribute accessor
@@ -443,8 +445,8 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBGuidConditions): AddToQueryResponse<O> {
     // Rewrite like query to PostgreSQL LIKE mask format
     const db_cv = cv.condition === "in" ?
-      { ...cv, value: cv.value.map(v => Buffer.from(v.slice(4), "hex")) } :
-      { ...cv, value: Buffer.from(cv.value.slice(4), "hex") };
+      { ...cv, value: cv.value.map(decodeWRDGuid) } :
+      { ...cv, value: decodeWRDGuid(cv.value) };
 
     if (db_cv.condition === "in" && !db_cv.value.length)
       return null;

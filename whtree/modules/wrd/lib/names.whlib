@@ -189,6 +189,5 @@ PUBLIC STRING FUNCTION FormatWRDNameField(STRING field, RECORD data, RECORD opti
   IF(options.language = "")
     options.language := GetTidLanguage();
 
-  RETURN GetGenerator(field, options.language)(data);
+  RETURN GetGenerator(field, options.language)(data, FALSE);
 }
-

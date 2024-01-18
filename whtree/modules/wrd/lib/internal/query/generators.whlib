@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
-STRING FUNCTION GenerateFormalname(RECORD lang, RECORD entity)
+STRING FUNCTION GenerateFormalname(RECORD lang, RECORD entity, BOOLEAN jsmode)
 {
   STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
   INTEGER gender := CellExists(entity, "wrd_gender") ? entity.wrd_gender : CellExists(entity,"gender") ? entity.gender : 0;
@@ -23,7 +23,7 @@ STRING FUNCTION GenerateFormalname(RECORD lang, RECORD entity)
   RETURN TrimWhitespace(fullname);
 }
 
-STRING FUNCTION GenerateFullname(RECORD entity)
+STRING FUNCTION GenerateFullname(RECORD entity, BOOLEAN jsmode)
 {
   STRING initials := CellExists(entity, "wrd_initials") ? entity.wrd_initials : CellExists(entity,"initials") ? entity.initials : "";
   STRING firstname := CellExists(entity, "wrd_firstname") ? entity.wrd_firstname : CellExists(entity,"firstname") ? entity.firstname : "";
@@ -48,7 +48,7 @@ STRING FUNCTION GenerateFullname(RECORD entity)
   RETURN TrimWhitespace(fullname);
 }
 
-STRING FUNCTION GenerateSaluteFormal(RECORD lang, RECORD entity)
+STRING FUNCTION GenerateSaluteFormal(RECORD lang, RECORD entity, BOOLEAN jsmode)
 {
   STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
   INTEGER gender := CellExists(entity, "wrd_gender") ? entity.wrd_gender : CellExists(entity,"gender") ? entity.gender : 0;
@@ -80,7 +80,7 @@ STRING FUNCTION GenerateSaluteFormal(RECORD lang, RECORD entity)
   RETURN TrimWhitespace(fullname);
 }
 
-STRING FUNCTION GenerateAddressFormal(RECORD lang, RECORD entity)
+STRING FUNCTION GenerateAddressFormal(RECORD lang, RECORD entity, BOOLEAN jsmode)
 {
   STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
   INTEGER gender := CellExists(entity, "wrd_gender") ? entity.wrd_gender : CellExists(entity,"gender") ? entity.gender : 0;
@@ -118,9 +118,10 @@ STRING FUNCTION GenerateAddressFormal(RECORD lang, RECORD entity)
   RETURN TrimWhitespace(fullname);
 }
 
-STRING FUNCTION GenerateGUID(RECORD entity)
+STRING FUNCTION GenerateGUID(RECORD entity, BOOLEAN jsmode)
 {
-  RETURN EncodeWRDGUID(entity.guid);
+  STRING wrdguid := EncodeWRDGUID(entity.guid);
+  RETURN jsmode ? WRDGuidToUUId(wrdguid) : wrdguid;
 }
 
 PUBLIC FUNCTION PTR FUNCTION GetGenerator(STRING generatetag, STRING languagecode)
@@ -135,11 +136,11 @@ PUBLIC FUNCTION PTR FUNCTION GetGenerator(STRING generatetag, STRING languagecod
     }
     CASE "WRD_GUID"
     {
-      RETURN PTR GenerateGUID(#1);
+      RETURN PTR GenerateGUID(#1, #2);
     }
     CASE "WRD_FULLNAME", "WRD_RELATION_TITLE"
     {
-      RETURN PTR GenerateFullname(#1);
+      RETURN PTR GenerateFullname(#1, #2);
     }
   }
 
@@ -149,22 +150,22 @@ PUBLIC FUNCTION PTR FUNCTION GetGenerator(STRING generatetag, STRING languagecod
   {
     CASE "WRD_FORMALNAME"
     {
-      RETURN PTR GenerateFormalname(lang, #1);
+      RETURN PTR GenerateFormalname(lang, #1, #2);
     }
     CASE "WRD_SALUTE_FORMAL"
     {
-      RETURN PTR GenerateSaluteFormal(lang, #1);
+      RETURN PTR GenerateSaluteFormal(lang, #1, #2);
     }
     CASE "WRD_ADDRESS_FORMAL"
     {
-      RETURN PTR GenerateAddressFormal(lang, #1);
+      RETURN PTR GenerateAddressFormal(lang, #1, #2);
     }
   }
 
   THROW NEW Exception(`Don't know how to generate '${generatetag}'`);
 }
 
-RECORD FUNCTION GetWRDGuidQueryEngineData(STRING value, BOOLEAN match_case)
+RECORD FUNCTION GetWRDGuidQueryEngineData(STRING value, BOOLEAN match_case, BOOLEAN jsmode)
 {
   RECORD result :=
       [ cellname                := "guid"
@@ -175,22 +176,30 @@ RECORD FUNCTION GetWRDGuidQueryEngineData(STRING value, BOOLEAN match_case)
       , need_afterfiltering     := TRUE
       ];
 
-  IF (NOT ValidateWRDGuid(value))
+  IF (jsmode ? NOT IsValidUUID(value) : NOT ValidateWRDGuid(value))
     RETURN result;
 
   IF (match_case)
   {
-    // Check case of the GUID
-    IF (LEFT(value, 4) != "wrd:")
-      RETURN result;
-    STRING guid_part := SubString(value, 4);
-    IF (ToUppercase(guid_part) != guid_part)
-      RETURN result;
+    IF(jsmode)
+    {
+      IF (ToLowercase(value) != value)
+        RETURN result;
+    }
+    ELSE
+    {
+      // Check case of the GUID
+      IF (LEFT(value, 4) != "wrd:")
+        RETURN result;
+      STRING guid_part := SubString(value, 4);
+      IF (ToUppercase(guid_part) != guid_part)
+        RETURN result;
+    }
   }
 
   result.valid := TRUE;
   result.need_afterfiltering := FALSE;
-  result.value := DecodeWRDGuid(value);
+  result.value := DecodeWRDGuid(jsmode ? UUIdToWRDGuid(value) : value);
 
   RETURN result;
 }
@@ -200,7 +209,7 @@ PUBLIC RECORD ARRAY FUNCTION ApplyGeneratorAndDecoders(OBJECT wrdschema, RECORD 
   STRING languagecode := wrdschema->__GetCurrentLanguageCode();
   attrlist := SELECT *
                    , generator := generatetag != "" ? GetGenerator(generatetag, languagecode) : DEFAULT MACRO PTR
-                   , decoder :=   generatetag = "WRD_GUID" ? PTR GetWRDGuidQueryEngineData(#1, #2) : DEFAULT MACRO PTR
+                   , decoder :=   generatetag = "WRD_GUID" ? PTR GetWRDGuidQueryEngineData(#1, #2, #3) : DEFAULT MACRO PTR
                 FROM attrlist;
   RETURN attrlist;
 }
