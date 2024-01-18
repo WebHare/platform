@@ -279,7 +279,7 @@ export class RestAPI {
           if (req.url.searchParams.has(param.name))
             paramvalue = req.url.searchParams.get(param.name);
           else if (param.required)
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required parameter ${param.name}}` });
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required parameter ${param.name}` });
         } else {
           throw new Error(`Unsupported parameter location '${param.in}'`);
         }
