@@ -354,6 +354,9 @@ async function testNewAPI() {
   await whdb.beginWork();
 
   const domain1value1 = await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1");
+  test.assert(domain1value1);
+  test.eq([domain1value1], await schema.selectFrom("testDomain_1").select("wrdId").where("wrdTag", "=", "TEST_DOMAINVALUE_1_1").execute());
+  test.eq([domain1value1], await schema.selectFrom("testDomain_1").select("wrdId").where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
   await test.throws(/not.*0/, schema.insert("wrdPerson", { whuserUnit: unit_id, testSingleDomain: 0, testJsonRequired: { mixedCase: [1, "yes!"] } }));
   const newperson = await schema.insert("wrdPerson", { whuserUnit: unit_id, testSingleDomain: null, testEmail: "testWrdTsapi@beta.webhare.net", testJsonRequired: { mixedCase: [1, "yes!"] } });
   await test.throws(/Not.*0/, schema.selectFrom("wrdPerson").select("wrdId").where("testSingleDomain", "=", 0).execute());

@@ -10,7 +10,7 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import { Mutex } from "@webhare/services";
+import { Mutex, toFSPath } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
@@ -63,6 +63,21 @@ type HSVMList = Set<WeakRef<HareScriptVM>>;
 //     `    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("\n");
 //   err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
 // }
+
+
+export function mapHareScriptPath(uri: string | null) {
+  if (!uri)
+    return "unknown";
+
+  //Legacy HareScript namespaces we may not want to retain in JS
+  if (uri.startsWith("direct::"))
+    return uri.substring(8);
+
+  if (uri.startsWith("wh::"))
+    return toFSPath("mod::system/whlibs/" + uri.substring(4));
+
+  return toFSPath(uri, { allowUnmatched: true }) ?? uri;
+}
 
 function parseError(line: string) {
   const errorparts = line.split("\t");
@@ -525,7 +540,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (parsederrors.length) {
       const errors = parsederrors.filter(e => e.iserror).map(e => e.message);
       const trace = parsederrors.filter(e => e.istrace).map(e =>
-        `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
+        `\n    at ${e.func} (${mapHareScriptPath(e.filename)}:${e.line}:${e.col})`).join("");
       throw new Error(`Error executing script: ${errors.join("\n") + trace}`);
     } else
       throw new Error(`Error executing script`);

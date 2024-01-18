@@ -1496,6 +1496,14 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                       }
                       done := TRUE;
                     }
+                    ELSE
+                    {
+                      matches := SELECT AS INTEGER ARRAY entities.id
+                                  FROM query->Execute() AS row
+                                  WHERE EvaluateConstraint(ToUppercase(GetCell(row.entities, attrinfo.cellname)), cond->match_type, match_value)
+                              ORDER BY entities.id;
+                      done := TRUE;
+                    }
                   }
                   ELSE IF (db_can_handle AND cond->match_case)
                     query->AddConstraint("ENTITIES." || attrinfo.cellname, cond->match_type, match_value);
