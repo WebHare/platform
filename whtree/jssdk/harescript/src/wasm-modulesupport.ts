@@ -1,9 +1,9 @@
 import type { HSVM, HSVM_VariableId, WASMModuleInterface, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { backendConfig, toFSPath } from "@webhare/services";
+import { backendConfig } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
+import { recompileHarescriptLibraryRaw, type HareScriptVM, mapHareScriptPath } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
@@ -30,7 +30,6 @@ function translateDirectToModURI(directuri: string) {
 
   return directuri; //no replacement found
 }
-
 
 function parseMangledParameters(params: string): VariableType[] {
   const retval: VariableType[] = [];
@@ -185,16 +184,7 @@ export class WASMModule extends WASMModuleBase {
   }
 
   getOpenLibraryPath(uri_ptr: Ptr) {
-    const uri = this.UTF8ToString(uri_ptr);
-    let retval;
-    //Legacy HareScript namespaces we may not want to retain in JS
-    if (uri.startsWith("direct::"))
-      retval = uri.substring(8);
-    else if (uri.startsWith("wh::"))
-      retval = toFSPath("mod::system/whlibs/" + uri.substring(4));
-    else
-      retval = toFSPath(uri);
-    return this.stringToNewUTF8(retval);
+    return this.stringToNewUTF8(mapHareScriptPath(this.UTF8ToString(uri_ptr)));
   }
 
   async recompile(uri_ptr: Ptr) {
