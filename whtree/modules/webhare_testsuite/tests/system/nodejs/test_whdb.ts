@@ -478,6 +478,18 @@ async function testSeparatePrimary() {
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id5).executeTakeFirst());
 }
 
+async function testHSRunInSeparatePrimary() {
+  const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
+
+  const id1 = await invoketarget.InsertUsingSeparateTrans();
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id1).executeTakeFirst());
+
+  await beginWork();
+  const id2 = await invoketarget.InsertUsingSeparateTrans();
+  await commitWork();
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
+}
+
 test.run([
   cleanup,
   testQueries,
@@ -487,5 +499,6 @@ test.run([
   testFinishHandlers,
   testCodeContexts,
   testSeparatePrimary,
+  testHSRunInSeparatePrimary,
   testHSCommitHandlers //moving this higher triggers races around commit handlers and VM shutdowns
 ]);
