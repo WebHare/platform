@@ -10,6 +10,7 @@ import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-
 import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { debugFlags } from "@webhare/env";
+import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 
 type TestSchema = {
   wrdPerson: {
@@ -190,6 +191,9 @@ function testSupportAPI() {
   testTag("WRD_TITLES_SUFFIX", "wrdTitlesSuffix");
   testTag("WRD_LEFTENTITY", "wrdLeftEntity");
   testTag("WRD_RIGHTENTITY", "wrdRightEntity");
+
+  test.eq("0700400000004000a00000bea61ef00d", decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d").toString("hex"));
+  test.eq("07004000-0000-4000-a000-00bea61ef00d", encodeWRDGuid(decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d")));
 }
 
 interface TestRecordDataInterface {
@@ -232,14 +236,25 @@ async function testNewAPI() {
   const selectres = await schema
     .selectFrom("wrdPerson")
     .select(["wrdFirstName", "testJson", "testJsonRequired"])
-    .select({ lastname: "wrdLastName", id: "wrdId" })
+    .select({ lastname: "wrdLastName", id: "wrdId", guid: "wrdGuid" })
     .where("wrdFirstName", "=", "first")
     .execute();
 
   test.typeAssert<test.Equals<{ mixedCase: Array<number | string> } | null, typeof selectres[number]["testJson"]>>();
   test.typeAssert<test.Equals<{ mixedCase: Array<number | string> }, typeof selectres[number]["testJsonRequired"]>>();
 
-  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] } }], selectres);
+  test.eq([
+    {
+      wrdFirstName: "first",
+      lastname: "lastname",
+      id: firstperson,
+      testJson: { mixedCase: [1, "yes!"] },
+      testJsonRequired: { mixedCase: [1, "yes!"] },
+      guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    }
+  ], selectres);
+
+  test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
 
   //Test enrich and history modes
   test.eq([

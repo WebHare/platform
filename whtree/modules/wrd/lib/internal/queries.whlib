@@ -11,7 +11,7 @@ LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib" EXPORT WRDGuidToUUId, UUIdToWRDGuid;
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
@@ -66,7 +66,9 @@ PUBLIC RECORD FUNCTION GenerateBaseFields(RECORD ARRAY base_fields, RECORD inrow
     STRING rename := field.rename;
     VARIANT mycell;
     IF(field.isgenerated)
-      mycell := field.generator(inrow);
+    {
+      mycell := field.generator(inrow, jsmode);
+    }
     ELSE
     {
       mycell := GetCell(inrow, field.cellname);
@@ -1020,7 +1022,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
           // Decode all individual values
           FOREVERY (VARIANT val FROM user_values)
           {
-            RECORD decoded := condition->attr.decoder(val, condition->match_case);
+            RECORD decoded := condition->attr.decoder(val, condition->match_case, this->jsmode);
             IF (NOT decoded.valid)
               RETURN FALSE;
 
@@ -1520,8 +1522,8 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                   query->RequestAdditionalColumns("ENTITIES", attrinfo.cellnames);
                   matches := SELECT AS INTEGER ARRAY entities.id
                                FROM query->Execute() AS row
-                              WHERE cond->match_case ? EvaluateConstraint(attrinfo.generator(row.entities), cond->match_type, match_value)
-                                                     : EvaluateConstraint(ToUppercase(attrinfo.generator(row.entities)), cond->match_type, match_value)
+                              WHERE cond->match_case ? EvaluateConstraint(attrinfo.generator(row.entities, this->jsmode), cond->match_type, match_value)
+                                                     : EvaluateConstraint(ToUppercase(attrinfo.generator(row.entities, this->jsmode)), cond->match_type, match_value)
                            ORDER BY entities.id;
                 }
                 RETURN matches;
@@ -2489,12 +2491,14 @@ STATIC OBJECTTYPE WRDDBStringValue EXTEND WRDDBValue
 STATIC OBJECTTYPE WRDDBRTValue EXTEND WRDDBValue //RelationTitle value
 < INTEGER ARRAY orgtypeids;
   STRING sourcename;
+  BOOLEAN jsmode;
 
-  MACRO NEW(OBJECT type, RECORD attr, STRING sourcename)
+  MACRO NEW(OBJECT type, RECORD attr, STRING sourcename, BOOLEAN jsmode)
   : WRDDBValue(type, attr)
   {
     this->orgtypeids := type->__GetOrgTypeIds();
     this->sourcename := sourcename;
+    this->jsmode := jsmode;
   }
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
@@ -2514,7 +2518,7 @@ STATIC OBJECTTYPE WRDDBRTValue EXTEND WRDDBValue //RelationTitle value
     IF(baserow.type IN this->orgtypeids)
       RETURN WRDDBValue::GetValue(attrdata, attrdata_start, attrdata_limit, row);
     ELSE
-      RETURN this->attr.generator(baserow);
+      RETURN this->attr.generator(baserow, this->jsmode);
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
@@ -5153,7 +5157,7 @@ PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, 
       OBJECT orgtype := wrd_type->wrdschema->GetType("WRD_ORGANIZATION");
       attr.id := orgtype->GetAttribute("WRD_ORGNAME").id; //make sure orgname gets picked up
 
-      INSERT CELL accessor := NEW WRDDBRTValue(wrd_type,attr, field.sourcename) INTO attr;
+      INSERT CELL accessor := NEW WRDDBRTValue(wrd_type,attr, field.sourcename, jsmode) INTO attr;
       INSERT CELL rename := field.name INTO attr;
       INSERT CELL subselect := field.subselect INTO attr;
       INSERT CELL allattributeids := attr.accessor->GetAllAttributeIds() INTO attr;

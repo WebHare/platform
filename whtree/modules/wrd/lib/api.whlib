@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/cache.whlib" EXPORT WrapImageField;
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib" EXPORT GetCloneableEntityFields;
+LOADLIB "mod::wrd/lib/internal/support.whlib" EXPORT GetCloneableEntityFields, IsValidWRDGuid;
 LOADLIB "mod::wrd/lib/internal/support2.whlib" EXPORT GetCachedWRDImageURL, GetCachedWRDFileURL;
 LOADLIB "mod::wrd/lib/internal/wrdschema.whlib" EXPORT GetWRDSchemaSetting, SetWRDSchemaSetting, RemoveWRDSchemaSetting;
 LOADLIB "mod::wrd/lib/internal/payments/ordernrs.whlib";
@@ -53,15 +53,6 @@ PUBLIC RECORD FUNCTION DescribeWRDEntity(INTEGER entityid)
               , guid := EncodeWRDGUID(entities.guid)
            FROM wrd.entities, wrd.types
           WHERE entities.id=entityid AND entities.type=types.id;
-}
-
-/** @short Does the GUID conform to WRD GUID formatting
-    @param guid GUID to test
-    @return TRUE if it's a valid GUID
-*/
-PUBLIC BOOLEAN FUNCTION IsValidWRDGuid(STRING guid)
-{
-  RETURN ValidateWRDGUID(guid);
 }
 
 /** @short Retrieves a WRD Schema based on it's name.
@@ -245,20 +236,4 @@ PUBLIC MACRO UpdateWRDSequenceParameters(INTEGER wrdschemaid, STRING statekey, R
     RunInSeparatePrimary(PTR UpdateSourceOrderNumberParameters(wrdschemaid, statekey, options));
   ELSE
     UpdateSourceOrderNumberParameters(wrdschemaid, statekey, options);
-}
-
-PUBLIC STRING FUNCTION WRDGuidToUUId(STRING inguid)
-{
-  IF(NOT IsValidWRDGuid(inguid))
-    THROW NEW Exception("Invalid WRD GUID: " || inguid);
-
-  STRING uuid := ToLowercase(Substring(inguid,4));
-  RETURN `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-${Substring(uuid, 12, 4)}-${Substring(uuid, 16, 4)}-${Substring(uuid, 20)}`;
-}
-PUBLIC STRING FUNCTION UUIdToWRDGuid(STRING inuuid)
-{
-  IF(NOT IsValidUUID(inuuid))
-    THROW NEW Exception("Invalid UUID: " || inuuid);
-
-  RETURN `wrd:${ToUppercase(Substitute(inuuid, "-", ""))}`;
 }
