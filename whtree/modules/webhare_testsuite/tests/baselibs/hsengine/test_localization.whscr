@@ -317,10 +317,8 @@ MACRO LocalizeOrdinalTest()
   CloseTest("TestLocalization: LocalizeOrdinalTest");
 }
 
-MACRO WorldInfoTest()
+MACRO CountryListTest()
 {
-  OpenTest("TestLocalization: WorldInfoTest");
-
   RECORD nl := SELECT * FROM GetCountryList("nl") WHERE code = "NL";
   TestEq(TRUE, RecordExists(nl));
   TestEq(TRUE, CellExists(nl, "NL"));
@@ -341,8 +339,12 @@ MACRO WorldInfoTest()
   TestEq("Kosovo", xk[0].NL);
   TestEq(TRUE, CellExists(xk[0], "EN"));
   TestEq("Kosovo", xk[0].EN);
+}
 
-  nl := SELECT * FROM GetLanguageList("nl") WHERE code = "nl";
+
+MACRO WorldInfoTest()
+{
+  RECORD nl := SELECT * FROM GetLanguageList("nl") WHERE code = "nl";
   TestEq(TRUE, RecordExists(nl));
   TestEq(TRUE, CellExists(nl, "NL"));
   TestEq("Nederlands", nl.NL);
@@ -365,8 +367,6 @@ MACRO WorldInfoTest()
   TestEq(TRUE, MatchLanguage("en-US","en-US"));
   TestEq(FALSE, MatchLanguage("en-GB","en-US"));
   TestEq(TRUE, MatchLanguage("en-US","en"));
-
-  CloseTest("TestLocalization: WorldInfoTest");
 }
 
 MACRO TransformationTest()
@@ -933,6 +933,7 @@ IF (NOT IsWasm())
 LocalizeDateTimeTest();
 // Time zone support
 TimeZoneTests();
+CountryListTest();
 
 IF (IsWasm())
   RETURN; // We're done with WASM for now
