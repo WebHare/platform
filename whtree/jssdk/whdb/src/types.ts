@@ -1,6 +1,7 @@
 import { Money } from '@webhare/std';
-import { DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
+import { DataMappingOptions, DataType, DataTypeOIDs, SmartBuffer, parseDateTime } from './../vendor/postgresql-client/src/index';
 import { numberBytesToString } from './../vendor/postgresql-client/src/data-types/numeric-type';
+import { defaultDateTime, maxDateTime } from '@webhare/hscompat/datetime';
 
 // const NUMERIC_NEG = 0x4000;
 const NUMERIC_NAN = 0xc000;
@@ -128,4 +129,97 @@ export const ArrayTidType: DataType = {
   name: "_tid",
   oid: DataTypeOIDs._tid,
   elementsOID: DataTypeOIDs.tid,
+};
+
+
+//We patch the TimestampType to map -Inf and +Inf to defaultDateTime and maxDateTime
+//TODO Only do this for existing and marked datefields, allow more native semantics for future JS-only used datetime fields  (and probably use the proper TIMESTAMP type)
+
+const timeShift = 946684800000;
+const timeMul = 4294967296;
+
+export const WHTimestampType: DataType = {
+  name: "timestamp",
+  oid: DataTypeOIDs.timestamp,
+  jsType: "Date",
+
+  parseBinary(v: Buffer, options: DataMappingOptions): Date | number | string {
+    const fetchAsString = options.fetchAsString && options.fetchAsString.includes(DataTypeOIDs.timestamp);
+    const hi = v.readInt32BE();
+    const lo = v.readUInt32BE(4);
+    if (lo === 0xffffffff && hi === 0x7fffffff) return fetchAsString ? "infinity" : maxDateTime;
+    if (lo === 0x00000000 && hi === -0x80000000) return fetchAsString ? "-infinity" : defaultDateTime;
+
+    // Shift from 2000 to 1970
+    let d = new Date((lo + hi * timeMul) / 1000 + timeShift);
+    if (fetchAsString || !options.utcDates)
+      d = new Date(
+        d.getUTCFullYear(),
+        d.getUTCMonth(),
+        d.getUTCDate(),
+        d.getUTCHours(),
+        d.getUTCMinutes(),
+        d.getUTCSeconds(),
+        d.getUTCMilliseconds()
+      );
+    return fetchAsString ? dateToTimestampString(d) : d;
+  },
+
+  encodeBinary(buf: SmartBuffer, v: Date | number | string, options: DataMappingOptions): void {
+    if (typeof v === "string") v = parseDateTime(v, true, false, options.utcDates);
+    if (v === Infinity || v === maxDateTime) {
+      buf.writeInt32BE(0x7fffffff); // hi
+      buf.writeUInt32BE(0xffffffff); // lo
+      return;
+    }
+    if (v === -Infinity || v === defaultDateTime) {
+      buf.writeInt32BE(-0x80000000); // hi
+      buf.writeUInt32BE(0x00000000); // lo
+      return;
+    }
+    if (!(v instanceof Date)) v = new Date(v);
+    // Postgresql ignores timezone data so we are
+    let n = options.utcDates ? v.getTime() : v.getTime() - v.getTimezoneOffset() * 60 * 1000;
+    n = (n - timeShift) * 1000;
+    const hi = Math.floor(n / timeMul);
+    const lo = n - hi * timeMul;
+    buf.writeInt32BE(hi);
+    buf.writeUInt32BE(lo);
+  },
+
+  parseText(v: string, options: DataMappingOptions): Date | number | string {
+    if (options.fetchAsString && options.fetchAsString.includes(DataTypeOIDs.timestamp)) return v;
+    return parseDateTime(v, true, false, options.utcDates);
+  },
+
+  isType(v: unknown): boolean {
+    return v instanceof Date;
+  }
+};
+
+function padZero(v: number): string {
+  return v < 9 ? "0" + v : String(v);
+}
+
+function dateToTimestampString(d: Date): string {
+  return (
+    d.getFullYear() +
+    "-" +
+    padZero(d.getMonth() + 1) +
+    "-" +
+    padZero(d.getDate()) +
+    " " +
+    padZero(d.getHours()) +
+    ":" +
+    padZero(d.getMinutes()) +
+    ":" +
+    padZero(d.getSeconds())
+  );
+}
+
+export const ArrayWHTimestampType: DataType = {
+  ...WHTimestampType,
+  name: "_timestamp",
+  oid: DataTypeOIDs._timestamp,
+  elementsOID: DataTypeOIDs.timestamp,
 };
