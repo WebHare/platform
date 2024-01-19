@@ -308,7 +308,7 @@ export class RestAPI {
           if (req.headers.has(param.name))
             paramValues = [req.headers.get(param.name)!];
           else if (param.required)
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required headerparameter ${param.name}` });
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required header parameter ${param.name}` });
         } else {
           throw new Error(`Unsupported parameter location '${param.in}'`);
         }
