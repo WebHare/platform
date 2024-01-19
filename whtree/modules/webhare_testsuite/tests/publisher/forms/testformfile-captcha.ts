@@ -62,7 +62,7 @@ test.registerTests(
       test.assert(test.qR('[data-wh-form-group-for="thankyou_confirmed"]').classList.contains('wh-form__fieldgroup--hidden'));
 
       const testemail_guid = test.qR("form[data-wh-form-resultguid]").dataset.whFormResultguid;
-      const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which: "captcha2", allowpending: true });
+      const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult", testemail_guid, { which: "captcha2", allowpending: true });
       test.assert(formresult.response);
       test.eq("new", formresult.submittype);
       test.eq("pending", formresult.status);

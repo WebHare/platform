@@ -14,8 +14,8 @@ export async function waitUI(): Promise<void> {
   await oldWait("ui");
 }
 
-//By definition we reexport all of @webhare/test
-export * from "@webhare/test";
+//By definition we re-export all of whtest and @webhare/test
+export * from "@mod-platform/js/testing/whtest";
 
 //We individually vet APIs from testframework. We should only export APIs with proper typings!
 export {
@@ -24,5 +24,4 @@ export {
   qS,
   qSA,
   qR,
-  invoke
 } from "@mod-system/js/wh/testframework";

@@ -9,13 +9,13 @@ import * as browser from 'dompack/extra/browser';
 
 import * as domfocus from "dompack/browserfix/focus";
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
-import jstestsrpc from '@mod-system/js/internal/jstests.rpc.json';
 
 import * as whtest from '@webhare/test';
 import * as test from 'dompack/testframework';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import { Annotation } from '@webhare/test/src/checks';
+import { invoke } from "@mod-platform/js/testing/whtest";
 
 export {
   eq,
@@ -50,6 +50,8 @@ export {
 } from 'dompack/testframework';
 
 export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
+
+export { invoke };
 
 //basic test functions
 const testfw = window.parent ? window.parent.__testframework : null;
@@ -470,27 +472,6 @@ export function qR<E extends HTMLElement = TestQueriedElement>(node_or_selector:
   }
 }
 
-/** Invoke any remote function as long as its name starts with TESTFW_. This allows you to quickly run code in the backend without having to set up explicit RPCs
- * @param libfunc - `<library>#TESTFW_<function>` to call
-*/
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- just returning 'any' as you're not hurting anyone but yourself if you misinterpret an invoke result
-export async function invoke(libfunc: string, ...params: unknown[]): Promise<any> {
-  if (!libfunc.includes('#')) {
-    libfunc += '#' + params[0];
-    params.shift();
-    console.warn("The two-parameter form of test.invoke() is deprecated. Replace the first two parameters with:", libfunc);
-  }
-
-  console.log(`test.invoke ${libfunc}`, params);
-  const result = await jstestsrpc.invoke(libfunc, params);
-  if (typeof result == "object" && result && result.__outputtoolsdata) {
-    dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles: false, cancelable: false, detail: result.__outputtoolsdata });
-    delete result.__outputtoolsdata;
-  }
-  console.log(`test.invoke result`, result);
-
-  return result;
-}
 export function getWrdLogoutURL(returnurl) {
   return new URL('/.wrd/auth/logout.shtml?b=' + encodeURIComponent(returnurl.split('/').slice(3).join('/')), returnurl).toString();
 }
