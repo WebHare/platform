@@ -364,13 +364,9 @@
         <text tid="folderup">Move up</text>
         <text tid="folderuphint">Move up</text>
         <text tid="movedownbutton">Move down</text>
-        <text tid="movedownhint">Move down</text>
-        <text tid="movetobottombutton">Move to top</text>
-        <text tid="movetobottomhint">Move to bottom</text>
-        <text tid="movetotopbutton">Move to bottom</text>
-        <text tid="movetotophint">Move to top</text>
+        <text tid="movetobottombutton">Move to bottom</text>
+        <text tid="movetotopbutton">Move to top</text>
         <text tid="moveupbutton">Move up</text>
-        <text tid="moveuphint">Move up</text>
         <text tid="previewtab">Preview</text>
         <text tid="propstab">Properties</text>
         <text tid="refreshhint">Refresh preview</text>

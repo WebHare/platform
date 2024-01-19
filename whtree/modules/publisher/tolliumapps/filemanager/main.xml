@@ -604,10 +604,10 @@
 
                   <buttongroup layout="horizontal" borders="left right" name="sortbuttonsgroup">
                     <!-- <button name="enablesortingbutton" action="toggleordering" icon="tollium:buttonbar/setordering" type="icon" /> -->
-                    <button name="movetotopbutton" action="movetotop" icon="tollium:actions/to_top" type="icon" hinttid=".movetotophint" />
-                    <button name="moveupbutton" action="moveup" icon="tollium:actions/up" type="icon" hinttid=".moveuphint" />
-                    <button name="movedownbutton" action="movedown" icon="tollium:actions/down" type="icon" hinttid=".movedownhint"/>
-                    <button name="movetobottombutton" action="movetobottom" icon="tollium:actions/to_bottom" type="icon" hinttid=".movetobottomhint" />
+                    <button name="movetotopbutton" action="movetotop" icon="tollium:actions/to_top" type="icon" hinttid=".movetotopbutton" />
+                    <button name="moveupbutton" action="moveup" icon="tollium:actions/up" type="icon" hinttid=".moveupbutton" />
+                    <button name="movedownbutton" action="movedown" icon="tollium:actions/down" type="icon" hinttid=".movedownbutton"/>
+                    <button name="movetobottombutton" action="movetobottom" icon="tollium:actions/to_bottom" type="icon" hinttid=".movetobottombutton" />
                   </buttongroup>
                   <buttongroup layout="horizontal" borders="left">
                     <button name="filelistmulti" action="setfilelistmulti" icon="tollium:buttonbar/showmultirow" type="icon" hinttid=".filelistmultihint" />
