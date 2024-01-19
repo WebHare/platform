@@ -135,19 +135,23 @@ let dtapStage: DTAPStage = DTAPStage.Production as const;
 /** Whether we should (pretend) to be live/production ... true on production and acceptance */
 let isLive: boolean = true;
 
+/** The backend base URL. Used for eg. autoconfiguring JSON/RPC */
+let backendBase = "";
+
 //deprecated variants
 /** @deprecated For WH5.4 and up use 'dtapStage' */
 let dtapstage: DTAPStage = dtapStage;
 /** @deprecated For WH5.4 and up use 'isLive' */
 let islive: boolean = isLive;
 
-export function initEnv(setDtapStage: DTAPStage) {
+export function initEnv(setDtapStage: DTAPStage, setBackendBase: string) {
   dtapStage = setDtapStage;
   isLive = dtapStage == DTAPStage.Production || dtapStage == DTAPStage.Acceptance;
+  backendBase = setBackendBase;
 
   dtapstage = dtapStage;
   islive = isLive;
 }
 
-export { dtapStage, isLive };
+export { dtapStage, isLive, backendBase };
 export { dtapstage, islive }; //deprecated variants

@@ -1,8 +1,8 @@
-import { debugFlags, registerDebugConfigChangedCallback, dtapStage, isLive } from "./envbackend";
+import { debugFlags, registerDebugConfigChangedCallback, dtapStage, isLive, backendBase } from "./envbackend";
 import { hookFetch } from "./fetchdebug";
 import { DTAPStage } from "./concepts";
 
-export { DTAPStage, dtapStage, debugFlags, isLive };
+export { DTAPStage, dtapStage, debugFlags, isLive, backendBase };
 
 //export deprecated variants
 export { dtapstage, islive } from "./envbackend";
