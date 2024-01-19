@@ -44,7 +44,7 @@ async function main() {
     if (pkgjson.private !== true)
       issues.push({ message: "Private should be 'true' to prevent accidental manual publishes", toFix: () => pkgjson.private = true });
     if (pkgjson.name !== `@webhare/${pkg.name}`)
-      issues.push({ message: "Package name mismatch" });
+      issues.push({ message: "Package name mismatch", toFix: () => pkgjson.name = `@webhare/${pkg.name}` });
     for (const [dep, version] of Object.entries(pkgjson.dependencies || []))
       if (dep.startsWith("@webhare/") && version)
         issues.push({ message: `Dependency on peer package '${dep}' should not specify an explicit version`, toFix: () => pkgjson.dependencies[dep] = "" });

@@ -3,4 +3,5 @@
   <test script="test_mailersmtp.whscr" />
   <test script="test_mailerrules.whscr" />
   <test script="test_mailer_restructure.whscr" />
+  <test script="test_mailapi.ts" />
 </group>

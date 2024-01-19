@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/test-backend",
+  "version": "",
+  "description": "",
+  "main": "src/test-backend.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/test-backend.ts"
+    ]
+  },
+  "private": true
+}
