@@ -72,7 +72,7 @@ async function main() {
   }
 
   const rootpackagejson = JSON.parse(await readFile(join(backendConfig.installationroot, "package.json"), "utf8"));
-  const fixedsettings = pick(rootpackagejson, ["author", "license", "homepage", "repository", "bugs"]);
+  const fixedsettings = pick(rootpackagejson, axioms.copyPackageFields);
 
   //let's patch the packages for distribution outside the WebHare tree
   for (const pkgname of axioms.publishPackages) {
