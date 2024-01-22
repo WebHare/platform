@@ -10,7 +10,7 @@ import {
 import { Connection, GlobalTypeMap, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo } from './../vendor/postgresql-client/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
-import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, Float8Type, MoneyType, TidType } from "./types";
+import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, Float8Type, MoneyType, TidType, WHTimestampType } from "./types";
 import { getIntlConnection } from '../vendor/postgresql-client/src/connection/intl-connection';
 
 let configuration: { bloboid: number } | null = null;
@@ -37,6 +37,7 @@ async function configureWHDBClient(pg: Connection) {
   GlobalTypeMap.register([MoneyType, ArrayMoneyType]);
   GlobalTypeMap.register([Float8Type, ArrayFloat8Type]);
   GlobalTypeMap.register([TidType, ArrayTidType]);
+  GlobalTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
 
   if (bloboidquery.rows) {
     configuration = { bloboid: bloboidquery.rows[0][0] };

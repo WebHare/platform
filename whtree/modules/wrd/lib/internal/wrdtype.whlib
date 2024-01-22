@@ -3150,7 +3150,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     }
     IF(CellExists(entitydata, "WRD_GUID"))
     {
-      setguid := DecodeWRDGUID(entitydata.wrd_guid);
+      setguid := DecodeWRDGUID(options.jsmode ? UUIdToWRDGuid(entitydata.wrd_guid) : entitydata.wrd_guid);
       IF(entitydata.wrd_guid != "" AND setguid="")
       {
         options.errorcallback([ tag := "WRD_GUID", code := "INVALIDVALUE", setvalue := entitydata.wrd_guid ]);

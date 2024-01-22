@@ -1,4 +1,6 @@
 <?wh
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
@@ -49,6 +51,17 @@ PUBLIC MACRO UpdateExportTest()
 {
   UPDATE webhare_testsuite.exporttest SET text := text || " (updated)";
 }
+PUBLIC INTEGER FUNCTION testTypes(INTEGER expectid)
+{
+  //Runs the HS part of the testTypes
+  TestEq(expectid, (SELECT AS INTEGER id FROM webhare_testsuite.consilio_index WHERE text="row1" AND grouprequiredindexdate = DEFAULT DATETIME));
+  TestEq(expectid, (SELECT AS INTEGER id FROM webhare_testsuite.consilio_index WHERE text="row1" AND objectrequiredindexdate = MAX_DATETIME));
+
+  INTEGER myrow := MakeAutonumber(webhare_testsuite.consilio_index, "id");
+  INSERT INTO webhare_testsuite.consilio_index(id,text,grouprequiredindexdate,objectrequiredindexdate) VALUES(myrow,"hs-wasm-row1",DEFAULT DATETIME,MAX_DATETIME);
+  RETURN myrow;
+}
+
 MACRO DoSetGlobal(RECORD newrec, BOOLEAN iscommit)
 {
   //ensure we're in a proper state, after the original commit

@@ -11,6 +11,7 @@ import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { debugFlags } from "@webhare/env";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
+import { generateRandomId } from "@webhare/std/platformbased";
 
 type TestSchema = {
   wrdPerson: {
@@ -228,7 +229,8 @@ async function testNewAPI() {
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
   const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] } });
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] } });
+  const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date() });
 
   await whdb.commitWork();
@@ -255,6 +257,7 @@ async function testNewAPI() {
   ], selectres);
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
+  test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid));
 
   //Test enrich and history modes
   test.eq([

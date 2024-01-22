@@ -93,12 +93,19 @@ async function testTypes() {
   await beginWork();
   const baserec = { groupid: "", objectid: "", grouprequiredindexdate: defaultDateTime, objectrequiredindexdate: maxDateTime, indexdate: new Date, extradata: "" };
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "row1", adate: new Date("2022-05-02T19:07:45Z") }).execute();
+  test.eq({
+    grouprequiredindexdate: '-infinity',
+    objectrequiredindexdate: 'infinity'
+  }, (await query(`select grouprequiredindexdate::text, objectrequiredindexdate::text from webhare_testsuite.consilio_index where text='row1'`)).rows[0]);
   await commitWork();
 
-  const rows = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select(["text", "adate", "objectrequiredindexdate", "indexdate", "grouprequiredindexdate"]).where("text", "=", "row1").execute();
+  const rows = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select(["id", "text", "adate", "objectrequiredindexdate", "indexdate", "grouprequiredindexdate"]).where("text", "=", "row1").execute();
   test.eq(new Date("2022-05-02T19:07:45Z"), rows[0].adate);
   test.eq(defaultDateTime, rows[0].grouprequiredindexdate);
   test.eq(maxDateTime, rows[0].objectrequiredindexdate);
+
+  test.eq({ id: rows[0].id }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select("id").where("text", "=", "row1").where("grouprequiredindexdate", "=", defaultDateTime).executeTakeFirst());
+  test.eq({ id: rows[0].id }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select("id").where("text", "=", "row1").where("objectrequiredindexdate", "=", maxDateTime).executeTakeFirst());
 
   //read directly through postgres, converting it serverside to a string (as node-postgres could 'lie' to us on both paths)
   //TODO perhaps we should have used timestamp-with-tz columns?
@@ -148,6 +155,23 @@ async function testHSWorkSync() {
   await primary.popWork();
   test.eq(false, await primary.isWorkOpen());
   test.eq(false, isWorkOpen());
+}
+
+async function testTypesWithHS() {
+  const rows = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select(["id", "text", "adate", "objectrequiredindexdate", "indexdate", "grouprequiredindexdate"]).where("text", "=", "row1").execute();
+
+  await beginWork();
+
+  //testTypes will also isnert its own default/max rows for us to test
+  const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
+  const hsrowid = await invoketarget.testTypes(rows[0].id);
+  test.eq({
+    grouprequiredindexdate: '-infinity',
+    objectrequiredindexdate: 'infinity'
+  }, (await query(`select grouprequiredindexdate::text, objectrequiredindexdate::text from webhare_testsuite.consilio_index where text='hs-wasm-row1'`)).rows[0]);
+  test.eq({ id: hsrowid }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select("id").where("text", "=", "hs-wasm-row1").where("grouprequiredindexdate", "=", defaultDateTime).executeTakeFirst());
+  test.eq({ id: hsrowid }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select("id").where("text", "=", "hs-wasm-row1").where("objectrequiredindexdate", "=", maxDateTime).executeTakeFirst());
+  await commitWork();
 }
 
 async function testHSCommitHandlers() {
@@ -409,6 +433,7 @@ test.run([
   testQueries,
   testTypes,
   testHSWorkSync,
+  testTypesWithHS,
   testMutex,
   testFinishHandlers,
   testHSCommitHandlers,

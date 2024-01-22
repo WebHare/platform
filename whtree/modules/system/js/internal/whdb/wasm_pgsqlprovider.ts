@@ -148,8 +148,15 @@ function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition,
 
 function getConditionValue(query: Query, cond: SingleCondition, condidx: number, queryparam: HSVMVar) {
   const column = query.tablesources[cond.tableid].columns[cond.columnid];
-  if (!(column.flags & ColumnFlags.Binary))
+  if (!(column.flags & ColumnFlags.Binary)) {
+    if (cond.value instanceof Date)
+      if (cond.value.getTime() === defaultDateTime.getTime())
+        return sql`'-infinity'::timestamp`;
+      else if (cond.value.getTime() === maxDateTime.getTime())
+        return sql`'infinity'::timestamp`;
+
     return cond.value;
+  }
 
   //get the binary value from the original HS value
   const originalvalue = queryparam.getCell("singleconditions")!.arrayGetRef(condidx)!.getCell("value")!;
@@ -181,7 +188,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   for (const cond of query.singleconditions) {
     const column = query.tablesources[cond.tableid].columns[cond.columnid];
     cond.handled = column.type !== VariableType.Blob;
-    if (cond.condition === "IN" && ![VariableType.Integer, VariableType.Integer64, VariableType.String, VariableType.DateTime].includes(column.type))
+    if (cond.condition === "IN" && ![VariableType.Integer, VariableType.Integer64, VariableType.String].includes(column.type)) //TODO readd VariableType.DateTime but we also need to deal with infinities then (see wh runtest wh.database.wasm.primitivevalues)
       cond.handled = false;
     if ((cond.condition === "LIKE" || !cond.casesensitive) && (column.flags & ColumnFlags.Binary))
       cond.handled = false;
@@ -381,6 +388,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     let expr = buildComparison(colexpr, cond.condition, valueexpr);
     if (cond.match_null)
       expr = sql`((${colref} IS NULL) OR (${expr}))`; //extra parentheses as we're normally embedded in x AND y AND z...
+
     conditions.push(expr);
   }
 
@@ -631,7 +639,10 @@ async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVa
       if (setvalue instanceof WebHareBlob)
         await uploadBlob(setvalue);
 
-      values[column.dbase_name] = setvalue;
+      if (setvalue instanceof Date && setvalue.getTime() === defaultDateTime.getTime())
+        values[column.dbase_name] = sql`'-infinity'::timestamp`;
+      else
+        values[column.dbase_name] = setvalue;
     }
 
   return values;
