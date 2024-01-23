@@ -629,6 +629,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
   }
 }
 
+
 class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
   getDefaultValue() { return 0; }
   checkFilter({ condition, value }: WRDDBIntegerConditions) {
@@ -971,7 +972,7 @@ type WRDDBEnumConditions = {
 // FIXME: add wildcard support
 type GetEnumAllowedValues<Options extends { allowedvalues: string }, Required extends boolean> = (Options extends { allowedvalues: infer V } ? V : never) | (Required extends true ? never : null);
 
-class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
+abstract class WRDDBEnumValueBase<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
   getDefaultValue(): GetEnumAllowedValues<Options, Required> | null { return null; }
   checkFilter({ condition, value }: WRDDBEnumConditions) {
     if (condition === "mentions" && !value)
@@ -1034,11 +1035,55 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     if (this.attr.required && (!value || !value.length))
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
+}
 
+class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDDBEnumValueBase<Options, Required> {
   encodeValue(value: GetEnumAllowedValues<Options, Required> | null) {
     return value ? { settings: { rawdata: value, attribute: this.attr.id } } : {};
   }
 }
+
+class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedvalues: WRDGender }, false> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
+    if (this.attr.tag !== 'wrdGender')
+      throw new Error(`Unhandled base gender attribute ${JSON.stringify(this.attr.tag)}`);
+
+    //TODO implement (but low prio, searching by gender is rare)
+    return {
+      needaftercheck: true,
+      query
+    };
+  }
+
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): WRDGender | null {
+    if (this.attr.tag !== 'wrdGender')
+      throw new Error(`Unhandled base gender attribute ${JSON.stringify(this.attr.tag)}`);
+
+    switch (entityrec["gender"]) {
+      case 0: return null;
+      case 1: return WRDGender.Male;
+      case 2: return WRDGender.Female;
+      case 3: return WRDGender.Other;
+      default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): never {
+    throw new Error(`Should not be called for base attributes`);
+
+  }
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdGender"]);
+  }
+
+  encodeValue(value: WRDGender) {
+    const mapped = [null, WRDGender.Male, WRDGender.Female, WRDGender.Other].indexOf(value);
+    if (mapped === -1)
+      throw new Error(`Unknown gender value '${value}'`);
+    return { entity: { [this.getAttrBaseCells()]: value } };
+  }
+}
+
 
 type WRDDBEnumArrayConditions = {
   condition: "=" | "!="; value: readonly string[];
@@ -1676,7 +1721,6 @@ type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Opti
 //class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
 class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
-class WRDDBBaseGenderValue extends WRDAttributeUnImplementedValueBase<WRDGender, WRDGender, WRDGender> { }
 //class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>> { _x?: Options; _y?: Required; }
 
 /// The following accessors are not implemented yet
@@ -1768,7 +1812,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeType.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Gender: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+    case WRDBaseAttributeType.Base_Gender: return new WRDDBBaseGenderValue(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
     case WRDBaseAttributeType.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
 
     case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;

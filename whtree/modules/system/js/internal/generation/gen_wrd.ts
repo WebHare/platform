@@ -1,6 +1,6 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
-import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
+import { WRDBaseAttributeType, WRDAttributeType, WRDGender } from "@mod-wrd/js/internal/types";
 import { GenerateContext, FileToUpdate, generatorBanner } from "./shared";
 import { WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
@@ -175,7 +175,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
         parentpath.push(ptype.tag);
 
       if (parentpath.includes("WRD_PERSON")) {
-        typeinfo.attrdefs.wrdGender = { attributeType: WRDAttributeType.Integer, isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeType.Base_Gender` };
+        typeinfo.attrdefs.wrdGender = { attributeType: WRDAttributeType.Enum, isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeType.Base_Gender`, allowedValues: Object.values(WRDGender) };
         typeinfo.attrdefs.wrdSaluteFormal = { attributeType: WRDAttributeType.Free, isGenerated: true, isRequired: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
         typeinfo.attrdefs.wrdAddressFormal = { attributeType: WRDAttributeType.Free, isGenerated: true, isRequired: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
         typeinfo.attrdefs.wrdFullName = { attributeType: WRDAttributeType.Free, isGenerated: true, isRequired: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };

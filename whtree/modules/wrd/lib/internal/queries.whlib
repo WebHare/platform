@@ -1140,6 +1140,10 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
             dbquery->AddConstraint(query_name || "." || condition->attr.cellname, condition->match_type, value);
             RETURN TRUE;
           }
+          ELSE IF (condition->attr.tag = "WRD_GENDER")
+          {
+            RETURN FALSE;
+          }
           ELSE IF (condition->attr.attributetype = wrd_attributetype_domain OR condition->attr.tag = "WRD_ID")
           {
             IF (condition->match_type = "IN")
@@ -1449,7 +1453,16 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                   BOOLEAN db_can_handle := TypeId(match_value) != TypeId(STRING) OR LENGTH(match_value) < 4096;
                   IF (this->jsmode)
                   {
-                    IF (attrinfo.attributetype = wrd_attributetype_date OR attrinfo.attributetype = wrd_attributetype_datetime)
+                    IF(attrinfo.tag = "WRD_GENDER")
+                    {
+                      INTEGER intvalue := TypeID(match_value) = TypeID(RECORD) ? 0 : SearchElement(VARIANT["","male","female","other"], match_value);
+                      matches := SELECT AS INTEGER ARRAY entities.id
+                                  FROM query->Execute() AS row
+                                  WHERE EvaluateConstraint(row.entities.gender, cond->match_type, intvalue)
+                              ORDER BY entities.id;
+                      RETURN matches;
+                    }
+                    ELSE IF (attrinfo.attributetype = wrd_attributetype_date OR attrinfo.attributetype = wrd_attributetype_datetime)
                     {
                       IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
                         match_value := DEFAULT DATETIME;
@@ -1472,7 +1485,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                       }
                       done := TRUE;
                     }
-                    ELSE IF (attrinfo.attributetype = wrd_attributetype_domain)
+                    ELSE IF (attrinfo.attributetype = wrd_attributetype_domain AND attrinfo.tag != "WRD_GENDER")
                     {
                       // Use -2147483649i64, lower than all valid INTEGERs
                       IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
@@ -2539,6 +2552,37 @@ STATIC OBJECTTYPE WRDDBRTValue EXTEND WRDDBValue //RelationTitle value
   UPDATE PUBLIC VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
     RETURN entity_settings[settings_start].rawdata;
+  }
+>;
+
+STATIC OBJECTTYPE WRDDBGenderJSValue EXTEND WRDDBValue //RelationTitle value
+<
+  STRING sourcename;
+
+  MACRO NEW(OBJECT type, RECORD attr, STRING sourcename)
+  : WRDDBValue(type, attr)
+  {
+    this->sourcename := sourcename;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
+  {
+    // Can't handle search within the queries, fallback to raw scan
+    RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];
+  }
+
+  UPDATE PUBLIC VARIANT FUNCTION GetValue(RECORD ARRAY attrdata, INTEGER attrdata_start, INTEGER attrdata_limit, RECORD row)
+  {
+    RECORD baserow := GetCell(row, this->sourcename);
+    IF(baserow.gender >= 1 AND baserow.gender <= 3)
+      RETURN ["male","female","other"][baserow.gender - 1];
+    ELSE
+      RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+  {
+    RETURN DEFAULT RECORD;
   }
 >;
 
@@ -5169,6 +5213,14 @@ PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, 
       INSERT CELL rename := field.name INTO attr;
       INSERT CELL subselect := field.subselect INTO attr;
       INSERT CELL allattributeids := attr.accessor->GetAllAttributeIds() INTO attr;
+      INSERT attr INTO fields AT END;
+    }
+    ELSE IF(attr.tag = "WRD_GENDER" AND jsmode) //workaround for organization fields
+    {
+      INSERT CELL accessor := NEW WRDDBGenderJSValue(wrd_type, attr, field.sourcename) INTO attr;
+      INSERT CELL rename := field.name INTO attr;
+      INSERT CELL subselect := field.subselect INTO attr;
+      INSERT CELL allattributeids := INTEGER[] INTO attr;
       INSERT attr INTO fields AT END;
     }
     ELSE IF (attr.base)

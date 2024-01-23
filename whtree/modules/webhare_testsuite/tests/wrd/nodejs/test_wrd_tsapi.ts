@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
+import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow, WRDTypeBaseSettings, WRDGender } from "@mod-wrd/js/internal/types";
 import { WRDSchema, listSchemas } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -228,16 +228,16 @@ async function testNewAPI() {
   */
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
-  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] } });
+  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid });
-  const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date() });
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
+  const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
   await whdb.commitWork();
 
   const selectres = await schema
     .selectFrom("wrdPerson")
-    .select(["wrdFirstName", "testJson", "testJsonRequired"])
+    .select(["wrdFirstName", "testJson", "testJsonRequired", "wrdGender"])
     .select({ lastname: "wrdLastName", id: "wrdId", guid: "wrdGuid" })
     .where("wrdFirstName", "=", "first")
     .execute();
@@ -247,6 +247,7 @@ async function testNewAPI() {
 
   test.eq([
     {
+      wrdGender: "male",
       wrdFirstName: "first",
       lastname: "lastname",
       id: firstperson,
@@ -257,7 +258,16 @@ async function testNewAPI() {
   ], selectres);
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
+  test.eq(firstperson, await schema.search("wrdPerson", "wrdGender", "male"));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid));
+  test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", "female"));
+  test.eq(null, await schema.search("wrdPerson", "wrdGender", "other"));
+  test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "all" }));
+
+  await whdb.beginWork();
+  await schema.update("wrdPerson", secondperson, { wrdGender: null });
+  test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", null));
+  await whdb.commitWork();
 
   //Test enrich and history modes
   test.eq([

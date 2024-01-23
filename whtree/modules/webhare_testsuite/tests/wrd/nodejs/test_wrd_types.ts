@@ -99,29 +99,29 @@ function testTypes() {
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }>>>();
 
   test.typeAssert<test.Assignable<{
-    invented_domain?: number | null | undefined;
-    whuser_comment?: string | undefined;
-    whuser_disabled?: boolean | undefined;
-    whuser_disablereason?: string | undefined;
-    whuser_hiddenannouncements?: number[] | undefined;
-    whuser_lastlogin?: Date | null | undefined;
-    whuser_unit: number;
+    inventedDomain?: number | null | undefined;
+    whuserComment?: string | undefined;
+    whuserDisabled?: boolean | undefined;
+    whuserDisablereason?: string | undefined;
+    whuserHiddenannouncements?: number[] | undefined;
+    whuserLastlogin?: Date | null | undefined;
+    whuserUnit?: number | null;
     wrdCreationDate?: Date | null | undefined;
     wrdDateOfBirth?: Date | null | undefined;
     wrdDateOfDeath?: Date | null | undefined;
     wrdFirstName?: string | undefined;
     wrdFirstNames?: string | undefined;
-    wrd_gender?: WRDGender | undefined;
-    wrd_guid?: string | undefined;
-    wrd_id?: number | undefined;
-    wrd_infix?: string | undefined;
-    wrd_initials?: string | undefined;
+    wrdGender?: WRDGender | undefined;
+    wrdGuid?: string | undefined;
+    wrdId?: number | undefined;
+    wrdInfix?: string | undefined;
+    wrdInitials?: string | undefined;
     wrdLastName?: string | undefined;
     wrdLimitDate?: Date | null | undefined;
     wrdModificationDate?: Date | undefined;
     wrdTag?: string | undefined;
     wrdTitlesSuffix?: string | undefined;
-    wrd_titles?: string | undefined;
+    wrdTitles?: string | undefined;
   }, Insertable<System_Usermgmt_WRDPerson>>>();
 }
 

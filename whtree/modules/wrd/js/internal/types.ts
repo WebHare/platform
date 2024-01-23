@@ -15,9 +15,9 @@ export enum WRDMetaType {
 /** WRD Gender values
  */
 export enum WRDGender {
-  Unset = 0,
-  Male = 1,
-  Female = 2,
+  Male = "male",
+  Female = "female",
+  Other = "other"
 }
 
 /** WRD attribute types. Negative values are used for base attributes (which will have a different accessor than the attributes read from settings) */
@@ -128,6 +128,7 @@ export const baseAttrCells = {
   "wrdLastName": "lastname",
   "wrdTitlesSuffix": "titles_suffix",
   "wrdGuid": "guid",
+  "wrdGender": "gender",
   "wrdSaluteFormal": ["lastname", "gender", "titles", "infix"],
   "wrdAddressFormal": ["lastname", "gender", "titles", "infix", "initials"],
   "wrdFullName": ["initials", "firstname", "firstnames", "lastname", "infix"],
