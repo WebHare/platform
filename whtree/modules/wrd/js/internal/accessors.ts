@@ -243,15 +243,16 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
-    if (!cv.options?.matchcase)
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    if (caseInsensitive)
       value = value.toUpperCase();
     if (cv.condition === "in" || cv.condition === "mentionsany") {
-      if (!cv.options?.matchcase) {
+      if (caseInsensitive) {
         return cv.value.some(v => value === v.toUpperCase());
       } else
         return cv.value.includes(value);
     }
-    const cmpvalue = cv.options?.matchcase ? cv.value : cv.value.toUpperCase();
+    const cmpvalue = caseInsensitive ? cv.value.toUpperCase() : cv.value;
     if (cv.condition === "like") {
       return isLike(value, cmpvalue);
     }
@@ -260,6 +261,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
 
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
@@ -273,7 +275,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     else if (db_cv.condition === "mentionsany")
       db_cv = { ...db_cv, condition: "in" };
 
-    if (!db_cv.options?.matchcase) {
+    if (caseInsensitive) {
       if (db_cv.condition === "in")
         db_cv.value = db_cv.value.map(v => v.toUpperCase());
       else
@@ -287,8 +289,8 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     const filtered_cv = db_cv;
     query = addQueryFilter(query, this.attr.id, defaultmatches, b => {
       return b
-        .$if(Boolean(db_cv.options?.matchcase), f => addWhere(f, sql`rawdata`, filtered_cv.condition, filtered_cv.value))
-        .$if(!db_cv.options?.matchcase, f => addWhere(f, sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value));
+        .$if(!caseInsensitive, f => addWhere(f, sql`rawdata`, filtered_cv.condition, filtered_cv.value))
+        .$if(caseInsensitive, f => addWhere(f, sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value));
     });
 
     return {
@@ -318,15 +320,16 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
-    if (!cv.options?.matchcase)
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    if (caseInsensitive)
       value = value.toUpperCase();
     if (cv.condition === "in" || cv.condition === "mentionsany") {
-      if (!cv.options?.matchcase) {
+      if (caseInsensitive) {
         return cv.value.some(v => value === v.toUpperCase());
       } else
         return cv.value.includes(value);
     }
-    const cmpvalue = cv.options?.matchcase ? cv.value : cv.value.toUpperCase();
+    const cmpvalue = caseInsensitive ? cv.value.toUpperCase() : cv.value;
     if (cv.condition === "like") {
       return isLike(value, cmpvalue);
     }
@@ -334,6 +337,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
     if (db_cv.condition === "like") {
@@ -346,7 +350,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
     else if (db_cv.condition === "mentionsany")
       db_cv = { ...db_cv, condition: "in" };
 
-    if (!db_cv.options?.matchcase) {
+    if (caseInsensitive) {
       if (db_cv.condition === "in")
         db_cv.value = db_cv.value.map(v => v.toUpperCase());
       else
@@ -361,13 +365,13 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
 
     let baseAttr: RawBuilder<unknown>;
     switch (this.attr.tag) {
-      case "wrdTag": baseAttr = db_cv.options?.matchcase ? sql`tag` : sql`upper("tag")`; break;
-      case "wrdInitials": baseAttr = db_cv.options?.matchcase ? sql`initials` : sql`upper("initials")`; break;
-      case "wrdFirstName": baseAttr = db_cv.options?.matchcase ? sql`firstname` : sql`upper("firstname")`; break;
-      case "wrdFirstNames": baseAttr = db_cv.options?.matchcase ? sql`firstnames` : sql`upper("firstnames")`; break;
-      case "wrdInfix": baseAttr = db_cv.options?.matchcase ? sql`infix` : sql`upper("infix")`; break;
-      case "wrdLastName": baseAttr = db_cv.options?.matchcase ? sql`lastname` : sql`upper("lastname")`; break;
-      case "wrdTitlesSuffix": baseAttr = db_cv.options?.matchcase ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
+      case "wrdTag": baseAttr = !caseInsensitive ? sql`tag` : sql`upper("tag")`; break;
+      case "wrdInitials": baseAttr = !caseInsensitive ? sql`initials` : sql`upper("initials")`; break;
+      case "wrdFirstName": baseAttr = !caseInsensitive ? sql`firstname` : sql`upper("firstname")`; break;
+      case "wrdFirstNames": baseAttr = !caseInsensitive ? sql`firstnames` : sql`upper("firstnames")`; break;
+      case "wrdInfix": baseAttr = !caseInsensitive ? sql`infix` : sql`upper("infix")`; break;
+      case "wrdLastName": baseAttr = !caseInsensitive ? sql`lastname` : sql`upper("lastname")`; break;
+      case "wrdTitlesSuffix": baseAttr = !caseInsensitive ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
       default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
     }
     return {

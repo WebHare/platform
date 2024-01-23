@@ -259,6 +259,9 @@ async function testNewAPI() {
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGender", "male"));
+  test.eq(firstperson, await schema.search("wrdPerson", "wrdFirstName", "first"));
+  test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE"));
+  test.eq(null, await schema.search("wrdPerson", "wrdFirstName", "FIRST"));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", "female"));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other"));
@@ -517,6 +520,17 @@ async function testTSTypes() {
   }
 }
 
+async function testOrgs() {
+  await whdb.beginWork();
+  const org1 = await wrdTestschemaSchema.insert("wrdOrganization", { wrdOrgName: "org1" });
+  test.eq(org1, await wrdTestschemaSchema.search("wrdOrganization", "wrdOrgName", "org1"));
+  test.eq(null, await wrdTestschemaSchema.search("wrdOrganization", "wrdOrgName", "ORG1"));
+  test.eq(org1, await wrdTestschemaSchema.search("wrdOrganization", "wrdTitle", "org1"));
+  test.eq(null, await wrdTestschemaSchema.search("wrdOrganization", "wrdTitle", "org2"));
+  test.eq(null, await wrdTestschemaSchema.search("wrdOrganization", "wrdTitle", "ORG1"));
+  await whdb.commitWork();
+}
+
 async function testUpsert() {
   await whdb.beginWork();
   test.eq(2, (await wrdTestschemaSchema.selectFrom("whuserUnit").select("wrdId").execute()).length);
@@ -649,6 +663,7 @@ test.run([
   testTSTypes,
   createWRDTestSchema,
   testNewAPI,
+  testOrgs,
   testUpsert,
   testComparisons,
   testGeneratedWebHareWRDAPI
