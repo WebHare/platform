@@ -2,7 +2,7 @@ import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, stashWork, runInWork, runInSeparateWork } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { createVM, loadlib } from "@webhare/harescript";
@@ -425,7 +425,93 @@ async function testFinishHandlers() {
   await test.wait(() => allevents.length >= 1);
   test.assert(allevents.find(_ => _.name === "webhare_testsuite:worktest.8"));
   test.eq(1, allevents.length);
+}
 
+async function testSeparatePrimary() {
+  test.throws(/if no work is open/, () => stashWork());
+  await beginWork();
+  const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "Record 1" }).execute();
+  test.eq({ text: "Record 1" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+
+  const stashed1 = stashWork();
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  test.eq(false, isWorkOpen());
+
+  await beginWork();
+  const nextid2: number = await nextVal("webhare_testsuite.exporttest.id");
+  test.eq(true, isWorkOpen());
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid2, text: "Record 2" }).execute();
+
+  const stashed2 = stashWork();
+  test.eq(false, isWorkOpen());
+  //both records are not in this stash!
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
+  await beginWork(); //let's open some work on this stash
+
+  const stashed3 = stashed1.restore(); //this stashes the third transaction and brings us back into the first transacrtion where 'nextid1' lives
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
+
+  const stashed2b = stashed2.restore(); //this stashes the first transaction again and brings us back into the second transaction where 'nextid2' lives
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
+
+  await commitWork(); //commits the second transaction
+  test.eq(false, isWorkOpen());
+
+  test.eq(null, stashed2b!.restore()); //this brings us to the first transaction again
+  test.eq(true, isWorkOpen());
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  await commitWork(); //commits the first transaction. only the third transaction (living in stashed3) is still out there
+
+  test.eq(null, stashed3!.restore());
+  test.eq(true, isWorkOpen());
+  await rollbackWork();
+  test.eq(false, isWorkOpen());
+
+  test.eq({ text: "Record 1" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+
+  //Now that the primitives work, test the stashing APIs
+  const id3 = await runInWork(async () => {
+    const nextid3: number = await nextVal("webhare_testsuite.exporttest.id");
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid3, text: "Record 3" }).execute();
+    return nextid3;
+  });
+
+  test.eq(false, isWorkOpen());
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id3).executeTakeFirst());
+
+  await beginWork();
+  const nextid4: number = await nextVal("webhare_testsuite.exporttest.id");
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid4, text: "Record 4" }).execute();
+  const id5 = await runInSeparateWork(async () => {
+    const nextid5: number = await nextVal("webhare_testsuite.exporttest.id");
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid5, text: "Record 5" }).execute();
+
+    test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
+    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid5).executeTakeFirst());
+    return nextid5;
+  });
+  test.eq(true, isWorkOpen());
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
+  await rollbackWork();
+
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id5).executeTakeFirst());
+}
+
+async function testHSRunInSeparatePrimary() {
+  const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
+
+  const id1 = await invoketarget.InsertUsingSeparateTrans();
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id1).executeTakeFirst());
+
+  await beginWork();
+  const id2 = await invoketarget.InsertUsingSeparateTrans();
+  await commitWork();
+  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
 }
 
 test.run([
@@ -436,6 +522,8 @@ test.run([
   testTypesWithHS,
   testMutex,
   testFinishHandlers,
-  testHSCommitHandlers,
-  testCodeContexts
+  testCodeContexts,
+  testSeparatePrimary,
+  testHSRunInSeparatePrimary,
+  testHSCommitHandlers //moving this higher triggers races around commit handlers and VM shutdowns
 ]);

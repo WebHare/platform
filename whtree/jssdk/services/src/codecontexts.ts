@@ -98,6 +98,15 @@ export class CodeContext extends EventSource<CodeContextEvents>{
     return this.storage.get(key)?.resource as ValueType | undefined;
   }
 
+  setScopedResource<ValueType>(key: string | symbol, value: ValueType | undefined): void {
+    if (this.closed)
+      throw new Error(`Cannot set scoped resources on a closed CodeContext`);
+    if (value === undefined)
+      this.storage.delete(key);
+    else
+      this.storage.set(key, { resource: value });
+  }
+
   ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void): ValueType {
     let retval = this.getScopedResource<ValueType>(key);
     if (retval === undefined) {
@@ -164,6 +173,9 @@ export function runOutsideCodeContext<R, TArgs extends unknown[]>(callback: (...
 
 export function getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
   return getCodeContext().getScopedResource<ValueType>(key);
+}
+export function setScopedResource<ValueType>(key: string | symbol, value: ValueType | undefined): void {
+  getCodeContext().setScopedResource(key, value);
 }
 export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void): ValueType {
   return getCodeContext().ensureScopedResource(key, createcb, dispose);

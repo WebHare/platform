@@ -20,7 +20,7 @@ import { Mutex, type BackendEvent, lockMutex } from '@webhare/services';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection } from './blobs';
-import { ensureScopedResource } from '@webhare/services/src/codecontexts';
+import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
 import { HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
@@ -429,6 +429,38 @@ function getConnection() {
 
 export const __getConnection = getConnection; //TODO don't export this from `@webhare/whdb`
 
+class StashedWork {
+  private stashed: WHDBConnectionImpl | null;
+
+  constructor() {
+    this.stashed = getScopedResource(connsymbol)!;
+    setScopedResource(connsymbol, undefined);
+  }
+  /** Restore this stashed work.
+   * @throws If this stashed work was already restored before
+   * @returns A stash for the work that was open before running restore, or null if there was no work open
+  */
+  restore(): StashedWork | null {
+    if (!this.stashed)
+      throw new Error(`This stashed work was already restored`);
+
+    const newstash = isWorkOpen() ? new StashedWork : null;
+    setScopedResource(connsymbol, this.stashed);
+    this.stashed = null;
+    return newstash;
+  }
+}
+
+/** Stash the current work object, opening a new connection (with potential new work)
+ * @returns A reference to the stashed work. Invoke restore() on it to return to this work
+ */
+export function stashWork(): StashedWork {
+  if (!isWorkOpen())
+    throw new Error(`You cannot stashWork if no work is open`);
+
+  return new StashedWork;
+}
+
 /* db<T> is defined as a function so a call is made every time it is accessed.
    We're just returning the conn.db (with a typecast, but that is transpiled away),
    so very low cost. With this kind of interface, it is easy to type-cast with the
@@ -440,6 +472,43 @@ export const __getConnection = getConnection; //TODO don't export this from `@we
 */
 export function db<T>() {
   return getConnection().db<T>();
+}
+
+/** Run a function inside work and commit it
+ * @throws If the function throws, the work is rolled back and the exception is rethrown
+ */
+export async function runInWork<T>(func: () => T | Promise<T>, options?: WorkOptions): Promise<T> {
+  await beginWork(options);
+  try {
+    const retval = await func();
+    await commitWork();
+    return retval;
+  } catch (e) {
+    if (isWorkOpen())
+      await rollbackWork();
+    throw e;
+  }
+}
+
+
+/** Run a function in a separate work object and commit it
+ * @throws If the function throws, the work is rolled back and the exception is rethrown
+ */
+export async function runInSeparateWork<T>(func: () => T | Promise<T>, options?: WorkOptions): Promise<T> {
+  const stash = isWorkOpen() ? stashWork() : null;
+  await beginWork(options);
+  try {
+    const retval = await func();
+    await commitWork();
+    stash?.restore();
+    return retval;
+  } catch (e) {
+    if (isWorkOpen())
+      await rollbackWork();
+
+    stash?.restore();
+    throw e;
+  }
 }
 
 /** Returns whether work is currently open
@@ -580,3 +649,5 @@ db<PlatformDB>().insertInto("wrd.entities").values(values).execute();
 ```
 */
 export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KInsertable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KInsertable<DB[S]> : never : S extends keyof Q ? KInsertable<Q[S]> : never;
+
+export type { StashedWork };

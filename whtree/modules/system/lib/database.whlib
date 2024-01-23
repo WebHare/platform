@@ -16,6 +16,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseWritable, IsDatabaseOnline;
 LOADLIB "wh::internal/transservices.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException;
 LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
@@ -458,8 +459,9 @@ PUBLIC BOOLEAN FUNCTION HavePrimaryTransaction()
 PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ work := FALSE ], options);
+
   OBJECT savetrans;
-  IF(HavePrimaryTransaction())
+  IF(HavePrimaryTransaction()) //even in WASM we need to go through these motions to fix subtle table autobinding issues
   {
     savetrans := GetPrimary();
     SetPrimaryWebhareTransaction(0);
@@ -469,6 +471,9 @@ PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options D
   TRY
   {
     mytrans := OpenPrimary();
+    IF(IsWASM())
+      EM_Syscall("startSeparatePrimary");
+
     IF(options.work)
       mytrans->BeginWork();
 
@@ -488,6 +493,8 @@ PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options D
   }
   FINALLY
   {
+    IF(IsWASM())
+      EM_Syscall("stopSeparatePrimary");
     IF(ObjectExists(mytrans))
       mytrans->Close();
     IF(ObjectExists(savetrans))
@@ -532,4 +539,3 @@ PUBLIC STRING FUNCTION __GetSiteNameForObjectId(INTEGER objid)
     trans->Close();
   RETURN name;
 }
-
