@@ -1,7 +1,7 @@
 import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse } from "./router";
+import { WebHareWHFSRouter, WebRequest, WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";
@@ -70,9 +70,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
         newheaders.set(header, Array.isArray(value) ? value.join(", ") : value);
     }
 
-  const resp = new WebResponse(result.statusCode, newheaders);
-  resp.setBody(body);
-  return resp;
+  return createWebResponse(body, { status: result.statusCode, headers: newheaders });
 }
 
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk

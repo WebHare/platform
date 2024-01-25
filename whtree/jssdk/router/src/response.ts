@@ -54,7 +54,7 @@ export enum HTTPSuccessCode {
 
 export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
-export class WebResponse {
+class WebResponse {
   private _status: HTTPStatusCode;
   private _bodybuffer: ArrayBuffer | null = null;
   private _headers: Headers;
@@ -147,7 +147,7 @@ export class WebResponse {
  * @param body - The body to return.
  * @param options - Optional statuscode and headers
  */
-export function createWebResponse(body: string, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
+export function createWebResponse(body: string | ArrayBuffer, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
   const resp = new WebResponse(options?.status || HTTPSuccessCode.Ok, options?.headers || {});
   if (body && !resp.getHeader("content-type"))
     resp.setHeader("content-type", "text/html; charset=utf-8");
@@ -168,3 +168,5 @@ export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody
   resp.setBody(JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined));
   return resp;
 }
+
+export type { WebResponse };
