@@ -1,4 +1,4 @@
-/* @webhare/test-backend is a superset of @webhare/test with additional backedn tes tsupport
+/* @webhare/test-backend is a superset of @webhare/test with additional backend test support
  */
 
 //By definition we re-export all of whtest and @webhare/test

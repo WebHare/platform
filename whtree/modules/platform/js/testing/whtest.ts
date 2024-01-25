@@ -6,11 +6,11 @@
 import { dispatchCustomEvent } from "@webhare/dompack";
 import { createClient } from "@webhare/jsonrpc-client";
 
-//By definition we reexport all of @webhare/test
+//By definition we re-export all of @webhare/test
 export * from "@webhare/test";
 
 export interface WaitForEmailOptions {
-  /** If TRUE, don't remove emails from queue */
+  /** If true, don't remove emails from queue */
   peekonly?: boolean;
   /** options.timeout Timeout in milliseconds, max 60000 */
   timeout?: number;
@@ -133,7 +133,7 @@ export async function waitForEmails(email: string, options?: WaitForEmailOptions
       replyTo: mail.replyto,
       receiver: mail.receiver,
       attachments: mail.attachments.map(attachment => ({
-        // fileName: '', //TODO not receving this yet, getting lost somehwere in mime.whlib?
+        // fileName: '', //TODO not receiving this yet, getting lost somehwere in mime.whlib?
         mediaType: attachment.mimetype,
         data: Uint8Array.from(atob(attachment.data), c => c.charCodeAt(0))
       }))
