@@ -1,23 +1,28 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "../../common.lang.json";
+import { ApplicationBase } from "../application";
+
+interface SimpleScreenSettings {
+  text: string;
+  title?: string;
+  /** List of buttonw */
+  buttons: Array<{
+    name: string;
+    title: string;
+  }>;
+  defaultbutton?: string;
+  icon?: "confirmation" | "error" | "information" | "question" | "unrecoverable" | "warning";
+  /** Called when a buttons is clicked. Signature: function (buttonname) */
+  onclose?: (buttonname: string) => void;
+}
 
 /** Create a message box
-    @param app Parent application
-    @param options Options
-    @cell options.text
-    @cell options.icon "confirmation", "error", "information", "question", "unrecoverable", "warning"
-    @cell options.onclose Called when a buttons is clicked. Signature: function (buttonname)
-    @cell options.buttons List of buttons
-    @cell options.buttons.name Name of button
-    @cell options.buttons.title Title of button
+    @param app - Parent application
+    @param options - Options
 */
-export async function runSimpleScreen(app, options) //TODO move API closer to tollium's RunSimpleScreen
-{
+export async function runSimpleScreen(app: ApplicationBase, options: SimpleScreenSettings) { //TODO move API closer to tollium's RunSimpleScreen
   let busylock;
   if (app)
     busylock = app.getBusyLock(); //as we may be loading components, lock just to be sasfe
@@ -26,7 +31,8 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
   try {
     await app.promiseComponentTypes(['panel', 'button', 'action', 'text']);
 
-    const dialog =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- no clean way yet to specify an inline Tollium dialog
+    const dialog: Record<string, any> =
     {
       frame: {
         bodynode: 'root',
@@ -37,14 +43,16 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
       },
 
       root: {
-        type: 'panel', lines: [
+        type: 'panel',
+        lines: [
           { layout: "block", items: [{ item: "body" }], height: '1pr' },
           { layout: "block", items: [{ item: "footer" }] }
         ],
         height: '1pr'
       },
       body: {
-        type: 'panel', lines: [{ title: '', layout: 'left', items: [{ item: 'text' }] }],
+        type: 'panel',
+        lines: [{ title: '', layout: 'left', items: [{ item: 'text' }] }],
         height: '1pr',
         spacers: { top: true, bottom: true, left: true, right: true },
         width: '1pr'
@@ -77,7 +85,7 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
 
     const newscreen = app.createNewScreenObject('dialog', 'frame', $todd.componentsToMessages(dialog));
     options.buttons.forEach(button => {
-      newscreen.setMessageHandler("action_" + button.name, "execute", function (data, callback) {
+      newscreen.setMessageHandler("action_" + button.name, "execute", function (data: unknown, callback: () => void) {
         //ADDME if (! onclick or something like that i think) ?
         newscreen.terminateScreen();
         if (options.onclose)

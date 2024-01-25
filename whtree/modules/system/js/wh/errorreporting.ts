@@ -69,7 +69,7 @@ let reportPromise = null;
     @cell options.serviceuri Alternative serviceuri to use
     @cell options.servicefunction Alternative servicefunction to use
 */
-async function reportException(errorobj, options) {
+export async function reportException(errorobj: Error, options?) {
   options = options || {};
 
   //try {  console.log("reportException", errorobj, errorobj.stack) }catch(e) {}
@@ -196,7 +196,7 @@ function handleOnError(errormsg, url, linenumber, column, errorobj) {
   return false;
 }
 
-function shouldIgnoreOnErrorCallback(errormsg) {
+export function shouldIgnoreOnErrorCallback(errormsg) {
   // Firefox fires the performance warning 'mutating the [[Prototype]] of an object will cause your code to run very slowly; instead ...'
   // via onerror. Ignore it, it is not an error.
   if (/mutating the \[\[Prototype\]\] of an/.exec(errormsg))
@@ -208,16 +208,9 @@ function shouldIgnoreOnErrorCallback(errormsg) {
 /** If any reports have been issued, returns a promise that will be resolved when all reports have been submitted.
     Returns null otherwise.
 */
-function waitForReports() {
+export function waitForReports() {
   return reportPromise;
 }
 
 if (!dompack.debugflags.ner)
   installHandlers();
-
-module.exports =
-{
-  reportException: reportException,
-  shouldIgnoreOnErrorCallback: shouldIgnoreOnErrorCallback,
-  waitForReports
-};

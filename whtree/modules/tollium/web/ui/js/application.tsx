@@ -10,7 +10,7 @@ import { Lock, flagUIBusy } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import * as focusZones from '../components/focuszones';
 import { loadScript } from '@webhare/dompack';
-import utilerror from '@mod-system/js/wh/errorreporting';
+import * as utilerror from '@mod-system/js/wh/errorreporting';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import LinkEndPoint from './comm/linkendpoint';
@@ -67,19 +67,22 @@ export class ApplicationBase {
 
   dirtylisteners = new Array<DirtyListener>;
 
+  /** Application name */
+  appname: string;
+  /** Parent application */
+  parentapp: ApplicationBase | null = null;
   /** The shell starting us */
   shell: IndyShell; //(as if there would be more than one in a JS instace?)
 
-  constructor(shell: IndyShell, appname, apptarget, parentapp, options) {
+  constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?) {
     this.container = null;
     /// Name of  app
-    this.appname = '';
+    this.appname = appname;
     this.appicon = '';
     this.visible = false;
     /// Target
     this.apptarget = {};
-    /// Parent application
-    this.parentapp = null;
+
     this.shell = shell;
     this.tabmodifier = '';
 
@@ -129,7 +132,6 @@ export class ApplicationBase {
       ...options
     };
 
-    this.appname = appname;
     this.apptarget = apptarget;
     this.appnodes = {};
     this.title = getTid("tollium:shell.loadingapp");
@@ -460,11 +462,10 @@ export class ApplicationBase {
     });
   }
 
-  getToplevelApp() {
-    for (var app = this; app.parentapp; app = app.parentapp)
-      ;
-    return app;
+  getToplevelApp(): ApplicationBase {
+    return this.parentapp?.getToplevelApp() || this;
   }
+
   createNewScreenObject(windowname, framename, messages) {
     const screen = new Frame(this, {
       window: windowname,
@@ -574,7 +575,7 @@ export class ApplicationBase {
       @example
       (*operation returning a promise*).catch(app.showExceptionDialog)
   */
-  showExceptionDialog(e) {
+  showExceptionDialog(e: Error) {
     utilerror.reportException(e);
     runSimpleScreen(this,
       {
