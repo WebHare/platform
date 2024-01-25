@@ -235,7 +235,7 @@ class DashboardApp {
     this.dashboardappsnode.firstChild.replaceWith(newmenu);
 
     dompack.empty(dompack.qS('#dashboard-user'));
-    const usericon = this.shell.getCurrentSettings().issysop ? 'tollium:users/manager' : 'tollium:users/user';
+    const usericon = settings.issysop ? 'tollium:users/manager' : 'tollium:users/user';
     dompack.qS('#dashboard-user').append(
       toddImages.createImage(usericon, 16, 16, 'w', { className: "dashboard__userimg" })
       , <span id="dashboard-user-name">{settings.userdisplayname}</span>);
