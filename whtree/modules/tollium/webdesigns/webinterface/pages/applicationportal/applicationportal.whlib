@@ -766,11 +766,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     BOOLEAN issupervisor := issysop OR (ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:supervisor"));
 
     RECORD portalsettings :=
-            [ skin := "default"
-            , lang := GetTidLanguage()
+            [ lang := GetTidLanguage()
             , eventgroups := this->GetEventGroups()
             , now := FormatISO8601Datetime(GetCurrentDatetime(), "day", "milliseconds")
-            , version := GetWebhareVersionInfo()
             , servername := GetServerName()
             , apps := this->GetAppMenu()
             , newsitems := this->GetNewsItems()

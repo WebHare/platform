@@ -300,7 +300,6 @@ class IndyShell extends TolliumShell {
     this.tolliumservice.startPortal([options]).then(this.gotPortal.bind(this), this.failPortal.bind(this));
   }
   gotPortal(data) {
-    this.versioninfo = data.version;
     this.isloggedin = data.isloggedin;
 
     this.applyShellSettings(data.settings);
