@@ -384,11 +384,11 @@ export function loadMissingImages({ force, node }) {
   }
 }
 
-export function createImage(imgname, width, height, color, eloptions) {
+export function createImage(imgname, width, height, color, eloptions?) {
   return createCompositeImage(imgname.split("+"), width, height, color, eloptions);
 }
 
-export function createCompositeImage(imgnames, width, height, color, eloptions) {
+export function createCompositeImage(imgnames, width, height, color, eloptions?) {
   const imgnode = dompack.create('img', { width, height, ...eloptions });
   updateCompositeImage(imgnode, imgnames, width, height, color);
   return imgnode;
