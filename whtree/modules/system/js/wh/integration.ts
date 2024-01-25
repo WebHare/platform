@@ -103,7 +103,7 @@ function checkAuthorMode() {
   if (document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
     && !document.documentElement.classList.contains("wh-noauthormode") //explicit opt-out
     && window.top === window //we're not in an iframe
-    && dompack.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
+    && dompack.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) { //set by view.shtml (view.html.witty)
     activeAuthorMode();
   }
 }
