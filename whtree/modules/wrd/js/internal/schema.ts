@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
@@ -218,7 +218,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).upsert(keys, value, options));
   }
 
-  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: HistoryModeData }): Promise<number | null> {
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryModes | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
@@ -284,6 +284,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!this.attrPromise)
       this.attrPromise = (await this._getType()).listAttributes(0) as Promise<WRDAttributeConfiguration_HS[]>;
 
+    const attrs = await this.attrPromise;
+    const genderattr = attrs.find(_ => _.tag === "WRD_GENDER");
+    if (genderattr) { //patch for JS
+      genderattr.attributetypename = "ENUM";
+      genderattr.attributetype = 23;
+      genderattr.allowedvalues = Object.values(WRDGender);
+    }
+
     return this.attrs = await this.attrPromise;
   }
 
@@ -342,13 +350,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return [newId, true];
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData }): Promise<number | null> {
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData | SimpleHistoryModes }): Promise<number | null> {
+    const historyMode = toHistoryData(options?.historyMode ?? "now");
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
       type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-      const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], options?.historyMode ?? { mode: "now" }, 1);
+      const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], historyMode, 1);
       return list.length ? list[0] as number : null;
     }
-    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), ...translateHistoryModeToHS(options?.historyMode ?? { mode: "now" }), jsmode: true }) as number;
+    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), ...translateHistoryModeToHS(historyMode), jsmode: true }) as number;
     return res || null;
   }
 
@@ -452,6 +461,19 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
+    if (tag === "wrdGender" && this.tag === "wrdPerson")  // HS doesn't fully know wrdGender is an enum in JS
+      return {
+        tag: "wrdGender",
+        attributeType: WRDAttributeType.Enum,
+        title: '',
+        checkLinks: false,
+        domain: null,
+        isUnsafeToCopy: false,
+        isRequired: false,
+        isOrdered: false,
+        allowedValues: ['male', 'female', 'other']
+      };
+
     const typeobj = await this._getType();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await typeobj.GetAttribute(tagToHS(tag)) as WRDAttributeConfiguration_HS;

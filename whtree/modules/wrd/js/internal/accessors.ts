@@ -243,15 +243,16 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
-    if (!cv.options?.matchcase)
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    if (caseInsensitive)
       value = value.toUpperCase();
     if (cv.condition === "in" || cv.condition === "mentionsany") {
-      if (!cv.options?.matchcase) {
+      if (caseInsensitive) {
         return cv.value.some(v => value === v.toUpperCase());
       } else
         return cv.value.includes(value);
     }
-    const cmpvalue = cv.options?.matchcase ? cv.value : cv.value.toUpperCase();
+    const cmpvalue = caseInsensitive ? cv.value.toUpperCase() : cv.value;
     if (cv.condition === "like") {
       return isLike(value, cmpvalue);
     }
@@ -260,6 +261,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
 
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
@@ -273,7 +275,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     else if (db_cv.condition === "mentionsany")
       db_cv = { ...db_cv, condition: "in" };
 
-    if (!db_cv.options?.matchcase) {
+    if (caseInsensitive) {
       if (db_cv.condition === "in")
         db_cv.value = db_cv.value.map(v => v.toUpperCase());
       else
@@ -287,8 +289,8 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     const filtered_cv = db_cv;
     query = addQueryFilter(query, this.attr.id, defaultmatches, b => {
       return b
-        .$if(Boolean(db_cv.options?.matchcase), f => addWhere(f, sql`rawdata`, filtered_cv.condition, filtered_cv.value))
-        .$if(!db_cv.options?.matchcase, f => addWhere(f, sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value));
+        .$if(!caseInsensitive, f => addWhere(f, sql`rawdata`, filtered_cv.condition, filtered_cv.value))
+        .$if(caseInsensitive, f => addWhere(f, sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value));
     });
 
     return {
@@ -318,15 +320,16 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
-    if (!cv.options?.matchcase)
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    if (caseInsensitive)
       value = value.toUpperCase();
     if (cv.condition === "in" || cv.condition === "mentionsany") {
-      if (!cv.options?.matchcase) {
+      if (caseInsensitive) {
         return cv.value.some(v => value === v.toUpperCase());
       } else
         return cv.value.includes(value);
     }
-    const cmpvalue = cv.options?.matchcase ? cv.value : cv.value.toUpperCase();
+    const cmpvalue = caseInsensitive ? cv.value.toUpperCase() : cv.value;
     if (cv.condition === "like") {
       return isLike(value, cmpvalue);
     }
@@ -334,6 +337,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
+    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
     if (db_cv.condition === "like") {
@@ -346,7 +350,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
     else if (db_cv.condition === "mentionsany")
       db_cv = { ...db_cv, condition: "in" };
 
-    if (!db_cv.options?.matchcase) {
+    if (caseInsensitive) {
       if (db_cv.condition === "in")
         db_cv.value = db_cv.value.map(v => v.toUpperCase());
       else
@@ -361,13 +365,13 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
 
     let baseAttr: RawBuilder<unknown>;
     switch (this.attr.tag) {
-      case "wrdTag": baseAttr = db_cv.options?.matchcase ? sql`tag` : sql`upper("tag")`; break;
-      case "wrdInitials": baseAttr = db_cv.options?.matchcase ? sql`initials` : sql`upper("initials")`; break;
-      case "wrdFirstName": baseAttr = db_cv.options?.matchcase ? sql`firstname` : sql`upper("firstname")`; break;
-      case "wrdFirstNames": baseAttr = db_cv.options?.matchcase ? sql`firstnames` : sql`upper("firstnames")`; break;
-      case "wrdInfix": baseAttr = db_cv.options?.matchcase ? sql`infix` : sql`upper("infix")`; break;
-      case "wrdLastName": baseAttr = db_cv.options?.matchcase ? sql`lastname` : sql`upper("lastname")`; break;
-      case "wrdTitlesSuffix": baseAttr = db_cv.options?.matchcase ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
+      case "wrdTag": baseAttr = !caseInsensitive ? sql`tag` : sql`upper("tag")`; break;
+      case "wrdInitials": baseAttr = !caseInsensitive ? sql`initials` : sql`upper("initials")`; break;
+      case "wrdFirstName": baseAttr = !caseInsensitive ? sql`firstname` : sql`upper("firstname")`; break;
+      case "wrdFirstNames": baseAttr = !caseInsensitive ? sql`firstnames` : sql`upper("firstnames")`; break;
+      case "wrdInfix": baseAttr = !caseInsensitive ? sql`infix` : sql`upper("infix")`; break;
+      case "wrdLastName": baseAttr = !caseInsensitive ? sql`lastname` : sql`upper("lastname")`; break;
+      case "wrdTitlesSuffix": baseAttr = !caseInsensitive ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
       default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
     }
     return {
@@ -628,6 +632,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     return value ? { settings: { rawdata: "1", attribute: this.attr.id } } : {};
   }
 }
+
 
 class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
   getDefaultValue() { return 0; }
@@ -971,7 +976,7 @@ type WRDDBEnumConditions = {
 // FIXME: add wildcard support
 type GetEnumAllowedValues<Options extends { allowedvalues: string }, Required extends boolean> = (Options extends { allowedvalues: infer V } ? V : never) | (Required extends true ? never : null);
 
-class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
+abstract class WRDDBEnumValueBase<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
   getDefaultValue(): GetEnumAllowedValues<Options, Required> | null { return null; }
   checkFilter({ condition, value }: WRDDBEnumConditions) {
     if (condition === "mentions" && !value)
@@ -1034,11 +1039,55 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     if (this.attr.required && (!value || !value.length))
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
+}
 
+class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDDBEnumValueBase<Options, Required> {
   encodeValue(value: GetEnumAllowedValues<Options, Required> | null) {
     return value ? { settings: { rawdata: value, attribute: this.attr.id } } : {};
   }
 }
+
+class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedvalues: WRDGender }, false> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
+    if (this.attr.tag !== 'wrdGender')
+      throw new Error(`Unhandled base gender attribute ${JSON.stringify(this.attr.tag)}`);
+
+    //TODO implement (but low prio, searching by gender is rare)
+    return {
+      needaftercheck: true,
+      query
+    };
+  }
+
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): WRDGender | null {
+    if (this.attr.tag !== 'wrdGender')
+      throw new Error(`Unhandled base gender attribute ${JSON.stringify(this.attr.tag)}`);
+
+    switch (entityrec["gender"]) {
+      case 0: return null;
+      case 1: return WRDGender.Male;
+      case 2: return WRDGender.Female;
+      case 3: return WRDGender.Other;
+      default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): never {
+    throw new Error(`Should not be called for base attributes`);
+
+  }
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdGender"]);
+  }
+
+  encodeValue(value: WRDGender) {
+    const mapped = [null, WRDGender.Male, WRDGender.Female, WRDGender.Other].indexOf(value);
+    if (mapped === -1)
+      throw new Error(`Unknown gender value '${value}'`);
+    return { entity: { [this.getAttrBaseCells()]: value } };
+  }
+}
+
 
 type WRDDBEnumArrayConditions = {
   condition: "=" | "!="; value: readonly string[];
@@ -1676,7 +1725,6 @@ type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Opti
 //class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
 class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
-class WRDDBBaseGenderValue extends WRDAttributeUnImplementedValueBase<WRDGender, WRDGender, WRDGender> { }
 //class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>> { _x?: Options; _y?: Required; }
 
 /// The following accessors are not implemented yet
@@ -1768,7 +1816,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeType.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Gender: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+    case WRDBaseAttributeType.Base_Gender: return new WRDDBBaseGenderValue(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
     case WRDBaseAttributeType.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
 
     case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;

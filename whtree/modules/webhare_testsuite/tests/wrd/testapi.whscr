@@ -3210,6 +3210,8 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   //test with links
   OBJECT personorglink := testfw->GetWRDSchema()->^personorglink;
   INTEGER testorg := testfw->GetWRDSchema()->^wrd_organization->Search("WRD_ORGNAME", "The Org");
+  TestAssert(testorg != 0);
+  TestEq(0, testfw->GetWRDSchema()->^wrd_organization->Search("WRD_ORGNAME", "THE ORG"));
   tempentity := personorglink->CreateEntity(CELL[], [ temp := TRUE ]);
 
   //should be safe to update without setting required links field

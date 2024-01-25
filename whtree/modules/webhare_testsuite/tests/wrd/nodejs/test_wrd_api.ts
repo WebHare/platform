@@ -44,6 +44,7 @@ async function testWRDUntypedApi() { //  tests
   await test.throws(/may not start/, () => persontype.describeAttribute("WRD_CONTACT_EMAIL"));
   test.eqProps({ attributeType: WRDAttributeType.Email }, await persontype.describeAttribute("wrdContactEmail"));
   test.eqProps({ attributeType: WRDAttributeType.Domain, domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
+  test.eqProps({ attributeType: WRDAttributeType.Enum, isRequired: false, allowedValues: ["male", "female", "other"] }, await persontype.describeAttribute("wrdGender"));
 
   test.eq(null, await wrdschema.describeType("noSuchType"));
   test.eqProps({ left: "wrdPerson", right: null }, await wrdschema.describeType("personattachment"));

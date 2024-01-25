@@ -7,6 +7,7 @@ import { nameToSnakeCase, nameToCamelCase } from "@webhare/hscompat/types";
 
 export interface WRDAttributeConfiguration_HS {
   attributetype: number;
+  attributetypename: string;
   tag: string;
   title: string;
   checklinks: boolean;
