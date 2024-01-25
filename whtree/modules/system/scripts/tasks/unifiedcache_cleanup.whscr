@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 
 SetupFunctionProfiling("unified_cachecleanup", "");
@@ -17,6 +18,8 @@ IF(NOT RecordExists(info))
   Print("Invalid arguments\n");
   RETURN;
 }
+
+OpenPrimary();
 
 INTEGER ignore_newer_than := Tointeger(info.ignorenewerthan,60)*60*1000; //ignore files created less than 60 minutes ago
 INTEGER delete_after_days := ToInteger(info.deleteafterdays,2); //delete files not requested for more than 2 days
