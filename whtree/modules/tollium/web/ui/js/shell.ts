@@ -538,11 +538,6 @@ class IndyShell extends TolliumShell {
           this.requestNewShellSettings();
           return;
         }
-      case "tollium:shell.updatechecks":
-        {
-          this.onCheckInterval();
-          return;
-        }
 
       case "tollium:towl.event":
         {
