@@ -702,7 +702,8 @@ load_postgres_settings()
     if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
       PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
     else
-      echo "This database requires postgres version @${PGVERSION}. Please install it"
+      echo "This database requires postgres version ${PGVERSION}. Please install it (brew install postgresql@${PGVERSION} ?)"
+      exit 1
     fi
   else
     PSBIN="/usr/pgsql-11/bin/"
