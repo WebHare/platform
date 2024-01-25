@@ -32,7 +32,8 @@ const busydonedelay = 50;     //time before we start the 'done' fadeout
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-const jsappconstructors = {};
+type JSAppConstructor = new (app: FrontendEmbeddedApplication, callback: () => void) => void;
+const jsappconstructors: Record<string, JSAppConstructor> = {};
 
 /** Busy lock (while taken, the tollium app is busy
 */
@@ -597,12 +598,18 @@ export class ApplicationBase {
 
 
 //An embedded application 'lives' in the tollium javascript. We better trust it...
-const loadedscripts = {};
+const loadedscripts: Record<string, Promise<HTMLScriptElement>> = {};
 export class FrontendEmbeddedApplication extends ApplicationBase {
+  baseobject: string = '';
+
   constructor(shell, appname, apptarget, parentapp, options) {
     super(shell, appname, apptarget, parentapp, options);
   }
-  loadApplication(manifest) {
+
+  async loadApplication(manifest: {
+    baseobject: string;
+    src?: string;
+  }) {
     this.baseobject = manifest.baseobject;
 
     if (!jsappconstructors[this.baseobject]) {
@@ -611,24 +618,18 @@ export class FrontendEmbeddedApplication extends ApplicationBase {
         scr = loadScript(manifest.src + "?__cd=" + Date.now());
         loadedscripts[manifest.baseobject] = scr;
       }
-      scr.then(result => this.onAppLoadComplete({ success: true }));
-    } else {
-      this.onAppLoadComplete({ success: true });
+      await scr;
     }
-  }
-  onAppLoadComplete(event) {
-    if (event.success && jsappconstructors[this.baseobject]) {
-      this.app = new jsappconstructors[this.baseobject](this, this.onAppInitComplete.bind(this));
+
+    if (!jsappconstructors[this.baseobject]) {
+      console.error("Failed to load application " + this.baseobject); //FIXME how to deal with it?
       return;
     }
 
-    console.error("Failed to load application " + this.baseobject); //FIXME how to deal with it?
-    console.log(event);
-  }
-  onAppInitComplete(event) {
+    await new Promise<void>(resolve => new jsappconstructors[this.baseobject](this, resolve));
     this._resolveAppLoad();
   }
-  queueEvent(actionname, param, synchronous, callback) {
+  queueEvent(actionname: string, param: unknown) {
     console.warn("Cannot handle event '" + actionname + "'", param);
   }
 
@@ -1155,6 +1156,6 @@ export class BackendApplication extends ApplicationBase {
  * Global application functions
  */
 
-export function registerJSApp(name, constructor) {
+export function registerJSApp(name: string, constructor: JSAppConstructor) {
   jsappconstructors[name] = constructor;
 }
