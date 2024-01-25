@@ -54,7 +54,7 @@ if (typeof window !== 'undefined') { //check we're in a browser window, ie not s
   }
 }
 
-initEnv(dtapStage);
+initEnv(dtapStage, '/');
 
 // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
 export const frontendConfig = {

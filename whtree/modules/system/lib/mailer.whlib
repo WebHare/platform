@@ -1786,3 +1786,29 @@ PUBLIC OBJECT FUNCTION PrepareMailWitty(STRING mailwitty, RECORD options DEFAULT
   OBJECT composer := NEW WittyMailComposer(mailwitty, options.webcontext, options.mailtemplate, options.assetcache);
   RETURN composer;
 }
+
+PUBLIC RECORD FUNCTION __PrepareMailForJS(RECORD mailinfo)
+{
+  BLOB htmlversion := StringToBlob(mailinfo.html);
+  BLOB textversion := ConvertHTMLToPlainText(htmlversion, 0, "UTF-8", DEFAULT MACRO PTR);
+  RECORD ARRAY embed;
+  RECORD toppart := CreateMIMEMailingTopPart(textversion, htmlversion, embed);
+
+  //Generate the mailing itself!
+  toppart := AddAttachmentsToMail(toppart, SELECT *, name := filename FROM mailinfo.attachments);
+  ///    toppart := __AddAlternativesToMail(toppart, this->alternatives);
+
+  /* TODO other options
+  tions := ValidateOptions([ statuscallback := ""
+                             , statusdata := ""
+                             , rawheaders := FALSE
+                             , priority := "interactive"
+                             , ignorerecipientwhitelist := FALSE
+                             , sensitive := FALSE
+                             , notbefore := DEFAULT DATETIME
+                             , replytofallsbacktorecipient := FALSE
+                             ]
+  */
+  RETURN [ taskids := QueueMailInWork(mailinfo.origin, STRING[...mailinfo.recipients], mailinfo.sender, mailinfo.headers, toppart, CELL[ rawheaders := TRUE ])
+         ];
+}

@@ -3,4 +3,4 @@
 import { backendConfig } from '@mod-system/js/internal/configuration';
 import { initEnv } from '@webhare/env/src/envbackend';
 
-initEnv(backendConfig.dtapstage);
+initEnv(backendConfig.dtapstage, backendConfig.backendURL);

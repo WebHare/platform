@@ -25,7 +25,11 @@ PUBLIC RECORD FUNCTION ProcessExtractedMail(RECORD email)
                         , replyto := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="REPLY-TO")
                         , toppart := email.data
                         , email.receiver
+                        , attachments := RECORD[]
                         ];
+
+  IF(email.data.mimetype = "multipart/mixed") //attachments?!
+    outmail.attachments := SELECT data, mimetype, contentdisposition FROM ArraySlice(email.data.subparts,1);
 
   RECORD htmlpart := GetEmailPrimaryMIMEPart(email.data, "text/html");
   RECORD plaintextpart := GetEmailPrimaryMIMEPart(email.data, "text/plain");

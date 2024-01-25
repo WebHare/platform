@@ -22,6 +22,7 @@ export type { TaskFunction, TaskResponse } from "./tasks";
 export { readRegistryKey, writeRegistryKey } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer } from "./secrets";
+export { prepareMail } from "./mail";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";

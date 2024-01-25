@@ -8,6 +8,8 @@ import { WebRequestInfo } from '@mod-system/js/internal/types';
 import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
 import { MyService } from '@mod-webhare_testsuite/js/jsonrpc/type';
 import { createClient } from "@webhare/jsonrpc-client";
+import { backendBase, initEnv } from '@webhare/env/src/envbackend';
+import { DTAPStage } from '@webhare/env';
 
 async function testRPCCaller() {
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
@@ -58,24 +60,34 @@ async function testRPCCaller() {
 }
 
 async function testTypedClient() {
-  const myservice = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
-  test.eq(true, await myservice.validateEmail("nl", "pietje@webhare.dev"));
-  test.eq(false, await myservice.validateEmail("en", "klaasje@beta.webhare.net"));
+  //These normally work out-of-the box as @webhare/env should be configured by the bootstrap
+  test.eq(true, await noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
+  test.eq(false, await noAuthJSService.validateEmail("en", "klaasje@beta.webhare.net"));
+
+  //Verify that modifying the base URL breaks them
+  const save_backend_setting = backendBase;
+  initEnv(DTAPStage.Development, "http://127.0.0.1:65500/");
+  await test.throws(/fetch failed/, () => noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
+
+  const myservice1 = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
+  test.eq(true, await myservice1.validateEmail("nl", "pietje@webhare.dev"));
+  test.eq(false, await myservice1.validateEmail("en", "klaasje@beta.webhare.net"));
 
   const myservice2 = createClient<MyService>(backendConfig.backendURL + "wh_services/webhare_testsuite/testnoauthjs");
   test.eq(true, await myservice2.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice2.validateEmail("en", "klaasje@beta.webhare.net"));
 
-  const err = await test.throws(/this is a server crash/, myservice.withOptions({ silent: true }).serverCrash());
+  const err = await test.throws(/this is a server crash/, myservice1.withOptions({ silent: true }).serverCrash());
   const trace = parseTrace(err);
   //verify I can see client and server side
   test.assert(trace.find(t => t.func === "TestNoAuthJS.serverCrash"));
   test.assert(trace.find(t => t.func.includes("testTypedClient")));
 
-  const serviceWithHeaders = myservice.withOptions({ headers: { "Authorization": "grizzly bearer" } });
+  const serviceWithHeaders = myservice1.withOptions({ headers: { "Authorization": "grizzly bearer" } });
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
   test.eqProps({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
 
+  initEnv(DTAPStage.Development, save_backend_setting); //restore it just in case future tests rely on it
 }
 
 test.run([

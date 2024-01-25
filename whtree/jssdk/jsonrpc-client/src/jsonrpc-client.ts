@@ -1,4 +1,4 @@
-import { debugFlags } from "@webhare/env";
+import { debugFlags, backendBase } from "@webhare/env";
 import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { StackTrace, parseTrace, prependStackTrace } from "@webhare/js-api-tools";
 
@@ -242,10 +242,10 @@ class RPCClient {
 
     if (this.options.baseUrl)
       return new URL(url, this.options.baseUrl).toString();
-    else if (typeof location !== "undefined")
-      return new URL(url, location.origin).toString();
+    else if (backendBase)
+      return backendBase + (backendBase.endsWith('/') && url.startsWith('/') ? url.substring(1) : url);
     else
-      throw new Error(`You must set the baseUrl option when using JSONRPC in a non-browser environment`);
+      throw new Error(`You must set the baseUrl option when using the JSONRPC Client without a full URL outside Webhare`);
   }
 
   invoke(method: string, params: unknown[]) {
