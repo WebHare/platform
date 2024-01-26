@@ -37,7 +37,9 @@ LOADLIB "mod::tollium/lib/internal/language.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/screenmanager.whlib";
+LOADLIB "mod::tollium/lib/internal/types.whlib";
 LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
+
 
 INTEGER objectprofileId;
 
@@ -1667,16 +1669,10 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       }
 
       INSERT [ title := "Open in debugger"
-             , cmd :=
-                    [ type := "appmessage"
-                    , app := "system:debugger"
-                    , reuse_instance := "never"
-                    , target := DEFAULT RECORD
-                    , message :=
-                            [ groupid := GetCurrentGroupId()
-                            , files := [ lib ]
-                            ]
-                    ]
+             , cmd := GetAppLaunchInstruction("system:debugger", [ message := [ groupid := GetCurrentGroupId()
+                                                                              , files := [ lib ]
+                                                                              ]
+                                                                 ])
              ] INTO items AT END;
     }
     RETURN items;
@@ -1916,29 +1912,16 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /** @short Send a message to an application, launch it if needed
       @long Application messages offer a one-way communication channel between applications, and allows for a way to start new applications
       @param app Name of the application to start (usually 'modulename.applicationname')
-      @param apptarget The target (eg document, schema) of the application. May be an empty record. An application instance only matches if it has the same application name and target
-      @param messagedata If an existing record is passed, this is sent to the 'onmessage' handler of the application
+      @param target The target (eg document, schema) of the application. May be an empty record. An application instance only matches if it has the same application name and target
+      @param message If an existing record is passed, this is sent to the 'onmessage' handler of the application
       @param options
       @cell options.reusemode When to reuse an existing application. Possible values: "never", "always", "whennotbusy". If reusing an existing application,
           the message is sent to its onmessage handler.
   */
-  PUBLIC MACRO StartApplication(STRING app, RECORD apptarget, RECORD messagedata, RECORD options)
+  PUBLIC MACRO StartApplication(STRING app, RECORD target, RECORD message, RECORD options)
   {
-    options := ValidateOptions(
-        [ reusemode :=  "always"
-        ], options);
-
-    IF (options.reusemode NOT IN [ "always", "whennotbusy", "never" ])
-      THROW NEW Exception(`Illegal reusemode '${options.reusemode}', allowed: 'always', 'whennotbusy'`);
-
-    this->QueueInstruction(
-        [ instr :=    "shellinstruction"
-        , type :=     "appmessage"
-        , app :=      app
-        , target :=   apptarget
-        , message :=  messagedata
-        , reuse_instance := options.reusemode
-        ]);
+    //GetAppLaunchInstruction will validate options.reusemode
+    this->QueueInstruction(CELL[ instr := "shellinstruction", ...GetAppLaunchInstruction(app, CELL[ message, target, reuse_instance := options.reusemode ])]);
   }
 
   /* loaddata: OBJECT parent, STRING basemodule, STRING pagefile, STRING pagename, RECORD params, BOOLEAN run_init, STRING ARRAY allowed_implementations)
