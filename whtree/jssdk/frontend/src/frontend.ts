@@ -3,6 +3,7 @@ import "./reset.css";
 export { frontendConfig } from "./init";
 export { startSSOLogin } from "./auth";
 export { navigateTo } from "./navigation";
+export { setupAuthorMode, type AuthorModeOptions } from "./authormode";
 export type { NavigateInstruction } from "./navigation";
 
 function postRenderChecks() {

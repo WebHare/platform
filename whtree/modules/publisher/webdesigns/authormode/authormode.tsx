@@ -8,6 +8,18 @@ import { runFeedbackReport } from "./feedback";
 import "./authormode.scss";
 import "./authormode.lang.json";
 
+export interface AuthorModeOptions {
+  //whether to show feedback options. only include if you've set up a module to actually handle feedback and screenhots!
+  allowFeedback?: boolean;
+  //orientation. defaults to 'right'
+  orientation?: 'left' | 'right';
+}
+
+declare global {
+  interface Window {
+    whAuthorModeOptions?: AuthorModeOptions;
+  }
+}
 
 function reportIssue(event: MouseEvent, addElement: boolean) {
   dompack.stop(event);
@@ -29,14 +41,15 @@ function setupAuthorMode() {
     <wh-authorbar>
       <div class="wh-authorbar__title" onClick={focusFirstAction}>{getTid("publisher:site.authormode.title")}</div>
       <div class="wh-authorbar__actions">
-        <ul class="wh-authorbar__actiongroup">
-          <li class="wh-authorbar__action">
-            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, true)}>{getTid("publisher:site.authormode.feedback-specific")}</a>
-          </li>
-          <li class="wh-authorbar__action">
-            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, false)}>{getTid("publisher:site.authormode.feedback-general")}</a>
-          </li>
-        </ul>
+        {window.whAuthorModeOptions?.allowFeedback ?
+          <ul class="wh-authorbar__actiongroup">
+            <li class="wh-authorbar__action">
+              <a href="#" onClick={(event: MouseEvent) => reportIssue(event, true)}>{getTid("publisher:site.authormode.feedback-specific")}</a>
+            </li>
+            <li class="wh-authorbar__action">
+              <a href="#" onClick={(event: MouseEvent) => reportIssue(event, false)}>{getTid("publisher:site.authormode.feedback-general")}</a>
+            </li>
+          </ul> : null}
         <ul class="wh-authorbar__actiongroup">
           <li class="wh-authorbar__action">
             <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{getTid("publisher:site.authormode.openinwebhare")}</a>
@@ -48,12 +61,11 @@ function setupAuthorMode() {
       </div>
     </wh-authorbar>);
 
-  //no positioning selected?
-  if (!document.documentElement.matches('.wh-authorbar--left,.wh-authorbar--right'))
-    document.documentElement.classList.add('wh-authorbar--right');
-
   document.documentElement.classList.add("wh-authormode--active");
 }
+
+const orientation = window.whAuthorModeOptions?.orientation ?? 'right';
+document.documentElement.classList.add('wh-authorbar--orientation-' + orientation);
 
 dialogapi.setupDialogs(options => dialog.createDialog('wh-authormode__dialog', options), { messageboxclassbase: "wh-authormode__message__" });
 dompack.onDomReady(setupAuthorMode);
