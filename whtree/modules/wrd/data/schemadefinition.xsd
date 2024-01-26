@@ -379,7 +379,7 @@
   <xs:complexType name="Field">
     <xs:simpleContent>
       <xs:extension base="xs:string">
-        <xs:attribute name="tag" type="Name" />
+        <xs:attribute name="tag" type="Name" use="required" />
       </xs:extension>
     </xs:simpleContent>
   </xs:complexType>
