@@ -4,8 +4,10 @@ import * as dompack from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
 import { onConsentChange, ConsentSettings } from "./consenthandler";
-import { frontendConfig } from '@webhare/frontend';
 import { createDeferred } from '@webhare/std';
+
+//NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
+import { frontendConfig } from '@webhare/frontend/src/init';
 
 //TODO Is there an official description of what GTM datalayer accepts?
 type DataLayerVars = Record<string, unknown>;

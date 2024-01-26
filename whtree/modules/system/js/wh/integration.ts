@@ -1,6 +1,8 @@
 import * as dompack from '@webhare/dompack';
-import { navigateTo, NavigateInstruction } from "@webhare/frontend";
-export { frontendConfig as config } from "@webhare/frontend";
+
+//NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
+import { navigateTo, NavigateInstruction } from "@webhare/frontend/src/navigation";
+export { frontendConfig as config } from '@webhare/frontend/src/init';
 
 type FormValueList = Array<{ name: string; value: string }>;
 
