@@ -11,6 +11,10 @@ interface Trackable {
 
 const ports = new Array<WeakRef<MessagePort>>();
 
+export function getTrackingSymbol(obj: unknown): string | undefined {
+  return (obj as Trackable)[titlesymbol];
+}
+
 function setTrackingSymbol(obj: unknown, title = "unknown") {
   (obj as Trackable)[titlesymbol] = `MessagePort: '${title}'\n${debugFlags.async ? getCallStackAsText(1) : ""}`;
 }
