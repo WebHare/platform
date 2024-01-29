@@ -10,6 +10,7 @@ LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
 
 STRING  test_prefix;      // Prefix used for generating test sites/users/folders etc
 STRING  test_name;        // Name of the current test
@@ -77,7 +78,8 @@ PUBLIC MACRO ReportError(STRING message, RECORD ARRAY errors, STRING annotation)
 
   test_errorcount := test_errorcount + 1;
 
-  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  Print("\n");
+  Print(FormatHarescriptStackTrace(GetAsyncStackTrace()));
   THROW NEW TestFailException(annotation);
 }
 
@@ -142,8 +144,8 @@ PUBLIC OBJECT FUNCTION TestThrowsTestException(FUNCTION PTR testfunc, STRING ann
   IF(annotation != "")
     Print("\nAnnotation: " || annotation || "\n");
 
-  PRINT("Expected test at line " || GetStackTrace()[0].line || " to throw a TestFailException, but it didn't\n");
-  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  PRINT("Expected test at line " || GetStackTrace()[0].line || " to throw a TestFailException, but it didn't\n\n");
+  Print(FormatHarescriptStackTrace(GetAsyncStackTrace()));
   THROW NEW TestFailException(annotation);
 }
 
@@ -183,12 +185,12 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
       FOREVERY (RECORD rec FROM e->trace)
         PRINT("At " || rec.filename || "(" || rec.line || "," || rec.col || ") (" || rec.func || ")\n");
       PRINT("\n");
-      PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+      Print(FormatHarescriptStackTrace(GetAsyncStackTrace()));
       THROW NEW TestFailException(annotation);
     }
     RETURN e;
   }
-  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  Print("\n" || FormatHarescriptStackTrace(GetAsyncStackTrace()));
   THROW NEW TestFailException(annotation);
 }
 
@@ -223,12 +225,12 @@ PUBLIC OBJECT FUNCTION TestRejectedLike(STRING mask, OBJECT promise, STRING anno
       FOREVERY (RECORD rec FROM e->trace)
         PRINT("At " || rec.filename || "(" || rec.line || "," || rec.col || ") (" || rec.func || ")\n");
       PRINT("\n");
-      PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+      Print(FormatHarescriptStackTrace(GetAsyncStackTrace()));
       THROW NEW TestFailException(annotation);
     }
     RETURN e;
   }
-  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+  Print("\n" || FormatHarescriptStackTrace(GetAsyncStackTrace()));
   THROW NEW TestFailException(annotation);
 }
 
