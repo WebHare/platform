@@ -25,7 +25,7 @@ export type DebugConfig = {
 
 const settingschangedcallbacks = new Array<() => void>;
 
-/* Global debug flags are set by `wh debug`, local flags are prefilled with enbvironment variables.
+/* Global debug flags are set by `wh debug`, local flags are prefilled by environment variables.
    Edits to the debug flags will be applied to the local flags (unless setDebugFlagsOverrideCB returns
    override records).
 */
