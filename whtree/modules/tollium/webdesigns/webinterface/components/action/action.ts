@@ -3,7 +3,6 @@
 
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
-import * as feedback from "../../js/feedback";
 
 import { getTid } from "@mod-tollium/js/gettid";
 import DownloadManager from '@mod-system/js/compat/download';
@@ -39,7 +38,6 @@ export default class ObjAction extends ActionForwardBase {
     this.imgsize = data.imgsize;
     this._onexecute = data.onexecute;
     this.source = data.source; //for copy action
-    this.scope = data.scope; //for handlefeedback actions
 
     /*
     if (this.shortcut)
@@ -79,8 +77,6 @@ export default class ObjAction extends ActionForwardBase {
       this.executeDownloadAction({ rule: hitrule });
     else if (this.isEventUnmasked('windowopen'))
       this.executeWindowOpenAction({ rule: hitrule });
-    else if (this.isEventUnmasked('handlefeedback'))
-      this.executeHandleFeedback({ rule: hitrule });
     else if (this.isEventUnmasked('copytoclipboard'))
       this.executeCopyToClipboard({ rule: hitrule });
     else if (this.isEventUnmasked('execute'))
@@ -214,10 +210,6 @@ export default class ObjAction extends ActionForwardBase {
     // only loaded in the next tick)
     window.open(fturl.url, this.target || "_blank").opener = null;
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
-  }
-
-  executeHandleFeedback(data) {
-    feedback.run(null, { scope: this.scope });
   }
 
   executeCopyToClipboard(data) {
