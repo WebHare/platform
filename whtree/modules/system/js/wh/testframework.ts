@@ -668,6 +668,10 @@ export const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl:
 export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' };
 export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' };
 
+export function waitUI() { //eases transition to the less-flexible @webhare/test wait()
+  return test.waitUIFree();
+}
+
 export {
   testTrue as true             //deprecated! use test.assert(...) in 5.2+
   , testFalse as false         //deprecated! use test.assert(!...) in 5.2+
