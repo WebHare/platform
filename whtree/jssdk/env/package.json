@@ -6,9 +6,6 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "browser": {
-    "src/envstartup": "./src/envstartup-browser.ts"
-  },
   "typedocOptions": {
     "entryPoints": [
       "./src/env.ts"

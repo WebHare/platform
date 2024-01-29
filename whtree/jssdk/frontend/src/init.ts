@@ -2,7 +2,8 @@
    The frontend configuration is built in the SiteResponse's 'frontendConfig' member */
 
 import { DTAPStage } from "@webhare/env/src/concepts";
-import { initEnv } from "@webhare/env/src/envbackend";
+import { debugFlags, initEnv } from "@webhare/env/src/envbackend";
+import { getBrowserDebugFlags } from "@webhare/env/src/init-browser";
 
 /** The format of the <script id="wh-config"> object  */
 export interface WHConfigScriptData {
@@ -55,6 +56,9 @@ if (typeof window !== 'undefined') { //check we're in a browser window, ie not s
 }
 
 initEnv(dtapStage, '/');
+
+for (const flag of getBrowserDebugFlags('wh-debug'))
+  debugFlags[flag] = true;
 
 // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
 export const frontendConfig = {

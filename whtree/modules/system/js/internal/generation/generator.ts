@@ -181,3 +181,21 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   return;
 }
+
+export async function updateDebugSettings(debugSettings: {
+  tags: string[];
+  outputsession: string;
+  context: string;
+} | null, options: {
+  dryRun?: boolean;
+  verbose?: boolean;
+  nodb?: boolean;
+  generateContext?: GenerateContext;
+} = {}) {
+  if (options?.verbose)
+    console.time("Updating WebHare config file");
+  if (!options.dryRun)
+    await updateWebHareConfigFile({ ...options, debugSettings });
+  if (options?.verbose)
+    console.timeEnd("Updating WebHare config file");
+}

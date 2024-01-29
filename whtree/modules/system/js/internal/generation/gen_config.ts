@@ -2,7 +2,7 @@
  */
 
 import * as fs from "node:fs";
-import { omit } from "@webhare/std";
+import { omit, pick } from "@webhare/std";
 import { RecursivePartial } from "../util/algorithms";
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
@@ -10,7 +10,7 @@ import { decodeHSON } from "../whmanager/hsmarshalling";
 import { DTAPStage } from "@webhare/env/src/concepts";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
-import { BackendConfiguration, ConfigFile, ModuleMap } from "@webhare/services/src/config";
+import type { BackendConfiguration, ConfigFile, ModuleMap } from "@webhare/services/src/config";
 
 function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";
@@ -106,7 +106,7 @@ async function rawReadRegistryKey<T>(pgclient: WHDBPgClient, key: string): Promi
 }
 
 
-type PartialConfigFile = RecursivePartial<ConfigFile>;
+type PartialConfigFile = RecursivePartial<ConfigFile> & { debugsettings?: ConfigFile["debugsettings"] };
 
 export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): ConfigFile {
   const nodbconfig = generateNoDBConfig();
@@ -116,18 +116,24 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
     servername: "",
     backendURL: "",
     ...oldconfig?.public,
-    ...nodbconfig.public
+    ...nodbconfig.public,
   };
 
   return {
     public: publicdata,
     secrets: { cache: "", cookie: "", debug: "" },
-    ...omit(nodbconfig, ["public"])
+    ...pick(oldconfig, ["debugsettings"]),
+    ...omit(nodbconfig, ["public"]),
   };
 }
 
-async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean): Promise<ConfigFile> {
+async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean, { debugSettings }: { debugSettings?: ConfigFile["debugsettings"] | null } = {}): Promise<ConfigFile> {
   const finalconfig: ConfigFile = updateWebHareConfigWithoutDB(oldconfig);
+
+  if (debugSettings)
+    finalconfig.debugsettings = debugSettings;
+  else if (debugSettings === null)
+    delete finalconfig.debugsettings;
 
   if (!withdb)
     return finalconfig;
@@ -229,7 +235,7 @@ export function registerUpdateConfigCallback(cb: () => void) {
   updateCallbacks.push(cb);
 }
 
-export async function updateWebHareConfigFile({ verbose = false, nodb = false }: { verbose?: boolean; nodb?: boolean } = {}) {
+export async function updateWebHareConfigFile({ verbose = false, nodb = false, debugSettings }: { verbose?: boolean; nodb?: boolean; debugSettings?: ConfigFile["debugsettings"] | null } = {}) {
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   if (!dataroot)
     throw new Error("Invalid WEBHARE_DATAROOT");
@@ -253,7 +259,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
   }
 
   // process.stderr.write((new Date).toString() + " Starting config update\n");
-  const newconfig = await updateWebHareConfig(oldconfig, !nodb);
+  const newconfig = await updateWebHareConfig(oldconfig, !nodb, { debugSettings });
   const newconfigtext = JSON.stringify(newconfig, null, 2);
   const anychanges = newconfigtext !== currenttext;
 

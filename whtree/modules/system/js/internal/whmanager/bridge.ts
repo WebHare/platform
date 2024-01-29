@@ -4,7 +4,6 @@ import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, LogFil
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
 import { createDeferred, DeferredPromise, pick } from "@webhare/std";
-import { DebugConfig, updateDebugConfig } from "@webhare/env/src/envbackend";
 import { IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, IPCLinkType } from "./ipc";
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, AnyTypedMessagePort } from './transport';
 import { RefTracker } from "./refs";
@@ -786,8 +785,6 @@ class MainBridge extends EventSource<BridgeEvents> {
 
         if (typeof decoded == "object" && decoded) {
           this.systemconfig = decoded as Record<string, unknown>;
-          if (this.systemconfig.debugconfig)
-            updateDebugConfig(this.systemconfig.debugconfig as DebugConfig);
         }
         for (const bridge of this.localbridges) {
           this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig });
@@ -800,8 +797,6 @@ class MainBridge extends EventSource<BridgeEvents> {
           : {};
 
         this.systemconfig = decoded as (Record<string, unknown> | null) ?? {};
-        if (this.systemconfig.debugconfig)
-          updateDebugConfig(this.systemconfig.debugconfig as DebugConfig);
         this.initDebugger(data.have_ts_debugger);
       } break;
       case WHMResponseOpcode.RegisterPortResult: {

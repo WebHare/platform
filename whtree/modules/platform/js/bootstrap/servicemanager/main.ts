@@ -26,6 +26,7 @@ import { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { getAllServices, getSpawnSettings } from './gatherservices';
 import { defaultShutDownStage, ServiceDefinition, Stage, shouldRestartService } from './smtypes';
+import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 
 program.name("servicemanager")
   .option("-s, --secondary", "Mark us as a secondary service manager")
@@ -459,6 +460,11 @@ async function main() {
 
   const showversion = process.env.WEBHARE_DISPLAYBUILDINFO ?? backendConfig.buildinfo.version ?? "unknown";
   smLog(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { version: showversion });
+
+  // Update configuration, clear debug settings
+  if (!isSecondaryManager) {
+    await updateWebHareConfigFile({ debugSettings: null, nodb: true });
+  }
 
   //remove old servicestate files
   if (!isSecondaryManager) {

@@ -1,6 +1,6 @@
 //Types as stored in the backend configuratio
 import { DTAPStage } from "@webhare/env/src/concepts";
-import { RecursiveReadOnly } from "@webhare/js-api-tools";
+import type { RecursiveReadOnly } from "@webhare/js-api-tools";
 export { backendConfig } from "@mod-system/js/internal/configuration";
 
 export interface ModuleData {
@@ -40,6 +40,11 @@ export type ConfigFile = {
     cache: string;
     cookie: string;
     debug: string;
+  };
+  debugsettings?: {
+    tags: string[];
+    context: string;
+    outputsession: string;
   };
 };
 
