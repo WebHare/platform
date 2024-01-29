@@ -66,6 +66,14 @@ function preventNavigation(event) {
 
 let indyshellinstance: IndyShell | undefined;
 
+declare global {
+  interface Window {
+    //Silently trigger WebHare's SSO. Will FedCM (https://developers.google.com/privacy-sandbox/3pcd/fedcm) offer a clean solution?
+    triggerWebHareSSO?: (tag: string) => boolean;
+  }
+}
+
+
 interface ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
   skin: "default";
   lang: string;

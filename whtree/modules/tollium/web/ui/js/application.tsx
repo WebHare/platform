@@ -601,6 +601,8 @@ export class ApplicationBase {
 const loadedscripts: Record<string, Promise<HTMLScriptElement>> = {};
 export class FrontendEmbeddedApplication extends ApplicationBase {
   baseobject: string = '';
+  /** @deprecated needed by triggerWebHareSSO. nothing else? TODO if so, consider removal if FedCM or something else offers a replacement */
+  app: unknown;
 
   constructor(shell, appname, apptarget, parentapp, options) {
     super(shell, appname, apptarget, parentapp, options);
@@ -610,8 +612,8 @@ export class FrontendEmbeddedApplication extends ApplicationBase {
     baseobject: string;
     src?: string;
   }) {
-    this.baseobject = manifest.baseobject;
 
+    this.baseobject = manifest.baseobject;
     if (!jsappconstructors[this.baseobject]) {
       let scr = loadedscripts[manifest.baseobject];
       if (!scr) {
@@ -626,7 +628,9 @@ export class FrontendEmbeddedApplication extends ApplicationBase {
       return;
     }
 
-    await new Promise<void>(resolve => new jsappconstructors[this.baseobject](this, resolve));
+    await new Promise<void>(resolve => {
+      this.app = new jsappconstructors[this.baseobject](this, resolve);
+    });
     this._resolveAppLoad();
   }
   queueEvent(actionname: string, param: unknown) {
