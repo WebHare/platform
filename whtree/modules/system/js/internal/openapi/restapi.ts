@@ -114,6 +114,25 @@ export class LogInfo {
   }
 }
 
+function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
+  console.log(path, data, merge);
+  if (typeof merge !== "object" || !merge || typeof data !== "object" || !data)
+    throw new Error(`Cannot merge a non-object into an object`);
+
+  if (Array.isArray(data) !== Array.isArray(merge))
+    throw new Error(`Cannot merge array into object or vice versa`);
+
+  for (const [key, value] of Object.entries(merge)) {
+    const datavalue = (data as Record<typeof key, unknown>)[key];
+    if (typeof value !== "object" || !value)
+      (data as Record<typeof key, unknown>)[key] = value;
+    else if (typeof datavalue !== "object" || !datavalue)
+      (data as Record<typeof key, unknown>)[key] = value;
+    else
+      mergeIntoBundled((data as Record<typeof key, unknown>)[key], value, `${path}/${key.replace(/~/g, "~0").replace(/\//g, "~1")}`);
+  }
+}
+
 // An OpenAPI handler
 export class RestAPI {
   _ajv: Ajv2020 | null = null;
@@ -126,15 +145,21 @@ export class RestAPI {
     if (!this._ajv) {
       this._ajv = new Ajv2020({ allowMatchingProperties: true });
       addFormats(this._ajv);
+      // Allow keyword 'example'
+      this._ajv.addVocabulary(["example"]);
     }
     return this._ajv;
   }
 
   private routes: Route[] = [];
 
-  async init(def: object, specresourcepath: string) {
+  async init(def: object, specresourcepath: string, { merge }: { merge?: object } = {}) {
     // Bundle all external files into one document
     const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WHOpenAPIDocument, {});
+
+    if (merge)
+      mergeIntoBundled(bundled, merge || {}, "");
+
     // Parse the OpenAPI definition. Make a structured clone of bundled, because validate modifies the incoming data
     const parsed = await SwaggerParser.validate(structuredClone(bundled));
     if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3."))
@@ -272,40 +297,57 @@ export class RestAPI {
 
     if (endpoint.params)
       for (const param of endpoint.params) {
-        let paramvalue: string | number | boolean | null = null;
+        let paramValues: string[] = [];
         if (param.in === "path") { //we already extracted path parameters during matching:
-          paramvalue = decodeURIComponent(match.params[param.name]);
+          paramValues = [decodeURIComponent(match.params[param.name])];
         } else if (param.in === "query") {
-          if (req.url.searchParams.has(param.name))
-            paramvalue = req.url.searchParams.get(param.name);
+          paramValues = req.url.searchParams.getAll(param.name);
+          if (!paramValues.length && param.required)
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required query parameter ${param.name}}` });
+        } else if (param.in === "header") {
+          if (req.headers.has(param.name))
+            paramValues = [req.headers.get(param.name)!];
           else if (param.required)
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required parameter ${param.name}` });
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required header parameter ${param.name}` });
         } else {
           throw new Error(`Unsupported parameter location '${param.in}'`);
         }
 
-        if (paramvalue === null)
+        if (!paramValues.length)
           continue; //Unspecified parameter (TODO do we need to support default values?)
 
+        let paramValue: unknown = paramValues[0];
         if (param.schema) {
           if ("type" in param.schema) {
-            // We'll only convert 'number' and 'boolean' parameters, other parameters will be supplied as strings
-            if (param.schema.type === "number" && !isNaN(Number(paramvalue)))
-              paramvalue = Number(paramvalue);
-            if (param.schema.type === "boolean")
-              paramvalue = paramvalue === "1" || paramvalue === "true";
+            switch (param.schema.type) {
+              case "number":
+              case "integer": {
+                if (!isNaN(Number(paramValues[0])))
+                  paramValue = Number(paramValues[0]);
+              } break;
+              case "boolean": {
+                paramValue = paramValues[0] === "1" || paramValues[0] === "true";
+              } break;
+              case "array": {
+                if (!param.explode)
+                  paramValues = paramValues[0].split(",");
+                if (!param.schema.items || (param.schema.items as SchemaObject).type === "string") {
+                  paramValue = paramValues;
+                }
+              }
+            }
           }
 
           const start = performance.now();
           const validator = this.getValidator(param.schema as SchemaObject);
-          const success = validator(paramvalue);
+          const success = validator(paramValue);
           logger.timings.validation += performance.now() - start;
 
           if (!success)
             return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
         }
 
-        params[param.name] = paramvalue;
+        params[param.name] = paramValue as typeof params[string];
       }
 
     let body = null;

@@ -32,7 +32,7 @@ export type JSONResponseCodes<Responses extends RestResponsesBase> = HTTPErrorCo
  */
 export type RawResponseCodes<Responses extends RestResponsesBase> = (Responses & { isjson: false })["status"];
 
-export type DefaultRestParams = Record<string, string | number | boolean>;
+export type DefaultRestParams = Record<string, string | number | boolean | string[]>;
 
 /** Given a type Contract and a type Actual that extends Contract, returns Contract with
  * properties that are added in Actual with type never. If used in a function signature like

@@ -2525,7 +2525,12 @@
               <xs:documentation>Path to the OpenAPI V3 specification</xs:documentation>
             </xs:annotation>
          </xs:attribute>
-        </xs:complexType>
+         <xs:attribute name="merge" type="xs:string">
+          <xs:annotation>
+            <xs:documentation>Optional overrides for the specification</xs:documentation>
+          </xs:annotation>
+       </xs:attribute>
+      </xs:complexType>
       </xs:element>
 
       <xs:element name="openapiclient">

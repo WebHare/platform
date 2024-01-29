@@ -138,12 +138,16 @@ export async function getServiceInstance(servicename: string) {
 
   const apispec_fs = toFSPath(serviceinfo.spec);
   registerLoadedResource(module, apispec_fs);
+  const apimerge_fs = serviceinfo.merge && toFSPath(serviceinfo.merge);
+  if (apimerge_fs)
+    registerLoadedResource(module, apimerge_fs);
 
   // Read and parse the OpenAPI Yaml definition
   const def = YAML.parse(await fs.promises.readFile(apispec_fs, "utf8"));
+  const merge = apimerge_fs ? YAML.parse(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
   // Create and initialize the API handler
   const restapi = new RestAPI();
-  await restapi.init(def, serviceinfo.spec);
+  await restapi.init(def, serviceinfo.spec, { merge });
 
   const service = new RestService(servicename, restapi);
   if (!cache[servicename])

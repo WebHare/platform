@@ -31,6 +31,7 @@ export interface BackendServiceDescriptor {
 export interface OpenAPIDescriptor {
   name: string;
   spec: string;
+  merge?: string;
 }
 
 export interface Services {
@@ -206,9 +207,11 @@ export function generateServices(context: GenerateContext): string {
       if (!isNodeApplicableToThisWebHare(openapiservice, ""))
         continue;
 
+      const mergeAttr = getAttr(openapiservice, "merge");
       retval.openAPIServices.push({
         name: `${mod.name}:${getAttr(openapiservice, "name")}`,
         spec: resolveResource(mod.resourceBase, getAttr(openapiservice, "spec")),
+        ...(mergeAttr ? { merge: resolveResource(mod.resourceBase, mergeAttr) } : {}),
       });
     }
 
