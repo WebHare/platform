@@ -71,7 +71,7 @@ wh-authorbar
     display: none;
   }
 
-  html.wh-authorbar--left &
+  html.wh-authorbar--orientation-left &
   {
     left:0;
 
@@ -82,7 +82,7 @@ wh-authorbar
     }
   }
 
-  html.wh-authorbar--right &
+  html.wh-authorbar--orientation-right &
   {
     right:0;
 
@@ -103,11 +103,11 @@ wh-authorbar
   padding-left: 10px;
   white-space: nowrap;
 
-  html.wh-authorbar--left &
+  html.wh-authorbar--orientation-left &
   {
     transform: rotate(90deg) translateX(30px);
   }
-  html.wh-authorbar--right &
+  html.wh-authorbar--orientation-right &
   {
     transform: rotate(-90deg) translateX(calc(var(--wh-authorbar-width) - var(--wh-authorbar-height)));
   }
@@ -139,7 +139,7 @@ wh-authorbar
     width: 4px;
   }
 
-  html.wh-authorbar--left &
+  html.wh-authorbar--orientation-left &
   {
     right: 0;
     transform: translateX(-50%);
@@ -149,7 +149,7 @@ wh-authorbar
       left: -4px;
     }
   }
-  html.wh-authorbar--right &
+  html.wh-authorbar--orientation-right &
   {
     transform: translateX(50%);
     left: 0;
@@ -165,11 +165,11 @@ wh-authorbar
     opacity: 1;
     pointer-events: auto;
 
-    html.wh-authorbar--left &
+    html.wh-authorbar--orientation-left &
     {
       transform: translateX(calc(100% + 4px));
     }
-    html.wh-authorbar--right &
+    html.wh-authorbar--orientation-right &
     {
       transform: translateX(calc(-100% - 4px));
     }

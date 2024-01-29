@@ -11,7 +11,6 @@ PUBLIC STATIC OBJECTTYPE PWAPageBase EXTEND StaticPageBase
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
   {
     this->webdesign := webdesign;
-    INSERT "wh-noauthormode" INTO webdesign->htmlclasses AT END;
     this->pwaplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","pwafile");
     IF(NOT ObjectExists(this->pwaplugin))
       ABORT("<pwafile/> not enabled for this file in the site profile");
