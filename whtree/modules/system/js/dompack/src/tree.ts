@@ -183,7 +183,8 @@ export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
 }
 
 export function isDomReady() {
-  return document.readyState == "interactive" || document.readyState == "complete";
+  //ensure no domready events can run if there will never be a dom
+  return typeof document !== "undefined" && (document.readyState == "interactive" || document.readyState == "complete");
 }
 
 /* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions from the ready handler will not be fatal to the rest of code execution */

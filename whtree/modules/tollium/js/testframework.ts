@@ -1,6 +1,3 @@
-/* eslint-disable prefer-const */
-/* eslint-disable @typescript-eslint/semi */
-/* eslint-disable no-var */
 /// @ts-nocheck -- TODO ... TestFramework is a LOT to port ... for now we're just providing types
 import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
@@ -8,6 +5,7 @@ import { escapeRegExp } from '@webhare/std';
 import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import type { } from "@mod-tollium/js/internal/debuginterface";
+import type ObjList from '@mod-tollium/webdesigns/webinterface/components/list/list';
 
 function isStringOrRegexpMatch(intext, pattern) {
   if (typeof pattern == 'string')
@@ -428,6 +426,32 @@ function getOpenSelectList() {
 }
 function getSelectListVisibleItems() {
   return test.qSA('.t-selectlist__items .t-selectlist__item').filter(node => test.canClick(node));
+}
+
+export function getListRowData(listrow: HTMLElement): Record<string, unknown> {
+  if (!listrow.classList.contains(".wh-list__row")) {
+    const thelistrow = listrow.closest<HTMLElement>(".wh-list__row");
+    if (!thelistrow) {
+      console.error("cannot find listrow for element", listrow);
+      throw new Error("No list row found");
+    }
+
+    listrow = thelistrow;
+  }
+
+  const rownum = parseInt(listrow.dataset.row || '');
+
+  const listel = listrow.closest(".wh-list");
+  const list = listel?.propTodd as ObjList | undefined;
+  if (!list)
+    throw new Error("Cannot find list component");
+
+  const rowdata = list.flatrows[rownum];
+  const result: Record<string, unknown> = {};
+  for (const col of list.datacolumns)
+    result[col.name] = rowdata[col.dataidx];
+
+  return result;
 }
 
 /** wait for a todd component to appear in the current screen

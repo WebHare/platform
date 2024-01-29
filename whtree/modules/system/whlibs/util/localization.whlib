@@ -78,6 +78,8 @@ STRING FUNCTION __ICU_GetTimeZoneIDForWindowsID(STRING zoneid, STRING region) __
 
 PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
 {
+  IF(ISWasm())
+    RETURN Left(langtag,2);
   RETURN __ICU_GetLocaleForLangTag(langtag);
 }
 
