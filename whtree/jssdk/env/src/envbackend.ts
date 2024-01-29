@@ -1,46 +1,35 @@
 //We implement the backend version of getWHDebugFlags so bridge can access us without going through a recursive dep
 
 import { DTAPStage } from "./concepts";
-import { getEnvironmentDebugFlags } from "./envstartup";
 
 /// An object with string keys and typed values
 export interface WellKnownFlags {
   /** Log RPcs */
-  rpc?: true;
+  rpc?: boolean;
   /** Log web traffic */
-  wrq?: true;
+  wrq?: boolean;
   /** Autoprofile */
-  apr?: true;
+  apr?: boolean;
   /** IPC */
-  ipc?: true;
+  ipc?: boolean;
   /** async */
-  async?: true;
+  async?: boolean;
 }
-export type DebugFlags = WellKnownFlags & { [key: string]: true | undefined };
+export type DebugFlags = WellKnownFlags & { [key: string]: boolean | undefined };
 
 export type DebugConfig = {
-  tags: string[];
+  tags: readonly string[];
   outputsession: string;
   context: string;
 };
 
-let debugsettings: DebugConfig | null;
 const settingschangedcallbacks = new Array<() => void>;
 
-function getWHDebugFlags(): DebugFlags {
-  const flags: DebugFlags = {};
-  const envflags = getEnvironmentDebugFlags();
-
-  for (const flag of envflags)
-    flags[flag] = true;
-  if (debugsettings) {
-    for (const flag of debugsettings.tags)
-      flags[flag] = true;
-  }
-  return flags;
-}
-
-const baseDebugFlags = getWHDebugFlags();
+/* Global debug flags are set by `wh debug`, local flags are prefilled by environment variables.
+   Edits to the debug flags will be applied to the local flags (unless setDebugFlagsOverrideCB returns
+   override records).
+*/
+const globalDebugFlags: DebugFlags = {}, localDebugFlags: DebugFlags = {};
 
 /** Returns the flag override records. The first record is examined first, then the second, etc. */
 let debugFlagsOverridesCB: undefined | (() => DebugFlags[]);
@@ -51,46 +40,48 @@ export function setDebugFlagsOverrideCB(cb: undefined | (() => DebugFlags[])) {
 }
 
 /* Proxy handler for the published debug flags. Uses the override records (with the first record
-   examined first, then the second, etc.) to override the flags from baseDebugFlags. Only supports
-   'true' as property value, setting to value to false has the same effect as deleting the property
-   (and will have no effect if the property is set in a later override or the base flags.)
+   examined first, then the second, etc.) to override the flags from baseDebugFlags. Setting to `true` sets
+   the flag, `false` disables it and setting to `undefined` has the same effect as deleting the property in the
+   current top record (exposing any value from a lower record, like the debug settings from `wh debug`).
 */
 class DebugFlagsProxyHandler implements ProxyHandler<DebugFlags> {
+  private getRecordList(): DebugFlags[] {
+    return [...debugFlagsOverridesCB?.() ?? [], localDebugFlags, globalDebugFlags];
+  }
+
   get(target: DebugFlags, p: string) {
-    return this.has(target, p) || undefined;
+    for (const record of this.getRecordList())
+      if (p in record && typeof record[p] !== "undefined")
+        return record[p];
+    return undefined;
   }
   has(target: DebugFlags, p: string): boolean {
-    const overrides = debugFlagsOverridesCB?.();
-    if (overrides) {
-      for (const record of overrides)
-        if (p in record && record[p])
-          return true;
-    }
-    return Boolean(p in baseDebugFlags && baseDebugFlags[p]);
+    return this.get(target, p) !== undefined;
   }
   ownKeys(target: DebugFlags): Array<string | symbol> {
     const keys = new Array<string | symbol>;
-    for (const record of [...debugFlagsOverridesCB?.() ?? [], baseDebugFlags])
+    for (const record of this.getRecordList())
       for (const key of Reflect.ownKeys(record))
-        if (typeof key === "string" && record[key])
+        if (typeof key === "string" && record[key] !== undefined && !keys.includes(key))
           keys.push(key);
     return keys;
   }
-  set(target: DebugFlags, p: string, newValue: true | undefined): boolean {
-    const toModify = (debugFlagsOverridesCB?.() ?? [])[0] ?? baseDebugFlags;
-    if (newValue)
-      toModify[p] = true;
+  set(target: DebugFlags, p: string, newValue: boolean | undefined): boolean {
+    const toModify = this.getRecordList()[0];
+    if (typeof newValue === "boolean")
+      toModify[p] = newValue;
     else
       delete toModify[p];
     return true;
   }
   deleteProperty(target: DebugFlags, p: string): boolean {
-    const toModify = (debugFlagsOverridesCB?.() ?? [])[0] ?? baseDebugFlags;
+    const toModify = this.getRecordList()[0];
     delete toModify[p];
     return true;
   }
   getOwnPropertyDescriptor(target: DebugFlags, p: string): PropertyDescriptor | undefined {
-    return this.has(target, p) ? { enumerable: true, value: true, configurable: true } : undefined;
+    const value = this.get(target, p);
+    return value !== undefined ? { enumerable: true, value, configurable: true } : undefined;
   }
 }
 
@@ -99,29 +90,28 @@ export const debugFlags = new Proxy<DebugFlags>({
 }, new DebugFlagsProxyHandler());
 
 function formatForConsoleLogs() {
-  return `DebugFlags [${[...Object.keys(debugFlags)]}]`;
+  return `DebugFlags [${[...Object.keys(debugFlags)].filter(key => debugFlags[key]).join(", ")}]`;
 }
 
 /** Update the debugconfig as present in the system configuration record
     @param settings - debugconfig cell of the system configuration record
 */
 export function updateDebugConfig(settings: DebugConfig | null) {
-  debugsettings = settings;
+  const oldenabledflags = Object.keys(globalDebugFlags).sort();
+  const newenabledflags = (settings?.tags || []).toSorted();
 
-  const oldenabledflags = Object.keys(baseDebugFlags).sort().join(",");
-  const newflags = getWHDebugFlags();
-  const newenabledflags = Object.keys(newflags).sort().join(",");
-  if (oldenabledflags !== newenabledflags) {
-    Object.assign(baseDebugFlags, newflags);
-    for (const key of Object.keys(baseDebugFlags))
-      if (!(key in newflags))
-        delete baseDebugFlags[key];
+  if (oldenabledflags.join(",") !== newenabledflags.join(",")) {
+    for (const flag of newenabledflags)
+      globalDebugFlags[flag] = true;
+    for (const flag of oldenabledflags)
+      if (!newenabledflags.includes(flag))
+        delete globalDebugFlags[flag];
     for (const cb of [...settingschangedcallbacks]) {
-      // ignore throws here, we can't don anything in this lowlevel code
+      // ignore throws here, we can't do anything in this lowlevel code
       try { cb(); } catch (e) { }
     }
   }
-  if (baseDebugFlags.async && Error.stackTraceLimit < 100)
+  if (debugFlags.async && Error.stackTraceLimit < 100)
     Error.stackTraceLimit = 100;
 }
 

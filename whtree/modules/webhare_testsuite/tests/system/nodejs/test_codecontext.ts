@@ -4,6 +4,7 @@ import * as contexttests from "./data/context-tests";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { loadlib } from "@webhare/harescript";
 import { debugFlags } from "@webhare/env";
+import { updateDebugConfig } from "@webhare/env/src/envbackend";
 
 const nonExistingDebugFlag = `nonexisting-flag-${crypto.randomUUID()}`;
 
@@ -13,6 +14,25 @@ async function testContextSetup() {
 
   test.eq(undefined, debugFlags[nonExistingDebugFlag]);
   debugFlags[nonExistingDebugFlag] = true;
+
+  test.eq(true, Object.keys(debugFlags).includes(nonExistingDebugFlag));
+
+  updateDebugConfig({ tags: [`${nonExistingDebugFlag}-flag1`], outputsession: "testsession", context: "testcontext" });
+  test.eq(true, debugFlags[`${nonExistingDebugFlag}-flag1`]);
+  test.eq(true, Object.keys(debugFlags).includes(`${nonExistingDebugFlag}-flag1`));
+
+  updateDebugConfig({ tags: [`${nonExistingDebugFlag}-flag2`], outputsession: "testsession", context: "testcontext" });
+  test.eq(undefined, debugFlags[`${nonExistingDebugFlag}-flag1`]);
+  test.eq(true, debugFlags[`${nonExistingDebugFlag}-flag2`]);
+  test.eq(false, Object.keys(debugFlags).includes(`${nonExistingDebugFlag}-flag1`));
+  test.eq(true, Object.keys(debugFlags).includes(`${nonExistingDebugFlag}-flag2`));
+
+  test.eq(true, debugFlags[nonExistingDebugFlag]);
+  delete debugFlags[nonExistingDebugFlag];
+  test.eq(undefined, debugFlags[nonExistingDebugFlag]);
+  test.eq(false, Object.keys(debugFlags).includes(nonExistingDebugFlag));
+  debugFlags[nonExistingDebugFlag] = true;
+  test.eq(true, Object.keys(debugFlags).includes(nonExistingDebugFlag));
 
   const context1 = new CodeContext("test_codecontext:context setup", { context: 1 });
   const context2 = new CodeContext("test_codecontext:context setup", { context: 2 });

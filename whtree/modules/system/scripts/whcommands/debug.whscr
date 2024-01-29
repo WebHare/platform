@@ -566,7 +566,10 @@ Executed instrs.:   ${stats.instructions}
       }
 
       RECORD debugconfig := ReadDebugSetting(Detokenize(GetSortedSet(tags),','));
+      // Update the configuration record (HareScript)
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
+      // Update generated config.json (TypeScript)
+      UpdateDebugSettings(debugconfig);
     }
     CASE "setconfig"
     {
@@ -579,8 +582,10 @@ Executed instrs.:   ${stats.instructions}
       IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
         Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only has effect on processes that don't have it set.\n");
 
+      // Update the configuration record (HareScript)
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
-      ShowDebugConfig(debugconfig);
+      // Update generated config.json (TypeScript)
+      UpdateDebugSettings(debugconfig);
     }
     CASE "listflags"
     {

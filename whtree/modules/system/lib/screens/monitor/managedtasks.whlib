@@ -106,14 +106,17 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
           }
 
           RECORD p := CreateDeferredPromise();
-          RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDateTime()), p.resolve);
+          RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDateTime()), PTR p.resolve(TRUE));
           AWAIT p.promise;
         }
       }
       FINALLY
         taskservice->CloseService();
     }
-    CATCH; // monitoring app shouldn't fill the logs
+    CATCH (OBJECT e) // monitoring app shouldn't fill the logs
+    {
+      PRINT(`Error in managed task monitor: ${e->what}\n`);
+    }
 
     this->queryloopactive := FALSE;
     this->runningtasks := INTEGER[];

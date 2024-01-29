@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config";
 import { freezeRecursive } from "./util/algorithms";
-import { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
+import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
 import type { RecursiveReadOnly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
@@ -33,15 +33,26 @@ registerUpdateConfigCallback(() => updateConfig());
 
 let configfile = readConfigFile();
 const publicconfig = { ...configfile.public };
+
 export const backendConfig = new Proxy(publicconfig, {
   set() {
     throw new Error(`The WebHare configuration is read-only`);
   }
 }) as WebHareBackendConfiguration;
 
+const updateHandlers = new Array<() => void>;
+
 export function updateConfig() {
   configfile = readConfigFile();
   Object.assign(publicconfig, configfile.public);
+  for (const handler of [...updateHandlers]) {
+    // ignore throws here, we can't do anything in this lowlevel code
+    try { handler(); } catch (e) { }
+  }
+}
+
+export function addConfigUpdateHandler(handler: () => void): void {
+  updateHandlers.push(handler);
 }
 
 export function getFullConfigFile(): RecursiveReadOnly<ConfigFile> {
