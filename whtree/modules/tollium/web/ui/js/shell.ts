@@ -66,9 +66,51 @@ function preventNavigation(event) {
 
 let indyshellinstance: IndyShell | undefined;
 
+declare global {
+  interface Window {
+    //Silently trigger WebHare's SSO. Will FedCM (https://developers.google.com/privacy-sandbox/3pcd/fedcm) offer a clean solution?
+    triggerWebHareSSO?: (tag: string) => boolean;
+  }
+}
+
+
+interface ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
+  lang: string;
+  eventgroups: string[];
+  now: string;
+  apps: unknown[];
+  newsitems: unknown[];
+  dashboard: boolean;
+  dashboardbg: unknown | null; //TODO WrapCachedImage result
+  loginbg: unknown | null; //TODO WrapCachedImage result
+  allowpasswordreset: boolean;
+  displayimage: string;
+  displayname: string;
+  peronalsettings: unknown; //TODO AppLaunchInstruction
+  userdisplayname: string;
+  browsertitleprefix: string;
+  allowlogout: boolean;
+  openinfo: string;
+  checkinterval: number;
+  issysop: boolean;
+  notificationslocation: "none" | "browser" | "desktop";
+  feedbacktoken: string;
+  initialinstructions: unknown[]; //TODO AppLaunchInstruction[]
+}
+
 class IndyShell extends TolliumShell {
-  settings = {};
+  settings: Partial<ShellSettings> = {};
   wrdauth = WRDAuth.getDefaultAuth();
+  isloggingoff = false;
+  istodd = false;
+  eventsconnection = new EventServerConnection({ url: "/wh_events/" });
+  broadcaststart = null; //start of broadcasts. used to filter old messages
+  isloggedin = false;
+  checkinterval = 0;
+  offlinenotification = false;
+
+  frontendids = [];
+  feedbackhandler: TolliumFeedbackAPI | null = null;
 
   constructor(setup) {
     super(setup);
@@ -77,17 +119,6 @@ class IndyShell extends TolliumShell {
 
     window.$shell = this; //FIXME shouldn't need this!
     indyshellinstance = this; //FIXME.. or this, but at least its slightly better than having to hack a global
-    this.isloggingoff = false;
-    this.istodd = false;
-    this.eventsconnection = null;
-    this.broadcaststart = null; //start of broadcasts. used to filter old messages
-    this.isloggedin = false;
-    this.checkinterval = 0;
-    this.offlinenotification = false;
-
-    this.frontendids = [];
-
-    this.eventsconnection = new EventServerConnection({ url: "/wh_events/" });
     this.eventsconnection.on("data", event => this.onBroadcastData(event));
     dompack.onDomReady(() => this.onDomReady());
     document.documentElement.addEventListener("tollium-shell:broadcast", evt => this.onBroadcast(evt));
@@ -300,7 +331,6 @@ class IndyShell extends TolliumShell {
     this.tolliumservice.startPortal([options]).then(this.gotPortal.bind(this), this.failPortal.bind(this));
   }
   gotPortal(data) {
-    this.versioninfo = data.version;
     this.isloggedin = data.isloggedin;
 
     this.applyShellSettings(data.settings);
@@ -419,7 +449,7 @@ class IndyShell extends TolliumShell {
     ///This is an updated WebHare version; use that info
     console.warn("Have to update, detected change to the JS code and no apps are running!");
     storage.setSession("WebHare-lastInitVersion-updated", 1);
-    location.reload(true);
+    location.reload();
   }
   checkWasJustUpdated() {
     const wasjustupdated = storage.getSession("WebHare-lastInitVersion-updated") == "1";
@@ -427,20 +457,20 @@ class IndyShell extends TolliumShell {
     return wasjustupdated;
   }
 
-  _updateFeedbackHandler(scope) {
-    if (scope) {
+  _updateFeedbackHandler(token: string) {
+    if (token) {
       if (!this.feedbackhandler)
         this.feedbackhandler = new TolliumFeedbackAPI;
-      this.feedbackhandler.scope = scope;
-    } else if (!scope && this.feedbackhandler) {
+      this.feedbackhandler.token = token;
+    } else if (!token && this.feedbackhandler) {
       this.feedbackhandler.remove();
       this.feedbackhandler = null;
     }
   }
 
-  applyShellSettings(settings) {
+  applyShellSettings(settings: ShellSettings) {
     this.settings = settings;
-    this._updateFeedbackHandler(settings.feedbackscope);
+    this._updateFeedbackHandler(settings.feedbacktoken);
 
     this.eventsconnection.setGroups(settings.eventgroups);
     this.broadcaststart = Date.parse(settings.now);
@@ -536,11 +566,6 @@ class IndyShell extends TolliumShell {
       case "tollium:shell.refreshdashboard":
         {
           this.requestNewShellSettings();
-          return;
-        }
-      case "tollium:shell.updatechecks":
-        {
-          this.onCheckInterval();
           return;
         }
 

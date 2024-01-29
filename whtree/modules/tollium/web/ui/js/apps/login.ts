@@ -10,6 +10,7 @@ import "../../common.lang.json";
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
+
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 
@@ -56,6 +57,7 @@ class LoginApp {
     this.app = appinterface;
     this.app.promiseComponentTypes(['panel', 'button', 'action', 'textedit', 'table', 'hr']).then(this.setupScreen.bind(this)).then(callback).catch(utilerror.reportException); //If catch fails, use _catch
     this.loginconfig = this.app.apptarget;
+
     this.app.updateApplicationProperties({
       title: getTid("tollium:shell.login.apptitle"),
       appicon: 'tollium:objects/webhare',
@@ -677,9 +679,8 @@ class LoginApp {
 }
 
 window.triggerWebHareSSO = function (tag: string): boolean {
-  //Find the login app
-  const loginapp = $todd.applications.find(app => app.app?.triggerWebHareSSO);
-  return loginapp?.app.triggerWebHareSSO(tag) || false;
+  //@ts-ignore -- Find the login app. clean this up but perhaps FedCM will offer a standard solution soon
+  return $todd.applications.find(app => app.app?.triggerWebHareSSO)?.app.triggerWebHareSSO(tag) || false;
 };
 
 registerJSApp('tollium:builtin.login', LoginApp);

@@ -1,4 +1,4 @@
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as storage from 'dompack/extra/storage';
 import * as dialogapi from 'dompack/api/dialog';
 import { createClient } from "@webhare/jsonrpc-client";
