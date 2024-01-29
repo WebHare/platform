@@ -769,7 +769,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
             [ lang := GetTidLanguage()
             , eventgroups := this->GetEventGroups()
             , now := FormatISO8601Datetime(GetCurrentDatetime(), "day", "milliseconds")
-            , servername := GetServerName()
             , apps := this->GetAppMenu()
             , newsitems := this->GetNewsItems()
 

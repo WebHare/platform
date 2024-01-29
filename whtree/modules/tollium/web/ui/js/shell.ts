@@ -75,11 +75,9 @@ declare global {
 
 
 interface ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
-  skin: "default";
   lang: string;
   eventgroups: string[];
   now: string;
-  servername: string;
   apps: unknown[];
   newsitems: unknown[];
   dashboard: boolean;
