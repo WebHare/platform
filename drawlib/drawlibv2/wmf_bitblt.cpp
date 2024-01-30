@@ -569,27 +569,27 @@ Destination The destination rectangle before the BitBlt or StretchBlt call.
 Pattern The current brush selected in the destination device context, repeated horizontally and vertically to be the same size as the destination rectangle.
 The result is copied to the destination rectangle.
 
-The raster operations are conceptually similar to the drawing modes we encountered in Chapter 5. The drawing modes govern the way in which a graphics object, such as a line, is combined with a destination. You'll recall that there were 16 drawing modes—that is, all the unique results obtained when 0s and 1s in the object being drawn were combined with 0s and 1s in the destination.
+The raster operations are conceptually similar to the drawing modes we encountered in Chapter 5. The drawing modes govern the way in which a graphics object, such as a line, is combined with a destination. You'll recall that there were 16 drawing modes?that is, all the unique results obtained when 0s and 1s in the object being drawn were combined with 0s and 1s in the destination.
 
-The raster operations used with BitBlt and StretchBlt involve a combination of three objects, and this results in 256 raster operations. There are 256 ways to combine a source bitmap, a destination bitmap, and a pattern. Fifteen of these raster operations are given names—some of them rather obscure—defined in WINGDI.H. The others have numeric values that are shown in /Platform SDK/Graphics and Multimedia Services/GDI/Raster Operation Codes/Ternary Raster Operations.
+The raster operations used with BitBlt and StretchBlt involve a combination of three objects, and this results in 256 raster operations. There are 256 ways to combine a source bitmap, a destination bitmap, and a pattern. Fifteen of these raster operations are given names?some of them rather obscure?defined in WINGDI.H. The others have numeric values that are shown in /Platform SDK/Graphics and Multimedia Services/GDI/Raster Operation Codes/Ternary Raster Operations.
 
 The 15 ROP codes that have names are shown here. Pattern (P): 1 1 1 1 0 0 0 0
 Source (S):  1 1 0 0 1 1 0 0
 Destination (D): 1 0 1 0 1 0 1 0 Boolean Operation ROP Code Name
 Result: 0 0 0 0 0 0 0 0 0 0x000042 BLACKNESS
- 0 0 0 1 0 0 0 1 ~ (S ¦ D) 0x1100A6 NOTSRCERASE
+ 0 0 0 1 0 0 0 1 ~ (S ? D) 0x1100A6 NOTSRCERASE
  0 0 1 1 0 0 1 1 ~S 0x330008 NOTSRCCOPY
  0 1 0 0 0 1 0 0 S & ~D 0x440328 SRCERASE
  0 1 0 1 0 1 0 1 ~D 0x550009 DSTINVERT
  0 1 0 1 1 0 1 0 P ^ D 0x5A0049 PATINVERT
  0 1 1 0 0 1 1 0 S ^ D 0x660046 SRCINVERT
  1 0 0 0 1 0 0 0 S & D 0x8800C6 SRCAND
- 1 0 1 1 1 0 1 1 ~S ¦ D 0xBB0226 MERGEPAINT
+ 1 0 1 1 1 0 1 1 ~S ? D 0xBB0226 MERGEPAINT
  1 1 0 0 0 0 0 0 P & S 0xC000CA MERGECOPY
  1 1 0 0 1 1 0 0 S 0xCC0020 SRCCOPY
- 1 1 1 0 1 1 1 0 S ¦ D 0xEE0086 SRCPAINT
+ 1 1 1 0 1 1 1 0 S ? D 0xEE0086 SRCPAINT
  1 1 1 1 0 0 0 0 P 0xF00021 PATCOPY
- 1 1 1 1 1 0 1 1 P ¦ ~S ¦ D 0xFB0A09 PATPAINT
+ 1 1 1 1 1 0 1 1 P ? ~S ? D 0xFB0A09 PATPAINT
  1 1 1 1 1 1 1 1 1 0xFF0062 WHITENESS
 
 
@@ -612,10 +612,10 @@ Besides BitBlt and StretchBlt, Windows also includes a function called PatBlt ("
 
 
 PatBlt (hdc, x, y, cx, cy, dwROP) ;
-The x, y, cx, and cy arguments are in logical units. The logical point (x, y) specifies the upper left corner of a rectangle. The rectangle is cx units wide and cy units high. This is the rectangular area that PatBlt alters. The logical operation that PatBlt performs on the brush and the destination device context is determined by the dwROP argument, which is a subset of the ROP codes—that is, you can use only those ROP codes that do not involve a source destination device context. The 16 raster operations supported by PatBlt are shown in the table below. Pattern (P): 1 1 0 0
+The x, y, cx, and cy arguments are in logical units. The logical point (x, y) specifies the upper left corner of a rectangle. The rectangle is cx units wide and cy units high. This is the rectangular area that PatBlt alters. The logical operation that PatBlt performs on the brush and the destination device context is determined by the dwROP argument, which is a subset of the ROP codes?that is, you can use only those ROP codes that do not involve a source destination device context. The 16 raster operations supported by PatBlt are shown in the table below. Pattern (P): 1 1 0 0
 Destination (D): 1 0 1 0  Boolean Operation ROP Code Name
 Result: 0 0 0 0 0 0x000042 BLACKNESS
- 0 0 0 1 ~(P ¦ D) 0x0500A9
+ 0 0 0 1 ~(P ? D) 0x0500A9
  0 0 1 0 ~P & D 0x0A0329
  0 0 1 1 ~P 0x0F0001
  0 1 0 0 P & ~D 0x500325
@@ -625,10 +625,10 @@ Result: 0 0 0 0 0 0x000042 BLACKNESS
  1 0 0 0 P & D 0xA000C9
  1 0 0 1 ~(P ^ D) 0xA50065
  1 0 1 0 D 0xAA0029
- 1 0 1 1 ~P ¦ D 0xAF0229
+ 1 0 1 1 ~P ? D 0xAF0229
  1 1 0 0 P  0xF00021 PATCOPY
- 1 1 0 1 P ¦ ~D 0xF50225
- 1 1 1 0 P ¦ D 0xFA0089
+ 1 1 0 1 P ? ~D 0xF50225
+ 1 1 1 0 P ? D 0xFA0089
  1 1 1 1 1 0xFF0062 WHITENESS
 
 

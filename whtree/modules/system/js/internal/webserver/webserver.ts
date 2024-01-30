@@ -4,29 +4,51 @@ import * as env from "@webhare/env";
 import * as net from 'node:net';
 import * as http from 'node:http';
 import * as https from 'node:https';
-import { Configuration, Port, initialconfig } from "./webconfig";
+import { Configuration, Port, Host, initialconfig } from "./webconfig";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 
-function buildWebRequest(req: http.IncomingMessage, port: Port, body?: string): WebRequest {
-  //FIXME verify whether host makes sense given the incoming port (ie virtualhost or force to IP ?)
-  const finalurl = (port.privatekey ? "https://" : "http://") + req.headers.host + req.url;
+class WebServerPort {
+  server: http.Server | https.Server;
+  fixedHost: Host | undefined;
+  overrideHost: string | undefined;
+  readonly port: Port;
 
-  //Translate nodejs request to our Router stuff
-  const webreq = new IncomingWebRequest(finalurl, { method: req.method!.toLowerCase() as HTTPMethod, headers: req.headers as Record<string, string>, body });
-  return webreq;
-}
+  constructor(port: Port, fixedHost: Host | undefined) {
+    this.port = port;
+    this.fixedHost = fixedHost;
+    if (fixedHost)
+      this.overrideHost = new URL(fixedHost.baseurl).host; //host can include :port!
 
-class WebServer {
-  config: Configuration;
-  ports: Array<{
-    server: http.Server | https.Server;
-  }> = [];
+    const serveroptions: https.ServerOptions = {};
+    if (port.privatekey) {
+      serveroptions.key = port.privatekey;
+      serveroptions.cert = port.certificatechain;
+    }
 
-  constructor() {
-    this.config = initialconfig;
+    const callback = (req: http.IncomingMessage, res: http.ServerResponse) => this.onRequest(req, res);
+    this.server = port.privatekey ? https.createServer(serveroptions, callback)
+      : http.createServer(serveroptions, callback);
+    this.server.on('error', e => console.log("Server error", e)); //TODO deal with EADDRINUSE for listen falures
+    this.server.on('upgrade', (req, socket, head) => this.forwardUpgrade(req, socket as net.Socket, head));
+    this.server.listen(port.port, port.ip);
   }
 
-  async onRequest(port: Port, req: http.IncomingMessage, res: http.ServerResponse) {
+  buildWebRequest(req: http.IncomingMessage, body?: string): WebRequest {
+    //FIXME verify whether host makes sense given the incoming port (ie virtualhost or force to IP ?)
+    //FIXME ensure clientWebServer is also set for virtualhosted URLs
+    const finalurl = (this.port.privatekey ? "https://" : "http://") + (this.overrideHost || req.headers.host) + req.url;
+
+    //Translate nodejs request to our Router stuff
+    const webreq = new IncomingWebRequest(finalurl, {
+      method: req.method!.toLowerCase() as HTTPMethod,
+      headers: req.headers as Record<string, string>,
+      body,
+      clientWebServer: this.fixedHost?.id || 0
+    });
+    return webreq;
+  }
+
+  async onRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     try {
       if (!req.method || !req.url)
         throw new Error("Incomplete request?");
@@ -46,7 +68,7 @@ class WebServer {
         }));
 
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
-      const webreq = buildWebRequest(req, port, body);
+      const webreq = this.buildWebRequest(req, body);
       const response = await coreWebHareRouter(webreq);
       for (const [key, value] of response.getHeaders())
         if (key !== 'set-cookie')
@@ -62,6 +84,26 @@ class WebServer {
     } catch (e) {
       this.handleException(e, req, res);
     }
+  }
+
+  async forwardUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buffer) {
+    const webreq = this.buildWebRequest(req);
+    //forward it unconditionally (TODO integrate with router ?)
+    const { targeturl, fetchmethod, headers } = getHSWebserverTarget(webreq);
+
+    //FIXME deal with upstream connect errors
+    const destreq = http.request(targeturl, { headers, method: fetchmethod });
+    destreq.end();
+    destreq.on('upgrade', (res, nextsocket, upgradeHead) => {
+      //We need to return the headers, or at minimum: sec-websocket-accept
+      //TODO accesslog something about this connection. or just at the end/termination ?
+      socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
+        Object.entries(res.headers).map(([key, value]) => `${key}: ${value}\r\n`).join('') + "\r\n");
+      socket.write(upgradeHead);
+      nextsocket.write(head);
+      nextsocket.pipe(socket);
+      socket.pipe(nextsocket);
+    });
   }
 
   handleException(e: unknown, req: http.IncomingMessage, res: http.ServerResponse) {
@@ -81,44 +123,21 @@ class WebServer {
       res.end(`500 Internal server error\n\nDid not receive a proper Error`);
     }
   }
+}
+
+class WebServer {
+  config: Configuration;
+  ports = new Set<WebServerPort>();
+
+  constructor() {
+    this.config = initialconfig;
+  }
 
   reconfigure(config: Configuration) {
     for (const port of config.ports) {
-      const serveroptions: https.ServerOptions = {};
-      if (port.privatekey) {
-        serveroptions.key = port.privatekey;
-        serveroptions.cert = port.certificatechain;
-      }
-
-      const callback = (req: http.IncomingMessage, res: http.ServerResponse) => this.onRequest(port, req, res);
-      const server = port.privatekey ? https.createServer(serveroptions, callback)
-        : http.createServer(serveroptions, callback);
-      server.on('error', e => console.log("Server error", e)); //TODO deal with EADDRINUSE for listen falures
-      server.on('upgrade', (req, socket, head) => this.forwardUpgrade(req, port, socket as net.Socket, head));
-      server.listen(port.port, port.ip);
-
-      this.ports.push({ server });
+      const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port == port.id) : undefined;
+      this.ports.add(new WebServerPort(port, fixedhost));
     }
-  }
-
-  async forwardUpgrade(req: http.IncomingMessage, port: Port, socket: net.Socket, head: Buffer) {
-    const webreq = buildWebRequest(req, port);
-    //forward it unconditionally (TODO integrate with router ?)
-    const { targeturl, fetchmethod, headers } = getHSWebserverTarget(webreq);
-
-    //FIXME deal with upstream connect errors
-    const destreq = http.request(targeturl, { headers: Object.fromEntries(headers.entries()), method: fetchmethod });
-    destreq.end();
-    destreq.on('upgrade', (res, nextsocket, upgradeHead) => {
-      //We need to return the headers, or at minimum: sec-websocket-accept
-      //TODO accesslog something about this connection. or just at the end/termination ?
-      socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
-        Object.entries(res.headers).map(([key, value]) => `${key}: ${value}\r\n`).join('') + "\r\n");
-      socket.write(upgradeHead);
-      nextsocket.write(head);
-      nextsocket.pipe(socket);
-      socket.pipe(nextsocket);
-    });
   }
 
   unref() {
@@ -127,7 +146,7 @@ class WebServer {
 
   close() {
     this.ports.forEach(_ => _.server.close());
-    this.ports = [];
+    this.ports.clear();
   }
 }
 
