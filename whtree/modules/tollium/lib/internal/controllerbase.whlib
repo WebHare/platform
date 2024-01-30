@@ -1920,7 +1920,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   */
   PUBLIC MACRO StartApplication(STRING app, RECORD target, RECORD message, RECORD options)
   {
-    //GetAppLaunchInstruction will validate options.reusemode
+    options := ValidateOptions(
+        [ reusemode :=  "always"
+        ], options);
+
+    //GetAppLaunchInstruction will further validate options.reusemode
     this->QueueInstruction(CELL[ instr := "shellinstruction", ...GetAppLaunchInstruction(app, CELL[ message, target, reuse_instance := options.reusemode ])]);
   }
 
