@@ -618,8 +618,8 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
     ELSE
     {
       PRINT(delayed_output);
-      printrecordarrayto(0,errors,'boxed');
-      Print("Script failed: "|| script || " (exitcode = "|| exitcode || ")\n");
+      Print(FormatHarescriptErrors(errors));
+      Print("\nScript failed: "|| script || " (exitcode = "|| exitcode || ")\n");
     }
   }
   ELSE
