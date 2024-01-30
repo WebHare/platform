@@ -36,6 +36,7 @@ LOADLIB "mod::tollium/lib/internal/appmgmt.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/types.whlib";
 
 LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
 
@@ -44,16 +45,7 @@ CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpasswor
 ///Expected protocol version. Bump if we break backwards compatible with JS code
 CONSTANT INTEGER expecttoddprotocolversion := 1;
 
-RECORD FUNCTION GetRawAppLaunchInstruction(STRING appname)
-{
-  RETURN [ type := "appmessage"
-         , app := appname
-         , target := DEFAULT RECORD
-         , message := DEFAULT RECORD
-         , reuse_instance := "never"
-         ];
-}
-RECORD FUNCTION GetAppLaunchInstruction(STRING manualbaseurl, RECORD app)
+RECORD FUNCTION GetInstructionForAppRec(STRING manualbaseurl, RECORD app)
 {
   IF(app.apprec.iswindowopen)
   {
@@ -68,12 +60,7 @@ RECORD FUNCTION GetAppLaunchInstruction(STRING manualbaseurl, RECORD app)
            ];
   }
 
-  RETURN [ type := "appmessage"
-         , app := app.name
-         , target := DEFAULT RECORD
-         , message := DEFAULT RECORD
-         , reuse_instance := "never"
-         ];
+  RETURN GetAppLaunchInstruction(app.name);
 }
 
 DATETIME FUNCTION GetMaxModificationDate(STRING path)
@@ -402,7 +389,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
       {
         STRING ARRAY forceapps := fptr([ user := this->currentuser ]);
         FOREVERY (STRING app FROM forceapps)
-          INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+          INSERT GetAppLaunchInstruction(app) INTO appinstructions AT END;
       }
       CATCH (OBJECT e)
         LogHarescriptException(e);
@@ -410,10 +397,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
 
     FOREVERY(STRING app FROM this->apps)
-      INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+      INSERT GetAppLaunchInstruction(app) INTO appinstructions AT END;
 
     FOREVERY(STRING app FROM SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) IN [ "APP", "MANUAL" ])
-      INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+      INSERT GetAppLaunchInstruction(app) INTO appinstructions AT END;
 
     appinstructions := SELECT *, inbackground := #instr != Length(appinstructions)-1 FROM appinstructions AS instr;
 
@@ -652,12 +639,11 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
         CONTINUE;
 
       INSERT [ title := favorite.title
-             , instr := [ type := "appmessage"
-                        , app := favorite.app
-                        , target  := favorite.target
+             , instr := GetAppLaunchInstruction(favorite.app,
+                    CELL[ target  := favorite.target
                         , message := favorite.message
                         , reuse_instance := "never"
-                        ]
+                        ])
              , icon := matchingapp.icon
              , link := matchingapp.link
              ] INTO menuitems AT END;
@@ -677,7 +663,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     RECORD ARRAY appmenu := SELECT title := GetTid(tid)
                                  , apps := (SELECT TEMPORARY translatedtitle := GetTid(title)
                                                  , title := translatedtitle
-                                                 , instr := GetAppLaunchInstruction(manualbaseurl, apps)
+                                                 , instr := GetInstructionForAppRec(manualbaseurl, apps)
                                                  , link
                                                  , icon
                                                  , shortcut
@@ -694,14 +680,11 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(Length(personalmenu) > 0)
     {
       // For editing favorites, open the personal settings app if it's not opened yet and send a message to open the 'startmenu' tab
-      RECORD editinstr := CELL[ ...GetRawAppLaunchInstruction(this->config.personalsettingsapp)
-                              , reuse_instance := "always"
-                              , message := [ opentab := "startmenu" ]
-                              ];
-
       INSERT [ title := GetTid("tollium:shell.personalmenu")
              , apps := personalmenu
-             , editinstr := editinstr
+             , editinstr := GetAppLaunchInstruction(this->config.personalsettingsapp, [ reuse_instance := "always"
+                                                                                      , message := [ opentab := "startmenu" ]
+                                                                                      ])
              , edittitle := GetTid("tollium:shell.editfavorites")
              , groupname := "system:favorites"
              ] INTO appmenu AT 0;
@@ -778,7 +761,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
             , allowpasswordreset := ReadRegistryKey("system.backend.security.allowpasswordreset")
             , displayimage := ""
             , displayname := ""
-            , personalsettings := CELL[...GetRawAppLaunchInstruction(this->config.personalsettingsapp), reuse_instance := "always" ]
+            , personalsettings := GetAppLaunchInstruction(this->config.personalsettingsapp, [reuse_instance := "always" ])
             , userdisplayname :=    ObjectExists(this->currentuser) ? this->currentuser->realname ?? this->currentuser->login : ""
             , browsertitleprefix := ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.browsertitleprefix", "") : ""
             , allowlogout :=        ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->IsLogoutAllowed()

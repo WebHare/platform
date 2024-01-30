@@ -55,6 +55,7 @@ import { getTid } from "@mod-tollium/js/gettid";
 require("../common.lang.json");
 
 import TolliumShell from "@mod-tollium/shell/platform/shell";
+import { AppLaunchInstruction, ShellInstruction } from '@mod-platform/js/tollium/types';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
 function preventNavigation(event) {
@@ -86,7 +87,7 @@ interface ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
   allowpasswordreset: boolean;
   displayimage: string;
   displayname: string;
-  peronalsettings: unknown; //TODO AppLaunchInstruction
+  personalsettings: AppLaunchInstruction;
   userdisplayname: string;
   browsertitleprefix: string;
   allowlogout: boolean;
@@ -95,7 +96,7 @@ interface ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
   issysop: boolean;
   notificationslocation: "none" | "browser" | "desktop";
   feedbacktoken: string;
-  initialinstructions: unknown[]; //TODO AppLaunchInstruction[]
+  initialinstructions: AppLaunchInstruction[];
 }
 
 class IndyShell extends TolliumShell {
@@ -489,7 +490,7 @@ class IndyShell extends TolliumShell {
 
     setupWHCheck(settings.checkinterval);
   }
-  sendApplicationMessage(app, target, message, reuse_instance, inbackground, appoptions) {
+  sendApplicationMessage(app: AppLaunchInstruction["app"], target: AppLaunchInstruction["target"], message: AppLaunchInstruction["message"], reuse_instance: AppLaunchInstruction["reuse_instance"], inbackground: boolean, appoptions?) {
     if ($todd.IsDebugTypeEnabled('communication'))
       console.log('toddSendApplicationMessage: app:' + app + ' reuse:' + reuse_instance + ' target:' + JSON.stringify(target) + " message:" + JSON.stringify(message));
 
@@ -528,7 +529,7 @@ class IndyShell extends TolliumShell {
 
     return this.startBackendApplication(app, null, { target: target, message: message, inbackground: inbackground, ...appoptions });
   }
-  executeInstruction(instr) {
+  executeInstruction(instr: ShellInstruction) {
     if (instr.type == 'appmessage') {
       //ADDME background flag is now missing with initial launches, but i think it should just be specified by caller
       this.sendApplicationMessage(instr.app, instr.target, instr.message, instr.reuse_instance, instr.inbackground);

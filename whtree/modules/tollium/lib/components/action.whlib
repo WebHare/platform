@@ -539,7 +539,7 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
   UPDATE PUBLIC MACRO TolliumWebRender()
   {
     STRING ARRAY unmasked_events;
-    IF(this->handlername IN ["copytoclipboard","handlefeedback"]) //hack to implement some client-side actions for which we don't actually want a callbcak
+    IF(this->handlername IN ["copytoclipboard"]) //hack to implement some client-side actions for which we don't actually want a callbcak
       unmasked_events := STRING[this->handlername];
     ELSE IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR OR (RecordExists(SELECT FROM this->enableon WHERE GetCell(enableon, this->handlername) != DEFAULT FUNCTION PTR)) OR this->__fallbackhandler != DEFAULT FUNCTION PTR)
       INSERT Substring(this->handlername, 2) INTO unmasked_events AT END; //ADDME now if all this handlername handling isn't a hack :P
@@ -1093,32 +1093,6 @@ PUBLIC OBJECTTYPE TolliumHelpAction EXTEND WindowOpenActionBase
     handler->SendURL(GenerateProtectedManualURL(this->manual, this->accesstoken, this->contexts->user->language, this->languages));
   }
 >;
-
-
-PUBLIC OBJECTTYPE TolliumFeedbackAction EXTEND ActionBase
-<
-  STRING scope;
-
-  MACRO NEW()
-  {
-    this->handlername := "handlefeedback";
-  }
-
-  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
-  {
-    INSERT CELL enableon := DEFAULT RECORD ARRAY INTO definition;
-    this->scope := definition.scope;
-    ActionBase::StaticInit(definition);
-  }
-
-  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
-  {
-    RETURN
-        [ scope := this->scope
-        ];
-  }
->;
-
 
 PUBLIC OBJECTTYPE TolliumCopyAction EXTEND ActionBase
 <

@@ -1,0 +1,13 @@
+<?wh
+
+PUBLIC RECORD FUNCTION GetAppLaunchInstruction(STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD) // :AppLaunchInstruction
+{
+  RETURN CELL[ type := "appmessage"
+             , app := appname
+             , ...ValidateOptions(CELL[ target := DEFAULT RECORD
+                                      , message := DEFAULT RECORD
+                                      , reuse_instance := "never"
+                                      ], options,
+                                          CELL[ enums := [ reuse_instance := ["never","always","whennotbusy"]]])
+             ];
+}
