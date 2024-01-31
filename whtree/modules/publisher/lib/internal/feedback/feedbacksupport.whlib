@@ -7,10 +7,8 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-
-LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 
 
 PUBLIC CONSTANT STRING tollium_feedback_scope := "tollium:webharebackend";
@@ -92,121 +90,6 @@ PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)
   RETURN fields;
 }
 
-/** @short Store feedback
-    @param data The feedback data
-    @cell(integer) data.version The feedback data's version, currently 1 (can be used by the Feedback application to determine which
-        fields are available)
-    @cell(record) data.screenshot The screenshot data
-    @cell(record array) data.screenshot.htmlattrs The html node's attributes
-    @cell(string) data.screenshot.htmlattrs.name Attribute name
-    @cell(string) data.screenshot.htmlattrs.value Attribute value
-    @cell(string array) data.screenshot.stylesheets The contents of each of the document's stylesheets
-    @cell(record array) data.screenshot.bodyattrs The body node's attributes
-    @cell(string) data.screenshot.bodyattrs.name Attribute name
-    @cell(string) data.screenshot.bodyattrs.value Attribute value
-    @cell(string) data.screenshot.bodycontents Basically the innerHTML of the body node
-    @cell(record) data.size Browser viewport (inner window) size
-    @cell(integer) data.size.width Viewport width
-    @cell(integer) data.size.height Viewport height
-    @cell(record) data.element The selected element's bounding box
-    @cell(integer) data.element.top Top position
-    @cell(integer) data.element.left Left position
-    @cell(integer) data.element.width Width
-    @cell(integer) data.element.height Height
-    @cell(string) data.browser Browser triplet
-    @cell(string) data.device Device (e.g. "desktop", "tablet", "phone")
-    @cell(string) data.useragent The browser's User-Agent string
-    @cell(record) data.extradata Additional data to store with the feedback
-    @cell(record array) data.extradata.extrafields Supply this field to display extra data in the Feedback application
-    @cell(string) data.extradata.extrafields.field The cell name within the extradata record
-    @cell(string) data.extradata.extrafields.type The value type, one of "string", "integer" or "tid" (if "tid" is specified,
-        the value is treated as a tid, which can be an absolute tid or may be resolved relative to this field's tid or to
-        optiongid, if supplied)
-    @cell(string) data.title The field title
-    @cell(string) data.tid The field tid (if a title is supplied, the tid is ignored)
-    @cell(string) data.optiongid Can be supplied for fields of type "tid" to resolve tid values
-    @cell(string) return.guid The stored feedback's GUID, which can be used to store extra data using %StoreExtraData
-    @cell(record array) return.topics The available topics
-    @cell(string) return.topics.tag Topic tag (the topic value to submit to %StoreFeedbackExtraData)
-    @cell(string) return.topics.title Topic title
-*/
-PUBLIC RECORD FUNCTION StoreFeedback(RECORD data)
-{
-  OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
-
-  data := CELL[ ...data
-              , wrd_leftentity := wrdschema->^scope->Search("wrd_tag", ToUppercase(tollium_feedback_scope))//FIXME: scope is no longer used, but wrd_leftentity is required
-              , feedbackid := GetWRDSequenceNext(wrdschema->id, "publisher:feedbackid", [ mutex := "publisher:feedbackid"
-                                                                                        , nrformat := "FB%04n"
-                                                                                        ])
-              , status := "creating"
-              ];
-
-  OBJECT entity := wrdschema->^feedback->CreateEntity(data);
-  RETURN CELL
-      [ entity->guid
-        //TODO: For now we'll just return all available topics, these may be restricted by webdesign and/or reporting rights
-      , topics :=
-          (SELECT guid := wrd_guid
-                , title
-             FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ "wrd_guid", title := "wrd_title", "wrd_ordering","wrd_id" ] ])
-            ORDER BY wrd_ordering
-                   , ToUppercase(title)
-                   , wrd_id)
-      ];
-}
-
-/** @short Store additional data with existing feedback (new extradata is merged with existing extradata)
-    @param guid The feedback's GUID, as returned by %StoreFeedback
-    @cell(string) settings.topic The topic to store the feedback for
-    @cell(string) settings.remarks User's remarks
-    @cell(record) settings.extradata @includecelldef #StoreFeedback.data.extradata
-    @return The feedback id
-*/
-PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
-{
-  settings := ValidateOptions([ topic := ""
-                              , remarks := ""
-                              , extradata := DEFAULT RECORD
-                              ], settings, [ discard := [ "type" ] ]);
-
-  OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
-  INTEGER feedbackid := wrdschema->^feedback->Search("wrd_guid", guid);
-  IF (feedbackid = 0)
-    THROW NEW Exception(`No feedback with guid '${guid}'`);
-
-  INTEGER topicid := wrdschema->^topic->Search("wrd_guid", settings.topic);
-  IF (topicid = 0) //Don't permit topic-less feedback, we can't route it any further
-    THROW NEW Exception(`No such topic '${settings.topic}'`);
-
-  RECORD topicsettings := wrdschema->^topic->GetEntityFields(topicid, ["default_role" ,"default_priority"]);
-  RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata","status","wrd_leftentity", "userdata" ]);
-  IF(feedback.status != "creating")
-    THROW NEW Exception(`Feedback with guid '${guid}' has already been completed`);
-
-  wrdschema->^feedback->UpdateEntity(feedbackid,
-      CELL[ topic := topicid
-          , role := topicsettings.default_role
-          , priority := topicsettings.default_priority
-          , settings.remarks
-          , extradata := CELL[...feedback.extradata, ...settings.extradata ]
-          , status := "new"
-          ]);
-
-  wrdschema->^log->CreateEntity(CELL[ wrd_leftentity := feedbackid
-                                    , newrole := topicsettings.default_role
-                                    , newtopic := topicid
-                                    , newpriority := topicsettings.default_priority
-                                    , text := settings.remarks
-                                    , statuschange := "new"
-                                    , webhareuser := feedback.userdata
-                                    ]);
-
-  RECORD finaldata := wrdschema->^feedback->GetEntityFields(feedbackid, ["feedbackid", "whfsobject"]);
-  RunModuleHookTarget("publisher:feedbackupdate", CELL[ feedbackid, finaldata.whfsobject ]);
-  RETURN finaldata.feedbackid;
-}
-
 STRING FUNCTION GetFeedbackSecret(STRING kid_unused)
 {
   // The secret key should be at least 256 bits, which the cookiesecret already is
@@ -222,6 +105,8 @@ PUBLIC STRING FUNCTION GetFeedbackWebToken(OBJECT tolliumuser)
   IF(userdata.wrd_guid = "")
     RETURN ""; //anonymous user or override token
 
+  STRING wrdschema := tolliumuser->wrdschema->tag;
+
   // Convert GetUserDataForLogging data to JWT claims (see https://www.iana.org/assignments/jwt/jwt.xhtml)
   userdata :=
       [ iap := userdata.when
@@ -230,6 +115,9 @@ PUBLIC STRING FUNCTION GetFeedbackWebToken(OBJECT tolliumuser)
       , email := userdata.emailaddress
       , preferred_username := userdata.login
       ];
+  IF(wrdschema != GetPrimaryWebhareAuthPlugin()->wrdschema->tag)
+    INSERT CELL wrdschema := tolliumuser->wrdschema->tag INTO userdata;
+
   OBJECT token := NEW JSONWebToken("HS256", GetfeedbackSecret(""));
   token->payload := userdata;
   RETURN token->GetAuthorizationValue();
@@ -250,6 +138,7 @@ PUBLIC RECORD FUNCTION VerifyFeedbackWebToken(STRING token)
           , name := ""
           , email := ""
           , preferred_username := ""
+          , wrdschema := ""
           ], VerifyJSONWebToken(token, [ alg := [ "HS256" ], secret_callback := PTR GetFeedbackSecret ])->payload);
       // Convert JWT claims to GetUserDataForLogging data (see https://www.iana.org/assignments/jwt/jwt.xhtml)
       RETURN
@@ -258,6 +147,7 @@ PUBLIC RECORD FUNCTION VerifyFeedbackWebToken(STRING token)
           , realname := userdata.name
           , emailaddress := userdata.email
           , login := userdata.preferred_username
+          , wrdschema := userdata.wrdschema
           ];
     }
     CATCH (OBJECT e)
@@ -291,4 +181,3 @@ PUBLIC MACRO UpdateFeedbackItem(OBJECT wrdschema, INTEGER feedbackid, RECORD new
   IF(RecordExists(itemupdates))
     wrdschema->^feedback->UpdateEntity(feedbackid, itemupdates);
 }
-

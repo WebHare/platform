@@ -1,77 +1,12 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from "dompack";
-import * as feedback from "@mod-publisher/js/feedback";
+import * as dompack from "@webhare/dompack";
 import getTid from "@mod-tollium/js/gettid";
 import { createImage } from "@mod-tollium/js/icons";
 import { runSimpleScreen } from "@mod-tollium/web/ui/js/dialogs/simplescreen";
-import * as $todd from "@mod-tollium/web/ui/js/support";
+import { getActiveApplication } from "@mod-tollium/web/ui/js/support";
+import { getIndyShell } from "@mod-tollium/web/ui/js/shell";
+import { prepareFeedback } from "@mod-publisher/js/feedback/screenshot";
 
-export default class TolliumFeedbackAPI {
-  constructor() {
-    // Add a trigger node
-    this.trigger =
-      <span class="wh-tollium__feedback">
-        {createImage("tollium:objects/bug", 24, 24, "b")}
-      </span>;
-
-    this.trigger.addEventListener("click", async event => {
-      this.trigger.classList.add("wh-tollium__feedback--active");
-      await this.run(event, this.trigger);
-      this.trigger.classList.remove("wh-tollium__feedback--active");
-    });
-    document.body.append(this.trigger);
-
-  }
-
-  remove() {
-    this.trigger.remove();
-    this.trigger = null;
-  }
-
-  async run(event) {
-    return run(event, { token: this.token });
-  }
-}
-
-export async function run(event, options) {
-  // Ask if the user wants to give feedback for a certain DOM element
-  const which = await runSimpleScreen($todd.getActiveApplication(),
-    {
-      text: getTid("tollium:shell.feedback.message"),
-      title: getTid("tollium:shell.feedback.title"),
-      buttons:
-        [
-          {
-            name: "specific",
-            title: getTid("tollium:shell.feedback.button-specific")
-          },
-          {
-            name: "general",
-            title: getTid("tollium:shell.feedback.button-general")
-          },
-          {
-            name: "cancel",
-            title: getTid("~cancel")
-          }
-        ],
-      defaultbutton: "specific",
-      icon: "question"
-    });
-
-  if (which !== "cancel") {
-    // Get the feedback data with the screenshot
-    const result = await feedback.getFeedback(event, { addElement: which === "specific", ...options });
-    if (result.success) {
-      // Ask for extra information
-      window.$shell.startBackendApplication("publisher:submitfeedback", null, { target: { guid: result.guid } });
-    }
-  }
-}
-
-
-function filterDOM(node) {
+function filterDOM(node: Element) {
   // Nodes other than alements (e.g. text, comments) are always allowed
   if (node.nodeType != Node.ELEMENT_NODE)
     return true;
@@ -83,7 +18,96 @@ function filterDOM(node) {
     && (!node.classList.contains("tabsheet") || !node.classList.contains("invisible"));
 }
 
-// Initialize the feedback options - we always init, as backend apps can trigger feedback too
-feedback.initFeedback({
-  domFilterCallback: filterDOM
-});
+export default class TolliumFeedbackAPI {
+  private trigger: HTMLElement;
+  token = ''; //set by shell _updateFeedbackHandler
+
+  constructor() {
+    // Add a trigger node
+    this.trigger =
+      <span class="wh-tollium__feedback">
+        {createImage("tollium:objects/bug", 24, 24, "b")}
+      </span>;
+
+    this.trigger.addEventListener("click", async event => {
+      this.trigger.classList.add("wh-tollium__feedback--active");
+      await this.run(event);
+      this.trigger.classList.remove("wh-tollium__feedback--active");
+    });
+    document.body.append(this.trigger);
+
+  }
+
+  /** Remove us from the DOM */
+  remove() {
+    this.trigger.remove();
+    //after this we should be garbage collectible as our caller should drop the reference
+  }
+
+  async run(event: MouseEvent) {
+    const app = getActiveApplication();
+    if (!app)
+      return;
+
+    // Ask (using a proper Tollium dialog) if the user wants to give feedback for a certain DOM element
+    const which = await runSimpleScreen(app,
+      {
+        text: getTid("tollium:shell.feedback.message"),
+        title: getTid("tollium:shell.feedback.title"),
+        buttons:
+          [
+            {
+              name: "specific",
+              title: getTid("tollium:shell.feedback.button-specific")
+            },
+            {
+              name: "general",
+              title: getTid("tollium:shell.feedback.button-general")
+            },
+            {
+              name: "cancel",
+              title: getTid("~cancel")
+            }
+          ],
+        defaultbutton: "specific",
+        icon: "question"
+      });
+
+    if (which === "cancel")
+      return;
+
+    const application = app.getToplevelApp().appname;
+    const prepped = await prepareFeedback({
+      token: this.token,
+      addElement: which === "specific",
+      initialMouseEvent: event,
+      domFilterCallback: filterDOM
+    });
+
+    /* Using the upload flow might have been nice (esp. for slow connections) but it looks like Tollium will *push* the upload to an existing
+       app and I can't access the upload from a newly started app (it won't get the upload). It might be cleaner to reengineer Tollium to
+       always *pull* the upload and only receive the token (and we probably need that for WASM apps anyway)
+
+    const screenshotAsBlob = await new Promise(resolve => screenshot.toBlob(resolve));
+    console.error({ screenshot, screenshotAsBlob });
+
+    const uploader = new compatupload.UploadSession([screenshotAsBlob]);//, { params: { tolliumdata: getUploadTolliumData(component) } });
+    const uploadcontroller = new UploadDialogController({ displayapp: app }, uploader);
+    const result = await uploader.upload();
+    console.error(result);
+    uploadcontroller.close();
+    */
+
+    getIndyShell().executeInstruction({
+      type: "appmessage",
+      app: "connect:submitfeedback",
+      target: {
+        ...prepped,
+        application
+      },
+      message: null,
+      reuse_instance: "never",
+      inbackground: false
+    });
+  }
+}

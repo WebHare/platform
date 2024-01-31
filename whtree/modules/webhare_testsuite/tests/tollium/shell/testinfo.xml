@@ -1,6 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_documentation.whscr" />
   <jstest file="test_jsapp.ts" />
-  <test script="test_feedbackapp.whscr" />
-  <jstest file="test_feedback.ts" />
 </group>

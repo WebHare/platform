@@ -4,7 +4,7 @@ import type { PointOptions, PointResult, HighlightCallback } from "./index";
 
 let deferred: DeferredPromise<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
 
-export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<PointResult | null> {
+export function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<PointResult | null> {
   if (deferred)
     return Promise.reject(new Error("Already pointing at DOM"));
 
@@ -76,7 +76,7 @@ function captureDOMNode(event: MouseEvent) {
       resolveWithResult(null);
     else {
       const rect = hoverNode.getBoundingClientRect();
-      resolveWithResult({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+      resolveWithResult({ top: rect.top, left: rect.left, width: rect.width, height: rect.height, scale: window.devicePixelRatio });
     }
   }
 }

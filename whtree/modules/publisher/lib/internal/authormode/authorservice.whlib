@@ -1,18 +1,59 @@
 <?wh
 
-LOADLIB "mod::system/lib/database.whlib";
 
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
-
-PUBLIC RECORD FUNCTION RPC_SubmitFeedback(STRING guid, RECORD form)
+PUBLIC RECORD FUNCTION RPC_SubmitFeedback(RECORD data)
 {
-  //TODO rate limit - or should already be in storefeedback
-  OpenPrimary(); //TODO basic validation before we bother the DB?
-  GetPrimary()->BeginWork();
-  STRING feedbackid := StoreFeedbackExtraData(guid, CELL[ type := 0, form.topic, form.remarks ]);
-  GetPrimary()->CommitWork();
+  RECORD basestructure :=
+      [ version := 0
+      , image := ""
+      , element :=
+        [ top := 0
+        , left := 0
+        , width := 0
+        , height := 0
+        , scale := 0
+        ]
+      , browser := ""
+      , device := ""
+      , useragent := ""
+      , extradata := DEFAULT RECORD
+      , token := ""
+      , url := ""
+      , topic := ""
+      , remarks := ""
+      ];
 
-  RETURN [ responsetext := `Dank voor je melding. Deze is vastgelegd als ${feedbackid}`
-         ];
+  //Do not allow improper cells to be set through RPC
+  data := EnforceStructure(basestructure, data);
+  data := PickCells(data, (SELECT AS STRING ARRAY name FROM UnpackRecord(basestructure)));
+
+  //Fix origin, not trusting client JS
+  data.url := GetWebOriginURL("/") || UnpackURL(data.url).urlpath;
+
+  RECORD userdata := VerifyFeedbackWebToken(data.token);
+  DELETE CELL token FROM data;
+  IF(NOT RecordExists(userdata))
+    RETURN [ success := FALSE, responsetext := "Not authorized to submit feedback" ];
+
+  OpenPrimary();
+  INTEGER targetfile := LookupPublisherURL(data.url).file;
+  IF(targetfile != 0)
+    INSERT CELL whfsobject := targetfile
+              , targetcreationdate := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = targetfile)
+           INTO data;
+
+  //TODO Should be configurable if there's actual any interest in alternatives before we consider re-merging connect/feedback
+  IF(IsModuleInstalled("connect"))
+    RETURN MakeFunctionPTR("mod::connect/lib/internal/whfeedbackapi.whlib#ProcessAuthorFeedback")(CELL[ ...data, userdata ]);
+  ELSE
+    RETURN [ success := FALSE, responsetext := "No feedback processor installed" ];
 }

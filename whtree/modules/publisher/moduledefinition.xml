@@ -22,7 +22,6 @@
     <task runat="27  7 * * *"  runtz="maintenance" tag="updateslots" script="scripts/tasks/updateslots.whscr" description="Update outdated slots" runatstartup="true" />
 
     <task tag="scheduledtasks" script="scripts/tasks/executetasks.whscr" description="Launch a scheduled publisher task (eg move or start publishing a file)"/>
-    <task tag="updatefeedbackscopes" script="scripts/tasks/updatefeedbackscopes.whscr" description="Update feedback scopes" runatstartup="true" />
 
     <taskcluster tag="publicationqueue" harescriptworkers="4" harescriptworkerthreads="2" /> <!-- word publication requires at least 2 threads -->
 
@@ -120,10 +119,6 @@
         <requireright right="managefeedback"/>  <!-- Add this right explicitly, so supervisors can access the app if there are no roles defined (yet) -->
         <requireright right="managefeedbackrole"/>
       </accesscheck>
-    </application>
-
-    <application name="submitfeedback" screen="tolliumapps/feedback/submit.xml#submitfeedback">
-      <accesscheck/>
     </application>
 
     <application name="shorturl" screen="tolliumapps/shorturl/shorturl.xml" icon="tollium:applications/shortlink" group="system:cms" tid="tolliumapps.shorturl.shorturl.apptitle">
@@ -1116,7 +1111,6 @@
     <webservice name="poll" transports="jsonrpc" library="lib/webtools/internal/pollrpc.whlib" primarytrans="none" prefix="RPC_" />
     <webservice name="forum" transports="jsonrpc" library="lib/internal/forum/rpc.whlib" primarytrans="none" prefix="RPC_" />
 
-    <webservice name="feedback" transports="jsonrpc" library="lib/internal/feedback/rpc.whlib" primarytrans="auto" prefix="RPC_" />
     <webservice name="authorservice" transports="jsonrpc" library="lib/internal/authormode/authorservice.whlib" primarytrans="none" prefix="RPC_" />
 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
@@ -1132,7 +1126,6 @@
     <target name="findopen_precheck" /> <!-- Hooks find and open ('open in publisher') -->
     <target name="documenteditor" /> <!-- Siteprofile hooks into the document editor -->
     <target name="whfsindex_priority" /> <!-- Hooks for publisher:whfs index priority -->
-    <target name="feedbackupdate" /> <!-- Hooks into feedback system -->
     <target name="dashboard_sites_export" /> <!-- Allows you to extend the sites export -->
   </hooking>
 

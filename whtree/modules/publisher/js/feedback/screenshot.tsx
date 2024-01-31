@@ -1,97 +1,95 @@
-import type { Properties } from "@mod-system/js/types";
-import * as browser from "@mod-system/js/dompack/extra/browser";
-import type { DOMFilterCallback, ScreenshotData } from "./index";
+import * as dompack from '@webhare/dompack';
+import html2canvas, { Options as H2COptions } from "html2canvas";
+import { pointAtDOM } from '@mod-publisher/js/feedback/dompointer';
+import type { FeedbackOptions, PointResult, PreparedFeedback } from "./index";
 
-const SCREENSHOTVERSION = 2;
-
-function getStyleSheets(): string[] {
-  const sheets: string[] = [];
-
-  for (const sheet of document.styleSheets) {
-    try {
-      sheets.push(Array.from(sheet.cssRules).map(rule => rule.cssText).join(""));
-    } catch (e) {
-      //TODO record the external link for inaccessible stylesheets?
-      console.log("Ignoring stylesheet (CORS?)", e);
-    }
-  }
-  return sheets;
-}
-
-/**
- Take a DOM snapshot
- *
- * @param domFilterCallback - Filter DOM node during clone
- * @param postFilterCallback - Post process the screenshot documentFragment
- */
-export default function takeScreenshot(domFilterCallback?: DOMFilterCallback,
-  postFilterCallback?: (node: DocumentFragment) => void): ScreenshotData {
-  const bodyFragment = document.createDocumentFragment();
-  cloneNodeContents(document.body, bodyFragment, domFilterCallback);
-  if (postFilterCallback)
-    postFilterCallback(bodyFragment);
-  const bodyNode = document.createElement("div");
-  bodyNode.append(bodyFragment);
-
-  const htmlAttrs: Properties = Array.from(document.documentElement.attributes).map(attr => { return { name: attr.name, value: attr.value }; });
-  const styleSheets = getStyleSheets();
-  const bodyAttrs: Properties = Array.from(document.body.attributes).map(attr => { return { name: attr.name, value: attr.value }; });
-
-  // Save the document's and body's scroll positions
-  if (document.documentElement.scrollTop)
-    htmlAttrs.push({ name: "data-wh-screenshot-scroll-top", value: document.documentElement.scrollTop.toString() });
-  if (document.documentElement.scrollLeft)
-    htmlAttrs.push({ name: "data-wh-screenshot-scroll-left", value: document.documentElement.scrollLeft.toString() });
-  if (document.body.scrollTop)
-    bodyAttrs.push({ name: "data-wh-screenshot-scroll-top", value: document.body.scrollTop.toString() });
-  if (document.body.scrollLeft)
-    bodyAttrs.push({ name: "data-wh-screenshot-scroll-left", value: document.body.scrollLeft.toString() });
-
-  return (
-    {
-      version: SCREENSHOTVERSION,
-      screenshot:
-      {
-        htmlAttrs,
-        styleSheets,
-        bodyAttrs,
-        bodyContents: bodyNode.innerHTML
-      },
-      size: { width: window.innerWidth, height: window.innerHeight },
-      browser: browser.getTriplet(),
-      device: browser.getDevice(),
-      userAgent: window.navigator.userAgent,
-      url: location.href
-    }
-  );
-}
-
-function filterNode(node: Node, domFilterCallback?: DOMFilterCallback): boolean {
-  if (node instanceof HTMLElement && node.dataset.whScreenshotSkip || node.nodeName == "WH-AUTHORBAR")
+function filterElements(node: Element, feedbackOptions?: FeedbackOptions): boolean {
+  if (node instanceof HTMLElement && (node.dataset.whScreenshot === "skip" || "whScreenshotSkip" in node.dataset || node.nodeName == "WH-AUTHORBAR")) {
     return false;
-  return !domFilterCallback || !(node instanceof Element) || domFilterCallback(node) != null;
+  }
+  return feedbackOptions?.domFilterCallback === undefined || !(node instanceof Element) || feedbackOptions.domFilterCallback(node);
 }
 
-function cloneNodeContents(source: Node, target: DocumentFragment | Element, domFilterCallback?: DOMFilterCallback): void {
-  if (!source.childNodes.length)
-    return;
+async function onclone(element: HTMLElement, feedbackOptions?: FeedbackOptions) {
+  if (feedbackOptions?.postFilterCallback)
+    feedbackOptions.postFilterCallback(element);
+  await postFilterElementRecursive(element, feedbackOptions);
+}
 
-  target.append(...[...source.childNodes].filter(_ => filterNode(_, domFilterCallback)).map(childNode => {
-    const childClone = childNode.cloneNode(false);
-    if (childClone instanceof Element) {
-      if (childClone.nodeName === "IFRAME") {
-        childClone.removeAttribute("src");
-        childClone.setAttribute("sandbox", "");
-      }
-      if (childNode instanceof Element && childClone instanceof HTMLElement) {
-        if (childNode.scrollTop)
-          childClone.dataset.whScreenshotScrollTop = childNode.scrollTop.toString();
-        if (childNode.scrollLeft)
-          childClone.dataset.whScreenshotScrollLeft = childNode.scrollLeft.toString();
-      }
+async function postFilterElementRecursive(element: HTMLElement, feedbackOptions?: FeedbackOptions) {
+  // Mask the value of elements with data-wh-screenshot set to "maskvalue
+  if (element.dataset.whScreenshot === "maskvalue" && element instanceof HTMLInputElement)
+    element.type = "password";
 
-      cloneNodeContents(childNode, childClone, domFilterCallback);
+  // Rewrite svg background images (which taint the canvas) to png data urls, if the element has at least one SVG background image
+  const backgroundImage = getComputedStyle(element).backgroundImage;
+  if (backgroundImage.match(/url\(.*\.svg['"]?\)/g)) {
+    const images = backgroundImage.split(",").map(_ => _.trim());
+    for await (const [idx, image] of images.entries()) {
+      // If this is an SVG image, rewrite it to a PNG data url
+      if (image.match(/url\(".*svg"\)/)) {
+        let pngurl = "";
+        try {
+          const result = await fetch(`/.publisher/fbresource/convert?token=${feedbackOptions?.token || ""}`, {
+            method: "POST",
+            body: JSON.stringify({ url: image.substring(5, image.length - 2) })
+          });
+          if (result.ok) {
+            pngurl = await result.text();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        images[idx] = pngurl ? `url("${pngurl}")` : "none"; // Clear the image on error
+      }
     }
-    return childClone;
-  }));
+    element.style.backgroundImage = images.join(" ");
+  }
+
+  for (const childElement of element.children)
+    if (childElement instanceof HTMLElement)
+      await postFilterElementRecursive(childElement, feedbackOptions);
+}
+
+async function getCanvasWithScreenshot(feedbackOptions?: FeedbackOptions): Promise<HTMLCanvasElement> {
+
+  /* html-to-image - also expiremnted with..
+  import { toPng } from "html-to-image";
+
+  image = await toPng(document.body, {
+    preferredFontFormat: "woff2"
+    filter: (element: Element) => filterElements(element, feedbackOptions?.domFilterCallback)
+  });
+  */
+
+  const rect = document.body.getBoundingClientRect();
+  const options: Partial<H2COptions> = {
+    width: window.innerWidth,
+    height: window.innerHeight,
+    x: -rect.x,
+    y: -rect.y,
+    ignoreElements: element => !filterElements(element, feedbackOptions),
+    onclone: async (_document, element) => await onclone(element, feedbackOptions)
+  };
+  return await html2canvas(document.body, options);
+}
+
+export async function prepareFeedback(feedbackOptions?: FeedbackOptions): Promise<PreparedFeedback> {
+  let pointresult: PointResult | null = null;
+  if (feedbackOptions?.addElement)
+    pointresult = await pointAtDOM(feedbackOptions?.initialMouseEvent);
+
+  const screenshot = await getCanvasWithScreenshot({
+    token: feedbackOptions?.token
+  }); //TODO get dom filtering options from setAuthorMode ?
+
+  return {
+    browser: dompack.browser.triplet,
+    device: dompack.browser.device,
+    userAgent: window.navigator.userAgent,
+    url: location.href,
+    token: feedbackOptions?.token,
+    image: screenshot.toDataURL(),
+    element: pointresult,
+  };
 }

@@ -2,8 +2,14 @@ import * as dompack from '@webhare/dompack';
 import * as storage from 'dompack/extra/storage';
 import * as dialogapi from 'dompack/api/dialog';
 import { createClient } from "@webhare/jsonrpc-client";
-import { getFeedback, initFeedback, FeedbackSuccessResult } from "@mod-publisher/js/feedback";
+import { prepareFeedback } from "@mod-publisher/js/feedback/screenshot";
 import { getTid } from "@mod-tollium/js/gettid";
+import { PublisherFeedback, FeedbackResult, PreparedFeedback } from '@mod-publisher/js/feedback';
+
+// The RPC service used to submit feedback
+interface AuthorService {
+  submitFeedback(data: PublisherFeedback): Promise<FeedbackResult>;
+}
 
 // The payload of the JSON Web Token as returned by GetFeedbackWebToken
 interface UserData {
@@ -14,13 +20,7 @@ interface UserData {
   preferred_username: string;
 }
 
-// The RPC service used to submit feedback
-interface AuthorService {
-  submitFeedback(guid: string, form: { topic: string; remarks: string }): Promise<{ responsetext: string }>;
-}
-
 const authorservice = createClient<AuthorService>("publisher:authorservice");
-
 
 // The form elements we want to address through the form.elements property
 interface FeedbackFormElements extends HTMLFormControlsCollection {
@@ -33,19 +33,20 @@ let dontshowagain: HTMLInputElement | null = null;
 let feedbackToken: string | null = null;
 let userData: UserData | null = null;
 
-async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, result: FeedbackSuccessResult) {
+async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, prepped: PreparedFeedback) {
   //TODO prevent double submissions
   dompack.stop(event);
 
   //SubmitFeedback. TODO capture browser triplet and resolution etc too
   const form = event.target as HTMLFormElement;
   const elements = form?.elements as FeedbackFormElements;
-  const submission = await authorservice.submitFeedback(result.guid,
-    {
-      topic: elements.topic.value,
-      remarks: elements.remarks.value
-    });
+  const feedbackinfo: PublisherFeedback = {
+    ...prepped,
+    topic: elements.topic.value || '',
+    remarks: elements.remarks.value || ''
+  };
 
+  const submission = await authorservice.submitFeedback(feedbackinfo);
   await dialogapi.runMessageBox(
     <div>
       <h2>{getTid("publisher:site.authormode.feedbacksubmitted")}</h2>
@@ -97,21 +98,13 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean) 
     }
   }
 
-  // Get the feedback data with the screenshot
-  // TODO there needs to be a spinner "Preparing Feedback" or something like that
-  const result = await getFeedback(event, { addElement });
-  if (!result.success) {
-    if (result.error != "cancelled") {
-      await dialogapi.runMessageBox(getTid("publisher:site.authormode.feedbackerror"),
-        [{ title: getTid("tollium:tilde.close"), result: "ok" }], { /*signal: actrl.signal, */allowcancel: true });
-    }
-    return;
-  }
+  const prepped = await prepareFeedback({ token: feedbackToken, addElement: addElement, initialMouseEvent: event });
 
   // Create dialog
+  const topics = window.whAuthorModeOptions?.topics || [];
   const dialog = dialogapi.createDialog({ /*signal: actrl.signal, */allowcancel: false });
   dialog.contentnode?.append(
-    <form onSubmit={(formEvent: SubmitEvent) => submitFeedback(dialog, formEvent, result)}>
+    <form onSubmit={(formEvent: SubmitEvent) => submitFeedback(dialog, formEvent, prepped)}>
       <h2>{getTid("publisher:site.authormode.feedbackform")}</h2>
       <p>
         <label>{getTid("publisher:site.authormode.from")}: </label>
@@ -119,10 +112,11 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean) 
       </p>
       <p>
         <label for="topic">{getTid("publisher:site.authormode.topic")}:</label><br />
-        <select name="topic" required>
-          <option value="" selected disabled>{getTid("publisher:site.authormode.topic-placeholder")}</option>
-          {result.topics?.map(topic => <option value={topic.guid}>{topic.title}</option>)}
-        </select>
+        {topics.length ?
+          <select name="topic" required>
+            <option value="" selected disabled>{getTid("publisher:site.authormode.topic-placeholder")}</option>
+            {topics?.map(topic => <option value={topic.rowkey}>{topic.title}</option>)}
+          </select> : null}
       </p>
       <p>
         <label for="remarks">{getTid("publisher:site.authormode.remarks")}:</label><br />
@@ -139,9 +133,8 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean) 
 }
 
 // Initialize the feedback options
-feedbackToken = storage.getLocal<string>("wh-feedback:accesstoken");
-if (feedbackToken?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
+const parsedtoken = storage.getLocal<string>("wh-feedback:accesstoken");
+if (parsedtoken?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
+  feedbackToken = parsedtoken;
   userData = JSON.parse(window.atob(feedbackToken.split(".")[1])) as UserData;
-  initFeedback({ token: feedbackToken });
-} else
-  feedbackToken = null;
+}
