@@ -115,7 +115,6 @@ export class LogInfo {
 }
 
 function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
-  console.log(path, data, merge);
   if (typeof merge !== "object" || !merge || typeof data !== "object" || !data)
     throw new Error(`Cannot merge a non-object into an object`);
 
