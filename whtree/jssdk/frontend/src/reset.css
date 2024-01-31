@@ -3,7 +3,7 @@
   margin: 0;
 }
 
-:where(*, *::before, *::after) {
+:where(*), :where(*)::before, :where(*)::after {
   box-sizing: border-box;
 }
 
