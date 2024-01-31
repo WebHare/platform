@@ -1,5 +1,5 @@
 import * as dompack from '@webhare/dompack';
-import html2canvas, { Options as H2COptions } from "html2canvas";
+import type * as html2canvas from "html2canvas";
 import { pointAtDOM } from '@mod-publisher/js/feedback/dompointer';
 import type { FeedbackOptions, PointResult, PreparedFeedback } from "./index";
 
@@ -51,6 +51,8 @@ async function postFilterElementRecursive(element: HTMLElement, feedbackOptions?
       await postFilterElementRecursive(childElement, feedbackOptions);
 }
 
+let html2canvasPromise: Promise<typeof html2canvas> | undefined;
+
 async function getCanvasWithScreenshot(feedbackOptions?: FeedbackOptions): Promise<HTMLCanvasElement> {
 
   /* html-to-image - also expiremnted with..
@@ -63,7 +65,7 @@ async function getCanvasWithScreenshot(feedbackOptions?: FeedbackOptions): Promi
   */
 
   const rect = document.body.getBoundingClientRect();
-  const options: Partial<H2COptions> = {
+  const options: Partial<html2canvas.Options> = {
     width: window.innerWidth,
     height: window.innerHeight,
     x: -rect.x,
@@ -71,7 +73,11 @@ async function getCanvasWithScreenshot(feedbackOptions?: FeedbackOptions): Promi
     ignoreElements: element => !filterElements(element, feedbackOptions),
     onclone: async (_document, element) => await onclone(element, feedbackOptions)
   };
-  return await html2canvas(document.body, options);
+
+  if (!html2canvasPromise)
+    html2canvasPromise = import("html2canvas") as Promise<typeof html2canvas>;
+
+  return await (await html2canvasPromise).default(document.body, options);
 }
 
 export async function prepareFeedback(feedbackOptions?: FeedbackOptions): Promise<PreparedFeedback> {
