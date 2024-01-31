@@ -15,9 +15,10 @@ export function loadImage(imgsrc: string): Promise<HTMLImageElement> {
 
 /** Load a JavaScript file and add it to the DOM
  * @param scriptsrc - The script source URL
+ * @param module - Load as module
  * @returns A promise resolving to the script node
  */
-export function loadScript(scriptsrc: string): Promise<HTMLScriptElement> {
+export function loadScript(scriptsrc: string, { module = false } = {}): Promise<HTMLScriptElement> {
   return new Promise((resolve, reject) => {
     const scripttag = document.createElement('script');
     scripttag.onload = () => {
@@ -25,6 +26,8 @@ export function loadScript(scriptsrc: string): Promise<HTMLScriptElement> {
     };
     scripttag.onerror = reject;
     scripttag.src = scriptsrc;
+    if (module)
+      scripttag.type = "module";
 
     document.querySelector('head,body')?.appendChild(scripttag);
   });
@@ -47,16 +50,4 @@ export function loadCSS(src: string): Promise<HTMLLinkElement> {
 
   document.querySelector('head,body')?.appendChild(element);
   return retval;
-}
-
-/** Load an asset pack
- * @param apname - The asset pack name (eg tollium:webinterface)
- * @returns A promise resolving to an array containing the assetpack script nodes
-*/
-export function loadAssetPack(apname: string) {
-  const basepath = `/.ap/${apname.replace(':', '.')}/ap.`;
-  if (document.querySelector(`script[src$="${CSS.escape(basepath + 'js')}"`))
-    return; //we have it already
-
-  return Promise.all([loadScript(basepath + 'js'), loadCSS(basepath + 'css')]);
 }

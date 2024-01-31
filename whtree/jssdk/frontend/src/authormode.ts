@@ -1,21 +1,25 @@
 import type { AuthorModeOptions } from "@mod-publisher/webdesigns/authormode/authormode";
-import { getLocal } from "@webhare/dompack";
+import { getLocal, loadCSS, loadScript } from "@webhare/dompack";
 export type { AuthorModeOptions };
 
-function activeAuthorMode() {
-  const script = document.createElement("script");
-  script.src = "/.ap/publisher.authormode/ap.js";
+/** Load an asset pack
+ * @param apname - The asset pack name (eg tollium:webinterface)
+ * @param module - Load as module
+ * @returns A promise resolving to an array containing the assetpack script and CSS nodes
+*/
+export function loadAssetPack(apname: string, { module = false } = {}) {
+  const ext = module ? "mjs" : "js";
+  const basepath = `/.ap/${apname.replace(':', '.')}/ap.`;
+  if (document.querySelector(`script[src$="${CSS.escape(basepath + ext)}"`))
+    return; //we have it already
 
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = "/.ap/publisher.authormode/ap.css";
-  document.querySelector("head,body")?.append(script, css);
+  return Promise.all([loadScript(basepath + ext, { module }), loadCSS(basepath + 'css')]);
 }
 
 /** Setup author mode extensions */
 export function setupAuthorMode(options?: AuthorModeOptions) {
   if (typeof window !== "undefined" && window.top === window && getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) { //in a browser
     window.whAuthorModeOptions = options;
-    setTimeout(activeAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
+    loadAssetPack("publisher.authormode", { module: true });
   }
 }

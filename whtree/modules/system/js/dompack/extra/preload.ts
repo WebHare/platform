@@ -61,11 +61,3 @@ export function promiseNewLinkNode(element: HTMLLinkElement) {
     element.onerror = reject;
   });
 }
-
-export function promiseAssetPack(apname: string) {
-  const basepath = `/.ap/${apname.replace(':', '.')}/ap.`;
-  if (document.querySelector(`script[src$="${CSS.escape(basepath + 'js')}"`))
-    return; //we have it already
-
-  return Promise.all([promiseScript(basepath + 'js'), promiseCSS(basepath + 'css')]);
-}
