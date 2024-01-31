@@ -1,5 +1,3 @@
-import "@mod-platform/web/wh-common/feedback/styles.css";
-
 export type HighlightCallback = (node: Element) => Element;
 export type DOMFilterCallback = (node: Element) => boolean;
 export type PostFilterCallback = (node: HTMLElement) => void;

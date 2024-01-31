@@ -1,3 +1,5 @@
+import "@mod-platform/web/wh-common/feedback/styles.css";
+
 import * as dompack from "@webhare/dompack";
 import { createDeferred, DeferredPromise } from "@webhare/std";
 import type { PointOptions, PointResult, HighlightCallback } from "./index";
