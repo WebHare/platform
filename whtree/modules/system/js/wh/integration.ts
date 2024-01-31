@@ -84,29 +84,3 @@ export function executeSubmitInstruction(instr: SubmitInstruction, options?: {
 
   navigateTo(instr as NavigateInstruction);
 }
-
-function activeAuthorMode() {
-  // Check if authormode is already loaded (authormode will load integration.es too and might trigger a loop otherwise)
-  if (document.querySelector(`script[src="/.ap/publisher.authormode/ap.js"]`))
-    return;
-
-  const script = document.createElement("script");
-  script.src = "/.ap/publisher.authormode/ap.js";
-
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = "/.ap/publisher.authormode/ap.css";
-  document.querySelector("head,body")?.append(script, css);
-}
-
-function checkAuthorMode() {
-  if (document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
-    && !document.documentElement.classList.contains("wh-noauthormode") //explicit opt-out
-    && window.top === window //we're not in an iframe
-    && dompack.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) { //set by view.shtml (view.html.witty)
-    activeAuthorMode();
-  }
-}
-
-if (typeof window !== "undefined") //in a browser
-  setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything

@@ -39,9 +39,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
-PUBLIC CONSTANT STRING testfw_mockbrowser := "testfw-browser-11";
-PUBLIC CONSTANT STRING testfw_mockremark := "I've got an issue with this bunny";
-
 RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addpaymentmethodnoise := FALSE
                               , addcustompaymenthandler := FALSE
@@ -1441,26 +1438,6 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupConsilioTest(RECORD options DEFAULTSTO DE
   RETURN CELL[];
 }
 
-PUBLIC RECORD FUNCTION SetupTestFeedbackTopics()
-{
-  OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
-  OBJECT testprio1 := feedbackschema->^priority->EnsureEntity(
-    CELL[ wrd_tag := "TESTFW_PRIORITY1", wrd_title := "Test Priority", wrd_ordering := 9999], [ entitykey := ["WRD_TAG"]]);
-  OBJECT testrole1 := feedbackschema->^role->EnsureEntity(
-    CELL[ wrd_tag := "TESTFW_ROLE1", wrd_title := "Test Role 1", wrd_ordering := 9999 ], [ entitykey := ["WRD_TAG"]]);
-  OBJECT testrole2 := feedbackschema->^role->EnsureEntity(
-    CELL[ wrd_tag := "TESTFW_ROLE2", wrd_title := "Test Role 2", wrd_ordering := 9999 ], [ entitykey := ["WRD_TAG"]]);
-  OBJECT testtopic := feedbackschema->^topic->EnsureEntity(
-    CELL[ wrd_tag := "TESTFW_TOPIC1", wrd_title := "Test Topic", wrd_ordering := 9999, default_priority := testprio1->id, default_role := testrole1->id, allowed_priorities := INTEGER[testprio1->id] ], [ entitykey := ["WRD_TAG"]]);
-
-  testfw->CleanupWRDSchema(feedbackschema,
-      [[ type := "FEEDBACK", filters := [[ field := "browser", value := testfw_mockbrowser ]] ]
-      ,[ type := "FEEDBACK", filters := [[ field := "remarks", value := testfw_mockremark ]] ] //created by the frontend test
-      ]);
-
-  RETURN CELL[ testprio1, testrole1, testrole2, testtopic ];
-}
-
 PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ createsysop := FALSE
@@ -1468,7 +1445,6 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
                              , requirealternatesite := FALSE
                              , protectroot := FALSE
                              , prepmodule := FALSE
-                             , prepfeedback := FALSE
                              , onpeerserver := FALSE
                              ], options);
 
@@ -1495,13 +1471,6 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
                    , alternatesite := ""
                    , peerserver    := ReadRegistryKey("webhare_testsuite.tests.secondhareinterface")
                    ];
-
-  IF(options.prepfeedback)
-  {
-    testfw->BeginWork();
-    SetupTestFeedbackTopics();
-    testfw->CommitWork();
-  }
 
   IF(options.preprtd)
   {

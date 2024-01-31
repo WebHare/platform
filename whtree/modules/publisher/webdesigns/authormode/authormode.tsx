@@ -11,6 +11,11 @@ import "./authormode.lang.json";
 export interface AuthorModeOptions {
   //whether to show feedback options. only include if you've set up a module to actually handle feedback and screenhots!
   allowFeedback?: boolean;
+  //optional list of feedback topics
+  topics?: Array<{
+    rowkey: string;
+    title: string;
+  }>;
   //orientation. defaults to 'right'
   orientation?: 'left' | 'right';
 }
