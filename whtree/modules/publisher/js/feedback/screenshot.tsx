@@ -27,16 +27,28 @@ async function postFilterElementRecursive(element: HTMLElement, feedbackOptions?
     const images = backgroundImage.split(",").map(_ => _.trim());
     for await (const [idx, image] of images.entries()) {
       // If this is an SVG image, rewrite it to a PNG data url
-      if (image.match(/url\(".*svg"\)/)) {
+      const imgmatch = image.match(/url\("(.*svg)"\)/);
+      if (imgmatch) {
         let pngurl = "";
         try {
-          const result = await fetch(`/.publisher/fbresource/convert?token=${feedbackOptions?.token || ""}`, {
-            method: "POST",
-            body: JSON.stringify({ url: image.substring(5, image.length - 2) })
+          //TODO deal with background positions ?
+          const canvas = document.createElement("canvas");
+          canvas.width = element.getBoundingClientRect().width;
+          canvas.height = element.getBoundingClientRect().height;
+
+          //Paint the image. TODO timeouts, run all getters in parallel
+          await new Promise<void>(resolve => {
+            const img = new Image();
+            img.onload = () => {
+              const ctx = canvas.getContext("2d");
+              ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = imgmatch[1];
           });
-          if (result.ok) {
-            pngurl = await result.text();
-          }
+
+          pngurl = canvas.toDataURL("image/png");
         } catch (e) {
           console.error(e);
         }
@@ -88,6 +100,9 @@ export async function prepareFeedback(feedbackOptions?: FeedbackOptions): Promis
   const screenshot = await getCanvasWithScreenshot({
     token: feedbackOptions?.token
   }); //TODO get dom filtering options from setAuthorMode ?
+
+  //If you want to dump the sceenshot immediately when testing:
+  //document.body.replaceChildren(<img src={screenshot.toDataURL()} />);
 
   return {
     browser: dompack.browser.triplet,
