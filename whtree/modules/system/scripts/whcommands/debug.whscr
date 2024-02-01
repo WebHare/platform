@@ -536,17 +536,22 @@ Executed instrs.:   ${stats.instructions}
     CASE "enable", "disable"
     {
       ParseSubArgs(
-            [ [ name := "flags", type := "paramlist" ]
+            [ [ name := "allowunknown", type := "switch" ]
+            , [ name := "flags", type := "paramlist" ]
             ]);
 
       //Validate first
       RECORD ARRAY allflags := SELECT * FROM GatherDebugFlags() ORDER BY name;
       RECORD ARRAY updateflags;
+
       FOREVERY(STRING flag FROM args.flags)
       {
         RECORD match := SELECT * FROM allflags WHERE allflags.name = VAR flag;
         IF(NOT RecordExists(match))
-          THROW NEW Exception(`Unknown flag '${flag}'`);
+          IF(args.allowunknown)
+            match := [ name := flag, description := `unknown flag` ];
+          ELSE
+            THROW NEW Exception(`Unknown flag '${flag}'`);
 
         INSERT match INTO updateflags AT END;
       }
