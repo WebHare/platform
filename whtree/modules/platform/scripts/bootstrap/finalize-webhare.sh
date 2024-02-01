@@ -53,7 +53,7 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
 
   cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
 committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
-version="${WEBHARE_VERSION}-dev"
+version="${WEBHARE_VERSION}"
 branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
 origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
 HERE

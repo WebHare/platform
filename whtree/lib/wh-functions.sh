@@ -338,9 +338,21 @@ get_finaltag()
   PUBLIC_IMAGES=
   PUSH_BUILD_IMAGES=
 
-  local MAINTAG
   local ADDTAGS
   getwebhareversion
+
+  if [[ $WEBHARE_VERSION =~ ^([0-9]{1})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
+    VERSIONMAJOR="${BASH_REMATCH[1]}"
+    VERSIONMINOR="${BASH_REMATCH[2]}"
+    VERSIONPATCH="${BASH_REMATCH[3]}"
+    VERSIONPADDEDMINOR="VERSIONMINOR"
+    VERSIONPADDEDPATCH="VERSIONPATCH"
+    # leftpad with a zero
+    [ ${#VERSIONPADDEDMINOR} = 2 ] || VERSIONPADDEDMINOR="0${VERSIONPADDEDMINOR}"
+    [ ${#VERSIONPADDEDPATCH} = 2 ] || VERSIONPADDEDPATCH="0${VERSIONPADDEDPATCH}"
+  else
+    die "Could not parse version number $WEBHARE_VERSION"
+  fi
 
   # are we running on CI?
   if [ -n "$CI_COMMIT_SHA" ]; then
@@ -349,27 +361,13 @@ get_finaltag()
     PUSH_BUILD_IMAGES=1
 
     if [ "$CI_COMMIT_TAG" != "" ]; then
-      if ! [[ $CI_COMMIT_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]$ ]]; then
-        echo "I do not understand the commit tag: $CI_COMMIT_TAG"
-        exit 1
-      fi
+      echo "We should no longer build on tag push!"
+      exit 1
+    fi
 
-      # we are building a specific tag, eg 4.28.0. git tag == docker tag == calculated semantic version
-      MAINTAG=$CI_COMMIT_TAG
-      if [ "$MAINTAG" != "$WEBHARE_VERSION" ]; then
-        echo "Expected to be tagged '$WEBHARE_VERSION' but the tag was '$MAINTAG'"
-        exit 1
-      fi
-    else
-      MAINTAG="$CI_COMMIT_REF_SLUG"
-
-      if [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
-        # Custom builds - these are specifically tagged after their branch. eg branch custom/myserver with numeric version 42702 will have semver: 4.27.2-myserver
-        WEBHARE_VERSION="${WEBHARE_VERSION}-${CI_COMMIT_REF_NAME:7}"
-      else
-        # Other branches are simply considered 'in development' and have prerelease tag '-dev', eg. 4.27.2-dev
-        WEBHARE_VERSION=${WEBHARE_VERSION}-dev
-      fi
+    if [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
+      # Custom builds - these are specifically tagged after their branch. eg branch custom/myserver with numeric version 42702 will have semver: 4.27.3-myserver
+      WEBHARE_VERSION="${VERSIONMAJOR}.${VERSIONMINOR}.$(( $VERSIONPATCH + 1 ))-${CI_COMMIT_REF_NAME:7}"
     fi
 
     # check if there is a CI registry
@@ -379,17 +377,21 @@ get_finaltag()
     fi
 
     # When building 'master', also build the corresponding release-x-y tag
-    if [ "$MAINTAG" == "master" ]; then
-    echo $WEBHARE_VERSION
+    if [ "$CI_COMMIT_REF_NAME" == "master" ]; then
       ADDTAGS="release-$(echo "$WEBHARE_VERSION" | cut -d. -f1)-$(echo "$WEBHARE_VERSION" | cut -d. -f2)"
     fi
 
-    BUILD_IMAGE="$CI_REGISTRY_IMAGE:$MAINTAG-$CI_COMMIT_SHA"
+    # When building 'master' or a 'release/', also tag by WebHare version# (eg 4.35.2)
+    if [ "$CI_COMMIT_REF_NAME" == "master" ] || [[ $CI_COMMIT_REF_NAME =~ ^release/ ]]; then #not a custom/feature build
+      ADDTAGS="$ADDTAGS ${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONPATCH}"
+    fi
 
-    BRANCH_IMAGES="$(trim $BRANCH_IMAGES $CI_REGISTRY_IMAGE:$MAINTAG)"
+    BUILD_IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA"
+
+    BRANCH_IMAGES="$(trim $BRANCH_IMAGES $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG)"
 
     local TAG
-    for TAG in $MAINTAG $ADDTAGS; do
+    for TAG in $CI_COMMIT_REF_SLUG $ADDTAGS; do
       if [ -n "$PUBLIC_REGISTRY_IMAGE" ]; then # PUBLIC_REGISTRY_IMAGE is only set for protected branches/tags
         PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $PUBLIC_REGISTRY_IMAGE:$TAG)"
       fi
@@ -398,11 +400,12 @@ get_finaltag()
         PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $FALLBACK_REGISTRY_IMAGE:$TAG)"
       fi
     done
+
   else
     # local build. No pushes or deploys
 
     BUILD_IMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
-    WEBHARE_VERSION=${WEBHARE_VERSION}-dev
+    WEBHARE_VERSION=${WEBHARE_VERSION}
   fi
 
   if [ -n "$PUBLIC_IMAGES" ]; then
@@ -505,7 +508,6 @@ autocomplete_print_compreply()
 
 vercomp () {
   # Based on https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
-  # Extend with the WebHare approach to -xyz tags (5.0.2-xyz <= 5.0.2, no opinion about 5.0.2-xyz vs 5.0.2-dev)
   if [[ $1 == $2 ]]
   then
       return 0
@@ -549,6 +551,12 @@ vercomp () {
   fi
   if [[ $ver1suffix =~ - ]] && ! [[ $ver2suffix =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
     return 2 #ver1 is older
+  fi
+  if [[ "$ver1suffix" < "$ver2suffix" ]]; then
+    return 2 #ver1 is older
+  fi
+  if [[ "$ver1suffix" > "$ver2suffix" ]]; then
+    return 1 #ver1 is newer
   fi
 
   return 0

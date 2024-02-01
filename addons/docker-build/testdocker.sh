@@ -706,7 +706,7 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
   echo "$(date) Check assetpacks"
-  if is_atleast_version 5.4.0-dev || is_atleast_version 5.4.0-alpha ; then
+  if is_atleast_version 5.4.0 ; then
     $SUDO docker exec $TESTENV_CONTAINER1 wh assetpack check "*:*"
   else
     $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"

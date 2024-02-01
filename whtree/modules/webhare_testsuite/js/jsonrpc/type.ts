@@ -14,6 +14,7 @@ export interface MyService {
     baseURL: string;
     url: string;
     requestHeaders: Record<string, string>;
+    debugFlags: string[];
   }>;
 
   doConsoleLog(): Promise<null>;

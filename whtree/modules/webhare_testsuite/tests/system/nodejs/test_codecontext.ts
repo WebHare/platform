@@ -5,8 +5,11 @@ import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { loadlib } from "@webhare/harescript";
 import { debugFlags } from "@webhare/env";
 import { updateDebugConfig } from "@webhare/env/src/envbackend";
+import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
+import { spawnSync } from "child_process";
 
 const nonExistingDebugFlag = `nonexisting-flag-${crypto.randomUUID()}`;
+const nonExistingGlobalFlag = `nonexisting-global-${crypto.randomUUID()}`;
 
 async function testContextSetup() {
   test.eq('root', getCodeContext().title);
@@ -75,6 +78,13 @@ async function testContextSetup() {
   test.eq({ value: "1:" + context2.id, done: false }, await contextidgeneratorasync.next());
   test.eq({ value: "2:" + context2.id, done: false }, await contextidgeneratorasync.next());
   test.eq({ value: undefined, done: true }, await contextidgeneratorasync.next());
+
+  //test global flag updates
+  test.eq(false, (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+  await spawnSync("wh", ["debug", "enable", "--allowunknown", nonExistingGlobalFlag], { shell: true, stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await test.wait(async () => (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+  await spawnSync("wh", ["debug", "disable", "--allowunknown", nonExistingGlobalFlag], { shell: true, stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await test.wait(async () => !(await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
 }
 
 async function testContextStorage() {

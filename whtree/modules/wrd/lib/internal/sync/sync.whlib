@@ -595,7 +595,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   IF (ObjectExists(remotepeer))
   {
     RECORD conndata := remotepeer->InvokeAdminService("Connect");
-    peer_supports_isync := CellExists(conndata, "semver") AND VersionSatisfiesRange(conndata.semver, ">= 5.0.1-dev", [ comparemode := "webhare" ]);
+    peer_supports_isync := CellExists(conndata, "semver") AND VersionSatisfiesRange(conndata.semver, ">= 5.0.1-dev");
   }
 
   // Get the schema structure first

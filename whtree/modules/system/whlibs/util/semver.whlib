@@ -587,14 +587,14 @@ RECORD ARRAY FUNCTION GatherVersions(RECORD range)
   RETURN RECORD[ range.value.decoded ];
 }
 
-BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECORD decodedversion, STRING comparemode)
+BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECORD decodedversion)
 {
   SWITCH (parsedrange.type)
   {
     CASE "or"
     {
       FOREVERY (RECORD rec FROM parsedrange.vals)
-        IF(CompareSemverRangeWithVersionRecursive(rec, decodedversion, comparemode))
+        IF(CompareSemverRangeWithVersionRecursive(rec, decodedversion))
           RETURN TRUE;
 
        RETURN FALSE;
@@ -602,10 +602,10 @@ BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECO
     CASE "and"
     {
       FOREVERY (RECORD rec FROM parsedrange.vals)
-        IF(NOT CompareSemverRangeWithVersionRecursive(rec, decodedversion, comparemode))
+        IF(NOT CompareSemverRangeWithVersionRecursive(rec, decodedversion))
           RETURN FALSE;
 
-      IF(comparemode = "npm" AND decodedversion.prerelease != "")
+      IF(decodedversion.prerelease != "")
       {
         /* in NPM, a prerelease NEVER matches if the relevant major/minor/patch with a prerelease aren't mentioned anywhere
            so for version a.b.c-x to be a match, even after all ranges, there must be a a.b.c-y somewhere in the versions */
@@ -671,11 +671,6 @@ BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECO
           IF(parsedrange.type NOT LIKE "<*") //Reject - prereleasetag in LHS orders BEFORE any 'unspecified'
             RETURN FALSE;
         }
-        IF(Length(rhsparts) > 3 AND numericmatch)
-        {
-          IF(comparemode = "webhare" AND rhsparts[3] != lhsparts[3]) //Reject - prereleasetag in WebHare never matches any other prereleasetag
-            RETURN FALSE;
-        }
       }
       RETURN TRUE; //Fully satisfied
     }
@@ -692,7 +687,7 @@ BOOLEAN FUNCTION HasGITCommitHash(STRING range)
   RETURN LENGTH(hash) = 40;
 }
 
-BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING version, STRING comparemode)
+BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING version)
 {
   OBJECT p := NEW SemverRangeParser;
 
@@ -727,18 +722,14 @@ BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING vers
   IF (NOT RecordExists(decodedversion))
     RETURN FALSE;
 
-  RETURN CompareSemverRangeWithVersionRecursive(parsed, decodedversion, comparemode);
+  RETURN CompareSemverRangeWithVersionRecursive(parsed, decodedversion);
 }
 
 /** Check if a semantic version matches the specified range
     @param version Version to check
     @param semverrange Semver range to check against
-    @cell(string) options.comparemode Comparison rules.
-                  If 'webhare' (the default), prerelease tags never match other prerelease tags for that version.
-                  If 'npm', prerelease tags are compared by token but a prerelease version can only satisfy if its major.minor.patch is mentioned in combination with any patchlevel in the semver range
     @return True if 'version' qualifies */
-PUBLIC BOOLEAN FUNCTION VersionSatisfiesRange(STRING version, STRING semverrange, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC BOOLEAN FUNCTION VersionSatisfiesRange(STRING version, STRING semverrange)
 {
-  options := ValidateOptions([ comparemode := "webhare" ], options, [ enums := [ comparemode := ["npm", "webhare"] ]]);
-  RETURN __CompareSemverRangeWithVersion(semverrange, version, options.comparemode);
+  RETURN __CompareSemverRangeWithVersion(semverrange, version);
 }
