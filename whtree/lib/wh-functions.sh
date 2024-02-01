@@ -377,13 +377,12 @@ get_finaltag()
     fi
 
     # When building 'master', also build the corresponding release-x-y tag
-    echo x $CI_COMMIT_REF_NAME $ADDTAGS
     if [ "$CI_COMMIT_REF_NAME" == "master" ]; then
       ADDTAGS="release-$(echo "$WEBHARE_VERSION" | cut -d. -f1)-$(echo "$WEBHARE_VERSION" | cut -d. -f2)"
     fi
 
     # When building 'master' or a 'release/', also tag by WebHare version# (eg 4.35.2)
-    if [ "$CI_COMMIT_REF_NAME" == "master" ] || [[ $CI_COMMIT_REF_NAME =~ ^release/ ]]; then #not a custom/featuyre build
+    if [ "$CI_COMMIT_REF_NAME" == "master" ] || [[ $CI_COMMIT_REF_NAME =~ ^release/ ]]; then #not a custom/feature build
       ADDTAGS="$ADDTAGS ${VERSIONMAJOR}.${VERSIONMINOR}.${VERSIONPATCH}"
     fi
 
