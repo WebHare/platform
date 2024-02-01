@@ -18,6 +18,12 @@ stages:
   - test
   - deploy
 
+workflow: # Do not build just because a tag was set https://gitlab.com/gitlab-org/gitlab/-/issues/16290#note_326584767
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: always
+
 # if apk is present,
 default:
   before_script:
