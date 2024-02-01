@@ -3,5 +3,5 @@ export { sleep, createDeferred, wrapInTimeout, serialize, type DeferredPromise }
 export { encodeString, decodeString, escapeRegExp, wildcardsToRegExp, stringify, parseTyped, stableStringify, slugify, type StringEncodings } from "./strings";
 export { generateRandomId } from "./platformbased";
 export { shuffle, emplace, mapGroupBy, objectGroupBy, pick, omit, isTruthy, type EmplaceHandler } from "./collections";
-export { Money, type MoneyRoundingMode } from "./money";
+export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
 export { addDuration, parseDuration, convertWaitPeriodToDate, type Duration, type WaitPeriod } from "./datetime";
