@@ -365,10 +365,16 @@ get_finaltag()
 
       if [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
         # Custom builds - these are specifically tagged after their branch. eg branch custom/myserver with numeric version 42702 will have semver: 4.27.2-myserver
-        WEBHARE_VERSION="${WEBHARE_VERSION}-${CI_COMMIT_REF_NAME:7}"
-      else
-        # Other branches are simply considered 'in development' and have prerelease tag '-dev', eg. 4.27.2-dev
-        WEBHARE_VERSION=${WEBHARE_VERSION}-dev
+        if [[ $WEBHARE_VERSION =~ ^([0-9]{1})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
+          VERSIONMAJOR="${BASH_REMATCH[1]}"
+          VERSIONMINOR="${BASH_REMATCH[2]}"
+          VERSIONPATCH="${BASH_REMATCH[3]}"
+          [ ${#VERSIONMINOR} = 2 ] || VERSIONMINOR="0${VERSIONMINOR}"
+          [ ${#VERSIONPATCH} = 2 ] || VERSIONPATCH="0${VERSIONPATCH}"
+        else
+          die "Could not parse version number $WEBHARE_VERSION"
+        fi
+        WEBHARE_VERSION="${VERSIONMAJOR}.${VERSIONMINOR}.$(( $VERSIONPATCH + 1 ))-${CI_COMMIT_REF_NAME:7}"
       fi
     fi
 
@@ -402,7 +408,7 @@ get_finaltag()
     # local build. No pushes or deploys
 
     BUILD_IMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
-    WEBHARE_VERSION=${WEBHARE_VERSION}-dev
+    WEBHARE_VERSION=${WEBHARE_VERSION}
   fi
 
   if [ -n "$PUBLIC_IMAGES" ]; then
@@ -505,7 +511,6 @@ autocomplete_print_compreply()
 
 vercomp () {
   # Based on https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
-  # Extend with the WebHare approach to -xyz tags (5.0.2-xyz <= 5.0.2, no opinion about 5.0.2-xyz vs 5.0.2-dev)
   if [[ $1 == $2 ]]
   then
       return 0
@@ -549,6 +554,12 @@ vercomp () {
   fi
   if [[ $ver1suffix =~ - ]] && ! [[ $ver2suffix =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
     return 2 #ver1 is older
+  fi
+  if [[ "$ver1suffix" < "$ver2suffix" ]]; then
+    return 2 #ver1 is older
+  fi
+  if [[ "$ver1suffix" > "$ver2suffix" ]]; then
+    return 1 #ver1 is newer
   fi
 
   return 0
