@@ -90,7 +90,7 @@ PUBLIC STRING FUNCTION GetViewURLWithFeedback(OBJECT file, OBJECT tolliumuser)
     RETURN url;
 
   //Do we host this URL ?
-  IF(NOT RecordExists(GetWebserverForURL(url)))
+  IF(NOT RecordExists(GetWebserverForURL(url, [ allowfailure := TRUE ])))
     RETURN url;
 
   RETURN ResolveToAbsoluteURL(url, "/.wh/common/feedback/view.shtml?target=" || EncodeURL(UnpackURL(url).urlpath) || "&feedbacktoken=" || EncodeURL(feedbacktoken));

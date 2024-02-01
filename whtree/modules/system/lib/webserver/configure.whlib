@@ -19,12 +19,17 @@ MACRO OnCommitRefreshWebserverConfig(BOOLEAN iscommit)
     RefreshGlobalWebserverConfig();
 }
 
-PUBLIC RECORD FUNCTION GetWebserverForURL(STRING url)
+PUBLIC RECORD FUNCTION GetWebserverForURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([allowfailure := FALSE], options);
+
   RECORD unpackedurl := UnpackURL(url);
   RECORD matchwebserver := LookupWebserver(GetCacheableHostedSites().value, unpackedurl.host, unpackedurl.port);
   IF(NOT RecordExists(matchwebserver))
-    THROW NEW Exception(`No webserver for '${unpackedurl.host || (unpackedurl.isdefaultport ? "" : `:${unpackedurl.port}`)}'`);
+    IF(options.allowfailure)
+      RETURN DEFAULT RECORD;
+    ELSE
+      THROW NEW Exception(`No webserver for '${unpackedurl.host || (unpackedurl.isdefaultport ? "" : `:${unpackedurl.port}`)}'`);
 
   RETURN matchwebserver;
 }
