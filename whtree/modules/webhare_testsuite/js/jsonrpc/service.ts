@@ -1,8 +1,14 @@
-import { getJSONAPICallWebRequest } from "@mod-system/js/internal/jsonrpccaller";
 import { MyService } from "./type";
-import { debugFlags } from "@webhare/env/src/envbackend";
+import { debugFlags } from "@webhare/env";
+import { WebRequest } from "@webhare/router";
 
 export class TestNoAuthJS implements MyService {
+  private req: WebRequest;
+
+  constructor(req: WebRequest) {
+    this.req = req;
+  }
+
   async validateEmail(langcode: string,
     emailaddress: string): Promise<boolean> {
     return Boolean(emailaddress.match(/webhare.dev$/));
@@ -11,11 +17,10 @@ export class TestNoAuthJS implements MyService {
     throw new Error("this is a server crash");
   }
   async describeMyRequest() {
-    const info = getJSONAPICallWebRequest();
     return {
-      baseURL: info.baseURL,
-      url: info.url.toString(),
-      requestHeaders: Object.fromEntries(info.headers.entries()),
+      baseURL: this.req.baseURL,
+      url: this.req.url.toString(),
+      requestHeaders: Object.fromEntries(this.req.headers.entries()),
       debugFlags: Object.keys(debugFlags).filter((flag) => debugFlags[flag])
     };
   }
