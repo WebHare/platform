@@ -3,10 +3,11 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { backendConfig } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { recompileHarescriptLibraryRaw, type HareScriptVM, mapHareScriptPath } from "./wasm-hsvm";
+import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
+import { mapHareScriptPath } from "./wasm-support";
 
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;

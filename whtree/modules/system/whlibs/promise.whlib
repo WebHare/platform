@@ -1018,6 +1018,9 @@ PUBLIC OBJECT FUNCTION CreatePromiseRace(OBJECT ARRAY promises, RECORD options D
 */
 PUBLIC OBJECT FUNCTION CreatePromiseAllSettled(OBJECT ARRAY promises)
 {
+  IF(Length(promises) = 0)
+    RETURN CreateResolvedPromise(RECORD[]);
+
   RETURN NEW PromiseListBookkeeping(promises, TRUE, TRUE)->promise;
 }
 

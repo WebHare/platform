@@ -128,6 +128,7 @@ MACRO TestPromiseAllSettled()
 
   TestEQ([ [ status := "fulfilled", value := 1 ], [ status := "fulfilled", value := "2" ] ], WaitForPromise(CreatePromiseAllSettled([ a, b ])));
   TestEQ([ [ status := "fulfilled", value := 1 ], [ status := "rejected", reason := c ] ], WaitForPromise(CreatePromiseAllSettled([ a, d ])));
+  TestEQ(RECORD[], WaitForPromise(CreatePromiseAllSettled(OBJECT[])));
 }
 
 ASYNC MACRO TestCancellation()

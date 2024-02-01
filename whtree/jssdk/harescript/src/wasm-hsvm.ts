@@ -10,13 +10,14 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import { Mutex, toFSPath } from "@webhare/services";
+import { Mutex } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 import { type HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { mapHareScriptPath } from "./wasm-support";
 
 
 export interface StartupOptions {
@@ -63,21 +64,6 @@ type HSVMList = Set<WeakRef<HareScriptVM>>;
 //     `    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("\n");
 //   err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
 // }
-
-
-export function mapHareScriptPath(uri: string | null) {
-  if (!uri)
-    return "unknown";
-
-  //Legacy HareScript namespaces we may not want to retain in JS
-  if (uri.startsWith("direct::"))
-    return uri.substring(8);
-
-  if (uri.startsWith("wh::"))
-    return toFSPath("mod::system/whlibs/" + uri.substring(4));
-
-  return toFSPath(uri, { allowUnmatched: true }) ?? uri;
-}
 
 function parseError(line: string) {
   const errorparts = line.split("\t");
