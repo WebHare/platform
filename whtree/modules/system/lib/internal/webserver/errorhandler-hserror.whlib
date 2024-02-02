@@ -35,6 +35,7 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
          WHERE filename LIKE "mod::*";
 
     webdesign->isstandardcontentpage := TRUE;
+    webdesign->PrepareErrorPage(500, this->harescriptinfo, GetRequestURL());
     webdesign->pagetitle := "HareScript error";
     webdesign->pageconfig.favicon :=
         [ touchicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/apple-touch-icon.png")
