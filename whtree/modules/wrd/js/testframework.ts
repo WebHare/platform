@@ -10,7 +10,7 @@ export function testResetPassword(options) {
     async function () {
       test.fill(test.qS('.wh-wrdauth-forgotpassword input[name="email"]'), options.email);
       test.click(test.qS('.wh-wrdauth-forgotpassword__forgotbutton'));
-      await test.wait('ui');
+      await test.waitUI();
     },
     `Handle password reset mail for ${options.email}`,
     async function () {
@@ -20,7 +20,7 @@ export function testResetPassword(options) {
       const resetlink = emails[0].links.filter(link => link.textcontent == "this link")[0];
       test.eq(true, Boolean(resetlink), "Didn't find a reset link");
       test.getWin().location.href = resetlink.href;
-      await test.wait('load');
+      await test.waitNavigation();
     },
     'Set my new password',
     async function () {
@@ -28,10 +28,10 @@ export function testResetPassword(options) {
       test.fill(test.qS('[name="passwordrepeat"]'), options.newpassword);
       test.click(test.qS('.wh-wrdauth-resetpassword__resetbutton'));
 
-      await test.wait('ui');
+      await test.waitUI();
 
       test.click(test.qS(".wh-wrdauth-resetpassword__continuebutton"));
-      await test.wait('load');
+      await test.waitNavigation();
     }
   ];
 }

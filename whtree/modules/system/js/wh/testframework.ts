@@ -668,8 +668,14 @@ export const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl:
 export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' };
 export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' };
 
-export function waitUI() { //eases transition to the less-flexible @webhare/test wait()
-  return test.waitUIFree();
+/** Wait for the UI to be ready (UI is marked busy by flagUIBusy) */
+export async function waitUI() { //eases transition to the less-flexible @webhare/test wait()
+  return await callbacks.executeWait('ui');
+}
+
+/** Wait for navigation to complete  */
+export async function waitNavigation() { //eases transition to the less-flexible @webhare/test wait()
+  return await callbacks.executeWait('load');
 }
 
 export {
