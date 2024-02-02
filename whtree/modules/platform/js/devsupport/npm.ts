@@ -10,7 +10,7 @@ function listNodePackageRoots(basepath: string) {
   } catch (ignore) { //the webdesigns subfolder probably doesnt exist itself
   }
 
-  const trypaths = [basepath, ...webdesigndirs];
+  const trypaths = [basepath, join(basepath, 'tests'), ...webdesigndirs];
   return trypaths.filter(x => existsSync(join(x, "package.json")));
 }
 

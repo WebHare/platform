@@ -51,14 +51,10 @@ fi
 for MODULENAME in "${MODULESLIST[@]}"; do
   getmoduledir MODULEDIR $MODULENAME
   cd "$MODULEDIR" || exit 1
-  if [ -f package.json ]; then
-    echo "Installing npm modules for module '$MODULENAME'"
-    $DRYRUNPREFIX npm install $NPMOPTIONS
-  fi
-
-  for Q in "$MODULEDIR/webdesigns"/?* ; do
+  # TODO the locations we check need to be in sync with what `listNodePackageRoots` looks for
+  for Q in "$MODULEDIR" "$MODULEDIR/tests" "$MODULEDIR/webdesigns"/?* ; do
     if cd "$Q" 2>/dev/null ; then
-      echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
+      echo "Installing npm modules for $Q"
 
       if [ -f package.json ]; then
         $DRYRUNPREFIX npm install $NPMOPTIONS

@@ -26,6 +26,7 @@ coverage.tar.gz
 /whtree/log
 /whtree/modules/*/history
 /whtree/modules/*/node_modules
+/whtree/modules/*/tests/node_modules
 /whtree/modules/platform/generated/
 /whtree/modules/system/data/shrinkwrap-var.tgz
 /whtree/modules/system/data/engines/*.jar

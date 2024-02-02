@@ -3,8 +3,6 @@ import * as whfs from "@webhare/whfs";
 import { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
-//TODO why doesn't this work?  Now importing it into testsuite's package.json
-//import { DOMParser } from "wh:internal/whtree/node_modules/@xmldom/xmldom";
 import { DOMParser } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
