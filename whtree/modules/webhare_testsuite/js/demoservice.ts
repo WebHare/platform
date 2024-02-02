@@ -1,5 +1,6 @@
 import type { ServiceClientFactoryFunction } from '@webhare/services/src/backendservicerunner';
-import { BackendServiceController } from "@webhare/services";
+import { BackendServiceConnection, BackendServiceController } from "@webhare/services";
+
 
 class Controller implements BackendServiceController {
   dummy = -1;
@@ -10,7 +11,7 @@ class Controller implements BackendServiceController {
   }
 }
 
-class ClusterTestLink {
+class ClusterTestLink extends BackendServiceConnection {
   dummy = 42;
   mainobject: Controller | null;
   // null-likes completely broke interface description earlier, so test them specifically
@@ -18,6 +19,7 @@ class ClusterTestLink {
   anUndefined = undefined;
 
   constructor(maininstance: Controller | null, testdata: string) {
+    super();
     if (testdata == "abort")
       throw new Error("abort");
 
@@ -65,11 +67,11 @@ class ClusterTestLink {
     this.mainobject.dummy = val;
     return null; //FIXME marshalling cannot deal with service APIs returning undefined
   }
-  // TODO? do we still need this?
-  // emitTestEvent(data)
-  // {
-  //   this.EmitEvent("testevent", data);
-  // }
+  emitTestEvent(data: { start: number; add: number }) {
+    this.emit("testevent", data.start + data.add);
+
+    return null;
+  }
 }
 
 export async function createDemoMain() {

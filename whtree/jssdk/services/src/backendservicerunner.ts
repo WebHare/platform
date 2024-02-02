@@ -8,12 +8,36 @@ export type ServiceControllerFactoryFunction = () => Promise<BackendServiceContr
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
 export type ServiceClientFactoryFunction = (...args: any[]) => Promise<object> | object;
 
-
 export interface BackendServiceController {
   createClient(...args: unknown[]): Promise<unknown>;
 }
 
-interface WebHareServiceOptions {
+const setLink = Symbol("setLink");
+
+export class BackendServiceConnection {
+  #link?: LinkState;
+  #eventQueue?: Array<{ event: string; data: unknown }>;
+
+  constructor() {
+  }
+  emit(event: string, data: unknown) {
+    if (!this.#link) {
+      this.#eventQueue ||= [];
+      this.#eventQueue.push({ event, data });
+    } else {
+      this.#link.link.send({ event, data });
+    }
+  }
+  [setLink](link: LinkState) {
+    while (this.#eventQueue?.length)
+      link.link.send(this.#eventQueue.shift()!);
+
+    this.#link = link;
+    this.#eventQueue = undefined;
+  }
+}
+
+export interface WebHareServiceOptions {
   ///Enable automatic restart of the service when the source code changes. Defaults to true
   autoRestart?: boolean;
   ///Immediately restart the service even if we stil have open connections.
@@ -33,7 +57,7 @@ export function describePublicInterface(inobj: object): WebHareServiceDescriptio
       break; //we've reached the root
 
     for (const name of propnames) {
-      if (name === 'constructor' || name[0] === '_')
+      if (name === 'constructor' || name === 'emit' || name[0] === '_')
         continue; //no need to explain the constructor, it's already been invoked. and skip 'private' functions
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cleanup later, creating interfaces this way is ugly anyway
@@ -77,11 +101,11 @@ class LinkState {
 }
 
 export class ServiceHandlerBase {
-  private _constructor: ConnectionConstructor;
+  private _factory: ConnectionConstructor;
   private _options: WebHareServiceOptions;
 
-  constructor(servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
-    this._constructor = constructor;
+  constructor(servicename: string, factory: ConnectionConstructor, options: WebHareServiceOptions) {
+    this._factory = factory;
     this._options = options;
   }
 
@@ -108,17 +132,24 @@ export class ServiceHandlerBase {
   async _onMessage(state: LinkState, msg: WebHareServiceIPCLinkType["AcceptEndPointPacket"]) {
     if (!state.handler) {
       try {
-        if (!this._constructor)
+        if (!this._factory)
           throw new Error("This service does not accept incoming connections");
 
         const initdata = msg as IPCMessagePacket<ServiceInitMessage>;
-        const handler = await this._constructor(...initdata.message.__new);
+
+        // We'll pass the state object through a global to BackendServiceConnection (if any)
+        const handlerpromise = this._factory(...initdata.message.__new);
+        const handler = await handlerpromise;
+
         if (!state.handler)
           state.handler = handler;
         if (!state.handler)
           throw new Error(`Service handler initialization failed`);
 
         state.link.send(describePublicInterface(state.handler), msg.msgid);
+        if (setLink in state.handler)
+          (state.handler as BackendServiceConnection)[setLink](state);
+
         state.initdefer.resolve(true);
       } catch (e) {
         state.link.sendException(e as Error, msg.msgid);
@@ -148,6 +179,9 @@ export class ServiceHandlerBase {
   }
 
   close() {
+  }
+
+  emit(name: string, detail: unknown) {
   }
 }
 

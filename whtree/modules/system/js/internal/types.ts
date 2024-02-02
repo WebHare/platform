@@ -49,7 +49,14 @@ export type WebHareServiceDescription = {
   }>;
 };
 
-export type WebHareServiceIPCLinkType = IPCLinkType<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | ServiceCallResult>;
+export type ServiceEventMessage = {
+  /** event name */
+  event: string;
+  /** event data */
+  data: unknown;
+};
+
+export type WebHareServiceIPCLinkType = IPCLinkType<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | ServiceCallResult | ServiceEventMessage>;
 
 export interface InspectorSettings {
   url: string;

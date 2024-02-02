@@ -206,6 +206,7 @@ async function runBackendServiceTest_JS() {
 
   test.assert(serverinstance._invisible === undefined, "Should not see _prefixed APIs");
   test.assert(serverinstance.dummy === undefined, "Should not see variables");
+  test.assert(serverinstance.emit === undefined, "Should not see 'emit'");
 
   let promise = serverinstance.getAsyncLUE();
   test.eq(42, await serverinstance.getLUE());
@@ -224,12 +225,6 @@ async function runBackendServiceTest_JS() {
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.asyncPing(41, 43));
 
   test.eq({ arg1: 45, arg2: { contact: { contactNo: "C1" } } }, await serverinstance.ping(45, { contact: { contactNo: "C1" } }));
-
-  /* TODO reenable as event source? then it would be nicer to do it like a 'real' eventSource
-  const eventwaiter = serverinstance.waitOn("testevent");
-  await serverinstance.emitTestEvent({ start: 12, add: 13});
-  test.eq(25, await eventwaiter);
-  */
 
   test.eq(0, await getActiveMessagePortCount(), "Our version of the demoservice wasn't lingering, so no references");
   serverinstance.close();
@@ -306,13 +301,23 @@ async function runBackendServiceTest_HS() {
 
   serverinstance.close();
   test.eq(0, await getActiveMessagePortCount(), "And the reference should be cleaned after close");
+}
 
-  /* TODO Do we need cross language events ?
-  //RECORD deferred := CreateDeferredPromise();
-  //serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
-  //serverinstance->EmitTestEvent([ value := 42 ]);
-  //RECORD testdata := AWAIT deferred.promise;
-  //TestEq([ value := 42 ], testdata); */
+async function runBackendServiceTest_Events() {
+  const serviceJS = await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice", ["x"], { linger: true });
+
+  const waiterJS = new Promise<number>(resolve => serviceJS.addEventListener("testevent", (evt: Event) => resolve((evt as CustomEvent<number>).detail), { once: true }));
+  serviceJS.emitTestEvent({ start: 12, add: 13 }).catch(() => { }); //ignore exception usuaslly triggered by the close below (TODO is there any fix for that?)
+  test.eq(25, await waiterJS);
+  serviceJS.close();
+
+  const serviceHS = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
+
+  const waiterHS = new Promise<unknown>(resolve => serviceHS.addEventListener("testevent", (evt: Event) => resolve((evt as CustomEvent<number>).detail), { once: true }));
+  serviceHS.emitTestEvent({ start: 12, add: 13 }).catch(() => { }); //ignore exception usuaslly triggered by the close below (TODO is there any fix for that?)
+  test.eq({ start: 12, add: 13 }, await waiterHS); //HS services not as cool to calcuate things
+  serviceHS.close();
+
 }
 
 async function testMutexVsHareScript() {
@@ -413,6 +418,7 @@ test.run(
     testServiceTimeout,
     runBackendServiceTest_JS,
     runBackendServiceTest_HS,
+    runBackendServiceTest_Events,
     testMutexVsHareScript,
     testLogs
   ], { wrdauth: false });
