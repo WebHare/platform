@@ -7,6 +7,7 @@ import { runFeedbackReport } from "./feedback";
 
 import "./authormode.scss";
 import "./authormode.lang.json";
+import { inspectMetadata } from "./inspect-metadata/inspector";
 
 export interface AuthorModeOptions {
   //whether to show feedback options. only include if you've set up a module to actually handle feedback and screenhots!
@@ -60,6 +61,10 @@ function setupAuthorMode() {
             <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{getTid("publisher:site.authormode.openinwebhare")}</a>
           </li>
           <li class="wh-authorbar__action">
+            <a href="#" onMousedown={(event: MouseEvent) => inspectMetadata(event)} //to prevent focus transfer (annoying when using mouse to enter and escape to exit)
+              onClick={(event: MouseEvent) => inspectMetadata(event)}>{getTid("publisher:site.authormode.inspectmetadata")}</a>
+          </li>
+          <li class="wh-authorbar__action">
             <a href="#" onClick={(event: MouseEvent) => hideAuthorMode()}>{getTid("publisher:site.authormode.hideauthormode")}</a>
           </li>
         </ul>
@@ -67,6 +72,10 @@ function setupAuthorMode() {
     </wh-authorbar>);
 
   document.documentElement.classList.add("wh-authormode--active");
+
+  if (location.hash === "#wh-authormode-metainspect") { //add #wh-authormode-metainspect to URL to open on refresh (during testing)
+    inspectMetadata(null);
+  }
 }
 
 const orientation = window.whAuthorModeOptions?.orientation ?? 'right';
