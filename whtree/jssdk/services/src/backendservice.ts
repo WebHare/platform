@@ -2,10 +2,6 @@ import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHa
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import { ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 
-export interface BackendServiceController {
-  createClient(...args: unknown[]): Promise<unknown>;
-}
-
 /** Interface for the client object we present to the connecting user
 */
 interface DefaultWebHareServiceClient {
@@ -13,25 +9,41 @@ interface DefaultWebHareServiceClient {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
-export type ServiceBase = {
-  close(): void;
-  [Symbol.dispose](): void;
-};
+export class ServiceBase extends EventTarget {
+  #link: WebHareServiceIPCLinkType["ConnectEndPoint"];
+
+  constructor(link: WebHareServiceIPCLinkType["ConnectEndPoint"]) {
+    super();
+    this.#link = link;
+  }
+
+  close(): void {
+    this.#link.close();
+  }
+
+  [Symbol.dispose](): void {
+    this.#link.close();
+  }
+}
 
 export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
   link: WebHareServiceIPCLinkType["ConnectEndPoint"];
   isjs: boolean;
+  sb: ServiceBase;
   description: WebHareServiceDescription;
 
-  constructor(link: WebHareServiceIPCLinkType["ConnectEndPoint"], description: WebHareServiceDescription) {
+  constructor(sb: ServiceBase, link: WebHareServiceIPCLinkType["ConnectEndPoint"], description: WebHareServiceDescription) {
+    this.sb = sb;
     this.link = link;
+    link.on("message", _ => this.onMessage(_));
+
     this.description = description;
     this.isjs = description.isjs || false;
   }
 
   get(target: object, prop: string | symbol, receiver: unknown) {
-    if (prop === 'close' || prop === Symbol.dispose) //create a close() function
-      return () => this.closeService();
+    if (prop in target) //access to a function
+      return (...params: unknown[]) => (target as Record<string | symbol, (...p: unknown[]) => unknown>)[prop](...params);
 
     if (typeof prop === "string") {
       if (!this.isjs)
@@ -54,10 +66,6 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
     throw new Error(`Cannot override service functions, trying to change property ${JSON.stringify(prop)}`);
   }
 
-  closeService() {
-    this.link.close();
-  }
-
   async remotingFunc(method: { name: string }, args: unknown[]) {
     const calldata: ServiceCallMessage = { call: method.name };
     if (this.isjs)
@@ -71,10 +79,18 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
     else
       return response.result;
   }
+
+  onMessage(msg: WebHareServiceIPCLinkType["ConnectEndPointPacket"]) {
+    if ("event" in msg.message)
+      this.sb.dispatchEvent(new CustomEvent(msg.message.event, { detail: msg.message.data }));
+    else
+      console.error("Unknown message type", msg);
+  }
 }
 
 export interface BackendServiceOptions {
   timeout?: number;
+  ///Allow the service to linger, requiring an explicit close() to shut down. Often needed when you'll be listening for events.
   linger?: boolean;
   ///Do not try to autostart an ondemand service
   notOnDemand?: boolean;
@@ -92,7 +108,7 @@ type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Paramete
 */
 export type ConvertToClientInterface<BackendHandlerType extends object> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
-  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
+  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close" | "emit"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
 } & ServiceBase;
 
 async function attemptAutoStart(name: string) {
@@ -145,7 +161,8 @@ export async function openBackendService<T extends object = DefaultWebHareServic
       if (!options?.linger)
         link.dropReference();
 
-      return new Proxy({}, new ServiceProxy(link, description)) as ConvertToClientInterface<T> & ServiceBase;
+      const sb = new ServiceBase(link);
+      return new Proxy(sb, new ServiceProxy(sb, link, description)) as ConvertToClientInterface<T> & ServiceBase;
     } catch (e) {
       link.close();
       throw e; //not relooping if describing fails

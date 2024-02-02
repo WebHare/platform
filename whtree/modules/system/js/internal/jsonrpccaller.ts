@@ -127,7 +127,7 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
   return responseInfo;
 }
 
-class JSONAPICaller {
+class JSONAPICaller extends services.BackendServiceConnection {
   async runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
     const context = new CodeContext("jsonrpc", {
       url: req.url.toString(),

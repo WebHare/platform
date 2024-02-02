@@ -48,11 +48,11 @@ managedServices:
     run: on-demand # should autostart as soon as someone connects to the backend service
 `,
     "js/service.js": `
-import runBackendService from '@mod-system/js/internal/webhareservice';
+import { runBackendService, BackendServiceConnection } from '@webhare/services';
 const instanceid = "instance" + Math.random();
 const port = process.argv[2];
 let service;
-class Client {
+class Client extends BackendServiceConnection {
   info() { return { x: 42, instanceid, port }; }
   shutdown() { service.close(); }
 };

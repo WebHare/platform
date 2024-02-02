@@ -1,8 +1,9 @@
-import { ServiceClientFactoryFunction } from "@mod-platform/js/nodeservices/nodeservices";
-import { BackendServiceController } from "@webhare/services";
+import type { ServiceClientFactoryFunction } from '@webhare/services/src/backendservicerunner';
+import { BackendServiceConnection, BackendServiceController } from "@webhare/services";
 
 class Controller implements BackendServiceController {
-  dummy = -1;
+  dummy = "-1";
+  connections = new Set<string>;
 
   async createClient(testdata: string) {
     await Promise.resolve(); //wait a tick
@@ -10,18 +11,22 @@ class Controller implements BackendServiceController {
   }
 }
 
-class ClusterTestLink {
-  dummy = 42;
+class ClusterTestLink extends BackendServiceConnection {
+  dummy = "42";
   mainobject: Controller | null;
   // null-likes completely broke interface description earlier, so test them specifically
   aNull = null;
   anUndefined = undefined;
+  testdata;
 
   constructor(maininstance: Controller | null, testdata: string) {
+    super();
     if (testdata == "abort")
       throw new Error("abort");
 
+    this.testdata = testdata;
     this.mainobject = maininstance;
+    this.mainobject?.connections.add(testdata);
   }
 
   ping(arg1: unknown, arg2: unknown) {
@@ -56,20 +61,26 @@ class ClusterTestLink {
   }
 
   getShared() {
-    return this.mainobject?.dummy ?? -1;
+    return this.mainobject?.dummy ?? "-1";
   }
-  setShared(val: number) {
+  setShared(val: string) {
     if (!this.mainobject)
       throw new Error("This is not the controlleddemoservice");
 
     this.mainobject.dummy = val;
     return null; //FIXME marshalling cannot deal with service APIs returning undefined
   }
-  // TODO? do we still need this?
-  // emitTestEvent(data)
-  // {
-  //   this.EmitEvent("testevent", data);
-  // }
+  emitTestEvent(data: { start: number; add: number }) {
+    this.emit("testevent", data.start + data.add);
+
+    return null;
+  }
+  getConnections(): string[] {
+    return [...this.mainobject?.connections ?? []].toSorted();
+  }
+  onClose() {
+    this.mainobject?.connections.delete(this.testdata);
+  }
 }
 
 export async function createDemoMain() {

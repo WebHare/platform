@@ -1,4 +1,4 @@
-import { WebHareBlob } from "@webhare/services/src/webhareblob";
+import { BackendServiceConnection, WebHareBlob } from "@webhare/services";
 import { Agent, RequestInit as undiciRequestInit } from 'undici';
 
 let insecureagent: Agent | undefined;
@@ -15,7 +15,7 @@ export interface FetchPoolOptions {
 }
 
 
-export class Fetcher {
+export class Fetcher extends BackendServiceConnection {
   async goFetch(url: string, options: IncomingRequestInit, pooloptions: FetchPoolOptions) {
 
     if (pooloptions?.timeout && pooloptions?.timeout >= 0)

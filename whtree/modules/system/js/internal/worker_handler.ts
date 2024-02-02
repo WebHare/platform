@@ -1,7 +1,7 @@
 import { type TransferListItem, workerData } from "node:worker_threads";
 import { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
 import { loadJSFunction } from "./resourcetools";
-import { describePublicInterface } from "./webhareservice";
+import { describePublicInterface } from "@webhare/services/src/backendservicerunner";
 import { encodeIPCException } from "./whmanager/ipc";
 import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { activateHMR } from "@webhare/services/src/services";

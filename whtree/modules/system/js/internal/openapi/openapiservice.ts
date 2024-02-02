@@ -12,11 +12,12 @@ import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
 
 // A REST service supporting an OpenAPI definition
-export class RestService {
+export class RestService extends services.BackendServiceConnection {
   readonly servicename: string;
   readonly restapi: RestAPI;
 
   constructor(servicename: string, restapi: RestAPI) {
+    super();
     this.servicename = servicename;
     this.restapi = restapi;
   }
