@@ -32,12 +32,12 @@ const publishProd: boolean = program.opts().publishProd;
 const publish = publishAlpha || publishProd;
 const stdio: StdioOptions = verbose ? ["ignore", "inherit", "inherit"] : ["ignore", "ignore", "ignore"];
 
-if (publishProd)
-  throw new Error("Not implemented yet");
 if (publishProd && publishAlpha)
   throw new Error("Use either --publish-prod or --publish-alpha but not both");
 
 async function main() {
+  const axioms = await readAxioms();
+
   const workdir = join(backendConfig.dataroot, "tmp", "package_jssdk");
   if (verbose)
     console.log(`Work dir: ${workdir}`);
@@ -48,13 +48,37 @@ async function main() {
     throw new Error("Invalid version number");
 
   const versionbase = `0.${major * 100 + minor}`;
-  const version = `${versionbase}.0`; //TODO bump until we find a free number
-  const isotime = (new Date().toISOString()).replaceAll(/[^0-9]/g, '');
-  const versionfinal = `${version}-alpha-${isotime.substring(0, 8)}-${isotime.substring(8, 14)}`;
-  if (verbose)
-    console.log("Version", versionfinal);
+  let version = '';
+  let patchversion = 0;
 
-  const axioms = await readAxioms();
+  for (; ; ++patchversion) { //find a free minor version. note that if we mess this up NPM will refuse a 'prod' publish anyway
+    let inuse = false;
+    version = `${versionbase}.${patchversion}`;
+    if (verbose)
+      console.log(`Testing if ${version} has been used`);
+
+    for (const pkgname of axioms.publishPackages) {
+      const fetchinfo = await fetch(`https://registry.npmjs.org/${encodeURIComponent(`@webhare/${pkgname}`)}`);
+      if (!fetchinfo.ok)
+        continue; //looks like this package didn't exist yet
+
+      const pkginfo = await fetchinfo.json();
+      const versions = Object.keys(pkginfo.versions);
+      if (versions.includes(version)) {
+        console.log(`Version ${version} is already in use by package @webhare/${pkgname}`);
+        inuse = true;
+        break;
+      }
+    }
+    if (!inuse)
+      break;
+  }
+  // const pkginfo = await fetchinfo.json();
+
+  const isotime = (new Date().toISOString()).replaceAll(/[^0-9]/g, '');
+  const versionfinal = publishAlpha ? `${version}-alpha-${isotime.substring(0, 8)}-${isotime.substring(8, 14)}` : version;
+  if (verbose)
+    console.log(`@webhare/xx version '${version}' hasn't been released yet. We will be pushing ${versionfinal}\n`); //extra linefeed for cleaner output
 
   // Throw the packages in place
   const jssdkPath = join(workdir, "jssdk");

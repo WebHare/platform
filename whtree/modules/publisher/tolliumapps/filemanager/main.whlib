@@ -873,14 +873,16 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
     BOOLEAN issysop := this->frame->flags.issysop;
     items := SELECT TEMPORARY canedit := issysop OR type NOT IN VAR whconstant_whfstypes_scriptable // Only sysops can edit scriptable types
+                  , TEMPORARY publishedsite := parentsite IN published_sites
                   , *
                   , canedit :=              canedit
-                  , ispublished :=          parentsite IN published_sites AND GetOncePublishedFromPublished(published)
-                  , ispublish :=            parentsite IN published_sites AND IsPublish(published)
+                  , ispublished :=          publishedsite AND GetOncePublishedFromPublished(published)
+                  , ispublish :=            publishedsite AND IsPublish(published)
                   , isindexdoc :=           id = sel_indexdoc
                   , isversioned :=          this->IsVersionedObject(items) OR isversionarchive
-                  , canpublish :=           isactive AND ((isfolder AND parentsite IN published_sites) OR IsPublish(published))
-                  , canpublishrecursive :=  isactive AND isfolder AND (parentsite != 0 OR issysop)
+                  //TODO should have been named: can*re*publish. it has nothing to do with being enable to change or start publication
+                  , canpublish :=           isactive AND publishedsite AND (isfolder OR IsPublish(published))
+                  , canpublishrecursive :=  isactive AND isfolder AND (parentsite != 0 ? publishedsite : issysop)
                   , canchangetype :=        canwrite AND type != 1 AND NOT ispinned
                   , canmoveto :=            canadd OR contentmode = "recyclebin"
                   , canopen :=              contentmode != "recyclebin" AND (canedit OR isfolder)
@@ -2262,7 +2264,11 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
-    openhandler->SendURL(GetViewURLWithFeedback(obj, this->contexts->user));
+    STRING url := GetViewURLWithFeedback(obj, this->contexts->user);
+    IF(url != "")
+      openhandler->SendURL(url);
+    ELSE
+      openhandler->Cancel();
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)

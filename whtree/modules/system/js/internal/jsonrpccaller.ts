@@ -1,4 +1,4 @@
-import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode, WebRequest } from "@webhare/router";
+import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode } from "@webhare/router";
 import * as services from "@webhare/services";
 import { WebRequestInfo, WebResponseInfo } from "./types";
 import { StackTrace, parseTrace, } from "@webhare/js-api-tools";
@@ -24,8 +24,6 @@ Code                Message                Meaning
 interface WebServiceDefinition {
   service: string;
 }
-
-let currentrequest: WebRequest | undefined;
 
 type RequestDebugInfo = {
   debug?: {
@@ -80,13 +78,6 @@ export class JSONRPCError {
   static readonly MethodNotFound = -32601;
 }
 
-/** Get the request info for the current API call. NOTE we're looking for a cleaner way to invoke JSONRPCs with this context */
-export function getJSONAPICallWebRequest(): WebRequest {
-  if (currentrequest)
-    return currentrequest;
-  throw new Error(`getJSONAPICallWebRequest must be invoked directly upon entry of a JSON/RPC call handler`); //and this is why we need a cleaner approach or just pass it as an arugment
-}
-
 async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponse> {
   let id: RequestID = null;
   try {
@@ -96,16 +87,14 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
     if (!theapi[objectname])
       throw new Error(`Cannot find '${objectname}' in '${theapi}'`);
 
-    const instance = new theapi[objectname];
+    const instance = new theapi[objectname](await newWebRequestFromInfo(req));
     const jsonrpcreq = JSON.parse(await req.body.text());
     id = jsonrpcreq.id;
 
     if (!instance[jsonrpcreq.method])
       throw new JSONRPCError(HTTPErrorCode.NotFound, JSONRPCError.MethodNotFound, `Method '${jsonrpcreq.method}' not found`);
 
-    currentrequest = await newWebRequestFromInfo(req); //will be available until the first 'tick'
     const promise = instance[jsonrpcreq.method](...jsonrpcreq.params);
-    currentrequest = undefined;
     const result = await promise;
 
     const retval = { id, error: null, result, ...getDebugData() };
