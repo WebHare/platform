@@ -1,4 +1,4 @@
-import { ServiceControllerFactoryFunction } from "../nodeservices/nodeservices";
+import { ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
 import { ApplyConfigurationOptions, applyConfiguration } from "./applyconfig";
 
 class ConfigClient {

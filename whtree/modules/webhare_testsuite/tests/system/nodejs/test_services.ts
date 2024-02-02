@@ -6,7 +6,7 @@ import { GenericLogLine } from "@webhare/services/src/logging";
 import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
-import runBackendService from "@mod-system/js/internal/webhareservice";
+import { runBackendService } from "@webhare/services";
 import { createVM, HSVMObject } from "@webhare/harescript";
 import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";

@@ -1,8 +1,17 @@
 import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import { createDeferred } from "@webhare/std";
-import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from './types';
+import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from '@mod-system/js/internal/types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
+
+export type ServiceControllerFactoryFunction = () => Promise<BackendServiceController> | BackendServiceController;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
+export type ServiceClientFactoryFunction = (...args: any[]) => Promise<object> | object;
+
+
+export interface BackendServiceController {
+  createClient(...args: unknown[]): Promise<unknown>;
+}
 
 interface WebHareServiceOptions {
   ///Enable automatic restart of the service when the source code changes. Defaults to true
@@ -165,7 +174,7 @@ class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
     @param constructor - Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
     @param options - Service options
 */
-export default async function runBackendService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
+export async function runBackendService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
   options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, ...options };
   checkModuleScopedName(servicename);
 

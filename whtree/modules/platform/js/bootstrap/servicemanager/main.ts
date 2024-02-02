@@ -20,7 +20,7 @@ import * as child_process from "child_process";
 import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
-import runBackendService from '@mod-system/js/internal/webhareservice';
+import { runBackendService } from "@webhare/services/src/backendservicerunner";
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';

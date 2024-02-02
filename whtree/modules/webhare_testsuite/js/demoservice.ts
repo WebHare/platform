@@ -1,4 +1,4 @@
-import { ServiceClientFactoryFunction } from "@mod-platform/js/nodeservices/nodeservices";
+import type { ServiceClientFactoryFunction } from '@webhare/services/src/backendservicerunner';
 import { BackendServiceController } from "@webhare/services";
 
 class Controller implements BackendServiceController {

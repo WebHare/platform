@@ -1,12 +1,8 @@
-import * as services from "@webhare/services";
-import runBackendService from "@mod-system/js/internal/webhareservice";
+import { activateHMR, runBackendService } from '@webhare/services';
+import type { ServiceClientFactoryFunction, ServiceControllerFactoryFunction } from '@webhare/services/src/backendservicerunner';
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-
-export type ServiceControllerFactoryFunction = () => Promise<services.BackendServiceController> | services.BackendServiceController;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
-export type ServiceClientFactoryFunction = (...args: any[]) => Promise<object> | object;
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
   const client = await (await resourcetools.loadJSFunction<ServiceClientFactoryFunction>(service.clientFactory))(...args);
@@ -32,5 +28,5 @@ async function main() {
     launchService(service); //we don't await this, we just launch it and let it run in the background
 }
 
-services.activateHMR();
+activateHMR();
 main();

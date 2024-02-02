@@ -2,10 +2,6 @@ import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHa
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import { ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 
-export interface BackendServiceController {
-  createClient(...args: unknown[]): Promise<unknown>;
-}
-
 /** Interface for the client object we present to the connecting user
 */
 interface DefaultWebHareServiceClient {
