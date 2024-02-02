@@ -18,13 +18,13 @@ export class LocalService {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed to accept stuff like (groupid: string) => void
-export type LocalConnectionConstructor = (...args: any[]) => LocalService | Promise<LocalService>;
+export type LocalConnectionFactory = (...args: any[]) => LocalService | Promise<LocalService>;
 export type LocalServiceOptions = { dropListenerReference?: boolean };
 
 export type LocalServiceRequest = {
   type: "init";
   id: number;
-  __new: Parameters<LocalConnectionConstructor>;
+  __new: Parameters<LocalConnectionFactory>;
 } | {
   type: "callRequest";
   id: number;
@@ -111,10 +111,10 @@ export type ConvertLocalServiceInterfaceToClientInterface<BackendHandlerType ext
 
 export class LocalServiceHandlerBase {
   private _serviceName: string;
-  private _constructor: LocalConnectionConstructor;
+  private _constructor: LocalConnectionFactory;
   private _options: LocalServiceOptions;
 
-  constructor(serviceName: string, constructor: LocalConnectionConstructor, options: LocalServiceOptions) {
+  constructor(serviceName: string, constructor: LocalConnectionFactory, options: LocalServiceOptions) {
     this._serviceName = serviceName;
     this._constructor = constructor;
     this._options = options;

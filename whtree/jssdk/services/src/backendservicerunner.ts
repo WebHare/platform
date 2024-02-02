@@ -6,20 +6,23 @@ import { broadcast } from "@webhare/services/src/backendevents";
 
 export type ServiceControllerFactoryFunction = () => Promise<BackendServiceController> | BackendServiceController;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
-export type ServiceClientFactoryFunction = (...args: any[]) => Promise<object> | object;
+export type ServiceClientFactoryFunction = (...args: any[]) => Promise<BackendServiceConnection> | BackendServiceConnection;
 
 export interface BackendServiceController {
-  createClient(...args: unknown[]): Promise<unknown>;
+  createClient(...args: unknown[]): Promise<BackendServiceConnection> | BackendServiceConnection;
 }
 
 const setLink = Symbol("setLink");
 
+/** Base class for service connections */
 export class BackendServiceConnection {
   #link?: LinkState;
   #eventQueue?: Array<{ event: string; data: unknown }>;
 
   constructor() {
   }
+
+  /** Emit an event to the client */
   emit(event: string, data: unknown) {
     if (!this.#link) {
       this.#eventQueue ||= [];
@@ -28,6 +31,11 @@ export class BackendServiceConnection {
       this.#link.link.send({ event, data });
     }
   }
+  /** Invoked when the client explicitly closed the connection */
+  onClose() {
+  }
+
+  //private api used to associate the connection with a link
   [setLink](link: LinkState) {
     while (this.#eventQueue?.length)
       link.link.send(this.#eventQueue.shift()!);
@@ -46,18 +54,15 @@ export interface WebHareServiceOptions {
   dropListenerReference?: boolean;
 }
 
+
 //Describe a JS public interface in a HS compatible way
 export function describePublicInterface(inobj: object): WebHareServiceDescription {
   const methods = [];
 
   //iterate to top and discover all methods
-  for (; inobj; inobj = Object.getPrototypeOf(inobj)) {
-    const propnames = Object.getOwnPropertyNames(inobj);
-    if (propnames.includes("toString"))
-      break; //we've reached the root
-
-    for (const name of propnames) {
-      if (name === 'constructor' || name === 'emit' || name[0] === '_')
+  for (; inobj !== Object.prototype && inobj !== BackendServiceConnection.prototype; inobj = Object.getPrototypeOf(inobj)) {
+    for (const name of Object.getOwnPropertyNames(inobj)) {
+      if (name === 'constructor' || name[0] === '_')
         continue; //no need to explain the constructor, it's already been invoked. and skip 'private' functions
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cleanup later, creating interfaces this way is ugly anyway
@@ -83,28 +88,28 @@ export function describePublicInterface(inobj: object): WebHareServiceDescriptio
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- never[] doesn't work here, it confuses the actual calls to runBackendService
-export type ConnectionConstructor = (...args: any[]) => object;
+export type ConnectionFactory = (...args: unknown[]) => Promise<BackendServiceConnection> | BackendServiceConnection;
 
 interface ServiceConnection {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
 class LinkState {
-  handler: object | null;
+  handler: BackendServiceConnection | null;
   link: WebHareServiceIPCLinkType["AcceptEndPoint"];
   initdefer = createDeferred<boolean>();
 
-  constructor(handler: object | null, link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
+  constructor(handler: BackendServiceConnection | null, link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     this.handler = handler;
     this.link = link;
   }
 }
 
 export class ServiceHandlerBase {
-  private _factory: ConnectionConstructor;
+  private _factory: ConnectionFactory;
   private _options: WebHareServiceOptions;
 
-  constructor(servicename: string, factory: ConnectionConstructor, options: WebHareServiceOptions) {
+  constructor(servicename: string, factory: ConnectionFactory, options: WebHareServiceOptions) {
     this._factory = factory;
     this._options = options;
   }
@@ -125,8 +130,7 @@ export class ServiceHandlerBase {
   }
 
   _onClose(state: LinkState) {
-    if (state.handler && "_gotClose" in state.handler && typeof state.handler._gotClose == "function")
-      state.handler._gotClose();
+    state.handler?.onClose();
   }
 
   async _onMessage(state: LinkState, msg: WebHareServiceIPCLinkType["AcceptEndPointPacket"]) {
@@ -138,8 +142,9 @@ export class ServiceHandlerBase {
         const initdata = msg as IPCMessagePacket<ServiceInitMessage>;
 
         // We'll pass the state object through a global to BackendServiceConnection (if any)
-        const handlerpromise = this._factory(...initdata.message.__new);
-        const handler = await handlerpromise;
+        const handler = await this._factory(...initdata.message.__new);
+        if (!(handler instanceof BackendServiceConnection))
+          throw new Error(`Service handler (type ${Object.getPrototypeOf(handler).constructor.name}?) is not an instance of BackendServiceConnection`);
 
         if (!state.handler)
           state.handler = handler;
@@ -167,7 +172,7 @@ export class ServiceHandlerBase {
     try {
       const message = msg.message as ServiceCallMessage;
       const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
-      const result = await (state.handler as ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
+      const result = await (state.handler as BackendServiceConnection & ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
       state.link.send({ result: message.jsargs ? JSON.stringify(result) : result }, msg.msgid);
     } catch (e) {
       state.link.sendException(e as Error, msg.msgid);
@@ -188,7 +193,7 @@ export class ServiceHandlerBase {
 class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
   private _port: WebHareServiceIPCLinkType["Port"];
 
-  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
+  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionFactory, options: WebHareServiceOptions) {
     super(servicename, constructor, options);
     this._port = port;
     this._port.on("accept", link => this.addLink(link));
@@ -208,7 +213,7 @@ class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
     @param constructor - Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
     @param options - Service options
 */
-export async function runBackendService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
+export async function runBackendService(servicename: string, constructor: ConnectionFactory, options?: WebHareServiceOptions) {
   options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, ...options };
   checkModuleScopedName(servicename);
 

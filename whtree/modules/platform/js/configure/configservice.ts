@@ -1,7 +1,7 @@
-import { ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
+import { BackendServiceConnection, ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
 import { ApplyConfigurationOptions, applyConfiguration } from "./applyconfig";
 
-class ConfigClient {
+class ConfigClient extends BackendServiceConnection {
 
   async applyConfiguration(options: Pick<ApplyConfigurationOptions, "modules" | "subsystems" | "force" | "source"> = {}) {
     await applyConfiguration(options);

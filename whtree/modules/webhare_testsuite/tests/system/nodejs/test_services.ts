@@ -10,6 +10,7 @@ import { runBackendService } from "@webhare/services";
 import { createVM, HSVMObject } from "@webhare/harescript";
 import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
+import { sleep } from "@webhare/std";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -54,13 +55,16 @@ async function testServices() {
 
 async function testServiceState() {
   const instance1 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance1"], { linger: true });
-  const instance2 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
+  const instance2 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
 
   const randomkey = "KEY" + Math.random();
   await instance1.setShared(randomkey);
   test.eq(randomkey, await instance2.getShared());
+  test.eq(["instance1", "instance2"], await instance2.getConnections());
 
   instance1.close();
+  await test.wait(async () => JSON.stringify(["instance2"]) == JSON.stringify(await instance2.getConnections()));
+
   instance2.close();
 }
 
@@ -69,7 +73,7 @@ async function testMutex() {
   const lock1 = await services.lockMutex("test:mutex1");
   const lock2promise = services.lockMutex("test:mutex1");
   test.eq("No lock", await Promise.race([
-    test.sleep(50).then(() => "No lock"),
+    sleep(50).then(() => "No lock"),
     lock2promise.then(() => "We have a lock!")
   ]), "Give the second lock some time to block, ensure we had to wait");
   lock1.release();
@@ -212,7 +216,7 @@ async function runBackendServiceTest_JS() {
   test.eq(42, await serverinstance.getLUE());
   test.eq(42, await promise);
 
-  test.eq(-1, await serverinstance.getShared(), "Verify ths instance does not see a shared controller");
+  test.eq("-1", await serverinstance.getShared(), "Verify ths instance does not see a shared controller");
 
   await test.throws(/Crash/, serverinstance.crash());
 
@@ -242,11 +246,11 @@ async function testDisconnects() {
 
   //Send a message to instance 1 and immediately disconnect it. then try instance 2 and see if the service got killed because we dropped the outgoing line
   const promise = instance1.getAsyncLUE(); //the demoservice should delay 50ms before responding, giving us time to kill the link..
-  await test.sleep(1); //give the command time to be flushed
+  await sleep(1); //give the command time to be flushed
   instance1.close(); //kill the link
   await test.throws(/Request is cancelled, link was closed/, promise, `Request should throw`);
 
-  await test.sleep(100); //give the demoservice time to answer. we know it's a racy test so it might give false positives..
+  await sleep(100); //give the demoservice time to answer. we know it's a racy test so it might give false positives..
   // verify the services stil lwork
   test.eq(42, await instance2.getAsyncLUE());
   instance2.close(); //kill the second link
@@ -259,10 +263,10 @@ async function testServiceTimeout() {
   test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100 }));
 
   const slowserviceconnection = services.openBackendService(customservicename, [], { timeout: 3000 });
-  await test.sleep(100); //give the connection time to fail
+  await sleep(100); //give the connection time to fail
 
   //set it up
-  const customservice = await runBackendService(customservicename, () => new class { whatsMyName() { return "doggie dog"; } });
+  const customservice = await runBackendService(customservicename, () => new class extends services.BackendServiceConnection { whatsMyName() { return "doggie dog"; } });
   const slowserviceconnected = await slowserviceconnection;
   test.eq("doggie dog", await slowserviceconnected.whatsMyName());
   customservice.close();
