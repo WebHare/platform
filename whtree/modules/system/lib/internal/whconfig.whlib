@@ -196,12 +196,28 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
     RETURN `Required maximum dtap stage: '${restrictions.maxservertype}', current: '${stage}'`;
 
   FOREVERY(STRING testvar FROM restrictions.ifenvironset)
-    IF(GetEnvOrTestVar(testvar) = "")
-      RETURN `Required environment variable '${testvar}' not set`;
+  {
+    STRING varname := Left(testvar,SearchSubstring(testvar,'=')) ?? testvar;
+    STRING varvalue := Substring(testvar,Length(varname)+1);
+    STRING actualvalue := GetEnvOrTestVar(varname);
+
+    IF(actualvalue = "")
+      RETURN `Required environment variable '${varname}' not set`;
+    IF(varvalue != "" AND actualvalue != varvalue)
+      RETURN `Environment variable '${varname}' set to '${actualvalue}' not '${varvalue}'`;
+  }
 
   FOREVERY(STRING testvar FROM restrictions.unlessenvironset)
-    IF(GetEnvOrTestVar(testvar) != "")
-      RETURN `Forbidden environment variable '${testvar}' set to '${GetEnvironmentVariable(testvar)}'`;
+  {
+    STRING varname := Left(testvar,SearchSubstring(testvar,'=')) ?? testvar;
+    STRING varvalue := Substring(testvar,Length(varname)+1);
+    STRING actualvalue := GetEnvOrTestVar(varname);
+
+    IF(varvalue != "" AND actualvalue = varvalue)
+      RETURN `Environment variable '${varname}' matches '${varvalue}'`;
+    IF(varvalue = "" AND actualvalue != varvalue)
+      RETURN `Forbidden environment variable '${varname}' set to '${actualvalue}'`;
+  }
 
   IF(Length(restrictions.restrictservers) > 0)
   {

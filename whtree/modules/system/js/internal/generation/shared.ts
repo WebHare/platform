@@ -37,8 +37,8 @@ interface WebHareVersionInfo {
   modules: string[];
 }
 
-function getMyApplicabilityInfo() {
-  return {
+export function getMyApplicabilityInfo(): WebHareVersionInfo {
+  return { //NOTE: No env variables -- too dangerous as the result of this function is returned to peers.
     versionnum: getVersionInteger(),
     version: backendConfig.buildinfo.version,
     dtapstage: backendConfig.dtapstage,
@@ -52,7 +52,17 @@ function getSemVerFromClassicVersion(oldversion: number) {
   return `${oldversion / 10000}.${oldversion % 10000 / 100}.${oldversion % 100}`;
 }
 
-function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, restrictions: ReturnType<typeof readApplicableToWebHareNode>): string | null {
+export interface ApplicabilityRestrictions {
+  webhareversion: string;
+  minservertype: string;
+  maxservertype: string;
+  restrictservers: string[];
+  ifenvironset: string[];
+  unlessenvironset: string[];
+  ifmodules: string;
+}
+
+export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, restrictions: ApplicabilityRestrictions): string | null {
   /* FIXME restore semver check: if(restrictions.webhareversion && !versionSatisfiesRange(semver, restrictions.webhareversion))
   //Support versioninfo without semantic 'version' for backwards compatibility (eg. peering with old webhares)
   const semver = webhareversioninfo?.version ?? getSemVerFromClassicVersion(webhareversioninfo.versionnum);
@@ -70,13 +80,29 @@ function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, restricti
   if (restrictions.maxservertype && systemservertypes.indexOf(restrictions.maxservertype) > systemservertypes.indexOf(webhareversioninfo.dtapstage))
     return `Required maximum dtap stage: '${restrictions.maxservertype}', current: '${webhareversioninfo.dtapstage}'`;
 
-  for (const testvar of restrictions.ifenvironset)
-    if (!process.env[testvar])
-      return `Required environment variable '${testvar}' not set`;
+  for (const testvar of restrictions.ifenvironset) {
+    const split = testvar.match(/^([^=]+)(=(.*))?$/);
+    if (!split)
+      return `Invalid ifenvironset setting`;
 
-  for (const testvar of restrictions.unlessenvironset)
-    if (process.env[testvar])
-      return `Forbidden environment variable '${testvar}' set to '${process.env[testvar]}'`;
+    const actualvalue = process.env[split[1]] ?? "";
+    if (!actualvalue)
+      return `Required environment variable '${split[1]}' not set`;
+    if (split[3] && actualvalue !== split[3])
+      return `Environment variable '${split[1]}' set to '${process.env[split[1]]}' not '${split[3]}'`;
+  }
+
+  for (const testvar of restrictions.unlessenvironset) {
+    const split = testvar.match(/^([^=]+)(=(.*))?$/);
+    if (!split)
+      return `Invalid unlessenvironment setting`;
+
+    const actualvalue = process.env[split[1]] ?? "";
+    if (split[3] && actualvalue == split[3])
+      return `Environment variable '${split[1]}' matches '${split[3]}'`;
+    if (!split[3] && actualvalue)
+      return `Forbidden environment variable '${split[1]}' set to '${actualvalue}'`;
+  }
 
   if (restrictions.restrictservers.length > 0
     && !restrictions.restrictservers.some(servermask => new RegExp(wildcardsToRegExp(servermask.toUpperCase())).test(webhareversioninfo.servername)))
@@ -86,7 +112,7 @@ function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, restricti
 }
 
 
-function readApplicableToWebHareNode(xmlnode: Element, prefix: string) {
+function readApplicableToWebHareNode(xmlnode: Element, prefix: string): ApplicabilityRestrictions {
   return {
     webhareversion: getAttr(xmlnode, prefix + "webhareversion"),
     minservertype: getAttr(xmlnode, prefix + "minservertype"),
