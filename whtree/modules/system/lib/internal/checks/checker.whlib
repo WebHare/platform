@@ -178,6 +178,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   INTEGER maxxidage := SendPostgreSQLCommand(GetPrimary()->id, "SELECT max(age(datfrozenxid)) FROM pg_database").max;
   IF(maxxidage >= 5000000000) //500 million is a good indication something is wrong
     INSERT [ msg := `:PostgreSQL reports ${maxxidage} transaction ids in range, it may not be properly vacuuming`
+           , messagetag := [ type := "system:checker.pg.toomanytransactionids" ]
            ] INTO messages AT END;
 
   STRING collation :=SendPostgreSQLCommand(GetPrimary()->id, "SHOW lc_collate").lc_collate;
@@ -185,6 +186,13 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     INSERT [ msg := `:PostgreSQL reports it's in the '${collation}' collation, you need to 'wh recreate-postgresql-database' as soon as possible`
            ] INTO messages AT END;
 
+  VARIANT connections := INTEGER(SendPostgreSQLCommand(GetPrimary()->id, "SELECT COUNT(*) FROM pg_stat_activity").count);
+  VARIANT max_connections := ToInteger(SendPostgreSQLCommand(GetPrimary()->id, "SHOW max_connections").max_connections, 0);
+
+  IF (connections >= max_connections / 2)
+    INSERT [ msg := `:PostgreSQL reports ${connections}/${max_connections} active connections, it might be running out of connections soon`
+           , messagetag := CELL[ type := "system:checker.pg.toomanyconnections", max_connections ] // reset snooze when max_connections is changed
+           ] INTO messages AT END;
 
   IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
   {
