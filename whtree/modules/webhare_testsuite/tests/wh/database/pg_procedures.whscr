@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/db/tablecreate.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
