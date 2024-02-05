@@ -1,6 +1,7 @@
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { DebugFlags } from "@webhare/env/src/envbackend";
 import { getDebugSettings } from "./debug";
+import { TransferListItem } from "worker_threads";
 
 export enum HTTPMethod {
   GET = "get",
@@ -14,6 +15,16 @@ export enum HTTPMethod {
 }
 
 const validmethods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
+
+export type WebRequestTransferData = {
+  method: HTTPMethod;
+  url: string;
+  headers: Array<[string, string]>;
+  clientWebServer: number;
+  body: ArrayBuffer | null;
+  baseURL: string;
+  localPath: string;
+};
 
 export interface WebRequest {
   ///HTTP Method, eg "get", "post"
@@ -53,6 +64,8 @@ export interface WebRequest {
       You should normally use debugFlags from \@webhare/env - request specific flags will be merged into this set for the current code context.
   */
   getDebugSettings(): { flags: DebugFlags };
+
+  encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] };
 }
 
 export class IncomingWebRequest implements WebRequest {
@@ -121,6 +134,20 @@ export class IncomingWebRequest implements WebRequest {
   getDebugSettings(): { flags: DebugFlags } {
     return getDebugSettings(this);
   }
+  encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] } {
+    return {
+      value: {
+        method: this.method,
+        url: this.url.toString(),
+        headers: Array.from(this.headers.entries()),
+        clientWebServer: this.clientWebServer,
+        body: this.__body,
+        baseURL: this.baseURL,
+        localPath: this.localPath
+      },
+      transferList: this.__body ? [this.__body] : []
+    };
+  }
 }
 
 class ForwardedWebRequest implements WebRequest {
@@ -145,6 +172,8 @@ class ForwardedWebRequest implements WebRequest {
   getCookie(name: string): string | null { return this.original.getCookie(name); }
 
   getDebugSettings(): { flags: DebugFlags } { return this.original.getDebugSettings(); }
+
+  encodeForTransfer() { return this.original.encodeForTransfer(); }
 }
 
 export async function newWebRequestFromInfo(req: WebRequestInfo): Promise<WebRequest> {
@@ -161,4 +190,32 @@ export function newForwardedWebRequest(req: WebRequest, suburl: string): WebRequ
     throw new Error(`The suburl added may not add search/query parameters to the URL`);
 
   return new ForwardedWebRequest(req, newbaseurl);
+}
+
+export function createWebRequestFromTransferData(encoded: WebRequestTransferData): WebRequest {
+  return new TransferredWebRequest(encoded);
+}
+
+class TransferredWebRequest extends IncomingWebRequest {
+  readonly __baseURL: string;
+  readonly __localPath: string;
+
+  get baseURL() {
+    return this.__baseURL;
+  }
+
+  get localPath() {
+    return this.__localPath;
+  }
+
+  constructor(encoded: WebRequestTransferData) {
+    super(encoded.url, {
+      method: encoded.method,
+      headers: new Headers(encoded.headers),
+      body: encoded.body,
+      clientWebServer: encoded.clientWebServer
+    });
+    this.__baseURL = encoded.baseURL;
+    this.__localPath = encoded.localPath;
+  }
 }
