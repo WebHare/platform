@@ -24,22 +24,22 @@ export class RestService extends services.BackendServiceConnection {
 
   async APICall(req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
     //WebRequestInfo is an internal type used by openapiservice.shtml until we can be directly connected to the WebHareRouter
+    const start = performance.now();
     const logger = new LogInfo(req.sourceip, req.method.toLowerCase());
-
     try {
       const webreq = await newWebRequestFromInfo(req);
       const response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
       //TODO It's a bit ugly to be working with a HareScriptBlob here (`body.size`) as this is still JS code, but it's a quick workaround for not having to JSON.stringify twice
-      this.logRequest(logger, response.status, response.body.size);
+      this.logRequest(logger, response.status, response.body.size, start);
       return response;
     } catch (e) {
-      this.logRequest(logger, 500, 0);
+      this.logRequest(logger, 500, 0, start);
       throw e;
     }
   }
 
-  logRequest(logger: LogInfo, status: number, response: number) {
-    const totaltime = performance.now() - logger.start;
+  logRequest(logger: LogInfo, status: number, response: number, start: number) {
+    const totaltime = performance.now() - start;
     const timings = { ...logger.timings, total: totaltime };
     const logrec: LoggableRecord = { service: this.servicename, method: logger.method, route: logger.route, status, sourceip: logger.sourceip, response, timings };
     if (logger.authorized)

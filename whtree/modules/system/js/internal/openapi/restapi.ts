@@ -106,7 +106,6 @@ function formatAjvError(errors: ErrorObject[]): string {
 }
 
 export class LogInfo {
-  start = performance.now();
   route: string = '';
   method: string;
   sourceip: string;
@@ -228,7 +227,8 @@ export class RestAPI {
       return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
     });
 
-    return createWebResponseFromTransferData(res);
+    Object.assign(logger, res.logger);
+    return createWebResponseFromTransferData(res.response);
   }
 
   renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
@@ -286,10 +286,10 @@ export class WorkerRestAPIHandler {
     return null;
   }
 
-  async handleRequest(reqTransferData: WebRequestTransferData, relurl: string, logger: LogInfo): Promise<ReturnValueWithTransferList<WebResponseForTransfer>> {
+  async handleRequest(reqTransferData: WebRequestTransferData, relurl: string, logger: LogInfo): Promise<ReturnValueWithTransferList<{ response: WebResponseForTransfer; logger: LogInfo }>> {
     const res = await this.handleRequestInternal(reqTransferData, relurl, logger);
     const encoded = res.encodeForTransfer();
-    return createReturnValueWithTransferList(encoded.value, encoded.transferList);
+    return createReturnValueWithTransferList({ response: encoded.value, logger }, encoded.transferList);
   }
 
   async handleRequestInternal(reqTransferData: WebRequestTransferData, relurl: string, logger: LogInfo): Promise<WebResponse> {
