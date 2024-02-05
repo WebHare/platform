@@ -246,6 +246,10 @@ export class RestAPI {
 
     return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
   }
+
+  close() {
+    this.workerPool.close();
+  }
 }
 
 function createAjvValidator(): Ajv2020 {

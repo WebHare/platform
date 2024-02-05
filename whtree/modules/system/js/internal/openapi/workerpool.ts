@@ -52,4 +52,10 @@ export class RestAPIWorkerPool {
       }
     }
   }
+
+  close() {
+    for (const worker of this.workers)
+      worker.worker.close();
+    this.workers.splice(0);
+  }
 }

@@ -121,6 +121,10 @@ export class RestService extends services.BackendServiceConnection {
 
     return result;
   }
+
+  close() {
+    this.restapi.close();
+  }
 }
 
 const cache: Record<string, RestService> = {};
