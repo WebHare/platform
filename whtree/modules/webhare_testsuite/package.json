@@ -3,9 +3,7 @@
   "author": "WebHare bv",
   "license": "MIT",
   "dependencies": {
-    "@xmldom/xmldom": "^0.8.6",
     "stacktrace-parser": "^0.1.10",
-    "testpackage": "file:tests/system/nodejs/data/testpackage",
-    "undici": "^5.27.2"
+    "testpackage": "file:tests/system/nodejs/data/testpackage"
   }
 }
