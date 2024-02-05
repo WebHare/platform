@@ -138,7 +138,9 @@ function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
 }
 
 const defaultMaxOpenAPIWorkers = 5;
+const defaultMaxCallsPerOpenAPIWorkers = 100;
 const maxOpenAPIWorkers = parseInt(process.env.WEBHARE_OPENAPI_WORKERS || "") || defaultMaxOpenAPIWorkers;
+const maxCallsPerWorker = parseInt(process.env.WEBHARE_OPENAPI_WORKERS_MAXCALLS || "") || defaultMaxCallsPerOpenAPIWorkers;
 
 type Handler = ConvertLocalServiceInterfaceToClientInterface<WorkerRestAPIHandler>;
 
@@ -147,7 +149,7 @@ export class RestAPI {
   bundled: WHOpenAPIDocument | null = null;
   def: WHOpenAPIDocument | null = null;
   private routes: Route[] = [];
-  private workerPool = new RestAPIWorkerPool(maxOpenAPIWorkers);
+  private workerPool = new RestAPIWorkerPool(maxOpenAPIWorkers, maxCallsPerWorker);
   handlers = new WeakMap<AsyncWorker, Handler>();
 
   async init(def: object, specresourcepath: string, { merge }: { merge?: object } = {}) {

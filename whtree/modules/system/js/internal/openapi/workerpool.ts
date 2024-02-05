@@ -9,16 +9,19 @@ export class RestAPIWorkerPool {
   }>;
   counter = 0;
   maxWorkers: number;
-  constructor(maxWorkers: number) {
+  maxCallsPerWorker: number;
+
+  constructor(maxWorkers: number, maxCallsPerWorker: number) {
     this.maxWorkers = maxWorkers;
+    this.maxCallsPerWorker = maxCallsPerWorker;
   }
 
   async runInWorker<T>(fn: (worker: AsyncWorker) => Promise<T>): Promise<T> {
     type WorkerEntry = typeof this.workers[number];
     let bestEntry: WorkerEntry | null = null;
-    // Find the worker with the least active calls
+    // Find the worker with the least active calls. FIXME: this can cause unbounded growth of workers when calls don't finish
     for (const entry of this.workers)
-      if (entry.totalCalls < 100 && (!bestEntry || entry.activeCalls < bestEntry.activeCalls))
+      if (entry.totalCalls < this.maxCallsPerWorker && (!bestEntry || entry.activeCalls < bestEntry.activeCalls))
         bestEntry = entry;
     // Allocate a new worker if all current workers are busy and we have less than 5 active workers
     if (bestEntry?.activeCalls && this.workers.length < this.maxWorkers)
@@ -39,8 +42,8 @@ export class RestAPIWorkerPool {
       return await fn(bestEntry.worker);
     } finally {
       --bestEntry.activeCalls;
-      // Remove workers that have handled 100 calls
-      if (!bestEntry.activeCalls && bestEntry.totalCalls >= 100) {
+      // Remove workers that have handled maxCallsPerWorker calls
+      if (!bestEntry.activeCalls && bestEntry.totalCalls >= this.maxCallsPerWorker) {
         bestEntry.worker.close();
         const pos = this.workers.indexOf(bestEntry);
         if (pos >= 0) {
