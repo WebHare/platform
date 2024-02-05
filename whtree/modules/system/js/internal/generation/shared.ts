@@ -85,10 +85,10 @@ export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, re
     if (!split)
       return `Invalid ifenvironset setting`;
 
-    const actualvalue = process.env[split[1]] ?? "";
-    if (!actualvalue)
+    const actualvalue = process.env[split[1]];
+    if (actualvalue === undefined)
       return `Required environment variable '${split[1]}' not set`;
-    if (split[3] && actualvalue !== split[3])
+    if (split[3] !== undefined && actualvalue !== split[3])
       return `Environment variable '${split[1]}' set to '${process.env[split[1]]}' not '${split[3]}'`;
   }
 
@@ -97,10 +97,10 @@ export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, re
     if (!split)
       return `Invalid unlessenvironment setting`;
 
-    const actualvalue = process.env[split[1]] ?? "";
-    if (split[3] && actualvalue == split[3])
+    const actualvalue = process.env[split[1]];
+    if (split[3] !== undefined && actualvalue == split[3])
       return `Environment variable '${split[1]}' matches '${split[3]}'`;
-    if (!split[3] && actualvalue)
+    if (split[3] === undefined && actualvalue !== undefined)
       return `Forbidden environment variable '${split[1]}' set to '${actualvalue}'`;
   }
 
