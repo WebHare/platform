@@ -22,6 +22,8 @@ workflow: # Do not build just because a tag was set https://gitlab.com/gitlab-or
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
     - when: always
 
 # if apk is present,
