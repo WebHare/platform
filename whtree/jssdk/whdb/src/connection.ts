@@ -13,6 +13,7 @@ import { BlobType } from "./blobs";
 import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, Float8Type, MoneyType, TidType, WHTimestampType } from "./types";
 import { getIntlConnection } from '../vendor/postgresql-client/src/connection/intl-connection';
 
+let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;
 
 interface PGConnectionDebugEvent {
@@ -25,25 +26,27 @@ interface PGConnectionDebugEvent {
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
 async function configureWHDBClient(pg: Connection) {
-  //TODO barrier against multiple parallel configureWHDBClient invocations
-  const bloboidquery = await pg.query(
-    `SELECT t.oid, t.typname
-      FROM pg_catalog.pg_type t
-          JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-          JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-    WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
+  // Run the typemap registration and blob oid lookup only once
+  await (configurationPromise ??= (async () => {
+    //For the WHDB a NUMERIC is always a Number. this might not be that future proof..
+    GlobalTypeMap.register([MoneyType, ArrayMoneyType]);
+    GlobalTypeMap.register([Float8Type, ArrayFloat8Type]);
+    GlobalTypeMap.register([TidType, ArrayTidType]);
+    GlobalTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
 
-  //For the WHDB a NUMERIC is always a Number. this might not be that future proof..
-  GlobalTypeMap.register([MoneyType, ArrayMoneyType]);
-  GlobalTypeMap.register([Float8Type, ArrayFloat8Type]);
-  GlobalTypeMap.register([TidType, ArrayTidType]);
-  GlobalTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
+    const bloboidquery = await pg.query(
+      `SELECT t.oid, t.typname
+        FROM pg_catalog.pg_type t
+        JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+        JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
+        WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
 
-  if (bloboidquery.rows) {
-    configuration = { bloboid: bloboidquery.rows[0][0] };
-    BlobType.oid = configuration.bloboid;
-    GlobalTypeMap.register(BlobType);
-  }
+    if (bloboidquery.rows) {
+      configuration = { bloboid: bloboidquery.rows[0][0] };
+      BlobType.oid = configuration.bloboid;
+      GlobalTypeMap.register(BlobType);
+    }
+  })());
 }
 
 //the *actual* returnvalue from `query`
@@ -67,7 +70,8 @@ export class WHDBPgClient {
     if (debugFlags["pg-logsocket"])
       getIntlConnection(this.pgclient).socket.on("debug", (evt) => this.onDebug(evt));
 
-    this.connectpromise = this.pgclient.connect();
+    const client = this.pgclient;
+    this.connectpromise = client.connect().then(() => configureWHDBClient(client));
   }
 
   private onDebug(evt: PGConnectionDebugEvent) {
@@ -134,8 +138,6 @@ export class WHDBPgClient {
         throw new Error(`Connection was already closed`);
 
       await this.connectpromise;
-      if (!configuration)
-        await configureWHDBClient(this.pgclient);
       this.connected = true;
     }
     return this;
