@@ -103,7 +103,7 @@ export class RestService extends services.BackendServiceConnection {
     } catch (e) {
       services.logError(e as Error);
 
-      if (env.flags.etr)
+      if (env.debugFlags.etr)
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack });
       else if (services.backendConfig.dtapstage == "development")
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error - enable the 'etr' debug flag to enable full error tracing" });
@@ -111,7 +111,7 @@ export class RestService extends services.BackendServiceConnection {
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error" });
     }
 
-    if (env.flags.openapi) {
+    if (env.debugFlags.openapi) {
       services.log("system:debug", {
         request: { method: req.method, headers: Object.fromEntries(req.headers.entries()), url: req.url.toString() },
         response: { status: result.status, body: await result.text(), headers: Object.fromEntries(result.getHeaders()) },
