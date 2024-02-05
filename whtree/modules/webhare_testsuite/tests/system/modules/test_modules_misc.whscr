@@ -2,6 +2,7 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -16,18 +17,36 @@ MACRO TestSemvers()
 
 MACRO TestApplicability()
 {
+  STRING platform := GetEnvironmentVariable("WEBHARE_PLATFORM");
+  TestAssert(platform != "", `Cannot run this test if WEBHARE_PLATFORM is unset`);
+
   OBJECT xmldoc := MakeXMLDocument(StringToBlob(
     `<xml>
       <node xml:id="test1" ifmodules="system; publisher" />
       <node xml:id="test2" ifmodules="system; neversuchmodule" />
       <node xml:id="test3" ifmodules="system;;;" />
       <node xml:id="test4" ifmodules="System" />
+      <node xml:id="test5" ifenvironset="WEBHARE_PLATFORM" />
+      <node xml:id="test6" unlessenvironset="WEBHARE_PLATFORM" />
+      <node xml:id="test7" ifenvironset="WEBHARE_PLATFORM=dummy" />
+      <node xml:id="test8" ifenvironset="WEBHARE_PLATFORM=${platform} WEBHARE_PLATFORM" />
+      <node xml:id="test9" unlessenvironset="WEBHARE_PLATFORM=dummy OTHERENV" />
+      <node xml:id="test10" unlessenvironset="WEBHARE_PLATFORM=${platform}" />
+      <node xml:id="test11" unlessenvironset="WEBHARE_PLATFORM=dummy WEBHARE_PLATFORM" />
     </xml>`));
 
   TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test1")));
   TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test2")));
   TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test3")));
   TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test4")));
+
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test5")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test6")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test7")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test8")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test9")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test10")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test11")));
 }
 
 MACRO TestConfigurationAndVersion()
