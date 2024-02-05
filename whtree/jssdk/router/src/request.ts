@@ -60,9 +60,9 @@ export class IncomingWebRequest implements WebRequest {
   readonly url: URL;
   readonly headers: Headers;
   readonly clientWebServer: number;
-  private readonly __body: string;
+  private readonly __body: ArrayBuffer | null;
 
-  constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: string; clientWebServer?: number }) {
+  constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: ArrayBuffer | null; clientWebServer?: number }) {
     this.url = new URL(url);
     if (options && "method" in options) {
       if (!validmethods.includes(options.method as string))
@@ -76,14 +76,14 @@ export class IncomingWebRequest implements WebRequest {
     this.clientWebServer = options?.clientWebServer || 0;
     this.method = options?.method || HTTPMethod.GET;
     this.headers = options?.headers ? (options.headers instanceof Headers ? options.headers : new Headers(options.headers)) : new Headers;
-    this.__body = options?.body || "";
+    this.__body = options?.body || null;
   }
 
   async text() {
-    return this.__body;
+    return this.__body ? new TextDecoder().decode(this.__body) : "";
   }
   async json() {
-    return JSON.parse(this.__body);
+    return JSON.parse(this.__body ? new TextDecoder().decode(this.__body) : "");
   }
 
   get baseURL() {
@@ -149,7 +149,7 @@ class ForwardedWebRequest implements WebRequest {
 
 export async function newWebRequestFromInfo(req: WebRequestInfo): Promise<WebRequest> {
   //'req' is from Harescript and thus uses HareScript Blobs, but that should not leak into the JS Router objects
-  const body = req.body ? await req.body.text() : "";
+  const body = req.body ? await req.body.arrayBuffer() : null;
   return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body });
 }
 

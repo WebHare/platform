@@ -50,7 +50,7 @@ async function testHSWebserver() {
   result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml", {
     method: HTTPMethod.POST,
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-    body: "a=1&b=2"
+    body: new TextEncoder().encode("a=1&b=2").buffer
   }));
 
   test.eq(200, result.status);
