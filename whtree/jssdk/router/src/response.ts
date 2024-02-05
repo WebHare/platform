@@ -2,6 +2,7 @@ import * as env from "@webhare/env";
 import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
 import { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
+import { TransferListItem } from "worker_threads";
 
 export enum HTTPErrorCode {
   BadRequest = 400,
@@ -54,16 +55,25 @@ export enum HTTPSuccessCode {
 
 export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
+export type WebResponseForTransfer = {
+  status: HTTPStatusCode;
+  bodybuffer: ArrayBuffer | null;
+  headers: Headers;
+  trace: string | undefined;
+};
+
 class WebResponse {
   private _status: HTTPStatusCode;
   private _bodybuffer: ArrayBuffer | null = null;
   private _headers: Headers;
   private _trace: string | undefined;
 
-  constructor(status: HTTPStatusCode, headers: Record<string, string> | Headers) {
+  constructor(status: HTTPStatusCode, headers: Record<string, string> | Headers, options: { trace?: string | undefined } = {}) {
     this._status = status;
     this._headers = new Headers(headers);
-    if (env.flags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
+    if ("trace" in options)
+      this._trace = options.trace;
+    else if (env.debugFlags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
       this._trace = getCallStackAsText(1);
     }
   }
@@ -138,6 +148,28 @@ class WebResponse {
     const headers = this.getHeaders();
     return { status: this.status, headers: Object.fromEntries(headers), body: WebHareBlob.from(Buffer.from(await this.arrayBuffer())) };
   }
+
+  encodeForTransfer(): {
+    value: WebResponseForTransfer;
+    transferList: TransferListItem[];
+  } {
+    return {
+      value: {
+        status: this.status,
+        headers: Object.fromEntries(this.getHeaders()),
+        bodybuffer: this._bodybuffer,
+        trace: this._trace
+      },
+      transferList: this._bodybuffer ? [this._bodybuffer] : []
+    };
+  }
+}
+
+export function createWebResponseFromTransferData(data: WebResponseForTransfer): WebResponse {
+  const result = new WebResponse(data.status, data.headers, { trace: data.trace });
+  if (data.bodybuffer)
+    result.setBody(data.bodybuffer);
+  return result;
 }
 
 /** Create a webresponse

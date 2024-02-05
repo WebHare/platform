@@ -33,7 +33,7 @@ class WebServerPort {
     this.server.listen(port.port, port.ip);
   }
 
-  buildWebRequest(req: http.IncomingMessage, body?: string): WebRequest {
+  buildWebRequest(req: http.IncomingMessage, body?: ArrayBuffer | null): WebRequest {
     //FIXME verify whether host makes sense given the incoming port (ie virtualhost or force to IP ?)
     //FIXME ensure clientWebServer is also set for virtualhosted URLs
     const finalurl = (this.port.privatekey ? "https://" : "http://") + (this.overrideHost || req.headers.host) + req.url;
@@ -55,11 +55,14 @@ class WebServerPort {
 
       console.log(`${req.method} ${req.headers.host} ${req.url}`);
       //TODO timeout for receiving 'end' event or something else that discards too long requests
-      let body = '';
+      const bodyParts = new Array<Buffer>;
+      let bodyLength = 0;
       req.on('readable', function () {
         const inp = req.read();
-        if (inp)
-          body += inp;
+        if (inp) {
+          bodyParts.push(inp);
+          bodyLength += inp.length;
+        }
       });
 
       await new Promise<void>(resolve =>
@@ -67,8 +70,15 @@ class WebServerPort {
           resolve();
         }));
 
+      const body = new Uint8Array(bodyLength);
+      let offset = 0;
+      for (const part of bodyParts) {
+        body.set(part, offset);
+        offset += part.length;
+      }
+
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
-      const webreq = this.buildWebRequest(req, body);
+      const webreq = this.buildWebRequest(req, body.buffer);
       const response = await coreWebHareRouter(webreq);
       for (const [key, value] of response.getHeaders())
         if (key !== 'set-cookie')

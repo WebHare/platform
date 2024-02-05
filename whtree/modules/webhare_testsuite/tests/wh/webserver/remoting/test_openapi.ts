@@ -15,6 +15,8 @@ const basecall = { sourceip: "127.0.0.1", method: HTTPMethod.GET, body: WebHareB
 async function testService() {
   //whitebox try the service directly for more useful traces etc
   const instance = await getServiceInstance("webhare_testsuite:testservice");
+  using closer = { [Symbol.dispose]: () => instance.close() }; void (closer);
+
   let res = await instance.APICall({ ...basecall, url: "http://localhost/unknownapi" }, "unknownapi");
   test.eq(HTTPErrorCode.NotFound, res.status);
 
@@ -97,6 +99,8 @@ function enumRefs(obj: unknown, result: string[] = []): string[] {
 async function testAuthorization() {
   //whitebox try the service directly for more useful traces etc
   const instance = await getServiceInstance("webhare_testsuite:authtests");
+  using closer = { [Symbol.dispose]: () => instance.close() }; void (closer);
+
   let res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/other" }, "other");
   test.eq(HTTPErrorCode.Forbidden, res.status); //Blocked because the route lacks an authorizer
 
@@ -123,6 +127,7 @@ async function testAuthorization() {
 
 async function testOverlappingCalls() {
   const instance = await getServiceInstance("webhare_testsuite:testservice");
+  using closer = { [Symbol.dispose]: () => instance.close() }; void (closer);
 
   //TODO also test overlapping authorization calls so they can write to the database too (eg. audit)
   const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
