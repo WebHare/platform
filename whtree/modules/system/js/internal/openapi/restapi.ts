@@ -8,6 +8,11 @@ import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { loadJSFunction } from "../resourcetools";
 import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
+import { AsyncWorker } from "../worker";
+import { WebRequestTransferData, createWebRequestFromTransferData } from "@webhare/router/src/request";
+import { WebResponseForTransfer, createWebResponseFromTransferData } from "@webhare/router/src/response";
+import { ConvertLocalServiceInterfaceToClientInterface, ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { RestAPIWorkerPool } from "./workerpool";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 
@@ -132,25 +137,18 @@ function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
   }
 }
 
+const defaultMaxOpenAPIWorkers = 5;
+const maxOpenAPIWorkers = parseInt(process.env.WEBHARE_OPENAPI_WORKERS || "") || defaultMaxOpenAPIWorkers;
+
+type Handler = ConvertLocalServiceInterfaceToClientInterface<WorkerRestAPIHandler>;
+
 // An OpenAPI handler
 export class RestAPI {
-  _ajv: Ajv2020 | null = null;
   bundled: WHOpenAPIDocument | null = null;
   def: WHOpenAPIDocument | null = null;
-  _validators = new Map<object, ValidateFunction>;
-
-  // Get the JSON schema validator singleton
-  protected get ajv() {
-    if (!this._ajv) {
-      this._ajv = new Ajv2020({ allowMatchingProperties: true });
-      addFormats(this._ajv);
-      // Allow keyword 'example'
-      this._ajv.addVocabulary(["example"]);
-    }
-    return this._ajv;
-  }
-
   private routes: Route[] = [];
+  private workerPool = new RestAPIWorkerPool(maxOpenAPIWorkers);
+  handlers = new WeakMap<AsyncWorker, Handler>();
 
   async init(def: object, specresourcepath: string, { merge }: { merge?: object } = {}) {
     // Bundle all external files into one document
@@ -215,12 +213,64 @@ export class RestAPI {
     }
   }
 
+  async handleRequest(req: WebRequest, relurl: string, logger: LogInfo): Promise<WebResponse> {
+    if (!this.def) //TODO with 'etr' return validation issues
+      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
+
+    const res = await this.workerPool.runInWorker(async worker => {
+      // Get the handler for this worker
+      let workerHandler = this.handlers.get(worker);
+      if (!workerHandler)
+        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.routes, this.def?.components?.schemas?.defaulterror ?? null));
+      const encodedTransfer = req.encodeForTransfer();
+      return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
+    });
+
+    return createWebResponseFromTransferData(res);
+  }
+
+  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
+    let def = { ...this.bundled };
+    if (options.filterxwebhare)
+      def = filterXWebHare(def) as typeof def;
+
+    if (!this.def)
+      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
+
+    if (def.servers)
+      for (const server of def.servers)
+        if (server.url)
+          server.url = new URL(server.url, baseurl).toString();
+
+    return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
+  }
+}
+
+function createAjvValidator(): Ajv2020 {
+  const ajv = new Ajv2020({ allowMatchingProperties: true });
+  addFormats(ajv);
+  // Allow keyword 'example'
+  ajv.addVocabulary(["example"]);
+  return ajv;
+}
+
+export class WorkerRestAPIHandler {
+  ajv: Ajv2020 = createAjvValidator();
+  validators = new Map<object, ValidateFunction>;
+  routes: Route[];
+  defaultErrorSchema: SchemaObject | null;
+
+  constructor(routes: Route[], defaultErrorSchema: SchemaObject | null) {
+    this.routes = routes;
+    this.defaultErrorSchema = defaultErrorSchema;
+  }
+
   private getValidator(schema: object): ValidateFunction {
-    let res = this._validators.get(schema);
+    let res = this.validators.get(schema);
     if (res)
       return res;
     res = this.ajv.compile(schema);
-    this._validators.set(schema, res);
+    this.validators.set(schema, res);
     return res;
   }
 
@@ -234,10 +284,14 @@ export class RestAPI {
     return null;
   }
 
-  async handleRequest(req: WebRequest, relurl: string, logger: LogInfo): Promise<WebResponse> {
-    if (!this.def) //TODO with 'etr' return validation issues
-      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
+  async handleRequest(reqTransferData: WebRequestTransferData, relurl: string, logger: LogInfo): Promise<ReturnValueWithTransferList<WebResponseForTransfer>> {
+    const res = await this.handleRequestInternal(reqTransferData, relurl, logger);
+    const encoded = res.encodeForTransfer();
+    return createReturnValueWithTransferList(encoded.value, encoded.transferList);
+  }
 
+  async handleRequestInternal(reqTransferData: WebRequestTransferData, relurl: string, logger: LogInfo): Promise<WebResponse> {
+    const req = createWebRequestFromTransferData(reqTransferData);
     // Find the route matching the request path
     const match = this.findRoute(relurl, req);
     if (!match)
@@ -257,15 +311,15 @@ export class RestAPI {
       // ADDME: add flag to disable for performance testing
 
       // Check if response is listed
-      if (response.status.toString() in endpoint.responses || (response.status in HTTPErrorCode && this.def?.components?.schemas?.defaulterror)) {
+      if (response.status.toString() in endpoint.responses || (response.status in HTTPErrorCode && this.defaultErrorSchema)) {
         let responseschema;
         if (response.status.toString() in endpoint.responses) {
           const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
           responseschema = responsedef?.content?.["application/json"]?.schema;
         }
         // Fallback to 'defaulterror' for errors, if specified in components.schemas
-        if (!responseschema && response.status in HTTPErrorCode && this.def?.components?.schemas?.defaulterror) {
-          responseschema = this.def.components.schemas.defaulterror;
+        if (!responseschema && response.status in HTTPErrorCode && this.defaultErrorSchema) {
+          responseschema = this.defaultErrorSchema;
         }
         if (responseschema) {
           const start = performance.now();
@@ -438,20 +492,8 @@ export class RestAPI {
       }
     }
   }
+}
 
-  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
-    let def = { ...this.bundled };
-    if (options.filterxwebhare)
-      def = filterXWebHare(def) as typeof def;
-
-    if (!this.def)
-      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
-
-    if (def.servers)
-      for (const server of def.servers)
-        if (server.url)
-          server.url = new URL(server.url, baseurl).toString();
-
-    return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
-  }
+export function getWorkerRestAPIHandler(routes: Route[], defaultErrorSchema: SchemaObject | null) {
+  return new WorkerRestAPIHandler(routes, defaultErrorSchema);
 }
