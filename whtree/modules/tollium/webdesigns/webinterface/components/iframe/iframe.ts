@@ -18,16 +18,14 @@ export default class ObjIFrame extends ComponentBase {
     this.data = null;
 
     this.node = dompack.create("t-iframe", { dataset: { name: this.name } });
-    this.iframe = dompack.create("iframe"
-      , {
-        marginWidth: 0,
-        marginHeight: 0,
-        frameBorder: 0,
-        on:
-        {
-          load: this.gotIFrameLoad.bind(this)
-        }
-      });
+    this.iframe = dompack.create("iframe", {
+      marginWidth: 0,
+      marginHeight: 0,
+      frameBorder: 0,
+      on: {
+        load: this.gotIFrameLoad.bind(this)
+      }
+    });
     if (data.sandbox != "none")
       this.iframe.sandbox = data.sandbox;
     this.iframe.src = this.calcFrameSourceUri(data);
@@ -72,11 +70,10 @@ export default class ObjIFrame extends ComponentBase {
     }
 
     if (resenddata) {
-      this.iframe.contentWindow.postMessage(
-        {
-          type: 'data',
-          data: this.data
-        }, '*');
+      this.iframe.contentWindow.postMessage({
+        type: 'data',
+        data: this.data
+      }, '*');
     }
 
     while (this.queuedmessages.length) {
