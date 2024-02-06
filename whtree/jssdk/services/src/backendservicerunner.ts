@@ -213,7 +213,7 @@ class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
     @param constructor - Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
     @param options - Service options
 */
-export async function runBackendService(servicename: string, constructor: ConnectionFactory, options?: WebHareServiceOptions) {
+export async function runBackendService(servicename: string, constructor: ConnectionFactory, options?: WebHareServiceOptions): Promise<WebHareService> {
   options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, ...options };
   checkModuleScopedName(servicename);
 
@@ -229,3 +229,5 @@ export async function runBackendService(servicename: string, constructor: Connec
 
   return service;
 }
+
+export type { WebHareService };
