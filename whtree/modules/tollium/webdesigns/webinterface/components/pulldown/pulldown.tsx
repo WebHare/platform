@@ -49,8 +49,8 @@ export default class ObjPulldown extends HTMLComponentBase {
 
       //real item, flush any divider
       if (insertdivider) {
-        // Firefox doesn't support using <hr> as menu divider
-        if (browser.getName() === "firefox")
+        // Firefox supports using <hr> as menu divider from version 122
+        if (browser.getName() === "firefox" && browser.getVersion() < 122)
           node.append(<option disabled="disabled" class="divider">──────────</option>);
         else
           node.append(<hr />);
