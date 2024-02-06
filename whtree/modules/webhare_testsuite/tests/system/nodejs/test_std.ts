@@ -426,10 +426,11 @@ async function testCollections() {
 
 class TestClass {
   counter = 0;
+  coalesceCalls = 0;
 
   constructor() {
-    ///@ts-ignore -- manually decorate our toSerialize call
-    this.toSerialize = std.serialize(this.toSerialize.bind(this));
+    this.toSerialize = std.wrapSerialized(this.toSerialize.bind(this));
+    this.toCoalesce = std.wrapSerialized(this.toCoalesce.bind(this), { coalesce: true });
   }
 
   /* @serialize */ async toSerialize(delay: number) {
@@ -439,6 +440,11 @@ class TestClass {
       throw new Error("Threw at " + currentcounter);
     test.eq(currentcounter, this.counter, "Only we should increment it");
     return ++this.counter;
+  }
+
+  /* @serialize({ coalesce: true }) */ async toCoalesce(retval: number) {
+    ++this.coalesceCalls;
+    return retval;
   }
 }
 
@@ -466,6 +472,19 @@ async function testPromises() {
   test.eq(3, await call3);
 
   await test.throws(/Threw at 2/, shouldthrow);
+
+  //test coalescing
+  const coalesce: Array<Promise<number>> = [];
+  coalesce.push(tester.toCoalesce(1));
+  coalesce.push(tester.toCoalesce(2));
+  coalesce.push(tester.toCoalesce(3));
+
+  await std.sleep(50);  //gives the coalesced call a chance t orun
+  coalesce.push(tester.toCoalesce(4));
+  coalesce.push(tester.toCoalesce(5));
+
+  test.eq([3, 3, 3, 5, 5], await Promise.all(coalesce));
+  test.eq(2, tester.coalesceCalls);
 }
 
 function testBigInt() {
