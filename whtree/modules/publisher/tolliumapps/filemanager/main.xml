@@ -33,7 +33,7 @@
           allowresize="true"
           menubar="menubar"
           icon="tollium:filemgr/mydocuments"
-          flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults haveopenineditor"
+          flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults"
           gid=".app"
           tid=".apptitle"
           onshow="onshow">
@@ -303,9 +303,6 @@
       <windowopenaction name="openeditinseparatetab" onwindowopen="doopeneditinseparatetab" frameflags="issysop" >
         <enableon source="filelist" min="1" max="1"  checkflags="canopen" requirefocus="true" />
       </windowopenaction>
-      <action name="openineditor" onexecute="doopenineditor" frameflags="issysop haveopenineditor">
-        <enableon source="filelist" min="1" max="1" checkflags="candownload canedit canwrite" requirefocus="true" />
-      </action>
 
       <action name="managefoldersync" frameflags="issysop" onexecute="domanagefoldersync" shortcut="ctrl+alt+shift+o">
         <enableon source="foldertree" min="1" max="1" checkflags="canwrite" />
@@ -436,8 +433,6 @@
           <divider />
           <item action="openinseparatetab" />
           <item action="openeditinseparatetab"/>
-          <divider />
-          <item action="openineditor" />
           <divider />
           <item action="managewhfsregister" disablemode="hidden" />
           <item action="managefoldersync" />

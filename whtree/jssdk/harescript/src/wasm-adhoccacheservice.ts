@@ -146,7 +146,8 @@ class AdhocCacheData {
 
   private updateExpireCB() {
     if (this.expiries.length) {
-      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), this.expiries[0].expires.getTime() - Date.now());
+      //Clamp timeout to 1 day as adhoc cache values without ttl have infinite expiry, but timeout must stay within 31bits
+      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Math.min(86400 * 1000, this.expiries[0].expires.getTime() - Date.now()));
       this.expireCB.unref();
     } else
       this.expireCB = undefined;

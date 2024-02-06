@@ -2,6 +2,29 @@ import { createVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { toFSPath } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
+import { sleep } from "@webhare/std";
+
+async function testCacheBasics() {
+  const whlib_data = `<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::os.whlib";
+
+INTEGER toreturn := 24742;
+RECORD FUNCTION GetCacheabletInfiniteDAta() { toreturn := toreturn + 1; RETURN [ value := toreturn, eventmasks := ["webhare_testsuite:unlikeltyevent" ] ]; }
+PUBLIC INTEGER FUNCTION GetInfiniteDAta() { RETURN GetAdhocCached([ type := 'GetCacheabletInfiniteDAta' ], PTR GetCacheabletInfiniteDAta); }
+`;
+
+  const resource = "mod::webhare_testsuite/web/tests/temp/basictest.whlib";
+
+  await storeDiskFile(toFSPath(resource), whlib_data, { overwrite: true });
+  {
+    using vm = await createVM();
+    test.eq(24743, await vm.loadlib(resource).GetInfiniteData());
+    await sleep(50);
+    //NOTE this doesn't really crash unfortunately but it produces a lot of 'TimeoutOverflowWarning: 8638292777098454 does not fit into a 32-bit signed integer.' noise if the fix isn't there
+    test.eq(24743, await vm.loadlib(resource).GetInfiniteData());
+  }
+}
 
 async function testInvalidationByLibraryUpdate() {
 
@@ -57,4 +80,7 @@ RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := params.value ]; 
   }
 }
 
-test.run([testInvalidationByLibraryUpdate]);
+test.run([
+  testCacheBasics,
+  testInvalidationByLibraryUpdate
+]);

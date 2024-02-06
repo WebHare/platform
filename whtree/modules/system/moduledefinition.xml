@@ -2029,9 +2029,7 @@ The full base URL on which this site will be published, calculated by combining 
         <string name="servername" description="Name of your server" initialval=""/>
         <string name="installationid" description="Installation ID of your server" initialval=""/>
       </node>
-      <node name="licensing">
-        <string name="licensekey" description="Licensekey, base64-encoded" />
-      </node>
+      <obsoletenode name="licensing" />
       <node name="userrights"> <!-- system.userrights -->
         <integer name="retention" description="Retention period for deleted users, roles etc in system:usermgmt, in days" initialval="90" />
         <string name="newuserdefaults_language" description="Default settings for new users - language" initialval="en" />
