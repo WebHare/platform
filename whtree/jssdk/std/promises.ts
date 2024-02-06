@@ -112,17 +112,22 @@ class Coalescer<RetVal> {
   }
 }
 
+// export function<Fn extends (...args: any[]) => Promise<any>>(fn: Fn, options?: SerializeOptions): Fn {
+// type RetVal = ReturnType<Fn>;
+
 /** Wrap a function in a serializer */
-export function wrapSerialized<RetVal>(fn: CallbackFunctionVariadic<RetVal>, options?: SerializeOptions): CallbackFunctionVariadic<RetVal> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to accept any callback.
+export function wrapSerialized<Fn extends (...args: any[]) => Promise<any>>(fn: Fn, options?: SerializeOptions): Fn {
+  type RetVal = ReturnType<Fn>;
   if (options?.coalesce)
-    return (new Coalescer<RetVal>(fn)).invoke;
+    return (new Coalescer<RetVal>(fn)).invoke as Fn;
 
   let queue = Promise.resolve() as Promise<unknown>;
   return ((...args: unknown[]): Promise<RetVal> => {
     const res = queue.then(() => fn(...args));
     queue = res.catch(() => { /* ignore errors */ });
     return res;
-  }) as CallbackFunctionVariadic<RetVal>;
+  }) as Fn;
 }
 
 //TODO abandon the name 'serialize' for now so it's free and safe to use once JS Decorators land (so we can use @serialize there)
