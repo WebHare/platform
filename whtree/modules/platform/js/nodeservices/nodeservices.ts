@@ -1,4 +1,4 @@
-/* To debug an individual backend service normally hosted by nodesercices:
+/* To debug an individual backend service normally hosted by nodeservices:
    wh run mod::platform/js/nodeservices/nodeservices.ts <servicename>
 
 */
@@ -52,7 +52,6 @@ class Client extends BackendServiceConnection {
   }
 
   async onClose() {
-    console.log("onclose");
     const backendservices = getExtractedConfig("services").backendServices;
     for (const service of this.suppressing) {
       const srvinfo = backendservices.find((s) => s.name == service);
@@ -60,7 +59,7 @@ class Client extends BackendServiceConnection {
         continue;
 
       console.log(`Restarting ${service}`);
-      const srv = await launchService(srvinfo); //we don't await this, we just launch it and let it run in the background
+      const srv = await launchService(srvinfo);
       if (srv)
         activeServices[srvinfo.name] = srv;
     }
@@ -83,7 +82,7 @@ async function main() {
   } else {
     runBackendService("platform:nodeservices", client => new Client, { dropListenerReference: true });
     for (const service of backendservices) {
-      const srv = await launchService(service); //we don't await this, we just launch it and let it run in the background
+      const srv = await launchService(service);
       if (srv)
         activeServices[service.name] = srv;
     }
