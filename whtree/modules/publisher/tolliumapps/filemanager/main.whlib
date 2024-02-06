@@ -111,7 +111,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->frame->flags.fullpublisheraccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", 0);
     this->frame->flags.secureconnection := this->tolliumcontroller->secure;
     this->frame->flags.showpinning := this->showtemplatedev OR this->tolliumuser->HasRight("publisher:pinning");
-    this->frame->flags.haveopenineditor := CanOpenInEditor(this);
 
     this->SetupFilemgrExtensions();
 
@@ -2243,12 +2242,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     openhandler->SendURL(`/?app=publisher:edit(${EncodeURL(GetPathForAppURL(this->GetCurrentlySelectedFSobject()))})`);
   }
 
-  MACRO DoOpenInEditor()
-  {
-    STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->GetCurrentlySelectedFSobject();
-    LaunchOpenInEditor(this, "whfs::" || path);
-  }
-
   MACRO DoShowModificationsList()
   {
     RECORD obj := ^filelist->selection;
@@ -2351,4 +2344,3 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
     RunExceptionReportDialog(controller, err);
   }
 }
-
