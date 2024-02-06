@@ -70,9 +70,10 @@ PUBLIC RECORD FUNCTION UpdateGEOIPDatabases(STRING licensekey)
       INSERT "We currently have version: " || FormatDatetime("%Y-%m-%d %H:%M:%S", currentversionprops.modified) || " of " || database INTO messages AT END;
     }
 
-    browser->SendRawRequest("GET", sourceurl, headers, DEFAULT BLOB);
+    browser->SendRawRequest("HEAD", sourceurl, headers, DEFAULT BLOB); //HEAD doesn't count, GET does, so this is a quick way to reduce our request count
     IF(browser->GetHTTPStatusCode() = 200)
     {
+      browser->SendRawRequest("GET", sourceurl, RECORD[], DEFAULT BLOB);
       BLOB mmdb := SELECT AS BLOB data FROM UnpackArchive(browser->content) WHERE name LIKE "*.mmdb";
       IF(Length(mmdb) = 0)
       {
