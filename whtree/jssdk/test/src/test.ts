@@ -4,6 +4,7 @@ export { run } from './testrunner';
 export {
   assert,
   eq,
+  eqPartial,
   eqMatch,
   eqProps,
   throws,
