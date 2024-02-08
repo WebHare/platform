@@ -83,7 +83,7 @@ PUBLIC STRING FUNCTION GetViewURLWithFeedback(OBJECT file, OBJECT tolliumuser)
 {
   STRING url := file->link ?? file->url;
   /* If a page has no design and doesn't end with a SHTML extension, assume a location.href-redirect done by view.shtml is unsafe (ie it will trigger a download and then view.shtml wouldn't complete. So don't try to preview.
-     The previewbrowser and this API should probably use the same checks to determine whether to attempt a preview. And maybe even the preview bitton should just disable itself?
+     The previewbrowser and this API should probably use the same checks to determine whether to attempt a preview. And maybe even the preview button should just disable itself?
   */
   IF(NOT file->isfolder AND NOT TestFlagFromPublished(file->published, PublishedFlag_HasWebDesign) AND file->url NOT LIKE "*/" AND ToUppercase(file->url) NOT LIKE "*.SHTML")
     RETURN url;
