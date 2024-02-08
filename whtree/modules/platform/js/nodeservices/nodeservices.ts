@@ -33,6 +33,7 @@ async function launchService(service: BackendServiceDescriptor): Promise<WebHare
     throw new Error(`Don't know how to start service ${service.name}`);
   } catch (e) {
     console.error("Error starting service " + service.name, e);
+    setTimeout(() => launchService(service), 3000);
     return null;
   }
 }
