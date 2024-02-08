@@ -24,7 +24,7 @@ const authorservice = createClient<AuthorService>("publisher:authorservice");
 
 // The form elements we want to address through the form.elements property
 interface FeedbackFormElements extends HTMLFormControlsCollection {
-  topic: HTMLSelectElement;
+  topic?: HTMLSelectElement;
   remarks: HTMLTextAreaElement;
 }
 
@@ -42,7 +42,7 @@ async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, 
   const elements = form?.elements as FeedbackFormElements;
   const feedbackinfo: PublisherFeedback = {
     ...prepped,
-    topic: elements.topic.value || '',
+    topic: elements.topic?.value || '',
     remarks: elements.remarks.value || ''
   };
 
@@ -110,14 +110,14 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean) 
         <label>{getTid("publisher:site.authormode.from")}: </label>
         {userData.name}
       </p>
-      <p>
-        <label for="topic">{getTid("publisher:site.authormode.topic")}:</label><br />
-        {topics.length ?
+      {topics.length ?
+        <p>
+          <label for="topic">{getTid("publisher:site.authormode.topic")}:</label><br />
           <select name="topic" required>
             <option value="" selected disabled>{getTid("publisher:site.authormode.topic-placeholder")}</option>
             {topics?.map(topic => <option value={topic.rowkey}>{topic.title}</option>)}
-          </select> : null}
-      </p>
+          </select>
+        </p> : null}
       <p>
         <label for="remarks">{getTid("publisher:site.authormode.remarks")}:</label><br />
         <textarea name="remarks" placeholder={getTid("publisher:site.authormode.remarks-placeholder")} maxlength="4096"></textarea>
