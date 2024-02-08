@@ -20,6 +20,7 @@ import { invoke } from "@mod-platform/js/testing/whtest";
 export {
   eq,
   sleep,
+  eqPartial,
   eqMatch,
   eqProps,
   assert

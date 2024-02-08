@@ -14,10 +14,10 @@ async function testChecks() {
   //test JS native Date type
   test.eq(new Date("2023-01-01"), new Date("2023-01-01"));
   test.eq({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
-  test.eqProps({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
+  test.eqPartial({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
   test.throws(/Expected date/, () => test.eq(new Date("2023-01-02"), new Date("2023-01-01")));
   test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
-  test.throws(/Expected date/, () => test.eqProps({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+  test.throws(/Expected date/, () => test.eqPartial({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
 
   //Test promises not evaluating to true
   test.throws(/Passing a Promise/, () => test.eq(Promise.resolve(1), Promise.resolve(1)));
@@ -26,7 +26,7 @@ async function testChecks() {
   //test WH Money tye
   test.eq(std.Money.fromNumber(2.5), new std.Money("2.5"));
   test.eq(new std.Money("2.5"), new std.Money("2.500"));
-  test.eqProps({ deep: new std.Money("2.5") }, { deep: new std.Money("2.500") });
+  test.eqPartial({ deep: new std.Money("2.5") }, { deep: new std.Money("2.500") });
   ///@ts-expect-error -- TS shouldn't like the type mismatch either
   test.throws(/Expected type: Money/, () => test.eq(new std.Money("2.5"), 2.5));
   ///@ts-expect-error -- TS shouldn't like the type mismatch either
@@ -35,17 +35,18 @@ async function testChecks() {
 
   //test RegEx vs strings
   test.eq(/konijntje/, "Heb jij mijn konijntje gezien?");
-  test.eqProps(/konijntje/, "Heb jij mijn konijntje gezien?");
+  test.eqPartial(/konijntje/, "Heb jij mijn konijntje gezien?");
   test.eq({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
-  test.eqProps({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
+  test.eqPartial({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
   test.throws(/Expected match/, () => test.eq({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }), "We should be case sensitive");
-  test.throws(/Expected match/, () => test.eqProps({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }));
+  test.throws(/Expected match/, () => test.eqPartial({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }));
   ///@ts-expect-error -- TS also rejects the regexp on the RHS
   test.throws(/Expected type/, () => test.eq({ text: "Heb jij mijn konijntje gezien?" }, { text: /konijntje/ }), "Only 'expect' is allowed to hold regexes");
 
   const x_ab = { cellA: "A", cellB: "B" };
   const x_abc = { ...x_ab, cellC: "test" };
 
+  //eqPartial replaced eqProps and dropped support for 'ignore'. we can remove these tests once eqProps is gone
   test.eqProps(x_ab, x_ab);
   test.eqProps(x_ab, x_abc);
   test.eqProps(x_abc, x_ab, ["cellC"], "shouldn't throw if cellC is explicitly ignored");
@@ -63,16 +64,19 @@ async function testChecks() {
     const myVar: { a: number; b?: string } = { a: 6, b: "2" };
     const myVarNoB: { a: number; b?: string } = { a: 6 };
 
-    test.eqProps({ a: 6 }, myVarNoB);
-    test.eqProps({ a: 6, b: undefined }, myVarNoB);
-    test.throws(/^Expected property 'b', didn't find it, at root$/, () => test.eqProps({ a: 6, b: "2" }, myVarNoB), "b is missing, so a value should not match it");
+    test.eqPartial({ a: 6 }, myVarNoB);
+    test.eqPartial({ a: 6, b: undefined }, myVarNoB);
+    test.eqPartial({ a: 6, b: undefined }, { a: 6, b: undefined });
+
+    test.throws(/^Expected property 'b', didn't find it, at root$/, () => test.eqPartial({ a: 6, b: "2" }, myVarNoB), "b is missing, so a value should not match it");
+    test.throws(/^Mismatched value at root.b/, () => test.eqPartial({ a: 6, b: undefined }, myVar));
 
     test.eq({ a: 6 }, myVarNoB);
     test.eq({ a: 6, b: undefined }, myVarNoB);
 
-    test.eqProps({ a: 6 }, myVar);
-    test.eqProps({ a: 6, b: "2" }, myVar);
-    test.throws(/Mismatched value at root.b/, () => test.eqProps({ a: 6, b: undefined }, myVar), "b is present and defined, so undefined should not match it");
+    test.eqPartial({ a: 6 }, myVar);
+    test.eqPartial({ a: 6, b: "2" }, myVar);
+    test.throws(/Mismatched value at root.b/, () => test.eqPartial({ a: 6, b: undefined }, myVar), "b is present and defined, so undefined should not match it");
 
     test.throws(/^Key unexpectedly exists: b$/, () => test.eq({ a: 6 }, myVar), "b is present so should be marked as extra property");
     test.throws(/^Expected type: undefined actual type: string at .b$/, () => test.eq({ a: 6, b: undefined }, myVar), "b is set and not undefined, so should be treated as mismatch");

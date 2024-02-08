@@ -138,6 +138,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING imgrooturl;
   ///The page title (SEO title)
   PUBLIC STRING pagetitle;
+  ///Error code for which we're running (a 4xx or 5xx code, or 0 for no error)
+  PUBLIC INTEGER pageerrorcode;
   ///The navigation title (fs_objects.title)
   PUBLIC STRING navigationtitle;
   ///The page description
@@ -919,6 +921,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RECORD msg := GetErrorMessages(this->languagecode, errorcode);
     this->pagetitle := msg.title;
     this->isstandardcontentpage := TRUE;
+    this->pageerrorcode := errorcode;
     this->__truecontentbody := PTR this->PrintErrorPage(errorcode, harescriptinfo, url);
     IF (CellExists(harescriptinfo, "resources"))
     {
@@ -1058,7 +1061,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     this->DoInserts("dependencies-bottom");
 
-    IF(Length(this->structuredbreadcrumb) > 0)
+    IF(this->pageerrorcode = 0 AND Length(this->structuredbreadcrumb) > 0)
       this->__PrintStructuredData();
 
     this->_PrintRobotTag();
