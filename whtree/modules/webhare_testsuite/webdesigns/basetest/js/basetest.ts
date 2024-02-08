@@ -31,6 +31,14 @@ require('../pages/customform2/customform2');
 require('../pages/customformdef/customformdef');
 require('../pages/exclusiveaccesstest/exclusiveaccesstest');
 
+declare global {
+  interface Window {
+    geoip_getCountryCode: typeof geoip.getCountryCode;
+    geoip_getIPInfo: typeof geoip.getIPInfo;
+  }
+}
+
+
 window.basetestErrorList = [];
 window.addEventListener("error", (e: ErrorEvent) => window.basetestErrorList.push(e));
 

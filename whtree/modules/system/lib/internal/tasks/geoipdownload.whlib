@@ -2,10 +2,14 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
 
 PUBLIC OBJECTTYPE GeoIPCheck EXTEND CustomCheckBase
 <
@@ -35,11 +39,53 @@ PUBLIC OBJECTTYPE GeoIPCheck EXTEND CustomCheckBase
 >;
 
 
+PUBLIC MACRO InstallTestGEOIPDatabases()
+{
+  STRING geoiproot := GetWebHareConfiguration().varroot || "geoip";
+  CreateDiskDirectoryRecursive(geoiproot, TRUE);
 
+  FOREVERY(STRING database FROM ["Country","City"])
+  {
+    STRING file := MergePath(geoiproot, `geoip-${ToLowercase(database)}.mmdb`);
+    RECORD props := GetDiskFileProperties(file);
+    IF(RecordExists(props) AND props.size > 100000)
+    {
+      Print(`Real geoip2 database ${database} found at ${file} - moving it aside\n`);
+      MoveDiskPath(file, file || ".realdata");
+    }
+
+    OBJECT resp := FetchSync(`https://build.webhare.dev/ci/data/geoip/GeoLite2-${database}-Test.mmdb`);
+    IF(NOT resp->ok)
+      THROW NEW Exception(`Failed to fetch test data for ${database} geoip database`);
+
+    StoreDiskFile(file, resp->AsBlob(), [ overwrite := TRUE ]);
+  }
+}
+
+PUBLIC MACRO RestoreGEOIPDatabases()
+{
+  STRING geoiproot := GetWebHareConfiguration().varroot || "geoip";
+  FOREVERY(STRING database FROM ["Country","City"])
+  {
+    STRING file := MergePath(geoiproot, `geoip-${ToLowercase(database)}.mmdb`);
+    RECORD props := GetDiskFileProperties(file);
+    IF(RecordExists(props) AND props.size > 100000)
+      CONTINUE; //Real data, don't touch it
+
+    IF(RecordExists(GetDiskFileProperties(file || ".realdata")))
+      MoveDiskPath(file || ".realdata", file);
+    ELSE IF(RecordExists(props) AND props.size < 100000)
+      DeleteDiskFile(file);
+  }
+}
+
+//TODO replace with maxmind's NPM based downloader
 PUBLIC RECORD FUNCTION UpdateGEOIPDatabases(STRING licensekey)
 {
   IF(licensekey = "")
     THROW NEW Exception(`No license key set`);
+
+  RestoreGEOIPDatabases();
 
   // Url with links to downloads: https://dev.maxmind.com/geoip/geoip2/geolite2/
   OBJECT browser := NEW WebBrowser;
