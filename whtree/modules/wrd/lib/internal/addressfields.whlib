@@ -41,7 +41,7 @@ PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata, RECORD options DEFAULTSTO
     RETURN "";
   IF((NOT CellExists(indata,'country') OR Length(indata.country) != 2) AND NOT options.importmode)
   {
-    THROW NEW Exception(`The field 'country' is required in an address and must be a 2 digit code`);
+    THROW NEW Exception(`The field 'country' is required in an address and must be a 2 character code`);
   }
 
   indata := PickCells(indata, stored_address_fields);
