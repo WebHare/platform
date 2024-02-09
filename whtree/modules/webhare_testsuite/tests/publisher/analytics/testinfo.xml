@@ -1,5 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <!-- test-geoip relies on system tests running before publissher tests. system.geoip will update the geoip database, as testsuite builds currently don't ship with one -->
-  <jstest file="test-geoip.ts" /> <!-- TODO ensure we always ship with a geoip database, then external can go. -->
+  <jstest file="test-geoip.ts" />
   <jstest file="test-ga4.ts" />
 </group>
