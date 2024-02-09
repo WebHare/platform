@@ -1,0 +1,10 @@
+<?wh
+LOADLIB "mod::system/lib/internal/tasks/geoipdownload.whlib";
+
+PUBLIC MACRO testinvoke_setupGeoip(BOOLEAN enable_test)
+{
+  IF(enable_test)
+    InstallTestGEOIPDatabases();
+  ELSE
+    RestoreGEOIPDatabases();
+}

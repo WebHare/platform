@@ -1,38 +1,42 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import { createDeferred } from '@webhare/std';
+import { createClient } from '@webhare/jsonrpc-client';
 
-/** @import: import * as geoip from '@mod-publisher/js/analytics/geoip';
-    Retrieve geoip country info
-*/
+let requestbarrier: Promise<void> | undefined; //TODO replace with serialize (or wait until we have it as a decorator)
 
-import { createDeferred } from 'dompack';
-import RPCClient from '@mod-system/js/wh/rpc';
+interface GetIPInfoOptions {
+  /** Language code in which you want the country name */
+  countrylang?: string;
+  /** How long to trust the previously cached result in days (default: 7) */
+  cachedays?: number;
+}
 
-let requestbarrier = null;
+interface PublisherRPCCLient {
+  getIPInfo(options: { countrylang?: string }): Promise<{ country: string; countryname?: string }>;
+}
 
-async function getIPInfoIntoCache(options) {
-  const reqoptions = { countrylang: options.countrylang };
-  const result = await new RPCClient("publisher:rpc").invoke("getIPInfo", reqoptions);
-  const geoinfo = {
+async function getIPInfoIntoCache(options?: GetIPInfoOptions) {
+  const reqoptions = { countrylang: options?.countrylang };
+  const result = await createClient<PublisherRPCCLient>("publisher:rpc").getIPInfo(reqoptions);
+  let geoinfo = {
     countrycode: result ? result.country : "",
-    creationdate: Date.now()
+    creationdate: Date.now(),
   };
-  if (result && options.countrylang)
-    geoinfo["countrylang_" + options.countrylang] = result.countryname;
+  if (result && options?.countrylang)
+    geoinfo = { ...geoinfo, ["countrylang_" + options.countrylang]: result.countryname };
 
   localStorage.setItem("_wh.geoinfo", JSON.stringify(geoinfo));
   return geoinfo;
 }
 
+export async function getIPInfo(options?: { countrylang: string }): Promise<{ countrycode: string; countryname: string } | null>;
+export async function getIPInfo(options?: GetIPInfoOptions): Promise<{ countrycode: string; countryname?: string } | null>;
+
 /** Get geoip fields
-    @param options.cachedays How long to trust the previously cached result in days (default: 7)
-    @param options.countrylang Language code in which you want the country name
-    @return Object with country code and possible name, null if unknown
-    @cell(string) return.countrycode Country code
-    @cell(string) return.countryname Country name in requested language, if requested */
-export async function getIPInfo(options) //TODO add more than country name and code once we need it.
-{
-  options = {
+    @returns Object with country code and possible name, null if unknown */
+export async function getIPInfo(options?: GetIPInfoOptions): Promise<{ countrycode: string; countryname?: string } | null> {
+  //TODO return more than country name and code once we need it.
+
+  const finaloptions = {
     cachedays: 7,
     countrylang: "",
     ...options
@@ -41,17 +45,16 @@ export async function getIPInfo(options) //TODO add more than country name and c
   if (requestbarrier)
     await requestbarrier; //first let parallel requests complete and set _wh.geoinfo
 
-  const barrier = createDeferred();
+  const barrier = createDeferred<void>();
   requestbarrier = barrier.promise;
 
   let geoinfo;
   try {
     let curgeoinfotext = localStorage.getItem("_wh.geoinfo");
 
-    if (!curgeoinfotext) //test local storage
-    {
+    if (!curgeoinfotext) { //test local storage
       localStorage.setItem("_wh.geoinfo", JSON.stringify({ dummy: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }));
-      curgeoinfotext = localStorage.getItem("_wh.geoinfo");
+      curgeoinfotext = localStorage.getItem("_wh.geoinfo") || '';
     }
     geoinfo = JSON.parse(curgeoinfotext);
   } catch (e) {
@@ -62,9 +65,9 @@ export async function getIPInfo(options) //TODO add more than country name and c
 
   let refetch = false;
 
-  if (!geoinfo.creationdate || (geoinfo.creationdate + options.cachedays * 86400 * 1000) <= Date.now()) //is answer still valid?
+  if (!geoinfo.creationdate || (geoinfo.creationdate + finaloptions.cachedays * 86400 * 1000) <= Date.now()) //is answer still valid?
     refetch = true;
-  else if (options.countrylang && geoinfo.countrycode && !(("countrylang_" + options.countrylang) in geoinfo))
+  else if (finaloptions.countrylang && geoinfo.countrycode && !(("countrylang_" + finaloptions.countrylang) in geoinfo))
     refetch = true;   //If the countrylang isn't requested.. OR we have it... OR we don't have it because we didn't even have the country figured out in the cached call... we can continue
 
   if (refetch)
@@ -73,9 +76,9 @@ export async function getIPInfo(options) //TODO add more than country name and c
   barrier.resolve();
 
   if (geoinfo && geoinfo.countrycode) {
-    const retval = { countrycode: geoinfo.countrycode };
-    if (options.countrylang)
-      retval.countryname = geoinfo["countrylang_" + options.countrylang];
+    const retval: { countrycode: string; countryname?: string } = { countrycode: geoinfo.countrycode };
+    if (finaloptions.countrylang)
+      retval.countryname = geoinfo["countrylang_" + finaloptions.countrylang];
 
     return retval;
   }
@@ -84,9 +87,8 @@ export async function getIPInfo(options) //TODO add more than country name and c
 }
 
 /** Get the current country code
-    @param options.cachedays How long to cache the result (default 7 days)
-    @return Promise resolving to 2-letter countrycode, or null if unknown */
-export async function getCountryCode(options) {
+    @returns Promise resolving to 2-letter countrycode, or null if unknown */
+export async function getCountryCode(options?: GetIPInfoOptions) {
   const data = await getIPInfo(options);
   return data ? data.countrycode : null;
 }
