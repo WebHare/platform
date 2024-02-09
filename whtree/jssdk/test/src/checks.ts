@@ -372,13 +372,18 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
 
 }
 
-/** Compare specific cells of two values (recursive)
+/** Compare specific cells of two values (partial, recursive)
  * @typeparam T - The type of the values (both values are expected to be of the same type). This type is only inferred
  * from the 'actual' parameter.
  *  @param expected - Expected value
  *  @param actual - Actual value
- *  @param ignore - List of properties to ignore
  *  @param annotation - Message to display when the test fails */
+export function eqPartial<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, annotation?: Annotation) {
+  eqPropsRecurse(expect, actual, "root", [], annotation);
+  return actual;
+}
+
+/** @deprecated use test.eqPartial instead */
 export function eqProps<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, ignore: string[] = [], annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", ignore, annotation);
   return actual;
