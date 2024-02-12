@@ -426,6 +426,14 @@ MACRO ProcessHandleInput(INTEGER whichproc)
 
       IF(errorcode != 0)
         proc.allerrors := proc.allerrors || "\nProcess exited with error code: " || errorcode;
+      ELSE IF(proc.allerrors != "")
+      { /*
+        We used to recognize failed scripts by either having them set an errorcode *OR* write to stderr.
+        But we cannot capture stdout and stderr *in order* and still detect stderr has been written to (unless we set up ptys which come with their own limitiations)
+        So we'll have to rely on exit codes in the future if we want to store the output into the database and need to warn users for scripts that forgot to set the exit code */
+        proc.allerrors := "WARNING: Process reported errors but did not set a non-zero exit code! Future versions may not recognize this as an errior\n\n" || proc.allerrors;
+      }
+
       HandleTaskCompletion(proc.task, proc.allerrors, proc.starttime);
       RETURN;
     }
