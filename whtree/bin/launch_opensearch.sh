@@ -83,7 +83,7 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
   CHECKFILE="$WEBHARE_BUILDDIR/lastopensearchversion"
 
-  LAST_OPENSEARCHVERSION="$(cat "$CHECKFILE"/ 2>/dev/null || true)"
+  LAST_OPENSEARCHVERSION="$(cat "$CHECKFILE" 2>/dev/null || true)"
   if [ "$CURRENT_OPENSEARCHVERSION" != "$LAST_OPENSEARCHVERSION" ]; then
     # Reinstall our plugins when Opensearch is updated
     "$OPENSEARCHBINARY-plugin" remove analysis-icu 2>/dev/null || true
