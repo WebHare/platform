@@ -57,7 +57,8 @@ ENV LC_ALL=C \
 # Expose usual WebHare hostingports
 EXPOSE 13684
 
-# Set the run command
+# Set the run command and an entrypoint that ensures a proper environment even if we go straight to /bin/bash
+ENTRYPOINT [ "/opt/container/entrypoint.sh" ]
 CMD [ "/opt/container/launch.sh" ]
 
 # We no longer mark /opt/whdata as a volume so we can do our sanity check whether it really lives on a persistent volume
