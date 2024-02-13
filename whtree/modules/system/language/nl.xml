@@ -241,6 +241,7 @@
       <text tid="schedulecleanup">Nu inplannen</text>
       <text tid="settings">Instellingen</text>
       <text tid="state">Status</text>
+      <text tid="surekillbackend">Weet u zeker dat u dit database backend proces wilt beëindigen? De databaseverbinding (en waarschijnlijk daarmee ook het script) die met dit backend proces verbindt zal worden afgesloten, en niet-gecomitte data zal verloren gaan.</text>
       <text tid="tables">Getroffen tabellen</text>
       <text tid="trace">Stack trace</text>
       <text tid="transactions">Transactions</text>
