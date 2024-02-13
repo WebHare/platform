@@ -59,7 +59,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
   STRING path := resourcename LIKE "*::*" ? GetWebHareResourceDiskPath(resourcename) : resourcename;
   RECORD config := GetWebhareConfiguration();
   //we place a separate .eslintrc.json with a different ignore list in whdata/, so modules should also validate against that one
-  //TODO we may need to match VSCode and ESlints's algorithm even more closely if a mdule contains an .eslintrc.json? but not sure if VSCode looks in deeper dirs
+  //TODO we may need to match VSCode and ESlints's algorithm even more closely if a module contains an .eslintrc.json? but not sure if VSCode looks in deeper dirs
   STRING basepath := path LIKE config.basedataroot || "*" ?config.basedataroot : config.installationroot;;
   STRING eslintrcpath := MergePath(basepath , ".eslintrc.json");
 
