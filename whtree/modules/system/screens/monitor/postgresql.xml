@@ -77,6 +77,9 @@
   <screen name="postgresqllocks" gid=".postgresql" title="">
 
     <actions>
+      <action name="killbackend" onexecute="DoKillBackend">
+        <enableon source="blockedlocks" min="1" />
+      </action>
       <action name="opentracerow" onexecute="DoOpenTraceRow" tid="~open">
         <enableon source="trace" min="1" />
       </action>
@@ -86,6 +89,9 @@
     </actions>
 
     <menus>
+      <menu name="lockscontextmenu">
+        <item action="killbackend" />
+      </menu>
       <menu name="tracecontextmenu">
         <item action="opentracerow" />
         <item action="openineditor" />
@@ -100,6 +106,7 @@
                 sortcolumn="backend_start"
                 borders="none"
                 onselect="GotLockSelect"
+                selectcontextmenu="lockscontextmenu"
                 >
             <column name="application_name" type="text" tree="true" />
             <column name="pid" type="integer" width="14x" />

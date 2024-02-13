@@ -414,6 +414,7 @@
       <text tid="debuginfo">Debug info</text>
       <text tid="filename">File name</text>
       <text tid="func">Function</text>
+      <text tid="killbackend">Terminate backend</text>
       <text tid="line">Line</text>
       <text tid="locks">Locks</text>
       <text tid="logstacktraces">Log stack traces</text>
