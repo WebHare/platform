@@ -228,6 +228,7 @@
       <text tid="debuginfo">Debuginformatie</text>
       <text tid="filename">Bestandsnaam</text>
       <text tid="func">Functie</text>
+      <text tid="killbackend">Backend afsluiten</text>
       <text tid="line">Regel</text>
       <text tid="locks">Locks</text>
       <text tid="logstacktraces">Stack traces vastleggen</text>
@@ -240,6 +241,7 @@
       <text tid="schedulecleanup">Nu inplannen</text>
       <text tid="settings">Instellingen</text>
       <text tid="state">Status</text>
+      <text tid="surekillbackend">Weet u zeker dat u dit database backend proces wilt beëindigen? De databaseverbinding (en waarschijnlijk daarmee ook het script) die met dit backend proces verbindt zal worden afgesloten, en niet-gecomitte data zal verloren gaan.</text>
       <text tid="tables">Getroffen tabellen</text>
       <text tid="trace">Stack trace</text>
       <text tid="transactions">Transactions</text>

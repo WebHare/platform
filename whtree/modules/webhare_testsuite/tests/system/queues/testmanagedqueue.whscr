@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -129,23 +130,43 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
   OBJECT port := CreateGlobalIPCPort("webhare_testsuite:cancellable_connectport" || (javascript ? "_js" : ""));
 
 
-  testfw->BeginWork();
-  taskid := ScheduleManagedTask(cancellable_task, DEFAULT RECORD);
-  testfw->CommitWork();
+  // HS CancelManagedTasks
+  {
+    testfw->BeginWork();
+    taskid := ScheduleManagedTask(cancellable_task, DEFAULT RECORD);
+    testfw->CommitWork();
 
-  // cancellable will connect to our global port
-  OBJECT link := port->Accept(AddTimeToDate(60 * 1000, GetCurrentDatetime()));
-  IF (NOT ObjectExists(link))
-    ABORT(`Expected managed task 'cancellable' to run within a minute`);
+    // cancellable will connect to our global port
+    OBJECT link := port->Accept(AddTimeToDate(60 * 1000, GetCurrentDatetime()));
+    IF (NOT ObjectExists(link))
+      ABORT(`Expected managed task 'cancellable' to run within a minute`);
 
-  testfw->BeginWork();
-  OBJECT cancelpromise := CancelManagedTasks([ taskid ]);
-  testfw->CommitWork();
+    testfw->BeginWork();
+    OBJECT cancelpromise := CancelManagedTasks([ taskid ]);
+    testfw->CommitWork();
 
-  AWAIT cancelpromise;
+    AWAIT cancelpromise;
 
-  RECORD msg := AWAIT link->AsyncReceiveMessage(AddTimeToDate(30 * 1000, GetCurrentDatetime()));
-  TestEQ("gone", msg.status, "Task should have been killed by the cancel");
+    RECORD msg := AWAIT link->AsyncReceiveMessage(AddTimeToDate(30 * 1000, GetCurrentDatetime()));
+    TestEQ("gone", msg.status, "Task should have been killed by the cancel");
+  }
+
+  // TS CancelManagedTasks
+  {
+    testfw->BeginWork();
+    taskid := ScheduleManagedTask(cancellable_task, DEFAULT RECORD);
+    testfw->CommitWork();
+
+    // cancellable will connect to our global port
+    OBJECT link := port->Accept(AddTimeToDate(60 * 1000, GetCurrentDatetime()));
+    IF (NOT ObjectExists(link))
+      ABORT(`Expected managed task 'cancellable' to run within a minute`);
+
+    RECORD rec := AWAIT ImportJS("./helpers.ts")->testCancelManagedTasks([ taskid ]);
+
+    RECORD msg := AWAIT link->AsyncReceiveMessage(AddTimeToDate(30 * 1000, GetCurrentDatetime()));
+    TestEQ("gone", msg.status, "Task should have been killed by the cancel");
+  }
 
   // test timeout handling
   STRING timelimitedtask := "webhare_testsuite:timelimitedtask" || (javascript ? "_js" : "");

@@ -45,7 +45,8 @@ async function configureWHDBClient(pg: Connection) {
       configuration = { bloboid: bloboidquery.rows[0][0] };
       BlobType.oid = configuration.bloboid;
       GlobalTypeMap.register(BlobType);
-    }
+    } else
+      throw new Error(`Could not find webhare_blob type`);
   })());
 }
 
