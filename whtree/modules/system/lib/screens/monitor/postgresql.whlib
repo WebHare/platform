@@ -141,6 +141,8 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLLocks EXTEND DashboardPanelBase
 
   ASYNC MACRO DoKillBackend()
   {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".surekillbackend")) != "yes")
+      RETURN;
     AWAIT ImportJS("node:process")->Kill(^blockedlocks->selection.pid);
   }
 >;

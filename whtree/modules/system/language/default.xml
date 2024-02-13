@@ -427,6 +427,7 @@
       <text tid="schedulecleanup">Schedule now</text>
       <text tid="settings">Settings</text>
       <text tid="state">State</text>
+      <text tid="surekillbackend">Are you sure you want to terminate this database backend process? The database connection (and with that probably also the script) connecting with this backend will be closed, and any uncommited data will be lost.</text>
       <text tid="tables">Affected tables</text>
       <text tid="trace">Stack trace</text>
       <text tid="transactions">Transactions</text>
