@@ -21,7 +21,8 @@ fi
 
 WEBHARE_OPENSEARCH_PORT="$((WEBHARE_BASEPORT + 6))"
 
-curl "${ARGS[@]}" "http://${WEBHARE_OPENSEARCH_BINDHOST}:${WEBHARE_OPENSEARCH_PORT}${URL}"
+# avoid progress bars
+curl --silent "${ARGS[@]}" "http://${WEBHARE_OPENSEARCH_BINDHOST}:${WEBHARE_OPENSEARCH_PORT}${URL}"
 RETVAL="$?"
 
 if [ -t 1 ]; then #stdout looks like a terminal...
