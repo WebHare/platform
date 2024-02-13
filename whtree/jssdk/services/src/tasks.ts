@@ -1,5 +1,8 @@
+import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
-import { convertWaitPeriodToDate, WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, createDeferred, type WaitPeriod } from "@webhare/std";
+import { broadcastOnCommit, db, onFinishWork, sql } from "@webhare/whdb";
+import { openBackendService } from "@webhare/services";
 
 interface TaskResponseFinished {
   type: "finished";
@@ -111,4 +114,49 @@ export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod,
 
   const maxwait = convertWaitPeriodToDate(timeout);
   return await loadlib("mod::system/lib/tasks.whlib").retrieveManagedTaskResult(taskId, maxwait, options) as T;
+}
+
+/// Handles cancelling running tasks after the commit
+class TaskCancelHandler {
+  static uniqueTag = Symbol("system:tasks.TaskCancelHandler");
+  deferred = createDeferred<void>();
+
+  async onCommit() {
+    try {
+      using service = await openBackendService("system:managedqueuemgr", [-1]);
+      await service.stopCancelledTasks();
+      this.deferred.resolve();
+    } catch (e) {
+      this.deferred.reject(e as Error);
+    }
+  }
+}
+
+/** Cancel managed tasks.
+    @remarks Schedules cancellation of the specified managed tasks. When the promise returned by this function resolves, the
+    changes have been written to the database. If any of the tasks are running, they will be stopped after the commit. After
+    all running tasks have been stopped, the `runningTasksStopped` promise returned by this function will be fulfilled.
+    @param taskids - Ids of the tasks that must be cancelled
+    @returns - Promise that resolves when the cancellation has written to the database. The promise returned by
+    `runningTasksStopped()` will be resolved when all running tasks have been stopped.
+*/
+export async function cancelManagedTasks(taskIds: number[]): Promise<{ runningTasksStopped(): Promise<void> }> {
+  if (!taskIds.length)
+    return { runningTasksStopped: () => Promise.resolve() };
+
+  const seenTaskTypes = (await db<PlatformDB>().selectFrom("system.managedtasks").select("tasktype").where("id", "=", sql`any(${taskIds})`).distinct().execute()).map(task => task.tasktype);
+  await db<PlatformDB>()
+    .updateTable("system.managedtasks")
+    .set({ iscancelled: true, finished: new Date(), lasterrors: "Cancelled by CancelManagedTasks" })
+    .where("id", "=", sql`any(${taskIds})`)
+    .execute();
+
+  broadcastOnCommit("system:managedtasks.any.changes");
+  for (const taskType of seenTaskTypes.sort())
+    broadcastOnCommit(`system:managedtasks.${taskType}.changes`);
+
+  // Make sure the commit handler is installed
+  const handler = onFinishWork(() => new TaskCancelHandler, { uniqueTag: TaskCancelHandler.uniqueTag });
+
+  return { runningTasksStopped: () => handler.deferred.promise };
 }
