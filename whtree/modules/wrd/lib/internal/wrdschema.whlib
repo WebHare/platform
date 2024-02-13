@@ -529,7 +529,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     IF (NOT ObjectExists(wrdtype))
     {
       STRING bestmatch := GetBestMatch(tag, SELECT AS STRING ARRAY COLUMN tag FROM this->ListTypes());
-      THROW NEW Exception(`No such type ${EncodeJSON(tag)} exists in this schema${bestmatch=""?"":`, did you mean ${EncodeJSON(bestmatch)}?`}`);
+      THROW NEW Exception(`No such type ${EncodeJSON(tag)} exists in schema ${this->tag}${bestmatch=""?"":`, did you mean ${EncodeJSON(bestmatch)}?`}`);
     }
 
     // Save for quick re-access
