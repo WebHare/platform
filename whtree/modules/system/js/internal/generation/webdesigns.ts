@@ -11,15 +11,15 @@ export interface Webfeature {
   webdesignMasks: string[];
 }
 
-function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Document): Webfeature[] {
-  const webfeaturesnode = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webfeature").item(0);
-  if (!webfeaturesnode)
+export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Document): Webfeature[] {
+  const publishernode = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher").item(0);
+  if (!publishernode)
     return [];
 
-  const gid = determineNodeGid(resourceBase, webfeaturesnode);
+  const gid = determineNodeGid(resourceBase, publishernode);
   const webfeatures = new Array<Webfeature>();
 
-  for (const node of elements(modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webfeature"))) {
+  for (const node of elements(publishernode.getElementsByTagNameNS(publishernode.namespaceURI, "webfeature"))) {
     if (!isNodeApplicableToThisWebHare(node, ""))
       continue;
 
@@ -43,6 +43,16 @@ export function generateWebDesigns(context: GenerateContext): string {
   for (const mod of context.moduledefs) {
     if (mod.modXml)
       webfeatures.push(...getXMLWebfeatures(mod.name, mod.resourceBase, mod.modXml));
+
+    for (const [featurename, featuredef] of Object.entries(mod.modYml?.webfeatures ?? [])) {
+      webfeatures.push({
+        name: `${mod.name}:${featurename}`,
+        title: featuredef.title ? ":" + featuredef.title : '',
+        hidden: featuredef.hidden || false,
+        siteProfile: featuredef.siteProfile ? resolveResource(mod.resourceBase, featuredef.siteProfile) : '',
+        webdesignMasks: featuredef.webdesignMasks || []
+      });
+    }
   }
   return JSON.stringify({ webdesigns, webfeatures }, null, 2) + "\n";
 }

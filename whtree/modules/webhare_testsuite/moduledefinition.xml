@@ -324,36 +324,6 @@
     <addtowebdesign siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml"
                     webdesign="webhare_testsuite:basetest" />
 
-    <webfeature name="testfeature"
-                hidden="true"
-                siteprofile="webfeatures/testfeature.siteprl.xml"
-                title="WH testsuite: Test feature" />
-    <webfeature name="insecure_interface"
-                hidden="true"
-                siteprofile="webfeatures/insecure_interface.siteprl.xml"
-                title="WH testsuite: Unprotected WebHare backend" />
-    <webfeature name="siteprl_datastorage"
-                hidden="true"
-                siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"
-                title="WH testsuite: siteprl_datastorage" />
-    <webfeature name="siteprl_datastorage2"
-                hidden="true"
-                siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"
-                title="WH testsuite: siteprl_datastorage2" />
-    <webfeature name="conversionstest"
-                hidden="true"
-                siteprofile="webfeatures/conversionstest.siteprl.xml"
-                title="WH testsuite: conversionstest" />
-    <webfeature name="actions" hidden="true" siteprofile="webfeatures/actions.siteprl.xml" title="WH testsuite: actions" />
-    <webfeature name="versioned"
-                hidden="true"
-                siteprofile="webfeatures/versioned.siteprl.xml"
-                title="WH testsuite: versioned" />
-    <webfeature name="unusedfeature"
-                hidden="true"
-                siteprofile="webfeatures/neverused_feature.siteprl.xml"
-                title="WH testsuite: never used feature" />
-
     <customnode name="test" namespace="urn:xyz" />
     <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
 
