@@ -1566,11 +1566,12 @@ OBJECTTYPE AssetPackControl
     controller->ClearCaches();
   }
 
-  PUBLIC MACRO RecompileBundle(STRING outputtag, BOOLEAN rebuild DEFAULTSTO FALSE)
+  PUBLIC RECORD FUNCTION RecompileBundle(STRING outputtag, BOOLEAN rebuild DEFAULTSTO FALSE)
   {
     IF(debug)
       Print("Recompile requested for '" || outputtag || "', rebuild=" || (rebuild?'true':'false')||'\n');
     controller->RecompileBundleByoutputtag(outputtag, rebuild);
+    RETURN controller->GetBundleStatus(outputtag);
   }
 
   PUBLIC MACRO SetWatched(STRING outputtag, BOOLEAN watched)
