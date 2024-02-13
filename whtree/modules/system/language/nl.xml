@@ -228,6 +228,7 @@
       <text tid="debuginfo">Debuginformatie</text>
       <text tid="filename">Bestandsnaam</text>
       <text tid="func">Functie</text>
+      <text tid="killbackend">Backend afsluiten</text>
       <text tid="line">Regel</text>
       <text tid="locks">Locks</text>
       <text tid="logstacktraces">Stack traces vastleggen</text>
