@@ -23,3 +23,37 @@ assetPacks:
     entryPoint: webdesigns/basetestjs/frontend/frontend
     supportedLanguages: [en, nl, ps]
     module: true
+
+webfeatures:
+  testfeature:
+    title: "WH testsuite: Test feature"
+    siteProfile: webfeatures/testfeature.siteprl.xml
+    hidden: true
+  insecure_interface:
+    title: "WH testsuite: Unprotected WebHare backend"
+    siteProfile: webfeatures/insecure_interface.siteprl.xml
+    hidden: true
+  siteprl_datastorage:
+    title: "WH testsuite: siteprl_datastorage"
+    siteProfile: webfeatures/siteprl_datastorage.siteprl.xml
+    hidden: true
+  siteprl_datastorage2:
+    title: "WH testsuite: siteprl_datastorage2"
+    siteProfile: webfeatures/siteprl_datastorage2.siteprl.xml
+    hidden: true
+  conversionstest:
+    title: "WH testsuite: conversionstest"
+    siteProfile: webfeatures/conversionstest.siteprl.xml
+    hidden: true
+  actions:
+    title: "WH testsuite: actions"
+    siteProfile: webfeatures/actions.siteprl.xml
+    hidden: true
+  versioned:
+    title: "WH testsuite: versioned"
+    siteProfile: webfeatures/versioned.siteprl.xml
+    hidden: true
+  unusedfeature:
+    title: "WH testsuite: never used feature"
+    siteProfile: webfeatures/neverused_feature.siteprl.xml
+    hidden: true

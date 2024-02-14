@@ -1,6 +1,7 @@
 /* TODO These APIs are potential hscompat candidates? As the whole idea of XML support is HSCompat...
 */
 
+import { isAbsoluteResource, parseResourcePath } from "@webhare/services";
 import { isTruthy } from "@webhare/std";
 
 export function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
@@ -40,4 +41,98 @@ export function getAttr<T>(node: Element, attr: string, fallback: T = "" as T): 
   if (Array.isArray(fallback))
     return parseXSList(attrval) as T;
   return attrval as T;
+}
+
+function isAbsoluteTid(tid: string) {
+  return tid.includes(':') || tid.startsWith('~');
+}
+
+function getXMLTidFromName(defaultmodule: string, currentgid: string, el: Element) {
+  for (const attr of ["cellname", "name"]) {
+    if (el.hasAttribute(attr)) {
+      let name = el.getAttribute(attr)!.toLowerCase();
+      name = name.substring(name.lastIndexOf('.') + 1);
+      if (currentgid.includes(':'))
+        return { attr, tid: currentgid + '.' + name };
+      if (!defaultmodule)
+        throw new Error(`ParseXMLTidPtr requires a set module for automatic ${attr}-based titles if the gid doesn't specify one`);
+      return { attr, tid: defaultmodule + ':' + currentgid + '.' + name };
+    }
+  }
+  return null;
+}
+
+
+/** Parse a title/tid combination, considering any groupid, default module and name/cellname rules. Returns an empty string if unset, ':' prefixed string for untranslated texts, and otherwise a module:tid combination
+ */
+export function parseXMLTidPtr(resourcename: string, currentgid: string, el: Element, attrname: string) {
+  return parseXMLTidPtrNS(resourcename, currentgid, el, null, attrname, false);
+}
+
+export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: Element, ns: string | null, attrname: string, richtid: boolean) {
+  if (!isAbsoluteResource(resourcename))
+    throw new Error(`parseXMLTidPtr call with invalid resource name '${resourcename}'`);
+
+  const attrnametid = attrname.endsWith("title") ? attrname.slice(0, -5) + "tid" : attrname + "tid";
+  if (el.hasAttributeNS(ns, attrnametid)) {
+    const tid = el.getAttributeNS(ns, attrnametid) || '';
+    if (tid.startsWith('.'))
+      return currentgid + tid;
+    if (!isAbsoluteTid(tid)) {
+      const module = parseResourcePath(resourcename)?.module;
+      if (module)
+        return `${module}:${tid}`;
+    }
+    /* TODO?  tid logging through parsexmltidptr?
+    IF(onparsedtid != DEFAULT MACRO PTR)
+    {
+      STRING ARRAY conflicting_attributes; //do we have both tid= and one of title/htmltitle ?
+      IF(el -> HasAttributeNS(ns, "html" || attrname))
+        INSERT "html" || attrname INTO conflicting_attributes AT END;
+      IF(el -> HasAttributeNS(ns, attrname))
+        INSERT attrname INTO conflicting_attributes AT END;
+      onparsedtid(CELL[resourcename, tid, line := el -> linenum, col := 0, attrname := attrnametid, conflicting_attributes ]);
+    }*/
+
+    return tid;
+  }
+  if (richtid && el.hasAttributeNS(ns, "html" + attrname))
+    return "<>" + el.getAttributeNS(ns, "html" + attrname);
+
+  if (el.hasAttributeNS(ns, attrname))
+    return ":" + el.getAttributeNS(ns, attrname);
+  if (currentgid && attrname.endsWith("title")) {
+    const module = parseResourcePath(resourcename)?.module;
+    if (module) {
+      const trygidfromname = getXMLTidFromName(module, currentgid, el);
+      if (trygidfromname) {
+        /* TODO?  tid logging through parsexmltidptr?
+        IF(onparsedtid != DEFAULT MACRO PTR AND trygidfromname.tid != "")
+          onparsedtid(CELL[resourcename, trygidfromname.tid, line := el -> linenum, col := 0, attrname := trygidfromname.attr, conflicting_attributes := STRING[] ]);*/
+
+        return trygidfromname.tid;
+      }
+    }
+  }
+  return '';
+}
+
+export function determineNodeGid(resourcename: string, node: Node | null): string {
+  while (node && node.nodeType == node.ELEMENT_NODE) {
+    const localgid = (node as Element).getAttribute("gid");
+    if (!localgid) {
+      node = node.parentNode;
+      continue;
+    }
+    if (localgid.includes(":")) //absolute
+      return localgid;
+    if (localgid.startsWith(".")) {
+      const parentgid = determineNodeGid(resourcename, node.parentNode);
+      if (parentgid)
+        return parentgid + localgid;
+    }
+    const module = parseResourcePath(resourcename)?.module;
+    return module ? `${module}:${localgid}` : '';
+  }
+  return '';
 }

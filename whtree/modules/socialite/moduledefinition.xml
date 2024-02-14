@@ -81,6 +81,7 @@
       <d:varchar name="title" maxlength="256" nullable="0" />
       <d:varchar name="tag" maxlength="256" nullable="0" />
     </d:table>
+
     <d:table name="applications" parentlinkcolumn="account" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:integer name="account" nullable="0" ondelete="cascade" references=".accounts" />
@@ -90,16 +91,19 @@
       <d:varchar name="remarks" maxlength="4096" />
       <d:boolean name="logrpc" />
     </d:table>
+
     <d:table name="applicationkeys" parentlinkcolumn="application" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:integer name="application" nullable="0" ondelete="cascade" references=".applications" />
       <d:varchar name="tag" maxlength="256" nullable="0" />
       <d:varchar name="value" maxlength="4096" />
     </d:table>
+
     <d:obsoletetable name="sessions" parentlinkcolumn="application" primarykey="id" />
+
     <d:table name="feeds" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:obsoletecolumn name="session"/>
+      <d:obsoletecolumn name="session" />
       <d:integer name="maxnum">
         <d:documentation>Maximum number of entries to store</d:documentation>
       </d:integer>
@@ -124,10 +128,11 @@
       <d:varchar name="lasterror" maxlength="4096">
         <d:documentation>Last error message</d:documentation>
       </d:varchar>
-      <d:index name="queryindex" columns="query(64)" /> <!-- TODO making this unique would be nice but might complicate upgrades... -->
+      <d:index name="queryindex" columns="query(64)" />  <!-- TODO making this unique would be nice but might complicate upgrades... -->
       <d:blob name="baseinfo" />
       <d:varchar name="baseinfohash" maxlength="64" />
     </d:table>
+
     <d:table name="feedentries" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:integer name="feed" ondelete="cascade" references=".feeds" />
@@ -197,6 +202,7 @@
 
   <moduleregistry>
     <obsoletenode name="localoverrides" />
+
     <node name="embedscripts">
       <string name="tagmanagers" />
     </node>

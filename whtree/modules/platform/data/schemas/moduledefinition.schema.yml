@@ -21,6 +21,9 @@ properties:
   assetPacks:
     description: JavaScript/asset bundles
     $ref: "#/definitions/assetPacks"
+  webfeatures:
+    description: "Webfeatures (apply additional siteprofiles)"
+    $ref: "#/definitions/Webfeatures"
   selfChecks:
     description: Setup automatisch selfchecks
     $ref: "#/definitions/selfChecks"
@@ -182,3 +185,24 @@ definitions:
           type: string
       required:
         - checker
+
+  Webfeatures:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Webfeature name
+        type: object
+        additionalProperties: false
+        properties:
+          siteProfile:
+            type: string
+            description: "Site profile to apply"
+          title:
+            type: string
+          hidden:
+            type: boolean
+          webdesignMasks:
+            type: array
+            items:
+              type: string
+            description: "Limit webdesigns to which this feature can apply"

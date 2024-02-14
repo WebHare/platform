@@ -6,6 +6,7 @@ import { elements, getAttr } from "./xmlhelpers";
 import { whconstant_default_compatibility } from "../webhareconstants";
 import { addModule } from "@webhare/services/src/naming";
 import { ModDefYML } from "@webhare/services/src/moduledefparser";
+import { generateWebDesigns } from "./webdesigns";
 
 export interface AssetPack {
   name: string; //full name
@@ -235,6 +236,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extract",
       generator: (context: GenerateContext) => generateAssetPacks(context)
+    },
+    {
+      path: `extract/webdesigns.json`,
+      module: "platform",
+      type: "extract",
+      generator: (context: GenerateContext) => generateWebDesigns(context)
     },
     {
       path: `extract/services.json`,

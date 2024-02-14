@@ -11,6 +11,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 /** @private Only two callers left and its pretty low level, so we should just consider just deprecating it (at least no more new callers)
     @short Open site profile by name
@@ -157,19 +158,13 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)
 
 PUBLIC RECORD ARRAY FUNCTION GetAvailableWebFeatures()
 {
-  RECORD ARRAY webfeatures;
-  FOREVERY(RECORD mod FROM GetWebHareModules())
-    FOREVERY(RECORD design FROM mod.webfeatures)
-    {
-      INSERT [ title := design.title ?? `:${mod.name}:${design.name}` //our callers expected a tid, so prefix with :
-             , rowkey := mod.name || ":" || design.name
-             , siteprofile := design.siteprofile
-             , webdesignmasks := design.webdesignmasks ?? ["*"]
-             , hidden := design.hidden
-             ] INTO webfeatures AT END;
-    }
-
-  RETURN webfeatures;
+  RECORD ARRAY webfeatures := __GetExtractedConfig("webdesigns").webfeatures;
+  RETURN SELECT title := title ?? `:${name}` //our callers expected a tid, so prefix with :
+              , rowkey := name
+              , siteprofile
+              , webdesignmasks := webdesignmasks ?? ["*"]
+              , hidden
+           FROM webfeatures;
 }
 
 PUBLIC MACRO __ValidateWebdesign(OBJECT applytester)

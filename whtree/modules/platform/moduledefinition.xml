@@ -51,4 +51,9 @@
     <debugflag name="retainers" description="Add stacktraces to common retaining JS objects (Timeout, Promise)" />
   </development>
 
+  <wrdschemas>
+    <!-- TODO need 'abstract' schema. -->
+    <schema autocreate="false" tag="basewrdschema" definitionfile="mod::wrd/data/wrdschemas/base.wrdschema.xml" title="Base WRD schema definition" />
+  </wrdschemas>
+
 </module>

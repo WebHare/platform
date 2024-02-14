@@ -10,6 +10,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/fetch.whlib";
@@ -2217,6 +2218,7 @@ PUBLIC OBJECT FUNCTION EnsureTestSite(STRING sitename, RECORD options DEFAULTSTO
                              , recyclecontents := FALSE
                              , outputweb := 0 //undocumented for now, should externals use it?.. output webserver id to use
                              , webdesign := ""
+                             , webfeatures := STRING[]
                              ], options);
 
   IF(NOT IsValidWHFSName(sitename, TRUE) OR ToLowercase(sitename) != sitename OR sitename NOT LIKE "?*.?*")
@@ -2256,8 +2258,8 @@ PUBLIC OBJECT FUNCTION EnsureTestSite(STRING sitename, RECORD options DEFAULTSTO
     site := CreateSiteFromFolder(root->id);
   }
 
-  IF(site->webdesign != options.webdesign)
-    site->UpdateSiteMetadata([ webdesign := options.webdesign ]);
+  IF(site->webdesign != options.webdesign OR EncodeJSON(GetSortedSet(site->webfeatures)) != EncodeJSON(GetSortedSet(options.webfeatures)))
+    site->UpdateSiteMetadata([ webdesign := options.webdesign, webfeatures := options.webfeatures ]);
 
   IF(options.outputweb = 0)
   {

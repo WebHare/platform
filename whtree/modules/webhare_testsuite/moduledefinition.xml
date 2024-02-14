@@ -5,7 +5,8 @@
     <version>4.31.0</version>
     <validation>
       <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" />
-      <exclude mask="tolliumapps/demo/*" why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
+      <exclude mask="tolliumapps/demo/*"
+               why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
       <exclude mask="screens/tests/*" why="Many missing tids" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
@@ -39,10 +40,12 @@
     <managedtask type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask" />
     <managedtask type="temporaryfailure_js" taskrunner="tests/system/queues/data/testtasks.ts#failingTaskJS" />
     <managedtask type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
-    <managedtask type="timelimitedtask_js"  taskrunner="tests/system/queues/data/testtasks.ts#timelimitedtaskJS" timeout="300" />
+    <managedtask type="timelimitedtask_js" taskrunner="tests/system/queues/data/testtasks.ts#timelimitedtaskJS" timeout="300" />
     <managedtask type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
     <managedtask type="doublescheduletask" cluster="testcluster" objectname="lib/internal/tasks.whlib#DoubleScheduleTask" />
-    <managedtask type="doublescheduletask_js" cluster="testcluster" taskrunner="tests/system/queues/data/testtasks.ts#doubleScheduleTaskJS" />
+    <managedtask type="doublescheduletask_js"
+                 cluster="testcluster"
+                 taskrunner="tests/system/queues/data/testtasks.ts#doubleScheduleTaskJS" />
 
     <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask" />
     <ephemeraltask type="nodetask" library="js/task.es" />
@@ -67,7 +70,7 @@
     <application name="appstarttest" screen="/screens/tests/comm.xml#appstart">
       <accesscheck />
     </application>
-    <application name="wasmstarttest" screen="/screens/tests/comm.xml#appstart" engine="wasm">
+    <application name="wasmstarttest" engine="wasm" screen="/screens/tests/comm.xml#appstart">
       <accesscheck />
     </application>
     <application name="human" screen="/screens/tests/human.xml#main">
@@ -107,7 +110,9 @@
 
   <services>
     <openapiservice name="testservice" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+
     <openapiclient name="testclient" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+
     <openapiservice name="authtests" spec="tests/wh/webserver/remoting/openapi/authtests.yaml" />
 
     <webservice name="test"
@@ -274,7 +279,9 @@
       <string name="docroot" />
       <string name="runoncetest" />
     </node>
+
     <obsoletenode name="apis" />
+
     <node name="registrytests">
       <obsoletekey name="removekey" />
       <obsoletenode name="removenode" />
@@ -323,36 +330,6 @@
 
     <addtowebdesign siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml"
                     webdesign="webhare_testsuite:basetest" />
-
-    <webfeature name="testfeature"
-                hidden="true"
-                siteprofile="webfeatures/testfeature.siteprl.xml"
-                title="WH testsuite: Test feature" />
-    <webfeature name="insecure_interface"
-                hidden="true"
-                siteprofile="webfeatures/insecure_interface.siteprl.xml"
-                title="WH testsuite: Unprotected WebHare backend" />
-    <webfeature name="siteprl_datastorage"
-                hidden="true"
-                siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"
-                title="WH testsuite: siteprl_datastorage" />
-    <webfeature name="siteprl_datastorage2"
-                hidden="true"
-                siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"
-                title="WH testsuite: siteprl_datastorage2" />
-    <webfeature name="conversionstest"
-                hidden="true"
-                siteprofile="webfeatures/conversionstest.siteprl.xml"
-                title="WH testsuite: conversionstest" />
-    <webfeature name="actions" hidden="true" siteprofile="webfeatures/actions.siteprl.xml" title="WH testsuite: actions" />
-    <webfeature name="versioned"
-                hidden="true"
-                siteprofile="webfeatures/versioned.siteprl.xml"
-                title="WH testsuite: versioned" />
-    <webfeature name="unusedfeature"
-                hidden="true"
-                siteprofile="webfeatures/neverused_feature.siteprl.xml"
-                title="WH testsuite: never used feature" />
 
     <customnode name="test" namespace="urn:xyz" />
     <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />

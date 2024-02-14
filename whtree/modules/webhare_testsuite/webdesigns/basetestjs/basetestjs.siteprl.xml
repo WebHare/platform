@@ -1,6 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <!-- Global site settings -->
   <apply>
@@ -58,6 +56,12 @@
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
     <uploadtypemapping mimetypemask="application/msword" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
     <uploadtypemapping mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
+
+    <!-- wrdauth tests -->
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             wrdschema="wrd:testschema"
+             cookiename="webharelogin-wrdauthjs"
+             supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport" />
 
     <!-- Test a plugin -->
     <gtm account="GTM-TN7QQM" integration="selfhosted" launch="pagerender" />

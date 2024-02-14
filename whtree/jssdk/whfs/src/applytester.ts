@@ -266,6 +266,22 @@ export class WHFSApplyTester {
     return resultset;
   }
 
+  async getWRDAuth() {
+    const wrdauth = {
+      wrdSchema: null as null | string
+    };
+
+    for (const apply of await this.getMatchingRules('plugins')) {
+      for (const plugin of apply.plugins)
+        if (plugin.name == "wrdauth" && plugin.namespace == "http://www.webhare.net/xmlns/wrd") { //found a wrdauth plugin definition
+          if (plugin.data.__attributes.includes("WRDSCHEMA"))
+            wrdauth.wrdSchema = plugin.data.wrdschema as string;
+        }
+    }
+
+    return wrdauth;
+  }
+
   async getWebDesignInfo() {
     //Inspired on GetWebDesignObjinfo()
     const webdesign = {
