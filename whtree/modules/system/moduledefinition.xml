@@ -3,177 +3,252 @@
   <meta>
     <description>WebHare core functionality</description>
     <validation options="nowarnings">
-      <exclude mask="whres/xml/*" why="External XSDs, currently too complex to validate. But even if we could, we cannot modify them, so no need to warn" permanent="true"/>
-      <format masks="*.ts *.tsx" excludemasks="*/generated/*" />
+      <exclude mask="whres/xml/*"
+               permanent="true"
+               why="External XSDs, currently too complex to validate. But even if we could, we cannot modify them, so no need to warn" />
+      <format excludemasks="*/generated/*" masks="*.ts *.tsx" />
     </validation>
   </meta>
 
   <servicemanager>
     <!-- update the tag when new mimetypes arrive -->
-    <runonce tag="init_mimetypes_20230705" script="scripts/runonce/initmimetypes.whscr" when="aftertablecreation" />
+    <runonce script="scripts/runonce/initmimetypes.whscr" tag="init_mimetypes_20230705" when="aftertablecreation" />
 
     <!-- initialize core DB structure and create standard folders -->
-    <runonce tag="initdb_20221021" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
+    <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20221021" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce tag="poststartcleanup_2023_01_27" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+    <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2023_01_27" when="poststart" />
 
     <!-- migrate whuser_disabled to whuser_disable_type -->
-    <runonce tag="fix_whuser_disabled" script="scripts/runonce/fix_whuser_disabled.ts" when="poststart" />
+    <runonce script="scripts/runonce/fix_whuser_disabled.ts" tag="fix_whuser_disabled" when="poststart" />
 
-    <task runat="*/5 * * * *" tag="intervalchecks" script="scripts/tasks/intervalchecks.whscr" description="Periodic status checks" runatstartup="true" />
-    <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
-    <task runat="13  1 * * *"  runtz="maintenance" script="scripts/tasks/executemaintenance.ts" tag="system_maintenance_task_ts" />
-    <task runat="13  1 * * *"  runtz="maintenance" script="scripts/tasks/poststartchecks.ts" tag="system_poststartchecks" runatstartup="true" />
-    <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
-    <task runat="19  2 * * *"  runtz="maintenance" tag="updategeoip" script="scripts/tasks/updategeoip.whscr" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP"/>
-    <task runat="26  2 * * *"  runtz="maintenance" tag="unifiedcache_cleanup" script="scripts/tasks/unifiedcache_cleanup.whscr"  />
-    <task runat=" 3  2 * * *"  runtz="maintenance" tag="system_cleanversions" script="scripts/tasks/cleanversions.whscr" />
-    <task runat=" 6  2 * * *"  runtz="maintenance" tag="system_cleanfsdata" script="scripts/tasks/cleanfsdata.whscr" />
-    <task runat="11  3 * * *"  runtz="maintenance" tag="system_fix_whfs" script="scripts/tasks/fix_whfs.whscr"  />
-    <task runat="19  4 * * *"  runtz="maintenance" tag="renewcertbot" script="scripts/tasks/renewcertbot.whscr" description="Renew certbot certificates" />
-    <task runat="39  5 * * *"  runtz="maintenance" tag="updatefallbackcertificate" script="scripts/tasks/updatefallbackcertificate.whscr" description="Renew the fallback certificate" runatstartup="true"/>
+    <task runat="*/5 * * * *" script="scripts/tasks/intervalchecks.whscr" tag="intervalchecks" description="Periodic status checks" runatstartup="true" />
+    <task runat="13  0 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="system_maintenance_task" />
+    <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.ts" tag="system_maintenance_task_ts" />
+    <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/poststartchecks.ts" tag="system_poststartchecks" runatstartup="true" />
+    <task runat=" 9  1 * * *" runtz="maintenance" script="scripts/tasks/archivemodules.whscr" tag="archivemodules" />
+    <task runat="19  2 * * *" runtz="maintenance" script="scripts/tasks/updategeoip.whscr" tag="updategeoip" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP" />
+    <task runat="26  2 * * *" runtz="maintenance" script="scripts/tasks/unifiedcache_cleanup.whscr" tag="unifiedcache_cleanup" />
+    <task runat=" 3  2 * * *" runtz="maintenance" script="scripts/tasks/cleanversions.whscr" tag="system_cleanversions" />
+    <task runat=" 6  2 * * *" runtz="maintenance" script="scripts/tasks/cleanfsdata.whscr" tag="system_cleanfsdata" />
+    <task runat="11  3 * * *" runtz="maintenance" script="scripts/tasks/fix_whfs.whscr" tag="system_fix_whfs" />
+    <task runat="19  4 * * *" runtz="maintenance" script="scripts/tasks/renewcertbot.whscr" tag="renewcertbot" description="Renew certbot certificates" />
+    <task runat="39  5 * * *" runtz="maintenance" script="scripts/tasks/updatefallbackcertificate.whscr" tag="updatefallbackcertificate" description="Renew the fallback certificate" runatstartup="true" />
 
     <!-- update proxy configurations. we now do this async so it doesn't block, and it should be safe on restored servers since the proxy won't contact us anyway if we use old settings -->
-    <task tag="update_proxies" script="scripts/tasks/update_proxies.whscr" description="Update proxy server configuration" allowifrestore="true" />
-
-    <task runat="29  * * * *"  runtz="maintenance" tag="cleanup_hourly" script="scripts/tasks/cleanup_hourly.whscr" description="Hourly cleanup"/>
-    <task runat="39  * * * *"  runtz="maintenance" tag="uploadstatus" script="scripts/tasks/uploadstatus.whscr" runatstartup="true" />
-
-    <task runat="*/10 * * * *" runtz="maintenance" tag="webserverusage" script="scripts/tasks/webserverusage.whscr" description="Process webserver usage stats" />
-    <task runat="19 */4 * * *" runtz="maintenance" tag="compileablestodisk" script="scripts/tasks/compileablestodisk.whscr" description="Ensures database HareScript code is on disk" />
+    <task script="scripts/tasks/update_proxies.whscr" tag="update_proxies" allowifrestore="true" description="Update proxy server configuration" />
+    <task runat="29  * * * *" runtz="maintenance" script="scripts/tasks/cleanup_hourly.whscr" tag="cleanup_hourly" description="Hourly cleanup" />
+    <task runat="39  * * * *" runtz="maintenance" script="scripts/tasks/uploadstatus.whscr" tag="uploadstatus" runatstartup="true" />
+    <task runat="*/10 * * * *" runtz="maintenance" script="scripts/tasks/webserverusage.whscr" tag="webserverusage" description="Process webserver usage stats" />
+    <task runat="19 */4 * * *" runtz="maintenance" script="scripts/tasks/compileablestodisk.whscr" tag="compileablestodisk" description="Ensures database HareScript code is on disk" />
 
     <!-- Deprecation scans run on 'mondays'. we specifically want them at the start of the usual WebHare working day -->
-    <task runat="0 8 * * 1" runtz="Europe/Amsterdam" tag="autodeprecationscan" script="scripts/tasks/autodeprecationscan.whscr" description="Scan for known future deprecations" />
-
-    <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve" allowifrestore="true" />
-    <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
-    <task runat="35 0,3,6 * * *" tag="cleanpgsqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
+    <task runat="0 8 * * 1" runtz="Europe/Amsterdam" script="scripts/tasks/autodeprecationscan.whscr" tag="autodeprecationscan" description="Scan for known future deprecations" />
+    <task runat="*/30 * * * *" script="scripts/tasks/checkwebservers.whscr" tag="checkwebservers" allowifrestore="true" description="Make sure all webservers still properly resolve" />
+    <task runat="54 */4 * * *" script="scripts/tasks/check_hotfixes.whscr" tag="check_hotfixes" runatstartup="true" />
+    <task runat="35 0,3,6 * * *" script="scripts/tasks/cleanpostgresqlblobs.whscr" tag="cleanpgsqlblobs" ifenvironset="WEBHARE_DBASENAME" />
 
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
-
   </servicemanager>
 
   <portal>
-    <applicationgroup name="cms" tid="module.appgroups.cms" orderbefore="apps" />
-    <applicationgroup name="apps" tid="module.appgroups.apps" orderbefore="setup" orderafter="cms" />
-    <applicationgroup name="setup" tid="module.appgroups.setup" orderbefore="documentation" orderafter="apps" />
-    <applicationgroup name="documentation" tid="module.appgroups.documentation" orderbefore="development" orderafter="setup" />
-    <applicationgroup name="development" tid="module.appgroups.development" orderafter="documentation" />
+    <applicationgroup name="cms" orderbefore="apps" tid="module.appgroups.cms" />
+    <applicationgroup name="apps" orderafter="cms" orderbefore="setup" tid="module.appgroups.apps" />
+    <applicationgroup name="setup" orderafter="apps" orderbefore="documentation" tid="module.appgroups.setup" />
+    <applicationgroup name="documentation" orderafter="setup" orderbefore="development" tid="module.appgroups.documentation" />
+    <applicationgroup name="development" orderafter="documentation" tid="module.appgroups.development" />
 
-    <application name="dashboard" group="setup" tid="module.apps.dashboard" screen="tolliumapps/dashboard/dashboard.xml#main" icon="system:sysmgmt/monitoring" shortcut="ctrl+shift+d">
+    <application name="dashboard"
+                 group="setup"
+                 icon="system:sysmgmt/monitoring"
+                 screen="tolliumapps/dashboard/dashboard.xml#main"
+                 shortcut="ctrl+shift+d"
+                 tid="module.apps.dashboard">
       <accesscheck>
         <requireright right="system:supervisor" />
       </accesscheck>
     </application>
-
     <application name="forgotpassword" screen="tolliumapps/login/forgotpassword.xml#forgotpassword">
       <accesscheck />
     </application>
-
     <application name="resetpassword" screen="tolliumapps/login/forgotpassword.xml#resetpassword">
       <accesscheck />
     </application>
-
     <application name="managetwofactorauth" startmacro="tolliumapps/login/forgotpassword.whlib#RunManageTwoFactor">
       <accesscheck />
     </application>
-
-    <application group="setup" name="userrights" tid="portal.apps.userrights" screen="userrights/userrights.main" icon="tollium:users/users" shortcut="ctrl+shift+u">
+    <application name="userrights"
+                 group="setup"
+                 icon="tollium:users/users"
+                 screen="/screens/userrights/userrights.xml#main"
+                 shortcut="ctrl+shift+u"
+                 tid="portal.apps.userrights">
       <accesscheck combine="or">
         <requireright right="system:browseunits" />
       </accesscheck>
     </application>
-
-    <application name="dba" screen="tolliumapps/dba/dba.xml#main" isdeveloperapp="true" group="development" tid="module.apps.dba" icon="tollium:database/database">
+    <application name="dba"
+                 group="development"
+                 icon="tollium:database/database"
+                 isdeveloperapp="true"
+                 screen="tolliumapps/dba/dba.xml#main"
+                 tid="module.apps.dba">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
-
-    <application name="personalsettings" startmacro="mod::system/lib/screens/userrights/dialogs/userpreferences.whlib#RunUserPreferences">
-      <accesscheck>
-      </accesscheck>
+    <application name="personalsettings"
+                 startmacro="/lib/screens/userrights/dialogs/userpreferences.whlib#RunUserPreferences">
+      <accesscheck />
     </application>
-
-    <application name="debugger" screen="debugger/debugger.main" group="development" title="Integrated debugger" isdeveloperapp="true" supportedlanguages="en" icon="tollium:objects/bug">
-      <accesscheck>
-        <requireright right="system:sysop" />
-      </accesscheck>
-    </application>
-
-    <application name="codeview" screen="screens/monitor/processlist.xml#codeview" isdeveloperapp="true" supportedlanguages="en">
+    <application name="debugger"
+                 group="development"
+                 icon="tollium:objects/bug"
+                 isdeveloperapp="true"
+                 screen="/screens/debugger/debugger.xml#main"
+                 supportedlanguages="en"
+                 title="Integrated debugger">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
-
-    <application name="profiles" screen="debugger/profiles.main" group="development" tid="portal.apps.profilingmonitor" isdeveloperapp="true" supportedlanguages="en">
+    <application name="codeview"
+                 isdeveloperapp="true"
+                 screen="screens/monitor/processlist.xml#codeview"
+                 supportedlanguages="en">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
-
-    <application name="webservers" screen="tolliumapps/webservers/webservers.xml#main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
+    <application name="profiles"
+                 group="development"
+                 isdeveloperapp="true"
+                 screen="/screens/debugger/profiles.xml#main"
+                 supportedlanguages="en"
+                 tid="portal.apps.profilingmonitor">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+    <application name="webservers"
+                 group="system:setup"
+                 icon="tollium:objects/rackserver"
+                 screen="tolliumapps/webservers/webservers.xml#main"
+                 tid="portal.apps.webservers">
       <accesscheck>
         <requireright right="system:webservermgmt" />
       </accesscheck>
     </application>
 
-    <dashboardgroup name="ap" tid="monitor.groups.ap" orderbefore="*" screen="tolliumapps/dashboard/platform.xml" />
-    <dashboardgroup name="tasks" tid="monitor.groups.tasks" orderbefore="dev other"/>
-    <dashboardgroup name="dev" tid="monitor.groups.dev" orderafter="ap other" />
-    <dashboardgroup name="database" tid="monitor.groups.database" orderafter="ap"/>
-    <dashboardgroup name="other" tid="monitor.groups.other" orderafter="ap"/>
+    <dashboardgroup name="ap" orderbefore="*" screen="tolliumapps/dashboard/platform.xml" tid="monitor.groups.ap" />
+    <dashboardgroup name="tasks" orderbefore="dev other" tid="monitor.groups.tasks" />
+    <dashboardgroup name="dev" orderafter="ap other" tid="monitor.groups.dev" />
+    <dashboardgroup name="database" orderafter="ap" tid="monitor.groups.database" />
+    <dashboardgroup name="other" orderafter="ap" tid="monitor.groups.other" />
 
-    <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
-    <dashboardpanel group="tasks" name="timedtasks" tid="tolliumapps.dashboard.timedtasks.timedtasks" screen="tolliumapps/dashboard/timedtasks.xml#timedtasks" />
-    <dashboardpanel group="ap" name="modules" tid="tolliumapps.dashboard.modules.modulespanel" screen="tolliumapps/dashboard/modules.xml">
+    <dashboardpanel name="queues" group="tasks" screen="monitor/queues.queues" tid="monitor.queues.title" />
+    <dashboardpanel name="timedtasks"
+                    group="tasks"
+                    screen="tolliumapps/dashboard/timedtasks.xml#timedtasks"
+                    tid="tolliumapps.dashboard.timedtasks.timedtasks" />
+    <dashboardpanel name="modules"
+                    group="ap"
+                    screen="tolliumapps/dashboard/modules.xml"
+                    tid="tolliumapps.dashboard.modules.modulespanel">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </dashboardpanel>
-    <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs">
+    <dashboardpanel name="logs" group="ap" screen="monitor/logs.logs" tid="monitor.logs.title">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </dashboardpanel>
-    <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog">
+    <dashboardpanel name="rpclog" group="ap" screen="monitor/rpclog.rpclog" tid="monitor.rpclog.title">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </dashboardpanel>
-    <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />
-    <dashboardpanel group="dev" name="precalculatedcache" tid="tolliumapps.dashboard.caches.precalculatedcache" screen="tolliumapps/dashboard/caches.xml#precalculatedcache" />
-    <dashboardpanel group="ap" name="apps" tid="monitor.apps.title" screen="monitor/apps.apps" />
-    <dashboardpanel group="ap" name="users" tid="monitor.users.title" screen="monitor/users.users" />
-    <dashboardpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
-    <dashboardpanel group="ap" name="clusterservices" tid="monitor.clusterservices.title" screen="tolliumapps/dashboard/clusterservices.xml#clusterservices" />
-    <dashboardpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
-    <dashboardpanel group="ap" name="servicemanager" tid="tolliumapps.dashboard.servicemanager.servicemanager" screen="tolliumapps/dashboard/servicemanager.xml" />
-    <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />
-    <dashboardpanel group="ap" name="registry" tid="tolliumapps.dashboard.registry.registrypanel" screen="tolliumapps/dashboard/registry.xml#registrypanel">
+    <dashboardpanel name="installedfonts"
+                    group="ap"
+                    screen="tolliumapps/dashboard/fonts.xml#installedfonts"
+                    tid="tolliumapps.dashboard.fonts.installedfonts" />
+    <dashboardpanel name="precalculatedcache"
+                    group="dev"
+                    screen="tolliumapps/dashboard/caches.xml#precalculatedcache"
+                    tid="tolliumapps.dashboard.caches.precalculatedcache" />
+    <dashboardpanel name="apps" group="ap" screen="monitor/apps.apps" tid="monitor.apps.title" />
+    <dashboardpanel name="users" group="ap" screen="monitor/users.users" tid="monitor.users.title" />
+    <dashboardpanel name="processlist" group="ap" screen="monitor/processlist.processlist" tid="monitor.processlist.title" />
+    <dashboardpanel name="clusterservices"
+                    group="ap"
+                    screen="tolliumapps/dashboard/clusterservices.xml#clusterservices"
+                    tid="monitor.clusterservices.title" />
+    <dashboardpanel name="webserverscripts"
+                    group="ap"
+                    screen="monitor/webserverscripts.webserverscripts"
+                    tid="monitor.webserverscripts.title" />
+    <dashboardpanel name="servicemanager"
+                    group="ap"
+                    screen="tolliumapps/dashboard/servicemanager.xml"
+                    tid="tolliumapps.dashboard.servicemanager.servicemanager" />
+    <dashboardpanel name="systemnews"
+                    group="ap"
+                    screen="tolliumapps/dashboard/systemnews.xml#overview"
+                    tid="tolliumapps.dashboard.systemnews.systemnews" />
+    <dashboardpanel name="registry"
+                    group="ap"
+                    screen="tolliumapps/dashboard/registry.xml#registrypanel"
+                    tid="tolliumapps.dashboard.registry.registrypanel">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </dashboardpanel>
+    <dashboardpanel name="postgresqlsettings"
+                    group="database"
+                    screen="monitor/postgresql.postgresqlsettings"
+                    tid="monitor.postgresql.settings"
+                    ifenvironset="WEBHARE_DBASENAME" />
+    <dashboardpanel name="postgresqltransactions"
+                    group="database"
+                    screen="monitor/postgresql.postgresqltransactions"
+                    tid="monitor.postgresql.transactions"
+                    ifenvironset="WEBHARE_DBASENAME" />
+    <dashboardpanel name="postgresqllocks"
+                    group="database"
+                    screen="monitor/postgresql.postgresqllocks"
+                    tid="monitor.postgresql.locks"
+                    ifenvironset="WEBHARE_DBASENAME" />
+    <dashboardpanel name="postgresqlblobcleanup"
+                    group="database"
+                    screen="monitor/postgresql.postgresqlblobcleanup"
+                    tid="monitor.postgresql.blobcleanup"
+                    ifenvironset="WEBHARE_DBASENAME" />
+    <dashboardpanel name="mailqueue"
+                    group="tasks"
+                    screen="tolliumapps/dashboard/mailqueue.xml#mailqueuepanel"
+                    tid="tolliumapps.dashboard.mailqueue.mailqueuepanel" />
+    <dashboardpanel name="events" group="dev" screen="monitor/events.events" tid="monitor.events.title" />
+    <dashboardpanel name="locks" group="dev" screen="monitor/locks.locks" tid="monitor.locks.title" />
+    <dashboardpanel name="managedtasks" group="tasks" screen="monitor/managedtasks.panel" tid="monitor.managedtasks.title" />
 
-    <dashboardpanel group="database" name="postgresqlsettings" tid="monitor.postgresql.settings" screen="monitor/postgresql.postgresqlsettings" ifenvironset="WEBHARE_DBASENAME"  />
-    <dashboardpanel group="database" name="postgresqltransactions" tid="monitor.postgresql.transactions" screen="monitor/postgresql.postgresqltransactions" ifenvironset="WEBHARE_DBASENAME"  />
-    <dashboardpanel group="database" name="postgresqllocks" tid="monitor.postgresql.locks" screen="monitor/postgresql.postgresqllocks" ifenvironset="WEBHARE_DBASENAME"  />
-    <dashboardpanel group="database" name="postgresqlblobcleanup" tid="monitor.postgresql.blobcleanup" screen="monitor/postgresql.postgresqlblobcleanup" ifenvironset="WEBHARE_DBASENAME"  />
-
-    <dashboardpanel group="tasks" name="mailqueue" tid="tolliumapps.dashboard.mailqueue.mailqueuepanel" screen="tolliumapps/dashboard/mailqueue.xml#mailqueuepanel"  />
-
-    <dashboardpanel group="dev" name="events" tid="monitor.events.title" screen="monitor/events.events" />
-    <dashboardpanel group="dev" name="locks" tid="monitor.locks.title" screen="monitor/locks.locks" />
-    <dashboardpanel group="tasks" name="managedtasks" tid="monitor.managedtasks.title" screen="monitor/managedtasks.panel" />
-
-    <notification name="notifications.whfs.siteprofcompiled" tid="notifications.whfs.siteprofcompiled" descriptiontid="notifications.whfs.siteprofcompiled-desc" />
-    <notification name="notifications.whfs.siteproferrors" tid="notifications.whfs.siteproferrors" descriptiontid="notifications.whfs.siteproferrors-desc" defaultenabled="true" />
-    <notification name="notifications.webdav.putexception" tid="notifications.webdav.putexception" descriptiontid="notifications.webdav.putexception-desc" defaultenabled="true" />
-    <notification name="notifications.broadcast" tid="notifications.broadcast" descriptiontid="notifications.broadcast-desc" defaultenabled="true" />
+    <notification name="notifications.whfs.siteprofcompiled"
+                  descriptiontid="notifications.whfs.siteprofcompiled-desc"
+                  tid="notifications.whfs.siteprofcompiled" />
+    <notification name="notifications.whfs.siteproferrors"
+                  defaultenabled="true"
+                  descriptiontid="notifications.whfs.siteproferrors-desc"
+                  tid="notifications.whfs.siteproferrors" />
+    <notification name="notifications.webdav.putexception"
+                  defaultenabled="true"
+                  descriptiontid="notifications.webdav.putexception-desc"
+                  tid="notifications.webdav.putexception" />
+    <notification name="notifications.broadcast"
+                  defaultenabled="true"
+                  descriptiontid="notifications.broadcast-desc"
+                  tid="notifications.broadcast" />
   </portal>
 
   <tollium>
@@ -184,42 +259,21 @@
     <!-- candownloadflags requires 'filename' & 'mimetype' -->
     <dragtype name="whfsfile"
               candownloadflags="candownload"
-              objectname="lib/internal/whfs/dragtypes.whlib#whfsfiledrag"
-              flags="canmove candownload isactive" />
-
-    <dragtype name="whfsfolder"
-              objectname="lib/internal/whfs/dragtypes.whlib#whfsfolderdrag"
-              flags="canmove isactive" />
-
-    <dragtype name="unit"
-              objectname="lib/internal/support.whlib#unitdrag"
-              flags="candelete" />
-
-    <dragtype name="user"
-              objectname="lib/internal/support.whlib#userdrag"
-              flags="candelete" />
-
-    <dragtype name="role"
-              objectname="lib/internal/support.whlib#roledrag"
-              flags="candelete" />
-
+              flags="canmove candownload isactive"
+              objectname="lib/internal/whfs/dragtypes.whlib#whfsfiledrag" />
+    <dragtype name="whfsfolder" flags="canmove isactive" objectname="lib/internal/whfs/dragtypes.whlib#whfsfolderdrag" />
+    <dragtype name="unit" flags="candelete" objectname="lib/internal/support.whlib#unitdrag" />
+    <dragtype name="user" flags="candelete" objectname="lib/internal/support.whlib#userdrag" />
+    <dragtype name="role" flags="candelete" objectname="lib/internal/support.whlib#roledrag" />
   </tollium>
 
   <rights>
-    <rightsgroup name="default"
-                tid="rights.default"
-                descriptiontid="rights.default-descr"
-                />
-    <rightsgroup name="fs"
-                tid="rights.fs"
-                descriptiontid="rights.fs-descr"
-                icon="tollium:folders/publisher"
-                />
+    <rightsgroup name="default" descriptiontid="rights.default-descr" tid="rights.default" />
+    <rightsgroup name="fs" descriptiontid="rights.fs-descr" icon="tollium:folders/publisher" tid="rights.fs" />
     <rightsgroup name="authobjects"
-                tid="rights.authobjects"
-                descriptiontid="rights.authobjects-descr"
-                icon="tollium:users/users"
-                />
+                 descriptiontid="rights.authobjects-descr"
+                 icon="tollium:users/users"
+                 tid="rights.authobjects" />
 
     <objecttype name="units"
                 describer="lib/internal/support.whlib#unitobjecttypedescriber"
@@ -245,137 +299,154 @@
                 table=".access"
                 tid="rights.accessrules" />
 
-    <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*" isrootright="true">
+    <right name="sysop" descriptiontid="rights.sysop-descr" isrootright="true" showbefore="*" tid="rights.sysop">
       <impliedby right="sysop" />
     </right>
-    <right name="supervisor" tid="rights.supervisor" descriptiontid="rights.supervisor-descr" showafter="sysop">
+    <right name="supervisor" descriptiontid="rights.supervisor-descr" showafter="sysop" tid="rights.supervisor">
       <impliedby right="sysop" />
     </right>
-    <right name="openas" objecttype="units" tid="rights.openas" descriptiontid="rights.openas-descr" showafter="manageunit browseunits">
+    <right name="openas"
+           descriptiontid="rights.openas-descr"
+           objecttype="units"
+           showafter="manageunit browseunits"
+           tid="rights.openas">
       <impliedby right="sysop" />
     </right>
-    <right name="manageunit" objecttype="units" tid="rights.manageunit" descriptiontid="rights.manageunit-descr" >
+    <right name="manageunit" descriptiontid="rights.manageunit-descr" objecttype="units" tid="rights.manageunit">
       <impliedby right="sysop" />
     </right>
-    <right name="manageroles" objecttype="units" tid="rights.manageroles" descriptiontid="rights.manageroles-descr" showafter="manageunit" >
+    <right name="manageroles"
+           descriptiontid="rights.manageroles-descr"
+           objecttype="units"
+           showafter="manageunit"
+           tid="rights.manageroles">
       <impliedby right="manageunit" />
     </right>
-    <right name="browseunits" objecttype="units" tid="rights.browseunits" descriptiontid="rights.browseunits-descr" showafter="manageroles" >
+    <right name="browseunits"
+           descriptiontid="rights.browseunits-descr"
+           objecttype="units"
+           showafter="manageroles"
+           tid="rights.browseunits">
       <impliedby right="manageroles" />
     </right>
-
-    <right name="fs_fullaccess" objecttype="fs_objects" tid="system:rights.fs_fullaccess" descriptiontid="rights.fs_fullaccess-descr">
+    <right name="fs_fullaccess"
+           descriptiontid="rights.fs_fullaccess-descr"
+           objecttype="fs_objects"
+           tid="system:rights.fs_fullaccess">
       <impliedby right="sysop" />
     </right>
-    <right name="fs_browse" objecttype="fs_objects" tid="system:rights.fs_browse" descriptiontid="rights.fs_browse-descr" showafter="fs_fullaccess" >
+    <right name="fs_browse"
+           descriptiontid="rights.fs_browse-descr"
+           objecttype="fs_objects"
+           showafter="fs_fullaccess"
+           tid="system:rights.fs_browse">
       <impliedby right="fs_fullaccess" />
     </right>
-
-    <right name="webdav_fullaccess" objecttype="webdav_datafolders" tid="system:rights.webdav_fullaccess" descriptiontid="rights.webdav_fullaccess-descr">
+    <right name="webdav_fullaccess"
+           descriptiontid="rights.webdav_fullaccess-descr"
+           objecttype="webdav_datafolders"
+           tid="system:rights.webdav_fullaccess">
       <impliedby right="sysop" />
     </right>
-    <right name="webdav_readaccess" objecttype="webdav_datafolders" tid="system:rights.webdav_readaccess" descriptiontid="rights.webdav_readaccess-descr">
+    <right name="webdav_readaccess"
+           descriptiontid="rights.webdav_readaccess-descr"
+           objecttype="webdav_datafolders"
+           tid="system:rights.webdav_readaccess">
       <impliedby right="webdav_fullaccess" />
     </right>
-
-    <right name="webservermgmt" tid="system:rights.webservermgmt" descriptiontid="rights.webservermgmt-descr">
+    <right name="webservermgmt" descriptiontid="rights.webservermgmt-descr" tid="system:rights.webservermgmt">
       <impliedby right="sysop" />
     </right>
-    <right name="urlaccess" objecttype="accessrules" tid="system:rights.urlaccess" descriptiontid="rights.urlaccess-descr">
+    <right name="urlaccess" descriptiontid="rights.urlaccess-descr" objecttype="accessrules" tid="system:rights.urlaccess">
       <impliedby right="webservermgmt" />
     </right>
-
-    <right name="webdav" tid="rights.webdav" descriptiontid="rights.webdav-descr">
+    <right name="webdav" descriptiontid="rights.webdav-descr" tid="rights.webdav">
       <impliedby right="sysop" />
     </right>
   </rights>
 
   <backend>
-
     <!-- NEW namespacing rules (adopt future URL usage) to this:
 
       .<short>/ = a shorttag reserved for webhare modules, eg /.pd/ or /.ic/ or /.ea/ - these will all be two characters. no module should have such a short name
       .<module>/ = reserved for that module
    -->
-
     <webruleset name="webdav">
-      <webrule
-        path="/"
-        match="exact"
-        method="PROPFIND OPTIONS"
-        allowallmethods="true"
-        redirecttoscript="internal/webdavnamespace.shtml"
-        primarytrans="none"
-        authscript="scripts/internal/auth/webdav.whscr"
-      />
-
-      <webrule
-        path="/webdav"
-        match="exact"
-        allowallmethods="true"
-        redirecttoscript="internal/webdavnamespace.shtml"
-        primarytrans="none"
-        authscript="scripts/internal/auth/webdav.whscr"
-      />
-
-      <webrule
-        path="/webdav/"
-        match="initial"
-        allowallmethods="true"
-        redirecttoscript="internal/webdavnamespace.shtml"
-        matchassubdir="false"
-        primarytrans="none"
-        authscript="scripts/internal/auth/webdav.whscr"
-      />
+      <webrule path="/"
+               match="exact"
+               allowallmethods="true"
+               authscript="scripts/internal/auth/webdav.whscr"
+               method="PROPFIND OPTIONS"
+               primarytrans="none"
+               redirecttoscript="internal/webdavnamespace.shtml" />
+      <webrule path="/webdav"
+               match="exact"
+               allowallmethods="true"
+               authscript="scripts/internal/auth/webdav.whscr"
+               primarytrans="none"
+               redirecttoscript="internal/webdavnamespace.shtml" />
+      <webrule path="/webdav/"
+               match="initial"
+               allowallmethods="true"
+               authscript="scripts/internal/auth/webdav.whscr"
+               matchassubdir="false"
+               primarytrans="none"
+               redirecttoscript="internal/webdavnamespace.shtml" />
     </webruleset>
 
     <!-- TODO now that .system/dl is retired, we can just catch /.system/ ? -->
     <webrule path="root:/.system/endpoints" match="initial" redirecttodir="web:/systemroot/endpoints/" />
-    <webrule path="allroots:/.system/filetransfer" match="initial" redirecttodir="web:/systemroot/filetransfer/" priority="after" />
+    <webrule path="allroots:/.system/filetransfer"
+             match="initial"
+             priority="after"
+             redirecttodir="web:/systemroot/filetransfer/" />
 
     <!-- two separate rules are required because matchassubdir breaks Windows WebDav Redirector -->
     <webrule path="root:/" match="initial" applyruleset="system:webdav" />
 
     <!-- TODO: should there be a way to disable this builtin redirect? -->
-    <webrule path="allroots:/.well-known/acme-challenge/" match="initial" handlebyscript="web/global/acme.shtml" priority="after" />
-    <webrule path="allroots:/.webhare/direct/" match="initial" handlebydir="web/global/direct/" priority="after" />
-
-    <webrule path="allroots:/.uc/"
+    <webrule path="allroots:/.well-known/acme-challenge/"
              match="initial"
-             cachecontrol="public, max-age=31536000, immutable"
-             priority="after">
-      <tryfolder resolver="sha256b16_directory" path="storage::system/output/uc/" tag="system:unifiedcache" />
+             handlebyscript="web/global/acme.shtml"
+             priority="after" />
+    <webrule path="allroots:/.webhare/direct/" match="initial" handlebydir="web/global/direct/" priority="after" />
+    <webrule path="allroots:/.uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
+      <tryfolder path="storage::system/output/uc/" resolver="sha256b16_directory" tag="system:unifiedcache" />
       <tryfile path="mod::system/web/unifiedcache/404.shtml" />
     </webrule>
-
-    <webrule path="allroots:/.adhocserve/" redirecttoscript="internal/adhocserve.shtml" match="initial" priority="after" />
-
-    <webrule
-      path="allroots:/wh_services/"
-      allowallmethods="true"
-      redirecttoscript="internal/remoting.shtml"
-      errorpath="web:errors-remoting/"
-      finalerrorpath="true"
-      match="initial"
-      priority="after">
-    </webrule>
-
-    <webrule
-      path="allroots:/wh_services.whsock/"
-      allowallmethods="true"
-      redirecttoscript="internal/remoting.whsock"
-      errorpath="web:errors-remoting/"
-      finalerrorpath="true"
-      match="initial"
-      priority="after">
-    </webrule>
-
-    <webrule path="root:/tests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" />
-    <webrule path="allroots:/.system/jstests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:systemroot/jstests/" priority="after"/>
+    <webrule path="allroots:/.adhocserve/" match="initial" priority="after" redirecttoscript="internal/adhocserve.shtml" />
+    <webrule path="allroots:/wh_services/"
+             match="initial"
+             allowallmethods="true"
+             errorpath="web:errors-remoting/"
+             finalerrorpath="true"
+             priority="after"
+             redirecttoscript="internal/remoting.shtml" />
+    <webrule path="allroots:/wh_services.whsock/"
+             match="initial"
+             allowallmethods="true"
+             errorpath="web:errors-remoting/"
+             finalerrorpath="true"
+             priority="after"
+             redirecttoscript="internal/remoting.whsock" />
+    <webrule path="root:/tests/"
+             match="initial"
+             allowallmethods="true"
+             redirecttodir="web:/tests/"
+             maxservertype="development" />
+    <webrule path="allroots:/.system/jstests/"
+             match="initial"
+             allowallmethods="true"
+             priority="after"
+             redirecttodir="web:systemroot/jstests/"
+             maxservertype="development" />
 
     <!-- prevent indexing of non-production servers -->
-    <webrule maxservertype="acceptance" match="exact" path="allroots:/robots.txt" handlebyscript="scripts/internal/webserver/robots-nonprod.shtml" priority="after" />
-
+    <webrule path="allroots:/robots.txt"
+             match="exact"
+             handlebyscript="scripts/internal/webserver/robots-nonprod.shtml"
+             priority="after"
+             maxservertype="acceptance" />
     <webruleset name="noindex" tid="module.webruleset-noindex">
       <webrule path="/robots.txt" match="exact" handlebyscript="scripts/internal/webserver/robots-explicit.shtml" />
     </webruleset>
@@ -385,481 +456,249 @@
     <d:table name="access" primarykey="id">
       <d:documentation>This table contains the security settings for WebHare-hosted webservers.</d:documentation>
       <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-          Unique id for this access rule
-        </d:documentation>
+        <d:documentation>Unique id for this access rule</d:documentation>
       </d:integer>
       <d:boolean name="authlist">
-        <d:documentation>
-          If true, a separate authentication list for external users applies (see system_access_externalusers)
-
-        </d:documentation>
+        <d:documentation>If true, a separate authentication list for external users applies (see system_access_externalusers)</d:documentation>
       </d:boolean>
       <d:varchar name="authscript" maxlength="256">
-        <d:documentation>
-Name of a HareScript file that handles access control for this page
-
-        </d:documentation>
+        <d:documentation>Name of a HareScript file that handles access control for this page</d:documentation>
       </d:varchar>
       <d:integer name="authtype">
         <d:documentation>Type of authentication. 0 = no authentication, 1 = all webhare users may login, 2 = specified webhare users may login</d:documentation>
       </d:integer>
       <d:boolean name="authrequirement">
-        <d:documentation>
-Boolean indication the use of IP access rules
+        <d:documentation>Boolean indication the use of IP access rules
 true = all users must authenticate AND must match the IP access rules
-false = authentication is only necessary for users not matching the IP access rules
-        </d:documentation>
+false = authentication is only necessary for users not matching the IP access rules</d:documentation>
       </d:boolean>
-      <d:varchar name="description" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:varchar name="description" maxlength="4096" />
       <d:boolean name="disabled" />
       <d:boolean name="disablecaching" />
       <d:varchar name="errorpath" maxlength="256">
-        <d:documentation>
-Path with error documents like 404.html
-        </d:documentation>
+        <d:documentation>Path with error documents like 404.html</d:documentation>
       </d:varchar>
       <d:varchar name="hostingpath" maxlength="256">
-        <d:documentation>
-Alternative hosting path (for hostingsrc)
-
-        </d:documentation>
+        <d:documentation>Alternative hosting path (for hostingsrc)</d:documentation>
       </d:varchar>
       <d:integer name="hostingsrc">
         <d:documentation>Hosting source: 0 = standard serving, 2 = Alternate directory, 3 = single script, 4/5 = redirect (without/with subpath), 6: Apply hostingpath as a module ruleset (eg system:webdav)</d:documentation>
       </d:integer>
       <d:integer name="matchtype">
-        <d:documentation>
-          0=exact, 1=initial, 2=wildcards
-        </d:documentation>
+        <d:documentation>0=exact, 1=initial, 2=wildcards</d:documentation>
       </d:integer>
       <d:integer name="maxage">
-        <d:documentation>
-          Maximum cache age, in seconds
-        </d:documentation>
+        <d:documentation>Maximum cache age, in seconds</d:documentation>
       </d:integer>
       <d:varchar name="path" maxlength="256">
-        <d:documentation>
-Initial path to which this access rule applies. Rule applies to path and all contained folders
-
-        </d:documentation>
+        <d:documentation>Initial path to which this access rule applies. Rule applies to path and all contained folders</d:documentation>
       </d:varchar>
-      <d:integer name="webserver" references=".webservers" ondelete="cascade">
-        <d:documentation>
-          Webserver to which this access rule applies. If 0, applies to all webservers
-        </d:documentation>
+      <d:integer name="webserver" ondelete="cascade" references=".webservers">
+        <d:documentation>Webserver to which this access rule applies. If 0, applies to all webservers</d:documentation>
       </d:integer>
-
-      <d:integer name="redirectcode">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="redirectcode" />
       <d:boolean name="fixcase">
-        <d:documentation>
-          Try to fix lowercase/uppercase issues in URLs
-        </d:documentation>
+        <d:documentation>Try to fix lowercase/uppercase issues in URLs</d:documentation>
       </d:boolean>
-
     </d:table>
+
     <d:table name="access_externalusers">
       <d:documentation>This table contains the external users that can access a certain path. It is only applicable when 'authlist' on the access rule is set to true.</d:documentation>
-      <d:integer name="accessid" references=".access" ondelete="cascade">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="accessid" ondelete="cascade" references=".access" />
       <d:varchar name="description" maxlength="256">
-        <d:documentation>
-Free-form description of this user account
-
-        </d:documentation>
+        <d:documentation>Free-form description of this user account</d:documentation>
       </d:varchar>
       <d:varchar name="username" maxlength="256">
-        <d:documentation>
-Login name associated with this account
-
-        </d:documentation>
+        <d:documentation>Login name associated with this account</d:documentation>
       </d:varchar>
       <d:varchar name="userpassword" maxlength="256">
-        <d:documentation>
-Password associated with this account
-
-        </d:documentation>
+        <d:documentation>Password associated with this account</d:documentation>
       </d:varchar>
     </d:table>
+
     <d:table name="access_ips">
       <d:documentation>This table contains the IP addresses linked to access rules for WebHare-hosted webservers.</d:documentation>
-      <d:integer name="accessid" references=".access" ondelete="cascade">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="accessid" ondelete="cascade" references=".access" />
       <d:boolean name="is_allow">
-        <d:documentation>
-True if this is an allow rule
-
-        </d:documentation>
+        <d:documentation>True if this is an allow rule</d:documentation>
       </d:boolean>
-      <d:varchar name="mask" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:varchar name="mask" maxlength="256" />
     </d:table>
 
     <d:table name="mimetypes" primarykey="id">
       <d:documentation>This table lists the mime types that will be used by WebHare-hosted webservers. It also defines which mimetypes will be compiled and executed before transmission (eg. dynamic pages)</d:documentation>
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
       <d:varchar name="extension" maxlength="256">
-        <d:documentation>
-Extension used for this mimetype (eg "html")
-
-        </d:documentation>
+        <d:documentation>Extension used for this mimetype (eg "html")</d:documentation>
       </d:varchar>
-      <d:boolean name="forcedispositionattachment">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:boolean name="forcedispositionattachment" />
       <d:varchar name="mimetype" maxlength="256">
-        <d:documentation>
-Mimetype sent for content with this extenion (eg "text/html")
-
-        </d:documentation>
+        <d:documentation>Mimetype sent for content with this extenion (eg "text/html")</d:documentation>
       </d:varchar>
       <d:integer name="parsetype">
-        <d:documentation>
-Whether the document needs preprocessing before sending
+        <d:documentation>Whether the document needs preprocessing before sending
 0: send the document as is.
-1: interpret the document as a HareScript file.
-        </d:documentation>
+1: interpret the document as a HareScript file.</d:documentation>
       </d:integer>
-      <d:index name="extensionindex" columns="extension(32)" unique="true" uppercase="true">
-        <d:documentation>
-
-        </d:documentation>
-      </d:index>
+      <d:index name="extensionindex" columns="extension(32)" unique="true" uppercase="true" />
     </d:table>
 
     <d:table name="ports" primarykey="id">
       <d:documentation>This table lists all TCP ports on which the WebHare webserver will accept connections</d:documentation>
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="ip" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="keypair" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="ip" maxlength="256" />
+      <d:integer name="keypair" ondelete="set default" references=".fs_objects" />
       <d:integer name="port" nullable="false">
-        <d:documentation>
-TCP port number to listen on (eg 8000).
-
-        </d:documentation>
+        <d:documentation>TCP port number to listen on (eg 8000).</d:documentation>
       </d:integer>
       <d:boolean name="virtualhost">
-        <d:documentation>
-True if this port should support virtual hosting.
-
-        </d:documentation>
+        <d:documentation>True if this port should support virtual hosting.</d:documentation>
       </d:boolean>
       <d:varchar name="description" maxlength="1024">
-        <d:documentation>
-          Describe this port
-        </d:documentation>
+        <d:documentation>Describe this port</d:documentation>
       </d:varchar>
-
     </d:table>
 
     <d:table name="proxies" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
       <d:varchar name="url" maxlength="1024">
-        <d:documentation>
-          URL to the root of the proxy configuration interface
-        </d:documentation>
+        <d:documentation>URL to the root of the proxy configuration interface</d:documentation>
       </d:varchar>
       <d:varchar name="password" maxlength="1024">
-        <d:documentation>
-          Password for this proxy
-        </d:documentation>
+        <d:documentation>Password for this proxy</d:documentation>
       </d:varchar>
       <d:datetime name="lastset">
-        <d:documentation>
-          Last time this proxy was set/configured (used in the case of duplicate registrations for the same name to ensure the 'newer' configuration wins)
-        </d:documentation>
+        <d:documentation>Last time this proxy was set/configured (used in the case of duplicate registrations for the same name to ensure the 'newer' configuration wins)</d:documentation>
       </d:datetime>
       <d:datetime name="lastregistration">
-        <d:documentation>
-          Last successfull registration
-        </d:documentation>
+        <d:documentation>Last successfull registration</d:documentation>
       </d:datetime>
       <d:varchar name="reverseaddress" maxlength="300">
-        <d:documentation>
-          The address the proxy should connect to us with
-        </d:documentation>
+        <d:documentation>The address the proxy should connect to us with</d:documentation>
       </d:varchar>
       <d:varchar name="hostswhitelist" maxlength="300">
-        <d:documentation>
-          Space separated list of hostmasks that are published through the proxy
-        </d:documentation>
+        <d:documentation>Space separated list of hostmasks that are published through the proxy</d:documentation>
       </d:varchar>
       <d:varchar name="description" maxlength="1024">
-        <d:documentation>
-          Describe this proxy
-        </d:documentation>
+        <d:documentation>Describe this proxy</d:documentation>
       </d:varchar>
       <d:varchar name="proxy_ips" maxlength="4096">
-        <d:documentation>
-          List of IP adresses the proxy has
-        </d:documentation>
+        <d:documentation>List of IP adresses the proxy has</d:documentation>
       </d:varchar>
       <d:varchar name="lasterror" maxlength="4096">
-        <d:documentation>
-          Last reported error
-        </d:documentation>
+        <d:documentation>Last reported error</d:documentation>
       </d:varchar>
       <d:varchar name="status" maxlength="4096">
-        <d:documentation>
-          Current registration status
-        </d:documentation>
+        <d:documentation>Current registration status</d:documentation>
       </d:varchar>
       <d:blob name="registrationresultdata">
-        <d:documentation>
-          Error data
-        </d:documentation>
+        <d:documentation>Error data</d:documentation>
       </d:blob>
     </d:table>
 
     <d:table name="managedtasks" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
       <d:datetime name="creationdate">
-        <d:documentation>
-          When the task was created
-        </d:documentation>
+        <d:documentation>When the task was created</d:documentation>
       </d:datetime>
       <d:datetime name="nextattempt">
-        <d:documentation>
-          When to try the next attempt on this task
-        </d:documentation>
+        <d:documentation>When to try the next attempt on this task</d:documentation>
       </d:datetime>
       <d:datetime name="finished">
-        <d:documentation>
-          When the task was finished
-        </d:documentation>
+        <d:documentation>When the task was finished</d:documentation>
       </d:datetime>
       <d:integer name="workertype">
-        <d:documentation>
-          Required worker type - 0 = harescript, 1 = javascript
-        </d:documentation>
+        <d:documentation>Required worker type - 0 = harescript, 1 = javascript</d:documentation>
       </d:integer>
-      <d:varchar name="tasktype" maxlength="400">
-        <d:documentation>
-        </d:documentation>
-      </d:varchar>
+      <d:varchar name="tasktype" maxlength="400" />
       <d:varchar name="taskdata" maxlength="4096">
-        <d:documentation>
-          HSON encoded record associated with the task
-        </d:documentation>
+        <d:documentation>HSON encoded record associated with the task</d:documentation>
       </d:varchar>
       <d:blob name="auxdata">
-        <d:documentation>
-          HSON encoded record with extra data for the task, which might not fit into taskdata
-        </d:documentation>
+        <d:documentation>HSON encoded record with extra data for the task, which might not fit into taskdata</d:documentation>
       </d:blob>
       <d:varchar name="lasterrors" maxlength="4096">
-        <d:documentation>
-          Last seen output if errors occurred
-        </d:documentation>
+        <d:documentation>Last seen output if errors occurred</d:documentation>
       </d:varchar>
       <d:varchar name="stacktrace" maxlength="4096">
-        <d:documentation>
-          HSON-encoded stack trace, may be filled when errors have occurred
-        </d:documentation>
+        <d:documentation>HSON-encoded stack trace, may be filled when errors have occurred</d:documentation>
       </d:varchar>
       <d:varchar name="shortretval" maxlength="1000">
-        <d:documentation>
-          A short HSON retval if available. If set to 'long', see 'longretval'
-        </d:documentation>
+        <d:documentation>A short HSON retval if available. If set to 'long', see 'longretval'</d:documentation>
       </d:varchar>
       <d:blob name="longretval">
-        <d:documentation>
-          A long HSON retval
-        </d:documentation>
+        <d:documentation>A long HSON retval</d:documentation>
       </d:blob>
       <d:integer name="failures">
-        <d:documentation>
-          Number of sequential task failures so far (exceptions and ABORTs). A restart will reset this
-        </d:documentation>
+        <d:documentation>Number of sequential task failures so far (exceptions and ABORTs). A restart will reset this</d:documentation>
       </d:integer>
       <d:integer name="iterations">
-        <d:documentation>
-          For restartable tasks, how many iterations we've done. Used by the queuemgr to detect a requested task restart
-        </d:documentation>
+        <d:documentation>For restartable tasks, how many iterations we've done. Used by the queuemgr to detect a requested task restart</d:documentation>
       </d:integer>
       <d:boolean name="iscancelled">
-        <d:documentation>
-          True if this task is cancelled. Cancelled tasks do not count towards eg. mail failure rate
-        </d:documentation>
+        <d:documentation>True if this task is cancelled. Cancelled tasks do not count towards eg. mail failure rate</d:documentation>
       </d:boolean>
       <d:integer name="priority">
-        <d:documentation>
-          Task priority, a lower number means higher priority.
-        </d:documentation>
+        <d:documentation>Task priority, a lower number means higher priority.</d:documentation>
       </d:integer>
       <d:integer name="timeout">
-        <d:documentation>
-          Maximum duration of the task in milliseconds
-        </d:documentation>
+        <d:documentation>Maximum duration of the task in milliseconds</d:documentation>
       </d:integer>
       <d:datetime name="notbefore">
-        <d:documentation>
-          Date after which the task is allowed to run
-        </d:documentation>
+        <d:documentation>Date after which the task is allowed to run</d:documentation>
       </d:datetime>
     </d:table>
 
     <d:table name="managedtasksmeta" primarykey="id">
-      <d:documentation>
-        Additional data we associate with tasks. Used to eg. store mail delivery status, which can come in async and can't
-        be safely added to the normal 'managedtask' return records
-      </d:documentation>
+      <d:documentation>Additional data we associate with tasks. Used to eg. store mail delivery status, which can come in async and can't
+        be safely added to the normal 'managedtask' return records</d:documentation>
       <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-          Unique row id
-        </d:documentation>
+        <d:documentation>Unique row id</d:documentation>
       </d:integer>
-      <d:integer name="task" references=".managedtasks" ondelete="cascade" nullable="0">
-        <d:documentation>
-          Task we're associated with
-        </d:documentation>
+      <d:integer name="task" nullable="0" ondelete="cascade" references=".managedtasks">
+        <d:documentation>Task we're associated with</d:documentation>
       </d:integer>
-      <d:varchar name="metakey" nullable="0" maxlength="128">
-        <d:documentation>
-          Unique key for this data
-        </d:documentation>
+      <d:varchar name="metakey" maxlength="128" nullable="0">
+        <d:documentation>Unique key for this data</d:documentation>
       </d:varchar>
-      <d:varchar name="metavalue" nullable="0" maxlength="4096">
-        <d:documentation>
-          The actual HSON data
-        </d:documentation>
+      <d:varchar name="metavalue" maxlength="4096" nullable="0">
+        <d:documentation>The actual HSON data</d:documentation>
       </d:varchar>
       <d:index name="extensionindex" columns="task metakey(32)" unique="true" uppercase="true">
-        <d:documentation>
-          Make sure only one instance of each datakey exists
-        </d:documentation>
+        <d:documentation>Make sure only one instance of each datakey exists</d:documentation>
       </d:index>
     </d:table>
 
     <d:table name="tasks" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
       <d:boolean name="autoadded">
         <d:documentation>Automatically added by a moduledefinition</d:documentation>
       </d:boolean>
-      <d:varchar name="description" maxlength="1024">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:boolean name="enabled">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:varchar name="description" maxlength="1024" />
+      <d:boolean name="enabled" />
       <d:varchar name="inapplicable" maxlength="500">
         <d:documentation>If set, the reason this task is inapplicable to this server</d:documentation>
       </d:varchar>
-      <d:varchar name="error" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:varchar name="error" maxlength="4096" />
       <d:datetime name="currentstart">
-        <d:documentation>
-          When running, time when the script started running
-        </d:documentation>
+        <d:documentation>When running, time when the script started running</d:documentation>
       </d:datetime>
       <d:datetime name="lastrun">
-        <d:documentation>
-          Last time this task was executed
-        </d:documentation>
+        <d:documentation>Last time this task was executed</d:documentation>
       </d:datetime>
       <d:datetime name="nexttime">
-        <d:documentation>
-          Next time this task will be executed, or DEFAULT DATETIME if no execution is scheduled
-        </d:documentation>
+        <d:documentation>Next time this task will be executed, or DEFAULT DATETIME if no execution is scheduled</d:documentation>
       </d:datetime>
-      <d:varchar name="parameters" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="repeatcount">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="repeatinterval">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="repeatintervaltype">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="workerthreads">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:boolean name="runatstartup">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
-      <d:varchar name="script" nullable="false" maxlength="1024">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="tag" maxlength="64">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-
+      <d:varchar name="parameters" maxlength="4096" />
+      <d:integer name="repeatcount" />
+      <d:integer name="repeatinterval" />
+      <d:integer name="repeatintervaltype" />
+      <d:integer name="workerthreads" />
+      <d:boolean name="runatstartup" />
+      <d:varchar name="script" maxlength="1024" nullable="false" />
+      <d:varchar name="tag" maxlength="64" />
       <d:integer name="timeout">
-        <d:documentation>
-          Time (in minutes) after which the task is forcibly terminated. Set to 0 use the default timeout
-        </d:documentation>
+        <d:documentation>Time (in minutes) after which the task is forcibly terminated. Set to 0 use the default timeout</d:documentation>
       </d:integer>
     </d:table>
 
@@ -867,13 +706,8 @@ True if this port should support virtual hosting.
       <d:integer name="id" autonumberstart="2">
         <d:documentation>Authobject unique id, primary key</d:documentation>
       </d:integer>
-      <d:varchar name="name" maxlength="256" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-
-      <d:integer name="parent" references=".authobjects" ondelete="cascade" nullable="true">
+      <d:varchar name="name" maxlength="256" nullable="false" />
+      <d:integer name="parent" nullable="true" ondelete="cascade" references=".authobjects">
         <d:documentation>Authobject's parent, used to reconstruct unit tree</d:documentation>
       </d:integer>
       <d:integer name="type" nullable="false">
@@ -888,25 +722,24 @@ True if this port should support virtual hosting.
       <d:datetime name="deletiondate">
         <d:documentation>If set, time of authobject deletion. Used to expire authobjects after 60 (production, acceptance) or 7 (test, development) days</d:documentation>
       </d:datetime>
-
-      <d:varchar name="guid" maxlength="40" unique="true" nullable="false">
+      <d:varchar name="guid" maxlength="40" nullable="false" unique="true">
         <d:documentation>wrd: id of entity associated with this authobject</d:documentation>
       </d:varchar>
-
       <d:obsoleteindex name="parentnameindex" />
       <d:obsoleteindex name="guidindex" />
     </d:table>
+
     <d:table name="rolegrants" primarykey="id">
       <d:integer name="id" autonumberstart="1">
         <d:documentation>Unique database id</d:documentation>
       </d:integer>
-      <d:integer name="role" references=".authobjects" ondelete="cascade" nullable="0">
+      <d:integer name="role" nullable="0" ondelete="cascade" references=".authobjects">
         <d:documentation>The role being granted</d:documentation>
       </d:integer>
-      <d:integer name="grantee" references=".authobjects" ondelete="cascade" nullable="0">
+      <d:integer name="grantee" nullable="0" ondelete="cascade" references=".authobjects">
         <d:documentation>Role recipient</d:documentation>
       </d:integer>
-      <d:integer name="grantor" references=".authobjects" ondelete="set default">
+      <d:integer name="grantor" ondelete="set default" references=".authobjects">
         <d:documentation>Authobject creating this role assignment</d:documentation>
       </d:integer>
       <d:datetime name="creationdate" nullable="0">
@@ -919,120 +752,62 @@ True if this port should support virtual hosting.
         <d:documentation>Data describing user doing this action (GetUserDataForLogging)</d:documentation>
       </d:varchar>
     </d:table>
+
     <d:table name="webservers" primarykey="id">
       <d:documentation>This table lists all webservers which are either hosted by the WebHare webserver, or to which WebHare can write</d:documentation>
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-
+      <d:integer name="id" autonumberstart="1" />
       <d:varchar name="baseurl" maxlength="256">
-        <d:documentation>
-URL where the webserver starts. It must start with the protocol (usually "http:") and end with a forward slash. (/)
-
-        </d:documentation>
-      </d:varchar> <!-- webserver with empty baseurl is ignored -->
-
+        <d:documentation>URL where the webserver starts. It must start with the protocol (usually "http:") and end with a forward slash. (/)</d:documentation>
+      </d:varchar>  <!-- webserver with empty baseurl is ignored -->
       <d:varchar name="diskfolder" maxlength="256">
-        <d:documentation>
-Folder on disk, referring to the files of baseurl on disk. Paths must always be stored using forward slashes, and must end with a forward slash. (/)
-
-        </d:documentation>
+        <d:documentation>Folder on disk, referring to the files of baseurl on disk. Paths must always be stored using forward slashes, and must end with a forward slash. (/)</d:documentation>
       </d:varchar>
       <d:varchar name="outputextension" maxlength="64">
-        <d:documentation>
-Extension for generated formatted files (usually ".html")
-
-        </d:documentation>
+        <d:documentation>Extension for generated formatted files (usually ".html")</d:documentation>
       </d:varchar>
-      <d:integer name="parent" references=".webservers" ondelete="cascade">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="parent" ondelete="cascade" references=".webservers" />
       <d:integer name="port" references=".ports">
-        <d:documentation>
-The port to which this webserver is bound. If this value is 0, this webserver can only be reached through a TCP port for which 'virtual hosting' has been enabled.
-        </d:documentation>
+        <d:documentation>The port to which this webserver is bound. If this value is 0, this webserver can only be reached through a TCP port for which 'virtual hosting' has been enabled.</d:documentation>
       </d:integer>
-      <d:varchar name="title" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:varchar name="title" maxlength="256" />
       <d:integer name="type">
         <d:documentation>Entry type: 0 output website, 1 for backend, 6 for webserver group</d:documentation>
       </d:integer>
-
       <d:datetime name="lastseen">
-        <d:documentation>
-          Last time checkwebservers.whscr has seen this webserver point to us
-        </d:documentation>
+        <d:documentation>Last time checkwebservers.whscr has seen this webserver point to us</d:documentation>
       </d:datetime>
       <d:datetime name="lastcheck">
-        <d:documentation>
-          Last time checkwebservers.whscr has checked this webserver
-        </d:documentation>
+        <d:documentation>Last time checkwebservers.whscr has checked this webserver</d:documentation>
       </d:datetime>
       <d:varchar name="lastcheckerror" maxlength="512">
-        <d:documentation>
-          Last check error
-        </d:documentation>
+        <d:documentation>Last check error</d:documentation>
       </d:varchar>
       <d:integer name="stricttransportsecurity">
         <d:documentation>Seconds to set a HSTS header for</d:documentation>
       </d:integer>
     </d:table>
+
     <d:table name="webservers_aliases" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="hostname" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="webserver" references=".webservers" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="hostname" maxlength="256" />
+      <d:integer name="webserver" nullable="false" ondelete="cascade" references=".webservers" />
       <d:boolean name="explicit">
-        <d:documentation>
-          Explicit alias (do not redirect to primary name)
-        </d:documentation>
+        <d:documentation>Explicit alias (do not redirect to primary name)</d:documentation>
       </d:boolean>
       <d:datetime name="lastseen">
-        <d:documentation>
-          Last time checkwebservers.whscr has seen this webserver point to us
-        </d:documentation>
+        <d:documentation>Last time checkwebservers.whscr has seen this webserver point to us</d:documentation>
       </d:datetime>
       <d:datetime name="lastcheck">
-        <d:documentation>
-          Last time checkwebservers.whscr has checked this webserver
-        </d:documentation>
+        <d:documentation>Last time checkwebservers.whscr has checked this webserver</d:documentation>
       </d:datetime>
       <d:varchar name="lastcheckerror" maxlength="512">
-        <d:documentation>
-          Last check error
-        </d:documentation>
+        <d:documentation>Last check error</d:documentation>
       </d:varchar>
     </d:table>
 
     <d:table name="webservers_usage" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="webserver" references=".webservers" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="webserver" nullable="false" ondelete="cascade" references=".webservers" />
       <d:datetime name="time" nullable="0" />
       <d:integer name="hits" nullable="0" />
       <d:integer name="serverfails" />
@@ -1041,510 +816,291 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       <d:integer64 name="download" />
       <d:integer64 name="upload" />
       <d:integer64 name="sumpagetime" />
-
       <d:index name="timeindex" columns="time">
-        <d:documentation>
-          Allow quick access by time
-        </d:documentation>
+        <d:documentation>Allow quick access by time</d:documentation>
       </d:index>
     </d:table>
 
     <d:table name="modules" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" maxlength="256" unique="true" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:datetime name="modificationdate">
-        <d:documentation>
-
-        </d:documentation>
-      </d:datetime>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="name" maxlength="256" nullable="false" unique="true" />
+      <d:datetime name="modificationdate" />
     </d:table>
 
     <d:obsoletetable name="module_objecttypes" />
 
     <d:table name="module_rights" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" maxlength="256" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="name" maxlength="256" nullable="false" />
       <d:obsoletecolumn name="objtype" />
-      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:integer name="module" nullable="false" ondelete="cascade" references=".modules" />
       <d:datetime name="orphansince">
         <d:documentation>Date since which we didn't see references to this right</d:documentation>
       </d:datetime>
-      <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
-        <d:documentation>
-        </d:documentation>
-      </d:index>
+      <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true" />
     </d:table>
 
     <d:table name="module_impliedbys" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="right" references=".module_rights" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="impliedby" references=".module_rights" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="fieldname" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="right" nullable="false" ondelete="cascade" references=".module_rights" />
+      <d:integer name="impliedby" nullable="false" ondelete="cascade" references=".module_rights" />
+      <d:varchar name="fieldname" maxlength="256" />
     </d:table>
 
     <d:table name="fs_instances" primarykey="id">
-      <d:documentation>
-        An instance of contenttype data for a fs_objects (file/folder).
-      </d:documentation>
-
-      <d:number name="id" autonumberstart="1">
-      </d:number>
-      <d:integer name="fs_object" references=".fs_objects" ondelete="cascade" nullable="false">
-        <d:documentation>
-          The fs_object (file/folder) to which this data is linked.
-        </d:documentation>
+      <d:documentation>An instance of contenttype data for a fs_objects (file/folder).</d:documentation>
+      <d:number name="id" autonumberstart="1" />
+      <d:integer name="fs_object" nullable="false" ondelete="cascade" references=".fs_objects">
+        <d:documentation>The fs_object (file/folder) to which this data is linked.</d:documentation>
       </d:integer>
-      <d:integer name="fs_type" references=".fs_types" ondelete="cascade" nullable="false" noupdate="true">
-        <d:documentation>
-          The content type
-        </d:documentation>
+      <d:integer name="fs_type" noupdate="true" nullable="false" ondelete="cascade" references=".fs_types">
+        <d:documentation>The content type</d:documentation>
       </d:integer>
     </d:table>
 
     <d:table name="fs_members" primarykey="id">
-      <d:documentation>
-        A member of a contenttype
-      </d:documentation>
-
-      <d:integer name="id" autonumberstart="1">
+      <d:documentation>A member of a contenttype</d:documentation>
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="fs_type" noupdate="true" nullable="false" ondelete="cascade" references=".fs_types">
+        <d:documentation>To which contenttype this member belongs</d:documentation>
       </d:integer>
-      <d:integer name="fs_type" references=".fs_types" ondelete="cascade" nullable="false" noupdate="true">
-        <d:documentation>
-          To which contenttype this member belongs
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" nullable="false" maxlength="256">
-        <d:documentation>
-          Name within the contenttype (or within the array if this member has a parent)
-        </d:documentation>
+      <d:varchar name="name" maxlength="256" nullable="false">
+        <d:documentation>Name within the contenttype (or within the array if this member has a parent)</d:documentation>
       </d:varchar>
       <d:boolean name="orphan">
-        <d:documentation>
-          If TRUE, this member currently doesn't exist anymore in a siteprofile
-          (which means this member was kept in the database because there still were instances/files using this member, but the member isn't returned by instancedata API's such as GetInstanceData or whfstype-&gt;Enrich anymore. When the member exists again (not an orphan anymore) the data formally set in these orphan members becomes accessable again.)
-        </d:documentation>
+        <d:documentation>If TRUE, this member currently doesn't exist anymore in a siteprofile
+          (which means this member was kept in the database because there still were instances/files using this member, but the member isn't returned by instancedata API's such as GetInstanceData or whfstype-&gt;Enrich anymore. When the member exists again (not an orphan anymore) the data formally set in these orphan members becomes accessable again.)</d:documentation>
       </d:boolean>
       <d:datetime name="orphansince">
-        <d:documentation>
-          Since when is this field orphaned
-        </d:documentation>
+        <d:documentation>Since when is this field orphaned</d:documentation>
       </d:datetime>
-
       <d:integer name="type" nullable="0">
         <d:documentation>What type of content this member contains. See whconstant_whfstype_membertypes for posssible values</d:documentation>
       </d:integer>
-      <d:integer name="parent" references=".fs_members" ondelete="cascade">
-        <d:documentation>
-          If this member is part of an array, this contains the id of the array member it's part of.
-        </d:documentation>
+      <d:integer name="parent" ondelete="cascade" references=".fs_members">
+        <d:documentation>If this member is part of an array, this contains the id of the array member it's part of.</d:documentation>
       </d:integer>
-      <d:index name="typenameparentindex" columns="fs_type parent name(32)" unique="true" uppercase="true">
-        <d:documentation>
-
-        </d:documentation>
-      </d:index>
+      <d:index name="typenameparentindex" columns="fs_type parent name(32)" unique="true" uppercase="true" />
     </d:table>
 
-    <d:table name="fs_objects" primarykey="id" legacy_writeaccessmgr="WEBHARE">
+    <d:table name="fs_objects" legacy_writeaccessmgr="WEBHARE" primarykey="id">
       <d:integer name="id" autonumberstart="256">
-        <d:documentation>
-          Unique identification for this file
-        </d:documentation>
+        <d:documentation>Unique identification for this file</d:documentation>
       </d:integer>
       <d:datetime name="creationdate" nullable="false">
-        <d:documentation>
-          The date and time in UTC when this file was created
-        </d:documentation>
+        <d:documentation>The date and time in UTC when this file was created</d:documentation>
       </d:datetime>
       <d:blob name="data">
-        <d:documentation>
-          The content of the file, for file types which have physical content (all file types except profiles and link files)
-        </d:documentation>
+        <d:documentation>The content of the file, for file types which have physical content (all file types except profiles and link files)</d:documentation>
       </d:blob>
       <d:varchar name="description" maxlength="2048">
-        <d:documentation>
-          A description for this file
-        </d:documentation>
+        <d:documentation>A description for this file</d:documentation>
       </d:varchar>
       <d:varchar name="errordata" maxlength="1024">
-        <d:documentation>
-          Contains additional error information for some publication status codes
-        </d:documentation>
+        <d:documentation>Contains additional error information for some publication status codes</d:documentation>
       </d:varchar>
       <d:varchar name="externallink" maxlength="1024">
-        <d:documentation>
-          If this file is of type 'external link', the URL to which this file points
-        </d:documentation>
+        <d:documentation>If this file is of type 'external link', the URL to which this file points</d:documentation>
       </d:varchar>
-      <d:integer name="filelink" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-          If this is an internal or content link file, the id of the linked file
-        </d:documentation>
+      <d:integer name="filelink" ondelete="set default" references=".fs_objects">
+        <d:documentation>If this is an internal or content link file, the id of the linked file</d:documentation>
       </d:integer>
-      <d:varchar name="fullpath" maxlength="4096" internalcolumnname="FULLPATH">
-        <d:documentation>
-          The path from the site's root folder to this file. Always starts and ends with a slash character ('/')
-        </d:documentation>
+      <d:varchar name="fullpath" internalcolumnname="FULLPATH" maxlength="4096">
+        <d:documentation>The path from the site's root folder to this file. Always starts and ends with a slash character ('/')</d:documentation>
       </d:varchar>
-      <d:varchar name="whfspath" maxlength="4096" internalcolumnname="WHFSPATH">
-        <d:documentation>
-          Full path to the file from the root of the WHFS file system - unlike fullpath, this path does not stop at the site root
-        </d:documentation>
+      <d:varchar name="whfspath" internalcolumnname="WHFSPATH" maxlength="4096">
+        <d:documentation>Full path to the file from the root of the WHFS file system - unlike fullpath, this path does not stop at the site root</d:documentation>
       </d:varchar>
       <d:integer name="highestparent" internalcolumnname="HIGHESTPARENT">
-        <d:documentation>
-          The id of the hightest parent that is still in the same site. Equivalent to the 'root' field of the folder's parentsite. 0 if this folder is not inside a site.
-        </d:documentation>
+        <d:documentation>The id of the hightest parent that is still in the same site. Equivalent to the 'root' field of the folder's parentsite. 0 if this folder is not inside a site.</d:documentation>
       </d:integer>
-      <d:integer name="indexdoc" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-          This is the id of the index document of the folder.
-          If a file is selected or a folder has no indexdoc, the indexdoc is 0 else the indexdoc is the id of the file.
-        </d:documentation>
+      <d:integer name="indexdoc" ondelete="set default" references=".fs_objects">
+        <d:documentation>This is the id of the index document of the folder.
+          If a file is selected or a folder has no indexdoc, the indexdoc is 0 else the indexdoc is the id of the file.</d:documentation>
       </d:integer>
-      <d:varchar name="indexurl" maxlength="4096" internalcolumnname="INDEXURL">
-        <d:documentation>
-          The indexurl, is the url of the currently selected document.
-        </d:documentation>
+      <d:varchar name="indexurl" internalcolumnname="INDEXURL" maxlength="4096">
+        <d:documentation>The indexurl, is the url of the currently selected document.</d:documentation>
       </d:varchar>
       <d:boolean name="isfolder">
-        <d:documentation>
-          Whether the selected item is a folder
-        </d:documentation>
+        <d:documentation>Whether the selected item is a folder</d:documentation>
       </d:boolean>
       <d:varchar name="keywords" maxlength="1024">
-        <d:documentation>
-          A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
-        </d:documentation>
+        <d:documentation>A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)</d:documentation>
       </d:varchar>
       <d:datetime name="firstpublishdate">
-        <d:documentation>
-          The date and time in UTC when this file was first published
-        </d:documentation>
+        <d:documentation>The date and time in UTC when this file was first published</d:documentation>
       </d:datetime>
       <d:datetime name="lastpublishdate">
-        <d:documentation>
-          The date and time in UTC when this file was last published
-        </d:documentation>
+        <d:documentation>The date and time in UTC when this file was last published</d:documentation>
       </d:datetime>
       <d:integer name="lastpublishsize">
-        <d:documentation>
-          The size of the item since its last publication
-        </d:documentation>
+        <d:documentation>The size of the item since its last publication</d:documentation>
       </d:integer>
       <d:integer name="lastpublishtime">
-        <d:documentation>
-          The time in milliseconds it took to publish the file, last time we succesfully published it. 0 if no measurement is available.
-        </d:documentation>
+        <d:documentation>The time in milliseconds it took to publish the file, last time we succesfully published it. 0 if no measurement is available.</d:documentation>
       </d:integer>
-
       <d:varchar name="scandata" maxlength="512">
-        <d:documentation>
-          File scanned data, used to reconstruct a scannedblob record and save some tweakable metadata (such as dominantcolor)
-        </d:documentation>
+        <d:documentation>File scanned data, used to reconstruct a scannedblob record and save some tweakable metadata (such as dominantcolor)</d:documentation>
       </d:varchar>
-
-      <d:integer name="modifiedby" references=".authobjects" ondelete="set default">
-        <d:documentation>
-          The id of the user that modified this item last.
-        </d:documentation>
+      <d:integer name="modifiedby" ondelete="set default" references=".authobjects">
+        <d:documentation>The id of the user that modified this item last.</d:documentation>
       </d:integer>
       <d:datetime name="modificationdate" nullable="false">
-        <d:documentation>
-          The date and time in UTC when this file was last modified
-        </d:documentation>
+        <d:documentation>The date and time in UTC when this file was last modified</d:documentation>
       </d:datetime>
-      <d:varchar name="name" nullable="false" maxlength="256">
-        <d:documentation>
-          The name for this file, which must be unique inside its parent folder
-        </d:documentation>
+      <d:varchar name="name" maxlength="256" nullable="false">
+        <d:documentation>The name for this file, which must be unique inside its parent folder</d:documentation>
       </d:varchar>
       <d:integer name="ordering">
-        <d:documentation>
-          Relative ordering of this file
-        </d:documentation>
+        <d:documentation>Relative ordering of this file</d:documentation>
       </d:integer>
-
-      <d:integer name="parent" references=".fs_objects" ondelete="cascade">
-        <d:documentation>
-          Id of the folder containing this file
-        </d:documentation>
+      <d:integer name="parent" ondelete="cascade" references=".fs_objects">
+        <d:documentation>Id of the folder containing this file</d:documentation>
       </d:integer>
       <d:integer name="parent_inside_site" internalcolumnname="PARENT_INSIDE_SITE">
-        <d:documentation>
-          The parent of the selected item
-        </d:documentation>
+        <d:documentation>The parent of the selected item</d:documentation>
       </d:integer>
-
       <d:boolean name="publish" internalcolumnname="PUBLISH">
-        <d:documentation>
-          Checks if the document needs to be published or not
-        </d:documentation>
+        <d:documentation>Checks if the document needs to be published or not</d:documentation>
       </d:boolean>
       <d:integer name="published">
-        <d:documentation>
-          Status en flags indicating the current publishing, task and error status of the file.
-        </d:documentation>
+        <d:documentation>Status en flags indicating the current publishing, task and error status of the file.</d:documentation>
       </d:integer>
-
       <d:varchar name="title" maxlength="256">
-        <d:documentation>
-          The title of the currently selected item
-        </d:documentation>
+        <d:documentation>The title of the currently selected item</d:documentation>
       </d:varchar>
       <d:integer name="type" references=".fs_types">
-        <d:documentation>
-          The file's type. See the file type list for more information on the currently supported file ids.
-        </d:documentation>
+        <d:documentation>The file's type. See the file type list for more information on the currently supported file ids.</d:documentation>
       </d:integer>
-      <d:varchar name="url" maxlength="4096" internalcolumnname="URL">
-        <d:documentation>
-          The URL to (the first page of) the published file. An empty string if this file will not be published.
-        </d:documentation>
+      <d:varchar name="url" internalcolumnname="URL" maxlength="4096">
+        <d:documentation>The URL to (the first page of) the published file. An empty string if this file will not be published.</d:documentation>
       </d:varchar>
       <d:boolean name="isactive" internalcolumnname="ISACTIVE">
-        <d:documentation>
-          Checks if the current selected item is active
-        </d:documentation>
+        <d:documentation>Checks if the current selected item is active</d:documentation>
       </d:boolean>
       <d:boolean name="ispinned">
-        <d:documentation>
-          Checks if the current selected item is pinned, if yes; the item cannot be replaced/renamed or deleted.
-        </d:documentation>
+        <d:documentation>Checks if the current selected item is pinned, if yes; the item cannot be replaced/renamed or deleted.</d:documentation>
       </d:boolean>
-
       <d:index name="parentnameindex" columns="parent name(32)" unique="true" uppercase="true">
-        <d:documentation>
-          Also used to enforce unique names within folders.
-        </d:documentation>
+        <d:documentation>Also used to enforce unique names within folders.</d:documentation>
       </d:index>
     </d:table>
 
-    <d:table name="fs_settings" primarykey="id" >
-      <d:documentation>
-        The value/content of a contenttype's member with in a specific instance.
-        In case of member's of type 'whfsref' or 'array' there can be multiple fs_settings per member+instance combination.
-      </d:documentation>
-
-      <d:number name="id" autonumberstart="1">
-      </d:number>
+    <d:table name="fs_settings" primarykey="id">
+      <d:documentation>The value/content of a contenttype's member with in a specific instance.
+        In case of member's of type 'whfsref' or 'array' there can be multiple fs_settings per member+instance combination.</d:documentation>
+      <d:number name="id" autonumberstart="1" />
       <d:blob name="blobdata">
-        <d:documentation>
-          Value/content (used if the content is longer than 4096 and therefore doesn't fit in the 'setting' field)
-        </d:documentation>
+        <d:documentation>Value/content (used if the content is longer than 4096 and therefore doesn't fit in the 'setting' field)</d:documentation>
       </d:blob>
-
-      <d:integer name="instancetype" references=".fs_types" ondelete="cascade">
-        <d:documentation>
-          The contenttype of this member in case this setting belongs to a member of type 'instance'.
-        </d:documentation>
+      <d:integer name="instancetype" ondelete="cascade" references=".fs_types">
+        <d:documentation>The contenttype of this member in case this setting belongs to a member of type 'instance'.</d:documentation>
       </d:integer>
-      <d:number name="fs_instance" references=".fs_instances" ondelete="cascade" nullable="false" noupdate="true">
-        <d:documentation>
-          Used for members of type "instance" to store an instance of a(nother) contenttype.
-          This instance will than be the value (returned as RECORD through the API) instead of the blobdata or settings field.
-        </d:documentation>
+      <d:number name="fs_instance" noupdate="true" nullable="false" ondelete="cascade" references=".fs_instances">
+        <d:documentation>Used for members of type "instance" to store an instance of a(nother) contenttype.
+          This instance will than be the value (returned as RECORD through the API) instead of the blobdata or settings field.</d:documentation>
       </d:number>
-
-      <d:integer name="fs_member" references=".fs_members" ondelete="cascade" nullable="false" noupdate="true">
-        <d:documentation>
-          For which member in the contenttype this setting contains the value.
-        </d:documentation>
+      <d:integer name="fs_member" noupdate="true" nullable="false" ondelete="cascade" references=".fs_members">
+        <d:documentation>For which member in the contenttype this setting contains the value.</d:documentation>
       </d:integer>
-
       <d:varchar name="setting" maxlength="4096">
-        <d:documentation>
-          The value (unless the value is longer than 4096 characters, in which case it'll be stored in blobdata)
-        </d:documentation>
+        <d:documentation>The value (unless the value is longer than 4096 characters, in which case it'll be stored in blobdata)</d:documentation>
       </d:varchar>
-      <d:integer name="fs_object" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-          Used for members of type "whfsref" or "whfsrefarray" to link to the fs_object, and by images to point to the original Publisher file.
-        </d:documentation>
+      <d:integer name="fs_object" ondelete="set default" references=".fs_objects">
+        <d:documentation>Used for members of type "whfsref" or "whfsrefarray" to link to the fs_object, and by images to point to the original Publisher file.</d:documentation>
       </d:integer>
-      <d:number name="parent" references=".fs_settings" ondelete="cascade">
-        <d:documentation>
-          The setting of type 'array' that combines the individual elements of an array row
-        </d:documentation>
+      <d:number name="parent" ondelete="cascade" references=".fs_settings">
+        <d:documentation>The setting of type 'array' that combines the individual elements of an array row</d:documentation>
       </d:number>
       <d:integer name="ordering">
-        <d:documentation>
-          In case this setting belongs to a member of type 'array',
-          this will be the position in that array for this value.
-        </d:documentation>
+        <d:documentation>In case this setting belongs to a member of type 'array',
+          this will be the position in that array for this value.</d:documentation>
       </d:integer>
     </d:table>
 
     <d:table name="fs_types" primarykey="id">
-      <d:documentation>
-        Describes (metadata of) a contenttype.
-        An contenttypes can also be designated to be used as a filetypes, foldertypes and embeddedobjects.
-      </d:documentation>
-
-      <d:integer name="id" autonumberstart="1001">
-      </d:integer>
+      <d:documentation>Describes (metadata of) a contenttype.
+        An contenttypes can also be designated to be used as a filetypes, foldertypes and embeddedobjects.</d:documentation>
+      <d:integer name="id" autonumberstart="1001" />
       <d:boolean name="cloneoncopy">
-        <d:documentation>
-          Whether the data in this contenttype will be copied to the new fs_object when copying a file or folder.
+        <d:documentation>Whether the data in this contenttype will be copied to the new fs_object when copying a file or folder.
 
-          FIXME: how does this work when a type is used in a member type 'instance'??
-        </d:documentation>
+          FIXME: how does this work when a type is used in a member type 'instance'??</d:documentation>
       </d:boolean>
       <d:boolean name="isfiletype">
-        <d:documentation>
-          Whether to allow creation of a file with this type in the Publisher
-        </d:documentation>
+        <d:documentation>Whether to allow creation of a file with this type in the Publisher</d:documentation>
       </d:boolean>
       <d:boolean name="isfoldertype">
-        <d:documentation>
-          Whether to allow creation of a folder with this type in the Publisher
-        </d:documentation>
+        <d:documentation>Whether to allow creation of a folder with this type in the Publisher</d:documentation>
       </d:boolean>
-      <d:varchar name="namespace" nullable="false" maxlength="256" unique="true">
-        <d:documentation>
-          The human readable name through which you can refer to this contenttype.
-          Guidelines:<br />
+      <d:varchar name="namespace" maxlength="256" nullable="false" unique="true">
+        <d:documentation>The human readable name through which you can refer to this contenttype.
+          Guidelines:          <br />
           <ul>
-            <li>For websites start the namespace with the URL on which the main site is hosted</li>
-            <li>Optionally add /xmlns/ to the namespace</li>
-            <li>Add the name of the type of data (for example "headerimages") or the purpose it serves (for example "newswidget")</li>
+            <li>
+For websites start the namespace with the URL on which the main site is hosted            </li>
+            <li>
+Optionally add /xmlns/ to the namespace            </li>
+            <li>
+Add the name of the type of data (for example "headerimages") or the purpose it serves (for example "newswidget")            </li>
           </ul>
-        </d:documentation>
+</d:documentation>
       </d:varchar>
       <d:boolean name="isacceptableindex">
-        <d:documentation>
-          Whether a file which using this contenttype as filetype can be used as index file for it's parent folder.
-        </d:documentation>
+        <d:documentation>Whether a file which using this contenttype as filetype can be used as index file for it's parent folder.</d:documentation>
       </d:boolean>
-      <d:boolean name="needstemplate">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
-
-      <d:boolean name="ispublishedassubdir">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
-      <d:boolean name="ispublishable">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:boolean name="needstemplate" />
+      <d:boolean name="ispublishedassubdir" />
+      <d:boolean name="ispublishable" />
       <d:boolean name="isdynamicexecution">
-        <d:documentation>
-          If true, this file or foldertype requires dynamicexecution to be setup (eg a systemredirect file). We need to always know
-          this so we generate the proper files even if contenttypes are currently incomplete
-        </d:documentation>
+        <d:documentation>If true, this file or foldertype requires dynamicexecution to be setup (eg a systemredirect file). We need to always know
+          this so we generate the proper files even if contenttypes are currently incomplete</d:documentation>
       </d:boolean>
       <d:boolean name="capturesubpaths">
-        <d:documentation>
-          If true, publish files in such a way that they capture subpaths.
-        </d:documentation>
+        <d:documentation>If true, publish files in such a way that they capture subpaths.</d:documentation>
       </d:boolean>
       <d:boolean name="generatepreview">
-        <d:documentation>
-          Generate widget preview for files of this type.
-        </d:documentation>
+        <d:documentation>Generate widget preview for files of this type.</d:documentation>
       </d:boolean>
       <d:obsoletecolumn name="previewlibrary" />
       <d:obsoletecolumn name="previewobjectname" />
       <d:boolean name="orphan">
-        <d:documentation>
-          When a contenttype doesn't exist anymore in a siteprofile but is still kept in the database, the orphan field will be set to TRUE.
-          (the contenttype is preserved in the database when there still are fs_objects or member of type 'instance' using this contenttype).
-        </d:documentation>
+        <d:documentation>When a contenttype doesn't exist anymore in a siteprofile but is still kept in the database, the orphan field will be set to TRUE.
+          (the contenttype is preserved in the database when there still are fs_objects or member of type 'instance' using this contenttype).</d:documentation>
       </d:boolean>
       <d:datetime name="orphansince">
-        <d:documentation>
-          Since when is this type orphaned
-        </d:documentation>
+        <d:documentation>Since when is this type orphaned</d:documentation>
       </d:datetime>
     </d:table>
 
     <d:table name="fs_history" primarykey="id">
       <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-          Unique id, primary key
-        </d:documentation>
+        <d:documentation>Unique id, primary key</d:documentation>
       </d:integer>
       <d:datetime name="when" nullable="0">
-        <d:documentation>
-          When this action took place
-        </d:documentation>
+        <d:documentation>When this action took place</d:documentation>
       </d:datetime>
-      <d:integer name="fs_object" references=".fs_objects" ondelete="cascade" nullable="false">
-        <d:documentation>
-          Object described by this history record
-        </d:documentation>
+      <d:integer name="fs_object" nullable="false" ondelete="cascade" references=".fs_objects">
+        <d:documentation>Object described by this history record</d:documentation>
       </d:integer>
-      <d:integer name="user" references=".authobjects" ondelete="set default">
-        <d:documentation>
-          User responsible for this action
-        </d:documentation>
+      <d:integer name="user" ondelete="set default" references=".authobjects">
+        <d:documentation>User responsible for this action</d:documentation>
       </d:integer>
       <d:integer name="type">
-        <d:documentation>
-          History action type. See whconstant_historytype_…
-        </d:documentation>
+        <d:documentation>History action type. See whconstant_historytype_…</d:documentation>
       </d:integer>
-      <d:integer name="currentparent" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-          The parent at the moment the action was created
-        </d:documentation>
+      <d:integer name="currentparent" ondelete="set default" references=".fs_objects">
+        <d:documentation>The parent at the moment the action was created</d:documentation>
       </d:integer>
-      <d:integer name="snapshot" references=".fs_objects" ondelete="cascade">
-        <d:documentation>
-          Snapshot fs_object used to store 'original' values when modifying
-        </d:documentation>
+      <d:integer name="snapshot" ondelete="cascade" references=".fs_objects">
+        <d:documentation>Snapshot fs_object used to store 'original' values when modifying</d:documentation>
       </d:integer>
       <d:obsoletecolumn name="related" />
       <d:varchar name="currentname" maxlength="256">
-        <d:documentation>
-          The name at the moment the action was created
-        </d:documentation>
+        <d:documentation>The name at the moment the action was created</d:documentation>
       </d:varchar>
       <d:varchar name="version" maxlength="16">
-        <d:documentation>
-          Version number associated with this item
-        </d:documentation>
+        <d:documentation>Version number associated with this item</d:documentation>
       </d:varchar>
       <d:varchar name="userdata" maxlength="2048">
         <d:documentation>Data describing user making these changes (GetUserDataForLogging)</d:documentation>
@@ -1553,195 +1109,114 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
     <d:table name="fs_versionevents" primarykey="id">
       <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-          Unique id, primary key
-        </d:documentation>
+        <d:documentation>Unique id, primary key</d:documentation>
       </d:integer>
       <d:integer name="fs_site" references=".sites">
-        <d:documentation>
-          Site this history item belongs to
-        </d:documentation>
+        <d:documentation>Site this history item belongs to</d:documentation>
       </d:integer>
       <d:datetime name="when" nullable="0">
-        <d:documentation>
-          When this action took place
-        </d:documentation>
+        <d:documentation>When this action took place</d:documentation>
       </d:datetime>
       <d:integer name="live_object" references=".fs_objects">
-        <d:documentation>
-          The published object of this item (the canonical item)
-        </d:documentation>
+        <d:documentation>The published object of this item (the canonical item)</d:documentation>
       </d:integer>
       <d:integer name="draft_object" references=".fs_objects">
-        <d:documentation>
-          The draft this version item refers to
-        </d:documentation>
+        <d:documentation>The draft this version item refers to</d:documentation>
       </d:integer>
-      <d:integer name="user" references=".authobjects" ondelete="set default">
-        <d:documentation>
-          User responsible for this action
-        </d:documentation>
+      <d:integer name="user" ondelete="set default" references=".authobjects">
+        <d:documentation>User responsible for this action</d:documentation>
       </d:integer>
       <d:varchar name="comment" maxlength="4096">
-        <d:documentation>
-          Comment about this action
-        </d:documentation>
+        <d:documentation>Comment about this action</d:documentation>
       </d:varchar>
       <d:varchar name="tag" maxlength="4096">
-        <d:documentation>
-          Optional tag for this action
-        </d:documentation>
+        <d:documentation>Optional tag for this action</d:documentation>
       </d:varchar>
       <d:integer name="eventtype">
-        <d:documentation>
-          History event type.
+        <d:documentation>History event type.
           0=request approval (accorderingsverzoek)
           1=approve+apply (accorderen en toepassen)
-          2=final deny (verzoek is afgewezen)
-        </d:documentation>
+          2=final deny (verzoek is afgewezen)</d:documentation>
       </d:integer>
       <d:boolean name="iscurrent">
-        <d:documentation>
-          TRUE for the last event, last apply event, and open requests
-        </d:documentation>
+        <d:documentation>TRUE for the last event, last apply event, and open requests</d:documentation>
       </d:boolean>
       <d:integer name="ordering">
-        <d:documentation>
-          Monotonically increasing ordering for events for this live_object
-        </d:documentation>
+        <d:documentation>Monotonically increasing ordering for events for this live_object</d:documentation>
       </d:integer>
       <d:varchar name="orgfullpath" maxlength="4096">
-        <d:documentation>
-          Fullpath of the linked original before the modification
-        </d:documentation>
+        <d:documentation>Fullpath of the linked original before the modification</d:documentation>
       </d:varchar>
       <d:varchar name="orgurl" maxlength="4096">
-        <d:documentation>
-          URL of the linked original before the modification
-        </d:documentation>
+        <d:documentation>URL of the linked original before the modification</d:documentation>
       </d:varchar>
       <d:varchar name="newfullpath" maxlength="4096">
-        <d:documentation>
-          Fullpath after the modification, at the time of versionevent creation (if this is an apply, the realized value)
-        </d:documentation>
+        <d:documentation>Fullpath after the modification, at the time of versionevent creation (if this is an apply, the realized value)</d:documentation>
       </d:varchar>
       <d:varchar name="newurl" maxlength="4096">
-        <d:documentation>
-          URL after the modification, at the time of versionevent creation (if this is an apply, the realized value)
-        </d:documentation>
+        <d:documentation>URL after the modification, at the time of versionevent creation (if this is an apply, the realized value)</d:documentation>
       </d:varchar>
-
       <d:boolean name="isdelete">
-        <d:documentation>
-          TRUE if this event is an deletion.
-        </d:documentation>
+        <d:documentation>TRUE if this event is an deletion.</d:documentation>
       </d:boolean>
       <d:integer name="newflags">
-        <d:documentation>
-          Flags describing new publication.index status for the live version when the request is applied
-        </d:documentation>
+        <d:documentation>Flags describing new publication.index status for the live version when the request is applied</d:documentation>
       </d:integer>
       <d:datetime name="finished">
-        <d:documentation>
-          When the request for approval has been finished (cancelled or applied)
-        </d:documentation>
+        <d:documentation>When the request for approval has been finished (cancelled or applied)</d:documentation>
       </d:datetime>
       <d:integer name="previousrequest" references=".fs_versionevents">
-        <d:documentation>
-          Refers to the relevant request for approval
-        </d:documentation>
+        <d:documentation>Refers to the relevant request for approval</d:documentation>
       </d:integer>
       <d:varchar name="versionnumber" maxlength="4096">
-        <d:documentation>
-          Version id for this version
-        </d:documentation>
+        <d:documentation>Version id for this version</d:documentation>
       </d:varchar>
       <d:datetime name="expirydate">
-        <d:documentation>
-          Expiry date
-        </d:documentation>
+        <d:documentation>Expiry date</d:documentation>
       </d:datetime>
 
       <!-- index to quickly find the 'current' events -->
-      <d:index name="currentindex" columns="live_object iscurrent">
-        <d:documentation>
-        </d:documentation>
-      </d:index>
+      <d:index name="currentindex" columns="live_object iscurrent" />
     </d:table>
 
-    <d:table name="sites" primarykey="id" legacy_writeaccessmgr="WEBHARE">
-      <d:integer name="id" references=".fs_objects" ondelete="cascade" unique="1" nullable="0" noupdate="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-
+    <d:table name="sites" legacy_writeaccessmgr="WEBHARE" primarykey="id">
+      <d:integer name="id" noupdate="1" nullable="0" ondelete="cascade" references=".fs_objects" unique="1" />
       <d:varchar name="description" maxlength="2048">
-        <d:documentation>
-A short description of the contents of the site
-
-        </d:documentation>
+        <d:documentation>A short description of the contents of the site</d:documentation>
       </d:varchar>
       <d:boolean name="locked">
-        <d:documentation>
-True if this site is locked (it may not be browsed or modified by its owners, and the site published output will not be modified)
-
-        </d:documentation>
+        <d:documentation>True if this site is locked (it may not be browsed or modified by its owners, and the site published output will not be modified)</d:documentation>
       </d:boolean>
       <d:varchar name="lockreason" maxlength="1024">
-        <d:documentation>
-The reason specified by the user locking this site
-
-        </d:documentation>
+        <d:documentation>The reason specified by the user locking this site</d:documentation>
       </d:varchar>
-      <d:varchar name="name" nullable="0" maxlength="256">
-        <d:documentation>
-The name for this site, as displayed in the site overview
-
-        </d:documentation>
+      <d:varchar name="name" maxlength="256" nullable="0">
+        <d:documentation>The name for this site, as displayed in the site overview</d:documentation>
       </d:varchar>
-
       <d:varchar name="outputfolder" maxlength="256">
-        <d:documentation>
-The subfolder in which the site should be published inside the specified webserver. This folder's name always ends in a slash
-
-        </d:documentation>
+        <d:documentation>The subfolder in which the site should be published inside the specified webserver. This folder's name always ends in a slash</d:documentation>
       </d:varchar>
-      <d:integer name="outputweb" references=".webservers" ondelete="set default">
-        <d:documentation>
-The webserver on which this site is hosted, 0 if the site is not published
-
-        </d:documentation>
+      <d:integer name="outputweb" ondelete="set default" references=".webservers">
+        <d:documentation>The webserver on which this site is hosted, 0 if the site is not published</d:documentation>
       </d:integer>
       <d:varchar name="cdnbaseurl" maxlength="1024">
-        <d:documentation>
-          The corresponding CDN URL for the webroot
-        </d:documentation>
+        <d:documentation>The corresponding CDN URL for the webroot</d:documentation>
       </d:varchar>
-      <d:varchar name="webroot" maxlength="1024" internalcolumnname="webroot">
-        <d:documentation>
-The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published
-
-        </d:documentation>
+      <d:varchar name="webroot" internalcolumnname="webroot" maxlength="1024">
+        <d:documentation>The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published</d:documentation>
       </d:varchar>
       <d:obsoletecolumn name="historydays" />
       <d:varchar name="versioningpolicy" maxlength="128">
-        <d:documentation>
-          Whether the site is under version control
-        </d:documentation>
+        <d:documentation>Whether the site is under version control</d:documentation>
       </d:varchar>
-      <d:index name="nameindex" columns="name(32)" unique="1" uppercase="1" >
-        <d:documentation>
-
-        </d:documentation>
-      </d:index>
+      <d:index name="nameindex" columns="name(32)" unique="1" uppercase="1" />
     </d:table>
 
     <d:table name="flatregistry" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:varchar name="name" nullable="false" maxlength="512" noupdate="true" />
-      <d:bytea name="namehash" maxlength="20" nullable="false" unique="true" noupdate="true"/>
-      <d:bytea name="nodehash" maxlength="20" nullable="false" noupdate="true"/>
+      <d:varchar name="name" maxlength="512" noupdate="true" nullable="false" />
+      <d:bytea name="namehash" maxlength="20" noupdate="true" nullable="false" unique="true" />
+      <d:bytea name="nodehash" maxlength="20" noupdate="true" nullable="false" />
       <d:varchar name="data" maxlength="4096" />
       <d:datetime name="modificationdate" />
       <d:blob name="blobdata" />
@@ -1751,39 +1226,25 @@ The full base URL on which this site will be published, calculated by combining 
     <!-- diverted files -->
     <d:table name="webdav_diversions" primarykey="id">
       <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-          Primary key
-        </d:documentation>
+        <d:documentation>Primary key</d:documentation>
       </d:integer>
-      <d:integer name="owner" references=".authobjects" ondelete="cascade" nullable="0">
-        <d:documentation>
-          The owner of this diverted file. Users can only see the diversions they stored themselves
-        </d:documentation>
+      <d:integer name="owner" nullable="0" ondelete="cascade" references=".authobjects">
+        <d:documentation>The owner of this diverted file. Users can only see the diversions they stored themselves</d:documentation>
       </d:integer>
-      <d:bytea name="pathhash" nullable="0" maxlength="20">
-        <d:documentation>
-          SHA1 path hash
-        </d:documentation>
+      <d:bytea name="pathhash" maxlength="20" nullable="0">
+        <d:documentation>SHA1 path hash</d:documentation>
       </d:bytea>
-      <d:varchar name="path" nullable="0" maxlength="4096">
-        <d:documentation>
-          File/folder path
-        </d:documentation>
+      <d:varchar name="path" maxlength="4096" nullable="0">
+        <d:documentation>File/folder path</d:documentation>
       </d:varchar>
       <d:datetime name="created" nullable="0">
-        <d:documentation>
-          Creation time
-        </d:documentation>
+        <d:documentation>Creation time</d:documentation>
       </d:datetime>
       <d:integer name="type">
-        <d:documentation>
-          Type (0=file, 1=directory)
-        </d:documentation>
+        <d:documentation>Type (0=file, 1=directory)</d:documentation>
       </d:integer>
       <d:blob name="data">
-        <d:documentation>
-          File data
-        </d:documentation>
+        <d:documentation>File data</d:documentation>
       </d:blob>
       <d:index name="pathindex" columns="owner pathhash" />
     </d:table>
@@ -1794,115 +1255,70 @@ The full base URL on which this site will be published, calculated by combining 
 
     -->
     <d:table name="webdav_datafolders" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="foldername" maxlength="256" nullable="0">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="diskfolder" maxlength="4096" nullable="0">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:index name="foldernameindex" columns="foldername(32)" unique="true" uppercase="true">
-        <d:documentation>
-
-        </d:documentation>
-      </d:index>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="foldername" maxlength="256" nullable="0" />
+      <d:varchar name="diskfolder" maxlength="4096" nullable="0" />
+      <d:index name="foldernameindex" columns="foldername(32)" unique="true" uppercase="true" />
       <d:boolean name="forcelowercase">
-        <d:documentation>
-          Force output to be lowercase, input paths to be case-insensitive
-        </d:documentation>
+        <d:documentation>Force output to be lowercase, input paths to be case-insensitive</d:documentation>
       </d:boolean>
     </d:table>
 
     <d:table name="towl_notifications" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="descriptiontid" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:boolean name="defaultenabled">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="module" nullable="false" ondelete="cascade" references=".modules" />
+      <d:varchar name="name" maxlength="256" />
+      <d:varchar name="descriptiontid" maxlength="256" />
+      <d:boolean name="defaultenabled" />
     </d:table>
 
-    <d:obsoletetable name="adhocdump_dumps"/>
-    <d:obsoletetable name="adhocdump_fields"/>
-    <d:obsoletetable name="adhocdump_results"/>
-    <d:obsoletetable name="adhocdump_resultvalues"/>
+    <d:obsoletetable name="adhocdump_dumps" />
+
+    <d:obsoletetable name="adhocdump_fields" />
+
+    <d:obsoletetable name="adhocdump_results" />
+
+    <d:obsoletetable name="adhocdump_resultvalues" />
 
     <d:table name="assetpacks" primarykey="id">
-      <d:integer name="id" autonumberstart="1"/>
+      <d:integer name="id" autonumberstart="1" />
       <d:datetime name="created" nullable="false">
-        <d:documentation>
-          Creation date of the asset pack
-        </d:documentation>
+        <d:documentation>Creation date of the asset pack</d:documentation>
       </d:datetime>
-
-      <d:varchar name="entrypoint" nullable="false" maxlength="256">
-        <d:documentation>
-          Requested entry point
-        </d:documentation>
+      <d:varchar name="entrypoint" maxlength="256" nullable="false">
+        <d:documentation>Requested entry point</d:documentation>
       </d:varchar>
       <d:varchar name="bundleconfig" maxlength="4096">
-        <d:documentation>
-          Bundle configuration, HSON encoded
-        </d:documentation>
+        <d:documentation>Bundle configuration, HSON encoded</d:documentation>
       </d:varchar>
       <d:varchar name="settings" maxlength="4096">
         <d:documentation>HSON encoded user settings (eg 'dev')</d:documentation>
       </d:varchar>
-      <d:varchar name="outputtag" nullable="false" maxlength="128" unique="true">
-        <d:documentation>
-        Output tag (uuid or export name) for this module/sitedesign/entrypoint combination
-        </d:documentation>
+      <d:varchar name="outputtag" maxlength="128" nullable="false" unique="true">
+        <d:documentation>Output tag (uuid or export name) for this module/sitedesign/entrypoint combination</d:documentation>
       </d:varchar>
     </d:table>
 
     <d:table name="precalccache" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:varchar name="hash" maxlength="32" unique="true" nullable="false" />
+      <d:varchar name="hash" maxlength="32" nullable="false" unique="true" />
       <d:varchar name="func" maxlength="1024" />
       <d:varchar name="state" maxlength="32">
-        <d:documentation>
-          "valid", "expired", "softexpired", "crashed", "discarded"
-        </d:documentation>
+        <d:documentation>"valid", "expired", "softexpired", "crashed", "discarded"</d:documentation>
       </d:varchar>
-
       <d:varchar name="keydatahsonstr" maxlength="4096" />
-      <d:blob name="keydatahsonblob"/>
+      <d:blob name="keydatahsonblob" />
       <d:varchar name="valuehsonstr" maxlength="4096" />
-      <d:blob name="valuehsonblob"/>
+      <d:blob name="valuehsonblob" />
       <d:varchar name="settingshsonstr" maxlength="4096" />
       <d:datetime name="lastuse" />
     </d:table>
 
     <d:obsoletetable name="registrykeys" />
+
     <d:obsoletetable name="registrynodes" />
-    <d:obsoletetable name="users"/>
+
+    <d:obsoletetable name="users" />
   </databaseschema>
 
   <registry>
@@ -1910,12 +1326,17 @@ The full base URL on which this site will be published, calculated by combining 
       <node name="publication">
         <integer name="maxpublishtime" description="Maximum publication time (seconds)" initialval="600" />
         <integer name="loglevel" description="Queuemanager logging level" />
-        <string name="defaultcontentlisting" description="Default content listing file" initialval="mod::publisher/scripts/defaultcontentlisting.whscr" />
+        <string name="defaultcontentlisting"
+                description="Default content listing file"
+                initialval="mod::publisher/scripts/defaultcontentlisting.whscr" />
         <boolean name="scanoutputatstartup" description="Scan all output at startup" initialval="true" />
-        <string name="stripextensions" description="Extensions to strip from published-as-subfolder documents" initialval=".rtd .docx .doc" />
+        <string name="stripextensions"
+                description="Extensions to strip from published-as-subfolder documents"
+                initialval=".rtd .docx .doc" />
       </node>
       <node name="msword">
-        <string name="getpagelistpages" description="Allows to override the pagelist provider GetPages for the builtin MSWord type."/>
+        <string name="getpagelistpages"
+                description="Allows to override the pagelist provider GetPages for the builtin MSWord type." />
       </node>
       <node name="autofileid">
         <string name="extensions" initialval="shtml" />
@@ -1928,36 +1349,45 @@ The full base URL on which this site will be published, calculated by combining 
         <obsoletekey name="objectpropssidetabs" />
       </node>
       <node name="trashcan">
-        <integer name="trashcanexpire" initialval="90" description="Expiry time for trashcan items in days (0 to disable)" />
+        <integer name="trashcanexpire" description="Expiry time for trashcan items in days (0 to disable)" initialval="90" />
         <integer name="trashcanmaxsize" description="Max size of trashcan in MB (0 to disable)" />
       </node>
-      <node name="forms"> <!-- FIXME at some point, just move this to the base site profile (at prio=negative) to allow modules to overwrite this. And processreults was intended to be 7 -->
-        <integer name="storeresults" initialval="400" description="The default number of days to store form results (default is 1 year + 1 month)" />
-        <integer name="processresults" initialval="30" description="The number of days to store form results internally for processing" />
-        <integer name="allformsubmits_maxhits" initialval="5" description="For all ips: maximum # of form submissions" />
-        <integer name="allformsubmits_timeperiod" initialval="5" description="For all ips: period over which we record form submissions" />
-        <integer name="ipformsubmits_maxhits" initialval="2" description="Per ip: maximum # of form submissions" />
-        <integer name="ipformsubmits_timeperiod" initialval="20" description="Per ip: period over which we record form submissions" />
+      <node name="forms">
+        <!-- FIXME at some point, just move this to the base site profile (at prio=negative) to allow modules to overwrite this. And processreults was intended to be 7 -->
+        <integer name="storeresults"
+                 description="The default number of days to store form results (default is 1 year + 1 month)"
+                 initialval="400" />
+        <integer name="processresults"
+                 description="The number of days to store form results internally for processing"
+                 initialval="30" />
+        <integer name="allformsubmits_maxhits" description="For all ips: maximum # of form submissions" initialval="5" />
+        <integer name="allformsubmits_timeperiod"
+                 description="For all ips: period over which we record form submissions"
+                 initialval="5" />
+        <integer name="ipformsubmits_maxhits" description="Per ip: maximum # of form submissions" initialval="2" />
+        <integer name="ipformsubmits_timeperiod"
+                 description="Per ip: period over which we record form submissions"
+                 initialval="20" />
         <datetime name="disableratelimits" description="Disable ratelimits until the specified time" />
       </node>
       <node name="analytics">
-        <string name="privateipcountry" initialval="NL" description="Country code to return for private IPs" />
+        <string name="privateipcountry" description="Country code to return for private IPs" initialval="NL" />
       </node>
       <obsoletenode name="internalwebdesign" />
     </node>
-
     <node name="system">
       <node name="webserver">
         <node name="checks">
           <string name="disablehttpschecks" />
         </node>
-        <node name="global"> <!-- Global options affect all websites/servers -->
+        <node name="global">
+          <!-- Global options affect all websites/servers -->
           <integer name="accesslogdays" description="Nr of days of access logs to keep" initialval="30" />
           <integer name="errorlogdays" description="Nr of days of error logs to keep" initialval="30" />
           <integer name="pxllogdays" description="Nr of days of pxl access logs to keep" initialval="90" />
           <integer name="usagelogdays" description="Nr of days of usage stats to keep" initialval="90" />
           <integer name="scripttimeout" description="Script timeout" initialval="900" />
-          <obsoletenode name="basefolder"/>
+          <obsoletenode name="basefolder" />
           <obsoletenode name="monitoring" />
           <integer name="historyseconds" description="Nr of seconds to keep process history" initialval="300" />
           <node name="locking">
@@ -1966,7 +1396,8 @@ The full base URL on which this site will be published, calculated by combining 
             <obsoletenode name="estimateddowntime" />
           </node>
           <node name="proxyservers">
-            <string name="trustxforwardedfor" description="A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" />
+            <string name="trustxforwardedfor"
+                    description="A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" />
             <string name="verificationcode" description="Verification code for webhare nginx proxy servers" />
           </node>
           <obsoletekey name="debugurls" />
@@ -1977,9 +1408,12 @@ The full base URL on which this site will be published, calculated by combining 
           <string name="cookiesecret" description="Secret key used to encrypt/sign cookies" />
           <obsoletenode name="elasticsecret" />
           <string name="debugsecret" description="Secret key used to debugging" />
-          <boolean name="autodenyipv6" description="Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" initialval="true" />
+          <boolean name="autodenyipv6"
+                   description="Automatically deny IPv6 access to URLs, if a global IPv4 deny exists"
+                   initialval="true" />
           <string name="ciphersuite" description="Override OpenSSL ciphersuite list for webserver listening ports" />
-          <string name="fullaccessips" description="List of IP addresses that bypass access rule login requirements, comma-separated" />
+          <string name="fullaccessips"
+                  description="List of IP addresses that bypass access rule login requirements, comma-separated" />
           <node name="keys" />
           <obsoletenode name="custom" />
         </node>
@@ -2000,19 +1434,26 @@ The full base URL on which this site will be published, calculated by combining 
         </node>
         <node name="webhare">
           <obsoletenode name="servicesurl" />
-          <string name="serviceshosts" description="URL to provider of integrated WebHare services" initialval="services-1.webhare.com services-2.webhare.com" />
+          <string name="serviceshosts"
+                  description="URL to provider of integrated WebHare services"
+                  initialval="services-1.webhare.com services-2.webhare.com" />
           <string name="docroot" description="Embedded documentation root" />
         </node>
-        <node name="smtp"> <!-- system.services.smtp -->
+        <node name="smtp">
+          <!-- system.services.smtp -->
           <string name="mailfrom" description="Default FROM address" />
           <boolean name="usemailfromfornonwhitelisted" description="Use default FROM for non-whitelisted senders" />
-          <string name="defaultmailroute" description="SMTP URL for the defailt mail route "/>
-          <integer name="mailretention" description="How long to keep sent mails (in days), needed to associate bounces" initialval="7" />
+          <string name="defaultmailroute" description="SMTP URL for the defailt mail route " />
+          <integer name="mailretention"
+                   description="How long to keep sent mails (in days), needed to associate bounces"
+                   initialval="7" />
           <integer name="maxsize" description="Maximum message size in bytes" initialval="10000000" />
         </node>
         <node name="adhoccache">
           <integer name="maxentries" description="Maximum number of entries in the adhoc cache" initialval="1024" />
-          <integer name="minperlibrary" description="Number of entries kept per library when cleaning up the cache" initialval="64" />
+          <integer name="minperlibrary"
+                   description="Number of entries kept per library when cleaning up the cache"
+                   initialval="64" />
         </node>
         <node name="geonames">
           <string name="accountname" description="Account name for GeoNames Web Services" />
@@ -2022,45 +1463,66 @@ The full base URL on which this site will be published, calculated by combining 
         </node>
       </node>
       <node name="cache">
-        <datetime name="moddatecutoff" description="After this date, we use the image hash instead of modification date in URLs" initialval="now" />
+        <datetime name="moddatecutoff"
+                  description="After this date, we use the image hash instead of modification date in URLs"
+                  initialval="now" />
       </node>
       <node name="global">
         <string name="servertype" description="Type of the server: production, acceptance, test, development" />
-        <string name="servername" description="Name of your server" initialval=""/>
-        <string name="installationid" description="Installation ID of your server" initialval=""/>
+        <string name="servername" description="Name of your server" initialval="" />
+        <string name="installationid" description="Installation ID of your server" initialval="" />
       </node>
       <obsoletenode name="licensing" />
-      <node name="userrights"> <!-- system.userrights -->
-        <integer name="retention" description="Retention period for deleted users, roles etc in system:usermgmt, in days" initialval="90" />
+      <node name="userrights">
+        <!-- system.userrights -->
+        <integer name="retention"
+                 description="Retention period for deleted users, roles etc in system:usermgmt, in days"
+                 initialval="90" />
         <string name="newuserdefaults_language" description="Default settings for new users - language" initialval="en" />
-        <string name="newuserdefaults_timezone" description="Default settings for new users - time zone" initialval="Europe/Amsterdam" />
-        <string name="newuserdefaults_decimalsep" description="Default settings for new users - decimal separator" initialval="," />
-        <string name="newuserdefaults_thousandsep" description="Default settings for new users - thousand separator" initialval="." />
+        <string name="newuserdefaults_timezone"
+                description="Default settings for new users - time zone"
+                initialval="Europe/Amsterdam" />
+        <string name="newuserdefaults_decimalsep"
+                description="Default settings for new users - decimal separator"
+                initialval="," />
+        <string name="newuserdefaults_thousandsep"
+                description="Default settings for new users - thousand separator"
+                initialval="." />
         <obsoletekey name="allowsecondfactorloginmasks" />
       </node>
-      <node name="tasks"> <!-- system.tasks -->
+      <node name="tasks">
+        <!-- system.tasks -->
         <integer name="maxprocesses" description="Maximum # of parallel processes started by executetasks" initialval="4" />
         <integer name="defaulttimeout" description="Default task timeout (in minutes)" initialval="60" />
         <integer name="finishedretention" description="How long to keep completed tasks (in days)" initialval="3" />
-        <integer name="maintenanceoffset" description="Maintenance offset in minutes. Used if WEBHARE_MAINTENANCE_OFFSET is not explicitly set" initialval="0" />
+        <integer name="maintenanceoffset"
+                 description="Maintenance offset in minutes. Used if WEBHARE_MAINTENANCE_OFFSET is not explicitly set"
+                 initialval="0" />
       </node>
-      <node name="precalc"> <!-- system.precalc -->
+      <node name="precalc">
+        <!-- system.precalc -->
         <integer name="maxjobs" description="Maximum # of parallel jobs started by precalc" initialval="10" />
-        <integer name="maxnoninteractivejobs" description="Maximum # of parallel non-interactive jobs started by precalc" initialval="5" />
+        <integer name="maxnoninteractivejobs"
+                 description="Maximum # of parallel non-interactive jobs started by precalc"
+                 initialval="5" />
       </node>
       <node name="modulemgr">
-        <integer name="archivedays" description="The number of days archived modules must be kept in the archivedmodules folder" initialval="180" />
+        <integer name="archivedays"
+                 description="The number of days archived modules must be kept in the archivedmodules folder"
+                 initialval="180" />
         <string name="installumask" description="Umask to apply to installed module files" initialval="0755" />
       </node>
       <node name="backend">
         <node name="check">
-          <string name="ipallowmask" description="Space separated list of IP addresses/masks allowed to use the check page" initialval="127.0.0.1" />
+          <string name="ipallowmask"
+                  description="Space separated list of IP addresses/masks allowed to use the check page"
+                  initialval="127.0.0.1" />
         </node>
         <node name="features">
           <boolean name="feedback" />
         </node>
         <node name="layout">
-          <string name="title" initialval="WebHare&#174; Platform" />
+          <string name="title" initialval="WebHare® Platform" />
           <string name="infotitle" />
           <string name="infotext" />
         </node>
@@ -2071,15 +1533,19 @@ The full base URL on which this site will be published, calculated by combining 
           <node name="override">
             <datetime name="validuntil" description="Time until which this override key is valid" />
             <string name="token" description="The override token to use" />
-            <integer name="duration" description="Duration of normal override tokens" initialval="1800000" /><!-- 30 minutes -->
+            <integer name="duration" description="Duration of normal override tokens" initialval="1800000" />  <!-- 30 minutes -->
           </node>
           <boolean name="allowpasswordreset" description="Allow users to reset their password" initialval="true" />
         </node>
         <node name="exclusiveaccess">
-          <integer name="takeovertime" description="The number of seconds to allow another user to decline a takeover request" initialval="30" />
+          <integer name="takeovertime"
+                   description="The number of seconds to allow another user to decline a takeover request"
+                   initialval="30" />
         </node>
         <node name="development">
-          <boolean name="manualdebugmgr" description="Don't run the debugmanager from the apprunner (when TRUE)" initialval="false" />
+          <boolean name="manualdebugmgr"
+                   description="Don't run the debugmanager from the apprunner (when TRUE)"
+                   initialval="false" />
           <integer name="zombietimeout" description="Zombie timeout in msecs" initialval="60000" />
           <string name="npmlinkroots" description="Directories that contain npm linked modules" initialval="" />
           <string name="watchdirs" description="Extra directories to watch source changes" initialval="" />
@@ -2122,27 +1588,37 @@ The full base URL on which this site will be published, calculated by combining 
   </publisher>
 
   <services>
-    <webservice name="auth" transports="whremoting" library="lib/internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="auth"
+                library="lib/internal/webharepeers/authservice.whlib"
+                prefix="RPC_"
+                primarytrans="none"
+                transports="whremoting">
+      <accesscheck />
     </webservice>
-    <webservice name="admin" transports="whremoting" library="lib/internal/adminservice.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="admin"
+                library="lib/internal/adminservice.whlib"
+                prefix="RPC_"
+                primarytrans="auto"
+                requirewhaccount="true"
+                transports="whremoting">
+      <accesscheck />
     </webservice>
-    <webservice name="jstests" transports="jsonrpc" maxservertype="development" library="lib/internal/jstests/service.whlib" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="jstests"
+                library="lib/internal/jstests/service.whlib"
+                prefix="RPC_"
+                transports="jsonrpc"
+                maxservertype="development">
+      <accesscheck />
     </webservice>
 
-    <internalservice tag="getconfig"
+    <internalservice globalport="true"
                      library="scripts/internal/webserver/getconfig.whscr"
-                     tid="tolliumapps.webservers.scripts.getconfig"
-                     portname="system:webserver.getconfig"
-                     globalport="true"
                      mode="alwayson"
-                     screen=""
                      persistonsoftreset="true"
+                     portname="system:webserver.getconfig"
+                     screen=""
+                     tag="getconfig"
+                     tid="tolliumapps.webservers.scripts.getconfig"
                      where="webserver" />
 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getsystemapprunnerconfig" />
@@ -2168,14 +1644,33 @@ The full base URL on which this site will be published, calculated by combining 
   </logging>
 
   <development>
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi" rootnodes="restapi" schemalocation="data/restapi.xsd" validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/moduledefinition.whlib#ModuleDefinitionValidator" />
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig" rootnodes="apconfig" schemalocation="data/apconfig.xsd" />
-    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="mod::system/whres/xml/xmlschema.xsd" validator="lib/internal/validation/xsd.whlib#XSDValidator" />
-    <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/" rootnodes="definitions" schemalocation="mod::system/whres/xml/wsdl.xsd" />
-    <xmlfiletype namespaceuri="" rootnodes="group"  validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo" rootnodes="group" schemalocation="data/testinfo.xsd" validator="lib/internal/validation/xml.whlib#TestInfoValidator" />
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic" rootnodes="topic" schemalocation="data/topic.xsd" validator="lib/internal/validation/xml.whlib#TopicValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi"
+                 rootnodes="restapi"
+                 schemalocation="data/restapi.xsd"
+                 validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition"
+                 rootnodes="module"
+                 schemalocation="data/moduledefinition.xsd"
+                 validator="lib/internal/validation/moduledefinition.whlib#ModuleDefinitionValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig"
+                 rootnodes="apconfig"
+                 schemalocation="data/apconfig.xsd" />
+    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema"
+                 rootnodes="schema"
+                 schemalocation="mod::system/whres/xml/xmlschema.xsd"
+                 validator="lib/internal/validation/xsd.whlib#XSDValidator" />
+    <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/"
+                 rootnodes="definitions"
+                 schemalocation="mod::system/whres/xml/wsdl.xsd" />
+    <xmlfiletype namespaceuri="" rootnodes="group" validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo"
+                 rootnodes="group"
+                 schemalocation="data/testinfo.xsd"
+                 validator="lib/internal/validation/xml.whlib#TestInfoValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic"
+                 rootnodes="topic"
+                 schemalocation="data/topic.xsd"
+                 validator="lib/internal/validation/xml.whlib#TopicValidator" />
   </development>
 
   <wrdschemas>

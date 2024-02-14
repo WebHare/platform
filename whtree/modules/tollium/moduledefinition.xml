@@ -13,7 +13,7 @@
 
   <servicemanager>
     <task runat="4 6 * * *" runtz="maintenance" script="scripts/tasks/cleanrtetemporaries.whscr" tag="cleanrtetemporaries" />
-    <task runat="17 0,6,12,18 * * *" runtz="maintenance" tag="updateremotedocumentation" script="scripts/tasks/updateremotedocumentation.whscr" description="Download remote documentation settings" runatstartup="true"/>
+    <task runat="17 0,6,12,18 * * *" runtz="maintenance" script="scripts/tasks/updateremotedocumentation.whscr" tag="updateremotedocumentation" description="Download remote documentation settings" runatstartup="true" />
   </servicemanager>
 
   <backend>
@@ -27,8 +27,10 @@
              match="initial"
              priority="after"
              redirecttoscript="internal/filetransfer.shtml" />
-
-    <webrule path="allroots:/.tollium/exclusiveaccess/" match="initial" redirecttodir="web:/exclusiveaccess/" priority="after" />
+    <webrule path="allroots:/.tollium/exclusiveaccess/"
+             match="initial"
+             priority="after"
+             redirecttodir="web:/exclusiveaccess/" />
   </backend>
 
   <portal>
@@ -98,7 +100,6 @@
                  rootnodes="language"
                  schemalocation="data/screens.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/icons" rootnodes="icon" schemalocation="data/icons.xsd" />
-
     <debugflag name="logcontroller" description="Log tollium/todd controller" />
     <debugflag name="logtransport" description="Log tollium/todd controller" />
     <debugflag name="usewasm" description="Use wasm as default application engine" />
