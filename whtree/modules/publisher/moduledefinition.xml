@@ -639,10 +639,6 @@
                  webharepolyfills="false" />
     </webdesign>
 
-    <webfeature name="savedurlhistory"
-                siteprofile="webfeatures/savedurlhistory/savedurlhistory.siteprl.xml"
-                tid="webfeatures.savedurlhistory.webfeaturetitle" />
-
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="setembeddedobjectrenderer" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="extendproperties" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
