@@ -143,6 +143,10 @@ async function testSiteProfiles() {
 
   const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
   test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectname);
+
+  const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
+  const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();
+  test.eq("wrd:testschema", wrdauth.wrdSchema);
 }
 
 async function testGenerateUniqueName() {
