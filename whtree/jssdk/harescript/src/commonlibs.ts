@@ -2,6 +2,61 @@
 import type { WebHareBlob } from "@webhare/services/src/webhareblob";
 import type { HSVMCallsProxy } from "./wasm-proxies";
 
+/* You can also declare your own loadlibs for TypeScript in your own modules. Put this in a TypeScript file:
+
+declare module "@webhare/harescript/src/commonlibs" {
+  interface CommonLibraries {
+    "mod::<module>/path/to/your.whlib": {
+      functionName(param1: string.. ): Promise< returnvalue >;
+    };
+  }
+}
+
+See hsapi.ts in the `dev` module for a practical example
+
+*/
+
+interface ValidationOptions {
+  onlytids?: boolean;
+  overridedata?: WebHareBlob;
+  performance?: boolean;
+  nomissingtids?: boolean;
+  nowarnings?: boolean;
+  documentation?: boolean;
+  eslintmasks?: string[];
+}
+
+type ValidationTid = {
+  resourcename: string;
+  line: number;
+  col: number;
+  attrname?: string;
+};
+
+type ValidationMessage = {
+  resourcename: string;
+  line: number;
+  col: number;
+  message: string;
+  source: string;
+  metadata: unknown;
+};
+
+type ValidationResult = {
+  /** List of hints */
+  hints: ValidationMessage[];
+  /** List of warnings */
+  warnings: ValidationMessage[];
+  /** List of errors */
+  errors: ValidationMessage[];
+  /** List of tids */
+  tids: ValidationTid[];
+  /** Event masks for invalidation of this validation result */
+  eventmasks: string[];
+  /** Icons */
+  icons: unknown[];
+};
+
 interface Mod_Publisher_Lib_Siteapi_Site {
   openByPath(path: string): Promise<(Mod_System_Lib_WHFS_WHFSObject & HSVMCallsProxy) | null>;
 }
@@ -34,6 +89,10 @@ interface Mod_System_Lib_Database {
   getPrimary(): Promise<(Mod_System_Lib_Database_PrimaryObject & HSVMCallsProxy) | null>;
 }
 
+interface Mod_System_Lib_Validation {
+  validateSingleFile(resourcename: string, options?: ValidationOptions): Promise<ValidationResult>;
+}
+
 interface Mod_System_Lib_WHFS {
   openWHFSObject(id: number): Promise<(Mod_System_Lib_WHFS_WHFSObject & HSVMCallsProxy) | null>;
 }
@@ -41,6 +100,7 @@ interface Mod_System_Lib_WHFS {
 export interface CommonLibraries {
   "wh::filetypes/archiving.whlib": Wh_Filetypes_Archiving;
   "mod::system/lib/database.whlib": Mod_System_Lib_Database;
+  "mod::system/lib/validation.whlib": Mod_System_Lib_Validation;
   "mod::system/lib/whfs.whlib": Mod_System_Lib_WHFS;
   "mod::publisher/lib/siteapi.whlib": Mod_Publisher_Lib_Siteapi;
 }
