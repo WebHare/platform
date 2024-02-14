@@ -12,6 +12,8 @@ import { loadlib } from "@webhare/harescript/src/contextvm";
 import { debugFlags } from "@webhare/env";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
+import type { Platform_BasewrdschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 
 type TestSchema = {
   wrdPerson: {
@@ -480,6 +482,23 @@ async function testNewAPI() {
   await whdb.commitWork();
 }
 
+async function testBaseTypes() {
+  const schema = new WRDSchema<Platform_BasewrdschemaSchemaType>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const wrdSettingsEntity = await schema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
+  test.assert(wrdSettingsEntity);
+  test.eq({ "wrdGuid": "07004000-0000-4000-a000-00bea61ef00d" }, await schema.getFields("wrdSettings", wrdSettingsEntity, ["wrdGuid"]));
+
+  const settings = await getSchemaSettings(schema, ["domainSecret"]);
+  test.eq({ domainSecret: /^[-_0-9a-zA-Z]{44}$/ }, settings);
+
+  await whdb.beginWork();
+  await updateSchemaSettings(schema, { issuer: "https://example.net" });
+  await whdb.commitWork();
+
+  test.eq({ domainSecret: settings.domainSecret, issuer: "https://example.net" }, await getSchemaSettings(schema, ["domainSecret", "issuer"]));
+
+}
+
 async function testTSTypes() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new WRDSchema<Combined>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
@@ -663,6 +682,7 @@ test.run([
   testTSTypes,
   createWRDTestSchema,
   testNewAPI,
+  testBaseTypes,
   testOrgs,
   testUpsert,
   testComparisons,
