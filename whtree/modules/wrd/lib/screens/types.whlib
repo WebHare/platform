@@ -194,7 +194,7 @@ PUBLIC OBJECTTYPE EditType EXTEND TolliumScreenBase
   {
     this->wrdtype := wrdschema->GetTypeById(type_id);
     this->dbid->value := ToString(type_id);
-    this->frame->title := GetTid("wrd:types.update.title_edit", this->wrdtype->title);
+    this->frame->title := GetTid("wrd:types.update.title_edit", this->wrdtype->tag);
 
     this->parenttype->options :=
          SELECT rowkey := id, title := title || (tag!=""? " (" || tag || ")" : "")
@@ -290,7 +290,7 @@ PUBLIC OBJECTTYPE ManageAttrs EXTEND TolliumScreenBase
 
     this->allowattributetypes := data.options.allowattributetypes;
     this->hideattributes := data.options.hideattributes;
-    this->frame->title := GetTid("wrd:types.attributes.manageattrs", this->wrdtype->title);
+    this->frame->title := GetTid("wrd:types.attributes.manageattrs", this->wrdtype->tag);
 
     this->addchildattr->enabled := "ARRAY" IN this->allowattributetypes;
     this->addchildattrbutton->visible := "ARRAY" IN this->allowattributetypes;
@@ -596,13 +596,13 @@ PUBLIC OBJECTTYPE DeleteType EXTEND TolliumScreenBase
                                     AND COLUMN type != this->wrdtype->id;
       IF (RecordExists(attrs))
       {
-        STRING ARRAY path := [ SELECT AS STRING title??tag FROM wrd.types WHERE id = attrs[0].type ];
+        STRING ARRAY path := [ SELECT AS STRING title ?? tag FROM wrd.types WHERE id = attrs[0].type ];
         WHILE (RecordExists(attrs))
         {
           INSERT attrs[0].title INTO path AT 1;
           IF (attrs[0].parent = 0)
             BREAK;
-          attrs := SELECT id, parent, tag, title :=title??tag FROM wrd.attrs WHERE id = VAR attrs[0].parent;
+          attrs := SELECT id, parent, tag, title := title ?? tag FROM wrd.attrs WHERE id = VAR attrs[0].parent;
         }
 
         STRING attr := Detokenize(path, ".");

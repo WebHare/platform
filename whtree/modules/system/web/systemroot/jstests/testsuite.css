@@ -99,7 +99,8 @@ div.testframetab--selected
 }
 #logholder
 {
-  white-space: pre;
+  /* we still want wordwraps! */
+  white-space-collapse: preserve;
 }
 
 #righttopinfo

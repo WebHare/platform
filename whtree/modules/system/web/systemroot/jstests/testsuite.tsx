@@ -1298,4 +1298,26 @@ class TestSuite {
   }
 }
 
+
 new TestSuite;
+
+function onMessage(event: MessageEvent) {
+  if (event.data?.type === "compilefailure") {
+    //Clean this up a bit, this was just a quick copy from testbundlecompilefailed.es
+    const steps = [
+      {
+        name: "test compilation failed",
+        test: function gotTestError() {
+          const bundlestatus = event.data.bundlestatus;
+          testfw.log(`Got compilation errors for ${bundlestatus.file}:\n${bundlestatus.errors}`);
+          throw new Error(`Compilation of ${bundlestatus.file} failed: ${bundlestatus.errors}`);
+        }
+      }
+    ];
+
+    const setTestSuiteCallbacks = () => void (0);
+    window.__testframework.runTestSteps(steps, setTestSuiteCallbacks);
+  }
+}
+
+addEventListener("message", onMessage);

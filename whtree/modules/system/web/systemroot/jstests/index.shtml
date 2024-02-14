@@ -34,7 +34,7 @@ RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint, STRING setcompatibil
   IF (packinginfo.haserrors)
   {
     OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-    VARIANT status := WaitForPromise(assetpackcontrol->GetBundleStatus(designhash));
+    VARIANT status := WaitForPromise(assetpackcontrol->recompileBundle(designhash));
     IF (RecordExists(status))
       errors := status.errors;
     assetpackcontrol->CloseService();
@@ -93,14 +93,19 @@ IF(urlbase LIKE "*/!/*")
       OBJECT testwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML-NI");
       IF(Length(suburltoks) <= 2)
       {
+        //allow testscripts to do/load whatever they want
+        AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE);
+
         RECORD headers := GetHeadersForAdhocBundle(affectedtest.testscript.scriptpath, affectedtest.compatibility);
         IF (headers.haserrors)
         {
-          RECORD indicator := GetHeadersForAdhocBundle("mod::webhare_testsuite/js/testbundlecompilefailed.es", "");
-          headers.headers := indicator.headers || headers.headers;
-
-          IF (indicator.haserrors)
-            THROW NEW Exception(`Could not compile adhoc bundle for testbundlecompilefailed.js: ${UCTruncate(indicator.errors, 500)}`);
+          testwitty->RunComponent("compilefailure", CELL[
+              hasdevmodule := IsModuleInstalled("dev"),
+              bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
+                                  , headers.errors
+                                  ]
+            ]);
+          RETURN;
         }
 
         RECORD data := [ printheaders := PTR Print(headers.headers)
@@ -110,14 +115,9 @@ IF(urlbase LIKE "*/!/*")
                                      , locale := "en-US"
                                      , server := GetWebhareVersionNumber()
                                      ]
-                       , bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
-                                             , headers.errors
-                                             ]
                        ];
 
         //We need to generate a full page for the specified test
-        AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE); //allow testscripts to do/load whatever they want (this was needed for LIVE testing, but perhaps move scriptframe CSPs to testinfo.xml instead?)
-
         testwitty->RunComponent("emptytestpage", data);
         RETURN;
       }

@@ -43,7 +43,6 @@
 <html>
   <head>
     <script type="application/json" id="wh-config">[whconfig:json]</script>
-    <script type="application/json" id="wh-test-bundlestatus">[bundlestatus:json]</script>
     [printheaders]
     [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
   </head>
@@ -51,3 +50,22 @@
   </body>
 </html>
 [/component]
+
+[! compilefailure is loaded into the testscript frame on test compile error !]
+[component compilefailure]<html>
+  <head>
+    <script>
+      const bundlestatus = [bundlestatus:json];
+      console.error("Testscript compile errors");
+      console.table(bundlestatus.errors);
+      window.parent.postMessage({type: 'compilefailure', bundlestatus}, location.origin);
+    </script>
+    <style>
+      * { margin:0; padding:0; }
+      html { background-color: #700; color: #fff };
+    </style>
+  </head>
+  <body>
+    Testscript did not compile!
+  </body>
+</html>[/component]
