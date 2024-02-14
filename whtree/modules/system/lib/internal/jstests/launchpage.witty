@@ -51,7 +51,7 @@
 </html>
 [/component]
 
-[! compilefailure is loaded into the testscript frame on tes tcompile error !]
+[! compilefailure is loaded into the testscript frame on test compile error !]
 [component compilefailure]<html>
   <head>
     <script>
