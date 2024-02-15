@@ -349,6 +349,17 @@ async function testNewAPI() {
   }
 
   await whdb.beginWork();
+  await test.throws(/cannot be deleted/, schema.close("whuserUnit", unit_id, { closeMode: "delete-denyreferred" }));
+  await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { closeMode: "close-denyreferred" }));
+
+  await schema.close("whuserUnit", unit_id, { closeMode: "delete-closereferred" });
+  test.assert((await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }))?.wrdLimitDate);
+  await schema.close("whuserUnit", unit_id, { closeMode: "delete" });
+  test.assert(!(await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" })));
+
+  await whdb.rollbackWork();
+
+  await whdb.beginWork();
   await schema.delete("wrdPerson", firstperson);
   await whdb.commitWork();
 

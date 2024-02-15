@@ -11,6 +11,12 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
+PUBLIC BOOLEAN FUNCTION IsReferenced(INTEGER entityid)
+{
+  RETURN RecordExists(SELECT FROM wrd.entities WHERE leftentity = VAR entityid AND id != VAR entityid)
+          OR RecordExists(SELECT FROM wrd.entities WHERE rightentity = VAR entityid AND id != VAR entityid)
+          OR RecordExists(SELECT FROM wrd.entity_settings WHERE setting = VAR entityid AND entity != VAR entityid );
+}
 
 STATIC OBJECTTYPE WRDEntityDuplicator
 <
@@ -381,9 +387,7 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
       @return TRUE if a reference to this entity exists */
   PUBLIC BOOLEAN FUNCTION IsReferenced()
   {
-    RETURN RecordExists(SELECT FROM wrd.entities WHERE leftentity = this->entityrec.id AND id!=this->entityrec.id)
-           OR RecordExists(SELECT FROM wrd.entities WHERE rightentity = this->entityrec.id AND id!=this->entityrec.id)
-           OR RecordExists(SELECT FROM wrd.entity_settings WHERE setting = this->entityrec.id AND entity != this->entityrec.id );
+    RETURN IsReferenced(this->entityrec.id);
   }
 
 

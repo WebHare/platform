@@ -15,6 +15,12 @@ import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/uti
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
+const WRDCloseModes = ["close", "delete", "delete-closereferred", "delete-denyreferred", "close-denyreferred"] as const;
+type WRDCloseMode = typeof WRDCloseModes[number];
+
+interface EntityCloseOptions {
+  closeMode?: WRDCloseMode;
+}
 interface WRDTypeConfigurationBase {
   metaType: WRDMetaType;
   title?: string;
@@ -70,6 +76,11 @@ type WRDEnrichResult<
   never,
   true extends RightOuterJoin ? MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> : never,
   never>;
+
+function validateCloseMode(closeMode: string) {
+  if (!WRDCloseModes.includes(closeMode as WRDCloseMode))
+    throw new Error(`Illegal delete mode '${closeMode}' - must be one of: ${WRDCloseModes.join(", ")}`);
+}
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly id: number | string;
@@ -257,8 +268,12 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
   }
 
+  close<T extends keyof S & string>(type: T, ids: number | number[], options?: EntityCloseOptions): Promise<void> {
+    return checkPromiseErrorsHandled(this.getType(type).close(ids, options));
+  }
+
   delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).delete(ids));
+    return checkPromiseErrorsHandled(this.getType(type).close(ids, { closeMode: "delete" }));
   }
 
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
@@ -458,12 +473,49 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return repairResultSet(resultrows, outputmap) as unknown as RetVal;
   }
 
-  async delete(ids: number | number[]): Promise<void> {
+  async close(ids: number | number[], options?: EntityCloseOptions): Promise<void> {
+    const closeMode = options?.closeMode ?? "close";
+    validateCloseMode(closeMode);
+
     ids = Array.isArray(ids) ? ids : [ids];
-    if (ids.length) {
-      if (!debugFlags["wrd:usewasmvm"])
-        await extendWorkToCoHSVM();
-      await (await this._getType()).deleteEntities(ids);
+    if (!ids.length)
+      return;
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
+
+    const type = await this._getType();
+
+    if (closeMode === 'delete') {
+      await type.deleteEntities(ids);
+      return;
+    }
+    if (closeMode === 'close') {
+      for (const id of ids)
+        await type.closeEntity(id);
+      return;
+    }
+
+    for (const id of ids) {
+      //this is unlikely to be fast, but imports are usually background tasks and we can solve this after TS migrations
+      const isreferred = await type.IsReferenced(id);
+      switch (closeMode) {
+        case "close-denyreferred":
+          if (isreferred)
+            throw new Error(`Entity ${id} cannot be closed, it is still being referred`);
+          await type.closeEntity(id);
+          break;
+        case "delete-closereferred":
+          if (isreferred)
+            await type.closeEntity(id);
+          else
+            await type.deleteEntity(id);
+          break;
+        case "delete-denyreferred":
+          if (isreferred)
+            throw new Error(`Entity ${id} cannot be deleted, it is still being referred`);
+          await type.deleteEntity(id);
+          break;
+      }
     }
   }
 
