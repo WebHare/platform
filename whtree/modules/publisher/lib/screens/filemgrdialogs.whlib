@@ -562,6 +562,16 @@ PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
     this->cutoff := this->tolliumuser->LocalToUTC(this->dtfrom->value);
     RECORD ARRAY allchanges := this->GetChangesInFolder(this->folderid);
 
+    // Enrich with userdata
+    allchanges := this->contexts->userapi->EnrichUsers("USERID", allchanges, [ celltype := "authobjectid", rightouterjoin := TRUE ]);
+
+    // Enrich with sitenames:
+    RECORD ARRAY sitedata := SELECT id, name FROM system.sites WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT parentsite FROM allchanges);
+    allchanges := SELECT *
+                       , sitename := (SELECT AS STRING name FROM sitedata WHERE id = allchanges.parentsite)
+                    FROM allchanges;
+
+
     RECORD ARRAY cols := [[ name :=      "modificationdate"
                           , type :=      "datetime"
                           , precision := "seconds"
@@ -606,15 +616,6 @@ PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
                                    AND NOT isfolder
                                    AND modificationdate >= this->cutoff
                           ORDER BY modificationdate DESC, id;
-
-    // Enrich with sitenames:
-    RECORD ARRAY sitedata := SELECT id, name FROM system.sites WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT parentsite FROM changes);
-    changes := SELECT *
-                    , sitename := (SELECT AS STRING name FROM sitedata WHERE id = changes.parentsite)
-                 FROM changes;
-
-    // Enrich with userdata
-    changes := this->contexts->userapi->EnrichUsers("USERID", changes, [ celltype := "authobjectid" ]);
 
     // Recurse
     FOREVERY(INTEGER subfolder FROM SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = folderid AND isfolder ORDER BY ToUppercase(name))
