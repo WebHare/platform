@@ -15,3 +15,8 @@ PUBLIC MACRO SetTestRichDocumentField(STRING wrdschemaname, INTEGER person, STRI
       [ richie := myrichdoc->ExportAsRecord()
       ]);
 }
+
+PUBLIC STRING ARRAY FUNCTION GetWRDTypeEventMasks(STRING wrdschemaname, STRING typetag)
+{
+  RETURN OpenWRDSchema(wrdschemaname)->__GetTypeByTag(typetag)->GetEventMasks();
+}

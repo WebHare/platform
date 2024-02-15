@@ -516,6 +516,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
     return;
   }
+
+  async getEventMasks(): Promise<string[]> {
+    const type = await this._getType();
+    return (await type.GetEventMasks() as string[]).sort();
+  }
 }
 
 export type SimpleHistoryModes = "now" | "all";
@@ -651,6 +656,10 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   execute(): Promise<QueryReturnArrayType<S, T, O>> {
     return checkPromiseErrorsHandled(this.executeInternal());
   }
+
+  async getEventMasks(): Promise<string[]> {
+    return this.type.getEventMasks();
+  }
 }
 
 export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O extends object> {
@@ -703,5 +712,12 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
 
   execute(): Promise<O[]> {
     return checkPromiseErrorsHandled(this.executeInternal());
+  }
+
+  async getEventMasks(): Promise<string[]> {
+    const masks = await this.baseQuery.getEventMasks();
+    for (const maskList of await Promise.all(this.enriches.map(enrich => this.schema.getType(enrich.type).getEventMasks())))
+      masks.push(...maskList);
+    return [...new Set(masks)].sort();
   }
 }

@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="helpers.ts">
   <test script="taskqueue.whscr" />
   <test script="testmanagedqueue.whscr" />
 </group>

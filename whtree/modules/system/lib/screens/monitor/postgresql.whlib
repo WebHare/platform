@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
@@ -138,6 +139,12 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLLocks EXTEND DashboardPanelBase
     LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := sel.col ]);
   }
 
+  ASYNC MACRO DoKillBackend()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".surekillbackend")) != "yes")
+      RETURN;
+    AWAIT ImportJS("node:process")->Kill(^blockedlocks->selection.pid);
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE PostgreSQLBlobCleanup EXTEND DashboardPanelBase
@@ -252,4 +259,3 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase
     }
   }
 >;
-
