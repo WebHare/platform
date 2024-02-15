@@ -646,6 +646,16 @@ async function testTypeSync() { //this is WRDType::ImportEntities
     { "wrdTag": "THREE", "wrdTitle": "" }
   ], await getDomain1());
 
+  //A sync with dupe values should throw and *not* have any side effects!
+  test.throws(/Duplicate/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "FOUR" }, { wrdTag: "FIVE" }, { wrdTag: "FIVE" }], { closeMode: "delete" }));
+
+  test.eqPartial([
+    { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_2", "wrdTitle": "Domain value 1.2" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" },
+    { "wrdTag": "THREE", "wrdTitle": "" }
+  ], await getDomain1());
+
   //@ts-expect-error -- TS knows we can't do closeMode
   await test.throws(/Illegal delete mode 'typo'/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { closeMode: "typo" }));
 

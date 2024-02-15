@@ -692,11 +692,28 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     };
 
     //TODO we should filter on joinField too or make this a two stage select. we don't need the currentcells for entities we won't be updating
-    const currentRows = await this.__select(outputColumns).execute();
+    const currentRows: any[] = await this.__select(outputColumns).execute();
     const now = new Date();
+    const currentRowMap = new Map<unknown, typeof currentRows[number]>();
+
+    for (const row of currentRows) { //Build map but watch for duplicates that will prevent proper matching
+      if (currentRowMap.has(row.joinField))
+        throw new Error(`Duplicate joinField '${row.joinField.toString()}' in current data (entity #${row.wrdId} and ${currentRowMap.get(row.joinField)!.wrdId})`);
+      currentRowMap.set(row.joinField, row);
+    }
+
+    const inrowKeys = new Map<unknown, number>;
+    for (const [idx, row] of inrows.entries()) {
+      //@ts-ignore yes it exists?
+      const rowkey = row[joinAttribute];
+      if (!rowkey)
+        throw new Error(`Import row #${idx} has no value for '${joinAttribute}'`);
+      if (inrowKeys.has(rowkey))
+        throw new Error(`Duplicate joinField '${rowkey.toString()}' in imported data (row #${inrowKeys.get(rowkey)} and #${idx})`);
+      inrowKeys.set(rowkey, idx);
+    }
 
     //@ts-ignore -- yes it doest exist!
-    const currentRowMap = new Map(currentRows.map(row => [row.joinField, row]));
     const expectedKeys = new Set;
     for (const inrow of inrows as any[]) {
       if (!(joinAttribute in inrow))
