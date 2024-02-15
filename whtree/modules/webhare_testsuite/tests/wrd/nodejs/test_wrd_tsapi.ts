@@ -14,6 +14,7 @@ import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
+import { isChange } from "@mod-wrd/js/internal/schema";
 
 type TestSchema = {
   wrdPerson: {
@@ -37,6 +38,7 @@ type TestSchema = {
     whuserLastlogin: WRDAttributeType.DateTime;
     whuserHiddenannouncements: WRDAttributeType.DomainArray;
     inventedDomain: WRDAttributeType.Domain;
+    wrdContactEmail: WRDAttributeType.Email;
   } & WRDTypeBaseSettings;
 };
 
@@ -198,6 +200,40 @@ function testSupportAPI() {
 
   test.eq("0700400000004000a00000bea61ef00d", decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d").toString("hex"));
   test.eq("07004000-0000-4000-a000-00bea61ef00d", encodeWRDGuid(decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d")));
+
+  test.eq(false, isChange({ mixedCase: [1, 'yes!'] }, { mixedCase: [1, 'yes!'] }));
+  // a JSON Value does see a differnce between undefined/null/''
+  test.eq(true, isChange({ testEmail: '', testFree: '' }, { testEmail: '' }));
+  test.eq(true, isChange({ testEmail: '', testFree: '' }, { testEmail: '', testFree: null }));
+  // an array considers missing and emmpty equal
+  test.eq(false, isChange([{ testEmail: '', testFree: '' }], [{ testEmail: '', testFree: null }]));
+  //an empty array is equivalent to missing
+  test.eq(false, isChange([], undefined));
+  test.eq(false, isChange([
+    {
+      testInt: 0,
+      testFree: '',
+      testArray2: [],
+      testSingle: null,
+      testImage: null,
+      testSingleOther: null,
+      testMultiple: [],
+      testEmail: 'email1@example.net'
+    },
+    {
+      testInt: 0,
+      testFree: '',
+      testArray2: [],
+      testSingle: null,
+      testImage: null,
+      testSingleOther: null,
+      testMultiple: [],
+      testEmail: 'email2@example.net'
+    }
+  ], [
+    { testEmail: 'email1@example.net', testFree: '' },
+    { testEmail: 'email2@example.net' }
+  ]));
 }
 
 interface TestRecordDataInterface {
@@ -236,9 +272,9 @@ async function testNewAPI() {
   */
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
-  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
   await whdb.commitWork();
@@ -709,15 +745,42 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   const pprecies = result.created[0];
   test.assert(pprecies);
 
-  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [{ ...fixedFields, wrdContactEmail: "p.precies@example.net", testArray: [{ testEmail: "email1@example.net" }, { testEmail: "email2@example.net" }] }]);
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
+    {
+      ...fixedFields,
+      wrdContactEmail: "p.precies@example.net",
+      testArray: [{ testEmail: "email1@example.net" }, { testEmail: "email2@example.net" }]
+    }
+  ]);
   test.eq([pprecies], result.updated);
-  test.eqPartial([{ testEmail: "email1@example.net" }, { testEmail: "email2@example.net" }], (await schema.getFields("wrdPerson", pprecies, ["testArray"]))?.testArray);
+  test.eqPartial([
+    { testEmail: "email1@example.net" },
+    { testEmail: "email2@example.net" }
+  ], (await schema.getFields("wrdPerson", pprecies, ["testArray"]))?.testArray);
 
-  /* FIXME avoid arrays triggering an update - but we need smart/deep compares
-  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [{ wrdContactEmail: "p.precies@example.net", testArray: [{ testEmail: "email1@example.net" }, { testEmail: "email2@example.net" }] }]);
+  // A no-op update shouldn't trigger an update
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
+    {
+      ...fixedFields,
+      wrdContactEmail: "p.precies@example.net",
+      testArray: [{ testEmail: "email1@example.net", testFree: '' }, { testEmail: "email2@example.net" }]
+    }
+  ]);
   test.eq([pprecies], result.matched);
-  test.eq(2, result.missing.length);
-  */
+
+  // Test array update
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
+    {
+      ...fixedFields,
+      wrdContactEmail: "p.precies@example.net",
+      testArray: [{ testEmail: "email2@example.net" }, { testFree: '' }]
+    }
+  ]);
+  test.eq([pprecies], result.updated);
+  test.eqPartial([
+    { testEmail: "email2@example.net" },
+    { testFree: '' }
+  ], (await schema.getFields("wrdPerson", pprecies, ["testArray"]))?.testArray);
 
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", []); //effectively a very inefficient way to count entities..
   test.eq(1, result.missing.length);

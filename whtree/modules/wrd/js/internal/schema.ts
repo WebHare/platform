@@ -10,7 +10,7 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, omit } from "@webhare/std";
+import { isTruthy, omit, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
@@ -80,6 +80,42 @@ type WRDEnrichResult<
 function validateCloseMode(closeMode: string) {
   if (!WRDCloseModes.includes(closeMode as WRDCloseMode))
     throw new Error(`Illegal delete mode '${closeMode}' - must be one of: ${WRDCloseModes.join(", ")}`);
+}
+
+export function isChange(curval: any, setval: any) {
+  if (curval === setval)
+    return false; //not a change
+  if (!curval && !setval)
+    return false; //not a change (it doesn't matter whether a value is its default value or null)
+
+  if (typeof curval === 'object') {
+    if (typeof setval !== 'object')
+      return false;
+
+    //NOTE this is a heuristic, we really need attribute information to properly do this.we'll assume that an Array is a WRD array and any other Object is a JSON
+    //     in a WRD Array, leaving a value out is equal to setting it to its default.
+    //     in a JSON value, leaving a property  out is not the same as setting it wempty
+    //
+    if (Array.isArray(curval)) {
+      if (!setval && !curval.length)
+        return false;
+      if (!Array.isArray(setval) || curval.length !== setval.length)
+        return true; //a change
+      for (const [i, row] of curval.entries()) {
+        for (const [key, value] of Object.entries(row)) {
+          if (isChange(value, setval[i][key])) {
+            // console.log(key, value, setval[i][key]); //debug where the change appeared
+            return true;
+          }
+        }
+      }
+      return false;
+    } else {
+      return stringify(curval, { stable: true, typed: true }) !== stringify(setval, { stable: true, typed: true });
+    }
+  }
+
+  return curval !== setval;
 }
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
@@ -734,8 +770,10 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
           changes.wrdLimitDate = null;
 
         for (const [mappedToName, originalName] of selectCurrentCells) {
-          if (currentRow[mappedToName] !== inrow[originalName])
+          if (isChange(currentRow[mappedToName], inrow[originalName])) {
+            // console.log("ischange", originalName, currentRow[mappedToName], inrow[originalName]); //debug where the change was detected
             changes[originalName] = inrow[originalName];
+          }
         }
 
         if (Object.keys(changes).length) { // we need to update
