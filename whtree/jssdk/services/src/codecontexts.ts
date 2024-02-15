@@ -142,6 +142,10 @@ export class CodeContext extends EventSource<CodeContextEvents>{
     this.closed = true;
   }
 
+  [Symbol.dispose]() {
+    this.close();
+  }
+
   applyDebugSettings({ flags }: { flags: DebugFlags }) {
     if (!this.debugFlagsOverrides.length)
       throw new Error(`Cannot apply debug settings to the root context`);
