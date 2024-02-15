@@ -217,10 +217,10 @@ async function testNewAPI() {
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
 
   // test searches for null in wrdLeftEntity
-  test.eq([unit_id], await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", null).execute());
-  test.eq([sub_unit_id], await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "!=", null).execute());
-  test.eq([unit_id].sort(), (await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
-  test.eq([unit_id, sub_unit_id].sort(), (await schema.selectFrom("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
+  test.eq([unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", null).execute());
+  test.eq([sub_unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "!=", null).execute());
+  test.eq([unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
+  test.eq([unit_id, sub_unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
 
   /* Verify that the Record type isn't constraining too much (it regressed no longer accepting interface types:
      'Type 'TestRecordDataInterface' is not assignable to type '{ [x: string]: IPCMarshallableData; }'.
