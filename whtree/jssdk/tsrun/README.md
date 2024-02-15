@@ -1,11 +1,11 @@
-# ts-esbuild-runner
+# tsrun
 This is the WebHare wrapper around [esbuild](https://github.com/evanw/esbuild) which maintains a cache of compiled files.
 
 ## Setup
 To get started:
 
 ```bash
-npm init @webhare/ts-esbuild-runner@latest
+npm install @webhare/tsrun@latest
 echo 'console.log(42 as number);' > test.ts
 ./node_modules/.bin/tsrun test.ts
 ```
@@ -26,7 +26,7 @@ will need a tsconfig.json in its root, eg:
 ```
 The option `"isolatedModules": true` improves compatibility with esbuild
 
-Compiled TS files are cached in `$HOME/.ts-esbuild-runner-cache`.
+Compiled TS files are cached in `$HOME/.tsrun-cache`.
 
 To debug `tsrun` set the environment variable `ESBUILDRUNNER` to `debug`.
 

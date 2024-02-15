@@ -943,9 +943,9 @@ postuninstall:
 	find $(PREFIX)/node_modules -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 rm -rf
 	rm -f success.node
 
-postinstall: success.node $(PREFIX)/jssdk/ts-esbuild-runner/dist/resolveplugin.js
+postinstall: success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js
 
-success.node $(PREFIX)/jssdk/ts-esbuild-runner/dist/resolveplugin.js &: \
+success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js &: \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \

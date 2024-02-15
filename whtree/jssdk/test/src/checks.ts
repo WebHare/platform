@@ -223,13 +223,30 @@ function logAnnotation(annotation: Annotation) {
   console.error(annotation);
 }
 
-function toTestableString(val: unknown): string {
-  if (typeof val == "string")
-    return unescape(escape(val).split('%u').join('/u'));
-  try {
-    return JSON.stringify(val, (key, value) => value === undefined ? "undefined" : value);
-  } catch (ignore) {
-    return "";
+function testStringify(val: unknown): string {
+  switch (typeof val) {
+    case "bigint":
+      return val.toString() + "n";
+    case "function":
+      return "<function>";
+    case "symbol":
+      return val.toString();
+    case "undefined":
+      return "undefined";
+    case "object":
+      if (val === null)
+        return "null";
+      if (val instanceof RegExp)
+        return val.toString();
+      if (val instanceof Money)
+        return `Money(${val.toString()}`;
+      if (val instanceof Date)
+        return `Date("${val.toISOString()}")`;
+      if (Array.isArray(val))
+        return `[${val.map(testStringify).join(", ")}]`;
+      return `{${Object.entries(val).sort((l, r) => l[0].localeCompare(l[1])).map(([k, v]) => `${k}: ${testStringify(v)}`).join(", ")}}`;
+    default:
+      return JSON.stringify(val);
   }
 }
 
@@ -247,8 +264,8 @@ export function eq<T>(expected: NoInfer<RecursiveOrRegExp<T>>, actual: T, annota
   if (isEqual(expected, actual))
     return;
 
-  const expected_str = toTestableString(expected);
-  const actual_str = toTestableString(actual);
+  const expected_str = testStringify(expected);
+  const actual_str = testStringify(actual);
 
   if (annotation)
     logAnnotation(annotation);

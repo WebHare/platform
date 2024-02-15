@@ -46,7 +46,7 @@ wh_runjs()
   SAVE_NODE_OPTIONS="$NODE_OPTIONS"
 
   export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
-  export NODE_OPTIONS="--trace-warnings --enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" --require "@mod-platform/js/bootstrap/whnode-preload" --openssl-legacy-provider $NODE_OPTIONS"
+  export NODE_OPTIONS="--trace-warnings --enable-source-maps --require \"$WEBHARE_DIR/jssdk/tsrun/dist/resolveplugin.js\" --require "@mod-platform/js/bootstrap/whnode-preload" --openssl-legacy-provider $NODE_OPTIONS"
 
   # is the 'retainers' flag set ?
   if [[ $WEBHARE_DEBUG =~ ((^|[,])retainers([,]|$))+ ]] ; then
