@@ -224,6 +224,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
 
+  modify<T extends keyof S & string>(type: T): WRDModificationBuilder<S, T> {
+    const wrdtype = this.getType(type);
+    return new WRDModificationBuilder(wrdtype, [], null);
+  }
+
   insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>): Promise<number> {
     return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
   }
@@ -608,20 +613,140 @@ function translateHistoryModeToHS(mode: HistoryModeData) {
   return mode ? { historyMode: mode.mode, ...omit(mode, ["mode"]) } : null;
 }
 
+export class WRDQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> {
+  protected type: WRDType<S, T>;
+  protected wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
+  protected _historyMode: HistoryModeData;
+
+  constructor(type: WRDType<S, T>, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData) {
+    this.type = type;
+    this.wheres = wheres;
+    this._historyMode = historyMode;
+  }
+}
+
+export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> extends WRDQueryBuilder<S, T> {
+  //TODO can we share more of where / $call / historyMode with WRDSingleQueryBuilder?
+
+  private __select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, RecordizeOutputMap<S[T], M>> {
+    const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
+    return new WRDSingleQueryBuilder(this.type, recordmapping, this.wheres, this._historyMode, null);
+  }
+
+  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDModificationBuilder<S, T> {
+    // Need to cast the filter because the options member isn't accepted otherwise
+    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
+    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode);
+  }
+
+  $call(cb: (b: WRDModificationBuilder<S, T>) => WRDModificationBuilder<S, T>): WRDModificationBuilder<S, T> {
+    return cb(this);
+  }
+
+  historyMode(mode: "now" | "all" | "__getfields"): WRDModificationBuilder<S, T>;
+  historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
+  historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
+
+  historyMode(mode: "now" | "all" | "__getfields" | "at" | "range", start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+    switch (mode) {
+      case "now":
+      case "__getfields":
+      case "all": {
+        return new WRDModificationBuilder(this.type, this.wheres, { mode });
+      }
+      case "at": {
+        return new WRDModificationBuilder(this.type, this.wheres, { mode, when: start! });
+      }
+      case "range": {
+        return new WRDModificationBuilder(this.type, this.wheres, { mode, when_start: start!, when_limit: limit! });
+      }
+    }
+  }
+
+  async sync<F extends AttrRef<S[T]>>(joinAttribute: F, inrows: Array<Insertable<S[T]>>, options?: EntityCloseOptions) {
+    const retval = {
+      created: [] as number[],
+      updated: [] as number[],
+      missing: [] as number[],
+      matched: [] as number[]
+    };
+
+    if (options?.closeMode)
+      validateCloseMode(options.closeMode);
+
+    //sample first row to get desired 'current' cells
+    const currentCells = Object.keys(inrows[0] || {}).filter(_ => _ !== joinAttribute);
+    //I don't think we can get tree-like structures from selectFrom (yet?) - original ImportEntities puts all data in a 'current' cell. So we'll just query them as current_0, ..
+    const selectCurrentCells = currentCells.map((key, idx) => [`current_${idx}`, key]);
+    const outputColumns = {
+      wrdId: "wrdId",
+      wrdLimitDate: "wrdLimitDate",
+      joinField: joinAttribute,
+      ...Object.fromEntries(selectCurrentCells)
+    };
+
+    //TODO we should filter on joinField too or make this a two stage select. we don't need the currentcells for entities we won't be updating
+    const currentRows = await this.__select(outputColumns).execute();
+    const now = new Date();
+
+    //@ts-ignore -- yes it doest exist!
+    const currentRowMap = new Map(currentRows.map(row => [row.joinField, row]));
+    const expectedKeys = new Set;
+    for (const inrow of inrows as any[]) {
+      if (!(joinAttribute in inrow))
+        throw new Error(`ImportEntities: joinAttribute ${joinAttribute} not found in input row`);
+
+      //FIXME warn if joinAttribute is not unique in source data
+      const inrowkey = inrow[joinAttribute as string];
+      expectedKeys.add(inrowkey);
+
+      const currentRow: any = currentRowMap.get(inrowkey);
+
+      if (!currentRow) { //it's a new entity
+        const newid = await this.type.createEntity({ wrdCreationDate: now, wrdModificationDate: now, ...inrow });
+        retval.created.push(newid);
+      } else { //we may have to update the existing entity
+        const changes: any = {};
+        if (currentRow.wrdLimitDate)
+          changes.wrdLimitDate = null;
+
+        for (const [mappedToName, originalName] of selectCurrentCells) {
+          if (currentRow[mappedToName] !== inrow[originalName])
+            changes[originalName] = inrow[originalName];
+        }
+
+        if (Object.keys(changes).length) { // we need to update
+          await this.type.updateEntity(currentRow.wrdId, changes);
+          retval.updated.push(currentRow.wrdId);
+        } else {
+          retval.matched.push(currentRow.wrdId);
+        }
+      } //done update
+
+      currentRowMap.delete(inrowkey);
+    }
+
+    //@ts-ignore -- too complex
+    const unreferenced = [...currentRowMap.values()].filter(_ => _.wrdLimitDate === null).map(_ => _.wrdId);
+    retval.missing = unreferenced;
+    if (retval.missing.length && options?.closeMode)
+      await this.type.close(retval.missing, options);
+
+    return retval;
+  }
+
+
+}
+
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
 */
-export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
-  private type: WRDType<S, T>;
+export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> extends WRDQueryBuilder<S, T> {
   private selects: O;
-  private wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
-  private _historyMode: HistoryModeData;
   private _limit: number | null;
 
   constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData, limit: number | null) {
-    this.type = type;
+    super(type, wheres, historyMode);
     this.selects = selects;
-    this.wheres = wheres;
-    this._historyMode = historyMode;
     this._limit = limit;
   }
 
