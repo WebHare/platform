@@ -393,12 +393,12 @@ async function testNewAPI() {
   }
 
   await whdb.beginWork();
-  await test.throws(/cannot be deleted/, schema.close("whuserUnit", unit_id, { closeMode: "delete-denyreferred" }));
-  await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { closeMode: "close-denyreferred" }));
+  await test.throws(/cannot be deleted/, schema.close("whuserUnit", unit_id, { mode: "delete-denyreferred" }));
+  await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { mode: "close-denyreferred" }));
 
-  await schema.close("whuserUnit", unit_id, { closeMode: "delete-closereferred" });
+  await schema.close("whuserUnit", unit_id, { mode: "delete-closereferred" });
   test.assert((await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }))?.wrdLimitDate);
-  await schema.close("whuserUnit", unit_id, { closeMode: "delete" });
+  await schema.close("whuserUnit", unit_id, { mode: "delete" });
   test.assert(!(await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" })));
 
   await whdb.rollbackWork();
@@ -682,7 +682,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], await getDomain1());
 
   //A sync with dupe values should throw and *not* have any side effects!
-  test.throws(/Duplicate/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "FOUR" }, { wrdTag: "FIVE" }, { wrdTag: "FIVE" }], { closeMode: "delete" }));
+  test.throws(/Duplicate/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "FOUR" }, { wrdTag: "FIVE" }, { wrdTag: "FIVE" }], { unmatched: "delete" }));
 
   test.eqPartial([
     { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
@@ -692,21 +692,21 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], await getDomain1());
 
   //@ts-expect-error -- TS knows we can't do closeMode
-  await test.throws(/Illegal delete mode 'typo'/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { closeMode: "typo" }));
+  await test.throws(/Illegal delete mode 'typo'/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "typo" }));
 
   //FIXME verify identical creation/mod/delete dates for all things happening in a single Import
 
   //Update the tag and close the rest
-  result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { closeMode: "close" });
-  test.eq(3, result.missing.length);
+  result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "close" });
+  test.eq(3, result.unmatched.length);
   test.eq([threeId], result.updated);
   test.eq([], result.created);
   test.eq([], result.matched);
 
   test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
   //Simply repeating the action shouldn't do anything
-  result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { closeMode: "close" });
-  test.eq([], result.missing);
+  result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "close" });
+  test.eq([], result.unmatched);
   test.eq([], result.updated);
   test.eq([], result.created);
   test.eq([threeId], result.matched);
@@ -733,22 +733,22 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], await getDomain1());
 
   //do another destructive delete, but apply a filter that will only apply to TWO and THREE
-  result = await schema.modify("testDomain_1").where("wrdTag", "like", "TEST_*").sync("wrdTag", [], { closeMode: "delete" });
+  result = await schema.modify("testDomain_1").where("wrdTag", "like", "TEST_*").sync("wrdTag", [], { unmatched: "delete" });
   test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
 
   //close three
-  result = await schema.modify("testDomain_1").sync("wrdTag", [], { closeMode: "close" });
-  test.eq([threeId], result.missing);
+  result = await schema.modify("testDomain_1").sync("wrdTag", [], { unmatched: "close" });
+  test.eq([threeId], result.unmatched);
 
   //without historyMode it would be invisible to deletion
-  result = await schema.modify("testDomain_1").sync("wrdTag", [], { closeMode: "delete-closereferred" });
-  test.eq([], result.missing);
+  result = await schema.modify("testDomain_1").sync("wrdTag", [], { unmatched: "delete-closereferred" });
+  test.eq([], result.unmatched);
   test.eq([], result.matched);
 
   //with historyMode it is in scope for deletion
-  result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { closeMode: "delete-closereferred" });
-  test.eq(2, result.missing.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
-  test.assert(result.missing.includes(threeId));
+  result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { unmatched: "delete-closereferred" });
+  test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
+  test.assert(result.unmatched.includes(threeId));
   test.assert(! await schema.getFields("testDomain_1", threeId, ["wrdId"]));
 
   // --- sync tests with wredPerson ---
@@ -802,10 +802,10 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ], (await schema.getFields("wrdPerson", pprecies, ["testArray"]))?.testArray);
 
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", []); //effectively a very inefficient way to count entities..
-  test.eq(1, result.missing.length);
+  test.eq(1, result.unmatched.length);
 
-  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [], { closeMode: "close" });
-  test.eq(1, result.missing.length);
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [], { unmatched: "close" });
+  test.eq(1, result.unmatched.length);
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").execute());
 
   await whdb.rollbackWork();

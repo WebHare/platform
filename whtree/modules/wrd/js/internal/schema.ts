@@ -18,8 +18,13 @@ const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible 
 const WRDCloseModes = ["close", "delete", "delete-closereferred", "delete-denyreferred", "close-denyreferred"] as const;
 type WRDCloseMode = typeof WRDCloseModes[number];
 
+interface SyncOptions {
+  /** What to dot with unmatched entities during a sync? Defauilts to 'keep' */
+  unmatched?: WRDCloseMode | "keep";
+}
+
 interface EntityCloseOptions {
-  closeMode?: WRDCloseMode;
+  mode?: WRDCloseMode;
 }
 interface WRDTypeConfigurationBase {
   metaType: WRDMetaType;
@@ -314,7 +319,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).close(ids, { closeMode: "delete" }));
+    return checkPromiseErrorsHandled(this.getType(type).close(ids, { mode: "delete" }));
   }
 
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
@@ -515,7 +520,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async close(ids: number | number[], options?: EntityCloseOptions): Promise<void> {
-    const closeMode = options?.closeMode ?? "close";
+    const closeMode = options?.mode ?? "close";
     validateCloseMode(closeMode);
 
     ids = Array.isArray(ids) ? ids : [ids];
@@ -705,16 +710,17 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     }
   }
 
-  async sync<F extends AttrRef<S[T]>>(joinAttribute: F, inrows: Array<Insertable<S[T]>>, options?: EntityCloseOptions) {
+  async sync<F extends AttrRef<S[T]>>(joinAttribute: F, inrows: Array<Insertable<S[T]>>, options?: SyncOptions) {
     const retval = {
-      created: [] as number[],
-      updated: [] as number[],
-      missing: [] as number[],
-      matched: [] as number[]
+      created: new Array<number>,
+      updated: new Array<number>,
+      unmatched: new Array<number>,
+      matched: new Array<number>
     };
 
-    if (options?.closeMode)
-      validateCloseMode(options.closeMode);
+    const unmatchedCloseMode = options?.unmatched || "keep";
+    if (unmatchedCloseMode !== 'keep')
+      validateCloseMode(unmatchedCloseMode);
 
     //sample first row to get desired 'current' cells
     const currentCells = Object.keys(inrows[0] || {}).filter(_ => _ !== joinAttribute);
@@ -787,9 +793,9 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
 
     //@ts-ignore -- too complex
     const unreferenced = [...currentRowMap.values()].map(_ => _.wrdId);
-    retval.missing = unreferenced;
-    if (retval.missing.length && options?.closeMode)
-      await this.type.close(retval.missing, options);
+    retval.unmatched = unreferenced;
+    if (retval.unmatched.length && unmatchedCloseMode !== 'keep')
+      await this.type.close(retval.unmatched, { mode: unmatchedCloseMode });
 
     return retval;
   }
