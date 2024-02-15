@@ -671,6 +671,21 @@ function testGeneratedWebHareWRDAPI() {
   test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
 }
 
+async function testEventMasks() {
+  type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
+  const schema = new WRDSchema<Combined>("wrd:testschema");
+
+  const selectMasks = await schema.selectFrom("wrdPerson").getEventMasks();
+  const selectExpect = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "WRD_PERSON");
+  test.eq(selectExpect.sort(), selectMasks);
+
+  test.eq(selectMasks, await schema.getType("wrdPerson").getEventMasks());
+
+  const enrichMasks = await schema.selectFrom("wrdPerson").select(["wrdId"]).enrich("testDomain_1", "wrd_id", ["wrdLeftEntity"]).getEventMasks();
+  const enrichExpect = [...selectExpect, ...await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "TEST_DOMAIN_1")];
+  test.eq([...new Set(enrichExpect)].sort(), enrichMasks);
+}
+
 debugFlags["wrd:usewasmvm"] = true;
 if (process.argv.includes("--usejsengine")) {
   console.log(`using WRD js engine`);
@@ -686,5 +701,6 @@ test.run([
   testOrgs,
   testUpsert,
   testComparisons,
-  testGeneratedWebHareWRDAPI
+  testGeneratedWebHareWRDAPI,
+  testEventMasks,
 ], { wrdauth: true });
