@@ -449,8 +449,7 @@ async function testNewAPI() {
     await schema.update("wrdPerson", newperson, {
       testArray: [
         {
-          testArray2: [{ testInt2: 2, wrdSettingId: -2n }],
-          wrdSettingId: -1n
+          testArray2: [{ testInt2: 2 }]
         }
       ]
     });
@@ -465,7 +464,6 @@ async function testNewAPI() {
         testArray2: [
           {
             testInt2: 2,
-            wrdSettingId: arrayselectres[0]?.a.testArray[0]?.testArray2[0]?.wrdSettingId ?? -2
           }
         ],
         testEmail: "",
@@ -475,7 +473,6 @@ async function testNewAPI() {
         testMultiple: [],
         testSingle: null,
         testSingleOther: null,
-        wrdSettingId: arrayselectres[0]?.a.testArray[0]?.wrdSettingId ?? -1
       }
     ];
 

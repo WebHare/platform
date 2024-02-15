@@ -56,8 +56,7 @@ const fixed_tojs: Record<string, string> = {
   "wrd_address_formal": "wrdAddressFormal",
   "wrd_titles_suffix": "wrdTitlesSuffix",
   "wrd_leftentity": "wrdLeftEntity",
-  "wrd_rightentity": "wrdRightEntity",
-  "wrd_settingid": "wrdSettingId"
+  "wrd_rightentity": "wrdRightEntity"
 };
 
 const fixed_tohs = Object.fromEntries(Object.entries(fixed_tojs).map(([key, value]) => [value, key.toUpperCase()]));
@@ -138,8 +137,6 @@ export function fieldsToJS(fields: Record<string, unknown>): Record<string, unkn
       result[tagToJS(key)] = value.map(elt => fieldsToJS(elt));
     } else if (value && typeof value === "object")
       result[tagToJS(key)] = returnWRDObject(value);
-    else if (typeof value === "bigint" && key === "wrdSettingId")
-      result[tagToJS(key)] = Number(value);
     else
       result[tagToJS(key)] = value;
   }

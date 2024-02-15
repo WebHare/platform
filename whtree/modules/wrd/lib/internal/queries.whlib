@@ -3444,10 +3444,13 @@ STATIC OBJECTTYPE WRDDBAddressValue EXTEND WRDDBValue
 STATIC OBJECTTYPE WRDDBArrayValue EXTEND WRDDBValue
 < RECORD ARRAY fields;
   INTEGER ARRAY attrids;
+  BOOLEAN jsmode;
 
   MACRO NEW(OBJECT wrd_type, RECORD attr, RECORD options)
   : WRDDBValue(wrd_type, attr)
   {
+    this->jsmode := options.jsmode;
+
     RECORD ARRAY subattrs := SELECT * FROM wrd_type->__final_attrs WHERE __final_attrs.parent = attr.id;
     FOREVERY (RECORD subattr FROM subattrs)
     {
@@ -3480,7 +3483,7 @@ STATIC OBJECTTYPE WRDDBArrayValue EXTEND WRDDBValue
 
       RECORD ARRAY enrichrow :=
           [ [ __entity := entity_settings[i].entity
-            , data := [ wrd_settingid := settingid ]
+            , data := this->jsmode ? CELL[] : [ wrd_settingid := settingid ]
             , __order :=  i
             ]
           ];
