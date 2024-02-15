@@ -570,7 +570,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
 
     await typeobj.CreateAttribute(tagToHS(tag), typetag, configclone);
-    return;
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
@@ -578,7 +577,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
-    return;
+  }
+
+  async deleteAttribute(tag: string) {
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
+    const typeobj = await this._getType();
+    await typeobj.DeleteAttribute(tagToHS(tag));
+
   }
 
   async getEventMasks(): Promise<string[]> {

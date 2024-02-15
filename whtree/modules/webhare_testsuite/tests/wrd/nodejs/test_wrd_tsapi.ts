@@ -211,6 +211,11 @@ async function testNewAPI() {
   test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag == testSchemaTag));
 
   await whdb.beginWork();
+  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: WRDAttributeType.Free });
+  test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
+  await schema.getType("wrdPerson").deleteAttribute("testDummy");
+  test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
+
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
