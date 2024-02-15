@@ -718,13 +718,11 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
 
     //sample first row to get desired 'current' cells
     const currentCells = Object.keys(inrows[0] || {}).filter(_ => _ !== joinAttribute);
-    //I don't think we can get tree-like structures from selectFrom (yet?) - original ImportEntities puts all data in a 'current' cell. So we'll just query them as current_0, ..
-    const selectCurrentCells = currentCells.map((key, idx) => [`current_${idx}`, key]);
     const outputColumns = {
       wrdId: "wrdId",
       wrdLimitDate: "wrdLimitDate",
       joinField: joinAttribute,
-      ...Object.fromEntries(selectCurrentCells)
+      current: currentCells
     };
 
     //TODO we should filter on joinField too or make this a two stage select. we don't need the currentcells for entities we won't be updating
@@ -769,10 +767,10 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
         if (currentRow.wrdLimitDate)
           changes.wrdLimitDate = null;
 
-        for (const [mappedToName, originalName] of selectCurrentCells) {
-          if (isChange(currentRow[mappedToName], inrow[originalName])) {
-            // console.log("ischange", originalName, currentRow[mappedToName], inrow[originalName]); //debug where the change was detected
-            changes[originalName] = inrow[originalName];
+        for (const key of currentCells) {
+          if (isChange(currentRow.current[key], inrow[key])) {
+            // console.log("ischange", key, currentRow.current[key], inrow[key]); //debug where the change was detected
+            changes[key] = inrow[key];
           }
         }
 

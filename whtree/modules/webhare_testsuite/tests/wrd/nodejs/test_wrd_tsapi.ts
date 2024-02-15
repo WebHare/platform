@@ -283,6 +283,7 @@ async function testNewAPI() {
     .selectFrom("wrdPerson")
     .select(["wrdFirstName", "testJson", "testJsonRequired", "wrdGender"])
     .select({ lastname: "wrdLastName", id: "wrdId", guid: "wrdGuid" })
+    .select({ name: { "first": "wrdFirstName", "last": "wrdLastName" } })
     .where("wrdFirstName", "=", "first")
     .execute();
 
@@ -297,6 +298,7 @@ async function testNewAPI() {
       id: firstperson,
       testJson: { mixedCase: [1, "yes!"] },
       testJsonRequired: { mixedCase: [1, "yes!"] },
+      name: { first: "first", last: "lastname" },
       guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
     }
   ], selectres);
