@@ -788,7 +788,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     }
 
     //@ts-ignore -- too complex
-    const unreferenced = [...currentRowMap.values()].filter(_ => _.wrdLimitDate === null).map(_ => _.wrdId);
+    const unreferenced = [...currentRowMap.values()].map(_ => _.wrdId);
     retval.missing = unreferenced;
     if (retval.missing.length && options?.closeMode)
       await this.type.close(retval.missing, options);

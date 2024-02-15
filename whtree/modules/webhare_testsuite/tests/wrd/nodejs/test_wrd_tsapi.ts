@@ -734,6 +734,23 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   result = await schema.modify("testDomain_1").where("wrdTag", "like", "TEST_*").sync("wrdTag", [], { closeMode: "delete" });
   test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
 
+  //close three
+  result = await schema.modify("testDomain_1").sync("wrdTag", [], { closeMode: "close" });
+  test.eq([threeId], result.missing);
+
+  //without historyMode it would be invisible to deletion
+  result = await schema.modify("testDomain_1").sync("wrdTag", [], { closeMode: "delete-closereferred" });
+  test.eq([], result.missing);
+  test.eq([], result.matched);
+
+  //with historyMode it is in scope for deletion
+  result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { closeMode: "delete-closereferred" });
+  test.eq(2, result.missing.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
+  test.assert(result.missing.includes(threeId));
+  test.assert(! await schema.getFields("testDomain_1", threeId, ["wrdId"]));
+
+  // --- sync tests with wredPerson ---
+
   const firstUnitId = await schema.search("whuserUnit", "wrdTag", "FIRSTUNIT");
   test.assert(firstUnitId);
   const fixedFields = { testJsonRequired: { mixedCase: [1, "yes!"] }, whuserUnit: firstUnitId };
