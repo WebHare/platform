@@ -1,5 +1,5 @@
 {
-  "name": "@webhare/ts-esbuild-runner",
+  "name": "@webhare/tsrun",
   "version": "",
   "description": "Run TypeScript code from the command line (esbuild wrapper)",
   "main": "",

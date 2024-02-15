@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import "@webhare/ts-esbuild-runner/src/polyfills";
+import "@webhare/tsrun/src/polyfills";
 
 if (!Array.prototype.at) { //not supported by Safari 15.3 and earlier
   Array.prototype.at = function (index) {

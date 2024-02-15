@@ -1,7 +1,7 @@
 import { debugFlags } from '@webhare/env';
 import * as domevents from '../../../modules/system/js/dompack/src/events';
 import { createDeferred, DeferredPromise } from "@webhare/std";
-import "@webhare/ts-esbuild-runner/src/polyfills";
+import "@webhare/tsrun/src/polyfills";
 
 let locallocks: BusyLock[] = [];
 let modallocked = false;

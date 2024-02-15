@@ -245,7 +245,7 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it
 if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|shell|make|finalize-webhare|prepare-whdata|fixbuild|builddocker|testdocker|deploydocker)$ ]]; then
   if [ -z "$__WEBHARE_WHDATA_PREPARED" ]; then
-    if [ ! -f "$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js" ]; then #this may trigger after a source checkout and attempting to just 'wh'
+    if [ ! -f "$WEBHARE_DIR/jssdk/tsrun/dist/resolveplugin.js" ]; then #this may trigger after a source checkout and attempting to just 'wh'
       echo "It looks like WebHare isn't built yet. Try wh make install" 1>&2
       exit 1
     fi

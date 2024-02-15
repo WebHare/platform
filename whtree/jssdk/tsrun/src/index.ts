@@ -13,4 +13,4 @@ import { installResolveHook } from "./resolvehook";
 import "./polyfills";
 
 const debug = process.env.ESBUILDRUNNER === "debug";
-installResolveHook({ debug, cachePath: path.join(os.homedir(), ".ts-esbuild-runner-cache") });
+installResolveHook({ debug, cachePath: path.join(os.homedir(), ".tsrun-cache") });
