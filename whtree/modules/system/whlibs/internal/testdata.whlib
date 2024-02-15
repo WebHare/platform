@@ -39,6 +39,7 @@ PUBLIC CONSTANT RECORD testdata :=
       , [ valid := TRUE,  valid_modern := FALSE,  email := '=?ISO-8859-1?Q?a?= <arnold@example.net>' ]
       , [ valid := TRUE,  valid_modern := FALSE,  email := '=?ISO-8859-1?Q?Gim=E9nez?= <arnold@example.net>' ]
       , [ valid := FALSE, valid_modern := FALSE,  email := '=?ISO-8859-1?Q?G.Gim=E9nez?= <arnold@example.net>' ]
+      , [ valid := TRUE,  valid_modern := TRUE,   email := "o`'^neill@example.com" ] //according to the MDN RegEx on https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email
       , [ valid := TRUE,  valid_modern := TRUE,   email := '1234567890123456789012345678901234567890123456789012345678901234@example.net' ] //64 chars is on the edge of RFC3696 acceptable..
       , [ valid := TRUE,  valid_modern := FALSE,  email := '12345678901234567890123456789012345678901234567890123456789012345@example.net' ] //65 is not
       , [ valid := TRUE,  valid_modern := TRUE,   email := '1234567890123456789012345678901234567890123456789012345678901234@1234567890123456789012345678901234567890123456789012345678901234.1234567890123456789012345678901234567890123456789012345678901234.1234567890123456789012345678901234567890123456789012345.net' ] //254 is the absolute upper limit in SMTP

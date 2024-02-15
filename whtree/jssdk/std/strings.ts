@@ -213,3 +213,13 @@ export function slugify(text: string, { separator = "-", keep = "" }: {
 
   return text || null; //we return 'null' on purpose so callers realize we won't necessarily give them a string!
 }
+
+/** Check if an email address is valid in modern times (an emailcheck much closer to what a browser would do, with additional sanity checks. No attempt to allow all legacy styles supported by the RFCs but 99.9%+ sure to be an error if seen submitted in a form
+    @returns True if the email address would appears to be a well-formed email address to a non-greybeard
+*/
+export function isValidEmail(email: string) {
+  if (email.length > 254) //TODO count bytes instead of characters
+    return false;
+
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*(?:\.[a-zA-Z0-9-]{2,})$/.test(email);
+}
