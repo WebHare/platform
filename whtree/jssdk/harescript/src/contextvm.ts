@@ -1,5 +1,5 @@
 import { ensureScopedResource, getScopedResource, isRootCodeContext } from "@webhare/services/src/codecontexts";
-import { HSVMCallsProxy, invokeOnVM } from "./wasm-proxies";
+import { HSVMCallsProxy, HSVMObject, invokeOnVM } from "./wasm-proxies";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { CallableVMWrapper, createVM } from "./machinewrapper";
 
@@ -48,4 +48,9 @@ export function loadlib(name: string): HSVMCallsProxy;
 export function loadlib(name: string): HSVMCallsProxy {
   const proxy = new Proxy({}, new ContextLibraryProxy(name)) as HSVMCallsProxy;
   return proxy;
+}
+
+/** Implements HS MakeObject */
+export function makeObject(name: string, ...params: unknown[]): Promise<HSVMObject> {
+  return loadlib("wh::system.whlib").MakeObject(name, ...params);
 }

@@ -1,6 +1,6 @@
 import * as stacktrace_parser from "stacktrace-parser";
 import { VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HSVMObject, createVM, loadlib } from "@webhare/harescript";
+import { HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
@@ -97,6 +97,10 @@ async function testCalls() {
   //verify promises
   test.eq(15, await vm.loadlib("wh::promise.whlib").createSleepPromise(15));
   await test.throws(/We're async throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowItAsync());
+
+  //verify makeObject
+  const exc = await makeObject("wh::system.whlib#Exception", "This is a test exception", null); //TODO honor default parameters? but apparently MakeObject doesn't do it either
+  test.eq("This is a test exception", await exc.$get("what"));
 
   //test whether we can keep values boxed
   const rawvm = vm._getHSVM();
