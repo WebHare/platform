@@ -200,8 +200,15 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return typeobj;
   }
 
+  // FIXME Deprecate once everyone is at least 5.4.1
   // eslint-disable-next-line @typescript-eslint/ban-types
   selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
+    const wrdtype = this.getType(type);
+    return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  query<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.getType(type);
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
