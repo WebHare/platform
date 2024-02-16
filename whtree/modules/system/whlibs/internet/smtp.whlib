@@ -274,7 +274,7 @@ PUBLIC BOOLEAN FUNCTION IsValidModernEmailAddress(STRING emailaddress)
   IF(Length(emailaddress) > 254)
     RETURN FALSE;
 
-  RETURN NEW RegEx("^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]{1,64}@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*(?:\\.[a-zA-Z0-9-]{2,})$")->Test(emailaddress);
+  RETURN NEW RegEx("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*(?:\\.[a-zA-Z0-9-]{2,})$")->Test(emailaddress);
 }
 
 

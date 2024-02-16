@@ -385,6 +385,58 @@ async function testStrings() {
   test.eq("^index-html", std.slugify("^index.|+html", { keep: '^' }));
 }
 
+function testEmails() {
+  const invalidEmails = [
+    '"\u00E9" <rob@example.nl>',
+    '"rob hul.swit"@example.nl',
+    '"rob hulswit"@example.nl',
+    '"rob\\ hul.swit"@example.nl',
+    '"robh\\\nulswit@example.nl',
+    '"robh\nulswit@example.nl',
+    '"robhul\u0080.swit"@example.nl',
+    '"robhul\u0080swit@example.nl',
+    '"Tester, M." <marge@example.nl>',
+    '\u00E9 <rob@example.nl>',
+    '\u00E9 <rob@example.nl>',
+    '<r\u00E9b@example.nl>',
+    '<rob@b-l\u00E9x.nl>',
+    '=?ISO-8859-1?Q?a?= <arnold@example.net>',
+    '=?ISO-8859-1?Q?G.Gim=E9nez?= <arnold@example.net>',
+    '=?ISO-8859-1?Q?Gim=E9nez?= <arnold@example.net>',
+    '1234567890123456789012345678901234567890123456789012345678901234@1234567890123456789012345678901234567890123456789012345678901234.1234567890123456789012345678901234567890123456789012345678901234.12345678901234567890123456789012345678901234567890123456.net',  //254 is the absolute upper limit in SMTP
+    '12345678901234567890123456789012345678901234567890123456789012345@example.net', //65 chars is not acceptable in RFC3696
+    'r\u00E9b@example.nl',
+    'Rob ( :( ) "Tester" <rob@example.nl>',
+    'Rob (((x)) "Tester" <rob@example.nl>',
+    'Rob (((x))) "Tester" <rob@example.nl>',
+    'Rob ((x))) "Tester" <rob@example.nl>',
+    'Rob (de wizard) "Test\\"er" <rob@example.nl>',
+    'rob@b-l\u00E9x.nl',
+    'ULFT. a_driever@example.com',
+    " arnold@example.",
+    "@example.com",
+    "arnold@example.",
+    "arnold@example.n.",
+    "arnold@example.n", //might be RFC valid but there are no single character TLDs and this is very likely a 'too-fast-enter
+    "arnold@example.nl.",
+    "arnold@example.nl@example.com",
+    "arnold@example",
+  ];
+
+  for (const email of invalidEmails)
+    test.eq(false, std.isValidEmail(email), `Expected to be invalid: ${email}`);
+
+  const validEmails = [
+    '1234567890123456789012345678901234567890123456789012345678901234@1234567890123456789012345678901234567890123456789012345678901234.1234567890123456789012345678901234567890123456789012345678901234.1234567890123456789012345678901234567890123456789012345.net', //254 is the absolute upper limit in SMTP
+    '1234567890123456789012345678901234567890123456789012345678901234@example.net',  //64 chars is on the edge of RFC3696 acceptable..
+    "arnold@example.nl",
+    "o`'^neill@example.com", //according to the MDN RegEx on https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email
+  ];
+
+  for (const email of validEmails)
+    test.eq(true, std.isValidEmail(email), `Expected to be valid: ${email}`);
+}
+
 async function testCollections() {
   const map = new Map<string, number>();
   test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
@@ -521,6 +573,7 @@ test.run([
   testDateTime,
   "Crypto and strings",
   testStrings,
+  testEmails,
   "Collections",
   testCollections,
   "Promises",
