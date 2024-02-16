@@ -392,6 +392,7 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
     @param p3 Parameter 3
     @param p4 Parameter 4
     @return Language text
+    @loadlib mod::tollium/lib/gettid.whlib
 */
 PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
 {
