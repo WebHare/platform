@@ -1433,9 +1433,9 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
 }
 
 class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> extends WRDAttributeValueBase<
-  Array<Insertable<Members> & { wrdSettingId?: bigint }>,
-  Array<ArraySelectable<Members> & { wrdSettingId: bigint }>,
-  Array<ArraySelectable<Members> & { wrdSettingId: bigint }>,
+  Array<Insertable<Members>>,
+  Array<ArraySelectable<Members>>,
+  Array<ArraySelectable<Members>>,
   never> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1455,7 +1455,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     }
   }
 
-  getDefaultValue(): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> { return []; }
+  getDefaultValue(): Array<ArraySelectable<Members>> { return []; }
 
   checkFilter({ condition, value }: never) {
     throw new Error(`Filters not allowed on arrays`);
@@ -1488,7 +1488,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_start - Position where settings for this attribute start
    * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
    */
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members>> {
     throw new Error(`Not implemented yet`);
   }
 
@@ -1498,14 +1498,14 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members>> {
     if (settings_limit <= settings_start)
-      return this.getDefaultValue() as Array<ArraySelectable<Members> & { wrdSettingId: bigint }>; // Cast is needed because for required fields, Out may not extend Default.
+      return this.getDefaultValue() as Array<ArraySelectable<Members>>; // Cast is needed because for required fields, Out may not extend Default.
     else {
-      const retval = new Array<ArraySelectable<Members> & { wrdSettingId: bigint }>;
+      const retval = new Array<ArraySelectable<Members>>;
       for (let idx = settings_start; idx < settings_limit; ++idx) {
         const settingid = entity_settings[idx].id;
-        const rec = { wrdSettingId: BigInt(settingid) } as ArraySelectable<Members> & { wrdSettingId: bigint };
+        const rec = {} as ArraySelectable<Members>;
         for (const field of this.fields) {
           const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
           const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
@@ -1520,7 +1520,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
-  validateInput(value: Array<Insertable<Members> & { wrdSettingId?: bigint }>) {
+  validateInput(value: Array<Insertable<Members>>) {
     for (const row of value)
       for (const field of this.fields) {
         if (field.name in row)
@@ -1542,12 +1542,10 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     return retval;
   }
 
-  encodeValue(value: Array<Insertable<Members> & { wrdSettingId?: bigint }>): EncodedValue {
+  encodeValue(value: Array<Insertable<Members>>): EncodedValue {
     return {
       settings: value.map((row, idx): EncodedSetting => {
         const retval: EncodedSetting = { attribute: this.attr.id, ordering: idx + 1 };
-        if (row.wrdSettingId)
-          retval.id = Number(row.wrdSettingId);
         const subs: Array<EncodedSetting | EncodedSetting[]> = [];
         for (const field of this.fields) {
           if (field.name in row) {

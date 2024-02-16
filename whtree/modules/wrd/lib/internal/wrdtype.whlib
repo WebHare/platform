@@ -3895,6 +3895,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN EncodeWRDGUID(__GetRandomUUIDv4Bits());
   }
 
+  PUBLIC BOOLEAN FUNCTION IsReferenced(INTEGER entityid)
+  {
+    RETURN IsReferenced(entityid);
+  }
+
   /** Delete an entity if not referred, close it otherwise
       @param entityid Entity to close or delete */
   PUBLIC MACRO CloseOrDeleteEntity(INTEGER entityid)

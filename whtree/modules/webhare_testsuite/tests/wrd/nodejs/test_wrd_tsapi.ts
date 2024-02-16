@@ -14,6 +14,7 @@ import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
+import { isChange } from "@mod-wrd/js/internal/schema";
 
 type TestSchema = {
   wrdPerson: {
@@ -37,6 +38,7 @@ type TestSchema = {
     whuserLastlogin: WRDAttributeType.DateTime;
     whuserHiddenannouncements: WRDAttributeType.DomainArray;
     inventedDomain: WRDAttributeType.Domain;
+    wrdContactEmail: WRDAttributeType.Email;
   } & WRDTypeBaseSettings;
 };
 
@@ -102,6 +104,7 @@ type CustomExtensions = {
   testDomain_1: {
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdOrdering: WRDBaseAttributeType.Base_Integer;
+    wrdTitle: WRDAttributeType.Free;
   } & WRDTypeBaseSettings;
   testDomain_2: {
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
@@ -197,6 +200,40 @@ function testSupportAPI() {
 
   test.eq("0700400000004000a00000bea61ef00d", decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d").toString("hex"));
   test.eq("07004000-0000-4000-a000-00bea61ef00d", encodeWRDGuid(decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d")));
+
+  test.eq(false, isChange({ mixedCase: [1, 'yes!'] }, { mixedCase: [1, 'yes!'] }));
+  // a JSON Value does see a difference between undefined/null/''
+  test.eq(true, isChange({ testEmail: '', testFree: '' }, { testEmail: '' }));
+  test.eq(true, isChange({ testEmail: '', testFree: '' }, { testEmail: '', testFree: null }));
+  // an array considers missing and empty equal
+  test.eq(false, isChange([{ testEmail: '', testFree: '' }], [{ testEmail: '', testFree: null }]));
+  //an empty array is equivalent to missing
+  test.eq(false, isChange([], undefined));
+  test.eq(false, isChange([
+    {
+      testInt: 0,
+      testFree: '',
+      testArray2: [],
+      testSingle: null,
+      testImage: null,
+      testSingleOther: null,
+      testMultiple: [],
+      testEmail: 'email1@example.net'
+    },
+    {
+      testInt: 0,
+      testFree: '',
+      testArray2: [],
+      testSingle: null,
+      testImage: null,
+      testSingleOther: null,
+      testMultiple: [],
+      testEmail: 'email2@example.net'
+    }
+  ], [
+    { testEmail: 'email1@example.net', testFree: '' },
+    { testEmail: 'email2@example.net' }
+  ]));
 }
 
 interface TestRecordDataInterface {
@@ -210,6 +247,11 @@ async function testNewAPI() {
   test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag == testSchemaTag));
 
   await whdb.beginWork();
+  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: WRDAttributeType.Free });
+  test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
+  await schema.getType("wrdPerson").deleteAttribute("testDummy");
+  test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
+
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
@@ -230,9 +272,9 @@ async function testNewAPI() {
   */
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
-  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
   await whdb.commitWork();
@@ -241,6 +283,7 @@ async function testNewAPI() {
     .selectFrom("wrdPerson")
     .select(["wrdFirstName", "testJson", "testJsonRequired", "wrdGender"])
     .select({ lastname: "wrdLastName", id: "wrdId", guid: "wrdGuid" })
+    .select({ name: { "first": "wrdFirstName", "last": "wrdLastName" } })
     .where("wrdFirstName", "=", "first")
     .execute();
 
@@ -255,6 +298,7 @@ async function testNewAPI() {
       id: firstperson,
       testJson: { mixedCase: [1, "yes!"] },
       testJsonRequired: { mixedCase: [1, "yes!"] },
+      name: { first: "first", last: "lastname" },
       guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
     }
   ], selectres);
@@ -349,6 +393,17 @@ async function testNewAPI() {
   }
 
   await whdb.beginWork();
+  await test.throws(/cannot be deleted/, schema.close("whuserUnit", unit_id, { mode: "delete-denyreferred" }));
+  await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { mode: "close-denyreferred" }));
+
+  await schema.close("whuserUnit", unit_id, { mode: "delete-closereferred" });
+  test.assert((await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }))?.wrdLimitDate);
+  await schema.close("whuserUnit", unit_id, { mode: "delete" });
+  test.assert(!(await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" })));
+
+  await whdb.rollbackWork();
+
+  await whdb.beginWork();
   await schema.delete("wrdPerson", firstperson);
   await whdb.commitWork();
 
@@ -432,8 +487,7 @@ async function testNewAPI() {
     await schema.update("wrdPerson", newperson, {
       testArray: [
         {
-          testArray2: [{ testInt2: 2, wrdSettingId: -2n }],
-          wrdSettingId: -1n
+          testArray2: [{ testInt2: 2 }]
         }
       ]
     });
@@ -448,7 +502,6 @@ async function testNewAPI() {
         testArray2: [
           {
             testInt2: 2,
-            wrdSettingId: arrayselectres[0]?.a.testArray[0]?.testArray2[0]?.wrdSettingId ?? -2
           }
         ],
         testEmail: "",
@@ -458,7 +511,6 @@ async function testNewAPI() {
         testMultiple: [],
         testSingle: null,
         testSingleOther: null,
-        wrdSettingId: arrayselectres[0]?.a.testArray[0]?.wrdSettingId ?? -1
       }
     ];
 
@@ -587,6 +639,178 @@ async function testUpsert() {
   await whdb.commitWork();
 }
 
+async function testTypeSync() { //this is WRDType::ImportEntities
+  type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
+  const schema = new WRDSchema<Combined>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+
+  async function getDomain1({ withClosed = false } = {}) {
+    return (await schema.selectFrom("testDomain_1")
+      .select(["wrdTag", "wrdTitle", "wrdCreationDate", "wrdModificationDate", "wrdLimitDate"])
+      .historyMode(withClosed ? "all" : "now")
+      .execute())
+      .sort((a, b) => a.wrdTag.localeCompare(b.wrdTag));
+  }
+
+  await whdb.beginWork();
+
+  test.eqPartial([
+    { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_2", "wrdTitle": "Domain value 1.2" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" }
+  ], await getDomain1({ withClosed: true }));
+
+  const oneinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1"))!, ["wrdId", "wrdCreationDate"]);
+  test.assert(oneinfo);
+
+  const twoinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_2"))!, ["wrdId", "wrdCreationDate"]);
+  test.assert(twoinfo);
+
+  const persons = (await schema.selectFrom("wrdPerson").select(["wrdId", "wrdContactEmail"]).historyMode("all").execute()).sort((a, b) => a.wrdContactEmail.localeCompare(b.wrdContactEmail));
+  test.eq(3, persons.length);
+
+  //Merge some new domain stuff!
+  let result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE" }]);
+  test.eq(1, result.created.length);
+  const threeId = result.created[0];
+
+  //Should have been added, nothing should be gone
+  test.eqPartial([
+    { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_2", "wrdTitle": "Domain value 1.2" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" },
+    { "wrdTag": "THREE", "wrdTitle": "" }
+  ], await getDomain1());
+
+  //A sync with dupe values should throw and *not* have any side effects!
+  test.throws(/Duplicate/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "FOUR" }, { wrdTag: "FIVE" }, { wrdTag: "FIVE" }], { unmatched: "delete" }));
+
+  test.eqPartial([
+    { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_2", "wrdTitle": "Domain value 1.2" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" },
+    { "wrdTag": "THREE", "wrdTitle": "" }
+  ], await getDomain1());
+
+  //@ts-expect-error -- TS knows we can't do closeMode
+  await test.throws(/Illegal delete mode 'typo'/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "typo" }));
+
+  //FIXME verify identical creation/mod/delete dates for all things happening in a single Import
+
+  //Update the tag and close the rest
+  result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "close" });
+  test.eq(3, result.unmatched.length);
+  test.eq([threeId], result.updated);
+  test.eq([], result.created);
+  test.eq([], result.matched);
+
+  test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
+  //Simply repeating the action shouldn't do anything
+  result = await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "close" });
+  test.eq([], result.unmatched);
+  test.eq([], result.updated);
+  test.eq([], result.created);
+  test.eq([threeId], result.matched);
+
+  //restore TWO to live
+  result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Zwei" }]);
+  test.eq([twoinfo.wrdId], result.updated);
+  test.eq([], result.created);
+  test.eq([], result.matched);
+
+  //should be same entity still
+  test.eqPartial({ ...twoinfo, wrdTitle: "Zwei", wrdLimitDate: null }, await schema.getFields("testDomain_1", twoinfo.wrdId, ["wrdCreationDate", "wrdLimitDate", "wrdTitle", "wrdId"]));
+
+  //restore ONE to live. don't do any other change to make sure a 'no change' optimization doesn't skip us
+  result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_1" }]);
+  test.eq([oneinfo.wrdId], result.updated);
+  test.eqPartial({ ...oneinfo, wrdTitle: "Domain value 1.1", wrdLimitDate: null }, await schema.getFields("testDomain_1", oneinfo.wrdId, ["wrdCreationDate", "wrdLimitDate", "wrdTitle", "wrdId"]));
+
+  //verify we still have three entries
+  test.eqPartial([
+    { "wrdTag": "TEST_DOMAINVALUE_1_1" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_2" },
+    { "wrdTag": "THREE", "wrdTitle": "Third" },
+  ], await getDomain1());
+
+  //do another destructive delete, but apply a filter that will only apply to TWO and THREE
+  result = await schema.modify("testDomain_1").where("wrdTag", "like", "TEST_*").sync("wrdTag", [], { unmatched: "delete" });
+  test.eqPartial([{ "wrdTag": "THREE", "wrdTitle": "Third" }], await getDomain1());
+
+  //close three
+  result = await schema.modify("testDomain_1").sync("wrdTag", [], { unmatched: "close" });
+  test.eq([threeId], result.unmatched);
+
+  //without historyMode it would be invisible to deletion
+  result = await schema.modify("testDomain_1").sync("wrdTag", [], { unmatched: "delete-closereferred" });
+  test.eq([], result.unmatched);
+  test.eq([], result.matched);
+
+  //with historyMode it is in scope for deletion
+  result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { unmatched: "delete-closereferred" });
+  test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
+  test.assert(result.unmatched.includes(threeId));
+  test.assert(! await schema.getFields("testDomain_1", threeId, ["wrdId"]));
+
+  // --- sync tests with wredPerson ---
+
+  const firstUnitId = await schema.search("whuserUnit", "wrdTag", "FIRSTUNIT");
+  test.assert(firstUnitId);
+  const fixedFields = { testJsonRequired: { mixedCase: [1, "yes!"] }, whuserUnit: firstUnitId };
+
+  await schema.delete("wrdPerson", await schema.selectFrom("wrdPerson").select("wrdId").historyMode("all").execute());
+
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [{ ...fixedFields, wrdContactEmail: "p.precies@example.net" }]);
+
+  const pprecies = result.created[0];
+  test.assert(pprecies);
+
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
+    {
+      ...fixedFields,
+      wrdContactEmail: "p.precies@example.net",
+      testArray: [{ testEmail: "email1@example.net" }, { testEmail: "email2@example.net" }]
+    }
+  ]);
+  test.eq([pprecies], result.updated);
+  test.eqPartial([
+    { testEmail: "email1@example.net" },
+    { testEmail: "email2@example.net" }
+  ], (await schema.getFields("wrdPerson", pprecies, ["testArray"]))?.testArray);
+
+  // A no-op update shouldn't trigger an update
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
+    {
+      ...fixedFields,
+      wrdContactEmail: "p.precies@example.net",
+      testArray: [{ testEmail: "email1@example.net", testFree: '' }, { testEmail: "email2@example.net" }]
+    }
+  ]);
+  test.eq([pprecies], result.matched);
+
+  // Test array update
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
+    {
+      ...fixedFields,
+      wrdContactEmail: "p.precies@example.net",
+      testArray: [{ testEmail: "email2@example.net" }, { testFree: '' }]
+    }
+  ]);
+  test.eq([pprecies], result.updated);
+  test.eqPartial([
+    { testEmail: "email2@example.net" },
+    { testFree: '' }
+  ], (await schema.getFields("wrdPerson", pprecies, ["testArray"]))?.testArray);
+
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", []); //effectively a very inefficient way to count entities..
+  test.eq(1, result.unmatched.length);
+
+  result = await schema.modify("wrdPerson").sync("wrdContactEmail", [], { unmatched: "close" });
+  test.eq(1, result.unmatched.length);
+  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").execute());
+
+  await whdb.rollbackWork();
+}
+
 async function testComparisons() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new WRDSchema<Combined>("wrd:testschema");
@@ -700,6 +924,7 @@ test.run([
   testBaseTypes,
   testOrgs,
   testUpsert,
+  testTypeSync,
   testComparisons,
   testGeneratedWebHareWRDAPI,
   testEventMasks,

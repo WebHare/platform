@@ -10,11 +10,22 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, omit } from "@webhare/std";
+import { isTruthy, omit, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
+const WRDCloseModes = ["close", "delete", "delete-closereferred", "delete-denyreferred", "close-denyreferred"] as const;
+type WRDCloseMode = typeof WRDCloseModes[number];
+
+interface SyncOptions {
+  /** What to dot with unmatched entities during a sync? Defauilts to 'keep' */
+  unmatched?: WRDCloseMode | "keep";
+}
+
+interface EntityCloseOptions {
+  mode?: WRDCloseMode;
+}
 interface WRDTypeConfigurationBase {
   metaType: WRDMetaType;
   title?: string;
@@ -70,6 +81,47 @@ type WRDEnrichResult<
   never,
   true extends RightOuterJoin ? MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> : never,
   never>;
+
+function validateCloseMode(closeMode: string) {
+  if (!WRDCloseModes.includes(closeMode as WRDCloseMode))
+    throw new Error(`Illegal delete mode '${closeMode}' - must be one of: ${WRDCloseModes.join(", ")}`);
+}
+
+export function isChange(curval: any, setval: any) {
+  if (curval === setval)
+    return false; //not a change
+  if (!curval && !setval)
+    return false; //not a change (it doesn't matter whether a value is its default value or null)
+
+  if (typeof curval === 'object') {
+    if (typeof setval !== 'object')
+      return false;
+
+    //NOTE this is a heuristic, we really need attribute information to properly do this.we'll assume that an Array is a WRD array and any other Object is a JSON
+    //     in a WRD Array, leaving a value out is equal to setting it to its default.
+    //     in a JSON value, leaving a property out is not the same as setting it empty
+    //
+    if (Array.isArray(curval)) {
+      if (!setval && !curval.length)
+        return false;
+      if (!Array.isArray(setval) || curval.length !== setval.length)
+        return true; //a change
+      for (const [i, row] of curval.entries()) {
+        for (const [key, value] of Object.entries(row)) {
+          if (isChange(value, setval[i][key])) {
+            // console.log(key, value, setval[i][key]); //debug where the change appeared
+            return true;
+          }
+        }
+      }
+      return false;
+    } else {
+      return stringify(curval, { stable: true, typed: true }) !== stringify(setval, { stable: true, typed: true });
+    }
+  }
+
+  return curval !== setval;
+}
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly id: number | string;
@@ -213,6 +265,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
 
+  modify<T extends keyof S & string>(type: T): WRDModificationBuilder<S, T> {
+    const wrdtype = this.getType(type);
+    return new WRDModificationBuilder(wrdtype, [], null);
+  }
+
   insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>): Promise<number> {
     return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
   }
@@ -257,8 +314,12 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
   }
 
+  close<T extends keyof S & string>(type: T, ids: number | number[], options?: EntityCloseOptions): Promise<void> {
+    return checkPromiseErrorsHandled(this.getType(type).close(ids, options));
+  }
+
   delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).delete(ids));
+    return checkPromiseErrorsHandled(this.getType(type).close(ids, { mode: "delete" }));
   }
 
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
@@ -458,12 +519,49 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return repairResultSet(resultrows, outputmap) as unknown as RetVal;
   }
 
-  async delete(ids: number | number[]): Promise<void> {
+  async close(ids: number | number[], options?: EntityCloseOptions): Promise<void> {
+    const closeMode = options?.mode ?? "close";
+    validateCloseMode(closeMode);
+
     ids = Array.isArray(ids) ? ids : [ids];
-    if (ids.length) {
-      if (!debugFlags["wrd:usewasmvm"])
-        await extendWorkToCoHSVM();
-      await (await this._getType()).deleteEntities(ids);
+    if (!ids.length)
+      return;
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
+
+    const type = await this._getType();
+
+    if (closeMode === 'delete') {
+      await type.deleteEntities(ids);
+      return;
+    }
+    if (closeMode === 'close') {
+      for (const id of ids)
+        await type.closeEntity(id);
+      return;
+    }
+
+    for (const id of ids) {
+      //this is unlikely to be fast, but imports are usually background tasks and we can solve this after TS migrations
+      const isreferred = await type.IsReferenced(id);
+      switch (closeMode) {
+        case "close-denyreferred":
+          if (isreferred)
+            throw new Error(`Entity ${id} cannot be closed, it is still being referred`);
+          await type.closeEntity(id);
+          break;
+        case "delete-closereferred":
+          if (isreferred)
+            await type.closeEntity(id);
+          else
+            await type.deleteEntity(id);
+          break;
+        case "delete-denyreferred":
+          if (isreferred)
+            throw new Error(`Entity ${id} cannot be deleted, it is still being referred`);
+          await type.deleteEntity(id);
+          break;
+      }
     }
   }
 
@@ -513,7 +611,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
 
     await typeobj.CreateAttribute(tagToHS(tag), typetag, configclone);
-    return;
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
@@ -521,7 +618,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
-    return;
+  }
+
+  async deleteAttribute(tag: string) {
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
+    const typeobj = await this._getType();
+    await typeobj.DeleteAttribute(tagToHS(tag));
+
   }
 
   async getEventMasks(): Promise<string[]> {
@@ -556,20 +660,158 @@ function translateHistoryModeToHS(mode: HistoryModeData) {
   return mode ? { historyMode: mode.mode, ...omit(mode, ["mode"]) } : null;
 }
 
+export class WRDQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> {
+  protected type: WRDType<S, T>;
+  protected wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
+  protected _historyMode: HistoryModeData;
+
+  constructor(type: WRDType<S, T>, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData) {
+    this.type = type;
+    this.wheres = wheres;
+    this._historyMode = historyMode;
+  }
+}
+
+export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> extends WRDQueryBuilder<S, T> {
+  //TODO can we share more of where / $call / historyMode with WRDSingleQueryBuilder?
+
+  private __select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, RecordizeOutputMap<S[T], M>> {
+    const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
+    return new WRDSingleQueryBuilder(this.type, recordmapping, this.wheres, this._historyMode, null);
+  }
+
+  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDModificationBuilder<S, T> {
+    // Need to cast the filter because the options member isn't accepted otherwise
+    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
+    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode);
+  }
+
+  $call(cb: (b: WRDModificationBuilder<S, T>) => WRDModificationBuilder<S, T>): WRDModificationBuilder<S, T> {
+    return cb(this);
+  }
+
+  historyMode(mode: "now" | "all" | "__getfields"): WRDModificationBuilder<S, T>;
+  historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
+  historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
+
+  historyMode(mode: "now" | "all" | "__getfields" | "at" | "range", start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+    switch (mode) {
+      case "now":
+      case "__getfields":
+      case "all": {
+        return new WRDModificationBuilder(this.type, this.wheres, { mode });
+      }
+      case "at": {
+        return new WRDModificationBuilder(this.type, this.wheres, { mode, when: start! });
+      }
+      case "range": {
+        return new WRDModificationBuilder(this.type, this.wheres, { mode, when_start: start!, when_limit: limit! });
+      }
+    }
+  }
+
+  async sync<F extends AttrRef<S[T]>>(joinAttribute: F, inrows: Array<Insertable<S[T]>>, options?: SyncOptions) {
+    const retval = {
+      created: new Array<number>,
+      updated: new Array<number>,
+      unmatched: new Array<number>,
+      matched: new Array<number>
+    };
+
+    const unmatchedCloseMode = options?.unmatched || "keep";
+    if (unmatchedCloseMode !== 'keep')
+      validateCloseMode(unmatchedCloseMode);
+
+    //sample first row to get desired 'current' cells
+    const currentCells = Object.keys(inrows[0] || {}).filter(_ => _ !== joinAttribute);
+    const outputColumns = {
+      wrdId: "wrdId",
+      wrdLimitDate: "wrdLimitDate",
+      joinField: joinAttribute,
+      current: currentCells
+    };
+
+    //TODO we should filter on joinField too or make this a two stage select. we don't need the currentcells for entities we won't be updating
+    const currentRows: any[] = await this.__select(outputColumns).execute();
+    const now = new Date();
+    const currentRowMap = new Map<unknown, typeof currentRows[number]>();
+
+    for (const row of currentRows) { //Build map but watch for duplicates that will prevent proper matching
+      if (currentRowMap.has(row.joinField))
+        throw new Error(`Duplicate joinField '${row.joinField.toString()}' in current data (entity #${row.wrdId} and ${currentRowMap.get(row.joinField)!.wrdId})`);
+      currentRowMap.set(row.joinField, row);
+    }
+
+    const inrowKeys = new Map<unknown, number>;
+    for (const [idx, row] of inrows.entries()) {
+      //@ts-ignore yes it exists?
+      const rowkey = row[joinAttribute];
+      if (!rowkey)
+        throw new Error(`Import row #${idx} has no value for '${joinAttribute}'`);
+      if (inrowKeys.has(rowkey))
+        throw new Error(`Duplicate joinField '${rowkey.toString()}' in imported data (row #${inrowKeys.get(rowkey)} and #${idx})`);
+      inrowKeys.set(rowkey, idx);
+    }
+
+    //@ts-ignore -- yes it doest exist!
+    const expectedKeys = new Set;
+    for (const inrow of inrows as any[]) {
+      if (!(joinAttribute in inrow))
+        throw new Error(`ImportEntities: joinAttribute ${joinAttribute} not found in input row`);
+
+      //FIXME warn if joinAttribute is not unique in source data
+      const inrowkey = inrow[joinAttribute as string];
+      expectedKeys.add(inrowkey);
+
+      const currentRow: any = currentRowMap.get(inrowkey);
+
+      if (!currentRow) { //it's a new entity
+        const newid = await this.type.createEntity({ wrdCreationDate: now, wrdModificationDate: now, ...inrow });
+        retval.created.push(newid);
+      } else { //we may have to update the existing entity
+        const changes: any = {};
+        if (currentRow.wrdLimitDate)
+          changes.wrdLimitDate = null;
+
+        for (const key of currentCells) {
+          if (isChange(currentRow.current[key], inrow[key])) {
+            // console.log("ischange", key, currentRow.current[key], inrow[key]); //debug where the change was detected
+            changes[key] = inrow[key];
+          }
+        }
+
+        if (Object.keys(changes).length) { // we need to update
+          await this.type.updateEntity(currentRow.wrdId, changes);
+          retval.updated.push(currentRow.wrdId);
+        } else {
+          retval.matched.push(currentRow.wrdId);
+        }
+      } //done update
+
+      currentRowMap.delete(inrowkey);
+    }
+
+    //@ts-ignore -- too complex
+    const unreferenced = [...currentRowMap.values()].map(_ => _.wrdId);
+    retval.unmatched = unreferenced;
+    if (retval.unmatched.length && unmatchedCloseMode !== 'keep')
+      await this.type.close(retval.unmatched, { mode: unmatchedCloseMode });
+
+    return retval;
+  }
+
+
+}
+
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
 */
-export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
-  private type: WRDType<S, T>;
+export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> extends WRDQueryBuilder<S, T> {
   private selects: O;
-  private wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
-  private _historyMode: HistoryModeData;
   private _limit: number | null;
 
   constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData, limit: number | null) {
-    this.type = type;
+    super(type, wheres, historyMode);
     this.selects = selects;
-    this.wheres = wheres;
-    this._historyMode = historyMode;
     this._limit = limit;
   }
 
