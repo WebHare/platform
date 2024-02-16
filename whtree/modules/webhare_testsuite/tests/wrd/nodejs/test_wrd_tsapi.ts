@@ -202,10 +202,10 @@ function testSupportAPI() {
   test.eq("07004000-0000-4000-a000-00bea61ef00d", encodeWRDGuid(decodeWRDGuid("07004000-0000-4000-a000-00bea61ef00d")));
 
   test.eq(false, isChange({ mixedCase: [1, 'yes!'] }, { mixedCase: [1, 'yes!'] }));
-  // a JSON Value does see a differnce between undefined/null/''
+  // a JSON Value does see a difference between undefined/null/''
   test.eq(true, isChange({ testEmail: '', testFree: '' }, { testEmail: '' }));
   test.eq(true, isChange({ testEmail: '', testFree: '' }, { testEmail: '', testFree: null }));
-  // an array considers missing and emmpty equal
+  // an array considers missing and empty equal
   test.eq(false, isChange([{ testEmail: '', testFree: '' }], [{ testEmail: '', testFree: null }]));
   //an empty array is equivalent to missing
   test.eq(false, isChange([], undefined));

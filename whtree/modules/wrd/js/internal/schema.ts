@@ -99,7 +99,7 @@ export function isChange(curval: any, setval: any) {
 
     //NOTE this is a heuristic, we really need attribute information to properly do this.we'll assume that an Array is a WRD array and any other Object is a JSON
     //     in a WRD Array, leaving a value out is equal to setting it to its default.
-    //     in a JSON value, leaving a property  out is not the same as setting it wempty
+    //     in a JSON value, leaving a property out is not the same as setting it empty
     //
     if (Array.isArray(curval)) {
       if (!setval && !curval.length)
