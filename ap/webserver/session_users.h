@@ -116,12 +116,6 @@ class SUCache
 
         Sessions const &GetSessions() { return sessionlist; }
 
-        ///Flush all directly authenticated users
-        void FlushUserCache();
-        ///Flush a specific authenticated user
-        void FlushUserCacheForUser(int32_t userid);
-        ///Flush a specific authenticated WRD user
-        void FlushUserCacheForWRDUser(int32_t wrdentityid);
         ///Expire old sessionids and users
         void ExpireSessions();
 

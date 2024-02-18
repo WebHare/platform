@@ -1062,7 +1062,6 @@ void WHMGR_ ## x(HSVM *vm)                                                      
 
 FORWARD_MGR_FUNCTION(ConfigureWebServer)
 FORWARD_MGR_FUNCTION(GetHTTPEventListenerCounts)
-FORWARD_MGR_MACRO(FlushCache)
 FORWARD_MGR_MACRO(FlushLogFiles)
 
 FORWARD_MGR_MACRO(ClearHTTPEventMessages)
@@ -1088,12 +1087,9 @@ FORWARD_FUNCTION(ClientLocalAddress)
 FORWARD_FUNCTION(CreateWebSession)
 FORWARD_FUNCTION(UpdateWebSession)
 FORWARD_FUNCTION(FlushWebResponse)
-FORWARD_FUNCTION(GetAuthenticatingSessionId)
-FORWARD_FUNCTION(GetClientUsername)
 FORWARD_FUNCTION(GetErrorInfo)
 FORWARD_FUNCTION(GetWebSessionData)
 FORWARD_FUNCTION(GetWebSessionUser)
-FORWARD_FUNCTION(GetWebSessionType)
 FORWARD_FUNCTION(GetSRHErrors)
 FORWARD_FUNCTION(GetWebhareAccessRuleId)
 FORWARD_FUNCTION(GetWebhareAccessRules)
@@ -1110,7 +1106,6 @@ FORWARD_MACRO(AcceptBasicAuthCredentials)
 FORWARD_MACRO(CloseWebSession)
 FORWARD_MACRO(ResetWebResponse)
 FORWARD_MACRO(StoreWebSessionData)
-FORWARD_MACRO(RevokeWebSessionAuthentication)
 FORWARD_MACRO(DetachScriptFromRequest)
 
 void WHS_LogWebserverError(HSVM *vm)
@@ -1218,24 +1213,19 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata, "GETCLIENTLOCALADDRESS::S:",WHS_ClientLocalAddress);
         HSVM_RegisterFunction(regdata, "__SYSTEM_WHS_SESSIONLIST::RA:I",WHS_SessionList);
 
-        HSVM_RegisterMacro(regdata, "AUTHENTICATEWEBSESSION:::SSSBIIB",WHS_AuthenticateWebSession);
-        HSVM_RegisterMacro(regdata, "AUTHENTICATEWEBHAREUSER:::II",WHS_AuthenticateWebhareUser);
+        HSVM_RegisterMacro(regdata, "__WHS_AUTHENTICATEWEBSESSION:::SSSBIIB",WHS_AuthenticateWebSession);
         HSVM_RegisterMacro(regdata, "__WHS_SETREQUESTUSERNAME:::S",WHS_SetRequestUserName);
 
         HSVM_RegisterMacro(regdata, "ACCEPTBASICAUTHCREDENTIALS:::SII",WHS_AcceptBasicAuthCredentials);
-        HSVM_RegisterMacro(regdata, "CLOSEWEBSESSION:::SS",WHS_CloseWebSession);
-        HSVM_RegisterFunction(regdata, "CREATEWEBSESSION::S:SRIBS",WHS_CreateWebSession);
+        HSVM_RegisterMacro(regdata, "__WHS_CLOSEWEBSESSION:::SS",WHS_CloseWebSession);
+        HSVM_RegisterFunction(regdata, "__WHS_CREATEWEBSESSION::S:SRIBS",WHS_CreateWebSession);
         HSVM_RegisterFunction(regdata, "__UPDATEWEBSESSION::B:SSRBI",WHS_UpdateWebSession);
         HSVM_RegisterFunction(regdata, "__WHS_FLUSHWEBRESPONSE::R:D",WHS_FlushWebResponse);
         HSVM_RegisterMacro(regdata, "RESETWEBRESPONSE:::",WHS_ResetWebResponse);
-        HSVM_RegisterFunction(regdata, "GETAUTHENTICATINGSESSIONID::S:",WHS_GetAuthenticatingSessionId);
-        HSVM_RegisterFunction(regdata, "GETCLIENTUSERNAME::S:",WHS_GetClientUsername);
         HSVM_RegisterFunction(regdata, "__WHS_GETERRORINFO::R:",WHS_GetErrorInfo);
-        HSVM_RegisterFunction(regdata, "GETWEBSESSIONDATA::R:SS",WHS_GetWebSessionData);
-        HSVM_RegisterFunction(regdata, "GETWEBSESSIONUSERID::I:SS",WHS_GetWebSessionUser);
-        HSVM_RegisterFunction(regdata, "GETWEBSESSIONTYPE::I:SS",WHS_GetWebSessionType);
-        HSVM_RegisterMacro(regdata, "STOREWEBSESSIONDATA:::SSR",WHS_StoreWebSessionData);
-        HSVM_RegisterMacro(regdata, "REVOKEWEBSESSIONAUTHENTICATION:::S",WHS_RevokeWebSessionAuthentication);
+        HSVM_RegisterFunction(regdata, "__WHS_GETWEBSESSIONUSERID::I:SS",WHS_GetWebSessionUser);
+        HSVM_RegisterFunction(regdata, "__WHS_GETWEBSESSIONDATA::R:SS",WHS_GetWebSessionData);
+        HSVM_RegisterMacro(regdata, "__WHS_STOREWEBSESSIONDATA:::SSR",WHS_StoreWebSessionData);
         HSVM_RegisterMacro(regdata, "__WHS_LOGWEBSERVERERROR:::S",WHS_LogWebserverError);
 
         HSVM_RegisterFunction(regdata, "GETWEBHAREACCESSRULEID::I:",WHS_GetWebhareAccessRuleId);
@@ -1250,7 +1240,6 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
 
         HSVM_RegisterFunction(regdata, "GETHTTPEVENTLISTENERCOUNTS::RA:S", WHMGR_GetHTTPEventListenerCounts);
         HSVM_RegisterMacro   (regdata, "CLEARHTTPEVENTMESSAGES:::S", WHMGR_ClearHTTPEventMessages);
-        HSVM_RegisterMacro   (regdata, "FLUSHAUTHENTICATION:::", WHMGR_FlushCache);
 
         return 1;
 }

@@ -310,12 +310,6 @@ WebHareServer::~WebHareServer()
         Shutdown();
 }
 
-void WebHareServer::FlushCache()
-{
-        //ADDME: After reconnecting, we should verify the session list that none of the known webhare users got deleted in the mean-time
-        shtml->FlushCache();
-}
-
 void WebHareServer::Shutdown()
 {
         LockedData::WriteRef (state)->must_stop=1;

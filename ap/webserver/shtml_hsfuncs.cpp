@@ -122,30 +122,6 @@ void ShtmlContextData::GetErrorInfo(HSVM *vm, HSVM_VariableId id_set)
             HSVM_StringSetSTD(vm, HSVM_ArrayAppend(vm, var_resources), resource);
 }
 
-void ShtmlContextData::GetAuthenticatingSessionId(HSVM *vm, HSVM_VariableId id_set)
-{
-
-        if (!request.get())
-        {
-                HSVM_StringSet(vm, id_set, NULL, NULL);
-                return;
-        }
-
-        ShtmlWebContext webcontext(request->requestkeeper);
-        HSVM_StringSetSTD(vm, id_set, webcontext->authenticating_session_id);
-}
-
-void ShtmlContextData::GetClientUsername(HSVM *vm, HSVM_VariableId id_set)
-{
-
-        if (!request.get())
-        {
-                HSVM_StringSet(vm, id_set, NULL, NULL);
-                return;
-        }
-
-        HSVM_StringSetSTD(vm, id_set, request->verified_username);
-}
 void ShtmlContextData::AllVariables(HSVM *vm, HSVM_VariableId id_set)
 {
 
@@ -679,36 +655,6 @@ void ShtmlContextData::GetWebSessionUser(HSVM *vm, HSVM_VariableId id_set)
         return;
 }
 
-void ShtmlContextData::GetWebSessionType(HSVM *vm, HSVM_VariableId id_set)
-{
-        //Open contexts
-
-        LockedSUCache::WriteRef lock(shtml->sucache);
-
-        //Open session
-        if (Session* sess = OpenSession(vm, lock, false)) //always okay to look up the type
-        {
-                HSVM_IntegerSet(vm, id_set, sess->type);
-                return;
-        }
-
-        //Return -1 on error..
-        HSVM_IntegerSet(vm, id_set, -1);
-        return;
-}
-
-void ShtmlContextData::RevokeWebSessionAuthentication(HSVM *vm)
-{
-        //Open contexts
-
-        LockedSUCache::WriteRef lock(shtml->sucache);
-
-        //Destroy session, if available
-        Session* sess = lock->OpenSessionNochecks(HSVM_StringGetSTD(vm, HSVM_Arg(0)), false);
-        if (sess)
-                lock->RevokeAuthentication(sess);
-}
-
 void ShtmlContextData::StoreWebSessionData(HSVM *vm)
 {
         // Create marshal packet outside of the lock
@@ -920,11 +866,6 @@ void ShtmlWebserverContextData::ClearHTTPEventMessages(HSVM *vm)
         std::string groupmask = HSVM_StringGetSTD(vm, HSVM_Arg(0));
 
         eventserver.ClearMessages(groupmask);
-}
-
-void ShtmlWebserverContextData::FlushCache(HSVM *)
-{
-        shtml->FlushCache();
 }
 
 void ShtmlWebserverContextData::SessionList(HSVM *vm, HSVM_VariableId id_set)

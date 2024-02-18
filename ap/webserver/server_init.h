@@ -16,8 +16,6 @@ class WebHareServer
         WebHareServer();
         ~WebHareServer();
 
-        void FlushCache();
-
         /** Scan the configuration databases and configure the webserver.
             Callback for the notify thread */
         void ScanConfig(bool reconnected);

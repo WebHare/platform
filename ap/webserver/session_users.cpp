@@ -107,29 +107,6 @@ Session* SUCache::GenerateSession(std::string sessionid)
         }
 }
 
-void SUCache::FlushUserCache()
-{
-        for(Sessions::iterator itr=sessionlist.begin();itr!=sessionlist.end();++itr)
-            itr->trust_until = Blex::DateTime::Min();
-}
-
-void SUCache::FlushUserCacheForUser(int32_t userid)
-{
-        DEBUGPRINT("Session caches for user " << userid << " flushed");
-        for(Sessions::iterator itr=sessionlist.begin();itr!=sessionlist.end();++itr)
-            if (itr->userid == userid)
-                itr->trust_until = Blex::DateTime::Min();
-}
-
-void SUCache::FlushUserCacheForWRDUser(int32_t wrdentitid)
-{
-        DEBUGPRINT("Session caches for WRD user " << wrdentitid << " flushed");
-        for(Sessions::iterator itr=sessionlist.begin();itr!=sessionlist.end();++itr)
-            if (itr->userentityid == wrdentitid)
-                itr->trust_until = Blex::DateTime::Min();
-}
-
-
 Session* SUCache::OpenBasicAuth(WebServer::Connection const &conn, bool create_if_new)
 {
         WebServer::Authentication const &auth = conn.GetRequest().authentication;
