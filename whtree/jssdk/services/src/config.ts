@@ -40,6 +40,7 @@ export type ConfigFile = {
     cache: string;
     cookie: string;
     debug: string;
+    gcm: string;
   };
   debugsettings?: {
     tags: string[];

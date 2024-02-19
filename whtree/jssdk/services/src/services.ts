@@ -21,7 +21,7 @@ export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cance
 export type { TaskFunction, TaskResponse } from "./tasks";
 export { readRegistryKey, writeRegistryKey } from "./registry";
 export { WebHareBlob } from "./webhareblob";
-export { getSignatureForThisServer, validateSignatureForThisServer } from "./secrets";
+export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
 
 export type { RichDocument } from "./richdocument";

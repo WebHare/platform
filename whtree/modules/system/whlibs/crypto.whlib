@@ -653,7 +653,7 @@ PUBLIC STRING FUNCTION Encrypt(STRING algorithm, STRING keydata, STRING data, RE
   IF(algorithm NOT IN ["bf-ecb","bf-cbc"])
     THROW NEW Exception(`Unsupported algorithm '${algorithm}'`); //ADDME open up more values, but first add verification tests to test_crypto
   options := ValidateOptions([ iv := "" ], options);
-  RETURN __DoEvpCrypt(algorithm, TRUE, keydata, data, options.iv);
+  RETURN __DoEvpCrypt(algorithm, TRUE, keydata, data, options.iv, "").data;
 }
 PUBLIC STRING FUNCTION Decrypt(STRING algorithm, STRING keydata, STRING data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -662,7 +662,7 @@ PUBLIC STRING FUNCTION Decrypt(STRING algorithm, STRING keydata, STRING data, RE
   options := ValidateOptions([ iv := "" ], options);
   TRY
   {
-    RETURN __DoEvpCrypt(algorithm, FALSE, keydata, data, options.iv);
+    RETURN __DoEvpCrypt(algorithm, FALSE, keydata, data, options.iv, "").data;
   }
   CATCH(OBJECT ignore)
   {

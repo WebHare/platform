@@ -15,7 +15,7 @@
     <runonce script="scripts/runonce/initmimetypes.whscr" tag="init_mimetypes_20230705" when="aftertablecreation" />
 
     <!-- initialize core DB structure and create standard folders -->
-    <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20221021" when="afterregistryupdate" />
+    <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20240219" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
     <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2023_01_27" when="poststart" />
@@ -1415,6 +1415,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
           <string name="fullaccessips"
                   description="List of IP addresses that bypass access rule login requirements, comma-separated" />
           <node name="keys" />
+          <string name="gcmsecret" description="Secret key used for aes-256-gcm 'this server' encryptions" />
           <obsoletenode name="custom" />
         </node>
         <node name="webdav">

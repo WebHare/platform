@@ -113,6 +113,8 @@ IF (IsDatabaseWritable())
     WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
   IF(ReadRegistryKey("system.webserver.security.debugsecret")="")
     WriteRegistryKey("system.webserver.security.debugsecret", GenerateUFS128BitId()||GenerateUFS128BitId());
+  IF(ReadRegistryKey("system.webserver.security.gcmsecret")="")
+    WriteRegistryKey("system.webserver.security.gcmsecret", EncodeUFS(DecodeUFS(GenerateUFS128BitId())||DecodeUFS((GenerateUFS128BitId()))));
   trans->CommitWork();
 
   trans->BeginWork();
