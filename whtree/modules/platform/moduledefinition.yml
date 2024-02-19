@@ -26,5 +26,5 @@ selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices
 
 webfeatures:
-  openidprovider:
-    siteProfile: webfeatures/openidprovider/openidprovider.siteprl.xml
+  identityprovider:
+    siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml
