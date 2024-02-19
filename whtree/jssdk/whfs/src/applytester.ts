@@ -311,8 +311,13 @@ export class WHFSApplyTester {
     };
 
     for (const apply of await this.getMatchingRules('webdesign')) {
-      webDesign.objectName = apply.webdesign.objectname ?? webDesign.objectName;
-      webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory ?? webDesign.siteResponseFactory;
+      if (apply.webdesign.objectname) {
+        webDesign.objectName = apply.webdesign.objectname;
+        webDesign.siteResponseFactory = '';
+      } else if (apply.webdesign.siteresponsefactory) {
+        webDesign.objectName = '';
+        webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory;
+      }
       webDesign.witty = apply.webdesign.witty ?? webDesign.witty;
       webDesign.designFolder = apply.webdesign.designfolder ?? webDesign.designFolder;
       webDesign.maxContentWidth = apply.webdesign.maxcontentwidth ?? webDesign.maxContentWidth;
