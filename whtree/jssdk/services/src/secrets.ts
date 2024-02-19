@@ -1,5 +1,7 @@
 import * as crypto from "node:crypto";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { parseTyped, stringify } from "@webhare/std";
+import { decodeHSON } from "@webhare/hscompat";
 
 function getKeyForScope(scope: string): Buffer {
   const key = getFullConfigFile().secrets.gcm;
@@ -16,9 +18,10 @@ function getKeyForScope(scope: string): Buffer {
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
 */
-export function encryptForThisServer(scope: string, text: string): string {
+export function encryptForThisServer(scope: string, data: unknown): string {
   const iv = crypto.randomBytes(12);
   const key = getKeyForScope(scope);
+  const text = stringify(data, { typed: true });
 
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   let enc = cipher.update(text, 'utf8', 'base64url');
@@ -37,7 +40,9 @@ export function decryptForThisServer(scope: string, text: string): unknown {
   decipher.setAuthTag(Buffer.from(authTag, 'base64url'));
   let str = decipher.update(enc, 'base64url', 'utf8');
   str += decipher.final('utf8');
-  return str;
+
+  //HareScript EncryptForThisServer will always generate HSON so its 'default usagse' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
+  return str.startsWith("hson:") ? decodeHSON(str) : parseTyped(str);
 }
 
 //Create a signature for this server
