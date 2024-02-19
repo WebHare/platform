@@ -223,3 +223,21 @@ export function isValidEmail(email: string) {
 
   return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*(?:\.[a-zA-Z0-9-]{2,})$/.test(email);
 }
+
+/** Joins a path to a URL, eliminating any double slash (similar to NodeJS path.join)
+ * @param baseurl - URL to join to
+ * @param path - Path to join. May not contain '.' or '..' segments in the path
+ * @returns Joined URL, with a single slash between both parts
+*/
+export function joinURL(baseurl: string, path: string) {
+  const pathtoks = path.match(/([^?#]*)(.*)/)!; //this will always return something
+  if (pathtoks[1].match(/(\/\/)|:/))
+    throw new Error(`Invalid path to merge with: ${path}`);
+  //look for any . or .. path segments
+  if (("/" + path + "/").match(/\/\.\.?\//))
+    throw new Error(`Invalid path to merge with: ${path}`);
+
+  if (baseurl.endsWith("/"))
+    baseurl = baseurl.substring(0, baseurl.length - 1);
+  return baseurl + (path.startsWith("/") ? path : "/" + path);
+}

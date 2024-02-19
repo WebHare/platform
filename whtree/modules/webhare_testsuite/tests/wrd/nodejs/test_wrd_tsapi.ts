@@ -251,6 +251,11 @@ async function testNewAPI() {
   test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
   await schema.getType("wrdPerson").deleteAttribute("testDummy");
   test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
+  test.eq(true, await schema.exists());
+  test.eq(true, await schema.hasType("wrdPerson"));
+  test.eq(false, await schema.hasType("WRDPERSON"));
+  test.eq(false, await schema.hasType("WRD_PERSON"));
+  test.eq(false, await schema.hasType("noSuchType"));
 
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
 

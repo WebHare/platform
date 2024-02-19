@@ -105,7 +105,7 @@ export async function getDefaultJoinRecord<S extends SchemaTypeDefinition, T ext
   selects: O
 ): Promise<MapRecordOutputMapWithDefaults<S[T], O>> {
   // Get the data for the whole schema
-  const schemadata = await type.schema.ensureSchemaData();
+  const schemadata = await type.schema.__ensureSchemaData();
 
   // Lookup the type
   const typerec = schemadata.typeTagMap.get(type.tag);
@@ -136,7 +136,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     return [];
 
   // Get the data for the whole schema
-  const schemadata = await type.schema.ensureSchemaData();
+  const schemadata = await type.schema.__ensureSchemaData();
 
   // Lookup the type
   const typerec = schemadata.typeTagMap.get(type.tag);
