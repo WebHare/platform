@@ -161,7 +161,7 @@ export class WHFSApplyTester {
           return false;
         if (element.prebuiltmasks?.length)
           return false; //These will probably never be suported by JS implementations as HS already deprecated them
-        if (element.webfeatures?.length && !this.matchWebfeatures(element.webfeatures))
+        if (element.webfeatures?.length && !this.matchWebFeatures(element.webfeatures))
           return false;
 
         //TODO can we somehow share with GetMatchesBySiteFilter ?
@@ -211,7 +211,7 @@ export class WHFSApplyTester {
   }
 
   /** Are any of these webfeatures active? ('to webfeatures=') */
-  matchWebfeatures(masks: string[]) {
+  matchWebFeatures(masks: string[]) {
     /*
     PUBLIC BOOLEAN FUNCTION MatchWebfeatures(STRING ARRAY masks)
     {
@@ -284,49 +284,49 @@ export class WHFSApplyTester {
 
   async getWebDesignInfo() {
     //Inspired on GetWebDesignObjinfo()
-    const webdesign = {
-      objectname: "mod::publisher/lib/webdesign.whlib#WebDesignBase",
-      siteresponsefactory: "",
+    const webDesign = {
+      objectName: "mod::publisher/lib/webdesign.whlib#WebDesignBase",
+      siteResponseFactory: "",
       witty: "mod::publisher/lib/defaultwebdesign.witty",
-      assetpack: "",
-      designfolder: "",
-      maxcontentwidth: "",
-      wittyencoding: "HTML",
-      defaultgid: "",
-      asyncbundle: false,
+      assetPack: "",
+      designFolder: "",
+      maxContentWidth: "",
+      wittyEncoding: "HTML",
+      defaultGid: "",
+      asyncBundle: false,
 
-      renderinfo: null,
-      supportserrors: true,
-      supportsaccessdenied: false,
-      supportedlanguages: [],
-      siteprofile: "",
+      renderInfo: null,
+      supportsErrors: true,
+      supportsAccessDenied: false,
+      supportedLanguages: [],
+      siteProfile: "",
       is404: false,
-      contentnavstops: [],
-      lazyloadcss: false,
+      contentNavStops: [],
+      lazyLoadCSS: false,
 
       plugins: [] as PluginData[]
     };
 
     for (const apply of await this.getMatchingRules('webdesign')) {
-      webdesign.objectname = apply.webdesign.objectname ?? webdesign.objectname;
-      webdesign.siteresponsefactory = apply.webdesign.siteresponsefactory ?? webdesign.siteresponsefactory;
-      webdesign.witty = apply.webdesign.witty ?? webdesign.witty;
-      webdesign.designfolder = apply.webdesign.designfolder ?? webdesign.designfolder;
-      webdesign.maxcontentwidth = apply.webdesign.maxcontentwidth ?? webdesign.maxcontentwidth;
-      webdesign.siteprofile = apply.siteprofile;
-      webdesign.wittyencoding = apply.webdesign.wittyencoding ?? webdesign.wittyencoding;
+      webDesign.objectName = apply.webdesign.objectname ?? webDesign.objectName;
+      webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory ?? webDesign.siteResponseFactory;
+      webDesign.witty = apply.webdesign.witty ?? webDesign.witty;
+      webDesign.designFolder = apply.webdesign.designfolder ?? webDesign.designFolder;
+      webDesign.maxContentWidth = apply.webdesign.maxcontentwidth ?? webDesign.maxContentWidth;
+      webDesign.siteProfile = apply.siteprofile;
+      webDesign.wittyEncoding = apply.webdesign.wittyencoding ?? webDesign.wittyEncoding;
 
       //assetpack also triggers setting supportedlanguages
       if (apply.webdesign.has_assetpack) {
-        webdesign.assetpack = apply.webdesign.assetpack;
-        webdesign.supportedlanguages = apply.webdesign.supportedlanguages;
+        webDesign.assetPack = apply.webdesign.assetpack;
+        webDesign.supportedLanguages = apply.webdesign.supportedlanguages;
       }
 
-      webdesign.supportserrors = apply.webdesign.has_supportserrors ? apply.webdesign.supportserrors : webdesign.supportserrors;
-      webdesign.supportsaccessdenied = apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
-      webdesign.asyncbundle = apply.webdesign.has_asyncbundle ? apply.webdesign.asyncbundle : webdesign.asyncbundle;
-      webdesign.contentnavstops = apply.webdesign.has_contentnavstops ? apply.webdesign.contentnavstops : webdesign.contentnavstops;
-      webdesign.lazyloadcss = apply.webdesign.has_lazyloadcss ? apply.webdesign.lazyloadcss : webdesign.lazyloadcss;
+      webDesign.supportsErrors = apply.webdesign.has_supportserrors ? apply.webdesign.supportserrors : webDesign.supportsErrors;
+      webDesign.supportsAccessDenied = apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webDesign.supportsAccessDenied;
+      webDesign.asyncBundle = apply.webdesign.has_asyncbundle ? apply.webdesign.asyncbundle : webDesign.asyncBundle;
+      webDesign.contentNavStops = apply.webdesign.has_contentnavstops ? apply.webdesign.contentnavstops : webDesign.contentNavStops;
+      webDesign.lazyLoadCSS = apply.webdesign.has_lazyloadcss ? apply.webdesign.lazyloadcss : webDesign.lazyLoadCSS;
     }
 
     /* FIXME content link support. we should consider
@@ -361,8 +361,8 @@ export class WHFSApplyTester {
           customplugins.push({ ...plugin, datas: [plugin.data] });
     }
 
-    webdesign.plugins = [...namedplugins.values(), ...customplugins];
-    return webdesign;
+    webDesign.plugins = [...namedplugins.values(), ...customplugins];
+    return webDesign;
   }
 
   async getObjRenderInfo() {

@@ -152,7 +152,7 @@ async function testSiteProfiles() {
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
 
   const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
-  test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectname);
+  test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectName);
 
   const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();

@@ -56,15 +56,15 @@ class SiteRequest {
   async createComposer<T extends object = object>(): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
     const applytester = await getApplyTesterForObject(this.targetObject);
     const publicationsettings = await applytester.getWebDesignInfo();
-    if (!publicationsettings.siteresponsefactory)
+    if (!publicationsettings.siteResponseFactory)
       return wrapHSWebdesign<T>(this);
 
-    const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteresponsefactory);
+    const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
     //FIXME - we need to fill in some more data based on the site profile
     const settings = new SiteResponseSettings;
-    settings.assetpack = publicationsettings.assetpack;
+    settings.assetpack = publicationsettings.assetPack;
     settings.witty = publicationsettings.witty;
-    settings.supportedlanguages = publicationsettings.supportedlanguages;
+    settings.supportedlanguages = publicationsettings.supportedLanguages;
 
     const composer = await factory(this, settings);
 
