@@ -2,6 +2,7 @@ import { db, sql, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { WHFSFile, WHFSFolder, openWHFSObject } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
+import { openType } from "./contenttypes";
 
 // Adds the custom generated columns
 interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -29,9 +30,13 @@ interface ListableSiteRow {
   webRoot: string;
   /// Whether the site is under version control
   versioningPolicy: string;
+  /// Webdesign applied to a site
+  webDesign: string;
+  /// Activated webfeatures
+  webFeatures: string[] | null;
 }
 
-const sites_js_to_db: Record<keyof ListableSiteRow, keyof SiteRow> = {
+const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatures">, keyof SiteRow> = {
   "cdnBaseURL": "cdnbaseurl",
   "description": "description",
   "id": "id",
@@ -96,31 +101,57 @@ export async function openSite(site: number | string, options?: { allowMissing: 
 }
 
 /** List all WebHare sites */
-export async function listSites<K extends keyof ListableSiteRow>(keys: K[] = []): Promise<Array<Pick<ListableSiteRow, K | "id" | "name">>> {
+export async function listSites<K extends keyof ListableSiteRow = never>(keys: K[] = []): Promise<Array<Pick<ListableSiteRow, K | "id" | "name">>> {
   const getkeys = new Set<keyof ListableSiteRow>(["id", "name", ...keys]);
   const selectkeys = new Set<keyof SiteRow>;
+  const getSiteProps: string[] = [];
 
   for (const k of getkeys) {
-    const dbkey = sites_js_to_db[k];
-    if (!dbkey)
-      throw new Error(`No such listable property '${k}'`); //TODO didyoumean
-    selectkeys.add(dbkey);
+    switch (k) {
+      case "webDesign":
+        getSiteProps.push("sitedesign");
+        break;
+      case "webFeatures":
+        getSiteProps.push("webfeatures");
+        break;
+      default: {
+        const dbkey = sites_js_to_db[k];
+        if (!dbkey)
+          throw new Error(`No such listable property '${k}'`); //TODO didyoumean
+        selectkeys.add(dbkey);
+      }
+    }
   }
 
-  const rows = await db<PlatformDB>()
+  let rows = await db<PlatformDB>()
     .selectFrom("system.sites")
     .select(excludeKeys([...selectkeys], ["webroot"]))
     .$if(selectkeys.has("webroot"), qb => qb.select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")))
     .execute();
 
-  const mappedrows = rows.map(row => {
+  if (getSiteProps.length) {
+    rows = await openType("http://www.webhare.net/xmlns/publisher/sitesettings").enrich(rows, "id", getSiteProps);
+  }
 
+  const mappedrows = rows.map(row => {
     const result: Pick<ListableSiteRow, K | "id" | "name"> = {} as Pick<ListableSiteRow, K | "id" | "name">;
     for (const k of getkeys) {
-      const dbkey = sites_js_to_db[k];
-      if (dbkey in row)
-        ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
-        result[k] = row[dbkey];
+      switch (k) {
+        case "webDesign":
+          ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+          result.webDesign = row.sitedesign;
+          break;
+        case "webFeatures":
+          ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+          result.webFeatures = row.webfeatures.length ? row.webfeatures.sort() : null;
+          break;
+        default: {
+          const dbkey = sites_js_to_db[k];
+          if (dbkey in row)
+            ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+            result[k] = row[dbkey];
+        }
+      }
     }
     return result;
   });

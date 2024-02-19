@@ -30,7 +30,12 @@ async function testWHFS() {
   test.assert(testsite, "We need the testsite to exist");
   test.eq(/^https?:.*/, testsite.webRoot);
   test.eq(testsite.id, (await whfs.openSite(testsite.id)).id);
-  test.eq(testsite.id, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite")?.id);
+  //verify listSites and exact typing of response value
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite"));
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites([])).find(_ => _.name == "webhare_testsuite.testsite"));
+
+  const testisteInfo = (await whfs.listSites(["webDesign", "webFeatures"])).find(_ => _.name == "webhare_testsuite.testsite");
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite", webDesign: "webhare_testsuite:basetest", webFeatures: null }, testisteInfo);
 
   await test.throws(/No such file .*nosuchfile/, testsite.openFile("testpages/nosuchfile"));
   test.eq(null, await testsite.openFile("testpages/nosuchfile", { allowMissing: true }));
