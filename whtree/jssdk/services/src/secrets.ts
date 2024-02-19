@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { parseTyped, stringify } from "@webhare/std";
 import { decodeHSON } from "@webhare/hscompat";
+import { ServerEncryptionScopes } from "./services";
 
 function getKeyForScope(scope: string): Buffer {
   const key = getFullConfigFile().secrets.gcm;
@@ -18,6 +19,9 @@ function getKeyForScope(scope: string): Buffer {
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
 */
+export function encryptForThisServer<S extends keyof ServerEncryptionScopes>(scope: S, data: ServerEncryptionScopes[S]): string;
+export function encryptForThisServer(scope: string, data: unknown): string;
+
 export function encryptForThisServer(scope: string, data: unknown): string {
   const iv = crypto.randomBytes(12);
   const key = getKeyForScope(scope);
@@ -29,6 +33,13 @@ export function encryptForThisServer(scope: string, data: unknown): string {
 
   return `${enc}.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}`;
 }
+
+/** Decrypt data encrypted using encryptForThisServer
+    @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
+    @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
+*/
+export function decryptForThisServer<S extends keyof ServerEncryptionScopes>(scope: S, text: string): ServerEncryptionScopes[S];
+export function decryptForThisServer(scope: string, text: string): unknown;
 
 export function decryptForThisServer(scope: string, text: string): unknown {
   const [enc, iv, authTag] = text.split(".");

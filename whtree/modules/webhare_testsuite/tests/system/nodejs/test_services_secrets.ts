@@ -3,7 +3,28 @@ import { callHareScript, decryptForThisServer, encryptForThisServer } from "@web
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test";
 
+declare module "@webhare/services" {
+  // declare module "WebHare" {
+  interface ServerEncryptionScopes {
+    "webhare_testsuite:string": string;
+    "webhare_testsuite:data": {
+      test: number;
+      date: Date;
+      money: Money;
+    };
+    "webhare_testsuite:simple": boolean | number | Date | null;
+  }
+}
+
 async function testCryptForServer() {
+  test.typeAssert<test.Assignable<number, 2>>();
+  test.typeAssert<test.Equals<string, ReturnType<typeof decryptForThisServer < "webhare_testsuite:string" >>>>();
+
+  // @ts-expect-error -- and not something else:
+  test.typeAssert<test.Equals<boolean, ReturnType<typeof decryptForThisServer < "webhare_testsuite:string" >>>>();
+  // @ts-expect-error -- and not something else:
+  test.typeAssert<test.Equals<unknown, ReturnType<typeof decryptForThisServer < "webhare_testsuite:string" >>>>();
+
   const roundtrip1 = encryptForThisServer("webhare_testsuite:string", "Hello, world!");
   test.eq(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/, roundtrip1);
   test.eq("Hello, world!", decryptForThisServer("webhare_testsuite:string", roundtrip1));

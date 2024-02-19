@@ -27,6 +27,11 @@ export { prepareMail } from "./mail";
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface ServerEncryptionScopes {
+  //Extend this interface to define the format of your own scopes
+}
+
 export async function isWebHareRunning() {
   /* TODO it would be better to attempt to connect to the bridge to test online-ness *if* we can get the bridge to immediately report it cannot connect?
           pid analysis is even less reliable in node as we can't test process names */
