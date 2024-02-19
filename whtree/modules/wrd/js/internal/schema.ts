@@ -133,7 +133,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     this.coVMSchemaCacheSymbol = Symbol("WHCoVMSchemaCache " + this.id);
   }
 
-  ensureSchemaData(): Promise<SchemaData> {
+  /*private*/ __ensureSchemaData(): Promise<SchemaData> {
     return this.schemaData ??= getSchemaData(this.id);
   }
 
@@ -205,6 +205,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
   }
 
+  /** Test whether a type exists in this schema */
+  async hasType(tag: string): Promise<boolean> {
+    return Boolean((await this.__listTypes()).find(_ => tagToJS(_.tag) === tag));
+  }
+
   private getWRDSchemaCache(): CoVMSchemaCache {
     return ensureScopedResource(this.coVMSchemaCacheSymbol, (context) => ({
       schemaobj: (async () => {
@@ -228,7 +233,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   /** Test whether this schema actually exists in the database */
   async exists(): Promise<boolean> {
     try {
-      await this.getWRDSchema();
+      await this.getWRDSchema(); //FIXME Don't trigger stacktracing just to test for existence
       return true;
     } catch (e) {
       return false;
