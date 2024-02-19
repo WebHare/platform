@@ -1432,6 +1432,7 @@ MACRO TestDataStorage()
   // Delete the files we'll generate in this test
   DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/folderdirect/test/blue.html");
   DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html");
+  DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha/ea9/bea083004b07894cd5e435c42e2672d7f37eb0bd01c70cc1a2742b0486248.html");
   DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html");
   DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/file.shtml");
 
