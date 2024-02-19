@@ -1,4 +1,5 @@
 import { Selectable, db, nextVal, sql } from "@webhare/whdb";
+import { pick } from "@webhare/std";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
 import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
@@ -15,6 +16,7 @@ const membertypenames: Array<MemberType | null> =
 
 type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
+type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
 export interface ContentTypeMember {
   id: number;
@@ -160,6 +162,10 @@ export interface InstanceDataAccessor<ContentTypeStructure extends object = Reco
   //TODO Add a 'pick: ' option
   get(id: number): Promise<ContentTypeStructure>;
   set(id: number, data: ContentTypeStructure): Promise<void>;
+  enrich<
+    DataRow extends { [K in EnrichKey]: number | null },
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    AddKey extends keyof ContentTypeStructure = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<ContentTypeStructure, AddKey>>>;
 }
 
 interface InstanceSetOptions {
@@ -322,6 +328,18 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const instanceId = await this.getCurrentInstanceId(id, descr);
     const cursettings = instanceId ? await this.getCurrentSettings(instanceId) : [];
     return await this.recurseGet(cursettings, descr.members, null, null) as ContentTypeStructure;
+  }
+
+  async enrich<
+    DataRow extends { [K in EnrichKey]: number | null },
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    AddKey extends keyof ContentTypeStructure = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<ContentTypeStructure, AddKey>>> {
+    //TODO optimize
+    const results: Array<DataRow & Pick<ContentTypeStructure, AddKey>> = [];
+    for (const row of data) //@ts-ignore should be able to assume it works. besides we'll rewrite this API anyway to actually be efficient
+      results.push({ ...row, ...pick(await this.get(row[field]), properties) });
+
+    return results;
   }
 
   async set(id: number, data: ContentTypeStructure, options?: InstanceSetOptions): Promise<void> {

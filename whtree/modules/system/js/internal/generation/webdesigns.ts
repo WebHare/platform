@@ -8,7 +8,7 @@ export interface Webfeature {
   title: string;
   hidden: boolean;
   siteProfile: string;
-  webdesignMasks: string[];
+  webDesignMasks: string[];
 }
 
 export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Document): Webfeature[] {
@@ -17,42 +17,42 @@ export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Doc
     return [];
 
   const gid = determineNodeGid(resourceBase, publishernode);
-  const webfeatures = new Array<Webfeature>();
+  const webFeatures = new Array<Webfeature>();
 
   for (const node of elements(publishernode.getElementsByTagNameNS(publishernode.namespaceURI, "webfeature"))) {
     if (!isNodeApplicableToThisWebHare(node, ""))
       continue;
 
     const featurename = getAttr(node, "name");
-    webfeatures.push({
+    webFeatures.push({
       name: `${mod}:${featurename}`,
       title: parseXMLTidPtr(resourceBase, gid, node, "title"),
       hidden: getAttr(node, "hidden", false),
       siteProfile: resolveResource(resourceBase, getAttr(node, "siteprofile", "")),
-      webdesignMasks: getAttr(node, "webdesignmasks", [])
+      webDesignMasks: getAttr(node, "webdesignmasks", [])
     });
   }
 
-  return webfeatures;
+  return webFeatures;
 }
 
 export function generateWebDesigns(context: GenerateContext): string {
-  const webdesigns: never[] = [];
-  const webfeatures = new Array<Webfeature>();
+  const webDesigns: never[] = [];
+  const webFeatures = new Array<Webfeature>();
 
   for (const mod of context.moduledefs) {
     if (mod.modXml)
-      webfeatures.push(...getXMLWebfeatures(mod.name, mod.resourceBase, mod.modXml));
+      webFeatures.push(...getXMLWebfeatures(mod.name, mod.resourceBase, mod.modXml));
 
-    for (const [featurename, featuredef] of Object.entries(mod.modYml?.webfeatures ?? [])) {
-      webfeatures.push({
+    for (const [featurename, featuredef] of Object.entries(mod.modYml?.webFeatures ?? [])) {
+      webFeatures.push({
         name: `${mod.name}:${featurename}`,
         title: featuredef.title ? ":" + featuredef.title : '',
         hidden: featuredef.hidden || false,
         siteProfile: featuredef.siteProfile ? resolveResource(mod.resourceBase, featuredef.siteProfile) : '',
-        webdesignMasks: featuredef.webdesignMasks || []
+        webDesignMasks: featuredef.webDesignMasks || []
       });
     }
   }
-  return JSON.stringify({ webdesigns, webfeatures }, null, 2) + "\n";
+  return JSON.stringify({ webDesigns, webFeatures }, null, 2) + "\n";
 }

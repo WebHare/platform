@@ -109,6 +109,9 @@ async function testInstanceData() {
     myWhfsRefArray: fileids
   }, await testtype.get(testfile.id));
 
+  test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
+    await testtype.enrich([{ getId: testfile.id, passThrough: 42 }], "getId", ["str", "aRecord"]));
+
   const typeThroughShortName = await whfs.openType("webhare_testsuite:global.genericTestType");
   test.eq(await testtype.get(testfile.id), await typeThroughShortName.get(testfile.id));
 

@@ -27,10 +27,20 @@ async function testWHFS() {
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
 
   const testsite = await whfs.openSite("webhare_testsuite.testsite");
-  test.assert(testsite, "We need the testsite to exist");
+  const testsitejs = await whfs.openSite("webhare_testsuite.testsitejs");
+  test.assert(testsite, "We need the HS testsite to exist");
+  test.assert(testsitejs, "We need the JS testsite to exist");
   test.eq(/^https?:.*/, testsite.webRoot);
   test.eq(testsite.id, (await whfs.openSite(testsite.id)).id);
-  test.eq(testsite.id, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite")?.id);
+  //verify listSites and exact typing of response value
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite"));
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites([])).find(_ => _.name == "webhare_testsuite.testsite"));
+
+  const testSites = (await whfs.listSites(["webDesign", "webFeatures"])).filter(_ => _.name == "webhare_testsuite.testsite" || _.name == "webhare_testsuite.testsitejs").toSorted((a, b) => a.name.localeCompare(b.name));
+  test.eq([
+    { id: testsite.id, name: "webhare_testsuite.testsite", webDesign: "webhare_testsuite:basetest", webFeatures: null },
+    { id: testsitejs.id, name: "webhare_testsuite.testsitejs", webDesign: "webhare_testsuite:basetestjs", webFeatures: ["platform:identityprovider"] }
+  ], testSites);
 
   await test.throws(/No such file .*nosuchfile/, testsite.openFile("testpages/nosuchfile"));
   test.eq(null, await testsite.openFile("testpages/nosuchfile", { allowMissing: true }));
@@ -142,7 +152,7 @@ async function testSiteProfiles() {
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
 
   const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
-  test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectname);
+  test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectName);
 
   const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();

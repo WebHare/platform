@@ -10,12 +10,12 @@ import { WebHareBlob } from "@webhare/services/src/webhareblob";
    - replaces the placeholders in the HS output with the JS output */
 class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
   hsvm: HSVM;
-  webdesign: HSVMObject;
+  webDesign: HSVMObject;
 
-  constructor(hsvm: HSVM, webdesign: HSVMObject, pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
+  constructor(hsvm: HSVM, webDesign: HSVMObject, pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
     super(pageConfig, siteRequest, settings);
     this.hsvm = hsvm;
-    this.webdesign = webdesign;
+    this.webDesign = webDesign;
   }
 
   async finish(): Promise<WebResponse> {
@@ -27,9 +27,9 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
     const stream = await fileswhlib.createStream();
     const oldoutput = await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(stream);
     for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"])
-      this.webdesign.InsertHTML(placeholder + "__" + insertpoint + "__", insertpoint);
+      this.webDesign.InsertHTML(placeholder + "__" + insertpoint + "__", insertpoint);
 
-    await this.webdesign.RunPageWithContents(printplaceholder);
+    await this.webDesign.RunPageWithContents(printplaceholder);
     await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(oldoutput);
     const page = await fileswhlib.makeBlobFromStream(stream) as WebHareBlob;
 
@@ -47,8 +47,8 @@ export async function wrapHSWebdesign<T extends object>(request: SiteRequest): P
   const hsvm = await openHSVM({ openPrimary: true });
 
   const siteprofileslib = hsvm.loadlib("mod::publisher/lib/siteprofiles.whlib");
-  const webdesign = await siteprofileslib.GetWebDesign(request.targetObject.id) as HSVMObject;
-  const pageConfig = await webdesign.getPageconfigForJS();
+  const webDesign = await siteprofileslib.GetWebDesign(request.targetObject.id) as HSVMObject;
+  const pageConfig = await webDesign.getPageconfigForJS();
 
-  return new HSWebdesignDriver<T>(hsvm, webdesign, pageConfig as T, request, new SiteResponseSettings);
+  return new HSWebdesignDriver<T>(hsvm, webDesign, pageConfig as T, request, new SiteResponseSettings);
 }

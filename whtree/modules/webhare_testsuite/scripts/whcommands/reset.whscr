@@ -51,7 +51,7 @@ OBJECT testsite_hs := EnsureTestSite("webhare_testsuite.testsite", [ recyclecont
                                                                    ]);
 OBJECT testsite_js := EnsureTestSite("webhare_testsuite.testsitejs", [ recyclecontents := TRUE
                                                                      , webdesign := "webhare_testsuite:basetestjs"
-                                                                     , webfeatures := ["platform:openidprovider"]
+                                                                     , webfeatures := ["platform:identityprovider"]
                                                                      ]);
 
 MACRO SetupTestSite(OBJECT testsite)

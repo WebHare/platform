@@ -24,7 +24,7 @@ assetPacks:
     supportedLanguages: [en, nl, ps]
     module: true
 
-webfeatures:
+webFeatures:
   testfeature:
     title: "WH testsuite: Test feature"
     siteProfile: webfeatures/testfeature.siteprl.xml
