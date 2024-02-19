@@ -93,10 +93,13 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   fi
 fi
 
-exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
-                                -Epath.logs="$OPENSEARCHROOT/logs" \
-                                -Epath.repo="$OPENSEARCHROOT/repo" \
-                                -Ehttp.port=$OPENSEARCHPORT \
-                                -Ehttp.host=$WEBHARE_OPENSEARCH_BINDHOST \
-                                -Ediscovery.type=single-node \
-                                $ADDOPTIONS
+# Add -Elogger.level=DEBUG for lots of debug info
+OPTIONS=( -Epath.data="$OPENSEARCHROOT/data"
+          -Epath.logs="$OPENSEARCHROOT/logs"
+          -Epath.repo="$OPENSEARCHROOT/repo"
+          -Ehttp.port="$OPENSEARCHPORT"
+          -Ehttp.host="$WEBHARE_OPENSEARCH_BINDHOST"
+          -Ediscovery.type=single-node
+          )
+
+exec $CHPST "$OPENSEARCHBINARY" "${OPTIONS[@]}" $ADDOPTIONS
