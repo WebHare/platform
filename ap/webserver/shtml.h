@@ -111,7 +111,6 @@ class ShtmlWebserverContextData : public WHCore::SHTMLWebserverCallbacks
 
         void GetHTTPEventListenerCounts(HSVM *vm, HSVM_VariableId id_set);
         void ClearHTTPEventMessages(HSVM *vm);
-        void FlushCache(HSVM *vm);
 
         public:
         ShtmlWebserverContextData(Shtml *shtml);
@@ -182,14 +181,10 @@ class BLEXLIB_PUBLIC ShtmlContextData : public WHCore::SHTMLCallbacks //per-requ
         void UpdateWebSession(HSVM *hsvm, HSVM_VariableId id_set);
         void FlushWebResponse(HSVM *hsvm, HSVM_VariableId id_set);
         void ResetWebResponse(HSVM *hsvm);
-        void GetAuthenticatingSessionId(HSVM *hsvm, HSVM_VariableId id_set);
-        void GetClientUsername(HSVM *hsvm, HSVM_VariableId id_set);
         void GetErrorInfo(HSVM *hsvm, HSVM_VariableId id_set);
         void GetWebSessionData(HSVM *hsvm, HSVM_VariableId id_set);
         void GetWebSessionUser(HSVM *hsvm, HSVM_VariableId id_set);
-        void GetWebSessionType(HSVM *hsvm, HSVM_VariableId id_set);
         void StoreWebSessionData(HSVM *hsvm);
-        void RevokeWebSessionAuthentication(HSVM *hsvm);
         void LogWebserverError(HSVM *hsvm);
 
         void GetWebhareAccessRuleId(HSVM *hsvm, HSVM_VariableId id_set);
@@ -237,7 +232,6 @@ class Shtml
         static void WebHareAccessHandler(WebServer::Connection *webcon, WebServer::AccessRule const &rule, bool check_authorized, std::string const &checkuri);
         void ExternalContentHandler(WebServer::Connection *webcon, std::string const &path, bool websocket);
 
-        void FlushCache();
         void ExpireSessions();
 
         bool const debugmode;

@@ -57,8 +57,6 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
                       , numtypes := Length(useconfiguration.types)
                       ];
 
-  FlushAuthentication();
-
   //Do NOT just blindly talk to proxies when restarting - they should already be working from our previous config
   IF(isuptodate)
   {

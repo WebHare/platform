@@ -120,7 +120,6 @@ class BLEXLIB_PUBLIC SHTMLWebserverCallbacks
 
         virtual void GetHTTPEventListenerCounts(HSVM *vm, HSVM_VariableId id_set)=0;
         virtual void ClearHTTPEventMessages(HSVM *vm)=0;
-        virtual void FlushCache(HSVM *vm)=0;
 };
 
 /** SHTML per connection callbacks */
@@ -157,14 +156,10 @@ class BLEXLIB_PUBLIC SHTMLCallbacks
         virtual void UpdateWebSession(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void FlushWebResponse(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void ResetWebResponse(HSVM *hsvm)=0;
-        virtual void GetAuthenticatingSessionId(HSVM *hsvm, HSVM_VariableId id_set)=0;
-        virtual void GetClientUsername(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void GetErrorInfo(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void GetWebSessionData(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void GetWebSessionUser(HSVM *hsvm, HSVM_VariableId id_set)=0;
-        virtual void GetWebSessionType(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void StoreWebSessionData(HSVM *hsvm)=0;
-        virtual void RevokeWebSessionAuthentication(HSVM *hsvm)=0;
         virtual void LogWebserverError(HSVM *hsvm)=0;
 
         virtual void GetWebhareAccessRuleId(HSVM *hsvm, HSVM_VariableId id_set)=0;

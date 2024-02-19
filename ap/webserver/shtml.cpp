@@ -564,10 +564,6 @@ void Shtml::ExpireSessions()
 
         srhcache.SignalAll(); //people might be waiting for a SRH
 }
-void Shtml::FlushCache()
-{
-        LockedSUCache::WriteRef (sucache)->FlushUserCache();
-}
 void Shtml::ExecuteAccessScript(WebServer::Connection *webcon, std::string const &scriptpath, int32_t accessruleid)
 {
         //FIXME: Code duplication!

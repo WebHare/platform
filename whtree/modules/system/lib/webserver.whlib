@@ -266,11 +266,6 @@ public string function GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARE
     @return The TCP port number, a number between 1 - 65535 */
 public integer function GetClientRemotePort() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-/** @short Get the client's username
-    @long This function returns the displayed username stored for this client's authentication
-    @return The username */
-PUBLIC STRING FUNCTION GetClientUsername() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
 /** @short Check whether the current HTTP request was a POST request
     @return true if the current request was a Post request.
     @example
@@ -489,27 +484,39 @@ PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTST
     @return A random session id which can be used to refer to the session
     @see GetWebSessionData CloseWebSession
 */
-PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER maxidle_minutes, BOOLEAN limit_to_server, STRING sessionid DEFAULTSTO "") __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER maxidle_minutes, BOOLEAN limit_to_server, STRING sessionid DEFAULTSTO "")
+{
+  RETURN __WHS_CreateWebSession(scope, sessdata, maxidle_minutes, limit_to_server, sessionid);
+}
 
 /** @short Store data into a session
     @param sessid Session ID to open
     @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
     @param sessdata Data to store
     @see CreateWebSession GetWebSessionData */
-PUBLIC MACRO StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata)
+{
+  __WHS_StoreWebSessionData(sessid, scope, sessdata);
+}
 
 /** @short Get session data from an active session, extending its lifetime if necessary
     @param sessid Session ID to open
     @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
     @return The data last stored with CreateWebSession or StoreWebSessionData or a non-existing record if the session doesn't exist
     @see CreateWebSession StoreWebSessionData */
-PUBLIC RECORD FUNCTION GetWebSessionData(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD FUNCTION GetWebSessionData(STRING sessid, STRING scope)
+{
+  RETURN __WHS_GetWebSessionData(sessid, scope);
+}
 
 /** @short End a session, deleting any data stored for the session
     @param sessid Session ID to close
     @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
     @see GetWebSessionData CreateWebSession */
-PUBLIC MACRO CloseWebSession(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO CloseWebSession(STRING sessid, STRING scope)
+{
+  __WHS_CloseWebSession(sessid, scope);
+}
 
 /** @short Get the full undecoded request body
     @long This function gets the full request body, if the body was not a form submission body.

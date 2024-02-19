@@ -204,34 +204,15 @@ PUBLIC BOOLEAN FUNCTION IsFullAccessIP()
   RETURN GetClientRemoteIP() IN GetAdhocCached([ type := "fullaccessips" ], PTR GetCacheableFullAccessIPs);
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetLoggedOnUsers()
-{
-  RECORD ARRAY results;
-  DATETIME inactivity_cutoff := AddTimeToDate(-(15*60*1000), GetCurrentDatetime());
-
-  FOREVERY (RECORD rec FROM GetWebserverSessionList(0))
-  {
-    IF(NOT rec.isuser OR rec.lastaccess < inactivity_cutoff)
-      CONTINUE;
-    INSERT rec INTO results AT END;
-  }
-  RETURN results;
-}
-
 /** @short Get the user ID authenticated for a session
     @param sessid Session ID to open
     @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
     @return The user id stored with AuthenticateWebSession, or 0 if the session doesn't exist or doesn't have a user
 */
-PUBLIC INTEGER FUNCTION GetWebSessionUserid(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-/** @short Get the type of session
-    @param sessid Session ID to open
-    @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
-    @return The type of the session (0 for normal session, 1 for basic authentication, 2 for digest authentication, -1 if not found
-*/
-PUBLIC INTEGER FUNCTION GetWebSessionType(STRING sessid, STRING scope) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
+PUBLIC INTEGER FUNCTION GetWebSessionUserid(STRING sessid, STRING scope)
+{
+  RETURN __WHS_GetWebSessionUserid(sessid, scope);
+}
 
 /** @short Mark a session as an authenticating session
     @long When invoked by a authentication script, owners of the specified
@@ -244,25 +225,16 @@ PUBLIC INTEGER FUNCTION GetWebSessionType(STRING sessid, STRING scope) __ATTRIBU
     @param userentityid WRD entity id (used to default to 0)
     @param authaccessrule Authenticate the current access rule, if any (used to default to TRUE)
 */
-PUBLIC MACRO AuthenticateWebSession(STRING sessid, STRING scope, STRING username, BOOLEAN canclose, INTEGER webhareuserid, INTEGER userentityid, BOOLEAN authaccessrule) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-/** @short Revoke the authentication for a session
-    @long This revokes the authentication for a session. Requires "FULLDB" (full access to the webhare database) privileges to execute
-    @param sessid Session id to close */
-PUBLIC MACRO RevokeWebSessionAuthentication(STRING sessid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO AuthenticateWebSession(STRING sessid, STRING scope, STRING username, BOOLEAN canclose, INTEGER webhareuserid, INTEGER userentityid, BOOLEAN authaccessrule)
+{
+  __WHS_AuthenticateWebSession(sessid, scope, username, canclose, webhareuserid,  userentityid,  authaccessrule);
+}
 
 /** @short Authenticate a basic-authenticating user
     @long Authenticates a user based on its current basic authentication credentials (username and password). Implies AuthenticateWebhareUser
     @param username User name to use in the session list (logged on users)
     @param webhareuserid WebHare user id */
 PUBLIC MACRO AcceptBasicAuthCredentials(STRING username, INTEGER webhareuserid, INTEGER userentityid DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-/** @short Authenticate the user for the current request as a webhare user
-    @long When invoked by a authentication script, this sets the webhare user id for
-          the remainder of the request
-    @param userid If not 0, the WebHare user id to authenticate owners of this session with
-*/
-PUBLIC MACRO AuthenticateWebhareUser(INTEGER userid, INTEGER userentityid DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /** @short Get the authenticated WebHare user id */
 PUBLIC INTEGER FUNCTION GetAuthenticatedWebhareUser() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -273,7 +245,6 @@ PUBLIC INTEGER FUNCTION GetAuthenticatedWebhareUserEntityId() __ATTRIBUTES__(EXT
 //Not documented yet: we might decide to switch to an approach where you just request a record with details instead of an id (ADDME, see GetAccessRuleProperties in webhare-auth.whscr)
 PUBLIC INTEGER FUNCTION GetWebHareAccessRuleId() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 PUBLIC RECORD ARRAY FUNCTION GetWebHareAccessRules() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-PUBLIC STRING FUNCTION GetAuthenticatingSessionId() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 PUBLIC RECORD FUNCTION GetCurrentWebhareAccessRule()
 {
   RETURN
@@ -296,14 +267,4 @@ PUBLIC RECORD FUNCTION GetParsedAuthenticationHeader()
              ];
   }
   RETURN [ type := "NONE" ];
-}
-
-PUBLIC MACRO FlushAuthentication() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-
-PUBLIC MACRO RevokeAllWebsessionAUthentications()
-{
-  FOREVERY(RECORD sess FROM GetWebserverSessionList(0))
-    IF(sess.userid != 0 OR LEngth(sess.accessruleids)>0 OR sess.isuser)
-      RevokeWebSessionAuthentication(sess.sessionid);
 }

@@ -11,10 +11,6 @@ PUBLIC BOOLEAN sentresponse;
 PUBLIC RECORD ARRAY webvarcache;
 PUBLIC BOOLEAN downloaded_webvarcache;
 
-PUBLIC RECORD ARRAY FUNCTION GetWebserverSessionList(INTEGER webserverid)
-{
-  RETURN DEFAULT RECORD ARRAY; //FIXME __SYSTEM_WHS_SESSIONLIST(webserverid);
-}
 
 PUBLIC MACRO ClearWebvars()
 {
