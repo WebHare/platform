@@ -113,9 +113,6 @@
             <text title="" valuetid=".commaexplain"/>
           </line>
           <textedit composition="security" cellname="ciphersuite" tid=".overrideopenssl" width="1pr" /> <!-- title="Override OpenSSL ciphersuite list for webserver listening ports" /-->
-          <heading tid=".securitykeys"/>
-          <textedit composition="security" cellname="cachesecret" width="1pr"/> <!-- title="Secret key used to sign image cache URLs" / -->
-          <textedit composition="security" cellname="cookiesecret" width="1pr"/> <!-- title="Secret key used to encrypt/sign cookies" / -->
         </tab>
         <tab tid=".archiving">
           <line>
