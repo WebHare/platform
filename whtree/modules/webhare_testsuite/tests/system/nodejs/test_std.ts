@@ -383,6 +383,29 @@ async function testStrings() {
   test.eq("index.|+html", std.slugify("^index.|+html", { keep: '|+.' }));
   test.eq("^index.|+html", std.slugify("^index.|+html", { keep: '^|+.' }));
   test.eq("^index-html", std.slugify("^index.|+html", { keep: '^' }));
+
+  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net", "abcdef"));
+  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net/", "abcdef"));
+  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net", "/abcdef"));
+  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net/", "/abcdef"));
+  test.eq("http://beta.webhare.net/", std.joinURL("http://beta.webhare.net/", ""));
+  test.eq("http://beta.webhare.net/", std.joinURL("http://beta.webhare.net", ""));
+  test.eq("http://beta.webhare.net/", std.joinURL("http://beta.webhare.net", "/"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "../abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "./abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "/../abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "/./abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "x/../abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "x/./abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "/.."));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "//abcdef"));
+  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "http://x.webhare.net"));
+  test.eq("http://beta.webhare.net/.wh", std.joinURL("http://beta.webhare.net", ".wh"));
+  test.eq("http://beta.webhare.net/.wh", std.joinURL("http://beta.webhare.net", "/.wh"));
+  test.eq("http://beta.webhare.net/abcdef?../ghi", std.joinURL("http://beta.webhare.net/", "/abcdef?../ghi"));
+  test.eq("http://beta.webhare.net/abcdef#../ghi", std.joinURL("http://beta.webhare.net/", "/abcdef#../ghi"));
+  test.eq("http://beta.webhare.net/abcdef?//ghi", std.joinURL("http://beta.webhare.net/", "/abcdef?//ghi"));
+  test.eq("http://beta.webhare.net/?http://example.net", std.joinURL("http://beta.webhare.net/", "?http://example.net"));
 }
 
 function testEmails() {
