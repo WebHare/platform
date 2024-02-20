@@ -217,9 +217,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @param ispersistentcookie Whether the cookie is a persistent cookie (otherwise it is a session cookie)
       @return User entityid (if not 0, the cookie is valid and the user exists)
   */
-  PUBLIC INTEGER FUNCTION GetCookieEntityId(STRING cookie, BOOLEAN ispersistentcookie)
+  PUBLIC INTEGER FUNCTION GetCookieEntityId(STRING cookie)
   {
-    RECORD data := this->__ParseCookie(cookie, ispersistentcookie ? "persistent" : "session");
+    RECORD data := this->__ParseCookie(cookie, "session");
     RETURN RecordExists(data) ? data.userid : 0;
   }
 
@@ -252,7 +252,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @param type Type of data (also needed for decryption)
       @return Encoded and encrypted data
   */
-  PUBLIC STRING FUNCTION EncryptData(RECORD indata, STRING type DEFAULTSTO "")
+  STRING FUNCTION EncryptData(RECORD indata, STRING type DEFAULTSTO "")
   {
     IF(NOT RecordExists(indata))
       THROW NEW Exception("Trying to encrypt a default record");
@@ -270,7 +270,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @param type Type of data (must match type used in EncryptData)
       @return Decrypted data (DEFAULT RECORD if decryption or validation failed)
   */
-  PUBLIC RECORD FUNCTION DecryptData(STRING encrypteddata, STRING type DEFAULTSTO "")
+  RECORD FUNCTION DecryptData(STRING encrypteddata, STRING type DEFAULTSTO "")
   {
     STRING data;
     STRING ds := GetWRDSetting(this->wrdschema, "domain_secret");
@@ -732,7 +732,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   /** @param the_entity WRD entity of the user to log in
       @param isimpersonation Whether this is an impersonation
-      @param cookietype The type of cookie: cookietype_session, cookietype_thirdparty, cookietype_persistent or cookietype_external  
+      @param cookietype The type of cookie: cookietype_session, cookietype_thirdparty, cookietype_persistent or cookietype_external
       @param login Unused
       @param ip Remote IP of the request
       @param updatelogindata Whether to update the first/last login date
@@ -833,7 +833,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     IF(RecordExists(sessiondata) AND sessiondata.expires > GetCurrentDatetime())
     {
-      INTEGER userid := this->GetCookieEntityId(cookieinfo.enclogindata, FALSE);
+      INTEGER userid := this->GetCookieEntityId(cookieinfo.enclogindata);
       IF(userid = sessiondata.entityid)
       {
         // ADDME: also calc authobjectid?
