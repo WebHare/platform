@@ -268,7 +268,8 @@ export class WHFSApplyTester {
 
   async getWRDAuth() {
     const wrdauth = {
-      wrdSchema: null as null | string
+      wrdSchema: null as null | string,
+      loginPage: null as null | string
     };
 
     for (const apply of await this.getMatchingRules('plugins')) {
@@ -276,6 +277,8 @@ export class WHFSApplyTester {
         if (plugin.name == "wrdauth" && plugin.namespace == "http://www.webhare.net/xmlns/wrd") { //found a wrdauth plugin definition
           if (plugin.data.__attributes.includes("WRDSCHEMA"))
             wrdauth.wrdSchema = plugin.data.wrdschema as string;
+          if (plugin.data.__attributes.includes("LOGINPAGE"))
+            wrdauth.loginPage = plugin.data.loginpage as string;
         }
     }
 
@@ -308,8 +311,13 @@ export class WHFSApplyTester {
     };
 
     for (const apply of await this.getMatchingRules('webdesign')) {
-      webDesign.objectName = apply.webdesign.objectname ?? webDesign.objectName;
-      webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory ?? webDesign.siteResponseFactory;
+      if (apply.webdesign.objectname) {
+        webDesign.objectName = apply.webdesign.objectname;
+        webDesign.siteResponseFactory = '';
+      } else if (apply.webdesign.siteresponsefactory) {
+        webDesign.objectName = '';
+        webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory;
+      }
       webDesign.witty = apply.webdesign.witty ?? webDesign.witty;
       webDesign.designFolder = apply.webdesign.designfolder ?? webDesign.designFolder;
       webDesign.maxContentWidth = apply.webdesign.maxcontentwidth ?? webDesign.maxContentWidth;

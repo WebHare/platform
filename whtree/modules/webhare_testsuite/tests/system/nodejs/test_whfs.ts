@@ -157,6 +157,7 @@ async function testSiteProfiles() {
   const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();
   test.eq("wrd:testschema", wrdauth.wrdSchema);
+  test.eq("currentsite::/portal1/", wrdauth.loginPage);
 }
 
 async function testGenerateUniqueName() {

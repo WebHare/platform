@@ -53,6 +53,8 @@ export enum HTTPSuccessCode {
   PermanentRedirect = 308
 }
 
+export type HTTPRedirectCode = HTTPSuccessCode.MovedPermanently | HTTPSuccessCode.Found | HTTPSuccessCode.SeeOther | HTTPSuccessCode.TemporaryRedirect | HTTPSuccessCode.PermanentRedirect;
+
 export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
 export type WebResponseForTransfer = {
@@ -198,6 +200,19 @@ export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody
     resp.setHeader("content-type", "application/json");
 
   resp.setBody(JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined));
+  return resp;
+}
+
+/** Create a redirect response
+ * @param jsonbody - The JSON body to return
+ * @param options - Optional statuscode and headers
+ */
+export function createRedirectResponse(location: string, status: HTTPRedirectCode = HTTPSuccessCode.SeeOther, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
+  const resp = new WebResponse(status, { "location": location, ...options?.headers });
+  if (!resp.getHeader("content-type"))
+    resp.setHeader("content-type", "text/html");
+
+  resp.setBody(options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${location}">Click here to continue</a></body></html>`);
   return resp;
 }
 

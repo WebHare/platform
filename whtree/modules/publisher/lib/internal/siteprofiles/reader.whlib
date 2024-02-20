@@ -1299,7 +1299,6 @@ STATIC OBJECTTYPE ApplyRuleTester
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("WEBDESIGN"))
     {
-      webdesign.objectname      := apply.webdesign.objectname      ?? webdesign.objectname;
       webdesign.witty           := apply.webdesign.witty           ?? webdesign.witty;
       webdesign.designfolder    := apply.webdesign.designfolder    ?? webdesign.designfolder;
       webdesign.maxcontentwidth := apply.webdesign.maxcontentwidth ?? webdesign.maxcontentwidth;
@@ -1319,8 +1318,16 @@ STATIC OBJECTTYPE ApplyRuleTester
       webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
       webdesign.contentnavstops      := apply.webdesign.has_contentnavstops      ? apply.webdesign.contentnavstops      : webdesign.contentnavstops;
 
-      IF(CellExists(apply.webdesign,'siteresponsefactory')) //introduced in 5.2
-        webdesign.siteresponsefactory := apply.webdesign.siteresponsefactory ?? webdesign.siteresponsefactory;
+      IF(apply.webdesign.objectname != "")
+      {
+        webdesign.objectname      := apply.webdesign.objectname;
+        webdesign.siteresponsefactory := "";
+      }
+      ELSE IF(CellExists(apply.webdesign,'siteresponsefactory') AND apply.webdesign.siteresponsefactory != "") //introduced in 5.2
+      {
+        webdesign.objectname := "";
+        webdesign.siteresponsefactory := apply.webdesign.siteresponsefactory;
+      }
     }
 
     IF (RecordExists(webdesign))

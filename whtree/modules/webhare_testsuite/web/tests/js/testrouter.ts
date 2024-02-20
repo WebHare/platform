@@ -1,4 +1,4 @@
-import { WebHareRouter, WebRequest, WebResponse, createJSONResponse } from "@webhare/router";
+import { WebHareRouter, WebRequest, WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
 
 export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
   if (req.url.searchParams.get("type") == "debug")
@@ -10,6 +10,9 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
       headers: Object.fromEntries(req.headers.entries()),
       text: await req.text()
     });
+
+  if (req.url.searchParams.get("type") == "redirect")
+    return createRedirectResponse("https://www.webhare.dev/", 301);
 
   return createJSONResponse(400, { error: "Invalid request" });
 }

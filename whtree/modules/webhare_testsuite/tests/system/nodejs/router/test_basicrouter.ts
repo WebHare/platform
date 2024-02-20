@@ -98,6 +98,10 @@ async function testJSBackedURLs() {
   test.eq("42", jsonresponse.headers["x-test"]);
   test.eq("a=1&b=2", jsonresponse.text);
 
+  fetchresult = await fetch(baseURL + "?type=redirect", { redirect: "manual" });
+  test.eq(301, fetchresult.status);
+  test.eq("https://www.webhare.dev/", fetchresult.headers.get("location"));
+
   const mixedcase_baseUrl = services.backendConfig.backendURL + ".webhare_Testsuite/TESTs/js/";
   fetchresult = await fetch(mixedcase_baseUrl + "Sub%20Url?type=debug");
   jsonresponse = await fetchresult.json();
