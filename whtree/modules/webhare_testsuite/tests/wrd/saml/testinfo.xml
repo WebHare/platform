@@ -1,5 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.xml">
-  <test script="test_oidc.ts" />
   <test script="test_samlparse.whscr" />
   <test script="test_samlsigning.whscr" />
   <test script="test_samlflow.whscr" />
