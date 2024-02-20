@@ -5,7 +5,6 @@
                  profiling
                  cli-guide
                  events
-                 webhare-connect
                  classnames
                  ">
   <section name="webharedb" title="WebHare Database access" />

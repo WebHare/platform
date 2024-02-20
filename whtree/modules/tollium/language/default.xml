@@ -676,8 +676,6 @@
     </textgroup>
     <textgroup gid="dashboard">   <!-- shell.dashboard -->
       <text tid="apptitle">WebHare</text>
-      <text tid="connect-success">Received new WebHare connect-helper settings</text>
-      <text tid="connect-title">WebHare connect</text>
       <text tid="logout">Log out</text>
       <text tid="mountwebhare">Mount server over WebDav</text>
       <text tid="noapps">No match for '<param p="1"/>'</text>
@@ -751,7 +749,6 @@
         <text tid="missing_client">No client has been specified.</text>
         <text tid="missing_redirect">No redirect URL has been specified.</text>
         <text tid="missing_scopes">No scopes have been specified.</text>
-        <text tid="unknownclient">Client '<param p="1"/>' has not been registered in Webhare Connect.</text>
         <text tid="unknownerror">An unknown error has occurred. Please try again, and if this error keeps occurring please contact the system administrator.</text>
       </textgroup>
     </textgroup>

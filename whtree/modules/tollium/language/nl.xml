@@ -656,8 +656,6 @@
     </textgroup>
     <textgroup gid="dashboard">   <!-- shell.dashboard -->
       <text tid="apptitle">WebHare</text>
-      <text tid="connect-success">Nieuwe WebHare connect-helper instellingen ontvangen</text>
-      <text tid="connect-title">WebHare connect</text>
       <text tid="logout">Uitloggen</text>
       <text tid="mountwebhare">Server via WebDav mounten</text>
       <text tid="noapps">Niets gevonden voor '<param p="1"/>'</text>
@@ -731,7 +729,6 @@
         <text tid="missing_client">Er is geen client opgegeven.</text>
         <text tid="missing_redirect">Er is geen redirect-URL opgegeven.</text>
         <text tid="missing_scopes">Er zijn geen scopes opgegeven.</text>
-        <text tid="unknownclient">Client '<param p="1"/>' is niet in Webhare Connect geregistreerd.</text>
         <text tid="unknownerror">Er is een onbekende fout opgetreden. Probeer het a.u.b. opnieuw. Als deze foutmelding dan weer terugkomt, neem dan a.u.b contact op met de systembeheerder.</text>
       </textgroup>
     </textgroup>
