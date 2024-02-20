@@ -1314,6 +1314,17 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
       <d:datetime name="lastuse" />
     </d:table>
 
+    <d:table name="sessions" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="sessionid" nullable="false" maxlength="32" unique="true" />
+      <d:varchar name="scope" maxlength="128" />
+      <d:datetime name="created" nullable="false" />
+      <d:datetime name="expires" nullable="false" />
+      <d:varchar name="data" maxlength="4096" />
+      <d:blob name="datablob" />
+      <d:integer name="autoextend" /> <!-- auto extend session on request with this many MS -->
+    </d:table>
+
     <d:obsoletetable name="registrykeys" />
 
     <d:obsoletetable name="registrynodes" />
