@@ -212,7 +212,7 @@ export class IdentityProvider<WRDSchemaType> {
 
     const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
     const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)] });
-    return token;
+    return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000) };
   }
 
   /** Create a session

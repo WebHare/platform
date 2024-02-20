@@ -63,16 +63,17 @@ async function setupKeys() {
 
   const testsessionToken = await provider.createSessionToken(testsession);
   //fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
-  test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, testsessionToken);
+  test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, testsessionToken.access_token);
+  test.assert(testsessionToken.expires_in > 86300 && testsessionToken.expires_in < 86400);
   //@ts-ignore -- we'd need to cast the schema to include IDP
   test.eq({ code: "1234" }, await wrdTestschemaSchema.getFields("wrdauthAccessToken", testsession, ["code"]));
 
-  const verifyresult = await provider.verifySession(testsessionToken);
+  const verifyresult = await provider.verifySession(testsessionToken.access_token);
   test.eqPartial({ scopes: ["openid"], wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer" } }, verifyresult);
   test.eq(peopleClient.clientId, verifyresult.payload.aud);
 
-  test.eqPartial({ scopes: ["openid"] }, await provider.verifySession(testsessionToken, { audience: peopleClient.clientId }));
-  await test.throws(/audience invalid/, provider.verifySession(testsessionToken, { audience: robotClient.clientId }));
+  test.eqPartial({ scopes: ["openid"] }, await provider.verifySession(testsessionToken.access_token, { audience: peopleClient.clientId }));
+  await test.throws(/audience invalid/, provider.verifySession(testsessionToken.access_token, { audience: robotClient.clientId }));
 
   await whdb.commitWork();
 
@@ -81,7 +82,7 @@ async function setupKeys() {
   const exchanged = await provider.exchangeCode(peopleClient.wrdId, "1234");
   test.assert(exchanged);
   test.eq(null, await provider.exchangeCode(peopleClient.wrdId, "1234"), "only retrievable once");
-  test.eqPartial({ scopes: ["openid"], wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer" } }, await provider.verifySession(exchanged));
+  test.eqPartial({ scopes: ["openid"], wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer" } }, await provider.verifySession(exchanged.access_token));
 }
 
 test.run([
