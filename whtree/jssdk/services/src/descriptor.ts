@@ -5,7 +5,7 @@ import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
-import { createSharpImage } from "./sharpwrapper";
+import { createSharpImage } from "@webhare/deps";
 import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 

@@ -38,6 +38,7 @@
   <test script="test_wh_bridge_cli.sh" />
   <test script="test_workers.ts" />
   <test script="test_modulesupport.ts" />
+  <test script="test_puppeteer.ts" />
   <test name="meta" path="meta/" />
   <test name="wasm" path="wasm/" />
   <test name="router" path="router/" />

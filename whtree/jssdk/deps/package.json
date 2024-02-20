@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/deps",
+  "version": "",
+  "description": "Provides access to some WebHare Platform dependencies",
+  "main": "src/deps.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/deps.ts"
+    ]
+  },
+  "private": true
+}
