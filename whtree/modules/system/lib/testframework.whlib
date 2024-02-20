@@ -1998,7 +1998,7 @@ STRING FUNCTION GenerateName(MACRO PTR test)
     @cell(boolean) options.mailwhitelists
     @cell(boolean) options.disablecreatecleanup Skip cleanup and recreation that normally happens at the start of the tests - sometimes useful for faster retesting
 */
-PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC OBJECT FUNCTION RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT RecordExists(PollWHServiceState("poststartdone")))
     THROW NEW Exception("WebHare is not yet ready for tests (state 'poststartdone' not yet reached)");
@@ -2075,6 +2075,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
     SnoozeRateLimits();
 
   testfw->RunTests();
+  RETURN testfw;
 }
 
 INTEGER ARRAY FUNCTION FilterOutRecycledObjects(INTEGER ARRAY ids)

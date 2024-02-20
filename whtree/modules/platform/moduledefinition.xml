@@ -18,6 +18,7 @@
     Add-on modules that want to add content under /.wh/ should use /.wh/mod/<modulename>/
     -->
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
+    <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" />
   </backend>
 
   <development>

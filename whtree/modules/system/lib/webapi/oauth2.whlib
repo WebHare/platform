@@ -185,6 +185,18 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
            ];
   }
 
+  PUBLIC RECORD FUNCTION HandleAuthorizedLanding(STRING oauth2session)
+  {
+    RECORD sessdata := GetWebSessionData(oauth2session, "system:oauth2");
+    RECORD tok := this->__CreateFinalToken(sessdata);
+    IF(RecordExists(tok))
+    {
+      this->token := tok;
+      RETURN [ success := TRUE ];
+    }
+    RETURN [ success := FALSE ];
+  }
+
   /** @short Start a redirecting authorization flow from the current page
       @long This function is designed to run the same webpage twice - first it will notice the oauthsession2= variable
             missing and redirect to the oauth pages. Oauth will then redirect back to the page, and we will return the token
@@ -197,16 +209,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   {
     STRING sessid := GetWebVariable("oauth2session");
     IF(sessid != "")
-    {
-      RECORD sessdata := GetWebSessionData(sessid, "system:oauth2");
-      RECORD tok := this->__CreateFinalToken(sessdata);
-      IF(RecordExists(tok))
-      {
-        this->token := tok;
-        RETURN [ success := TRUE ];
-      }
-      RETURN [ success := FALSE ];
-    }
+      RETURN this->HandleAuthorizedLanding(sessid);
 
     Redirect(this->StartAuthorizeClient(GetRequestURL(), options).url);
   }
