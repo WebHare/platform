@@ -999,13 +999,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     // Ignored
   });
 
-  wasmmodule.registerExternalFunction("__DOEVPCRYPT::S:SBSSS", (vm, id_set, var_algo, var_encrypt, var_keydata, var_data, var_iv) => {
-    const algo = var_algo.getString() as "bf-cbc" | "bf-ecb";
-    if (algo != "bf-cbc" && algo != "bf-ecb")
+  wasmmodule.registerExternalFunction("__DOEVPCRYPT::R:SBSSSS", (vm, id_set, var_algo, var_encrypt, var_keydata, var_data, var_iv, var_tag) => {
+    const algo = var_algo.getString() as "bf-cbc" | "bf-ecb" | "aes-256-gcm";
+    if (algo != "bf-cbc" && algo != "bf-ecb" && algo != "aes-256-gcm")
       throw new Error(`Invalid algorithm ${JSON.stringify(algo)}`);
 
     let key = var_keydata.getStringAsBuffer();
     const iv = var_iv.getStringAsBuffer();
+    const tag = var_tag.getStringAsBuffer();
+    const encrypt = var_encrypt.getBoolean();
 
     if (key.byteLength < 16) {
       // pad key with zeroes if too short
@@ -1013,16 +1015,23 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       key = Buffer.concat([key, toadd]);
     }
 
-    if (iv.byteLength !== 0 && iv.byteLength !== 8)
-      throw new Error(`Encryption iv length is wrong, expected 8 bytes, got ${iv.byteLength} bytes`);
+    if (iv.byteLength !== 0 && iv.byteLength !== (algo == "aes-256-gcm" ? 12 : 8))
+      throw new Error(`Encryption iv length is wrong, expected ${algo == "aes-256-gcm" ? 12 : 8} bytes, got ${iv.byteLength} bytes`);
 
-    const cipher = var_encrypt.getBoolean() ?
+    const cipher = encrypt ?
       crypto.createCipheriv(algo, key, iv) :
       crypto.createDecipheriv(algo, key, iv);
 
+    if (!encrypt && algo == 'aes-256-gcm' && tag.length)
+      (cipher as crypto.DecipherGCM).setAuthTag(tag);
+
     let output = cipher.update(var_data.getStringAsBuffer());
     output = Buffer.concat([output, cipher.final()]);
-    id_set.setString(output);
+
+    id_set.setJSValue({
+      data: output,
+      tag: encrypt && algo == 'aes-256-gcm' ? (cipher as crypto.CipherGCM).getAuthTag() : Buffer.from("")
+    });
   });
 
   wasmmodule.registerExternalFunction("ENCRYPT_XOR::S:SS", (vm, id_set, var_key, var_data) => {

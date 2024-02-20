@@ -121,7 +121,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
 
   return {
     public: publicdata,
-    secrets: { cache: "", cookie: "", debug: "" },
+    secrets: { cache: "", cookie: "", debug: "", gcm: "" },
     ...pick(oldconfig, ["debugsettings"]),
     ...omit(nodbconfig, ["public"]),
   };
@@ -160,9 +160,11 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
       if (typeof webrootres.rows?.[0]?.webroot === "string")
         finalconfig.public.backendURL = webrootres.rows?.[0].webroot;
 
+      //TODO can we declare the other 3 legacy now we're switching to GCM?
       finalconfig.secrets.cookie = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cookiesecret") ?? finalconfig.secrets.cookie ?? "";
       finalconfig.secrets.cache = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cachesecret") ?? finalconfig.secrets.cache ?? "";
       finalconfig.secrets.debug = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.debugsecret") ?? finalconfig.secrets.debug ?? "";
+      finalconfig.secrets.gcm = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.gcmsecret") ?? finalconfig.secrets.gcm ?? "";
 
       return finalconfig;
     } finally {

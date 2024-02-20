@@ -266,6 +266,8 @@ IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
   WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
 IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
   WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
+IF(ReadRegistryKey("system.webserver.security.gcmsecret")="")
+  WriteRegistryKey("system.webserver.security.gcmsecret", EncodeUFS(DecodeUFS(GenerateUFS128BitId())||DecodeUFS((GenerateUFS128BitId()))));
 
 IF(GetEnvironmentVariable("WEBHARE_CI") != "")
 {

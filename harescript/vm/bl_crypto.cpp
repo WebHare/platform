@@ -150,12 +150,13 @@ void HS_GetCertificateData(HSVM *vm, HSVM_VariableId id_set)
 
 void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
 {
-        std::string algo, key, data, iv;
+        std::string algo, key, data, iv, tag;
         algo = HSVM_StringGetSTD(vm, HSVM_Arg(0));
         bool encrypt = HSVM_BooleanGet(vm, HSVM_Arg(1));
         key = HSVM_StringGetSTD(vm, HSVM_Arg(2));
         data = HSVM_StringGetSTD(vm, HSVM_Arg(3));
         iv = HSVM_StringGetSTD(vm, HSVM_Arg(4));
+        tag = HSVM_StringGetSTD(vm, HSVM_Arg(5));
         EVP_CIPHER_CTX *ctx = 0;
 
         try
@@ -190,6 +191,12 @@ void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
                 if(!EVP_CipherInit_ex(ctx, NULL, NULL, reinterpret_cast<const uint8_t*>(&key[0]), reinterpret_cast<const uint8_t*>(&iv[0]), encrypt ? 1 : 0))
                     throw std::runtime_error("EVP_CipherInit #2 failed");
 
+                if(tag.size() && !encrypt)
+                {
+                        if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag.size(), reinterpret_cast<uint8_t*>(&tag[0])))
+                                throw std::runtime_error("EVP_CIPHER_CTX_ctrl failed");
+                }
+
                 std::vector<uint8_t> outbuffer;
                 outbuffer.resize(data.size() + EVP_CIPHER_block_size(cipher));
 
@@ -199,7 +206,15 @@ void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
                 if(!EVP_CipherFinal(ctx, &outbuffer[numbytes], &numbytes2))
                     throw std::runtime_error("EVP_CipherFinal failed");
 
-                HSVM_StringSet(vm, id_set, reinterpret_cast<char*>(&outbuffer[0]), reinterpret_cast<char*>(&outbuffer[numbytes + numbytes2]));
+                char tagholder[16];
+                memset(tagholder, 0, 16);
+                unsigned taglen = 0;
+                if(encrypt && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tagholder))
+                        taglen = 16;
+
+                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "DATA")), reinterpret_cast<char*>(&outbuffer[0]), reinterpret_cast<char*>(&outbuffer[numbytes + numbytes2]));
+                HSVM_StringSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "TAG")), reinterpret_cast<char*>(&tagholder[0]), reinterpret_cast<char*>(&tagholder[taglen]));
         }
         catch(std::exception &e)
         {
@@ -600,7 +615,7 @@ void InitCrypto(struct HSVM_RegData *regdata)
         HSVM_RegisterFunction(regdata, "__EVP_GETPRIVATEKEY::S:I",HS_GetPrivateKey);
         HSVM_RegisterFunction(regdata, "__EVP_GETPUBLICKEY::S:I",HS_GetPublicKey);
         HSVM_RegisterFunction(regdata, "__EVP_GENERATECSR::S:IRAS",HS_GenerateCSR);
-        HSVM_RegisterFunction(regdata, "__DOEVPCRYPT::S:SBSSS", HS_DoEvpCrypt);
+        HSVM_RegisterFunction(regdata, "__DOEVPCRYPT::R:SBSSSS", HS_DoEvpCrypt);
 }
 
 

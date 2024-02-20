@@ -21,11 +21,16 @@ export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cance
 export type { TaskFunction, TaskResponse } from "./tasks";
 export { readRegistryKey, writeRegistryKey } from "./registry";
 export { WebHareBlob } from "./webhareblob";
-export { getSignatureForThisServer, validateSignatureForThisServer } from "./secrets";
+export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
+
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface ServerEncryptionScopes {
+  //Extend this interface to define the format of your own scopes
+}
 
 export async function isWebHareRunning() {
   /* TODO it would be better to attempt to connect to the bridge to test online-ness *if* we can get the bridge to immediately report it cannot connect?
