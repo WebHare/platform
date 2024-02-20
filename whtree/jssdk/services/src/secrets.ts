@@ -52,7 +52,7 @@ export function decryptForThisServer(scope: string, text: string): unknown {
   let str = decipher.update(enc, 'base64url', 'utf8');
   str += decipher.final('utf8');
 
-  //HareScript EncryptForThisServer will always generate HSON so its 'default usagse' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
+  //HareScript EncryptForThisServer will always generate HSON so its 'default usage' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
   return str.startsWith("hson:") ? decodeHSON(str) : parseTyped(str);
 }
 

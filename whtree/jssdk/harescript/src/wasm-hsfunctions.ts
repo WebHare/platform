@@ -1016,7 +1016,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
 
     if (iv.byteLength !== 0 && iv.byteLength !== (algo == "aes-256-gcm" ? 12 : 8))
-      throw new Error(`Encryption iv length is wrong, expected 8 bytes, got ${iv.byteLength} bytes`);
+      throw new Error(`Encryption iv length is wrong, expected ${algo == "aes-256-gcm" ? 12 : 8} bytes, got ${iv.byteLength} bytes`);
 
     const cipher = encrypt ?
       crypto.createCipheriv(algo, key, iv) :
