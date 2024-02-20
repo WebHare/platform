@@ -158,6 +158,7 @@ async function testSiteProfiles() {
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();
   test.eq("wrd:testschema", wrdauth.wrdSchema);
   test.eq("currentsite::/portal1/", wrdauth.loginPage);
+  test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
 }
 
 async function testGenerateUniqueName() {

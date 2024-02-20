@@ -269,7 +269,8 @@ export class WHFSApplyTester {
   async getWRDAuth() {
     const wrdauth = {
       wrdSchema: null as null | string,
-      loginPage: null as null | string
+      loginPage: null as null | string,
+      cookieName: "webharelogin"
     };
 
     for (const apply of await this.getMatchingRules('plugins')) {
@@ -279,6 +280,8 @@ export class WHFSApplyTester {
             wrdauth.wrdSchema = plugin.data.wrdschema as string;
           if (plugin.data.__attributes.includes("LOGINPAGE"))
             wrdauth.loginPage = plugin.data.loginpage as string;
+          if (plugin.data.__attributes.includes("COOKIENAME"))
+            wrdauth.cookieName = plugin.data.cookiename as string;
         }
     }
 
