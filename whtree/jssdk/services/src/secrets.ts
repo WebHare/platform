@@ -19,10 +19,7 @@ function getKeyForScope(scope: string): Buffer {
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
 */
-export function encryptForThisServer<S extends keyof ServerEncryptionScopes>(scope: S, data: ServerEncryptionScopes[S]): string;
-export function encryptForThisServer(scope: string, data: unknown): string;
-
-export function encryptForThisServer(scope: string, data: unknown): string {
+export function encryptForThisServer<S extends string>(scope: S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown): string {
   const iv = crypto.randomBytes(12);
   const key = getKeyForScope(scope);
   const text = stringify(data, { typed: true });
