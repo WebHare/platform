@@ -4,7 +4,6 @@ import { Money } from "@webhare/std";
 import * as test from "@webhare/test";
 
 declare module "@webhare/services" {
-  // declare module "WebHare" {
   interface ServerEncryptionScopes {
     "webhare_testsuite:string": string;
     "webhare_testsuite:data": {
@@ -24,6 +23,9 @@ async function testCryptForServer() {
   test.typeAssert<test.Equals<boolean, ReturnType<typeof decryptForThisServer < "webhare_testsuite:string" >>>>();
   // @ts-expect-error -- and not something else:
   test.typeAssert<test.Equals<unknown, ReturnType<typeof decryptForThisServer < "webhare_testsuite:string" >>>>();
+
+  // @ts-expect-error -- should fail because of incorrect type
+  encryptForThisServer("webhare_testsuite:string", 16);
 
   const roundtrip1 = encryptForThisServer("webhare_testsuite:string", "Hello, world!");
   test.eq(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/, roundtrip1);

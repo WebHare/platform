@@ -855,7 +855,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
            ];
   }
 
-  //marking params as unused as dropping them can give JS errors when updating, and webhareconnect doesn't make a material difference for anyone
+  //marking params as unused as dropping them can give JS errors when updating
   PUBLIC RECORD FUNCTION WCS_StartApp(STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(appstartoptions, EnforceStructure([webvars := RECORD[]], options));
