@@ -214,7 +214,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   /** Returns the user entityid from a cookie
       @param cookie Cookie
-      @param ispersistentcookie Whether the cookie is a persistent cookie (otherwise it is a session cookie)
       @return User entityid (if not 0, the cookie is valid and the user exists)
   */
   PUBLIC INTEGER FUNCTION GetCookieEntityId(STRING cookie)
