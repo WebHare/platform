@@ -346,6 +346,18 @@ PUBLIC SCHEMA
     ; KEY id
     > precalccache
 
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , STRING "sessionid"
+    , STRING "scope"
+    , DATETIME "created"
+    , DATETIME "expires"
+    , STRING "data"
+    , BLOB "datablob"
+    , INTEGER "autoextend"
+    ; KEY id
+    > sessions
+
   > system_internal;
 
 MACRO BindSystemInternalTables(INTEGER transaction)

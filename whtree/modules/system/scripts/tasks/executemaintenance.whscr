@@ -4,6 +4,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/modules/disk.whlib";
 LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
@@ -135,6 +136,14 @@ MACRO CleanupSocialite()
   trans->CommitWork();
 }
 
+MACRO CleanupSessions()
+{
+  trans->BeginWork();
+  DATETIME now := GetCurrentDateTime();
+  DELETE FROM system_internal.sessions WHERE expires < now;
+  trans->CommitWork();
+}
+
 MACRO DeleteOldIssues()
 {
   //TODO should this be configurable?
@@ -164,6 +173,7 @@ MACRO RunExecuteMaintenance()
     CleanupUserRights();
     CleanupWebharePrivate();
     CleanupSocialite();
+    CleanupSessions();
     EnsureModuleStorageFolders(TRUE); //cleanup obsolete existing ones too
     DeleteOldIssues();
   }

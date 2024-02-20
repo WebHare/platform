@@ -7,6 +7,7 @@
 */
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
@@ -14,7 +15,10 @@ LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib" EXPORT NotAShtmlContextException;
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
@@ -484,9 +488,49 @@ PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTST
     @return A random session id which can be used to refer to the session
     @see GetWebSessionData CloseWebSession
 */
-PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER maxidle_minutes, BOOLEAN limit_to_server, STRING sessionid DEFAULTSTO "")
+PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 {
-  RETURN __WHS_CreateWebSession(scope, sessdata, maxidle_minutes, limit_to_server, sessionid);
+  //INTEGER maxidle_minutes, BOOLEAN limit_to_server, STRING sessionid DEFAULTSTO "")
+  RECORD options;
+  IF(Length(args) > 1)
+    options := CELL[ auto_extend := TRUE, maxidle_minutes := INTEGER(args[0]), limit_to_server := BOOLEAN(args[1]), sessionid := STRING(Length(args) > 2 ? args[2] : "") ];
+  ELSE IF(Length(args) = 1)
+    options := args[0];
+
+  options := ValidateOptions(CELL[ auto_extend := FALSE, maxidle_minutes := 60, limit_to_server := FALSE, sessionid := "" ], options);
+
+  FUNCTION PTR toinvoke := PTR InTrans_CreateWebSession(scope, sessdata, options);
+  IF(HavePrimaryTransaction() AND NOT GetPrimary()->IsWorkOpen())
+    RETURN toinvoke();
+  ELSE
+    RETURN RunInSeparatePrimary(toinvoke);
+}
+
+STRING FUNCTION InTrans_CreateWebSession(STRING scope, RECORD sessdata, RECORD options)
+{
+  STRING newsessionid := options.sessionid ?? GenerateUFS128BitId();
+  STRING data := EncodeHSON(sessdata);
+
+  TRY
+  {
+    GetPrimary()->BeginWork();
+    IF(options.sessionid != "")
+      DELETE FROM system_internal.sessions WHERE sessions.sessionid = options.sessionid;
+
+    RECORD store := PrepareAnyForDatabase(sessdata);
+    INSERT INTO system_internal.sessions(sessionid, scope, created, expires, data, datablob, autoextend)
+            VALUES(newsessionid, scope, GetCurrentDatetime(), AddTimeToDate(options.maxidle_minutes * 60000, GetCurrentDatetime()), store.stringpart, store.blobpart, options.auto_extend ? options.maxidle_minutes * 60000 : 0);
+    GetPrimary()->CommitWork();
+
+    IF(NOT IsWasm())
+      __WHS_CreateWebSession(scope, DEFAULT RECORD, options.maxidle_minutes, options.limit_to_server, newsessionid);
+    RETURN newsessionid;
+  }
+  FINALLY
+  {
+    IF(GetPrimary()->IsWorkOpen())
+      GetPrimary()->RollbackWork();
+  }
 }
 
 /** @short Store data into a session
@@ -496,7 +540,38 @@ PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER m
     @see CreateWebSession GetWebSessionData */
 PUBLIC MACRO StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata)
 {
-  __WHS_StoreWebSessionData(sessid, scope, sessdata);
+  FUNCTION PTR toinvoke := PTR InTrans_StoreWebSessionData(sessid, scope, sessdata);
+  IF(HavePrimaryTransaction() AND NOT GetPrimary()->IsWorkOpen())
+    toinvoke();
+  ELSE
+    RunInSeparatePrimary(toinvoke);
+}
+
+MACRO InTrans_StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata)
+{
+  RECORD sess := SELECT id, expires, autoextend FROM system_internal.sessions WHERE COLUMN sessionid = VAR sessid AND COLUMN scope = VAR scope AND expires > GetCurrentDateTime();
+  IF(NOT Recordexists(sess))
+    RETURN;
+
+  RECORD store := PrepareAnyForDatabase(sessdata);
+  TRY
+  {
+    GetPrimary()->BeginWork();
+    UPDATE system_internal.sessions
+           SET data := store.stringpart
+             , datablob := store.blobpart
+             , expires := autoextend > 0 ? AddTimeToDate(autoextend, GetCurrentDateTime()) : expires
+             WHERE COLUMN id = sess.id;
+    GetPrimary()->CommitWork();
+
+    IF(NOT IsWasm() AND sess.autoextend > 0)
+      __WHS_GetWebSessionData(sessid, scope); //keeps it alive
+  }
+  FINALLY
+  {
+    IF(GetPrimary()->IsWorkOpen())
+      GetPrimary()->RollbackWork();
+  }
 }
 
 /** @short Get session data from an active session, extending its lifetime if necessary
@@ -506,7 +581,48 @@ PUBLIC MACRO StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata)
     @see CreateWebSession StoreWebSessionData */
 PUBLIC RECORD FUNCTION GetWebSessionData(STRING sessid, STRING scope)
 {
-  RETURN __WHS_GetWebSessionData(sessid, scope);
+  FUNCTION PTR toinvoke := PTR InTrans_GetWebSessionData(sessid, scope);
+  IF(HavePrimaryTransaction() AND NOT GetPrimary()->IsWorkOpen())
+    RETURN toinvoke();
+  ELSE
+    RETURN RunInSeparatePrimary(toinvoke);
+}
+RECORD FUNCTION InTrans_GetWebSessionData(STRING sessid, STRING scope)
+{
+  RECORD sess := SELECT id, expires, autoextend, data, datablob, COLUMN scope
+                   FROM system_internal.sessions
+                  WHERE COLUMN sessionid = VAR sessid AND expires > GetCurrentDateTime();
+  IF(NOT Recordexists(sess))
+    RETURN DEFAULT RECORD;
+
+  IF(sess.scope != "")
+    IF(scope="")
+      THROW NEW Exception(`No scope specified for session '${sessid}'`);
+    ELSE IF(sess.scope != scope)
+      THROW NEW Exception(`Incorrect scope '${scope}' for session '${sessid}'`);
+
+  IF(sess.autoextend > 0)
+  {
+    TRY
+    {
+      GetPrimary()->BeginWork();
+      UPDATE system_internal.sessions
+            SET expires := autoextend > 0 ? AddTimeToDate(autoextend, GetCurrentDateTime()) : expires
+              WHERE COLUMN id = sess.id;
+
+      GetPrimary()->CommitWork();
+
+      IF(NOT IsWasm())
+        __WHS_GetWebSessionData(sessid, scope); //keeps it alive
+    }
+    FINALLY
+    {
+      IF(GetPrimary()->IsWorkOpen())
+        GetPrimary()->RollbackWork();
+    }
+  }
+
+  RETURN ReadAnyFromDatabase(sess.data, sess.datablob);
 }
 
 /** @short End a session, deleting any data stored for the session
@@ -515,7 +631,33 @@ PUBLIC RECORD FUNCTION GetWebSessionData(STRING sessid, STRING scope)
     @see GetWebSessionData CreateWebSession */
 PUBLIC MACRO CloseWebSession(STRING sessid, STRING scope)
 {
-  __WHS_CloseWebSession(sessid, scope);
+  FUNCTION PTR toinvoke := PTR InTrans_CloseWebSession(sessid, scope);
+  IF(HavePrimaryTransaction() AND NOT GetPrimary()->IsWorkOpen())
+    toinvoke();
+  ELSE
+    RunInSeparatePrimary(toinvoke);
+}
+
+MACRO InTrans_CloseWebSession(STRING sessid, STRING scope)
+{
+  RECORD sess := SELECT id FROM system_internal.sessions WHERE COLUMN sessionid = VAR sessid AND COLUMN scope = VAR scope;
+  IF(NOT Recordexists(sess))
+    RETURN;
+
+  TRY
+  {
+    GetPrimary()->BeginWork();
+    DELETE FROM system_internal.sessions WHERE COLUMN id = sess.id;
+    GetPrimary()->CommitWork();
+
+    IF(NOT IsWasm())
+      __WHS_CloseWebSession(sessid, scope);
+  }
+  FINALLY
+  {
+    IF(GetPrimary()->IsWorkOpen())
+      GetPrimary()->RollbackWork();
+  }
 }
 
 /** @short Get the full undecoded request body
