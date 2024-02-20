@@ -429,6 +429,8 @@
 
   <wrdschemas>
     <schema tag="testschema" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
+    <!-- TODO abstract schema? -->
+    <schema tag="idp" definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" title="Identity Provider" autocreate="false" />
   </wrdschemas>
 
 </module>

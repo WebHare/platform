@@ -35,16 +35,14 @@
     </attributes>
   </object>
 
+  <!-- TODO obsolete this one
   <attachment tag="whuser_access_token" linkfrom="wrd_relation" title="WebHare API Access token">
     <attributes>
       <free tag="wrd_title" required="true" />
-
-      <!-- TODO The field(s) below should implement a AccessToken interface, a 'mixin' which sets up 'token'
-                and future other fields (the only reason we can't use parent types is because we don't know our leftentity)
-                Saving implementation of this for the YAML-ization of wrdschemas  -->
       <free tag="token" required="true" />
     </attributes>
   </attachment>
+  -->
 
   <attachment tag="whuser_appaccount" linkfrom="wrd_relation" title="WebHare app account">
     <attributes>
