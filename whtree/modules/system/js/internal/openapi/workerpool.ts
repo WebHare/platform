@@ -13,7 +13,10 @@ export class RestAPIWorkerPool {
 
   constructor(maxWorkers: number, maxCallsPerWorker: number) {
     this.maxWorkers = maxWorkers;
-    this.maxCallsPerWorker = maxCallsPerWorker;
+    /* FIXME: Node 20 has a bug that causes hangs cleaning up of FinalizationRegistries on worker exit
+       See https://github.com/nodejs/node/issues/47748 and https://github.com/nodejs/node/pull/51290.
+    */
+    this.maxCallsPerWorker = Infinity;//maxCallsPerWorker;
   }
 
   async runInWorker<T>(fn: (worker: AsyncWorker) => Promise<T>): Promise<T> {
