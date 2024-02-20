@@ -2,17 +2,19 @@
 FROM       ubuntu:20.04 AS builder
 MAINTAINER WebHare bv <info@webhare.com>
 
-# Environment variables (TODO figure out which ones are for build and which for runtime)
+# Environment variables
 ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
-  WEBHARE_DATAROOT=/opt/whdata/ \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
   WEBHARE_CHECKEDOUT_TO=/opt/wh \
-  WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
-  WEBHARE_MODULEPATHS=/opt/whmodules \
-  WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
-  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  WHBUILD_ALLOW=1 \
+  WHBUILD_BUILDROOT=/tmp/compile \
+  WHBUILD_DOWNLOADCACHE=/tmp/downloads \
+  WHBUILD_NODEPS=1 \
+  WHBUILD_LTO=1 \
+  WHBUILD_WASMLTO=1
 
 # Base image setup
 RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
@@ -23,15 +25,6 @@ RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
 # Add base source code and stuff needed to compile it
 COPY tocompile/ /opt/wh/
 
-# Build environment variables
-ENV \
-  WHBUILD_ALLOW=1 \
-  WHBUILD_BUILDROOT=/tmp/compile \
-  WHBUILD_DOWNLOADCACHE=/tmp/downloads \
-  WHBUILD_NODEPS=1 \
-  WHBUILD_LTO=1 \
-  WHBUILD_WASMLTO=1
-
 # Build those parts.
 RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=tmpfs,target=/tmp \
@@ -41,17 +34,17 @@ RUN --mount=type=tmpfs,target=/opt/whbuild \
 ################# STAGE 2 - application image
 FROM       ubuntu:20.04 AS appimage
 
-# Environment variables (TODO figure out which ones are for build and which for runtime)
+# Environment variables
 ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
   WEBHARE_DATAROOT=/opt/whdata/ \
-  WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
   WEBHARE_CHECKEDOUT_TO=/opt/wh \
   WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
+  PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Expose usual WebHare hostingports

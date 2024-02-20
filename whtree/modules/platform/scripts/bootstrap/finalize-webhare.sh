@@ -39,6 +39,9 @@ node node_modules/esbuild/install.js || die "Download failed"
 ## download sharp
 (cd node_modules/sharp && npm run install)
 
+## download puppeteer
+(cd node_modules/puppeteer && npm run postinstall)
+
 ## get dependencies for the postgresql-client
 logWithTime "Setup postgresql-client"
 ( cd jssdk/whdb/vendor/postgresql-client && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"

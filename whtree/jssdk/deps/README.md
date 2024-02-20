@@ -11,3 +11,14 @@ Usage
 import { createSharpImage } from "@webhare/deps";
 const img = await createSharpImage(data);
 ```
+
+## Puppeteer
+Usage
+
+```typescript
+import { launchPuppeteer } from "@webhare/deps";
+const puppet = await launchPuppeteer();
+const page = await puppet.newPage();
+
+await puppet.close();
+```
