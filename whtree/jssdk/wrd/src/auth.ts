@@ -1,10 +1,10 @@
 import * as crypto from "node:crypto";
 import jwt, { JwtPayload, VerifyOptions } from "jsonwebtoken";
-import { WRDSchema } from "@mod-wrd/js/internal/schema";
+import { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
-import { getSchemaSettings } from "./settings";
+import { getSchemaSettings, updateSchemaSettings } from "./settings";
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 
 export async function createSigningKey(): Promise<JsonWebKey> {
@@ -136,28 +136,27 @@ export function hashClientSecret(secret: string) {
 /** Manage JWT tokens associated with a schema
  * @param wrdschema - The schema to create the token for
 */
-export class IdentityProvider<WRDSchemaType> {
+export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   readonly wrdschema: WRDSchema<WRD_IdpSchemaType>;
   readonly config: IdentityProviderConfiguration;
 
-  constructor(wrdschema: WRDSchemaType, config?: IdentityProviderConfiguration) {
+  constructor(wrdschema: WRDSchema<SchemaType>, config?: IdentityProviderConfiguration) {
     //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
     this.wrdschema = wrdschema as unknown as WRDSchema<WRD_IdpSchemaType>;
     this.config = config || {};
   }
 
   async initializeIssuer(issuer: string): Promise<void> {
-    const settingid = await this.wrdschema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
-    if (!settingid)
-      throw new Error("WRD_SETTINGS not found");
+    await updateSchemaSettings(this.wrdschema, { issuer });
 
-    //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisions
-    const primarykeyid = generateRandomId();
-
-    await this.wrdschema.update("wrdSettings", settingid, {
-      issuer: issuer,
-      signingKeys: [{ availableSince: new Date, keyId: primarykeyid, privateKey: await createSigningKey() }]
-    });
+    const cursettings = await getSchemaSettings(this.wrdschema, ["signingKeys"]);
+    if (!cursettings.signingKeys.length) { //create the first key
+      //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisions
+      const primarykeyid = generateRandomId();
+      await updateSchemaSettings(this.wrdschema, {
+        signingKeys: [{ availableSince: new Date, keyId: primarykeyid, privateKey: await createSigningKey() }]
+      });
+    }
   }
 
   async createServiceProvider(spSettings: ServiceProviderInit) {
