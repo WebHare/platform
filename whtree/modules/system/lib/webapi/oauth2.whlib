@@ -246,6 +246,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     DATETIME requeststart := GetCurrentDatetime();
     BLOB body := CreateHTTPUrlencodedRequest(
                   [[ name := "refresh_token", value := this->token.refresh_token ]
+                  //TODO shouldn't this be safer in a authorization header ?
                   ,[ name := "client_id",     value := this->oauthconfig.clientid ]
                   ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
                   ,[ name := "grant_type",    value := "refresh_token" ]
@@ -296,6 +297,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
 
     BLOB body := CreateHTTPUrlencodedRequest(
                   [[ name := "code",          value := code ]
+                  //TODO shouldn't this be safer in a authorization header ?
                   ,[ name := "client_id",     value := this->oauthconfig.clientid ]
                   ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
                   ,[ name := "redirect_uri",  value := redirectto ]
@@ -320,6 +322,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     options := ValidateOptions([ scopes := STRING[]
                                ], options);
 
+    //TODO shouldn't this be safer in a authorization header ?
     RECORD ARRAY vars := [[ name := "client_id",     value := this->oauthconfig.clientid ]
                          ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
                          ,[ name := "grant_type",    value := "client_credentials" ]
