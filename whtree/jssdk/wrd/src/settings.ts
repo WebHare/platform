@@ -3,7 +3,7 @@ import { WRDSchema } from "./wrd";
 
 export const wrdSettingsGuid = "07004000-0000-4000-a000-00bea61ef00d";
 
-export async function getSchemaSettings<SchemaType extends SchemaTypeDefinition, M extends OutputMap<SchemaType["wrdSettings"]>>(schema: WRDSchema<SchemaType>, fields: M)
+export async function getSchemaSettings<SchemaType extends SchemaTypeDefinition, M extends string[] & OutputMap<SchemaType["wrdSettings"]>>(schema: WRDSchema<SchemaType>, fields: M)
   : Promise<MapRecordOutputMap<SchemaType["wrdSettings"], RecordizeOutputMap<SchemaType["wrdSettings"], M>>> {
 
   //@ts-ignore FIXME "=" is not recognized as valid by TS
