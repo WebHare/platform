@@ -12,7 +12,7 @@ async function testLowLevelAuthAPIs() {
   let token = await createJWT(key, "1234", "urn::rabbit-union", "PieterBunny", Infinity);
   let decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.eqProps({ iss: 'urn::rabbit-union', sub: "PieterBunny" }, decoded);
-  test.assert("nonce" in decoded);
+  // test.assert("nonce" in decoded); //FIXME only add a nonce if we *asked* for it! it's a way for a client to validate
   test.assert(!("exp" in decoded));
 
   await test.throws(/issuer invalid/, verifyJWT(key, "urn::rabbit-union2", token));

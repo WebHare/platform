@@ -95,8 +95,8 @@ export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, 
   const payload: JwtPayload = {
     iss: issuer,
     iat: Math.floor(now / 1000),
-    nbf: Math.floor(now / 1000),
-    nonce: generateRandomId("base64url", 16),
+    nbf: Math.floor(now / 1000)
+    // nonce: generateRandomId("base64url", 16), //FIXME we should be generating nonce-s if requested by the openid client, but not otherwise
   };
 
   if (expires !== Infinity)

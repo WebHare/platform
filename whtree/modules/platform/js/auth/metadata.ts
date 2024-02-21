@@ -27,7 +27,8 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     jwks_uri: oidc_baseurl + 'jwks',
     authorization_endpoint: oidc_baseurl + "authorize",
     token_endpoint: oidc_baseurl + "token",
-    id_token_signing_alg_values_supported: ["RS256"]
+    id_token_signing_alg_values_supported: ["RS256"],
+    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
   });
 
 }

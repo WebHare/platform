@@ -96,6 +96,10 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
         */
   }
 
+  if (endpoint[2] == 'jwks') {
+    const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
+    return createJSONResponse(200, await provider.getPublicJWKS());
+  }
 
   if (endpoint[2] == 'authorize') {
     const clientid = headerClientId || req.url.searchParams.get("client_id") || '';
@@ -190,12 +194,14 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       return createJSONResponse(400, { error: "Missing code" });
 
     const provider = new IdentityProvider(wrdschema);
+    //FIXME properly separate id_tokens and access_tokens. id_tokens is for openid, access_token is for oauth2
+    //FIXME make sure we don't confuse the two, that they have at least separate `aud`s
     const match = await provider.exchangeCode(client[0].wrdId, code);
     if (!match)
       return createJSONResponse(400, { error: "Invalid or expired code" });
 
     return createJSONResponse(200, {
-      access_token: match.access_token,
+      id_token: match.access_token,
       expires_in: match.expires_in
     });
   }
