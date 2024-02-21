@@ -25,7 +25,7 @@ declare module "@webhare/services" {
     "wrd:openid.idpstate": {
       clientid: number;
       scopes: string[];
-      state: string;
+      state: string | null;
       cbUrl: string;
     };
   }
@@ -84,15 +84,32 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
+  let headerClientId = '', headerClientSecret = '';
+  const authorization = req.headers.get("Authorization")?.match(/^Basic +(.+)$/i);
+  if (authorization) {
+    const decoded = atob(authorization[1]).split(/^([^:]+):(.*)$/);
+    if (decoded)
+      [, headerClientId, headerClientSecret] = decoded;
+
+    /* TODO? if specified, we should probably validate the id/secret right away to provide a nicer UX rather than waiting for the token endpoint to be hit ?
+        Or aren't we allowed to validate  .. RFC6749 4.1.2 doesn't mention checking confidential clients, 4.1.4 does
+        */
+  }
+
+  if (endpoint[2] == 'jwks') {
+    const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
+    return createJSONResponse(200, await provider.getPublicJWKS());
+  }
+
   if (endpoint[2] == 'authorize') {
-    const clientid = req.url.searchParams.get("client_id") || '';
+    const clientid = headerClientId || req.url.searchParams.get("client_id") || '';
     const client = await wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
     if (client.length !== 1)
       return createJSONResponse(404, { error: "No such client" });
 
     const scopes = req.url.searchParams.get("scope")?.split(" ");
     const redirect_uri = req.url.searchParams.get("redirect_uri") || '';
-    const state = req.url.searchParams.get("state") || '';
+    const state = req.url.searchParams.get("state") || null;
     // const response_type = req.url.searchParams.get("response_type"); //FIXME use it
 
     if (!client[0].callbackUrls.find((cb) => cb.url == redirect_uri))
@@ -141,7 +158,8 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     });
 
     const finalRedirectURI = new URL(returnInfo.cbUrl);
-    finalRedirectURI.searchParams.set("state", returnInfo.state);
+    if (returnInfo.state !== null)
+      finalRedirectURI.searchParams.set("state", returnInfo.state);
     finalRedirectURI.searchParams.set("code", code);
     return createRedirectResponse(finalRedirectURI.toString());
   }
@@ -149,7 +167,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   if (endpoint[2] == 'token') {
     const body = await req.text();
     const form = new URLSearchParams(body);
-    const clientid = form.get("client_id") || '';
+    const clientid = headerClientId || form.get("client_id") || '';
     const client = await wrdschema.
       query("wrdauthServiceProvider").
       where("wrdGuid", "=", decompressUUID(clientid)).
@@ -162,7 +180,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     if (granttype !== "authorization_code")
       return createJSONResponse(400, { error: `Unexpected grant_type '${granttype}'` });
 
-    const urlsecret = form.get("client_secret") || '';
+    const urlsecret = headerClientSecret || form.get("client_secret");
     if (!urlsecret)
       return createJSONResponse(400, { error: "Missing parameter client_secret" });
 
@@ -176,12 +194,14 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       return createJSONResponse(400, { error: "Missing code" });
 
     const provider = new IdentityProvider(wrdschema);
+    //FIXME properly separate id_tokens and access_tokens. id_tokens is for openid, access_token is for oauth2
+    //FIXME make sure we don't confuse the two, that they have at least separate `aud`s
     const match = await provider.exchangeCode(client[0].wrdId, code);
     if (!match)
       return createJSONResponse(400, { error: "Invalid or expired code" });
 
     return createJSONResponse(200, {
-      access_token: match.access_token,
+      id_token: match.access_token,
       expires_in: match.expires_in
     });
   }
