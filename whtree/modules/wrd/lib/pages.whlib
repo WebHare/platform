@@ -63,6 +63,10 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
     IF(options.fallbacktologin AND NOT authplugin->IsLoggedIn())
       RETURN GetLoginPage(webdesign, options);
 
+    STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
+    IF (logincontrol != "")
+      authplugin->ProcessReturnTo(logincontrol);
+
     RETURN DEFAULT OBJECT; //you'll need to route this yourself
   }
 
