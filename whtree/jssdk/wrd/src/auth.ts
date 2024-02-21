@@ -61,7 +61,7 @@ export interface IdentityProviderConfiguration {
   //audience?: string;
 }
 
-//TODO these might make nice @webhare/std candidate but require a frontend-compatible implementation (or a backend + frontend versin)
+//TODO these might make nice @webhare/std candidate but require a frontend-compatible implementation (or a backend + frontend version)
 
 export function compressUUID(uuid: string) {
   const buffer = Buffer.from(uuid.replace(/-/g, ""), "hex");
