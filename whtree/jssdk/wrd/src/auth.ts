@@ -9,7 +9,10 @@ import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 
 export async function createSigningKey(): Promise<JsonWebKey> {
   const pvtkey = await new Promise((resolve, reject) =>
-    generateKeyPair('ec', { namedCurve: "P-256" }, (err, publicKey, privateKey) => {
+    //generateKeyPair('ec', { namedCurve: "P-256" }, (err, publicKey, privateKey) => { // TODO optionally create EC keys, but RS256 are likely more compatible
+    generateKeyPair('rsa', {
+      modulusLength: 4096
+    }, (err, publicKey, privateKey) => {
       if (err)
         return reject(err);
 
@@ -106,7 +109,7 @@ export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, 
     payload.aud = options.audiences.length == 1 ? options.audiences[0] : options.audiences;
 
   const signingkey = createPrivateKey({ key: key, format: 'jwk' }); //TODO use async variant
-  return jwt.sign(payload, signingkey, { keyid, algorithm: "ES256" });
+  return jwt.sign(payload, signingkey, { keyid, algorithm: signingkey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" });
 }
 
 export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
