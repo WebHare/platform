@@ -38,11 +38,11 @@ export class HSVMObjectWrapper {
     vm.wasmmodule._HSVM_CopyFrom(vm.hsvm, this.$obj.id, objid);
   }
 
-  async $get(prop: string): Promise<unknown> {
+  async $get<T = unknown>(prop: string): Promise<T> {
     const retvalholder = await this.$obj.getMember(prop);
     const retval = retvalholder.getJSValue();
     retvalholder.dispose();
-    return retval;
+    return retval as T;
   }
 
   async $invoke(name: string, args: unknown[]) {

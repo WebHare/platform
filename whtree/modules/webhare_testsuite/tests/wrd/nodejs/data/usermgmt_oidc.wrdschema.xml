@@ -1,0 +1,18 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accountemailfield="wrd_contact_email"
+                  accountloginfield="wrd_contact_email"
+                  accountpasswordfield="whuser_password"
+                  accounttype="wrd_person">
+
+  <!-- TODO abstract import names probaby supplied by the platform module -->
+  <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" />
+  <import definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" />
+
+  <object tag="wrd_person">
+    <attributes>
+      <email tag="wrd_contact_email" required="1" title="Email address" unique="1" />
+      <authenticationsettings tag="whuser_password" title="User password hash" />
+    </attributes>
+  </object>
+
+</schemadefinition>

@@ -1,8 +1,11 @@
+import * as crypto from "node:crypto";
 import jwt, { JwtPayload, VerifyOptions } from "jsonwebtoken";
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
+import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
-import { System_UsermgmtSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import { getSchemaSettings } from "./settings";
+import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 
 export async function createSigningKey(): Promise<JsonWebKey> {
   const pvtkey = await new Promise((resolve, reject) =>
@@ -28,21 +31,20 @@ export interface JWTVerificationOptions {
   audience?: string | RegExp | Array<string | RegExp>;
 }
 
-export interface SessionCreationOptions extends JWTCreationOptions {
-  expires?: WaitPeriod;
-  settings?: Record<string, unknown>;
+export interface ServiceProviderInit {
+  title: string;
+  callbackUrls?: string[];
 }
 
-export interface CreateSessionResult {
-  ///wrdId of newly inserted session entity
-  sessionWrdId: number;
-  ///the JWT token to return
-  token: string;
+export interface SessionCreationOptions {
+  expires?: WaitPeriod;
+  settings?: Record<string, unknown>;
+  scopes?: string[];
 }
 
 export interface VerifySessionResult {
   ///wrdId of the found subject
-  subjectWrdId: number;
+  wrdId: number;
   ///the decooded and validated payload
   payload: JwtPayload;
   ///decoded scopes
@@ -50,13 +52,25 @@ export interface VerifySessionResult {
 }
 
 /** Configuring the WRDAuth provider */
-export interface AuthProviderConfiguration {
+export interface IdentityProviderConfiguration {
   /** The type storing tokens. Must implement the AccessToken interface */
-  tokenType?: string;
+  //  tokenType?: string;
   /** JWT expiry. */
   expires?: WaitPeriod;
   /** Our audience */
-  audience?: string;
+  //audience?: string;
+}
+
+//TODO these might make nice @webhare/std candidate but require a frontend-compatible implementation (or a backend + frontend version)
+
+export function compressUUID(uuid: string) {
+  const buffer = Buffer.from(uuid.replace(/-/g, ""), "hex");
+  return buffer.toString("base64url");
+}
+
+export function decompressUUID(compressed: string) {
+  const buffer = Buffer.from(compressed, "base64url");
+  return buffer.toString("hex").replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
 }
 
 /** Create a WRDAuth JWT token.
@@ -109,16 +123,23 @@ export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, 
   return data;
 }
 
+export function hashClientSecret(secret: string) {
+  const hasher = crypto.createHash("SHA-256");
+  hasher.update(secret);
+  return hasher.digest().toString("base64url");
+}
+
+
 /** Manage JWT tokens associated with a schema
  * @param wrdschema - The schema to create the token for
 */
-export class AuthProvider<WRDSchemaType> {
-  readonly wrdschema: WRDSchema<System_UsermgmtSchemaType>;
-  readonly config: AuthProviderConfiguration;
+export class IdentityProvider<WRDSchemaType> {
+  readonly wrdschema: WRDSchema<WRD_IdpSchemaType>;
+  readonly config: IdentityProviderConfiguration;
 
-  constructor(wrdschema: WRDSchemaType, config?: AuthProviderConfiguration) {
+  constructor(wrdschema: WRDSchemaType, config?: IdentityProviderConfiguration) {
     //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
-    this.wrdschema = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
+    this.wrdschema = wrdschema as unknown as WRDSchema<WRD_IdpSchemaType>;
     this.config = config || {};
   }
 
@@ -127,8 +148,8 @@ export class AuthProvider<WRDSchemaType> {
     if (!settingid)
       throw new Error("WRD_SETTINGS not found");
 
-    //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisons
-    const primarykeyid = generateRandomId("uuidv4");
+    //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisions
+    const primarykeyid = generateRandomId();
 
     await this.wrdschema.update("wrdSettings", settingid, {
       issuer: issuer,
@@ -136,17 +157,27 @@ export class AuthProvider<WRDSchemaType> {
     });
   }
 
+  async createServiceProvider(spSettings: ServiceProviderInit) {
+    const clientId = generateRandomId("uuidv4");
+    const clientSecret = generateRandomId("base64url", 24);
+    const wrdId = await this.wrdschema.insert("wrdauthServiceProvider", {
+      wrdTitle: spSettings.title || "Client " + clientId,
+      wrdGuid: clientId,
+      clientSecrets:
+        [
+          {
+            created: new Date,
+            secretHash: hashClientSecret(clientSecret)
+          }
+        ],
+      callbackUrls: spSettings.callbackUrls?.map(url => ({ url })) ?? []
+    });
+
+    return { wrdId, clientId: compressUUID(clientId), clientSecret };
+  }
+
   private async getKeyConfig() {
-    const schema = this.wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
-    const settingid = await schema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
-    if (!settingid)
-      throw new Error("WRD_SETTINGS not found");
-
-    const settings = await schema.getFields("wrdSettings", settingid, { issuer: "issuer", signingKeys: "signingKeys" });
-    if (!settings)
-      throw new Error("WRD_SETTINGS not found");
-
-    return { issuer: settings.issuer, signingKeys: settings.signingKeys };
+    return getSchemaSettings(this.wrdschema, ["issuer", "signingKeys"]);
   }
 
   async getPublicJWKS(): Promise<JWKS> {
@@ -166,71 +197,88 @@ export class AuthProvider<WRDSchemaType> {
        password reset as a way to clear tokens)
   */
 
-  /** Lookup the accounttype for the specified token type */
-  private async getAccountType() {
-    if (!this.config.tokenType)
-      throw new Error(`No tokentype configured for this authentication provider`);
+  private async createAccessTokenJWT(subject: number, client: number, validuntil: Date, scopes: string[]) {
+    const clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid"]);
+    if (!clientInfo)
+      throw new Error(`Unable to find serviceProvider #${client}`);
 
-    const tokentypeinfo = await this.wrdschema.describeType(this.config.tokenType);
-    if (!tokentypeinfo)
-      throw new Error(`Tokentype ${this.config.tokenType} does not exist`);
-    if (!tokentypeinfo.left)
-      throw new Error(`Tokentype ${this.config.tokenType} does not have a left-side type`);
+    const subjectguid = (await this.wrdschema.getFields("wrdPerson", subject, ["wrdGuid"]))?.wrdGuid;
+    if (!subjectguid)
+      throw new Error(`Unable to find the wrdGuid for subject #${subject}`);
 
-    return tokentypeinfo.left;
-  }
-
-  /** Create a session
-   * @param subject - The subject of the session. Must be the left entity of the config.tokentype
-  */
-  async createSession(subject: number, options?: SessionCreationOptions): Promise<CreateSessionResult> {
     const config = await this.getKeyConfig();
     if (!config || !config.issuer || !config.signingKeys?.length)
       throw new Error(`Schema ${this.wrdschema.id} is not configured properly. Missing issuer or signingKeys`);
 
-    // @ts-ignore Need to fix the any issue above first
     const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-    if (!this.config.tokenType)
-      throw new Error(`No tokentype configured for this authentication provider`);
+    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)] });
+    return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000) };
+  }
 
-    const accounttype = await this.getAccountType();
-
-    // @ts-ignore FIXME Not sure how to properly satisfy this check - there's no way to statically verify tokentypeinfo.left is valid
-    const subjectguid = (await this.wrdschema.getFields(accounttype, subject, ["wrdGuid"]))?.wrdGuid;
-    if (!subjectguid)
-      throw new Error(`Unable to find the wrdGuid for subject #${subject}`);
-
-    const audiences = options?.audiences || (this.config.audience ? [this.config.audience] : []);
+  /** Create a session
+   * @param serviceProvider - Client registering this session
+   * @param subject - The subject (wrdPerson) for which we're creating a session
+  */
+  async createSession(subject: number, serviceProvider: number, options?: SessionCreationOptions): Promise<number> {
     const expires: WaitPeriod = options?.expires || this.config.expires || "P1D";
     const validuntil = convertWaitPeriodToDate(expires); //TODO round to second precision for consistency between WRD and Token values
 
-    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes: options?.scopes, audiences });
-    // @ts-ignore FIXME Not sure how to properly satisfy this check - there's no way to statically verify accounttype is valid
-    const sessionWrdId = await this.wrdschema.insert(this.config.tokenType, { wrdLeftEntity: subject, token: token, wrdLimitDate: validuntil, ...options?.settings });
-    return { token, sessionWrdId };
+    const wrdId = await this.wrdschema.insert("wrdauthAccessToken", {
+      wrdLeftEntity: subject,
+      wrdRightEntity: serviceProvider,
+      wrdLimitDate: validuntil,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO we need wrd to provide a type for scopes
+      scopes: options?.scopes ?? [] as any,
+      ...options?.settings
+    });
+    return wrdId;
+  }
+
+  async createSessionToken(session: number) {
+    const sessioninfo = await this.wrdschema.getFields("wrdauthAccessToken", session, ["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes"]);
+    if (!sessioninfo)
+      throw new Error(`Unable to find session #${session}`);
+    if (!sessioninfo.wrdLimitDate)
+      throw new Error(`Session #${session} has no expiration date`);
+
+    return this.createAccessTokenJWT(sessioninfo.wrdLeftEntity, sessioninfo.wrdRightEntity, sessioninfo.wrdLimitDate, sessioninfo.scopes);
+  }
+
+  /** Exchange code for session token */
+  async exchangeCode(serviceProvider: number, code: string) {
+    const match = await this.wrdschema.selectFrom("wrdauthAccessToken").
+      where("code", "=", code).
+      where("wrdRightEntity", "=", serviceProvider).
+      select(["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes", "wrdId"]).
+      execute();
+
+    if (!match.length)
+      return null;
+    if (!match[0].wrdLimitDate)
+      throw new Error(`Session has no expiration date`);
+
+    const token = await this.createAccessTokenJWT(match[0].wrdLeftEntity, match[0].wrdRightEntity, match[0].wrdLimitDate, match[0].scopes);
+    await beginWork();
+    await this.wrdschema.update("wrdauthAccessToken", match[0].wrdId, { code: '' });
+    await commitWork();
+    return token;
   }
 
   /** Verify a session */
-  async verifySession(token: string): Promise<VerifySessionResult> {
+  async verifySession(token: string, verifyOptions?: JWTVerificationOptions): Promise<VerifySessionResult> {
     const decoced = jwt.decode(token, { complete: true });
     const keys = await this.getKeyConfig();
     const matchkey = keys.signingKeys.find(k => k.keyId === decoced?.header.kid);
     if (!matchkey)
       throw new Error(`Unable to find key '${decoced?.header.kid}'`);
 
-    const verifyoptions: JWTVerificationOptions = {};
-    if (this.config.audience)
-      verifyoptions.audience = this.config.audience;
-
-    const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyoptions);
-    const accounttype = await this.getAccountType();
-    // @ts-ignore FIXME Not sure how to properly satisfy this check - there's no way to statically verify accounttype is valid
-    const matchuser = await this.wrdschema.search(accounttype, "wrdGuid", payload.sub);
+    const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyOptions);
+    const matchuser = await this.wrdschema.search("wrdPerson", "wrdGuid", payload.sub!);
     if (!matchuser)
       throw new Error(`Unable to find subject '${payload.sub}'`);
 
     return {
-      subjectWrdId: matchuser,
+      wrdId: matchuser,
       payload,
       scopes: payload.scope?.split(" ") ?? []
     };

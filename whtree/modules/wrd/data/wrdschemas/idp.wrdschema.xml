@@ -1,0 +1,23 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <domain tag="wrdauth_service_provider">
+    <attributes>
+      <free tag="wrd_title" required="true" />
+      <array tag="client_secrets">
+        <datetime tag="created" required="true" />
+        <free tag="secret_hash" required="true" />
+      </array>
+      <array tag="callback_urls">
+        <free tag="url" />
+      </array>
+    </attributes>
+  </domain>
+
+  <link tag="wrdauth_access_token" linkfrom="wrd_person" linkto="wrdauth_service_provider" deleteclosedafter="1"> <!-- delete expired tokens after a day -->
+    <attributes>
+      <free tag="code" description="OIDC requesttoken code. cleared once code is retrieved" unique="true" />
+      <enumarray tag="scopes" allowedvalues="openid email *:*"/>
+    </attributes>
+  </link>
+
+</schemadefinition>

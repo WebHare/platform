@@ -21,11 +21,11 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   if (!settings.issuer)
     throw new Error(`WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer`);
 
-  const oidc_baseurl = new URL(`/.wh/wrd/openid/${encodeURIComponent(wrdSchemaTag)}/`, req.baseURL).toString();
+  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag)}/`, req.baseURL).toString();
   return createJSONResponse(200, {
     issuer: settings.issuer,
     jwks_uri: oidc_baseurl + 'jwks',
-    authorization_endpoint: oidc_baseurl + "authorization",
+    authorization_endpoint: oidc_baseurl + "authorize",
     token_endpoint: oidc_baseurl + "token"
   });
 

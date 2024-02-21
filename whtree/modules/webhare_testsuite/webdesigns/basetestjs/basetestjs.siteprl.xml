@@ -61,8 +61,7 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              cookiename="webharelogin-wrdauthjs"
-             supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport"
-             loginpage="currentsite::/portal1/" />
+             loginpage="currentsite::/portal1/" /> <!-- TODO? supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport" -->
 
     <!-- Test a plugin -->
     <gtm account="GTM-TN7QQM" integration="selfhosted" launch="pagerender" />
