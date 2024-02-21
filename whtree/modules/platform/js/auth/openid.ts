@@ -25,7 +25,7 @@ declare module "@webhare/services" {
     "wrd:openid.idpstate": {
       clientid: number;
       scopes: string[];
-      state: string;
+      state: string | null;
       cbUrl: string;
     };
   }
@@ -92,7 +92,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
 
     const scopes = req.url.searchParams.get("scope")?.split(" ");
     const redirect_uri = req.url.searchParams.get("redirect_uri") || '';
-    const state = req.url.searchParams.get("state") || '';
+    const state = req.url.searchParams.get("state") || null;
     // const response_type = req.url.searchParams.get("response_type"); //FIXME use it
 
     if (!client[0].callbackUrls.find((cb) => cb.url == redirect_uri))
@@ -141,7 +141,8 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     });
 
     const finalRedirectURI = new URL(returnInfo.cbUrl);
-    finalRedirectURI.searchParams.set("state", returnInfo.state);
+    if (returnInfo.state !== null)
+      finalRedirectURI.searchParams.set("state", returnInfo.state);
     finalRedirectURI.searchParams.set("code", code);
     return createRedirectResponse(finalRedirectURI.toString());
   }
