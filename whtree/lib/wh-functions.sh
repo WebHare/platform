@@ -365,11 +365,6 @@ get_finaltag()
       exit 1
     fi
 
-    if [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
-      # Custom builds - these are specifically tagged after their branch. eg branch custom/myserver with numeric version 42702 will have semver: 4.27.3-myserver
-      WEBHARE_VERSION="${VERSIONMAJOR}.${VERSIONMINOR}.$(( $VERSIONPATCH + 1 ))-${CI_COMMIT_REF_NAME:7}"
-    fi
-
     # check if there is a CI registry
     if [ -z "$CI_REGISTRY_IMAGE" ]; then
       echo "The CI_REGISTRY_IMAGE variable is not set, please enable the containter registry for this project"
