@@ -31,7 +31,7 @@ import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_
 program.name("servicemanager")
   .option("-s, --secondary", "Mark us as a secondary service manager")
   .option("-v, --verbose", "Verbose logging (also set by 'startup' debug flag)")
-  .option("--name [servicename]", "Name for the backend service to manage us", "platform:servicemanager")
+  .option("--name <servicename>", "Name for the backend service to manage us", "platform:servicemanager")
   .option("--include <mask>", "Only manage services that match this mask", "")
   .option("--exclude <mask>", "Do not manage services that match this mask", "")
   .parse();

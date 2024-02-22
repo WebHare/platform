@@ -73,6 +73,8 @@ MACRO AddXMLType(OBJECT wrdschema, RECORD typeinfo, OBJECT parentnode)
       basenode->SetAttribute("linkto", typeinfo.requiretype_right);
     IF(typeinfo.parenttype!="")
       basenode->SetAttribute("parent", typeinfo.parenttype);
+    IF(typeinfo.deleteclosedafter > 0)
+      basenode->SetAttribute("deleteclosedafter", ToString(typeinfo.deleteclosedafter));
   }
 
   OBJECT attributesnode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, "attributes");
@@ -92,6 +94,7 @@ PUBLIC MACRO CreateWRDSchemaDefinitionNodes(OBJECT wrdschema, OBJECT root)
                                  , parenttype := parenttype != 0 ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.parenttype) : ""
                                  , requiretype_left := metatype IN [2,3] ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.requiretype_left) : ""
                                  , requiretype_right := metatype = 2 ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.requiretype_right) : ""
+                                 , deleteclosedafter
                               FROM wrd.types
                              WHERE wrd_schema = wrdschema->id
                           ORDER BY metatype, ToUppercase(tag);

@@ -3,6 +3,7 @@
   <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_saml.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_oidc.xml" />
+  <import definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" />
 
   <attachment tag="whuser_role" linkfrom="whuser_unit" title="WebHare usermanagement role">
     <attributes>
