@@ -47,7 +47,6 @@
     <dynamicexecution webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthTestRequireLoginPage" />
   </filetype>
 
-
   <!-- Global site settings -->
   <apply>
     <to type="all" />
@@ -123,6 +122,23 @@
     <setlibrary name="publisher:snippets">
       <source path="site::webhare_testsuite.testsite/tmp/snippets/" />
     </setlibrary>
+  </apply>
+
+  <contenttype scopedtype="basetest.siteSettings">
+    <string name="mode" />
+    <string name="setting" />
+  </contenttype>
+
+  <apply>
+    <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+
+    <userdata key="webhare_testsuite:setting" value='{"dogName":"bluey"}' />
+  </apply>
+
+  <apply>
+    <testdata member="setting" value="red" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+
+    <userdata key="webhare_testsuite:setting" value='{"sisterName":"bingo"}' />
   </apply>
 
   <!-- Basic property tests -->

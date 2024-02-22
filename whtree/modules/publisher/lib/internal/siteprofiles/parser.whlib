@@ -857,6 +857,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , webtoolsformrules := DEFAULT RECORD ARRAY
                     , rtddoc := DEFAULT RECORD
                     , hookintercepts := RECORD[]
+                    , userdata := RECORD[]
                     ];
 
 
@@ -1245,6 +1246,20 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               RECORD intercept := ParseIntercept(this, this->filename, node);
               IF(RecordExists(intercept))
                 INSERT intercept INTO apply.hookintercepts AT END;
+              CONTINUE;
+            }
+            CASE "userdata"
+            {
+              STRING value := node->GetAttribute("value");
+              VARIANT decode := DecodeJSON(value);
+              IF(TYPEID(decode) != TYPEID(RECORD) OR NOT RecordExists(decode))
+              {
+                this->AddError(node, "Invalid JSON in userdata");
+                CONTINUE;
+              }
+              INSERT [ "key" := node->GetAttribute("key")
+                      , "value" := value //we don't decode here so we can save case-sensitive properties for JS
+                      ] INTO apply.userdata AT END;
               CONTINUE;
             }
           }

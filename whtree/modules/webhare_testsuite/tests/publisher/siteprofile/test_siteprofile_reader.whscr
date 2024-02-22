@@ -123,7 +123,28 @@ MACRO TestApplyRuleTester()
 
   tester := GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, FALSE, 0);
   TestEq("http://www.webhare.net/xmlns/publisher/normalfolder", tester->objtypens);
+  testfw->RollbackWork();
 
+  testfw->BeginWork();
+  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:basetest.siteSettings", [ mode := "", setting := "" ]);
+  testfw->CommitWork(); //to trigger flush of siteprofile apply caches
+
+  testfw->BeginWork();
+  tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
+  TestEq(DEFAULT RECORD, tester->GetUserData("webhare_testsuite:setting"));
+
+  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:basetest.siteSettings", [ mode := "blue" ]);
+  testfw->CommitWork();  //to trigger flush of siteprofile apply caches
+
+  testfw->BeginWork();
+  tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
+  TestEq([ dogname := "bluey" ], tester->GetUserData("webhare_testsuite:setting"));
+  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:basetest.siteSettings", [ setting := "red" ]);
+  testfw->CommitWork();  //to trigger flush of siteprofile apply caches
+
+  testfw->BeginWork();
+  tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
+  TestEq([ dogname := "bluey", sistername := "bingo" ], tester->GetUserData("webhare_testsuite:setting"));
   testfw->RollbackWork();
 }
 

@@ -159,6 +159,36 @@ async function testSiteProfiles() {
   test.eq("wrd:testschema", wrdauth.wrdSchema);
   test.eq("currentsite::/portal1/", wrdauth.loginPage);
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
+
+  const testsite = await whfs.openSite("webhare_testsuite.testsite");
+  const testobj = await testsite.openFolder("testpages");
+
+  await whdb.beginWork();
+  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { mode: "", setting: "" });
+  await whdb.commitWork();
+
+  await whdb.beginWork();
+  {
+    const tester = await getApplyTesterForObject(testobj);
+    test.eq(null, await tester.getUserData("webhare_testsuite:setting"));
+  }
+
+  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { mode: "blue" });
+  await whdb.commitWork();
+
+  {
+    const tester = await getApplyTesterForObject(testobj);
+    test.eq({ dogName: "bluey" }, await tester.getUserData("webhare_testsuite:setting"));
+  }
+
+  await whdb.beginWork();
+  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { setting: "red" });
+  await whdb.commitWork();
+
+  {
+    const tester = await getApplyTesterForObject(testobj);
+    test.eq({ dogName: "bluey", sisterName: "bingo" }, await tester.getUserData("webhare_testsuite:setting"));
+  }
 }
 
 async function testGenerateUniqueName() {
