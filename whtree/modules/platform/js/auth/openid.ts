@@ -71,11 +71,11 @@ async function findLoginPageForSchema(schema: string) {
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
-  const endpoint = req.url.pathname.match(/^\/.wh\/openid\/([^/]+)\/([^/?]+)/);
+  const endpoint = req.url.pathname.match(/^\/.wh\/openid\/([^/]+)\/([^/]+)\/([^/?]+)/);
   if (!endpoint)
     return createJSONResponse(400, { error: "Invalid endpoint" });
 
-  const wrdschemaTag = decodeURIComponent(endpoint[1]);
+  const wrdschemaTag = decodeURIComponent(endpoint[1] + ":" + endpoint[2]);
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(wrdschemaTag);
   if (!await wrdschema.exists() || !await wrdschema.hasType("wrdauthServiceProvider"))
     return createJSONResponse(404, { error: "Provider not configured" });
@@ -96,12 +96,12 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
         */
   }
 
-  if (endpoint[2] == 'jwks') {
+  if (endpoint[3] == 'jwks') {
     const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
     return createJSONResponse(200, await provider.getPublicJWKS());
   }
 
-  if (endpoint[2] == 'authorize') {
+  if (endpoint[3] == 'authorize') {
     const clientid = headerClientId || req.url.searchParams.get("client_id") || '';
     const client = await wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
     if (client.length !== 1)
@@ -117,7 +117,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
 
     //Go through this page so HS logincode doesn't have to deal with OIDC. TODO use session for returnInfo to keep url length down
     const returnInfo = encryptForThisServer("wrd:openid.idpstate", { clientid: client[0].wrdId, scopes: scopes || [], state: state, cbUrl: redirect_uri });
-    const currentRedirectURI = "/.wh/openid/" + endpoint[1] + "/return?tok=" + returnInfo;
+    const currentRedirectURI = "/.wh/openid/" + endpoint[1] + "/" + endpoint[2] + "/return?tok=" + returnInfo;
 
     const loginControl = { //see __GenerateAccessRuleLoginControlToken
       afterlogin: "siteredirect",
@@ -133,7 +133,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     return createRedirectResponse(target.toString());
   }
 
-  if (endpoint[2] == 'return') {
+  if (endpoint[3] == 'return') {
     const wrdauthCookie = req.getCookie(login.cookieName);
     //TODO turn wrdauth cookies into a modern format so we can read it without using the HS Engine
     if (!wrdauthCookie)
@@ -164,7 +164,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     return createRedirectResponse(finalRedirectURI.toString());
   }
 
-  if (endpoint[2] == 'token') {
+  if (endpoint[3] == 'token') {
     const body = await req.text();
     const form = new URLSearchParams(body);
     const clientid = headerClientId || form.get("client_id") || '';
@@ -206,7 +206,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     });
   }
 
-  return createJSONResponse(404, { error: `Unrecognized openid endpoint '${endpoint[2]}'` });
+  return createJSONResponse(404, { error: `Unrecognized openid endpoint '${endpoint[3]}'` });
 }
 
 // validate signatures

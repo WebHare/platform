@@ -21,7 +21,8 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   if (!settings.issuer)
     throw new Error(`WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer`);
 
-  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag)}/`, req.baseURL).toString();
+  //Encode wrd:schema as /wrd/schema/ in the URL
+  const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace('%3A', '/')}/`, req.baseURL).toString();
   return createJSONResponse(200, {
     issuer: settings.issuer,
     jwks_uri: oidc_baseurl + 'jwks',
@@ -35,4 +36,3 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
 
 // validate signatures
 wellKnownRouter satisfies WebHareRouter;
-

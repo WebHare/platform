@@ -353,6 +353,8 @@ MACRO Run(STRING ARRAY loadlibs)
 
 RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type := "stringlist" ]
                                                      , [ name := "showmode", type := "stringopt" ]
+                                                     , [ name := "json", type := "switch" ]
+                                                     , [ name := "j", type := "switch" ]
                                                      , [ name := "t", type := "switch" ]
                                                      , [ name := "r", type := "switch" ]
                                                      , [ name := "query", type := "param", required := FALSE ]
@@ -363,12 +365,15 @@ IF(NOT RecordExists(call))
   Print("Invalid command syntax - did you quote the command line?\n");
   RETURN;
 }
+
 IF(call.showmode != "")
   showmode := call.showmode;
 ELSE IF(call.t)
   showmode := "tree";
 ELSE IF(call.r)
   showmode := "raw";
+ELSE IF(call.j OR call.json)
+  showmode := "json";
 
 BOOLEAN havecmd := call.query != "";
 
