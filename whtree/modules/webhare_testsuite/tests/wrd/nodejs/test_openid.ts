@@ -161,10 +161,10 @@ async function verifyOpenIDClient() {
 
   test.eq("Sysop", tokenSet.claims().sub);
 
-  //TODO but not sure if we want/need it?
-  // const userinfo = await client.userinfo(tokenSet.id_token);
-  // console.log('userinfo %j', userinfo);
-
+  test.assert(tokenSet.id_token);
+  const userinfo = await client.userinfo(tokenSet.id_token);
+  console.log('userinfo %j', userinfo);
+  test.eqPartial({ "sub": "Sysop", "name": "Sysop McTestsuite", "given_name": "Sysop", "family_name": "McTestsuite" }, userinfo);
 }
 
 test.run([
