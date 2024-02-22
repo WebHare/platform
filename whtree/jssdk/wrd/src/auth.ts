@@ -28,6 +28,7 @@ export interface JWKS {
 export interface JWTCreationOptions {
   scopes?: string[];
   audiences?: string[];
+  jwtId?: string;
 }
 
 export interface JWTVerificationOptions {
@@ -37,6 +38,7 @@ export interface JWTVerificationOptions {
 export interface ServiceProviderInit {
   title: string;
   callbackUrls?: string[];
+  subjectField?: string;
 }
 
 export interface SessionCreationOptions {
@@ -107,6 +109,8 @@ export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, 
     payload.scope = options.scopes.join(" ");
   if (options?.audiences?.length)
     payload.aud = options.audiences.length == 1 ? options.audiences[0] : options.audiences;
+  if (options?.jwtId)
+    payload.jti = options.jwtId;
 
   const signingkey = createPrivateKey({ key: key, format: 'jwk' }); //TODO use async variant
   return jwt.sign(payload, signingkey, { keyid, algorithm: signingkey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" });
@@ -172,7 +176,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
             secretHash: hashClientSecret(clientSecret)
           }
         ],
-      callbackUrls: spSettings.callbackUrls?.map(url => ({ url })) ?? []
+      callbackUrls: spSettings.callbackUrls?.map(url => ({ url })) ?? [],
+      subjectField: spSettings.subjectField || ""
     });
 
     return { wrdId, clientId: compressUUID(clientId), clientSecret };
@@ -199,12 +204,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        password reset as a way to clear tokens)
   */
 
-  private async createAccessTokenJWT(subject: number, client: number, validuntil: Date, scopes: string[]) {
-    const clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid"]);
+  private async createAccessTokenJWT(subject: number, client: number, validuntil: Date, scopes: string[], sessionGuid: string) {
+    const clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
     if (!clientInfo)
       throw new Error(`Unable to find serviceProvider #${client}`);
 
-    const subjectguid = (await this.wrdschema.getFields("wrdPerson", subject, ["wrdGuid"]))?.wrdGuid;
+    const subfield = clientInfo.subjectField || "wrdGuid";
+    //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' tpye
+    const subjectguid = (await this.wrdschema.getFields("wrdPerson", subject, [subfield]))?.[subfield];
     if (!subjectguid)
       throw new Error(`Unable to find the wrdGuid for subject #${subject}`);
 
@@ -213,7 +220,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Schema ${this.wrdschema.id} is not configured properly. Missing issuer or signingKeys`);
 
     const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)] });
+    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId: compressUUID(sessionGuid) });
     return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000) };
   }
 
@@ -237,13 +244,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   async createSessionToken(session: number) {
-    const sessioninfo = await this.wrdschema.getFields("wrdauthAccessToken", session, ["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes"]);
+    const sessioninfo = await this.wrdschema.getFields("wrdauthAccessToken", session, ["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes", "wrdGuid"]);
     if (!sessioninfo)
       throw new Error(`Unable to find session #${session}`);
     if (!sessioninfo.wrdLimitDate)
       throw new Error(`Session #${session} has no expiration date`);
 
-    return this.createAccessTokenJWT(sessioninfo.wrdLeftEntity, sessioninfo.wrdRightEntity, sessioninfo.wrdLimitDate, sessioninfo.scopes);
+    return this.createAccessTokenJWT(sessioninfo.wrdLeftEntity, sessioninfo.wrdRightEntity, sessioninfo.wrdLimitDate, sessioninfo.scopes, sessioninfo.wrdGuid);
   }
 
   /** Exchange code for session token */
@@ -251,7 +258,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const match = await this.wrdschema.selectFrom("wrdauthAccessToken").
       where("code", "=", code).
       where("wrdRightEntity", "=", serviceProvider).
-      select(["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes", "wrdId"]).
+      select(["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes", "wrdId", "wrdGuid"]).
       execute();
 
     if (!match.length)
@@ -259,7 +266,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!match[0].wrdLimitDate)
       throw new Error(`Session has no expiration date`);
 
-    const token = await this.createAccessTokenJWT(match[0].wrdLeftEntity, match[0].wrdRightEntity, match[0].wrdLimitDate, match[0].scopes);
+    const token = await this.createAccessTokenJWT(match[0].wrdLeftEntity, match[0].wrdRightEntity, match[0].wrdLimitDate, match[0].scopes, match[0].wrdGuid);
     await beginWork();
     await this.wrdschema.update("wrdauthAccessToken", match[0].wrdId, { code: '' });
     await commitWork();
@@ -275,12 +282,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Unable to find key '${decoced?.header.kid}'`);
 
     const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyOptions);
-    const matchuser = await this.wrdschema.search("wrdPerson", "wrdGuid", payload.sub!);
-    if (!matchuser)
-      throw new Error(`Unable to find subject '${payload.sub}'`);
+    if (!payload.jti || !payload.sub)
+      throw new Error(`Invalid token - missing jti or sub`);
+
+    //We don't want to deal with sub ambiguity as we're the only one creating the tokens - just loop up by jwtId. also verifies this token is still active
+    const matchToken = await this.wrdschema.selectFrom("wrdauthAccessToken").where("wrdGuid", '=', decompressUUID(payload.jti)).select(["wrdLeftEntity"]).execute();
+    if (!matchToken.length)
+      throw new Error(`Token '${payload.jti}' is not active`);
 
     return {
-      wrdId: matchuser,
+      wrdId: matchToken[0].wrdLeftEntity,
       payload,
       scopes: payload.scope?.split(" ") ?? []
     };

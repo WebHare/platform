@@ -52,7 +52,7 @@ async function setupKeys() {
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
   const peopleClient = await provider.createServiceProvider({ title: "tet_wrd_auth.ts people testclient" });
-  const robotClient = await provider.createServiceProvider({ title: "tet_wrd_auth.ts robot testclient" });
+  const robotClient = await provider.createServiceProvider({ title: "tet_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail" });
   test.eq(/^[-_0-9a-zA-Z]{22}$/, peopleClient.clientId, "verify clientid is not a UUID");
 
   const testunit = await wrdTestschemaSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
@@ -82,7 +82,15 @@ async function setupKeys() {
   const exchanged = await provider.exchangeCode(peopleClient.wrdId, "1234");
   test.assert(exchanged);
   test.eq(null, await provider.exchangeCode(peopleClient.wrdId, "1234"), "only retrievable once");
-  test.eqPartial({ scopes: ["openid"], wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer" } }, await provider.verifySession(exchanged.access_token));
+  test.eqPartial({ scopes: ["openid"], wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer", sub: /^[0-9a-f]{8}-/ } }, await provider.verifySession(exchanged.access_token));
+
+  await whdb.beginWork();
+  await provider.createSession(testuser, robotClient.wrdId, { scopes: ["openid"], settings: { code: "2345" } });
+  await whdb.commitWork();
+
+  const robotTokens = await provider.exchangeCode(robotClient.wrdId, "2345");
+  test.assert(robotTokens);
+  test.eqPartial({ wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer", sub: "jonshow@beta.webhare.net" } }, await provider.verifySession(robotTokens.access_token));
 }
 
 test.run([

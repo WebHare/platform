@@ -2,16 +2,17 @@ import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import { HSVMObject, loadlib, makeObject } from "@webhare/harescript";
 import { toResourcePath } from "@webhare/services/src/resources";
 import * as test from "@webhare/test-backend";
-import { runInWork } from "@webhare/whdb";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { openSite } from "@webhare/whfs";
 import { Issuer } from 'openid-client';
 import { launchPuppeteer } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
+import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = true;
-let sysoplogin = '', sysoppassword = '', clientId = '', clientSecret = '';
+let sysoplogin = '', sysoppassword = '', clientWrdId = 0, clientId = '', clientSecret = '';
 let sysopobject: HSVMObject | undefined;
 
 async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
@@ -64,7 +65,7 @@ async function setupOIDC() {
     await provider.initializeIssuer("https://my.webhare.dev/testfw/issuer");
 
     //TODO convert client creation to a @webhare/wrd or wrdauth api ?
-    ({ clientId, clientSecret } = await provider.createServiceProvider({ title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
+    ({ wrdId: clientWrdId, clientId, clientSecret } = await provider.createServiceProvider({ title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
   });
 }
 
@@ -113,11 +114,18 @@ async function verifyRoutes() {
   console.log(parsedPayload);
 
   const sysopguid = wrdGuidToUUID(await (await sysopobject!.$get<HSVMObject>("entity")).$get<string>("guid"));
-  test.eq(parsedPayload.sub, sysopguid);
+  test.eq(sysopguid, parsedPayload.sub);
 }
 
 async function verifyOpenIDClient() {
   const testsite = await openSite("webhare_testsuite.testsitejs");
+
+  //update client to use firstname as subject
+  await beginWork();
+  const schema = new WRDSchema<WRD_IdpSchemaType>("wrd:testschema");
+  await schema.update("wrdauthServiceProvider", clientWrdId, { subjectField: "wrdFirstName" });
+  await commitWork();
+
   //verify using openid-client
   const issuer = await Issuer.discover(testsite.webRoot + '.well-known/openid-configuration');
   test.assert('https://beta.webhare.net/', issuer.metadata.issuer);
@@ -151,8 +159,7 @@ async function verifyOpenIDClient() {
   console.log('received and validated tokens %j', tokenSet);
   console.log('validated ID Token claims %j', tokenSet.claims());
 
-  const sysopguid = wrdGuidToUUID(await (await sysopobject!.$get<HSVMObject>("entity")).$get<string>("guid"));
-  test.eq(tokenSet.claims().sub, sysopguid);
+  test.eq("Sysop", tokenSet.claims().sub);
 
   //TODO but not sure if we want/need it?
   // const userinfo = await client.userinfo(tokenSet.id_token);

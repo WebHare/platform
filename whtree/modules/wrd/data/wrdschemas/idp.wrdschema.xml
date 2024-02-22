@@ -10,6 +10,7 @@
       <array tag="callback_urls">
         <free tag="url" />
       </array>
+      <free tag="subject_field" />
     </attributes>
   </domain>
 
