@@ -5,6 +5,8 @@ import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb"
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext, updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { createOpenAPITypeDocuments } from "@mod-system/js/internal/generation/gen_openapi";
+import { OpenAPIV3 } from "openapi-types";
 
 async function testWebHareConfig() {
   /* Tests whether the current WebHare builtin config is properly parsed
@@ -115,6 +117,21 @@ paths:
             type: string
             maxLength: 100
       x-webhare-implementation: users.ts#getUsers
+  "/circular":
+    get:
+      description: Contains a circular reference
+      responses:
+        "200":
+          description: Contains a circular reference
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: string
+                  - type: object
+                    properties:
+                      recursiveRef:
+                        "$ref": "#/paths/~1circular/get/responses/200/content/application~1json/schema"
 components:
   schemas:
     user_out:
@@ -158,13 +175,17 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   // Wait for the module to appear in the configuration
   test.wait(() => Boolean(backendConfig.module.webhare_testsuite_generatedfilestest));
 
-  test.assert(Boolean(fs.statSync(require.resolve("wh:db/webhare_testsuite_generatedfilestest.ts"))));
-  test.assert(Boolean(fs.statSync(require.resolve("wh:wrd/webhare_testsuite_generatedfilestest.ts"))));
-  test.assert(Boolean(fs.statSync(require.resolve("wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice.ts"))));
-
   const file_whdb = require.resolve("wh:db/webhare_testsuite_generatedfilestest");
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
   const file_openapi = require.resolve("wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice");
+
+  test.assert(Boolean(fs.statSync(file_whdb)));
+  test.assert(Boolean(fs.statSync(file_wrd)));
+  test.assert(Boolean(fs.statSync(file_openapi)));
+
+  const generatedOpenApiData = fs.readFileSync(file_openapi, "utf-8").toString();
+  test.assert(/"\/circular": {\n(.*\n){4,8} *"application\/json": \$defs\["__sharedDef[0-9]*"\];/m.exec(generatedOpenApiData), "Circular reference should be rerouted");
+  test.assert(generatedOpenApiData.indexOf(`__sharedDef1: OneOf<[string, {\n    recursiveRef?: $defs["__sharedDef1"];\n  }]>;`) !== -1);
 
   await deleteTestModule("webhare_testsuite_generatedfilestest");
 
@@ -178,5 +199,5 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
 test.run([
   testWebHareConfig,
   testBasics,
-  testModule
+  testModule,
 ]);

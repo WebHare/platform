@@ -28,14 +28,14 @@ function convertStatusCodes(result: string) {
 }
 
 function encodeJSONReferenceProperty(prop: string) {
-  return encodeURIComponent(prop.replace(/~/g, '~0').replace(/\//g, '~1'));
+  return prop.replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
 function findJSONReference(root: unknown, prop: string) {
   if (!prop.startsWith("#/")) {
     return null;
   }
-  const parts = prop.slice(2).split("/").map(p => decodeURIComponent(p).replace(/~1/g, "/").replace(/~0/g, "~"));
+  const parts = prop.slice(2).split("/").map(p => p.replace(/~1/g, "/").replace(/~0/g, "~"));
   let node = root;
   for (const part of parts) {
     if (typeof node !== "object" || !node || !(part in node))
@@ -71,17 +71,20 @@ function addTags(root: object, node: object, tag: string, path: string) {
 }
 
 /// Remove all properties with name $defs, recusively
-function recursiveRemoveDefs(node: unknown, path: string) {
+function recursiveRemoveDefs(node: unknown, path: string, visited: Set<unknown>) {
+  if (visited.has(node))
+    return;
+  visited.add(node);
   if (node && typeof node === "object") {
     if (Array.isArray(node)) {
       for (let i = 0; i < node.length; ++i)
-        recursiveRemoveDefs(node[i], `${path}/${i}`);
+        recursiveRemoveDefs(node[i], `${path}/${i}`, visited);
     } else {
       if ("$defs" in node)
         delete node["$defs"];
       for (const [key, value] of Object.entries(node))
         if (value && typeof value === "object")
-          recursiveRemoveDefs(value, `${path}/${key}`);
+          recursiveRemoveDefs(value, `${path}/${key}`, visited);
     }
   }
 }
@@ -112,7 +115,89 @@ function addInternalFormatTags(root: object, node: object, path: string) {
   }
 }
 
-export async function createOpenAPITypeDocuments(openapifilepath: string, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
+/** Moves all SchemaObjects that are used more than once to a $defs.__sharedDefXXX and replaces them with a $ref.
+ *  This way of using references can be handled by openapi-type (which doesn't handle references that reference
+ *  within a path schema or inside an allOf or anyOf node correctly).
+ */
+function moveSharedSchemaObjects(parsed: OpenAPI3) {
+  // Detect all shared schema objects
+  const visited = new Set<object>;
+  const shared = new Set<object>;
+  detectSharedSchemaObjectsIterate(parsed, parsed, visited, shared, "");
+
+  const defs: Record<string, object> = {};
+  const remap = new Map<object, { $ref: string }>;
+  let idx = 0;
+  for (const node of shared) {
+    const defName = `__sharedDef${++idx}`;
+    defs[defName] = node;
+    remap.set(node, { $ref: `#/$defs/${defName}` });
+  }
+  replaceRefsIterate(parsed, remap, new Set, "#", true);
+  for (const movedValue of Object.values(defs))
+    replaceRefsIterate(movedValue, remap, new Set, "#/defs", true);
+
+  Object.assign(parsed.$defs ??= {}, defs);
+}
+
+function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visited: Set<object>, shared: Set<object>, keyname: string) {
+  /* This function uses heuristics to detect SchemaObjects. Everything within an 'example' key is probably not a Schema
+     object. An array is probably not a Schema object, and the value of a 'properties' key are also probably not Schema,
+     but should be checked recursively
+  */
+  if (keyname === "example") // don't use $ref in examples
+    return;
+  if (Array.isArray(node)) {
+    for (const [key, item] of node.entries())
+      if (typeof item === "object" && item)
+        detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key.toString());
+    return;
+  }
+  if (keyname !== "properties") {
+    if (visited.has(node)) {
+      shared.add(node);
+      return;
+    }
+    visited.add(node);
+  }
+  for (const [key, item] of Object.entries(node))
+    if (typeof item === "object" && item)
+      detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key);
+}
+
+function replaceRefsIterate(node: object, remap: Map<object, { $ref: string }>, stack: Set<object>, path: string, keepRoot: boolean) {
+  // Replaced?
+  const mapTo = !keepRoot && remap.get(node);
+  if (mapTo)
+    return mapTo;
+
+  // Detect remaining circular references
+  if (stack.has(node)) {
+    // this can happen when the heuristics used by detectSharedSchemaObjectsIterate fail. Don't think that's very likely.
+    throw new Error(`Detected remaining circular reference`);
+  }
+
+  // Iterate through the tree
+  stack.add(node);
+  if (Array.isArray(node)) {
+    for (const [key, item] of node.entries())
+      if (typeof item === "object" && item) {
+        const retval = replaceRefsIterate(item, remap, stack, `${path}/${encodeJSONReferenceProperty(key.toString())}`, false);
+        if (retval)
+          node[key] = retval;
+      }
+  } else {
+    for (const [key, item] of Object.entries(node))
+      if (typeof item === "object" && item) {
+        const retval = replaceRefsIterate(item, remap, stack, `${path}/${encodeJSONReferenceProperty(key.toString())}`, false);
+        if (retval)
+          (node as Record<string, unknown>)[key] = retval;
+      }
+  }
+  stack.delete(node);
+}
+
+export async function createOpenAPITypeDocuments(openapifilepath: string | OpenAPIV3.Document, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
   // First bundle to resolve the references to external files
   const bundled = await SwaggerParser.bundle(openapifilepath) as OpenAPIV3.Document;
 
@@ -134,7 +219,12 @@ export async function createOpenAPITypeDocuments(openapifilepath: string, servic
   /* openapi-typescripts leaves $defs from the root of imported files as members of the objects defined in the root of
      those files. Because all references have already been resolved, it's safe to remove them.
   */
-  recursiveRemoveDefs(parsed, "");
+  recursiveRemoveDefs(parsed, "", new Set<unknown>);
+
+  /* Move all shared schema objects into $defs, breaking circular references that openapi-typescript can't handle and
+     making the generated code more compact
+  */
+  moveSharedSchemaObjects(parsed as OpenAPI3);
 
   type OpenAPITS = (schema: string | URL | OpenAPI3 | Readable, options?: OpenAPITSOptions) => Promise<string>;
   const openapiTSfunc = (await import("openapi-typescript")).default as OpenAPITS;
@@ -267,6 +357,7 @@ type APIAuthInfo = null;
   result = `/* eslint-disable tsdoc/syntax -- openapi-typescript emits jsdoc, not tsdoc */
 /* eslint-disable @typescript-eslint/no-explicit-any -- used in helper functions emitted by openapi-typescript */
 /* eslint-disable @typescript-eslint/array-type -- openapi-typescript doesn't follow the WebHare convention */
+/* eslint-disable no-tabs -- don't care about tabs from source files */
 
 ${isservice ? `import { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@mod-system/js/internal/openapi/types";
 ` : ``}import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
