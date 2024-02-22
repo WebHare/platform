@@ -52,7 +52,7 @@ async function runServiceInDebug(service: string, serviceinfo: ServiceDefinition
 
     const exitinfo = await new Promise<number | string>(resolve =>
       proc.on("exit", (code: number, signal: string) => resolve(signal || code)));
-    console.log("Service process existed with:", exitinfo);
+    console.log("Service process exited with:", exitinfo);
     // eslint-disable-next-line no-unmodified-loop-condition -- it's modified by the SIGINT handler
   } while (!abort);
 

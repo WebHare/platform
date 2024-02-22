@@ -2519,18 +2519,78 @@
             <xs:annotation>
               <xs:documentation>Name for this service</xs:documentation>
             </xs:annotation>
-         </xs:attribute>
+          </xs:attribute>
           <xs:attribute name="spec" type="xs:string" use="required">
             <xs:annotation>
               <xs:documentation>Path to the OpenAPI V3 specification</xs:documentation>
             </xs:annotation>
-         </xs:attribute>
-         <xs:attribute name="merge" type="xs:string">
-          <xs:annotation>
-            <xs:documentation>Optional overrides for the specification</xs:documentation>
-          </xs:annotation>
-       </xs:attribute>
-      </xs:complexType>
+          </xs:attribute>
+          <xs:attribute name="merge" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Optional overrides for the specification</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="inputvalidation" default="always">
+            <xs:annotation>
+              <xs:documentation>Set to true to skip all input validation</xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:union>
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="never"/>
+                    <xs:enumeration value="always"/>
+                  </xs:restriction>
+                </xs:simpleType>
+                <xs:simpleType>
+                  <xs:restriction>
+                    <xs:simpleType>
+                      <xs:list>
+                        <xs:simpleType>
+                          <xs:restriction base="xs:string">
+                            <xs:enumeration value="test"/>
+                            <xs:enumeration value="development"/>
+                          </xs:restriction>
+                        </xs:simpleType>
+                      </xs:list>
+                    </xs:simpleType>
+                    <xs:minLength value="1" />
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:union>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="outputvalidation" default="test development">
+            <xs:annotation>
+              <xs:documentation>Set to true to skip all output validation</xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:union>
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="never"/>
+                    <xs:enumeration value="always"/>
+                  </xs:restriction>
+                </xs:simpleType>
+                <xs:simpleType>
+                  <xs:restriction>
+                    <xs:simpleType>
+                      <xs:list>
+                        <xs:simpleType>
+                          <xs:restriction base="xs:string">
+                            <xs:enumeration value="test"/>
+                            <xs:enumeration value="development"/>
+                          </xs:restriction>
+                        </xs:simpleType>
+                      </xs:list>
+                    </xs:simpleType>
+                    <xs:minLength value="1" />
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:union>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
       </xs:element>
 
       <xs:element name="openapiclient">

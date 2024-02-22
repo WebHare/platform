@@ -2,17 +2,19 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode } from "@webhare/router";
 import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { OpenAPIV3 } from "openapi-types";
+import type { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { loadJSFunction } from "../resourcetools";
 import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { AsyncWorker } from "../worker";
-import { WebRequestTransferData, createWebRequestFromTransferData } from "@webhare/router/src/request";
-import { WebResponseForTransfer, createWebResponseFromTransferData } from "@webhare/router/src/response";
-import { ConvertLocalServiceInterfaceToClientInterface, ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { type WebRequestTransferData, createWebRequestFromTransferData } from "@webhare/router/src/request";
+import { type WebResponseForTransfer, createWebResponseFromTransferData } from "@webhare/router/src/response";
+import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";
 import { RestAPIWorkerPool } from "./workerpool";
+import type { OpenAPIValidationMode } from "../generation/gen_extracts";
+
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 
@@ -27,6 +29,10 @@ interface Operation {
   authorization: string | null;
   // Responses
   responses: OpenAPIV3.ResponsesObject;
+  /// When should the input be validated
+  inputValidation: OpenAPIValidationMode | null;
+  /// When should the output be validated
+  outputValidation: OpenAPIValidationMode | null;
 }
 
 interface Route {
@@ -150,8 +156,13 @@ export class RestAPI {
   private routes: Route[] = [];
   private workerPool = new RestAPIWorkerPool(maxOpenAPIWorkers, maxCallsPerWorker);
   handlers = new WeakMap<AsyncWorker, Handler>();
+  inputValidation: OpenAPIValidationMode | null = null;
+  outputValidation: OpenAPIValidationMode | null = null;
 
-  async init(def: object, specresourcepath: string, { merge }: { merge?: object } = {}) {
+  async init(def: object, specresourcepath: string, { merge, inputValidation, outputValidation }: { merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode } = {}) {
+    this.inputValidation = inputValidation || null;
+    this.outputValidation = outputValidation || null;
+
     // Bundle all external files into one document
     const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WHOpenAPIDocument, {});
 
@@ -205,7 +216,9 @@ export class RestAPI {
               handler,
               requestBody: operation.requestBody as OpenAPIV3.RequestBodyObject | null,
               authorization: operation_authorization,
-              responses: operation.responses
+              responses: operation.responses,
+              inputValidation: this.inputValidation,
+              outputValidation: this.outputValidation,
             };
           }
         }
@@ -271,6 +284,11 @@ export class WorkerRestAPIHandler {
     this.defaultErrorSchema = defaultErrorSchema;
   }
 
+  private shouldValidate(mode: OpenAPIValidationMode | null, defaultMode: OpenAPIValidationMode) {
+    const checkMode = mode ?? defaultMode;
+    return checkMode[0] === "always" || checkMode.some(item => item === backendConfig.dtapstage);
+  }
+
   private getValidator(schema: object): ValidateFunction {
     let res = this.validators.get(schema);
     if (res)
@@ -313,7 +331,8 @@ export class WorkerRestAPIHandler {
 
     const response = await this.handleEndpointRequest(req, relurl, match, endpoint, logger);
 
-    if (["development", "test"].includes(backendConfig.dtapstage)) {
+    // Default to validating the output on dtap stages test and development
+    if (this.shouldValidate(endpoint.outputValidation, ["test", "development"])) {
       // ADDME: add flag to disable for performance testing
 
       // Check if response is listed
@@ -397,13 +416,15 @@ export class WorkerRestAPIHandler {
             }
           }
 
-          const start = performance.now();
-          const validator = this.getValidator(param.schema as SchemaObject);
-          const success = validator(paramValue);
-          logger.timings.validation += performance.now() - start;
+          if (this.shouldValidate(endpoint.inputValidation, ["always"])) {
+            const start = performance.now();
+            const validator = this.getValidator(param.schema as SchemaObject);
+            const success = validator(paramValue);
+            logger.timings.validation += performance.now() - start;
 
-          if (!success)
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
+            if (!success)
+              return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
+          }
         }
 
         params[param.name] = paramValue as typeof params[string];
@@ -411,7 +432,7 @@ export class WorkerRestAPIHandler {
 
     let body = null;
     const bodyschema = endpoint.requestBody?.content["application/json"]?.schema;
-    if (bodyschema) {
+    if (bodyschema && this.shouldValidate(endpoint.inputValidation, ["always"])) {
       //We have something useful to proces
       const ctype = req.headers.get("content-type");
       if (ctype != "application/json") //TODO what about endpoints supporting multiple types?
