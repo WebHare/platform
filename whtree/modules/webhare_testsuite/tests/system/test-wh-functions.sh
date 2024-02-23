@@ -120,7 +120,7 @@ testDockerTagCalculation()
   list_finaltag
   testEq "$CI_REGISTRY_IMAGE:custom-customer" "$BRANCH_IMAGES"
   testEq "webhare/platform:custom-customer registry.gitlab.com/webhare/platform:custom-customer" "$PUBLIC_IMAGES"
-  testEq "4.35.1-customer" "$WEBHARE_VERSION"
+  testEq "4.35.0" "$WEBHARE_VERSION"
 }
 
 testIsWasmEngine

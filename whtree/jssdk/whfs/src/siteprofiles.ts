@@ -117,7 +117,10 @@ export interface CSPApplyToSubs {
 
 export interface CSPApplyToTestData {
   type: "testdata";
+  typedef: string;
   target: "parent" | "root" | "self";
+  membername: string;
+  value?: string;
 }
 
 export interface CSPApplyToTo {
@@ -203,6 +206,10 @@ export interface CSPApplyRule {
   tagsources: any[];
   typemappings: any[];
   uploadtypemapping: any[];
+  userdata?: Array<{
+    key: string;
+    value: string;
+  }>;
   urlhistory?: any;
   usepublishtemplate?: any;
   webdesign?: any;

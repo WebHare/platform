@@ -897,7 +897,7 @@
       <xs:element name="googleanalytics" type="GoogleAnalyticsPlugin" />
       <xs:element name="googleanalytics4" type="GoogleAnalytics4Plugin" />
 
-      <xs:element name="pollsettings" minOccurs="0" maxOccurs="1">
+      <xs:element name="pollsettings">
         <xs:complexType>
           <xs:attribute name="allowvotingagainafter" type="xs:integer">
             <xs:annotation>
@@ -905,6 +905,21 @@
                 The amount of minutes after which voting is allowed again.
                 (this check is cookie based, so it can be circumvented by any user which clears his cookies)
               </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="userdata">
+        <xs:complexType>
+          <xs:attribute name="key" type="ModuleNamespacedName" use="required">
+            <xs:annotation>
+              <xs:documentation>Key to set</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="value" type="xs:string" use="required">
+            <xs:annotation>
+              <xs:documentation>Value to set for this key (must be a JSON object, multiple occurences will be merged)</xs:documentation>
             </xs:annotation>
           </xs:attribute>
         </xs:complexType>

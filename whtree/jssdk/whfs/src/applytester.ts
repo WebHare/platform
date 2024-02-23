@@ -1,5 +1,5 @@
 import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
-import { openFolder, WHFSObject, WHFSFolder, describeContentType } from "./whfs";
+import { openFolder, WHFSObject, WHFSFolder, describeContentType, openType } from "./whfs";
 import { db, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
@@ -117,29 +117,28 @@ export class WHFSApplyTester {
         return sofar;
       }
 
-      case "testdata": {
+      case "testdata": { /* TODO can we git rid of <testdata> ? it's one of the few reasons why
+                            we are async and have to be able to reach out to the DB (and implement caching which is also gets
+                            flaky very fast... just see the <testdata> tests in HS) */
         const totest = element.target == "parent" ? folder && folder.id : element.target == "root" ? site?.id || 0 : this.objinfo.obj.id;
         if (!totest)
           return false;
 
-        throw new Error("<testdata> not implemented yet!");
-        /* Shouldn't take long given how essential GetInstanceData is...
-        RECORD instance:= this -> cache -> GetInstanceData(element.typedef, testid);
+        //TODO select only the field we need
+        const field = (await openType(element.typedef).get(totest))[element.membername];
 
-        STRING membername:= element.membername;
-        if (NOT CellExists(instance, membername))
+        if (typeof field === "string")
+          return field == (element?.value ?? '');
+        if (typeof field === "number")
+          return field == (element?.value ? Number(element.value) : 0);
+        if (typeof field === "boolean")
+          return field == (element?.value ? element.value == "true" : false);
+        if (field instanceof Date && element?.value)
+          return field.getTime() == new Date(element.value).getTime(); //new Date("invalid").getTime() === nan
+        else if (field === null) //just like HS <testdata> is very limited, we'll assume null is a DEFAULT DATETIME. in practice that's tested for using value="" so..
+          return !element.value;
+
         return false;
-
-        if (TypeId(GetCell(instance, membername)) = TypeId(STRING) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? element.value : ""))
-        return true;
-        if (TypeId(GetCell(instance, membername)) = TypeId(INTEGER) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? ToInteger(element.value, -1) : 0))
-        return true;
-        if (TypeId(GetCell(instance, membername)) = TypeId(BOOLEAN) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? ParseXSBoolean(element.value) : FALSE))
-        return true;
-        if (TypeId(GetCell(instance, membername)) = TypeId(DATETIME) AND GetCell(instance, membername) = (CellExists(element, "VALUE") ? MakeDateFromText(element.value) : DEFAULT DATETIME))
-        return true;
-
-        return false;*/
       }
 
       case "to": {
@@ -252,9 +251,10 @@ export class WHFSApplyTester {
   /** List all matching apply rules
    * @param propname -- Only return rules that have this property set
    */
-  private async getMatchingRules(propname: string) {
+  private async getMatchingRules<Prop extends keyof CSPApplyRule>(propname: Prop) {
     const siteprofs = getCachedSiteProfiles();
-    const resultset: CSPApplyRule[] = [];
+    //Mark the Prop as never null or we wouldn't have returned it
+    const resultset: Array<{ [key in Prop]: NonNullable<CSPApplyRule[Prop]> } & Omit<CSPApplyRule, Prop>> = [];
     for (const rule of siteprofs.applies) {
       const propvalue = (rule as unknown as { [key: string]: unknown })[propname];
       if (!propvalue || (Array.isArray(propvalue) && !propvalue.length))
@@ -383,6 +383,17 @@ export class WHFSApplyTester {
         baseinfo.renderer = apply.bodyrenderer?.renderer;
 
     return baseinfo;
+  }
+
+  async getUserData(key: string) {
+    let userdata: Record<string, unknown> | null = null;
+
+    for (const apply of await this.getMatchingRules('userdata'))
+      for (const userdataentry of apply.userdata)
+        if (userdataentry.key == key)
+          userdata = { ...(userdata || {}), ...JSON.parse(userdataentry.value) };
+
+    return userdata;
   }
 }
 

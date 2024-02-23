@@ -1028,7 +1028,6 @@ STATIC OBJECTTYPE ApplyRuleTester
           RETURN FALSE;
 
         RECORD instance := this->cache->GetInstanceData(element.typedef, testid);
-
         STRING membername := element.membername;
         IF(NOT CellExists(instance, membername))
           RETURN FALSE;
@@ -1142,7 +1141,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     {
       IF (cellname != "" AND (NOT CellExists(apply,cellname) OR IsDefaultValue(GetCell(apply, cellname))))
         CONTINUE;
-
       IF (NOT this->matchinfo[#apply].tested)
         this->TestApply(#apply);
       IF (this->matchinfo[#apply].matches)
@@ -1453,6 +1451,19 @@ STATIC OBJECTTYPE ApplyRuleTester
         settings.contentslisthandler := apply.foldersettings.contentslisthandler;
     }
     RETURN settings;
+  }
+
+  /** Resolve userdata */
+  PUBLIC RECORD FUNCTION GetUserData(STRING keyname)
+  {
+    RECORD retvalue;
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("USERDATA"))
+      FOREVERY (RECORD userdata FROM apply.userdata)
+      {
+        IF(userdata."key" = keyname)
+          retvalue := CELL[...retvalue, ...DecodeJSON(userdata.value)];
+      }
+    RETURN retvalue;
   }
 
   PUBLIC INTEGER FUNCTION GetUploadFileTypeMapping(STRING filename, STRING mimetype)
