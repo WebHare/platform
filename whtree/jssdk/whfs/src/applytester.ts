@@ -117,21 +117,26 @@ export class WHFSApplyTester {
         return sofar;
       }
 
-      case "testdata": {
+      case "testdata": { /* TODO can we git rid of <testdata> ? it's one of the few reasons why
+                            we are async and have to be able to reach out to the DB (and implement caching which is also gets
+                            flaky very fast... just see the <testdata> tests in HS) */
         const totest = element.target == "parent" ? folder && folder.id : element.target == "root" ? site?.id || 0 : this.objinfo.obj.id;
         if (!totest)
           return false;
 
         //TODO select only the field we need
         const field = (await openType(element.typedef).get(totest))[element.membername];
+
         if (typeof field === "string")
           return field == (element?.value ?? '');
         if (typeof field === "number")
           return field == (element?.value ? Number(element.value) : 0);
         if (typeof field === "boolean")
           return field == (element?.value ? element.value == "true" : false);
-        if (field instanceof Date)
-          return field.getTime() == (element?.value ? new Date(element.value) : new Date(0)).getTime();
+        if (field instanceof Date && element?.value)
+          return field.getTime() == new Date(element.value).getTime(); //new Date("invalid").getTime() === nan
+        else if (field === null) //just like HS <testdata> is very limited, we'll assume null is a DEFAULT DATETIME. in practice that's tested for using value="" so..
+          return !element.value;
 
         return false;
       }

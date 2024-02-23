@@ -127,6 +127,7 @@
   <contenttype scopedtype="basetest.siteSettings">
     <string name="mode" />
     <string name="setting" />
+    <datetime name="when" />
   </contenttype>
 
   <apply>
@@ -139,6 +140,14 @@
     <testdata member="setting" value="red" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
 
     <userdata key="webhare_testsuite:setting" value='{"sisterName":"bingo"}' />
+  </apply>
+
+  <apply>
+    <and>
+      <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+      <testdata member="when" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+    </and>
+    <userdata key="webhare_testsuite:setting" value='{"isDateSet":false}' />
   </apply>
 
   <!-- Basic property tests -->

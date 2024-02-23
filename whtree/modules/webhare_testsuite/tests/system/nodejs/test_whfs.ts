@@ -164,7 +164,7 @@ async function testSiteProfiles() {
   const testobj = await testsite.openFolder("testpages");
 
   await whdb.beginWork();
-  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { mode: "", setting: "" });
+  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { mode: "", setting: "", when: null });
   await whdb.commitWork();
 
   await whdb.beginWork();
@@ -178,11 +178,11 @@ async function testSiteProfiles() {
 
   {
     const tester = await getApplyTesterForObject(testobj);
-    test.eq({ dogName: "bluey" }, await tester.getUserData("webhare_testsuite:setting"));
+    test.eq({ dogName: "bluey", isDateSet: false }, await tester.getUserData("webhare_testsuite:setting"));
   }
 
   await whdb.beginWork();
-  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { setting: "red" });
+  await whfs.openType("webhare_testsuite:basetest.siteSettings").set(testsite.id, { setting: "red", when: new Date("2024-01-01") });
   await whdb.commitWork();
 
   {

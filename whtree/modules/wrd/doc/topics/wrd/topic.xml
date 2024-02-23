@@ -1,7 +1,7 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="WRD"
        shortdescription="CRM/Relation database"
-       docorder="relationtypes setup addressproviders api2017">
+       docorder="api2017">
   <section name="api" title="Main WRD Api" />
   <section name="addresses" title="Addresses and countries" />
   <section name="tollium" title="WRD dialogs and Tollium integration" />
