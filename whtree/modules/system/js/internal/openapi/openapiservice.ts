@@ -10,6 +10,7 @@ import { registerLoadedResource } from "../hmrinternal";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
+import { pick } from "@webhare/std";
 
 // A REST service supporting an OpenAPI definition
 export class RestService extends services.BackendServiceConnection {
@@ -125,6 +126,10 @@ export class RestService extends services.BackendServiceConnection {
   close() {
     this.restapi.close();
   }
+
+  [Symbol.dispose]() {
+    this.close();
+  }
 }
 
 const cache: Record<string, RestService> = {};
@@ -152,7 +157,7 @@ export async function getServiceInstance(servicename: string) {
   const merge = apimerge_fs ? YAML.parse(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
   // Create and initialize the API handler
   const restapi = new RestAPI();
-  await restapi.init(def, serviceinfo.spec, { merge });
+  await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["inputValidation", "outputValidation"]) });
 
   const service = new RestService(servicename, restapi);
   if (!cache[servicename])

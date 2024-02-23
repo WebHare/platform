@@ -6,6 +6,7 @@ import { DeferredPromise, createDeferred } from "@webhare/std/promises";
 import { RefTracker } from "./whmanager/refs";
 import bridge, { initializedWorker } from "./whmanager/bridge";
 import { ConvertLocalServiceInterfaceToClientInterface, buildLocalServiceProxy } from "@webhare/services/src/localservice";
+import EventSource from "./eventsource";
 
 let counter = 0;
 
@@ -19,8 +20,13 @@ const portcloser = new FinalizationRegistry((port: TypedMessagePort<object, obje
   port.close();
 });
 
+type AsyncWorkerEvents = {
+  // Not thrown when AsyncWorker goes out of reference and is garbage collected!
+  error: Error;
+};
+
 /** Wraps a node worker */
-export class AsyncWorker {
+export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   private worker: Worker;
   private port: TypedMessagePort<WorkerControlLinkRequest, WorkerControlLinkResponse>;
   private requests: Record<string, DeferredPromise<WorkerControlLinkResponse | WorkerServiceLinkResponse>> = {};
@@ -29,6 +35,7 @@ export class AsyncWorker {
   private error: Error | undefined;
 
   constructor() {
+    super();
     const ports = createTypedMessageChannel<WorkerControlLinkRequest, WorkerControlLinkResponse>("AsyncWorker");
     this.port = ports.port1;
     const localHandlerInitData = bridge.getLocalHandlerInitDataForWorker();
@@ -55,7 +62,11 @@ export class AsyncWorker {
       }
     }
 
-    this.worker.on("error", (error) => rejectRequests(error));
+    const asyncThis = new WeakRef(this);
+    this.worker.on("error", (error) => {
+      rejectRequests(error);
+      asyncThis.deref()?.emit("error", error);
+    });
     this.worker.on("exit", (code) => {
       const error = new Error(`Worker exited with code ${code}`);
       rejectRequests(error);

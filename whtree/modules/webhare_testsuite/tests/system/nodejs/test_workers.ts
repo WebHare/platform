@@ -3,6 +3,7 @@ import { MessagePort, MessageChannel, isMainThread } from "node:worker_threads";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { triggerGarbageCollection } from "@webhare/test";
 import { createReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 
 
 export class myTestClass {
@@ -54,6 +55,12 @@ export async function myRecursiveTest(a: number, b: number) {
   return await subworker.callRemote(`${__filename}#myTestFuncAsync`, a, b);
 }
 
+export async function throwUncaughtError() {
+  setImmediate(() => { throw new Error(`Uncaught error: boem`); });
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return true;
+}
+
 let signalPortClosed: Promise<void>;
 
 async function runWorkerTest() {
@@ -94,10 +101,26 @@ async function runCleanupTest() {
   await test.wait(signalPortClosed, "Worker should have terminated");
 }
 
+async function workerPoolTest() {
+  const pool = new RestAPIWorkerPool(1, 10);
+  // Worker should function as expected
+  test.eq(18, await pool.runInWorker(async worker => {
+    return worker.callRemote(`${__filename}#myTestFunc`, 11, 7);
+  }));
+  // Uncaught error should be caught and rethrown
+  test.throws(/Worker exited with code 1/, async () => await pool.runInWorker(async worker => {
+    return worker.callRemote(`${__filename}#throwUncaughtError`);
+  }));
+  test.eq(18, await pool.runInWorker(async worker => {
+    return worker.callRemote(`${__filename}#myTestFunc`, 11, 7);
+  }));
+}
+
 // Only run the tests in the main thread
 if (isMainThread) {
   test.run([
     runWorkerTest,
-    runCleanupTest
+    runCleanupTest,
+    workerPoolTest,
   ]);
 }

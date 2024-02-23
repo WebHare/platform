@@ -1,3 +1,4 @@
+import { logError } from "@webhare/services";
 import { AsyncWorker } from "../worker";
 
 export class RestAPIWorkerPool {
@@ -34,11 +35,20 @@ export class RestAPIWorkerPool {
       ++bestEntry.totalCalls;
     } else {
       const id = `worker-${++this.counter}`;
+      const worker = new AsyncWorker();
       this.workers.push(bestEntry = {
-        worker: new AsyncWorker(),
+        worker,
         activeCalls: 1,
         totalCalls: 1,
         id
+      });
+      worker.on("error", (error) => {
+        console.error(`Worker ${id} failed: ${error}`);
+        logError(new Error(`Worker ${id} failed: ${error}`, { cause: error }));
+        const pos = this.workers.findIndex(w => w.worker === worker);
+        if (pos >= 0)
+          this.workers.splice(pos, 1);
+        worker.close();
       });
     }
     try {

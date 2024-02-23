@@ -215,7 +215,7 @@ export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
     });
     this.port.on("close", () => {
       for (const defer of Object.values(requests))
-        defer.reject(new Error("Service link has been closed"));
+        defer.reject(new Error(`Service link to local service ${JSON.stringify(name)} has been closed`));
     });
     portcloser.register(this, this.port);
   }

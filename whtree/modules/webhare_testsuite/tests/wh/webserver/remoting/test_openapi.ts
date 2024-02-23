@@ -14,8 +14,8 @@ const basecall = { sourceip: "127.0.0.1", method: HTTPMethod.GET, body: WebHareB
 
 async function testService() {
   //whitebox try the service directly for more useful traces etc
-  const instance = await getServiceInstance("webhare_testsuite:testservice");
-  using closer = { [Symbol.dispose]: () => instance.close() }; void (closer);
+  using instance = await getServiceInstance("webhare_testsuite:testservice");
+  using instanceNoValidation = await getServiceInstance("webhare_testsuite:testservice_novalidation");
 
   let res = await instance.APICall({ ...basecall, url: "http://localhost/unknownapi" }, "unknownapi");
   test.eq(HTTPErrorCode.NotFound, res.status);
@@ -46,8 +46,8 @@ async function testService() {
   res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from("hi!") }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from("hi!") }, "users");
-  test.eq(HTTPErrorCode.BadRequest, res.status);
+  res = await instanceNoValidation.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from("hi!") }, "users");
+  test.eq(HTTPErrorCode.InternalServerError, res.status);
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify(pietje)) }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status, "should fail: no contenttype set");
@@ -70,6 +70,9 @@ async function testService() {
 
   res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=illegalData", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.InternalServerError, res.status);
+
+  res = await instanceNoValidation.APICall({ ...basecall, url: "http://localhost/validateoutput?test=illegalData", headers: jsonheader }, "validateoutput");
+  test.eq(HTTPSuccessCode.Ok, res.status);
 
   res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=with%2F", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.BadRequest, res.status);

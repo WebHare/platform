@@ -29,10 +29,14 @@ export interface BackendServiceDescriptor {
   controllerFactory: string;
 }
 
+export type OpenAPIValidationMode = ["never"] | ["always"] | Array<"test" | "development">;
+
 export interface OpenAPIDescriptor {
   name: string;
   spec: string;
   merge?: string;
+  inputValidation?: OpenAPIValidationMode;
+  outputValidation?: OpenAPIValidationMode;
 }
 
 export interface Services {
@@ -209,10 +213,14 @@ export function generateServices(context: GenerateContext): string {
         continue;
 
       const mergeAttr = getAttr(openapiservice, "merge");
+      const inputValidation = getAttr(openapiservice, "inputvalidation", []) as null | OpenAPIValidationMode;
+      const outputValidation = getAttr(openapiservice, "outputvalidation", []) as null | OpenAPIValidationMode;
       retval.openAPIServices.push({
         name: `${mod.name}:${getAttr(openapiservice, "name")}`,
         spec: resolveResource(mod.resourceBase, getAttr(openapiservice, "spec")),
         ...(mergeAttr ? { merge: resolveResource(mod.resourceBase, mergeAttr) } : {}),
+        ...(inputValidation?.length ? { inputValidation: inputValidation } : {}),
+        ...(outputValidation?.length ? { outputValidation: outputValidation } : {}),
       });
     }
 
