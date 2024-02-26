@@ -124,8 +124,6 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     dompack.setStyles(this.node, {
       width: this.width.set,// - this.width.overhead
-      //   , height: 23
-      "margin-top": this.getVerticalPosition()
     });
     this.control._resizeInput();
   }
