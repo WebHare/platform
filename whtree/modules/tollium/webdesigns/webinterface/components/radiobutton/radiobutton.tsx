@@ -3,6 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import "./radiobutton.scss";
 
 let radionamecounter = 0;
 
