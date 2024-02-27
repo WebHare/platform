@@ -5,7 +5,9 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/semver.whlib";
+LOADLIB "wh::internal/transbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, DeleteRegistryNode, WriteRegistryKey, GetRegistryKeyEventMasks, ReadRegistryKeysByMask;
@@ -242,9 +244,21 @@ PUBLIC BOOLEAN FUNCTION IsModuleVersionMatch(STRING modulename, STRING semverran
   RETURN VersionSatisfiesRange(modinfo.version, semverrange);
 }
 
+RECORD FUNCTION ValidateApplyOptions(RECORD inoptions)
+{
+  RETURN ValidateOptions(CELL
+    [ modules := STRING[]
+    , subsystems := STRING[]
+    , force := FALSE
+    , source := ""
+    ], inoptions, [ required := [ "subsystems", "source"]]);
+}
+
 /** Ensure changes to WebHare's configuration are applied */
 PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateApplyOptions(options);
+
   OBJECT service := WaitForPromise(OpenWebHareService("platform:configuration"));
   TRY
   {
@@ -254,4 +268,87 @@ PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     service->CloseService();
   }
+}
+
+STATIC OBJECTTYPE ApplyFinishHandler EXTEND TransactionFinishHandlerBase
+<
+  STRING ARRAY subsystems;
+  STRING ARRAY sources;
+  RECORD defer;
+  BOOLEAN applying;
+
+  MACRO NEW()
+  {
+    this->defer := CreateDeferredPromise();
+  }
+
+  PUBLIC MACRO Add(STRING subsystem, STRING source)
+  {
+    IF(subsystem NOT IN this->subsystems)
+      INSERT subsystem INTO this->subsystems AT END;
+    IF(source NOT IN this->sources)
+      INSERT source INTO this->sources AT END;
+  }
+
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    this->applying := TRUE;
+    this->AsyncOnCommit(); //don't wait for it
+  }
+
+  ASYNC MACRO AsyncOnCommit()
+  {
+    OBJECT service;
+    TRY
+    {
+      IF(Length(this->subsystems) > 0)
+      {
+        service := WaitForPromise(OpenWebHareService("platform:configuration"));
+        WaitForPromise(service->applyConfiguration([ subsystems := this->subsystems, source := Detokenize(this->sources, ", ") ]));
+      }
+      this->defer.resolve(TRUE);
+    }
+    CATCH(OBJECT e)
+    {
+      this->defer.reject(e);
+    }
+    FINALLY
+    {
+      IF(ObjectExists(service))
+        service->CloseService();
+    }
+  }
+
+  UPDATE PUBLIC MACRO OnRollback()
+  {
+    this->applying := true;
+    this->defer.reject(NEW Exception("Configuration changes have been rolled back"));
+  }
+
+  PUBLIC OBJECT FUNCTION GetPromise()
+  {
+    IF (NOT this->applying)
+      THROW NEW Exception("Configuration changes are not being applied yet - wait for the work to commit");
+    RETURN this->defer.promise;
+  }
+>;
+
+PUBLIC FUNCTION PTR FUNCTION CreateAppliedPromise(RECORD toApply DEFAULTSTO DEFAULT RECORD)
+{
+  toapply := ValidateApplyOptions(toapply);
+
+  IF(NOT GetPrimary()->IsWorkOpen())
+    THROW NEW Exception(`Work must be open to use createAppliedPromise`);
+
+  OBJECT handler := GetPrimary()->GetFinishHandler("system:applyfinishhandler");
+  IF (NOT ObjectExists(handler))
+  {
+    handler := NEW ApplyFinishHandler;
+    GetPrimary()->SetFinishHandler("system:applyfinishhandler", handler);
+  }
+
+  FOREVERY(STRING subsystem FROM toapply.subsystems)
+    handler->Add(subsystem, toApply.source);
+
+  RETURN PTR handler->GetPromise();
 }

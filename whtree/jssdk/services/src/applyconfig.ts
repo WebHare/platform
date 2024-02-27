@@ -33,11 +33,15 @@ class ApplyFinishHandler implements FinishHandler {
     this.subsystems.add(subsystem);
   }
 
-  onCommit(): void {
-    applyConfiguration({
-      subsystems: Array.from(this.subsystems),
-      source: Array.from(this.sources).join(", ")
-    }).then(() => this.defer.resolve())
+  onCommit(): void { //we shouldn't be async as that will cause whdb finish handlers to wait on us!
+    const applyPromise = this.subsystems.size > 0 ?
+      applyConfiguration({
+        subsystems: Array.from(this.subsystems),
+        source: Array.from(this.sources).join(", ")
+      }) : Promise.resolve();
+
+    applyPromise
+      .then(() => this.defer.resolve())
       .catch(error => this.defer.reject(error));
 
     this.applying = true;

@@ -3,6 +3,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -295,7 +296,7 @@ STATIC OBJECTTYPE SiteObject
       @cell(integer) metadata.outputweb Output webserver, 0 for no hosting
       @cell(string) metadata.outputfolder Folder within output webserver where this site is hosted
   */
-  PUBLIC MACRO UpdateSiteMetadata(RECORD metadata)
+  PUBLIC RECORD FUNCTION UpdateSiteMetadata(RECORD metadata)
   {
     BOOLEAN republishsite;
     RECORD siterecupdate := ValidateOptions( [ versioningpolicy := ""
@@ -395,8 +396,13 @@ STATIC OBJECTTYPE SiteObject
 
     UPDATE system.sites SET RECORD siterecupdate WHERE id = this->id;
 
+    STRING ARRAY subsystems;
+
     IF(RecordExists(updsettings))
+    {
       sitesettingstype->SetInstanceData(this->id, updsettings);
+      INSERT "siteprofilerefs" INTO subsystems AT END;
+    }
 
     this->Refresh();
 
@@ -407,6 +413,7 @@ STATIC OBJECTTYPE SiteObject
     }
 
     GetPrimary()->BroadcastOnCommit("system:whfs.sitemeta." || this->siterec.id, DEFAULT RECORD);
+    RETURN [ applied := CreateAppliedPromise(CELL[subsystems, source := "UpdateSiteMetadata" ]) ];
   }
 >;
 
