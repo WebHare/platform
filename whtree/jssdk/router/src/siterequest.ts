@@ -53,11 +53,14 @@ class SiteRequest {
     this.navObject = navObject ?? targetObject;
   }
 
-  async createComposer<T extends object = object>(): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
+  async createComposer<T extends object = object>(options?: { __captureJSDesign?: boolean }): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
     const applytester = await getApplyTesterForObject(this.targetObject);
     const publicationsettings = await applytester.getWebDesignInfo();
-    if (!publicationsettings.siteResponseFactory)
+    if (!publicationsettings.siteResponseFactory) {
+      if (options?.__captureJSDesign) //prevent endless loop
+        throw new Error(`Inconsistent siteprofiles - createComposer for ${this.targetObject.whfsPath} (#${this.targetObject.id}) wants to invoke a HS design but was invoked by captureJSDesign`);
       return wrapHSWebdesign<T>(this);
+    }
 
     const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
     //FIXME - we need to fill in some more data based on the site profile

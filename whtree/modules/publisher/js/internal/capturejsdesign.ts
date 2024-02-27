@@ -12,7 +12,7 @@ export async function captureJSDesign(obj: number) {
   const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
   const sitereq = await buildSiteRequest(req, targetdoc);
 
-  const outputpage = await sitereq.createComposer();
+  const outputpage = await sitereq.createComposer({ __captureJSDesign: true });
   const placeholder = "__CAPTUREJSDESIGN__" + Math.random();
   outputpage.appendHTML(placeholder);
   const response = await outputpage.finish();
