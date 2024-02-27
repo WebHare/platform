@@ -111,7 +111,6 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    this.node.style.marginTop = this.getVerticalPosition() + 'px';
   }
 
   // ---------------------------------------------------------------------------

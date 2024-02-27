@@ -641,15 +641,6 @@ export class ToddCompBase {
   fixupCalculatedHeights() {
   }
 
-  // Get the top margin of the component within its line
-  getVerticalPosition() {
-    if (!this.parentcomp && dompack.debugflags.col)
-      throw new Error("No parent component for current element");
-    if (!this.parentcomp || this.parentcomp.componenttype != "panel.line" || this.parentcomp.layout == "tabs-space")
-      return 0;
-    return Math.max(Math.round((this.height.set - this.height.calc) / 2), 0);
-  }
-
   /* relayout the component based on this.width.set and this.width.height
      invoke relayout on children */
   relayout() { }

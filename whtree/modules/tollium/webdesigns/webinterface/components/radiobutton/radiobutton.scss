@@ -1,0 +1,66 @@
+@import "~@mod-publisher/js/forms/styles";
+@import "~@mod-tollium/web/ui/css/settings.scss";
+
+/* radio */
+
+.wh-radiobutton-wrapper
+{
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+}
+.wh-radiobutton + .wh-radiobutton-label
+{
+  border: 1px solid #b3b3b3;
+  background-color: #fbfbfb;
+  outline: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: block;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.wh-radiobutton + .wh-radiobutton-label:before
+{
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  content: '';
+  background-color: transparent;
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.wh-radiobutton + .wh-radiobutton-label:before
+{
+  border-radius: 4px;
+}
+.wh-radiobutton:focus + .wh-radiobutton-label
+{
+  border-color: $focused-border-color;
+}
+.wh-radiobutton:checked + .wh-radiobutton-label:before
+{
+  background-color: #308fe2;
+}
+.wh-radiobutton:disabled + .wh-radiobutton-label
+{
+  background-color: #e6e6e6;
+  border-color: #b3b3b3;
+  opacity: 0.5;
+  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
+  background-repeat: repeat;
+}
+.wh-radiobutton:required + .wh-radiobutton-label
+{
+  background-color: #fcf7c9;
+}
+
+
+/* checkbox and radio shared */
+.wh-radiobutton
+{
+  @include wh-form-hidenativecontrol;
+}

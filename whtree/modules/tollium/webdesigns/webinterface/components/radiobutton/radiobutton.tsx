@@ -3,6 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import "./radiobutton.scss";
 
 let radionamecounter = 0;
 
@@ -117,7 +118,6 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    this.node.style.marginTop = this.getVerticalPosition() + 'px';
   }
 
   // ---------------------------------------------------------------------------
