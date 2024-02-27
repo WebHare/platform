@@ -2,7 +2,6 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as frontend from '@webhare/frontend';
-import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { FrontendEmbeddedApplication, registerJSApp } from "../application";
 import "../../common.lang.json";
@@ -10,6 +9,7 @@ import "../../common.lang.json";
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
+import { navigateTo, type NavigateInstruction } from '@webhare/env/src/navigation';
 
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
@@ -462,8 +462,8 @@ class LoginApp {
     });
   }
 
-  handleSubmitInstruction(result, callback) {
-    if (result.submitinstruction.type == "reload") {
+  handleSubmitInstruction(instr: NavigateInstruction, callback: () => void) {
+    if (instr.type == "reload") {
       //no need to execute the submit instruction, it just redirects back to the shell..
       this.app.terminateApplication();
       getIndyShell().wrdauth.refresh();
@@ -471,7 +471,7 @@ class LoginApp {
       getIndyShell().executeShell();
       callback();
     } else {
-      whintegration.executeSubmitInstruction(result.submitinstruction);
+      navigateTo(instr);
       return;
     }
 
@@ -491,7 +491,7 @@ class LoginApp {
     try {
       const result = await getIndyShell().wrdauth.login(loginname, password, { persistent: savelogin });
       if (result.submitinstruction) {
-        this.handleSubmitInstruction(result, callback);
+        this.handleSubmitInstruction(result.submitinstruction, callback);
         return;
       }
       if (result.code === "REQUIRESECONDFACTOR") {
@@ -613,7 +613,7 @@ class LoginApp {
 
     const result = await getIndyShell().wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
     if (result.submitinstruction) {
-      this.handleSubmitInstruction(result, callback);
+      this.handleSubmitInstruction(result.submitinstruction, callback);
       return;
     }
 

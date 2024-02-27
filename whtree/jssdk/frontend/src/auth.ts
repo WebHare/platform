@@ -1,6 +1,6 @@
 import { createClient } from "@webhare/jsonrpc-client";
 
-import { NavigateInstruction, navigateTo } from "./navigation";
+import { NavigateInstruction, navigateTo } from "@webhare/env";
 
 export interface MyService {
   startLogin2(urlpath: string, tag: string, options: { passive?: boolean }): Promise<NavigateInstruction>;
