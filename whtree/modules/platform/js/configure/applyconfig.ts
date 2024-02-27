@@ -5,17 +5,22 @@ import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
 import { AssetPackControlClient } from '@mod-publisher/scripts/internal/assetpackcontrol';
 
-export const ConfigurableSubsystems: Record<string, {
+type SubsystemData = {
   title: string;
   description: string;
   generate?: readonly GeneratorType[];
-}> = {
+};
+
+const subsystems = {
   assetpacks: { title: "Assetpacks", description: "Update active assetpacks", generate: ["extract"] },
   registry: { title: "Registry", description: "Initialize registry keys defined in module definitions" },
   wrd: { title: "WRD", description: "Apply wrdschema definitions and regenerate the TS definitions", generate: ["wrd"] }
-} as const;
+} as const satisfies Record<string, SubsystemData>;
 
-export type ConfigurableSubsystem = keyof typeof ConfigurableSubsystems;
+
+export type ConfigurableSubsystem = keyof typeof subsystems;
+export const ConfigurableSubsystems: Record<ConfigurableSubsystem, SubsystemData> = subsystems;
+
 
 export interface ApplyConfigurationOptions {
   modules?: string[];
@@ -35,7 +40,7 @@ export async function applyConfiguration(options: ApplyConfigurationOptions = {}
     //Which config files to update
     const togenerate = new Set<GeneratorType>(["config"]);
     for (const [subsystem, settings] of Object.entries(ConfigurableSubsystems))
-      if (options.subsystems?.includes(subsystem) && settings.generate)
+      if (options.subsystems?.includes(subsystem as ConfigurableSubsystem) && settings.generate)
         settings.generate.forEach(_ => togenerate.add(_));
 
     const generateContext = await buildGeneratorContext(null, options.verbose || false);

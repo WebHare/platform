@@ -3,7 +3,7 @@ import { ApplyConfigurationOptions, applyConfiguration } from "./applyconfig";
 
 class ConfigClient extends BackendServiceConnection {
 
-  async applyConfiguration(options: Pick<ApplyConfigurationOptions, "modules" | "subsystems" | "force" | "source"> = {}) {
+  async applyConfiguration(options: Omit<ApplyConfigurationOptions, "verbose"> = {}) {
     await applyConfiguration(options);
   }
 }
