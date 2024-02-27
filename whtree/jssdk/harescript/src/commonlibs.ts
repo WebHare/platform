@@ -72,6 +72,11 @@ interface Mod_Publisher_Lib_Siteapi {
   openSiteByName(name: string): Promise<(Mod_Publisher_Lib_Siteapi_Site & HSVMCallsProxy) | null>;
 }
 
+interface Wh_Files {
+  redirectOutputTo(stream: number): Promise<number>;
+  makeBlobFromStream(stream: number): Promise<WebHareBlob>;
+}
+
 interface Wh_Filetypes_Archiving {
   unpackArchive(data: WebHareBlob): Promise<Array<{
     path: string;
@@ -98,6 +103,7 @@ interface Mod_System_Lib_WHFS {
 }
 
 export interface CommonLibraries {
+  "wh::files.whlib": Wh_Files;
   "wh::filetypes/archiving.whlib": Wh_Filetypes_Archiving;
   "mod::system/lib/database.whlib": Mod_System_Lib_Database;
   "mod::system/lib/validation.whlib": Mod_System_Lib_Validation;
