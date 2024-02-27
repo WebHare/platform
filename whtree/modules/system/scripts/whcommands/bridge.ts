@@ -6,13 +6,9 @@ import * as child_process from "node:child_process";
 /// short: Control WebHare bridge connections (ie. javascript processes)
 
 async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<number> {
-  const asnumber = parseInt(instance);
-  if (!isNaN(asnumber))
-    return asnumber;
-
-
+  const pid = parseInt(instance);
   const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
-  const matches = res.processlist.filter(proc => proc.name.endsWith(instance));
+  const matches = res.processlist.filter(proc => isNaN(pid) ? proc.name.endsWith(instance) : proc.pid === pid);
   if (matches.length === 0) {
     throw new Error(`No process matching ${JSON.stringify(instance)}`);
   } else if (matches.length !== 1) {
@@ -50,7 +46,7 @@ program.command('connections')
     if (options.json)
       console.log(JSON.stringify(list));
     else
-      console.table(list, ["pid", "name", "processcode"]);
+      console.table(list, ["pid", "name"]);
   });
 
 async function getInspectorURL(process: string) {
