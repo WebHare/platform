@@ -22,6 +22,7 @@ import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/ser
 import type { LocalLockService } from "./wasm-locallockservice";
 import type { AdhocCacheService } from "./wasm-adhoccacheservice";
 import { debugFlags } from "@webhare/env/src/envbackend";
+import { isatty } from "node:tty";
 
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
@@ -412,6 +413,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       id_set.setString("");
     } else
       id_set.setString(mod.root);
+  });
+  wasmmodule.registerExternalFunction("ISCONSOLEATERMINAL::B:", (vm, id_set) => {
+    id_set.setBoolean(isatty(0) && isatty(1)); //matches blexlib IsConsoleATerminal
   });
   wasmmodule.registerExternalFunction("GETCONSOLEARGUMENTS::SA:", (vm, id_set) => {
     id_set.setDefault(VariableType.StringArray);
