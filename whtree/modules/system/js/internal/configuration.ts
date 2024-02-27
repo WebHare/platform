@@ -5,6 +5,7 @@ import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from 
 import type { RecursiveReadOnly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
+import type { CachedSiteProfiles } from "@webhare/whfs/src/siteprofiles";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -85,9 +86,50 @@ export function isRestoredWebHare(): boolean {
   return Boolean(process.env["WEBHARE_ISRESTORED"]);
 }
 
+const extractsCache = new Map<string, {
+  lastUpdate: number;
+  data: unknown;
+}>();
+
+function deepFreeze(object: Record<string | symbol, unknown>) {
+  for (const name of Reflect.ownKeys(object)) {
+    const value = object[name];
+    if (value && typeof value === "object")
+      deepFreeze(value as Record<string | symbol, unknown>);
+  }
+  return Object.freeze(object);
+}
+
+function getCacheableJSONConfig(diskpath: string) {
+  const file = fs.openSync(diskpath, 'r');
+  try {
+    const stats = fs.fstatSync(file);
+    const entry = extractsCache.get(diskpath);
+    if (entry?.lastUpdate === stats.mtimeMs)
+      return entry.data;
+
+    const buffer = Buffer.alloc(stats.size);
+    fs.readSync(file, buffer, 0, stats.size, 0);
+    const data = deepFreeze(JSON.parse(buffer.toString('utf8')));
+
+    extractsCache.set(diskpath, { lastUpdate: stats.mtimeMs, data });
+    return data;
+  } finally {
+    fs.closeSync(file);
+  }
+}
+
 export function getExtractedConfig(which: "assetpacks"): AssetPack[];
 export function getExtractedConfig(which: "services"): Services;
 
+/** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {
-  return JSON.parse(fs.readFileSync(toFSPath("storage::system/generated/extract/" + which + ".json"), 'utf8'));
+  return getCacheableJSONConfig(toFSPath("storage::system/generated/extract/" + which + ".json"));
+}
+
+export function getExtractedHSConfig(which: "siteprofiles"): CachedSiteProfiles;
+
+/** Get HS managed configuration extracts */
+export function getExtractedHSConfig(which: string) {
+  return getCacheableJSONConfig(toFSPath("storage::system/config/" + which + ".json"));
 }

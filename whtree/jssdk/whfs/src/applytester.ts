@@ -1,10 +1,11 @@
-import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
+import { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, WHFSObject, WHFSFolder, describeContentType, openType } from "./whfs";
 import { db, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
+import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -228,7 +229,7 @@ export class WHFSApplyTester {
     if (folderType && folderType < 1000 && matchwith == String(folderType)) //only match by ID for well-knowns
       return true;
 
-    const types = getCachedSiteProfiles().contenttypes;
+    const types = getExtractedHSConfig("siteprofiles").contenttypes;
     const matchtype = types.find(_ => (isfolder ? _.foldertype : _.filetype) && _.id == folderType);
     return matchtype && isLike(matchtype.namespace, matchwith);
   }
@@ -252,7 +253,7 @@ export class WHFSApplyTester {
    * @param propname -- Only return rules that have this property set
    */
   private async getMatchingRules<Prop extends keyof CSPApplyRule>(propname: Prop) {
-    const siteprofs = getCachedSiteProfiles();
+    const siteprofs = getExtractedHSConfig("siteprofiles");
     //Mark the Prop as never null or we wouldn't have returned it
     const resultset: Array<{ [key in Prop]: NonNullable<CSPApplyRule[Prop]> } & Omit<CSPApplyRule, Prop>> = [];
     for (const rule of siteprofs.applies) {
