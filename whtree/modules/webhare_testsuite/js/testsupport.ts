@@ -1,3 +1,5 @@
+import * as test from "@webhare/test";
+import * as whfs from "@webhare/whfs";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
 
@@ -18,5 +20,16 @@ export async function testSuiteCleanup() {
     }
   }
 
+  //reset testsitejs to well known feature set (Some tests may modify it but crash and not restore it)
+  const testsitejs = await whfs.openSite("webhare_testsuite.testsitejs");
+  test.assert(testsitejs, "We need the JS testsite to exist");
+
+  let updateres;
+  if (JSON.stringify(await testsitejs.getWebFeatures()) != JSON.stringify(["platform:identityprovider"]) || await testsitejs.getWebDesign() != "webhare_testsuite:basetestjs") {
+    updateres = await testsitejs.update({ webFeatures: ["platform:identityprovider"], webDesign: "webhare_testsuite:basetestjs" });
+  }
+
   await commitWork();
+  if (updateres)
+    await updateres.applied();
 }

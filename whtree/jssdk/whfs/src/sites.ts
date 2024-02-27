@@ -3,6 +3,7 @@ import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform
 import { WHFSFile, WHFSFolder, openWHFSObject } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType } from "./contenttypes";
+import { createAppliedPromise } from "@webhare/services";
 
 // Adds the custom generated columns
 interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -35,6 +36,8 @@ interface ListableSiteRow {
   /// Activated webfeatures
   webFeatures: string[] | null;
 }
+
+type UpdateableSiteSettings = Pick<ListableSiteRow, "webDesign" | "webFeatures">;
 
 const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatures">, keyof SiteRow> = {
   "cdnBaseURL": "cdnbaseurl",
@@ -70,6 +73,30 @@ export class Site {
   async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
   async openFolder(path: string, options?: { allowMissing: boolean }) {
     return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`);
+  }
+
+  /** Get the webdesign for this site */
+  async getWebDesign(): Promise<string> {
+    return (await openType("http://www.webhare.net/xmlns/publisher/sitesettings").get(this.id)).sitedesign as string;
+  }
+
+  /** Get enabled webfeatures for this site */
+  async getWebFeatures(): Promise<string[] | null> {
+    const features = (await openType("http://www.webhare.net/xmlns/publisher/sitesettings").get(this.id)).webfeatures as string[];
+    return features.length ? features.sort() : null;
+  }
+
+  /** Update site settings */
+  async update(updates: UpdateableSiteSettings): Promise<{ applied: () => Promise<void> }> {
+    let metadataupdate: Record<string, unknown> | undefined;
+    if ("webDesign" in updates)
+      metadataupdate = { ...metadataupdate, sitedesign: updates.webDesign };
+    if ("webFeatures" in updates)
+      metadataupdate = { ...metadataupdate, webfeatures: updates.webFeatures?.length ? updates.webFeatures.sort() : [] };
+    if (metadataupdate)
+      await openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(this.id, metadataupdate);
+
+    return { applied: createAppliedPromise({ subsystems: ["siteprofilerefs"], source: "site.update" }) };
   }
 }
 

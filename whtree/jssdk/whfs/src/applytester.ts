@@ -3,8 +3,7 @@ import { openFolder, WHFSObject, WHFSFolder, describeContentType, openType } fro
 import { db, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
-import { emplace } from "@webhare/std";
-import { loadlib } from "@webhare/harescript";
+import { emplace, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 
 export interface WebDesignInfo {
@@ -23,9 +22,9 @@ interface SiteApplicabilityInfo {
 }
 
 ///describe a specific site for apply testing
-async function getSiteApplicabilityInfo(siteid: number | null) {
-  const readerwhlib = loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib");
-  return await readerwhlib.GetSiteApplicabilityInfo(siteid ?? 0) as SiteApplicabilityInfo;
+async function getSiteApplicabilityInfo(siteid: number | null): Promise<SiteApplicabilityInfo> {
+  const match = getExtractedHSConfig("siteprofilerefs").find(_ => _.id == siteid);
+  return match ? pick(match, ["siteprofileids", "roottype", "sitedesign"]) : { siteprofileids: [], roottype: 0, sitedesign: "" };
 }
 
 function matchPathRegex(pattern: string, path: string): boolean {

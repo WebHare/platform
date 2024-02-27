@@ -218,3 +218,12 @@ export interface CachedSiteProfiles {
   contenttypes: CSPContentType[];
   applies: CSPApplyRule[];
 }
+
+export interface SiteProfileRef {
+  id: number;
+  naem: string;
+  roottype: number;
+  sitedesign: string;
+  siteprofileids: number[];
+  webroot: string;
+}

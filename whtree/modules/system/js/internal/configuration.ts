@@ -5,7 +5,7 @@ import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from 
 import type { RecursiveReadOnly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
-import type { CachedSiteProfiles } from "@webhare/whfs/src/siteprofiles";
+import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -128,6 +128,7 @@ export function getExtractedConfig(which: string) {
 }
 
 export function getExtractedHSConfig(which: "siteprofiles"): CachedSiteProfiles;
+export function getExtractedHSConfig(which: "siteprofilerefs"): SiteProfileRef[];
 
 /** Get HS managed configuration extracts */
 export function getExtractedHSConfig(which: string) {

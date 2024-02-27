@@ -23,7 +23,7 @@ async function main() {
   }
 
   const subsystems = (program.args.length ? program.args : validsubsystems) as ConfigurableSubsystem[];
-  await applyConfiguration({ subsystems, verbose, force });
+  await applyConfiguration({ subsystems, verbose, force, source: "wh apply" });
 }
 
 main();

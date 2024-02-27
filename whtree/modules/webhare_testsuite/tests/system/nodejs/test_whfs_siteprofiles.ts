@@ -4,7 +4,6 @@ import * as whfs from "@webhare/whfs";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
-
 async function testSiteProfiles() {
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
@@ -49,8 +48,31 @@ async function testSiteProfiles() {
   }
 }
 
+async function testSiteUpdates() {
+  const testsitejs = await whfs.openSite("webhare_testsuite.testsitejs");
+  const tester = await getApplyTesterForObject(await testsitejs.openFolder("."));
+
+  test.eq(null, await tester.getUserData("webhare_testsuite:blub"));
+
+  await whdb.beginWork();
+  await testsitejs.update({ webFeatures: [], webDesign: "publisher:nodesign" });
+  test.eq(null, await testsitejs.getWebFeatures());
+  test.eq("publisher:nodesign", await testsitejs.getWebDesign());
+
+  const updateres = await testsitejs.update({ webFeatures: ["webhare_testsuite:testfeature"], webDesign: "webhare_testsuite:basetestjs" });
+  test.eq(["webhare_testsuite:testfeature"], await testsitejs.getWebFeatures());
+  test.eq("webhare_testsuite:basetestjs", await testsitejs.getWebDesign());
+  await whdb.commitWork();
+
+  await updateres.applied();
+
+  const tester2 = await getApplyTesterForObject(await testsitejs.openFolder("."));
+  test.eq({ fish: true }, await tester2.getUserData("webhare_testsuite:blub"));
+}
+
 
 test.run([
   testSuiteCleanup,
   testSiteProfiles,
+  testSiteUpdates,
 ]);
