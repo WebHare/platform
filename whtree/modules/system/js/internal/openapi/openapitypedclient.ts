@@ -15,7 +15,7 @@ type OpenAPIResponse<BodyType> = {
 
 
 /** Base type for parameter types. Only strings, numbers and booleans are allowed as parameters */
-type ParamsBaseType = Record<string, string | number | boolean>;
+type ParamsBaseType = Record<string, string | number | boolean | string[]>;
 
 /** List of allowed paths for a method
  */
@@ -24,11 +24,15 @@ export type PathsForMethod<Paths, Method extends string, Path extends keyof Path
 /** Possible returned status codes */
 type ReturnedStatusCodes<Responses extends RestResponsesBase> = Responses["status"] | HTTPErrorCode;
 
+type ParameterEncoding = {
+  explode?: boolean;
+};
+
 /** Parameter options for a method and a path
  */
 type ParamOptions<Paths extends object, Path extends keyof Paths, Method extends Exclude<keyof Paths[Path], "parameters">> = object extends GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>>
-  ? { params?: GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>> & ParamsBaseType } | undefined
-  : { params: GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>> & ParamsBaseType };
+  ? { params?: GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>> & ParamsBaseType; encoding?: ParameterEncoding } | undefined
+  : { params: GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>> & ParamsBaseType; encoding?: ParameterEncoding };
 
 /** Union of all allowed response types for an operation, by operation record
  */
@@ -70,7 +74,7 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       this.defaultheaders["Authorization"] = "Bearer " + options.bearertoken;
   }
 
-  async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string, options?: { params?: ParamsBaseType }): Promise<OpResponseTypes<Paths, Components, Path, Method>> {
+  async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string, options?: { params?: ParamsBaseType; encoding?: ParameterEncoding }): Promise<OpResponseTypes<Paths, Components, Path, Method>> {
     const fetchoptions = {
       method,
       headers: this.defaultheaders,
@@ -96,9 +100,19 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
 
     // add unused params to the url as query parameters
     const url = new URL(this.baseurl + route);
-    for (const [key, value] of Object.entries(options?.params ?? {})) {
-      if (!used_pathelts.includes(key))
-        url.searchParams.append(key, value.toString());
+    if (options?.params) {
+      for (const [key, value] of Object.entries(options.params)) {
+        if (!used_pathelts.includes(key)) {
+          if (Array.isArray(value)) {
+            if (options.encoding?.explode ?? true) {
+              for (const elt of value)
+                url.searchParams.append(key, elt);
+            } else
+              url.searchParams.append(key, value.join(","));
+          } else
+            url.searchParams.append(key, value.toString());
+        }
+      }
     }
 
     let retval;
