@@ -3,14 +3,14 @@ import * as services from "@webhare/services";
 import { HTTPMethod, createRedirectResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
-import { IncomingWebRequest, newForwardedWebRequest } from "@webhare/router/src/request";
+import { IncomingWebRequest, newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
 
 interface GetRequestDataResponse {
   method: string;
   webvars: Array<{ ispost: boolean; name: string; value: string }>;
 }
 
-function testRouterAPIs() {
+async function testRouterAPIs() {
   {
     const redirect = createRedirectResponse("https://www.webhare.dev/");
     test.eq(303, redirect.status);
@@ -22,6 +22,15 @@ function testRouterAPIs() {
     test.eq(303, redirect.status);
     test.eq("https://www.webhare.dev/", redirect.getHeader("location"));
   }
+
+  //Test getOriginURL
+  const baseinfo = { sourceip: '127.0.0.1', body: services.WebHareBlob.from(''), method: HTTPMethod.POST, url: "https://www.example.net/subpage/?page=123", headers: {} };
+  test.eq('https://www.example.net/suburl', (await newWebRequestFromInfo({ ...baseinfo })).getOriginURL('/suburl'));
+  test.eq('https://www.example.net/suburl', (await newWebRequestFromInfo({ ...baseinfo })).getOriginURL('suburl'));
+  test.eq('https://www.example.com/suburl', (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite" } })).getOriginURL('suburl'));
+  test.eq('https://www.example.org/suburl', (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite", origin: "https://www.example.org" } })).getOriginURL('suburl'));
+  test.eq('https://www.example.org/suburl', (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite", ORIGIN: "https://www.example.org" } })).getOriginURL('/suburl'));
+  test.eq(null, (await newWebRequestFromInfo({ ...baseinfo, headers: { referer: "https://www.example.com/somesite", ORIGIN: "https://www.example.org" } })).getOriginURL('https://nu.nl'));
 }
 
 function testWebRequest() {

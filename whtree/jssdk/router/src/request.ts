@@ -65,6 +65,11 @@ export interface WebRequest {
   */
   getDebugSettings(): { flags: DebugFlags };
 
+  /** Reconstruct the client's URL based on a pathname and unforgable headers (Origin or Referer) and on requesturl otherwise (if it's not a browser invoking us)
+    @param pathname - Local path as specified by app. Browsers should pass `location.pathname`. The URL may or may not start with a slash but may not be a full url.
+    @returns The pathname rebased to the actual origin URL or null if we couldn't safely determine it */
+  getOriginURL(pathname: string): string | null;
+
   encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] };
 }
 
@@ -134,6 +139,23 @@ export class IncomingWebRequest implements WebRequest {
   getDebugSettings(): { flags: DebugFlags } {
     return getDebugSettings(this);
   }
+
+  getOriginURL(pathname: string): string | null {
+    if (pathname.match(/^[a-zA-Z-0-9]*:/) || pathname.startsWith("//"))
+      return null; //looks like a full url, not good
+
+    let origin = this.headers.get("origin");
+    if (!origin) {
+      const referrer = this.headers.get("referer");
+      if (referrer)
+        origin = new URL(referrer).origin;
+    }
+    if (!origin) //still not found
+      origin = this.url.origin;
+
+    return origin + (pathname.startsWith('/') ? '' : '/') + pathname;
+  }
+
   encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] } {
     return {
       value: {
@@ -172,6 +194,7 @@ class ForwardedWebRequest implements WebRequest {
   getCookie(name: string): string | null { return this.original.getCookie(name); }
 
   getDebugSettings(): { flags: DebugFlags } { return this.original.getDebugSettings(); }
+  getOriginURL(pathname: string) { return this.original.getOriginURL(pathname); }
 
   encodeForTransfer() { return this.original.encodeForTransfer(); }
 }
