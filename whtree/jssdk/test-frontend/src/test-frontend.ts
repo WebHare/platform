@@ -10,8 +10,15 @@ import { wait as oldWait } from "@mod-system/js/wh/testframework";
 /** Wait for the current UIBusyLock (flagUIBusy) to clear if any
  *
  * @throws If that the UI has never been busy since the last wait (and inside the current test step) */
-export async function waitUI(): Promise<void> {
+export async function waitForUI(): Promise<void> {
   await oldWait("ui");
+}
+
+/** Wait for a pageload to complete, triggered by either await load() or an action by the page
+ *
+ * @throws If that the UI has never been busy since the last wait (and inside the current test step) */
+export async function waitForLoad(): Promise<void> {
+  await oldWait("load");
 }
 
 //By definition we re-export all of whtest and @webhare/test
@@ -24,4 +31,7 @@ export {
   qS,
   qSA,
   qR,
+  getTestSiteRoot,
+  click,
+  fill
 } from "@mod-system/js/wh/testframework";

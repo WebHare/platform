@@ -1161,7 +1161,15 @@ function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options) {
   return checkedDispatchEvent(el, evt);
 }
 
-export function click(element, options?) {
+export type ValidElementTarget = Element | string;
+export type ElementTargetOptions = {
+  /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full width. If not set, defaults to 50% */
+  x?: number | string;
+  /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full height. If not set, defaults to 50% */
+  y?: number | string;
+}
+
+export function click(element: ValidElementTarget, options?) {
   element = _resolveToSingleElement(element);
 
   const x = options && "x" in options ? options.x : "50%";
