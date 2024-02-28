@@ -9,6 +9,8 @@ import { splitFileReference } from "@webhare/services/src/naming";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
 import { OpenAPIDescriptor } from "./gen_extracts";
+import { promises as fs } from "node:fs";
+import YAML from "yaml";
 
 
 
@@ -197,9 +199,32 @@ function replaceRefsIterate(node: object, remap: Map<object, { $ref: string }>, 
   stack.delete(node);
 }
 
-export async function createOpenAPITypeDocuments(openapifilepath: string | OpenAPIV3.Document, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
+export function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
+  if (typeof merge !== "object" || !merge || typeof data !== "object" || !data)
+    throw new Error(`Cannot merge a non-object into an object`);
+
+  if (Array.isArray(data) !== Array.isArray(merge))
+    throw new Error(`Cannot merge array into object or vice versa`);
+
+  for (const [key, value] of Object.entries(merge)) {
+    const datavalue = (data as Record<typeof key, unknown>)[key];
+    if (typeof value !== "object" || !value)
+      (data as Record<typeof key, unknown>)[key] = value;
+    else if (typeof datavalue !== "object" || !datavalue)
+      (data as Record<typeof key, unknown>)[key] = value;
+    else
+      mergeIntoBundled((data as Record<typeof key, unknown>)[key], value, `${path}/${key.replace(/~/g, "~0").replace(/\//g, "~1")}`);
+  }
+}
+
+export async function createOpenAPITypeDocuments(openapifilepath: string | OpenAPIV3.Document, merge: object | string | undefined, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
   // First bundle to resolve the references to external files
   const bundled = await SwaggerParser.bundle(openapifilepath) as OpenAPIV3.Document;
+
+  if (merge) {
+    const mergeData = typeof merge === "string" ? YAML.parse(await fs.readFile(merge, "utf8")) : merge;
+    mergeIntoBundled(bundled, mergeData, "");
+  }
 
   const tag = name.replaceAll(/^[a-z]|_[a-z]/g, c => c.replace("_", "").toUpperCase());
 
@@ -417,7 +442,7 @@ async function generateFile(options: GenerateContext, service: OpenAPIDescriptor
   if (options.verbose)
     console.time(timername);
 
-  const retval = await createOpenAPITypeDocuments(toFSPath(service.spec), service, importname, name, isservice);
+  const retval = await createOpenAPITypeDocuments(toFSPath(service.spec), service.merge && toFSPath(service.merge), service, importname, name, isservice);
   if (options.verbose)
     console.timeEnd(timername);
 
