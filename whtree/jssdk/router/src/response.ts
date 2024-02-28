@@ -1,4 +1,4 @@
-import * as env from "@webhare/env";
+import { debugFlags, NavigateInstruction } from "@webhare/env";
 import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
 import { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
@@ -75,7 +75,7 @@ class WebResponse {
     this._headers = new Headers(headers);
     if ("trace" in options)
       this._trace = options.trace;
-    else if (env.debugFlags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
+    else if (debugFlags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
       this._trace = getCallStackAsText(1);
     }
   }
@@ -207,13 +207,20 @@ export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode and headers
  */
-export function createRedirectResponse(location: string, status: HTTPRedirectCode = HTTPSuccessCode.SeeOther, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
-  const resp = new WebResponse(status, { "location": location, ...options?.headers });
-  if (!resp.getHeader("content-type"))
-    resp.setHeader("content-type", "text/html");
-
-  resp.setBody(options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${location}">Click here to continue</a></body></html>`);
-  return resp;
+export function createRedirectResponse(location: string | NavigateInstruction, status: HTTPRedirectCode = HTTPSuccessCode.SeeOther, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
+  if (typeof location === "string") {
+    const resp = new WebResponse(status, { "location": location, ...options?.headers });
+    if (!resp.getHeader("content-type"))
+      resp.setHeader("content-type", "text/html");
+    resp.setBody(options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${location}">Click here to continue</a></body></html>`);
+    return resp;
+  } else {
+    //TODO implement and test the rest of HareScript ExecuteSubmitInstruction and properly allow some createRedirectResponse optins to override where it makes sense?
+    if (location.type === "redirect")
+      return createRedirectResponse(location.url, status, options);
+    else
+      throw new Error("Unsupported NavigateInstruction type");
+  }
 }
 
 export type { WebResponse };

@@ -3,14 +3,13 @@ import { DocEvent, FormControlElement, TakeFocusEvent, addDocEventListener, isFo
 import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
-import { SubmitInstruction, executeSubmitInstruction } from '@mod-system/js/wh/integration';
 import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
-import { debugFlags } from '@webhare/env';
+import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getErrorForValidity, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 
 declare global {
@@ -77,7 +76,7 @@ export interface FormSubmitEmbeddedResult {
   submittype?: string;
   richvalues?: RichValues;
   resultsguid?: string;
-  submitinstruction?: SubmitInstruction;
+  submitinstruction?: NavigateInstruction;
 }
 
 export interface FormSubmitMessage {
@@ -1211,7 +1210,7 @@ export default class FormBase {
       if (nextpage != -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole == 'thankyou') {
         const redirectto = state.pages[nextpage].dataset.whFormPageredirect;
         if (redirectto)
-          executeSubmitInstruction({ type: "redirect", url: redirectto });
+          navigateTo({ type: "redirect", url: redirectto });
         else {
           this.updateRichValues(state.pages[nextpage], richvalues);
           this.gotoPage(nextpage);

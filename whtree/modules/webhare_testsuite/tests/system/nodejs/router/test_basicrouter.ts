@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import { HTTPMethod } from "@webhare/router";
+import { HTTPMethod, createRedirectResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IncomingWebRequest, newForwardedWebRequest } from "@webhare/router/src/request";
@@ -8,6 +8,20 @@ import { IncomingWebRequest, newForwardedWebRequest } from "@webhare/router/src/
 interface GetRequestDataResponse {
   method: string;
   webvars: Array<{ ispost: boolean; name: string; value: string }>;
+}
+
+function testRouterAPIs() {
+  {
+    const redirect = createRedirectResponse("https://www.webhare.dev/");
+    test.eq(303, redirect.status);
+    test.eq("https://www.webhare.dev/", redirect.getHeader("location"));
+  }
+
+  {
+    const redirect = createRedirectResponse({ type: "redirect", url: "https://www.webhare.dev/" });
+    test.eq(303, redirect.status);
+    test.eq("https://www.webhare.dev/", redirect.getHeader("location"));
+  }
 }
 
 function testWebRequest() {
@@ -118,6 +132,7 @@ async function testJSBackedURLs() {
 }
 
 test.run([
+  testRouterAPIs,
   testWebRequest,
   testHSWebserver,
   testJSBackedURLs

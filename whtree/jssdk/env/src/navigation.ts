@@ -1,6 +1,8 @@
-import { create } from "@webhare/dompack";
-
 type FormValueList = Array<{ name: string; value: string }>;
+
+/** A navigation instruction encapsulates the next step that a client has to take in eg. a login, payment or wizard flow.
+ * Use navigateTo to execute a navigation in a browser
+*/
 
 export type NavigateInstruction =
   {
@@ -23,14 +25,17 @@ export type NavigateInstruction =
     type: "close";
   };
 
-function generateForm(action: string, values: FormValueList, method?: "POST") {
-  const form = create("form", { action: action, method: method || "POST", charset: "utf-8" });
-  form.append(...values.map(item => create("input", { type: "hidden", name: item.name, value: item.value })));
-  return form;
-}
-
-function submitForm(action: string, values: FormValueList, method?: "POST") {
-  const form = generateForm(action, values, method);
+function submitForm(action: string, values: FormValueList, method = "POST") {
+  const form = document.createElement("form");
+  form.method = method;
+  form.action = action;
+  form.append(...values.map(item => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = item.name;
+    input.value = item.value;
+    return input;
+  }));
   document.body.appendChild(form);
   form.submit();
 }
@@ -39,7 +44,8 @@ function submitForm(action: string, values: FormValueList, method?: "POST") {
 * @param navigation - Target URL or NavigateInstruction
 */
 export function navigateTo(navigation: string | NavigateInstruction) {
-  //NOTE: integration.ts#executeSubmitInstruction had more features, eg modal and iframe, but let's see whether we need them..
+  if (typeof window === "undefined")
+    throw new Error(`navigateTo() is not available in this environment`);
 
   if (typeof navigation === "string")
     navigation = { type: "redirect", url: navigation };

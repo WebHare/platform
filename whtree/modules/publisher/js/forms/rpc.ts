@@ -3,11 +3,10 @@ import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
 import FormBase, { FormResultValue, FormSubmitEmbeddedResult, FormSubmitMessage } from './formbase';
 import publisherFormService from "@webhare/forms/src/formservice";
-import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
-import { debugFlags, isLive } from "@webhare/env";
+import { debugFlags, isLive, navigateTo } from "@webhare/env";
 import { createDeferred, pick } from '@webhare/std';
 import { setFieldError } from "@mod-publisher/js/forms";
 
@@ -334,7 +333,7 @@ export default class RPCFormBase extends FormBase {
       this.node.dataset.whFormResultguid = result.resultsguid;
 
     if (result && result.submitinstruction)
-      whintegration.executeSubmitInstruction(result.submitinstruction);
+      navigateTo(result.submitinstruction);
   }
 
   //override this to deal with failed submissions

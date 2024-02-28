@@ -2,6 +2,7 @@ import { debugFlags, registerDebugConfigChangedCallback, dtapStage, isLive, back
 import { hookFetch } from "./fetchdebug";
 import { DTAPStage } from "./concepts";
 
+export { type NavigateInstruction, navigateTo } from "./navigation";
 export { DTAPStage, dtapStage, debugFlags, isLive, backendBase };
 
 //export deprecated variants

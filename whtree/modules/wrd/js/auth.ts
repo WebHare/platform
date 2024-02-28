@@ -9,6 +9,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';
+import { navigateTo } from '@webhare/env/src/navigation';
 
 let defaultauth: WRDAuthenticationProvider | null = null;
 
@@ -213,7 +214,7 @@ export class WRDAuthenticationProvider {
     loginlock.release();
     if (response.success) {
       if (response.submitinstruction) {
-        whintegration.executeSubmitInstruction(response.submitinstruction);
+        navigateTo(response.submitinstruction);
         return;
       }
 
