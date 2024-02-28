@@ -52,7 +52,14 @@ MACRO RunFunctionRequest(RECORD request)
 
     BOOLEAN ismacro := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(target).returntype IN [0,2];
     VARIANT result := CallAnyPtrVA(target, request.params);
-    __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, result);
+    TRY
+    {
+      __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, result);
+    }
+    CATCH (OBJECT e)
+    {
+      ABORT("Exception while attempting to return a function result back to JavaScript: " || e->what);
+    }
   }
   CATCH(OBJECT e)
   {

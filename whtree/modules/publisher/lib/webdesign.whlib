@@ -1162,6 +1162,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(ObjectExists(this->pagewitty))
       this->__RunWithContents(contents, PTR this->RunPageWitty);
   }
+  PUBLIC MACRO __RunPageWithPrintPlaceholder(STRING placeholder)
+  {
+    this->RunPageWithContents(PTR Print(placeholder));
+  }
 
   /** @short Open RTD data using an rtdtype
       @signature OBJECT FUNCTION OpenRTD(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)

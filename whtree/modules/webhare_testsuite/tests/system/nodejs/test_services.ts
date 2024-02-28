@@ -11,6 +11,7 @@ import { createVM, HSVMObject } from "@webhare/harescript";
 import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
+import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -18,6 +19,10 @@ function ensureProperPath(inpath: string) {
 }
 
 async function testServices() {
+  test.typeAssert<test.Assignable<ConfigurableSubsystem, "wrd">>();
+  //@ts-expect-error -- Verify ConfigurableSubsystem is not just a string
+  test.typeAssert<test.Assignable<ConfigurableSubsystem, "anything">>();
+
   test.assert(services.backendConfig);
   test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
 

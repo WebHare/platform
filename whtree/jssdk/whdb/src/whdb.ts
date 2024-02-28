@@ -44,7 +44,7 @@ export interface WorkOptions {
 }
 
 // A finish handler is invoked when a transaction is committed or rolled back.
-interface FinishHandler {
+export interface FinishHandler {
   /// Callback that is invoked before we attempt to commit
   onBeforeCommit?: () => unknown | Promise<unknown>;
   /// Callback that is invoked on a succesful commit

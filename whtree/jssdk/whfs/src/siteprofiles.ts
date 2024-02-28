@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- FIXME a lot of siteprofile rules are still any[] */
-import * as services from '@webhare/services';
-import * as fs from 'node:fs';
 
 export enum CSPMemberType {
   String = 2,
@@ -221,11 +219,11 @@ export interface CachedSiteProfiles {
   applies: CSPApplyRule[];
 }
 
-let csp: CachedSiteProfiles;
-
-export function getCachedSiteProfiles() {
-  if (!csp)
-    csp = JSON.parse(fs.readFileSync(services.toFSPath("storage::system/config/siteprofiles.json")).toString()) as CachedSiteProfiles;
-
-  return csp;
+export interface SiteProfileRef {
+  id: number;
+  name: string;
+  roottype: number;
+  sitedesign: string;
+  siteprofileids: number[];
+  webroot: string;
 }

@@ -2,8 +2,6 @@ import { toFSPath } from "./resources";
 import * as fs from "node:fs";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
-import { openBackendService } from "./backendservice";
-import { ConfigClient } from "@mod-platform/js/configure/configservice";
 import { backendConfig } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
@@ -23,6 +21,7 @@ export { readRegistryKey, writeRegistryKey } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
+export { applyConfiguration, createAppliedPromise } from "./applyconfig";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
@@ -42,14 +41,6 @@ export async function isWebHareRunning() {
   } catch (e) {
     return false;
   }
-}
-
-export async function applyConfiguration(options: Parameters<typeof ConfigClient["prototype"]["applyConfiguration"]>[0] = {}) {
-  if (!options.source)
-    throw new Error("applyConfiguration requires a source");
-
-  using service = await openBackendService<ConfigClient>("platform:configuration");
-  return await service.applyConfiguration(options);
 }
 
 /** Asynchronously invoke a HareScript fuction

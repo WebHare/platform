@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 
 LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -1820,15 +1821,25 @@ PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
   RETURN allsites;
 }
 
+RECORD ARRAY FUNCTION GenerateReferrals(RECORD csp)
+{
+  RECORD ARRAY referrals := GetSiteActiveProfileReferrals(csp);
+  referrals := SELECT id, name, roottype, webroot, siteprofileids, sitedesign FROM referrals ORDER BY id;
+  RETURN referrals;
+}
 RECORD FUNCTION GetCacheableCurrentProfileReferrals()
 {
-  RECORD gathersp := GetCachedSiteProfiles();
-  RECORD ARRAY referrals := GetSiteActiveProfileReferrals(gathersp);
-  referrals := SELECT id, name, roottype, webroot, siteprofileids, sitedesign FROM referrals ORDER BY id;
-  RETURN CELL[ value := referrals
+  RETURN CELL[ value := GenerateReferrals(GetCachedSiteProfiles())
              , ttl := 60*60*1000
              , eventmasks := site_referrals_mask
              ];
+}
+PUBLIC MACRO UpdateSiteProfileRefs(RECORD csp)
+{
+  RECORD ARRAY referrals := GenerateReferrals(csp ?? GetCachedSiteProfiles());
+  STRING configpath := GetModuleStorageRoot("system") || "config";
+  CreateDiskDirectoryRecursive(configpath, TRUE);
+  StoreDiskFile(configpath || "/siteprofilerefs.json", EncodeJSONBlob(referrals), [ overwrite := TRUE ]);
 }
 
 RECORD ARRAY FUNCTION GetCurrentProfileReferrals()

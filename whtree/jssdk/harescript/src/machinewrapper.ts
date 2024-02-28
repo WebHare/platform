@@ -47,7 +47,7 @@ export class HSVMWrapper implements HSVM_HSVMSource {
   }
 }
 
-export class CallableVMWrapper extends HSVMWrapper {
+export class CallableVM extends HSVMWrapper {
   loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
   loadlib(name: string): HSVMCallsProxy;
 
@@ -57,7 +57,7 @@ export class CallableVMWrapper extends HSVMWrapper {
   }
 }
 
-export class RunScriptVMWrapper extends HSVMWrapper {
+export class RunScriptVM extends HSVMWrapper {
   done: Promise<void>;
 
   constructor(script: string, vm: HareScriptVM) {
@@ -68,13 +68,13 @@ export class RunScriptVMWrapper extends HSVMWrapper {
 
 export async function runScript(script: string, options?: StartupOptions) {
   const vm = await allocateHSVM(options || {});
-  return new RunScriptVMWrapper(script, vm);
+  return new RunScriptVM(script, vm);
 }
 
 export async function createVM(options?: StartupOptions) {
   const vm = await allocateHSVM(options || {});
   vm.run("mod::system/scripts/internal/eventloop.whscr");
-  return new CallableVMWrapper(vm);
+  return new CallableVM(vm);
 }
 
 function shutdownHSVM(vm: HareScriptVM) {

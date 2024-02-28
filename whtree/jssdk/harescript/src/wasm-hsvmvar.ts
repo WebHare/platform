@@ -282,6 +282,10 @@ export class HSVMVar {
     this.checkType(VariableType.Object);
     return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id) !== 0;
   }
+  functionPtrExists(): boolean {
+    this.checkType(VariableType.FunctionPtr);
+    return this.vm.wasmmodule._HSVM_FunctionPtrExists(this.vm.hsvm, this.id) !== 0;
+  }
   memberExists(name: string): boolean {
     this.checkType(VariableType.Object);
     const columnid = this.vm.getColumnId(name);
@@ -427,6 +431,7 @@ export class HSVMVar {
       case VariableType.IntegerArray: break;
       case VariableType.RecordArray: break;
       case VariableType.ObjectArray: break;
+      case VariableType.FunctionPtrArray: break;
 
       case VariableType.Integer: {
         return this.vm.wasmmodule._HSVM_IntegerGet(this.vm.hsvm, this.id);
@@ -475,6 +480,12 @@ export class HSVMVar {
 
         return this.vm.objectCache.ensureObject(this.id);
       }
+      case VariableType.FunctionPtr:
+        if (!this.functionPtrExists())
+          return null; //TODO or a boxed default functionptr?
+
+        throw new Error(`Returning active function ptr not supported yet`);
+
       default: {
         throw new Error(`Decoding ${VariableType[type]} not supported yet`);
       }

@@ -1,7 +1,7 @@
 import { ensureScopedResource, getScopedResource, isRootCodeContext } from "@webhare/services/src/codecontexts";
 import { HSVMCallsProxy, HSVMObject, invokeOnVM } from "./wasm-proxies";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
-import { CallableVMWrapper, createVM } from "./machinewrapper";
+import { CallableVM, createVM } from "./machinewrapper";
 
 const HSVMSymbol = Symbol("HSVM");
 
@@ -12,10 +12,10 @@ async function allocateCodeContextHSVM() {
   return vm;
 }
 
-export function getCodeContextHSVM(): Promise<CallableVMWrapper> | undefined {
-  return getScopedResource<Promise<CallableVMWrapper>>(HSVMSymbol);
+export function getCodeContextHSVM(): Promise<CallableVM> | undefined {
+  return getScopedResource<Promise<CallableVM>>(HSVMSymbol);
 }
-export function ensureCodeContextHSVM(): Promise<CallableVMWrapper> {
+export function ensureCodeContextHSVM(): Promise<CallableVM> {
   return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM(), async vm => {
     (await vm).dispose();
   });

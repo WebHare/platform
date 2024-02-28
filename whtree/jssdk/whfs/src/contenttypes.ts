@@ -2,9 +2,10 @@ import { Selectable, db, nextVal, sql } from "@webhare/whdb";
 import { pick } from "@webhare/std";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
-import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
+import { CSPContentType } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
 import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
+import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -49,7 +50,7 @@ export interface FolderTypeInfo extends ContentTypeInfo {
 
 //WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
 export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
-  const types = getCachedSiteProfiles().contenttypes;
+  const types = getExtractedHSConfig("siteprofiles").contenttypes;
   if (typeof type === "string") {
     if (!type)
       return undefined;

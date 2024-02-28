@@ -25,8 +25,11 @@ MACRO TestPresence()
   TestEq(FALSE, temptester->MatchWebfeatures([ "webhare_testsuite:testfeature" ]));
 
   testfw->BeginWork();
-  testfw->GetTestSite()->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:testfeature"]]);
+  RECORD res := testfw->GetTestSite()->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:testfeature"]]);
   testfw->CommitWork();
+
+  //We don't need to do this as HareScript relies on an invalidation through eventmasks too. But lets at least test the basic API
+  WaitForPromise(res.applied());
 
   TestEq(["webhare_testsuite:testfeature"], testfw->GetTestSite()->webfeatures);
   TestEq(1, Length(GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/webhare_testsuite/blub", "blub", testfw->GetTestSite()->id)));

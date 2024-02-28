@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
@@ -495,7 +496,9 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
   __HS_MarshalWriteTo(str, result);
   BLOB blobdata := MakeBlobFromStream(str);
 
+  //TODO This is not an atomic replace. consider combining siteprofiles and siteprofilerefs.json and have the 'fast path' simply update part of the refs file
   STRING configpath := GetModuleStorageRoot("system") || "config";
+  UpdateSiteProfileRefs(result); //will also generate the needed directories
   CreateDiskDirectoryRecursive(configpath, TRUE);
   StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result), [ overwrite := TRUE ]);
   StoreDiskFile(configpath || "/siteprofiles.bin", blobdata, [ overwrite := TRUE ]);

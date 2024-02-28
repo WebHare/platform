@@ -3,6 +3,7 @@
   <apply>
     <to type="all" />
     <blub xmlns="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
+    <userdata key="webhare_testsuite:blub" value='{"fish":true}' />
   </apply>
 
 </siteprofile>
