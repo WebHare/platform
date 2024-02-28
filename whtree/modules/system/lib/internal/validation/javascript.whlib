@@ -426,9 +426,21 @@ RECORD FUNCTION DecodeResult(BLOB result)
       ];
 }
 
-ASYNC FUNCTION FormatSingleFile(RECORD file)
+/** Format a single javascript file
+    @param file File to format
+    @param autofix If set, automatically fix issues. Usually not used when just testing for formatting changes to prevent turning autofixable eslint warnings into errors
+    @return Formatted file
+    @cell(blob) return.output Formatted file
+*/
+ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix)
 {
-  RECORD rec := AWAIT RunESLint(file.data, file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
+  BLOB data := file.data;
+
+  IF(autofix)
+  {
+    RECORD eslint := AWAIT RunESLint(file.data, file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
+    data := eslint.output;
+  }
 
   STRING dir := GetDirectoryFromPath(file.path);
 
@@ -436,13 +448,12 @@ ASYNC FUNCTION FormatSingleFile(RECORD file)
       [ basedir :=          dir
       , tsfmtfile :=        ResolveToRelativePath(dir, MergePath(GetWebhareConfiguration().installationroot, "tsfmt.json"))
       , file.path
-      , data :=             EncodeBase64(BlobToString(rec.output))
+      , data :=             EncodeBase64(BlobToString(data))
       ];
 
-  rec := AWAIT CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]);
-
+  RECORD rec := AWAIT CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]);
   BLOB output;
-  IF (rec.output != cmd.data AND rec.error = "")
+  IF (rec.output != cmd.data AND rec.error = "" AND autofix)
   {
     // Re-run eslint to clean up formatting result (which sometimes leaves trailing spaces)
     RECORD eslintres := AWAIT RunESLint(StringToBlob(DecodeBase64(rec.output)), file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
@@ -467,7 +478,7 @@ ASYNC FUNCTION FormatSingleFile(RECORD file)
     @cell(string) return.error If set, error message
     @cell(blob) return.output Formatted output (if error is empty)
 */
-PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data)
+PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data, BOOLEAN autofix)
 {
   INTEGER cmdstream := CreateStream();
 
@@ -476,7 +487,7 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data)
 
   OBJECT ARRAY scheduled;
   FOREVERY (RECORD file FROM data)
-    INSERT serializer->Call(PTR FormatSingleFile, file) INTO scheduled AT END;
+    INSERT serializer->Call(PTR FormatSingleFile, file, autofix) INTO scheduled AT END;
 
   RETURN RECORD ARRAY(AWAIT CreatePromiseAll(scheduled));
 }
@@ -487,9 +498,9 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data)
     @return Formatted file
     @cell(blob) return.output Formatted file
 */
-PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data)
+PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data, BOOLEAN autofix)
 {
-  RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ]);
+  RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ], autofix);
   IF (res[0].error != "")
     THROW NEW Exception(`Error formatting file: ${res[0].error}`);
   RETURN CELL[ res[0].output ];
@@ -541,7 +552,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
 
   TRY
   {
-    RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat));
+    RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat, FALSE));
     FOREVERY (RECORD rec FROM result)
     {
       STRING resourcename := rec.module = "jssdk" ? `direct::${rec.path}` : `mod::${rec.module}/${rec.subpath}`;
@@ -565,7 +576,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
             , line :=         1
             , col :=          1
             , message :=      `File hasn't been formatted correctly - fixable using wh dev:autoformat`
-            , category :=     "error"
+            , category :=     "warning"
             ] INTO retval.issues AT END;
       }
     }
