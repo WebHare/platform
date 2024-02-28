@@ -17,6 +17,7 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   options := ValidateOptions(
     [ ongetloginwittydata := DEFAULT FUNCTION PTR
     , fallbacktologin := TRUE //Return loginpage if no explicit route found
+    , passwordresetrouter := DEFAULT MACRO PTR
     ], options);
 
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();
@@ -30,7 +31,7 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   {
     IF(authplugin->IsLoggedIn())
       Redirect(GetWRDPagesCleanURL());
-    RETURN GetForgotPasswordPage(webdesign, options);
+    RETURN options.passwordresetrouter != DEFAULT MACRO PTR ? options.passwordresetrouter(webdesign, CELL [ authplugin ]) : GetForgotPasswordPage(webdesign, options);
   }
   IF(action IN ["resetpassword","setpassword"])
   {
