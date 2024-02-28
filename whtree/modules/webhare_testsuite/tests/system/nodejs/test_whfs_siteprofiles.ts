@@ -16,6 +16,7 @@ async function testSiteProfiles() {
   test.eq("wrd:testschema", wrdauth.wrdSchema);
   test.eq("currentsite::/portal1/", wrdauth.loginPage);
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
+  test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#AuthCustomizer', wrdauth.customizer);
 
   const testsite = await whfs.openSite("webhare_testsuite.testsite");
   const testobj = await testsite.openFolder("testpages");

@@ -21,6 +21,19 @@ export async function createSigningKey(): Promise<JsonWebKey> {
   return pvtkey.export({ format: 'jwk' });
 }
 
+export interface OnOpenIdReturnParameters {
+  /// ID of the client requesting the token
+  client: number;
+  /// Requested scopes
+  scopes: string[];
+  /// ID of the WRD user that has authenticated
+  user: number;
+}
+export interface WRDAuthCustomizer {
+  /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
+  onOpenIdReturn?: (params: OnOpenIdReturnParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
+}
+
 export interface JWKS {
   keys: JsonWebKey[];
 }

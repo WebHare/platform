@@ -237,6 +237,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
            , loginpage := node->GetAttribute("loginpage")
            , spautocreate := node->GetAttribute("spautocreate") IN [ "1", "true" ]
            , cookiename := node->GetAttribute("cookiename")
+           , customizer := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, node->GetAttribute("customizer"))
            , securecookie := ParseXSBoolean(node->GetAttribute("securecookie"))
            , nohttponlycookies := ParseXSBoolean(node->GetAttribute("nohttponlycookies"))
            , firstloginfield := node->GetAttribute("firstloginfield")

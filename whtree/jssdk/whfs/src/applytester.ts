@@ -270,7 +270,8 @@ export class WHFSApplyTester {
     const wrdauth = {
       wrdSchema: null as null | string,
       loginPage: null as null | string,
-      cookieName: "webharelogin"
+      cookieName: "webharelogin",
+      customizer: null as null | string,
     };
 
     for (const apply of await this.getMatchingRules('plugins')) {
@@ -282,6 +283,8 @@ export class WHFSApplyTester {
             wrdauth.loginPage = plugin.data.loginpage as string;
           if (plugin.data.__attributes.includes("COOKIENAME"))
             wrdauth.cookieName = plugin.data.cookiename as string;
+          if (plugin.data.__attributes.includes("CUSTOMIZER"))
+            wrdauth.customizer = plugin.data.customizer as string;
         }
     }
 
