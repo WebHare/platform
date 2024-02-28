@@ -217,7 +217,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const config = await this.getKeyConfig();
     if (!config || !config.issuer || !config.signingKeys?.length)
-      throw new Error(`Schema ${this.wrdschema.id} is not configured properly. Missing issuer or signingKeys`);
+      throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
     const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
     const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId: compressUUID(sessionGuid) });

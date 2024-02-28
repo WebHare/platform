@@ -89,17 +89,14 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   return attrs;
 }
 
-export async function getSchemaData(id: string | number): Promise<SchemaData> {
+export async function getSchemaData(tag: string): Promise<SchemaData> {
   let schemaquery = db<PlatformDB>()
     .selectFrom("wrd.schemas")
     .select(selectSchemaColumns);
-  if (typeof id === "number")
-    schemaquery = schemaquery.where("id", "=", id);
-  else
-    schemaquery = schemaquery.where("name", "=", id);
+  schemaquery = schemaquery.where("name", "=", tag);
   const schema = await schemaquery.executeTakeFirst();
   if (!schema)
-    throw new Error(`No such schema ${JSON.stringify(id)}`);
+    throw new Error(`No such schema ${JSON.stringify(tag)}`);
   const types = (await db<PlatformDB>()
     .selectFrom("wrd.types")
     .select(selectTypeColumns)
