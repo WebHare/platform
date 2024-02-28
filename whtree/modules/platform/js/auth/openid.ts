@@ -2,36 +2,14 @@ import { WebHareRouter, WebRequest, WebResponse, createJSONResponse, createRedir
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
-import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema, type WRDAuthCustomizer } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
-import { generateRandomId, joinURL } from "@webhare/std";
-import { decryptForThisServer, encryptForThisServer } from "@webhare/services";
+import { joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
-import { runInWork } from "@webhare/whdb";
-import { IdentityProvider, decompressUUID, hashClientSecret } from "@webhare/wrd/src/auth";
-
-declare module "@webhare/services" {
-  interface ServerEncryptionScopes {
-    "wrd:authplugin.logincontroltoken": {
-      afterlogin: string;
-      /** Expected logintypes, eg 'wrdauth' or 'external' */
-      logintypes: string[];
-      ruleid: number;
-      returnto: string;
-      validuntil: Date;
-    };
-    "wrd:openid.idpstate": {
-      clientid: number;
-      scopes: string[];
-      state: string | null;
-      cbUrl: string;
-    };
-  }
-}
-
-const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
+import { IdentityProvider } from "@webhare/wrd/src/auth";
+import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 
 async function findLoginPageForSchema(schema: string) {
   const sites = (await listSites(["webFeatures", "webRoot"])).filter((site) => site.webFeatures?.includes("platform:identityprovider"));
@@ -40,7 +18,7 @@ async function findLoginPageForSchema(schema: string) {
     const applyTester = await getApplyTesterForObject(await openFolder(site.id));
     const wrdauth = await applyTester?.getWRDAuth();
     if (wrdauth.wrdSchema === schema)
-      candidates.push({ ...site, loginPage: wrdauth.loginPage, cookieName: wrdauth.cookieName });
+      candidates.push({ ...site, ...pick(wrdauth, ["loginPage", "cookieName", "customizer"]) });
   }
   if (candidates.length > 1)
     throw new Error(`Multiple sites with an identity provider for schema ${schema}: ${candidates.map((c) => c.id).join(", ")}`);
@@ -67,7 +45,7 @@ async function findLoginPageForSchema(schema: string) {
 
     loginPage = joinURL(site.webRoot, targeted[2]);
   }
-  return { loginPage, cookieName: candidates[0].cookieName };
+  return { loginPage, cookieName: candidates[0].cookieName, customizer: candidates[0].customizer };
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
@@ -84,7 +62,8 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
-  if (endpoint[3] == 'userinfo') {
+  const customizer = login.customizer ? await makeJSObject(login.customizer) as WRDAuthCustomizer : null;
+  if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])
       return createJSONResponse(401, { error: "Missing bearer token" });
@@ -108,56 +87,22 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     return createJSONResponse(200, userinfo);
   }
 
-  let headerClientId = '', headerClientSecret = '';
-  const authorization = req.headers.get("Authorization")?.match(/^Basic +(.+)$/i);
-  if (authorization) {
-    const decoded = atob(authorization[1]).split(/^([^:]+):(.*)$/);
-    if (decoded)
-      [, headerClientId, headerClientSecret] = decoded;
-
-    /* TODO? if specified, we should probably validate the id/secret right away to provide a nicer UX rather than waiting for the token endpoint to be hit ?
-        Or aren't we allowed to validate  .. RFC6749 4.1.2 doesn't mention checking confidential clients, 4.1.4 does
-        */
-  }
-
-  if (endpoint[3] == 'jwks') {
+  if (endpoint[3] === 'jwks') {
     const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
     return createJSONResponse(200, await provider.getPublicJWKS());
   }
 
-  if (endpoint[3] == 'authorize') {
-    const clientid = headerClientId || req.url.searchParams.get("client_id") || '';
-    const client = await wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
-    if (client.length !== 1)
-      return createJSONResponse(404, { error: "No such client" });
+  const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
+  if (endpoint[3] === 'authorize') {
 
-    const scopes = req.url.searchParams.get("scope")?.split(" ");
-    const redirect_uri = req.url.searchParams.get("redirect_uri") || '';
-    const state = req.url.searchParams.get("state") || null;
-    // const response_type = req.url.searchParams.get("response_type"); //FIXME use it
+    const redirect = await provider.startAuthorizeFlow(req.url, login.loginPage, customizer);
+    if (redirect.error !== null)
+      return createJSONResponse(400, { error: redirect.error });
 
-    if (!client[0].callbackUrls.find((cb) => cb.url == redirect_uri))
-      return createJSONResponse(404, { error: "Unauthorized callback URL " + redirect_uri });
-
-    //Go through this page so HS logincode doesn't have to deal with OIDC. TODO use session for returnInfo to keep url length down
-    const returnInfo = encryptForThisServer("wrd:openid.idpstate", { clientid: client[0].wrdId, scopes: scopes || [], state: state, cbUrl: redirect_uri });
-    const currentRedirectURI = "/.wh/openid/" + endpoint[1] + "/" + endpoint[2] + "/return?tok=" + returnInfo;
-
-    const loginControl = { //see __GenerateAccessRuleLoginControlToken
-      afterlogin: "siteredirect",
-      logintypes: ["wrdauth"],
-      ruleid: 0,
-      returnto: currentRedirectURI,
-      validuntil: new Date(Date.now() + logincontrolValidMsecs)
-    };
-
-    const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl);
-    const target = new URL(login.loginPage);
-    target.searchParams.set("wrdauth_logincontrol", loginToken);
-    return createRedirectResponse(target.toString());
+    return createRedirectResponse(redirect);
   }
 
-  if (endpoint[3] == 'return') {
+  if (endpoint[3] === 'return') {
     const wrdauthCookie = req.getCookie(login.cookieName);
     //TODO turn wrdauth cookies into a modern format so we can read it without using the HS Engine
     if (!wrdauthCookie)
@@ -173,61 +118,21 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     if (!wrdauth?.user)
       throw new Error('Invalid login');
 
-    const returnInfo = decryptForThisServer("wrd:openid.idpstate", req.url.searchParams.get("tok") || '');
+    const redirect = await provider.returnAuthorizeFlow(req.url, wrdauth.user, customizer);
+    if (redirect.error !== null)
+      return createJSONResponse(400, { error: redirect.error });
 
-    const code = generateRandomId();
-    await runInWork(async () => {
-      const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
-      await provider.createSession(wrdauth.user, returnInfo.clientid, { scopes: returnInfo.scopes, settings: { code } });
-    });
-
-    const finalRedirectURI = new URL(returnInfo.cbUrl);
-    if (returnInfo.state !== null)
-      finalRedirectURI.searchParams.set("state", returnInfo.state);
-    finalRedirectURI.searchParams.set("code", code);
-    return createRedirectResponse(finalRedirectURI.toString());
+    return createRedirectResponse(redirect);
   }
 
-  if (endpoint[3] == 'token') {
+  if (endpoint[3] === 'token') {
     const body = await req.text();
     const form = new URLSearchParams(body);
-    const clientid = headerClientId || form.get("client_id") || '';
-    const client = await wrdschema.
-      query("wrdauthServiceProvider").
-      where("wrdGuid", "=", decompressUUID(clientid)).
-      select(["clientSecrets", "wrdId"]).
-      execute();
-    if (client.length !== 1)
-      return createJSONResponse(404, { error: "No such client" });
-
-    const granttype = form.get("grant_type");
-    if (granttype !== "authorization_code")
-      return createJSONResponse(400, { error: `Unexpected grant_type '${granttype}'` });
-
-    const urlsecret = headerClientSecret || form.get("client_secret");
-    if (!urlsecret)
-      return createJSONResponse(400, { error: "Missing parameter client_secret" });
-
-    const hashedsecret = hashClientSecret(urlsecret);
-    const matchsecret = client[0].clientSecrets.find((secret) => secret.secretHash === hashedsecret);
-    if (!matchsecret)
-      return createJSONResponse(400, { error: "Invalid secret" });
-
-    const code = form.get("code");
-    if (!code)
-      return createJSONResponse(400, { error: "Missing code" });
-
-    const provider = new IdentityProvider(wrdschema);
-    //FIXME properly separate id_tokens and access_tokens. id_tokens is for openid, access_token is for oauth2
-    //FIXME make sure we don't confuse the two, that they have at least separate `aud`s
-    const match = await provider.exchangeCode(client[0].wrdId, code);
-    if (!match)
-      return createJSONResponse(400, { error: "Invalid or expired code" });
-
-    return createJSONResponse(200, {
-      id_token: match.access_token,
-      expires_in: match.expires_in
-    });
+    const response = await provider.retrieveTokens(form, req.headers, customizer);
+    if (response.error !== null)
+      return createJSONResponse(400, { error: response.error });
+    else
+      return createJSONResponse(200, response.body);
   }
 
   return createJSONResponse(404, { error: `Unrecognized openid endpoint '${endpoint[3]}'` });

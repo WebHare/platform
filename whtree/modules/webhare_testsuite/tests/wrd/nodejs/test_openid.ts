@@ -9,6 +9,7 @@ import { launchPuppeteer, type PuppeteerBrowser } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import { testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = true;
@@ -171,6 +172,7 @@ async function verifyOpenIDClient() {
 }
 
 test.run([
+  testSuiteCleanup,
   setupOIDC,
   verifyRoutes,
   verifyOpenIDClient,

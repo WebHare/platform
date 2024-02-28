@@ -5,7 +5,37 @@ import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/we
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
-import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
+import { NavigateInstruction } from "@webhare/env";
+import { decryptForThisServer, encryptForThisServer } from "@webhare/services";
+
+const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
+
+type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
+
+type TokenResponse = {
+  id_token?: string;
+  expires_in: number;
+};
+
+declare module "@webhare/services" {
+  interface ServerEncryptionScopes {
+    "wrd:authplugin.logincontroltoken": {
+      afterlogin: string;
+      /** Expected logintypes, eg 'wrdauth' or 'external' */
+      logintypes: string[];
+      ruleid: number;
+      returnto: string;
+      validuntil: Date;
+    };
+    "wrd:openid.idpstate": {
+      clientid: number;
+      scopes: string[];
+      state: string | null;
+      cbUrl: string;
+    };
+  }
+}
 
 export async function createSigningKey(): Promise<JsonWebKey> {
   const pvtkey = await new Promise((resolve, reject) =>
@@ -121,7 +151,7 @@ export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, 
   if (options?.scopes?.length)
     payload.scope = options.scopes.join(" ");
   if (options?.audiences?.length)
-    payload.aud = options.audiences.length == 1 ? options.audiences[0] : options.audiences;
+    payload.aud = options.audiences.length === 1 ? options.audiences[0] : options.audiences;
   if (options?.jwtId)
     payload.jti = options.jwtId;
 
@@ -307,6 +337,115 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       wrdId: matchToken[0].wrdLeftEntity,
       payload,
       scopes: payload.scope?.split(" ") ?? []
+    };
+
+  }
+
+  private getOpenIdBase() {
+    const schemaparts = this.wrdschema.tag.split(":");
+    return "/.wh/openid/" + encodeURIComponent(schemaparts[0]) + "/" + encodeURIComponent(schemaparts[1]) + "/";
+  }
+
+  /** Start an oauth2/openid authorization flow */
+  async startAuthorizeFlow(url: URL, loginPage: string, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
+    const clientid = url.searchParams.get("client_id") || '';
+    const scopes = url.searchParams.get("scope")?.split(" ") || [];
+    const redirect_uri = url.searchParams.get("redirect_uri") || '';
+    const state = url.searchParams.get("state") || null;
+
+    const client = await this.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
+    if (client.length !== 1)
+      return { error: "No such client" };
+
+    if (!client[0].callbackUrls.find((cb) => cb.url === redirect_uri))
+      return { error: "Unauthorized callback URL " + redirect_uri };
+
+    //Go through this page so HS logincode doesn't have to deal with OIDC. TODO use session for returnInfo to keep url length down
+    const returnInfo = encryptForThisServer("wrd:openid.idpstate", { clientid: client[0].wrdId, scopes: scopes || [], state: state, cbUrl: redirect_uri });
+    const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
+
+    const loginControl = { //see __GenerateAccessRuleLoginControlToken
+      afterlogin: "siteredirect",
+      logintypes: ["wrdauth"],
+      ruleid: 0,
+      returnto: currentRedirectURI,
+      validuntil: new Date(Date.now() + logincontrolValidMsecs)
+    };
+
+    const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl);
+    const target = new URL(loginPage);
+    target.searchParams.set("wrdauth_logincontrol", loginToken);
+
+    return { type: "redirect", url: target.toString(), error: null };
+  }
+
+  async returnAuthorizeFlow(url: URL, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
+    const returnInfo = decryptForThisServer("wrd:openid.idpstate", url.searchParams.get("tok") || '');
+
+    const code = generateRandomId();
+    await runInWork(async () => {
+      const provider = new IdentityProvider(this.wrdschema, { expires: "PT1H" });//1 hour
+      await provider.createSession(user, returnInfo.clientid, { scopes: returnInfo.scopes, settings: { code } });
+    });
+
+    const finalRedirectURI = new URL(returnInfo.cbUrl);
+    if (returnInfo.state !== null)
+      finalRedirectURI.searchParams.set("state", returnInfo.state);
+    finalRedirectURI.searchParams.set("code", code);
+
+    return { type: "redirect", url: finalRedirectURI.toString(), error: null };
+  }
+
+  async retrieveTokens(form: URLSearchParams, headers: Headers, customizer: WRDAuthCustomizer | null): Promise<{ error: string } | { error: null; body: TokenResponse }> {
+    let headerClientId = '', headerClientSecret = '';
+    const authorization = headers.get("Authorization")?.match(/^Basic +(.+)$/i);
+    if (authorization) {
+      const decoded = atob(authorization[1]).split(/^([^:]+):(.*)$/);
+      if (decoded)
+        [, headerClientId, headerClientSecret] = decoded;
+
+      /* TODO? if specified, we should probably validate the id/secret right away to provide a nicer UX rather than waiting for the token endpoint to be hit ?
+          Or aren't we allowed to validate  .. RFC6749 4.1.2 doesn't mention checking confidential clients, 4.1.4 does
+          */
+    }
+
+    const clientid = headerClientId || form.get("client_id") || '';
+    const client = await this.wrdschema.
+      query("wrdauthServiceProvider").
+      where("wrdGuid", "=", decompressUUID(clientid)).
+      select(["clientSecrets", "wrdId"]).
+      execute();
+    if (client.length !== 1)
+      return { error: "No such client" };
+
+    const granttype = form.get("grant_type");
+    if (granttype !== "authorization_code")
+      return { error: `Unexpected grant_type '${granttype}'` };
+
+    const urlsecret = headerClientSecret || form.get("client_secret");
+    if (!urlsecret)
+      return { error: "Missing parameter client_secret" };
+
+    const hashedsecret = hashClientSecret(urlsecret);
+    const matchsecret = client[0].clientSecrets.find((secret) => secret.secretHash === hashedsecret);
+    if (!matchsecret)
+      return { error: "Invalid secret" };
+
+    const code = form.get("code");
+    if (!code)
+      return { error: "Missing code" };
+
+    //FIXME properly separate id_tokens and access_tokens. id_tokens is for openid, access_token is for oauth2
+    //FIXME make sure we don't confuse the two, that they have at least separate `aud`s
+    const match = await this.exchangeCode(client[0].wrdId, code);
+    if (!match)
+      return { error: "Invalid or expired code" };
+
+    return {
+      error: null, body: {
+        id_token: match.access_token,
+        expires_in: match.expires_in
+      }
     };
   }
 }
