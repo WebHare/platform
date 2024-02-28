@@ -1980,12 +1980,15 @@ void GetLibraryInfo(VarId id_set, VirtualMachine *vm)
         catch (VMRuntimeError &e)
         {
                 loadable = info.loaded;
-                valid = false;
-
                 vm->GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(*vm, errors, 0);
+        }
 
+        if(vm->GetErrorHandler().AnyErrors())
+        {
+                //GetLibraryInfo is returning compile errors in the normal VM error handler structures
+                HSVM_GetMessageList(*vm, errors, 0);
                 vm->GetErrorHandler().Reset();
+                valid=false;
         }
 
         HSVM_BooleanSet(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "OUTOFDATE")), info.outofdate);

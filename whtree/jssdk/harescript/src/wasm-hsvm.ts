@@ -656,7 +656,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     registerBridgeEventHandler(new WeakRef(this));
 
     const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number, source: number): void => {
-      if (source == 2) // Blex::NotificationEventSource::External
+      if (source === 2) // Blex::NotificationEventSource::External
         return;
       const name = this.wasmmodule.UTF8ToString(nameptr);
       const payload = Buffer.from(this.wasmmodule.HEAPU8.slice(payloadptr, payloadptr + payloadlength));
