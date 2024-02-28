@@ -5,7 +5,8 @@ import * as dompack from 'dompack';
 
 export default class IframeTestRunner {
   constructor() {
-    document.head.appendChild(dompack.create('style', {textContent:
+    document.head.appendChild(dompack.create('style', {
+      textContent:
         `* { box-sizing: border-box; margin: 0; padding: 0 };
       `}));
 
