@@ -5,7 +5,7 @@ import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { openSite } from "@webhare/whfs";
 import { Issuer } from 'openid-client';
-import { launchPuppeteer } from "@webhare/deps";
+import { launchPuppeteer, type PuppeteerBrowser } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
@@ -14,10 +14,14 @@ const callbackUrl = "http://localhost:3000/cb";
 const headless = true;
 let sysoplogin = '', sysoppassword = '', clientWrdId = 0, clientId = '', clientSecret = '';
 let sysopobject: HSVMObject | undefined;
+let puppeteer: PuppeteerBrowser | undefined;
 
 async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
-  const puppet = await launchPuppeteer({ headless });
-  const page = await puppet.newPage();
+  if (!puppeteer)
+    puppeteer = await launchPuppeteer({ headless });
+
+  const context = await puppeteer.createBrowserContext(); //separate cookie storage
+  const page = await context.newPage();
   await page.goto(authorizeURL);
   await page.setRequestInterception(true);
 
@@ -42,7 +46,6 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
 
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);
-  await puppet.close();
 
   return finalurl;
 }
@@ -170,5 +173,6 @@ async function verifyOpenIDClient() {
 test.run([
   setupOIDC,
   verifyRoutes,
-  verifyOpenIDClient
+  verifyOpenIDClient,
+  () => { puppeteer?.close(); }
 ]);

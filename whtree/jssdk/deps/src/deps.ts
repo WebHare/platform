@@ -20,8 +20,10 @@ export async function createSharpImage(...args: Parameters<typeof sharp.default>
 ////////////////////////////// Puppeteer //////////////////////////
 let puppeteerpromise: Promise<typeof puppeteer> | undefined = undefined;
 
+export type PuppeteerBrowser = puppeteer.Browser;
+
 /** Load Puppeteer */
-export async function launchPuppeteer(options?: puppeteer.PuppeteerLaunchOptions) {
+export async function launchPuppeteer(options?: puppeteer.PuppeteerLaunchOptions): Promise<PuppeteerBrowser> {
   if (!puppeteerpromise)
     puppeteerpromise = import("puppeteer");
 
