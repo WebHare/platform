@@ -1,6 +1,7 @@
 import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import { ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
+import type { PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 
 /** Interface for the client object we present to the connecting user
 */
@@ -95,12 +96,6 @@ export interface BackendServiceOptions {
   ///Do not try to autostart an ondemand service
   notOnDemand?: boolean;
 }
-
-/** Convert the return type of a function to a promise
- * Inspired by https://stackoverflow.com/questions/50011616/typescript-change-function-type-so-that-it-returns-new-value
-*/
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
-type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Parameters<T>) => ReturnType<T> extends Promise<any> ? ReturnType<T> : Promise<ReturnType<T>>;
 
 /** Converts the interface of a WebHare service to the interface used by a client.
  * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise. Readds "close" as added by ServiceBase

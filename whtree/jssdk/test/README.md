@@ -30,7 +30,7 @@ test.run([ // Specify a list of tests to run
 test.typeAssert<test.Assignable<number, 2>>();
 ///Verify 2 is a number
 test.typeAssert<test.Extends<2, number>>();
-///Verfiy two typs are the same
+///Verfiy two types are the same
 test.typeAssert<test.Equals<{ a: 1; b: 2 }, { a: 1; b: 2 }>>();
 ```
 

@@ -7,7 +7,7 @@ export interface MyService {
   validateEmail(langcode: string, emailaddress: string): Promise<boolean>;
 
   ///Test error handling
-  serverCrash(): Promise<void>;
+  serverCrash(): void;
 
   ///Describe me!
   describeMyRequest(): Promise<{

@@ -1,9 +1,10 @@
 import { debugFlags, backendBase } from "@webhare/env";
 import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
-import { StackTrace, parseTrace, prependStackTrace } from "@webhare/js-api-tools";
+import { StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
 let globalseqnr = 1;
+
 
 export interface RPCCallOptions {
   /** Append function name to URLs. Purely for better logging/visibility as the WebHare JSONRPC server will ignore it */
@@ -114,7 +115,7 @@ class ControlledCall {
     try {
       for (; ;) { //loop to handle "429 Conflict"s
         response = await fetchpromise;
-        if (response.status == 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
+        if (response.status === 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
           const retryafter = parseInt(response.headers.get("Retry-After") || "");
           if (this.client.debug)
             console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
@@ -177,7 +178,7 @@ class ControlledCall {
       throw err;
     }
 
-    if (response.status == 200 && jsonresponse && jsonresponse.id !== id)
+    if (response.status === 200 && jsonresponse && jsonresponse.id !== id)
       throw new Error("RPC Failed: Invalid JSON/RPC response received");
 
     if (this.options.wrapresult) {
@@ -311,9 +312,18 @@ class ServiceProxy<T> {
   }
 }
 
-export function createClient<T>(servicename: string, options?: RPCCallOptions): T & ServiceBase<T> {
+
+/** Creates an async version of the functions in a class
+ * @typeParam ServiceType - Type definition of the service class that implements this service.
+*/
+type ConvertToRPCInterface<ServiceType> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+  [K in Exclude<keyof ServiceType, `_${string}` | "close" | "emit"> as ServiceType[K] extends (...a: any) => any ? K : never]: ServiceType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<ServiceType[K]> : never;
+};
+
+export function createClient<T>(servicename: string, options?: RPCCallOptions): ConvertToRPCInterface<T> & ServiceBase<ConvertToRPCInterface<T>> {
   const rpcclient = new RPCClient(servicename, options);
-  return new Proxy({}, new ServiceProxy<T>(rpcclient)) as T & ServiceBase<T>;
+  return new Proxy({}, new ServiceProxy<T>(rpcclient)) as ConvertToRPCInterface<T> & ServiceBase<ConvertToRPCInterface<T>>;
 }
 
 export default createClient; //TODO this breaks @webhare/ lib convention and should start to go away as soon as all are on 5.3+
