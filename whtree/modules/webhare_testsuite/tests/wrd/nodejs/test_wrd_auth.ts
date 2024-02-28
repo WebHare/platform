@@ -1,10 +1,15 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID } from "@webhare/wrd/src/auth";
+import type { OnOpenIdReturnParameters } from "@webhare/wrd";
 import { addDuration } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
-import { toResourcePath } from "@webhare/services";
+import { decryptForThisServer, toResourcePath } from "@webhare/services";
+import type { NavigateInstruction } from "@webhare/env/src/navigation";
+
+const cbUrl = "https://www.example.net/cb/";
+const loginUrl = "https://www.example.net/login/";
 
 async function testLowLevelAuthAPIs() {
   const key = await createSigningKey();
@@ -34,8 +39,7 @@ async function testLowLevelAuthAPIs() {
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
 }
 
-async function setupKeys() {
-  //for convenience we'll reuse RunTestframework's various cleanups/resets as much as possible
+async function testOpenID() {
   await loadlib("mod::system/lib/testframework.whlib").RunTestframework([], {
     schemaresource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
   });
@@ -52,7 +56,7 @@ async function setupKeys() {
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
   const peopleClient = await provider.createServiceProvider({ title: "tet_wrd_auth.ts people testclient" });
-  const robotClient = await provider.createServiceProvider({ title: "tet_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail" });
+  const robotClient = await provider.createServiceProvider({ title: "tet_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
   test.eq(/^[-_0-9a-zA-Z]{22}$/, peopleClient.clientId, "verify clientid is not a UUID");
 
   const testunit = await wrdTestschemaSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
@@ -91,9 +95,27 @@ async function setupKeys() {
   const robotTokens = await provider.exchangeCode(robotClient.wrdId, "2345");
   test.assert(robotTokens);
   test.eqPartial({ wrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer", sub: "jonshow@beta.webhare.net" } }, await provider.verifySession(robotTokens.access_token));
+
+  // Test the openid session apis
+  const robotClientAuthURL = `http://example.net/?client_id=${robotClient.clientId}&scope=email&redirect_uri=${encodeURIComponent(cbUrl)}&state=8899`;
+  const blockingcustomizer = {
+    onOpenIdReturn(params: OnOpenIdReturnParameters): NavigateInstruction | null {
+      if (params.client === robotClient.wrdId)
+        return { type: "redirect", url: "https://www.webhare.dev/blocked" };
+      return null;
+    }
+  };
+
+  const startflow = await provider.startAuthorizeFlow(new URL(robotClientAuthURL), loginUrl, blockingcustomizer);
+  test.assert(startflow.error === null && startflow.type === "redirect");
+
+  //We now have an url with wrdauth_logincontrol, decrypt it:
+  const decryptLoginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", new URL(startflow.url, loginUrl).searchParams.get("wrdauth_logincontrol")!);
+  const endFlow = await provider.returnAuthorizeFlow(new URL(decryptLoginControl.returnto, loginUrl), testuser, blockingcustomizer);
+  test.eqPartial({ type: "redirect", url: "https://www.webhare.dev/blocked" }, endFlow);
 }
 
 test.run([
   testLowLevelAuthAPIs,
-  setupKeys
+  testOpenID,
 ]);

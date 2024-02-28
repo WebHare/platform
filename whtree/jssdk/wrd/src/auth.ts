@@ -382,6 +382,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   async returnAuthorizeFlow(url: URL, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
     const returnInfo = decryptForThisServer("wrd:openid.idpstate", url.searchParams.get("tok") || '');
 
+    if (customizer?.onOpenIdReturn) {
+      const redirect = await customizer.onOpenIdReturn({
+        client: returnInfo.clientid,
+        scopes: returnInfo.scopes,
+        user
+      });
+      if (redirect)
+        return { ...redirect, error: null };
+    }
+
     const code = generateRandomId();
     await runInWork(async () => {
       const provider = new IdentityProvider(this.wrdschema, { expires: "PT1H" });//1 hour
