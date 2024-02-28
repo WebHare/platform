@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
+import { db } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender } from "./types";
 export type { SchemaTypeDefinition } from "./types";
@@ -12,6 +13,7 @@ import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { isTruthy, omit, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -124,17 +126,31 @@ export function isChange(curval: any, setval: any) {
 }
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
-  readonly id: number | string;
-  coVMSchemaCacheSymbol: symbol;
-  schemaData: Promise<SchemaData> | undefined;
+  readonly tag: string;
+  private coVMSchemaCacheSymbol: symbol;
+  private schemaData: Promise<SchemaData> | undefined;
 
-  constructor(id: number | string) {
-    this.id = id;
-    this.coVMSchemaCacheSymbol = Symbol("WHCoVMSchemaCache " + this.id);
+  /** Open a WRD schema by tag */
+  constructor(tag: string) {
+    /* Because the 'import' variant (which must have the least overhead possible) is always by tag and nevery by id we'll
+       keep that path sync. */
+    if (tag.toLowerCase() !== tag || !tag.match(/^[a-z0-9_]+:[a-z0-9_]+$/))
+      throw new Error(`Invalid schema tag '${tag}'`);
+
+    this.tag = tag;
+    this.coVMSchemaCacheSymbol = Symbol("WHCoVMSchemaCache " + this.tag);
+  }
+
+  async getId(): Promise<number> {
+    const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id"]).where("name", "=", this.tag).executeTakeFirst();
+    if (dbschema)
+      return dbschema.id;
+    else
+      throw new Error(`WRD Schema ${this.tag} not found in the database`);
   }
 
   /*private*/ __ensureSchemaData(): Promise<SchemaData> {
-    return this.schemaData ??= getSchemaData(this.id);
+    return this.schemaData ??= getSchemaData(this.tag);
   }
 
   /*private*/ async __toWRDTypeId(tag: string | undefined): Promise<number> {
@@ -146,7 +162,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
     const match = typelist.find(t => t.tag === hstag);
     if (!match)
-      throw new Error(`No such type '${tag}' in schema '${this.id}'`);
+      throw new Error(`No such type '${tag}' in schema '${this.tag}'`);
     return match.id;
   }
 
@@ -217,9 +233,9 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
         const wrd_api = debugFlags["wrd:usewasmvm"]
           ? loadlib("mod::wrd/lib/api.whlib")
           : (await getCoHSVM()).loadlib("mod::wrd/lib/api.whlib");
-        const wrdschema = (typeof this.id === "number" ? await wrd_api.OpenWRDSchemaById(this.id) : await wrd_api.OpenWRDSchema(this.id)) as HSVMObject | null;
+        const wrdschema = await wrd_api.OpenWRDSchema(this.tag) as HSVMObject | null;
         if (!wrdschema)
-          throw new Error(`No such WRD schema ${this.id}`);
+          throw new Error(`No such WRD schema ${this.tag}`);
         return wrdschema;
       })(),
       types: {}

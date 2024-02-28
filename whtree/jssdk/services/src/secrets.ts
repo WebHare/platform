@@ -18,6 +18,7 @@ function getKeyForScope(scope: string): Buffer {
 /** Encrypt data with this server's local key
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
+    @returns Encrypted data, base64url encoded (so safe for direct use in URLs)
 */
 export function encryptForThisServer<S extends string>(scope: S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown): string {
   const iv = crypto.randomBytes(12);

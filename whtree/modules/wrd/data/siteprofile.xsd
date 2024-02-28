@@ -30,6 +30,7 @@
       <xs:attribute name="loginpage" type="xs:string"/>
       <xs:attribute name="authpageswitty" type="xs:string"/>
       <xs:attribute name="routerfeatures" type="xs:string"/>
+      <xs:attribute name="customizer" type="xs:string"/>
       <xs:attribute name="spautocreate" type="xs:boolean"/>
       <xs:attribute name="passwordresetlifetime" type="xs:string"/>
       <xs:attribute name="cachefields" type="xs:string"/>

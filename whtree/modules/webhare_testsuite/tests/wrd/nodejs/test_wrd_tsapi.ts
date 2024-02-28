@@ -2,7 +2,7 @@ import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow, WRDTypeBaseSettings, WRDGender } from "@mod-wrd/js/internal/types";
-import { WRDSchema, listSchemas } from "@webhare/wrd";
+import { WRDSchema, listSchemas, openWRDSchemaById } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { JsonWebKey } from "node:crypto";
@@ -243,6 +243,10 @@ interface TestRecordDataInterface {
 async function testNewAPI() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new WRDSchema<Combined>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const schemaById = await openWRDSchemaById(await schema.getId());
+  test.assert(schemaById);
+  test.eq(schema.tag, schemaById.tag);
+  test.eq(null, await openWRDSchemaById(999999999));
 
   test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag == testSchemaTag));
 
