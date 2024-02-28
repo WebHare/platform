@@ -393,8 +393,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(string) return.emailchangelink Link to "change email" page. Empty if this page is disabled
       @cell(string) return.passwordchangelink Link to "change password" page. Empty if this page is disabled
   */
-  PUBLIC RECORD FUNCTION GetWRDAuthRouterWittyData(STRING baseurl)
+  PUBLIC RECORD FUNCTION GetWRDAuthRouterWittyData(STRING baseurl DEFAULTSTO "")
   {
+    IF(baseurl = "")
+      baseurl := GetFormRequestURL();
+
     this->CheckNotFailed();
     RETURN [ loginemail := this->wrdauthconfig.loginemail
            , forgotpasswordlink := UpdateURLVariables(baseurl, [ "wrd_pwdaction" := "forgotpassword" ])
