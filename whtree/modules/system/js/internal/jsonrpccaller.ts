@@ -7,6 +7,7 @@ import type { RequestID, JSONRPCErrorResponse } from "@webhare/jsonrpc-client/sr
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
+import { makeJSObject } from "./resourcetools";
 
 /*
 Status codes
@@ -81,13 +82,7 @@ export class JSONRPCError {
 async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponse> {
   let id: RequestID = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
-    const theapi = require(services.toFSPath(servicedef.service.split('#')[0]));
-    const objectname = servicedef.service.split('#')[1];
-    if (!theapi[objectname])
-      throw new Error(`Cannot find '${objectname}' in '${theapi}'`);
-
-    const instance = new theapi[objectname](await newWebRequestFromInfo(req));
+    const instance = await makeJSObject(servicedef.service, await newWebRequestFromInfo(req)) as Record<string, (...args: unknown[]) => unknown | Promise<unknown>>;
     const jsonrpcreq = JSON.parse(await req.body.text());
     id = jsonrpcreq.id;
 
