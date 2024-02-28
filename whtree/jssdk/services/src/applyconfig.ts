@@ -40,9 +40,7 @@ class ApplyFinishHandler implements FinishHandler {
         source: Array.from(this.sources).join(", ")
       }) : Promise.resolve();
 
-    applyPromise
-      .then(() => this.defer.resolve())
-      .catch(error => this.defer.reject(error));
+    this.defer.resolve(applyPromise);
 
     this.applying = true;
   }
