@@ -4,7 +4,7 @@ import { ConfigClient } from "@mod-platform/js/configure/configservice";
 import { ApplyConfigurationOptions, ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import { createDeferred } from "@webhare/std";
 
-const FinishHandlerSymbl = Symbol("ApplyConfig FinishHandler");
+const finishHandlerSymbol = Symbol("ApplyConfig FinishHandler");
 
 type RemoteApplyConfigOptions = Omit<ApplyConfigurationOptions, "verbose" | "source"> & Required<Pick<ApplyConfigurationOptions, "source">>;
 
@@ -65,7 +65,7 @@ export function createAppliedPromise(toApply: RemoteApplyConfigOptions): () => P
   if (!isWorkOpen())
     throw new Error(`Work must be open to use createAppliedPromise`);
 
-  const handler = onFinishWork(() => new ApplyFinishHandler, { uniqueTag: FinishHandlerSymbl });
+  const handler = onFinishWork(() => new ApplyFinishHandler, { uniqueTag: finishHandlerSymbol });
   for (const subsystem of toApply.subsystems)
     handler.add(subsystem, toApply.source);
 

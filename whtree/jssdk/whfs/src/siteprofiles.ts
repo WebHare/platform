@@ -221,7 +221,7 @@ export interface CachedSiteProfiles {
 
 export interface SiteProfileRef {
   id: number;
-  naem: string;
+  name: string;
   roottype: number;
   sitedesign: string;
   siteprofileids: number[];

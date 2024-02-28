@@ -21,7 +21,7 @@ const subsystems = {
 
 
 export type ConfigurableSubsystem = keyof typeof subsystems;
-export const ConfigurableSubsystems: Record<ConfigurableSubsystem, SubsystemData> = subsystems;
+export const configurableSubsystems: Record<ConfigurableSubsystem, SubsystemData> = subsystems;
 
 
 export interface ApplyConfigurationOptions {
@@ -41,7 +41,7 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
   try {
     //Which config files to update
     const togenerate = new Set<GeneratorType>(["config"]);
-    for (const [subsystem, settings] of Object.entries(ConfigurableSubsystems))
+    for (const [subsystem, settings] of Object.entries(configurableSubsystems))
       if (options.subsystems.includes(subsystem as ConfigurableSubsystem) && settings.generate)
         settings.generate.forEach(_ => togenerate.add(_));
 

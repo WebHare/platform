@@ -1,4 +1,4 @@
-import { ConfigurableSubsystem, ConfigurableSubsystems, applyConfiguration } from '@mod-platform/js/configure/applyconfig';
+import { ConfigurableSubsystem, configurableSubsystems, applyConfiguration } from '@mod-platform/js/configure/applyconfig';
 import { program } from 'commander';
 
 async function main() {
@@ -13,7 +13,7 @@ async function main() {
   const force = Boolean(program.opts().force);
 
   //Too bad this requires an 'as' even if you 'as const' subsystems. https://stackoverflow.com/questions/52856496/typescript-object-keys-return-string
-  const validsubsystems = Object.keys(ConfigurableSubsystems) as ConfigurableSubsystem[];
+  const validsubsystems = Object.keys(configurableSubsystems) as ConfigurableSubsystem[];
   const badsubsystem = program.args.find(_ => !validsubsystems.includes(_ as ConfigurableSubsystem));
   if (badsubsystem) {
     console.error(`Invalid subsystem '${badsubsystem}' specified. Valid subsystems are: ${validsubsystems.join(", ")}`);
