@@ -368,7 +368,7 @@ export function setFormsapiFileElement(el, filedata, filename) {
   //  $(el).destroy();
 }
 
-/** Focus and fill an element, triggering any input/change hand;ers */
+/** Focus and fill an element, triggering any input/change handlers */
 export function fill(element: ValidElementTarget, newvalue: string | number | boolean): void {
   element = pointer._resolveToSingleElement(element);
   element.focus();
