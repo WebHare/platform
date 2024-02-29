@@ -53,7 +53,7 @@ export async function launchScreen(resource: string) {
     throw new Error(`launchScreen requires an absolute resource, got ${resource}`);
 
   await test.load(getTestScreen(resource));
-  await test.waitUI();
+  await test.waitForUI();
   //FIXME verify a screen opened
 }
 

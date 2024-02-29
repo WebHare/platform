@@ -368,7 +368,8 @@ export function setFormsapiFileElement(el, filedata, filename) {
   //  $(el).destroy();
 }
 
-export function fill(element, newvalue) {
+/** Focus and fill an element, triggering any input/change handlers */
+export function fill(element: ValidElementTarget, newvalue: string | number | boolean): void {
   element = pointer._resolveToSingleElement(element);
   element.focus();
   dompack.changeValue(element, newvalue);
@@ -386,7 +387,8 @@ export function fillUpload(element, files) {
   });
   Object.defineProperty(element, 'files', { get: function () { return blobs; }, configurable: true });
 }
-export function getTestSiteRoot() {
+
+export function getTestSiteRoot(): string {
   const topdoc = window.parent.document.documentElement;
   if (!topdoc.dataset.testsiteroot)
     throw new Error("No testsite specified for this test");

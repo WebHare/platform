@@ -56,7 +56,7 @@ async function testRPCCaller() {
   callres = await JSONAPICall(servicedef, request);
   test.eq(200, callres.status);
   resultBody = JSON.parse(await callres.body.text());
-  test.eq(true, resultBody.debug?.consoleLog?.some((item: any) => item.method == "log" && item.data == "This log statement was generated on the server by the TestNoAuthJS service\n"));
+  test.eq(true, resultBody.debug?.consoleLog?.some((item: any) => item.method === "log" && item.data === "This log statement was generated on the server by the TestNoAuthJS service\n"));
 }
 
 async function testTypedClient() {
@@ -74,6 +74,8 @@ async function testTypedClient() {
   test.eq(false, await myservice1.validateEmail("en", "klaasje@beta.webhare.net"));
 
   const myservice2 = createClient<MyService>(backendConfig.backendURL + "wh_services/webhare_testsuite/testnoauthjs");
+  test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.serverCrash>>>();
+
   test.eq(true, await myservice2.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice2.validateEmail("en", "klaasje@beta.webhare.net"));
 
