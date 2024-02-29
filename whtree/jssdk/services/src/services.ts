@@ -32,7 +32,7 @@ export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkap
 export interface ServerEncryptionScopes {
 }
 
-/** Extend this interface to define the format of your own sesions  */
+/** Extend this interface to define the format of your own sessions  */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface SessionScopes {
   [key: string]: Record<string, unknown>;

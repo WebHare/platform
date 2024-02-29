@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 PUBLIC RECORD FUNCTION PrepareAnyForDatabase(VARIANT data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([format := "hson"], options, [ enums := [ format := ["hson","json"]]]); //TODO jsontyped? would be slightly better for sessions but its rare for HS sessions to store Moneys or BIgints..
+  options := ValidateOptions([format := "hson"], options, [ enums := [ format := ["hson","json"]]]); //TODO jsontyped? would be slightly better for sessions but its rare for HS sessions to store Moneys or Bigints..
   IF(TypeID(data) = TypeID(RECORD) AND NOT RecordExists(data))
     RETURN [ blobpart := DEFAULT BLOB, stringpart := ""];
 
