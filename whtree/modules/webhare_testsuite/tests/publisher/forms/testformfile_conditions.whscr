@@ -63,10 +63,15 @@ PUBLIC MACRO TestFormConditions()
   TestEq(FALSE, res.success);
   TestEq([[ message := "This value is required.", name := "not18", metadata := DEFAULT RECORD ]], res.errors);
 
-  res := tester->SubmitForm(CELL[ ...submitrec, date := FormatDatetime("%Y-%m-%d", AddYearsToDate(-18, GetCurrentDatetime()))]); //its my birthday!
+  DATETIME now := GetCurrentDatetime();
+  DATETIME birthday_18years := AddYearsToDate(-18, now);
+  IF (UnpackDateTime(now).month = 2 AND UnpackDateTime(now).dayofmonth = 29)
+    birthday_18years := AddDaysToDate(-1, birthday_18years); // -18 years will end up on xxxx-03-01, so subtract a day to make sure the day is 18 or more years ago
+
+  res := tester->SubmitForm(CELL[ ...submitrec, date := FormatDatetime("%Y-%m-%d", birthday_18years)]); //its my birthday!
   TestEq(TRUE, res.success);
 
-  res := tester->SubmitForm(CELL[ ...submitrec, date := FormatDatetime("%Y-%m-%d", AddDaysToDate(1,AddYearsToDate(-18, GetCurrentDatetime())))]); //tomorrow's my birthday
+  res := tester->SubmitForm(CELL[ ...submitrec, date := FormatDatetime("%Y-%m-%d", AddDaysToDate(1, birthday_18years))]); //tomorrow's my birthday
   TestEq([[ message := "This value is required.", name := "not18", metadata := DEFAULT RECORD ]], res.errors);
 
   res := tester->SubmitForm(CELL[ ...submitrec, date := "2020-01-01", not18 := "not18@beta.webhare.net" ]);

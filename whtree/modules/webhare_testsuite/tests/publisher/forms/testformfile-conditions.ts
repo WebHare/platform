@@ -25,7 +25,8 @@ test.registerTests(
       test.focus("#webtoolform-textarea");
       test.assert(test.canClick("#webtoolform-not18"));
 
-      const date_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+      const isLeapDay = today.getMonth() === 1 && today.getDate() === 29;
+      const date_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate() - (isLeapDay ? 1 : 0));
       const date_18_iso = date_18.getFullYear() + '-' + ('0' + (date_18.getMonth() + 1)).slice(-2) + '-' + ('0' + date_18.getDate()).slice(-2);
 
       test.fill("#webtoolform-date", date_18_iso);
