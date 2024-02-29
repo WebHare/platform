@@ -5,12 +5,14 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
+import { generateRandomId } from "@webhare/std/platformbased";
 
 
 declare module "@webhare/services" {
   interface SessionScopes {
     "webhare_testsuite:testscope": {
       test: number;
+      longdata?: string;
     };
   }
 }
@@ -26,9 +28,9 @@ async function testSessionStorage() {
   test.eq({ test: 42 }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessid, "testscope"));
   await test.throws(/json:/, services.getSession("testscope", sessid), "Trying to not to have to include HSON encoders just for sessions");
 
-  await loadlib("mod::system/lib/webserver.whlib").CreateWebSession("testscope", { test: 42, sessionid: sessid, json: true });
+  test.eq(sessid, await loadlib("mod::system/lib/webserver.whlib").CreateWebSession("testscope", { test: 42 }, { sessionid: sessid, json: true }));
   test.eq({ test: 42 }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessid, "testscope"));
-  await test.throws(/json:/, services.getSession("testscope", sessid), "Trying to not to have to include HSON encoders just for sessions");
+  test.eq({ test: 42 }, await services.getSession("testscope", sessid));
 
   await beginWork();
   const sessidany = await services.createSession("webhare_testsuite:undeclaredscope", { test: "Unchecked" });
@@ -61,9 +63,21 @@ async function testSessionStorage() {
   test.eq({ test: 45 }, await services.getSession("webhare_testsuite:testscope", sessidscoped));
   test.eq({ test: 45 }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidscoped, "webhare_testsuite:testscope"));
 
+  //Test overlong data. Ensure it won't be compressed
+  const longdata = generateRandomId("base64url", 4096);
+  await beginWork();
+  await services.updateSession("webhare_testsuite:testscope", sessidscoped, { test: 46, longdata });
+  test.eq({ test: 46, longdata }, await services.getSession("webhare_testsuite:testscope", sessidscoped));
+  await commitWork();
+
+  test.eq({ test: 46, longdata }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidscoped, "webhare_testsuite:testscope"));
+  await loadlib("mod::system/lib/webserver.whlib").StoreWebSessionData(sessidscoped, "webhare_testsuite:testscope", { test: 47, longdata });
+  test.eq({ test: 47, longdata }, await services.getSession("webhare_testsuite:testscope", sessidscoped));
+
   await runInWork(() => services.closeSession(sessidscoped));
   test.eq(null, await services.getSession("webhare_testsuite:testscope", sessidscoped));
   test.eq(null, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidscoped, "webhare_testsuite:testscope"));
+
 }
 
 test.run(

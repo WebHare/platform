@@ -11,11 +11,14 @@ async function prepareSessionData(indata: NonNullable<object>): Promise<{ data: 
 
   const datablob = WebHareBlob.from(text);
   await uploadBlob(datablob);
-  return { data: "", datablob };
+  return { data: "json", datablob };
 }
 
 async function readAnyFromDatabase(data: string, datablob: WebHareBlob | null): Promise<NonNullable<object>> {
-  const input = data || (datablob ? await datablob.text() : '');
+  if (!data && datablob?.size) //JSON data would have had 'json' in the data mebmer
+    throw new Error("Attempting to decode HSON data from a session. Set the json: true flag on the session instead!");
+
+  const input = data === "json" ? (await datablob?.text() ?? 'null') : data;
   if (input.startsWith("hson:"))
     throw new Error("Attempting to decode HSON data from a session. Set the json: true flag on the session instead!");
 
