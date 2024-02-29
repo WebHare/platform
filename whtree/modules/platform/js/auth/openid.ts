@@ -69,20 +69,9 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       return createJSONResponse(401, { error: "Missing bearer token" });
 
     const provider = new IdentityProvider(wrdschema);
-    const tokeninfo = await provider.verifySession(authorization[1]);
-    //FIXME access checks. is client allowed to do this?
-    //TODO wrdContactEmail might not exist? check if it's in the schema
-    const userfields = await wrdschema.getFields("wrdPerson", tokeninfo.wrdId, ["wrdFullName", "wrdFirstName", "wrdLastName"/*,"wrdContactEmail"*/]);
-    if (!userfields)
-      return createJSONResponse(404, { error: "No such user" });
-
-    const userinfo = {
-      sub: tokeninfo.payload.sub,
-      name: userfields.wrdFullName,
-      given_name: userfields.wrdFirstName,
-      family_name: userfields.wrdLastName,
-      // email: userinfo.wrdContactEmail
-    };
+    const userinfo = await provider.getUserInfo(authorization[1]);
+    if ('error' in userinfo)
+      return createJSONResponse(400, { error: userinfo.error });
 
     return createJSONResponse(200, userinfo);
   }

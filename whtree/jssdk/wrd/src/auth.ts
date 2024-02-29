@@ -5,9 +5,10 @@ import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/we
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
-import { beginWork, commitWork, runInWork } from "@webhare/whdb";
+import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
 import { NavigateInstruction } from "@webhare/env";
-import { decryptForThisServer, encryptForThisServer } from "@webhare/services";
+import { closeSession, createSession, encryptForThisServer, getSession, updateSession } from "@webhare/services";
+import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -19,6 +20,16 @@ type TokenResponse = {
 };
 
 declare module "@webhare/services" {
+  interface SessionScopes {
+    "wrd:openid.idpstate": {
+      clientid: number;
+      scopes: string[];
+      state: string | null;
+      cbUrl: string;
+      /** User id to set */
+      user?: number;
+    };
+  }
   interface ServerEncryptionScopes {
     "wrd:authplugin.logincontroltoken": {
       afterlogin: string;
@@ -27,12 +38,6 @@ declare module "@webhare/services" {
       ruleid: number;
       returnto: string;
       validuntil: Date;
-    };
-    "wrd:openid.idpstate": {
-      clientid: number;
-      scopes: string[];
-      state: string | null;
-      cbUrl: string;
     };
   }
 }
@@ -92,11 +97,16 @@ export interface SessionCreationOptions {
 
 export interface VerifySessionResult {
   ///wrdId of the found subject
-  wrdId: number;
-  ///the decooded and validated payload
-  payload: JwtPayload;
+  entity: number;
   ///decoded scopes
   scopes: string[];
+  audience: number | null;
+}
+
+export interface ClientConfig {
+  wrdId: number;
+  clientId: string;
+  clientSecret: string;
 }
 
 /** Configuring the WRDAuth provider */
@@ -173,12 +183,15 @@ export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, 
   return data;
 }
 
-export function hashClientSecret(secret: string) {
+function hashSHA256(secret: string): Buffer {
   const hasher = crypto.createHash("SHA-256");
   hasher.update(secret);
-  return hasher.digest().toString("base64url");
+  return hasher.digest();
 }
 
+function hashClientSecret(secret: string): string {
+  return hashSHA256(secret).toString("base64url");
+}
 
 /** Manage JWT tokens associated with a schema
  * @param wrdschema - The schema to create the token for
@@ -206,7 +219,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     }
   }
 
-  async createServiceProvider(spSettings: ServiceProviderInit) {
+  async createServiceProvider(spSettings: ServiceProviderInit): Promise<ClientConfig> {
     const clientId = generateRandomId("uuidv4");
     const clientSecret = generateRandomId("base64url", 24);
     const wrdId = await this.wrdschema.insert("wrdauthServiceProvider", {
@@ -247,7 +260,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        password reset as a way to clear tokens)
   */
 
-  private async createAccessTokenJWT(subject: number, client: number, validuntil: Date, scopes: string[], sessionGuid: string) {
+  private async createAccessTokenJWT(subject: number, client: number, validuntil: Date, scopes: string[]) {
     const clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
     if (!clientInfo)
       throw new Error(`Unable to find serviceProvider #${client}`);
@@ -263,82 +276,65 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
     const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId: compressUUID(sessionGuid) });
+    //TODO consider and document whether we really need a jwtId and why
+    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId: generateRandomId() });
     return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000) };
   }
 
-  /** Create a session
-   * @param serviceProvider - Client registering this session
-   * @param subject - The subject (wrdPerson) for which we're creating a session
-  */
-  async createSession(subject: number, serviceProvider: number, options?: SessionCreationOptions): Promise<number> {
-    const expires: WaitPeriod = options?.expires || this.config.expires || "P1D";
-    const validuntil = convertWaitPeriodToDate(expires); //TODO round to second precision for consistency between WRD and Token values
+  /** Get userinfo for a token */
+  async getUserInfo(token: string) {
+    const tokeninfo = await this.verifyOwnToken(token, false);
+    if (!tokeninfo)
+      return { error: `Invalid token` };
 
-    const wrdId = await this.wrdschema.insert("wrdauthAccessToken", {
-      wrdLeftEntity: subject,
-      wrdRightEntity: serviceProvider,
-      wrdLimitDate: validuntil,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO we need wrd to provide a type for scopes
-      scopes: options?.scopes ?? [] as any,
-      ...options?.settings
-    });
-    return wrdId;
+    const userfields = await this.wrdschema.getFields("wrdPerson", tokeninfo.entity, ["wrdFullName", "wrdFirstName", "wrdLastName"/*,"wrdContactEmail"*/]);
+    if (!userfields)
+      return { error: "No such user" };
+
+    const decoded = jwt.decode(token, { complete: true });
+    return { //TODO limit by scope/access/... ?
+      sub: decoded?.payload.sub,
+      name: userfields.wrdFullName,
+      given_name: userfields.wrdFirstName,
+      family_name: userfields.wrdLastName,
+      // email: userinfo.wrdContactEmail
+    };
   }
 
-  async createSessionToken(session: number) {
-    const sessioninfo = await this.wrdschema.getFields("wrdauthAccessToken", session, ["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes", "wrdGuid"]);
-    if (!sessioninfo)
-      throw new Error(`Unable to find session #${session}`);
-    if (!sessioninfo.wrdLimitDate)
-      throw new Error(`Session #${session} has no expiration date`);
-
-    return this.createAccessTokenJWT(sessioninfo.wrdLeftEntity, sessioninfo.wrdRightEntity, sessioninfo.wrdLimitDate, sessioninfo.scopes, sessioninfo.wrdGuid);
-  }
-
-  /** Exchange code for session token */
-  async exchangeCode(serviceProvider: number, code: string) {
-    const match = await this.wrdschema.selectFrom("wrdauthAccessToken").
-      where("code", "=", code).
-      where("wrdRightEntity", "=", serviceProvider).
-      select(["wrdLeftEntity", "wrdRightEntity", "wrdLimitDate", "scopes", "wrdId", "wrdGuid"]).
-      execute();
-
-    if (!match.length)
-      return null;
-    if (!match[0].wrdLimitDate)
-      throw new Error(`Session has no expiration date`);
-
-    const token = await this.createAccessTokenJWT(match[0].wrdLeftEntity, match[0].wrdRightEntity, match[0].wrdLimitDate, match[0].scopes, match[0].wrdGuid);
-    await beginWork();
-    await this.wrdschema.update("wrdauthAccessToken", match[0].wrdId, { code: '' });
-    await commitWork();
-    return token;
-  }
-
-  /** Verify a session */
-  async verifySession(token: string, verifyOptions?: JWTVerificationOptions): Promise<VerifySessionResult> {
-    const decoced = jwt.decode(token, { complete: true });
+  /** Validate a token (not considering retractions). Note that wrdauth doesn't need to validate tokens it gave out itself - its own token db is considered authorative */
+  async validateToken(token: string, verifyOptions?: JWTVerificationOptions) {
+    const decoded = jwt.decode(token, { complete: true });
     const keys = await this.getKeyConfig();
-    const matchkey = keys.signingKeys.find(k => k.keyId === decoced?.header.kid);
+    const matchkey = keys.signingKeys.find(k => k.keyId === decoded?.header.kid);
     if (!matchkey)
-      throw new Error(`Unable to find key '${decoced?.header.kid}'`);
+      throw new Error(`Unable to find key '${decoded?.header.kid}'`);
 
     const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyOptions);
     if (!payload.jti || !payload.sub)
       throw new Error(`Invalid token - missing jti or sub`);
 
-    //We don't want to deal with sub ambiguity as we're the only one creating the tokens - just loop up by jwtId. also verifies this token is still active
-    const matchToken = await this.wrdschema.selectFrom("wrdauthAccessToken").where("wrdGuid", '=', decompressUUID(payload.jti)).select(["wrdLeftEntity"]).execute();
-    if (!matchToken.length)
-      throw new Error(`Token '${payload.jti}' is not active`);
+    return payload;
+  }
 
+  /** Verify a token we gave out ourselves. Also checks against retracted tokens
+   * @param token - The token to verify
+   * @param expectedAudience - The expected audience for the token, or false if we don't care
+  */
+  async verifyOwnToken(token: string, expectedAudience: number | false): Promise<VerifySessionResult> {
+    //TODO verify that this schema
+    const hashed = hashSHA256(token);
+    const matchToken = await db<PlatformDB>().selectFrom("wrd.tokens").where("hash", "=", hashed).select(["entity", "audience", "expirationdate", "scopes", "type"]).executeTakeFirst();
+    if (!matchToken || matchToken.type !== "id" || matchToken.expirationdate < new Date)
+      throw new Error(`Token is invalid`);
+    if (expectedAudience !== false && matchToken.audience !== expectedAudience)
+      throw new Error(`Token is intended for audience (${matchToken.audience}) not ${expectedAudience}`);
+
+    //TOODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
     return {
-      wrdId: matchToken[0].wrdLeftEntity,
-      payload,
-      scopes: payload.scope?.split(" ") ?? []
+      entity: matchToken.entity,
+      scopes: matchToken.scopes.length ? matchToken.scopes.split(' ') : [],
+      audience: matchToken.audience
     };
-
   }
 
   private getOpenIdBase() {
@@ -360,8 +356,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!client[0].callbackUrls.find((cb) => cb.url === redirect_uri))
       return { error: "Unauthorized callback URL " + redirect_uri };
 
-    //Go through this page so HS logincode doesn't have to deal with OIDC. TODO use session for returnInfo to keep url length down
-    const returnInfo = encryptForThisServer("wrd:openid.idpstate", { clientid: client[0].wrdId, scopes: scopes || [], state: state, cbUrl: redirect_uri });
+    const returnInfo = await runInWork(() => createSession("wrd:openid.idpstate",
+      { clientid: client[0].wrdId, scopes: scopes || [], state: state, cbUrl: redirect_uri }));
+
     const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
 
     const loginControl = { //see __GenerateAccessRuleLoginControlToken
@@ -372,7 +369,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       validuntil: new Date(Date.now() + logincontrolValidMsecs)
     };
 
-    const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl);
+    const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl); //TODO merge into the idpstate session? but HS won't understand it without further changes
     const target = new URL(loginPage);
     target.searchParams.set("wrdauth_logincontrol", loginToken);
 
@@ -380,28 +377,32 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   async returnAuthorizeFlow(url: URL, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
-    const returnInfo = decryptForThisServer("wrd:openid.idpstate", url.searchParams.get("tok") || '');
+    const sessionid = url.searchParams.get("tok") || '';
+    const returnInfo = await getSession("wrd:openid.idpstate", sessionid);
+    if (!returnInfo)
+      return { error: "Session has expired" }; //TODO redirect the user to an explanatory page
 
+    //TODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
     if (customizer?.onOpenIdReturn) {
       const redirect = await customizer.onOpenIdReturn({
         client: returnInfo.clientid,
         scopes: returnInfo.scopes,
         user
       });
-      if (redirect)
+
+      if (redirect) {
+        await runInWork(() => closeSession(sessionid));
         return { ...redirect, error: null };
+      }
     }
 
-    const code = generateRandomId();
-    await runInWork(async () => {
-      const provider = new IdentityProvider(this.wrdschema, { expires: "PT1H" });//1 hour
-      await provider.createSession(user, returnInfo.clientid, { scopes: returnInfo.scopes, settings: { code } });
-    });
+    //Update session with user info
+    await runInWork(() => updateSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
 
     const finalRedirectURI = new URL(returnInfo.cbUrl);
     if (returnInfo.state !== null)
       finalRedirectURI.searchParams.set("state", returnInfo.state);
-    finalRedirectURI.searchParams.set("code", code);
+    finalRedirectURI.searchParams.set("code", sessionid);
 
     return { type: "redirect", url: finalRedirectURI.toString(), error: null };
   }
@@ -441,20 +442,38 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!matchsecret)
       return { error: "Invalid secret" };
 
-    const code = form.get("code");
-    if (!code)
+    const sessionid = form.get("code");
+    if (!sessionid)
       return { error: "Missing code" };
 
-    //FIXME properly separate id_tokens and access_tokens. id_tokens is for openid, access_token is for oauth2
-    //FIXME make sure we don't confuse the two, that they have at least separate `aud`s
-    const match = await this.exchangeCode(client[0].wrdId, code);
-    if (!match)
+    //The code is the session id
+    const returnInfo = await getSession("wrd:openid.idpstate", sessionid);
+    if (!returnInfo || !returnInfo?.user || returnInfo.clientid !== client[0].wrdId)
       return { error: "Invalid or expired code" };
 
+    const expires = this.config.expires || "P1D";
+    const validuntil = convertWaitPeriodToDate(expires);
+    const tokens = await this.createAccessTokenJWT(returnInfo.user, returnInfo.clientid, validuntil, returnInfo.scopes);
+    const hash = hashSHA256(tokens.access_token);
+
+    await beginWork();
+    await db<PlatformDB>().insertInto("wrd.tokens").values({
+      type: "id",
+      creationdate: new Date,
+      expirationdate: validuntil,
+      entity: returnInfo.user,
+      audience: returnInfo.clientid,
+      scopes: returnInfo.scopes?.join(" ") || "",
+      hash
+    }).execute();
+    await closeSession(sessionid);
+    await commitWork();
+
     return {
-      error: null, body: {
-        id_token: match.access_token,
-        expires_in: match.expires_in
+      error: null,
+      body: {
+        id_token: tokens.access_token,
+        expires_in: tokens.expires_in
       }
     };
   }
