@@ -23,7 +23,7 @@ uitgecomment
 
 allemaal
 */
-}`), TRUE)).output));
+}`), [ autofix := TRUE ])).output));
 
 }
 

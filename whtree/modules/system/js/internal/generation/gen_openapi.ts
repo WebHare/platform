@@ -9,6 +9,8 @@ import { splitFileReference } from "@webhare/services/src/naming";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
 import { OpenAPIDescriptor } from "./gen_extracts";
+import { promises as fs } from "node:fs";
+import YAML from "yaml";
 
 
 
@@ -123,7 +125,7 @@ function moveSharedSchemaObjects(parsed: OpenAPI3) {
   // Detect all shared schema objects
   const visited = new Set<object>;
   const shared = new Set<object>;
-  detectSharedSchemaObjectsIterate(parsed, parsed, visited, shared, "");
+  detectSharedSchemaObjectsIterate(parsed, parsed, visited, shared, "", undefined);
 
   const defs: Record<string, object> = {};
   const remap = new Map<object, { $ref: string }>;
@@ -140,29 +142,32 @@ function moveSharedSchemaObjects(parsed: OpenAPI3) {
   Object.assign(parsed.$defs ??= {}, defs);
 }
 
-function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visited: Set<object>, shared: Set<object>, keyname: string) {
+function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visited: Set<object>, shared: Set<object>, keyname: string, inPaths: boolean | undefined) {
   /* This function uses heuristics to detect SchemaObjects. Everything within an 'example' key is probably not a Schema
      object. An array is probably not a Schema object, and the value of a 'properties' key are also probably not Schema,
      but should be checked recursively
   */
   if (keyname === "example") // don't use $ref in examples
     return;
+
   if (Array.isArray(node)) {
     for (const [key, item] of node.entries())
       if (typeof item === "object" && item)
-        detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key.toString());
+        detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key.toString(), inPaths);
     return;
   }
   if (keyname !== "properties") {
-    if (visited.has(node)) {
+    if (visited.has(node) && !inPaths) {
       shared.add(node);
       return;
     }
     visited.add(node);
   }
   for (const [key, item] of Object.entries(node))
-    if (typeof item === "object" && item)
-      detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key);
+    if (typeof item === "object" && item) {
+      const subInPaths = inPaths === undefined ? key === "paths" : inPaths && key !== "schema";
+      detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key, subInPaths);
+    }
 }
 
 function replaceRefsIterate(node: object, remap: Map<object, { $ref: string }>, stack: Set<object>, path: string, keepRoot: boolean) {
@@ -197,9 +202,32 @@ function replaceRefsIterate(node: object, remap: Map<object, { $ref: string }>, 
   stack.delete(node);
 }
 
-export async function createOpenAPITypeDocuments(openapifilepath: string | OpenAPIV3.Document, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
+export function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
+  if (typeof merge !== "object" || !merge || typeof data !== "object" || !data)
+    throw new Error(`Cannot merge a non-object into an object`);
+
+  if (Array.isArray(data) !== Array.isArray(merge))
+    throw new Error(`Cannot merge array into object or vice versa`);
+
+  for (const [key, value] of Object.entries(merge)) {
+    const datavalue = (data as Record<typeof key, unknown>)[key];
+    if (typeof value !== "object" || !value)
+      (data as Record<typeof key, unknown>)[key] = value;
+    else if (typeof datavalue !== "object" || !datavalue)
+      (data as Record<typeof key, unknown>)[key] = value;
+    else
+      mergeIntoBundled((data as Record<typeof key, unknown>)[key], value, `${path}/${key.replace(/~/g, "~0").replace(/\//g, "~1")}`);
+  }
+}
+
+export async function createOpenAPITypeDocuments(openapifilepath: string | OpenAPIV3.Document, merge: object | string | undefined, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
   // First bundle to resolve the references to external files
   const bundled = await SwaggerParser.bundle(openapifilepath) as OpenAPIV3.Document;
+
+  if (merge) {
+    const mergeData = typeof merge === "string" ? YAML.parse(await fs.readFile(merge, "utf8")) : merge;
+    mergeIntoBundled(bundled, mergeData, "");
+  }
 
   const tag = name.replaceAll(/^[a-z]|_[a-z]/g, c => c.replace("_", "").toUpperCase());
 
@@ -417,7 +445,7 @@ async function generateFile(options: GenerateContext, service: OpenAPIDescriptor
   if (options.verbose)
     console.time(timername);
 
-  const retval = await createOpenAPITypeDocuments(toFSPath(service.spec), service, importname, name, isservice);
+  const retval = await createOpenAPITypeDocuments(toFSPath(service.spec), service.merge && toFSPath(service.merge), service, importname, name, isservice);
   if (options.verbose)
     console.timeEnd(timername);
 

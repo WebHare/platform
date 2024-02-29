@@ -819,7 +819,7 @@ Docfile::~Docfile()
             };
         struct ole_header OLE_HEADER;
 */
-bool Docfile::IsDocfileSignature(const uint8_t sig[])
+bool Docfile::IsDocfileSignature(const uint8_t sig[8])
 {
         return getu32lsb(sig) == 0xE011CFD0 && getu32lsb(sig+4) == 0xE11AB1A1;
 }
@@ -1436,4 +1436,3 @@ unsigned OlePropertySet::Section::FindProperty(unsigned id) const
 }
 
 } //end of namespace ::Blex
-

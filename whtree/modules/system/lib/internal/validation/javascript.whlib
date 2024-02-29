@@ -478,8 +478,10 @@ ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix)
     @cell(string) return.error If set, error message
     @cell(blob) return.output Formatted output (if error is empty)
 */
-PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data, BOOLEAN autofix)
+PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ autofix := TRUE ], options);
+
   INTEGER cmdstream := CreateStream();
 
   // Run max 8 formatters concurrently
@@ -487,7 +489,7 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data, BOOLEAN autofix)
 
   OBJECT ARRAY scheduled;
   FOREVERY (RECORD file FROM data)
-    INSERT serializer->Call(PTR FormatSingleFile, file, autofix) INTO scheduled AT END;
+    INSERT serializer->Call(PTR FormatSingleFile, file, options.autofix) INTO scheduled AT END;
 
   RETURN RECORD ARRAY(AWAIT CreatePromiseAll(scheduled));
 }
@@ -498,9 +500,11 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data, BOOLEAN autofix)
     @return Formatted file
     @cell(blob) return.output Formatted file
 */
-PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data, BOOLEAN autofix)
+PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ], autofix);
+  options := ValidateOptions([ autofix := TRUE ], options);
+
+  RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ], options);
   IF (res[0].error != "")
     THROW NEW Exception(`Error formatting file: ${res[0].error}`);
   RETURN CELL[ res[0].output ];
@@ -552,7 +556,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
 
   TRY
   {
-    RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat, FALSE));
+    RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat, [ autofix := FALSE ]));
     FOREVERY (RECORD rec FROM result)
     {
       STRING resourcename := rec.module = "jssdk" ? `direct::${rec.path}` : `mod::${rec.module}/${rec.subpath}`;
