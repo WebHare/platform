@@ -5,7 +5,11 @@
  *  @returns [module, name] or null if not a valid module scoped name
 */
 export function splitModuleScopedName(name: string): string[] | null {
-  const match = name.match(/^([a-z][a-z0-9_]+):(.+)$/);
+  // The name parts must start end end with a letter or digit and should have a length of at least 2
+  // Only allow lowercase letters
+  // Don't allow '.' in module names
+  // Ensure the scoped name is an unambiguously url-safe slug when the ':' is replaced with a '/'
+  const match = name.match(/^([a-z0-9][-a-z0-9_]*[a-z0-9]):([a-z0-9][-.a-z0-9_]*[a-z0-9])$/);
   if (!match || match[1].startsWith("wh_") || match[1].startsWith("system_"))
     return null;
   return [match[1], match[2]];

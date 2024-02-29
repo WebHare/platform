@@ -14,6 +14,7 @@ import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { isTruthy, omit, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { isValidModuleScopedName } from "@webhare/services/src/naming";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -134,7 +135,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   constructor(tag: string) {
     /* Because the 'import' variant (which must have the least overhead possible) is always by tag and nevery by id we'll
        keep that path sync. */
-    if (tag.toLowerCase() !== tag || !tag.match(/^[a-z0-9_]+:[a-z0-9_]+$/))
+    if (!isValidModuleScopedName(tag))
       throw new Error(`Invalid schema tag '${tag}'`);
 
     this.tag = tag;

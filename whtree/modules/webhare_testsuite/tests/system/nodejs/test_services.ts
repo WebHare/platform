@@ -12,6 +12,7 @@ import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
+import { checkModuleScopedName } from "@webhare/services/src/naming";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -22,6 +23,29 @@ async function testServices() {
   test.typeAssert<test.Assignable<ConfigurableSubsystem, "wrd">>();
   //@ts-expect-error -- Verify ConfigurableSubsystem is not just a string
   test.typeAssert<test.Assignable<ConfigurableSubsystem, "anything">>();
+
+  test.assert(checkModuleScopedName("aa:aa"));
+  test.assert(checkModuleScopedName("11:11"));
+  test.assert(checkModuleScopedName("a-a:a-a"));
+  test.assert(checkModuleScopedName("a-a:a.a"));
+  test.assert(checkModuleScopedName("a-a:a_a"));
+  test.assert(checkModuleScopedName("a_a:a-a"));
+
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("a:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("Aa:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aA:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:Aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:aA"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("_a:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("a_:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:_a"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a_"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a."));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a-"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:aa:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("system_aa:aa"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("wh_aa:aa"));
 
   test.assert(services.backendConfig);
   test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
@@ -352,7 +376,7 @@ async function testLogs() {
   services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
   services.log("webhare_testsuite:test", {
     val: "1234567890".repeat(4000),
-    f: function () { console.error("Cant log this"); },
+    f: function() { console.error("Cant log this"); },
     g: function g2() { console.error("Cant log this"); },
     u: undefined,
     s: Symbol(),
