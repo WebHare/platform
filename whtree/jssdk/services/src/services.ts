@@ -22,13 +22,20 @@ export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
 export { applyConfiguration, createAppliedPromise } from "./applyconfig";
+export { createSession, getSession, closeSession, updateSession } from "./sessions";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 
+/** Extend this interface to define the format of your own secret scopes */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface ServerEncryptionScopes {
-  //Extend this interface to define the format of your own scopes
+}
+
+/** Extend this interface to define the format of your own sesions  */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface SessionScopes {
+  [key: string]: Record<string, unknown>;
 }
 
 export async function isWebHareRunning() {

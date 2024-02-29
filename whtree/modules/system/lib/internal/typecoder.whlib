@@ -8,26 +8,29 @@ LOADLIB "wh::internal/filetypes.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
-PUBLIC RECORD FUNCTION PrepareAnyForDatabase(VARIANT data)
+PUBLIC RECORD FUNCTION PrepareAnyForDatabase(VARIANT data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([format := "hson"], options, [ enums := [ format := ["hson","json"]]]); //TODO jsontyped? would be slightly better for sessions but its rare for HS sessions to store Moneys or BIgints..
   IF(TypeID(data) = TypeID(RECORD) AND NOT RecordExists(data))
     RETURN [ blobpart := DEFAULT BLOB, stringpart := ""];
 
-  STRING ashson := EncodeHSON(data);
-  IF(Length(ashson) > 4096)
-    RETURN [ blobpart := StringToBlob(ashson), stringpart := "" ];
+  STRING astext := options.format = "json" ? EncodeJSON(data) : EncodeHSON(data);
+  IF(Length(astext) > 4096)
+    RETURN [ blobpart := StringToBlob(astext), stringpart := options.format = "hson" ? "" : options.format ];
   ELSE
-    RETURN [ blobpart := DEFAULT BLOB, stringpart := ashson ];
+    RETURN [ blobpart := DEFAULT BLOB, stringpart := astext ];
 }
 PUBLIC VARIANT FUNCTION ReadAnyFromDatabase(STRING stringpart, BLOB blobpart)
 {
+  IF(stringpart="json")
+    RETURN DecodeJSONBlob(blobpart, DEFAULT RECORD, [typed := TRUE]);
   IF(stringpart="")
   {
     IF(Length(blobpart)=0)
       RETURN DEFAULT RECORD;
     RETURN DecodeHSONBlob(blobpart);
   }
-  RETURN DecodeHSON(stringpart);
+  RETURN stringpart LIKE "hson:*" ? DecodeHSON(stringpart) : DecodeJSON(stringpart);
 }
 
 /// Test whether two blobs have the same content, optimize by checking database blob ids if possible

@@ -11,6 +11,7 @@
   <test script="test_covm.ts" />
   <test script="test_services.ts" />
   <test script="test_services_secrets.ts" />
+  <test script="test_sessions.ts" />
   <test script="test_servicemgr.ts" />
   <test script="test_resources.ts" />
   <test script="test_devsupport.ts" />

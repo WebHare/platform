@@ -480,7 +480,7 @@ PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTST
 }
 
 /** @short Create a new session
-    @long Create a session, and set its initial data and expiry time. Note that a sesson can't expire while any scripts that referred to it are still running
+    @long Create a session, and set its initial data and expiry time. Note that a sesson can't expire while any scripts that referred to it are still running. Set option json := TRUE for compatibility with TypeScript session management
     @param scope Scope for session (must be unique for each CreateWebSession usage so users can't try to get other GetWebSessionData readers to use their calls)
     @param sessdata Initial session data
     @param maxidle_minutes Time without references to pass after which this session expire, in minutes
@@ -497,7 +497,7 @@ PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, VARIANT A
   ELSE IF(Length(args) = 1)
     options := args[0];
 
-  options := ValidateOptions(CELL[ auto_extend := FALSE, maxidle_minutes := 60, limit_to_server := FALSE, sessionid := "" ], options);
+  options := ValidateOptions(CELL[ auto_extend := FALSE, maxidle_minutes := 60, limit_to_server := FALSE, sessionid := "", json := FALSE  ], options);
 
   FUNCTION PTR toinvoke := PTR InTrans_CreateWebSession(scope, sessdata, options);
   IF(HavePrimaryTransaction() AND NOT GetPrimary()->IsWorkOpen())
@@ -517,7 +517,7 @@ STRING FUNCTION InTrans_CreateWebSession(STRING scope, RECORD sessdata, RECORD o
     IF(options.sessionid != "")
       DELETE FROM system_internal.sessions WHERE sessions.sessionid = options.sessionid;
 
-    RECORD store := PrepareAnyForDatabase(sessdata);
+    RECORD store := PrepareAnyForDatabase(sessdata, [ format := options.json ? "json" : "hson" ]);
     INSERT INTO system_internal.sessions(sessionid, scope, created, expires, data, datablob, autoextend)
             VALUES(newsessionid, scope, GetCurrentDatetime(), AddTimeToDate(options.maxidle_minutes * 60000, GetCurrentDatetime()), store.stringpart, store.blobpart, options.auto_extend ? options.maxidle_minutes * 60000 : 0);
     GetPrimary()->CommitWork();
@@ -549,11 +549,12 @@ PUBLIC MACRO StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata)
 
 MACRO InTrans_StoreWebSessionData(STRING sessid, STRING scope, RECORD sessdata)
 {
-  RECORD sess := SELECT id, expires, autoextend FROM system_internal.sessions WHERE COLUMN sessionid = VAR sessid AND COLUMN scope = VAR scope AND expires > GetCurrentDateTime();
+  RECORD sess := SELECT id, expires, autoextend, data FROM system_internal.sessions WHERE COLUMN sessionid = VAR sessid AND COLUMN scope = VAR scope AND expires > GetCurrentDateTime();
   IF(NOT Recordexists(sess))
     RETURN;
 
-  RECORD store := PrepareAnyForDatabase(sessdata);
+  BOOLEAN isjson := sess.data = "json" OR sess.data LIKE "{*";
+  RECORD store := PrepareAnyForDatabase(sessdata, [format := isjson ? "json" : "hson"]);
   TRY
   {
     GetPrimary()->BeginWork();
