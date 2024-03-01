@@ -44,4 +44,40 @@ async function testApiTools() {
 
 }
 
-test.run([testApiTools]);
+async function testDidYouMean() {
+  //Test from https://github.com/gustf/js-levenshtein/blob/master/test.js
+  test.eq(1, apitools.levenshteinDistance('a', 'b'));
+  test.eq(1, apitools.levenshteinDistance('ab', 'ac'));
+  test.eq(1, apitools.levenshteinDistance('ac', 'bc'));
+  test.eq(1, apitools.levenshteinDistance('abc', 'axc'));
+  test.eq(3, apitools.levenshteinDistance('kitten', 'sitting'));
+  test.eq(6, apitools.levenshteinDistance('xabxcdxxefxgx', '1ab2cd34ef5g6'));
+  test.eq(2, apitools.levenshteinDistance('cat', 'cow'));
+  test.eq(6, apitools.levenshteinDistance('xabxcdxxefxgx', 'abcdefg'));
+  test.eq(7, apitools.levenshteinDistance('javawasneat', 'scalaisgreat'));
+  test.eq(3, apitools.levenshteinDistance('example', 'samples'));
+  test.eq(6, apitools.levenshteinDistance('sturgeon', 'urgently'));
+  test.eq(6, apitools.levenshteinDistance('levenshtein', 'frankenstein'));
+  test.eq(5, apitools.levenshteinDistance('distance', 'difference'));
+  test.eq(2, apitools.levenshteinDistance('因為我是中國人所以我會說中文', '因為我是英國人所以我會說英文'));
+
+  test.eq("a", apitools.getBestMatch("a", ["a"]));
+  test.eq("b", apitools.getBestMatch("a", ["b"]));
+  test.eq("testa", apitools.getBestMatch("test", ["testa", "texta"]));
+  test.eq("TestA", apitools.getBestMatch("TEST", ["TestA", "TextA"]));
+  test.eq("TestA", apitools.getBestMatch("TEST", ["TestA", "TESTAA", "TextA"]));
+  test.eq("TESTaa", apitools.getBestMatch("TEST", ["TestA", "TESTaa", "TextA"], { matchCase: true }));
+
+  test.eq("123", apitools.getBestMatch("12", ["123"]));
+  test.eq(null, apitools.getBestMatch("12", ["1234"]));
+  test.eq("12345", apitools.getBestMatch("123", ["12345"]));
+  test.eq(null, apitools.getBestMatch("123", ["123456"]));
+
+  test.eq(", did you mean '12345'?", apitools.addBestMatch("123", ["12345"]));
+  test.eq("", apitools.addBestMatch("123", ["123456"]));
+}
+
+test.run([
+  testDidYouMean,
+  testApiTools
+]);
