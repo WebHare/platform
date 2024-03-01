@@ -131,6 +131,35 @@ export function decompressUUID(compressed: string) {
   return buffer.toString("hex").replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
 }
 
+function preparePayload(subject: string, created: Date | null, validuntil: Date | null, options?: JWTCreationOptions): JwtPayload {
+  /* All official claims are on https://www.iana.org/assignments/jwt/jwt.xhtml#claims */
+  const payload: JwtPayload = {};
+  if (created) {
+    payload.iat = Math.floor(created.getTime() / 1000);
+    payload.nbf = payload.iat;
+  }
+  // nonce: generateRandomId("base64url", 16), //FIXME we should be generating nonce-s if requested by the openid client, but not otherwise
+  if (validuntil)
+    payload.exp = Math.floor(validuntil.getTime() / 1000);
+  if (subject)
+    payload.sub = subject;
+  if (options?.scopes?.length)
+    payload.scope = options.scopes.join(" ");
+  if (options?.audiences?.length)
+    payload.aud = options.audiences.length === 1 ? options.audiences[0] : options.audiences;
+  if (options?.jwtId)
+    payload.jti = options.jwtId;
+
+  return payload;
+}
+
+/** Create an unsigned WRDAuth token */
+export function createUnsignedJWT(subject: string, created: Date | null, validuntil: Date | null, options?: JWTCreationOptions): string {
+  const payload = preparePayload(subject, created, validuntil, options);
+  return jwt.sign(payload, null, { algorithm: "none" });
+}
+
+
 /** Create a WRDAuth JWT token.
  * @param key - JWK key to sign the token with
  * @param keyid - The id for this key
@@ -141,32 +170,19 @@ export function decompressUUID(compressed: string) {
  *                  audiences: The intended audiences for this token
  * @returns The JWT token
 */
-export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, subject: string, expires: WaitPeriod, options?: JWTCreationOptions): Promise<string> {
-  if (typeof expires === "number" && expires <= 0)
-    throw new Error(`Expiry period may not be zero or negative`);
-
-  const now = Date.now();
-  /* All official claims are on https://www.iana.org/assignments/jwt/jwt.xhtml#claims */
-  const payload: JwtPayload = {
-    iss: issuer,
-    iat: Math.floor(now / 1000),
-    nbf: Math.floor(now / 1000)
-    // nonce: generateRandomId("base64url", 16), //FIXME we should be generating nonce-s if requested by the openid client, but not otherwise
-  };
-
-  if (expires !== Infinity)
-    payload.exp = Math.floor(convertWaitPeriodToDate(expires).getTime() / 1000);
-  if (subject)
-    payload.sub = subject;
-  if (options?.scopes?.length)
-    payload.scope = options.scopes.join(" ");
-  if (options?.audiences?.length)
-    payload.aud = options.audiences.length === 1 ? options.audiences[0] : options.audiences;
-  if (options?.jwtId)
-    payload.jti = options.jwtId;
-
+export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, subject: string, created: Date | null, validuntil: Date | null, options?: JWTCreationOptions): Promise<string> {
+  const payload = preparePayload(subject, created, validuntil, options);
+  payload.iss = issuer;
   const signingkey = createPrivateKey({ key: key, format: 'jwk' }); //TODO use async variant
   return jwt.sign(payload, signingkey, { keyid, algorithm: signingkey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" });
+}
+
+/** Decode a JWT. Does not validate or verify the JWT!  */
+export function decodeJWT(token: string): JwtPayload {
+  const decoded = jwt.decode(token, { complete: true });
+  if (!decoded || typeof decoded.payload !== "object")
+    throw new Error("Invalid JWT token");
+  return decoded.payload;
 }
 
 export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
@@ -260,12 +276,15 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        password reset as a way to clear tokens)
   */
 
-  private async createAccessTokenJWT(subject: number, client: number, validuntil: Date, scopes: string[]) {
-    const clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
-    if (!clientInfo)
-      throw new Error(`Unable to find serviceProvider #${client}`);
+  private async createAccessTokenJWT(subject: number, client: number | null, validuntil: Date, scopes: string[], closeSessionId: string | null) {
+    let clientInfo;
+    if (client !== null) {
+      clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
+      if (!clientInfo)
+        throw new Error(`Unable to find serviceProvider #${client}`);
+    }
 
-    const subfield = clientInfo.subjectField || "wrdGuid";
+    const subfield = clientInfo?.subjectField || "wrdGuid";
     //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' tpye
     const subjectguid = (await this.wrdschema.getFields("wrdPerson", subject, [subfield]))?.[subfield];
     if (!subjectguid)
@@ -276,16 +295,39 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
     const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-    //TODO consider and document whether we really need a jwtId and why
-    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId: generateRandomId() });
+
+    //TODO Round creationdate and validuntil to whole seconds as JWTs cant store milliseconds
+    const creationdate = new Date;
+
+    /* Adding a jwtId ensures that each token is unique and that we have no way ourselves to regenerate a token once we've given it out and hashed it
+       It is also a proof that we actually generated the token even without a signature - we wouldn't have stored a hashed token without a random jwtId (all the other fields in the JWT are guessable) */
+    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, creationdate, validuntil, { scopes, audiences: clientInfo ? [compressUUID(clientInfo.wrdGuid)] : [], jwtId: generateRandomId() });
+
+    const hash = hashSHA256(token);
+
+    await beginWork();
+    await db<PlatformDB>().insertInto("wrd.tokens").values({
+      type: "id",
+      creationdate,
+      expirationdate: validuntil,
+      entity: subject,
+      audience: client,
+      scopes: scopes.join(" "),
+      hash
+    }).execute();
+
+    if (closeSessionId)
+      await closeSession(closeSessionId);
+
+    await commitWork();
     return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000) };
   }
 
   /** Get userinfo for a token */
   async getUserInfo(token: string) {
     const tokeninfo = await this.verifyOwnToken(token, false);
-    if (!tokeninfo)
-      return { error: `Invalid token` };
+    if ("error" in tokeninfo)
+      return { error: tokeninfo.error };
 
     const userfields = await this.wrdschema.getFields("wrdPerson", tokeninfo.entity, ["wrdFullName", "wrdFirstName", "wrdLastName"/*,"wrdContactEmail"*/]);
     if (!userfields)
@@ -318,16 +360,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
   /** Verify a token we gave out ourselves. Also checks against retracted tokens
    * @param token - The token to verify
-   * @param expectedAudience - The expected audience for the token, or false if we don't care
+   * @param expectedAudience - The expected audience for the token, null if wrdauth is the audience, false if we don't care
   */
-  async verifyOwnToken(token: string, expectedAudience: number | false): Promise<VerifySessionResult> {
+  async verifyOwnToken(token: string, expectedAudience: number | null | false): Promise<VerifySessionResult | { error: string }> {
     //TODO verify that this schema
     const hashed = hashSHA256(token);
     const matchToken = await db<PlatformDB>().selectFrom("wrd.tokens").where("hash", "=", hashed).select(["entity", "audience", "expirationdate", "scopes", "type"]).executeTakeFirst();
     if (!matchToken || matchToken.type !== "id" || matchToken.expirationdate < new Date)
-      throw new Error(`Token is invalid`);
+      return { error: `Token is invalid` };
     if (expectedAudience !== false && matchToken.audience !== expectedAudience)
-      throw new Error(`Token is intended for audience (${matchToken.audience}) not ${expectedAudience}`);
+      return { error: `Token is intended for audience (${matchToken.audience}) not ${expectedAudience ?? 'wrdauth'}` };
 
     //TOODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
     return {
@@ -453,21 +495,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const expires = this.config.expires || "P1D";
     const validuntil = convertWaitPeriodToDate(expires);
-    const tokens = await this.createAccessTokenJWT(returnInfo.user, returnInfo.clientid, validuntil, returnInfo.scopes);
-    const hash = hashSHA256(tokens.access_token);
-
-    await beginWork();
-    await db<PlatformDB>().insertInto("wrd.tokens").values({
-      type: "id",
-      creationdate: new Date,
-      expirationdate: validuntil,
-      entity: returnInfo.user,
-      audience: returnInfo.clientid,
-      scopes: returnInfo.scopes?.join(" ") || "",
-      hash
-    }).execute();
-    await closeSession(sessionid);
-    await commitWork();
+    const tokens = await this.createAccessTokenJWT(returnInfo.user, returnInfo.clientid, validuntil, returnInfo.scopes, sessionid);
 
     return {
       error: null,
@@ -476,5 +504,20 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         expires_in: tokens.expires_in
       }
     };
+  }
+
+  async createLoginToken(userid: number) {
+    //FIXME adopt expiry settings from HS WRDAuth
+    const validuntil = convertWaitPeriodToDate("P1D");
+    const tokens = await this.createAccessTokenJWT(userid, null, validuntil, [], null);
+    return tokens.access_token;
+  }
+
+  async verifyLoginToken(token: string) {
+    const tokeninfo = await this.verifyOwnToken(token, null);
+    if ("error" in tokeninfo)
+      return { error: tokeninfo.error };
+
+    return { entity: tokeninfo.entity };
   }
 }

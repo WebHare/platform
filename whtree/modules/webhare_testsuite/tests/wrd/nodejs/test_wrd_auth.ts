@@ -1,8 +1,8 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig } from "@webhare/wrd/src/auth";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, createUnsignedJWT, decodeJWT } from "@webhare/wrd/src/auth";
 import type { OnOpenIdReturnParameters, WRDAuthCustomizer } from "@webhare/wrd";
-import { addDuration, generateRandomId } from "@webhare/std";
+import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -18,7 +18,7 @@ let evilClient: ClientConfig | undefined;
 async function testLowLevelAuthAPIs() {
   const key = await createSigningKey();
 
-  let token = await createJWT(key, "1234", "urn::rabbit-union", "PieterBunny", Infinity);
+  let token = await createJWT(key, "1234", "urn::rabbit-union", "PieterBunny", null, null);
   let decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.eqProps({ iss: 'urn::rabbit-union', sub: "PieterBunny" }, decoded);
   // test.assert("nonce" in decoded); //FIXME only add a nonce if we *asked* for it! it's a way for a client to validate
@@ -26,18 +26,21 @@ async function testLowLevelAuthAPIs() {
 
   await test.throws(/issuer invalid/, verifyJWT(key, "urn::rabbit-union2", token));
 
-  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", Infinity, { scopes: ["meadow", "burrow"], audiences: ["api"] });
+  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", null, null, { scopes: ["meadow", "burrow"], audiences: ["api"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.eqProps({ scope: "meadow burrow", aud: "api" }, decoded);
 
-  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", Infinity, { scopes: ["meadow"], audiences: ["api", "user"] });
+  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", null, null, { scopes: ["meadow"], audiences: ["api", "user"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.eqProps({ scope: "meadow", aud: ["api", "user"] }, decoded);
 
-  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", "P90D", { scopes: ["meadow"], audiences: ["api", "user"] });
+  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", new Date, convertWaitPeriodToDate("P90D"), { scopes: ["meadow"], audiences: ["api", "user"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.assert(decoded.exp);
   test.assert(Math.abs(addDuration(new Date, "P90D").getTime() / 1000 - decoded.exp) < 2000);
+
+  token = createUnsignedJWT("PieterKonijn", new Date, convertWaitPeriodToDate("P90D"), { scopes: ["meadow"] });
+  test.eqPartial({ sub: "PieterKonijn", scope: "meadow" }, decodeJWT(token));
 
   test.eq("AAAAAQACAAMABAAAAAAABQ", compressUUID('00000001-0002-0003-0004-000000000005'));
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
@@ -119,7 +122,7 @@ async function setupOpenID() {
   await whdb.commitWork();
 }
 
-async function testOpenID() {
+async function testAuthAPI() {
   const provider = new IdentityProvider(wrdTestschemaSchema);
 
   await whdb.beginWork();
@@ -147,10 +150,20 @@ async function testOpenID() {
   };
 
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
+
+  //Test simple login tokens
+  const loginToken1 = await provider.createLoginToken(testuser);
+  const loginToken2 = await provider.createLoginToken(testuser);
+  test.assert(decodeJWT(loginToken1).jti, "A token has to have a jti");
+  test.assert(decodeJWT(loginToken1).jti! += decodeJWT(loginToken2).jti, "Each token has a different jti");
+
+  test.eq({ entity: testuser }, await provider.verifyLoginToken(loginToken1));
+  test.eq({ error: /Token.*audience/ }, await provider.verifyLoginToken(authresult.idToken));
+  //FIXME test rejection when expired, different schema etc
 }
 
 test.run([
   testLowLevelAuthAPIs,
   setupOpenID,
-  testOpenID,
+  testAuthAPI,
 ]);
