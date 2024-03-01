@@ -1,6 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
 import * as dompack from "@webhare/dompack";
-import type { DompackExampleGlobalAPI } from "@mod-webhare_testsuite/web/tests/pages/dompack/dompackexample";
 
 test.registerTests(
   [
@@ -69,7 +68,7 @@ test.registerTests(
     async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=dialog');
 
-      const api = test.getWin() as unknown as DompackExampleGlobalAPI;
+      const api = test.getWin().__testApi;
       api.setupBusyModal("Please wait...");
 
       {
