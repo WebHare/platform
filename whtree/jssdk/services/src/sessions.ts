@@ -15,7 +15,7 @@ async function prepareSessionData(indata: NonNullable<object>): Promise<{ data: 
 }
 
 async function readAnyFromDatabase(data: string, datablob: WebHareBlob | null): Promise<NonNullable<object>> {
-  if (!data && datablob?.size) //JSON data would have had 'json' in the data mebmer
+  if (!data && datablob?.size) //JSON data would have had 'json' in the data member
     throw new Error("Attempting to decode HSON data from a session. Set the json: true flag on the session instead!");
 
   const input = data === "json" ? (await datablob?.text() ?? 'null') : data;
