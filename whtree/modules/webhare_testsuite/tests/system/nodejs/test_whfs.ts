@@ -2,7 +2,7 @@ import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
-import { getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
+import { getTestSiteHS, getTestSiteJS, getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { openFileOrFolder } from "@webhare/whfs";
 
 async function testWHFS() {
@@ -25,8 +25,8 @@ async function testWHFS() {
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
 
-  const testsite = await whfs.openSite("webhare_testsuite.testsite");
-  const testsitejs = await whfs.openSite("webhare_testsuite.testsitejs");
+  const testsite = await getTestSiteHS();
+  const testsitejs = await getTestSiteJS();
   test.assert(testsite, "We need the HS testsite to exist");
   test.assert(testsitejs, "We need the JS testsite to exist");
   test.eq(/^https?:.*/, testsite.webRoot);

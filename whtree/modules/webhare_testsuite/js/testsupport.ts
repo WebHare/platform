@@ -8,6 +8,13 @@ export async function getTestSiteTemp() {
   return await openFolder("site::webhare_testsuite.testsite/tmp");
 }
 
+export async function getTestSiteHS() {
+  return await whfs.openSite("webhare_testsuite.testsite");
+}
+export async function getTestSiteJS() {
+  return await whfs.openSite("webhare_testsuite.testsitejs");
+}
+
 export async function testSuiteCleanup() {
   await beginWork();
 
@@ -21,7 +28,7 @@ export async function testSuiteCleanup() {
   }
 
   //reset testsitejs to well known feature set (Some tests may modify it but crash and not restore it)
-  const testsitejs = await whfs.openSite("webhare_testsuite.testsitejs");
+  const testsitejs = await getTestSiteJS();
   test.assert(testsitejs, "We need the JS testsite to exist");
 
   let updateres;

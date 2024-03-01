@@ -2,7 +2,7 @@ import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
+import { getTestSiteHS, getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
 async function testSiteProfiles() {
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
@@ -18,7 +18,7 @@ async function testSiteProfiles() {
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
   test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#AuthCustomizer', wrdauth.customizer);
 
-  const testsite = await whfs.openSite("webhare_testsuite.testsite");
+  const testsite = await getTestSiteHS();
   const testobj = await testsite.openFolder("testpages");
 
   await whdb.beginWork();
@@ -50,7 +50,7 @@ async function testSiteProfiles() {
 }
 
 async function testSiteUpdates() {
-  const testsitejs = await whfs.openSite("webhare_testsuite.testsitejs");
+  const testsitejs = await getTestSiteJS();
   const tester = await getApplyTesterForObject(await testsitejs.openFolder("."));
 
   test.eq(null, await tester.getUserData("webhare_testsuite:blub"));
