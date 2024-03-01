@@ -22,12 +22,16 @@ type TokenResponse = {
   expires_in: number;
 };
 
+export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password";
+
 type LoginResult = {
   loggedIn: true;
   idToken: string;
+  expires: Date;
 } | {
   loggedIn: false;
   error: string;
+  code: LoginErrorCodes;
 };
 
 declare module "@webhare/services" {
@@ -56,6 +60,7 @@ declare module "@webhare/services" {
 export interface WRDAuthSettings {
   emailAttribute: string | null;
   loginAttribute: string | null;
+  loginIsEmail: boolean;
   passwordAttribute: string | null;
   passwordIsAuthSettings: boolean;
 }
@@ -75,6 +80,7 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
   return {
     emailAttribute: email ? tagToJS(email.tag) : null,
     loginAttribute: login ? tagToJS(login.tag) : null,
+    loginIsEmail: Boolean(email?.id && email?.id === login?.id),
     passwordAttribute: password ? tagToJS(password.tag) : null,
     passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS"
   };
@@ -554,7 +560,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     //FIXME adopt expiry settings from HS WRDAuth
     const validuntil = convertWaitPeriodToDate("P1D");
     const tokens = await this.createAccessTokenJWT(userid, null, validuntil, [], null);
-    return tokens.access_token;
+    return { idToken: tokens.access_token, expires: validuntil };
   }
 
   async verifyLoginToken(token: string) {
@@ -592,10 +598,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       } else
         throw new Error(`Unsupported password hash for user #${userid}`); //TODO
     }
-    if (!userid)
-      return { loggedIn: false, error: "Unknown username or password" }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
 
-    const idToken = await this.createLoginToken(userid);
-    return { loggedIn: true, idToken };
+    if (!userid) {
+      return {
+        loggedIn: false,
+        error: "Unknown username or password",
+        code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
+      }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
+    }
+
+    const tokeninfo = await this.createLoginToken(userid);
+    return { loggedIn: true, ...tokeninfo };
   }
 }

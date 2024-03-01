@@ -158,19 +158,20 @@ async function testAuthAPI() {
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
 
   //Test simple login tokens
-  const loginToken1 = await provider.createLoginToken(testuser);
-  const loginToken2 = await provider.createLoginToken(testuser);
-  test.assert(decodeJWT(loginToken1).jti, "A token has to have a jti");
-  test.assert(decodeJWT(loginToken1).jti! !== decodeJWT(loginToken2).jti, "Each token has a different jti");
+  const login1 = await provider.createLoginToken(testuser);
+  const login2 = await provider.createLoginToken(testuser);
+  test.assert(decodeJWT(login1.idToken).jti, "A token has to have a jti");
+  test.assert(decodeJWT(login1.idToken).jti! !== decodeJWT(login2.idToken).jti, "Each token has a different jti");
 
-  test.eq({ entity: testuser }, await provider.verifyLoginToken(loginToken1));
+  test.eq({ entity: testuser }, await provider.verifyLoginToken(login1.idToken));
   test.eq({ error: /Token.*audience/ }, await provider.verifyLoginToken(authresult.idToken));
+
   //FIXME test rejection when expired, different schema etc
 
   //Test the frontend login
-  test.eq({ loggedIn: false, error: /Unknown username/ }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: false, error: /Unknown username/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
+  test.eqPartial({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 }
 
 test.run([
