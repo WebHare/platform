@@ -1,0 +1,3 @@
+backendServices:
+  invokeservice:
+    clientFactory: "js/internal/util/jssupport.ts#getInvokeService"

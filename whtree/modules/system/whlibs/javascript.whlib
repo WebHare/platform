@@ -10,6 +10,7 @@
 LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 
 RECORD FUNCTION GetDiskFileProperties(STRING filename) __ATTRIBUTES__(EXTERNAL);
 
@@ -67,18 +68,27 @@ OBJECTTYPE ImportedLibrary
 
 >;
 
-PUBLIC OBJECT FUNCTION ImportJS(STRING name)
+BOOLEAN FUNCTION IsResolvablePath(STRING name)
+{
+  IF(name LIKE "./*" OR name LIKE "../*") //relative paths
+    RETURN TRUE;
+  IF(name NOT LIKE "*::*" AND name NOT LIKE "@mod-*" AND name NOT LIKE "@webhare/*") //try node_modules like resolution
+    RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+STRING FUNCTION ResolvePath(STRING name, STRING caller)
 {
   IF(name LIKE "./*" OR name LIKE "../*") //relative paths
   {
-    STRING caller := GetCallingLibrary(TRUE); //may return a direct:: path!
     INTEGER lastslash := SearchLastSubstring(caller,'/');
-    name := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::" || name);
+    name := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(caller, "relative::" || name);
   }
-  ELSE IF(name NOT LIKE "*::*" AND name NOT LIKE "@mod-*" AND name NOT LIKE "@webhare/*") //try node_modules like resolution
+  ELSE//try node_modules like resolution
   {
     //Attempt an upwards search (but do not leave the module!)
-    STRING ourdir := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::.");
+    STRING ourdir := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(caller, "relative::.");
     IF(ourdir LIKE "mod::*")
     {
       STRING ARRAY toks := Tokenize(ourdir,'/');
@@ -101,6 +111,13 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
       }
     }
   }
+  RETURN name;
+}
+
+PUBLIC OBJECT FUNCTION ImportJS(STRING name)
+{
+  IF(IsResolvablePath(name))
+    name := ResolvePath(name, GetCallingLibrary(TRUE));
 
   OBJECT lib := SELECT AS OBJECT libcache.lib FROM libcache WHERE libcache.name = VAR name;
   IF(NOT ObjectExists(lib))
@@ -119,4 +136,33 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
   }
 
   RETURN lib;
+}
+
+OBJECT invokeservice;
+
+/** Invoke a specific JavaScript function. Directly in WASM mode but through a central service in Native mode
+    @param name lib#name to call. Case sensitive!
+    @return The result of the function call. Promises are evaluated immediately
+    */
+PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  STRING ARRAY toks := Tokenize(name,'#');
+  STRING lib := Length(toks) = 1 ? "" : toks[0];
+  IF(IsResolvablePath(lib))
+    lib := ResolvePath(lib, GetCallingLibrary(TRUE));
+  IF(Length(toks) = 2)
+    name := toks[1];
+
+  IF(IsWasm())
+  {
+    VARIANT callresult := EM_Syscall("importCall", CELL[ lib, name, args ]);;
+    IF(TYPEID(callresult) = TYPEID(OBJECT) AND ObjectExists(callresult) AND MemberExists(callresult,'then'))
+      callresult := WaitForPromise(callresult); //TODO or would we need a synchronous (don't let any harescript async code run) version for maximum compatibility?
+    RETURN callresult;
+  }
+
+  IF(NOT ObjectExists(invokeservice))
+    invokeservice := __OpenSynchronousWebHareService("system:invokeservice");
+
+  RETURN invokeservice->Invoke(lib,name,args);
 }

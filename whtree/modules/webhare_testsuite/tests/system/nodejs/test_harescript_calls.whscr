@@ -8,6 +8,7 @@ LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
 
 OBJECT std := ImportJs("@webhare/std");
 TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4"));
+TestEqLike("????????-????-????-????-????????????", CallJS("@webhare/std#generateRandomId", "uuidv4"));
 
 OBJECT imp := ImportJs(Resolve("data/calls.ts"));
 TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same object so callers don't have to bother centrally keeping refs");
@@ -21,8 +22,20 @@ OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
 TestEq(42, WaitForPromise(promise42));
 
+TestEq(42, CallJS("./data/calls.ts#testAsync42"));
+TestEq(43, CallJS("./data/calls.ts#testSync43"));
+
 STRING randomonce := imp->getOnceRandom();
 STRING randomtwice := imp->getOnceRandom();
 TestEq(randomonce, randomtwice, "Should be equal as we expect ImportJS to cache loaded lib instances");
+
+STRING calljs_randomonce := CallJS("./data/calls.ts#getOnceRandom");
+STRING calljs_randomtwice := CallJS("./data/calls.ts#getOnceRandom");
+TestEq(calljs_randomonce, calljs_randomtwice, "Should be equal as we expect CallJS to cache loaded lib instances");
+
+IF(IsWasm()) //Remove once CallAsync is eliminated
+  TestEq(randomonce, calljs_randomonce, "In WASM mode ImportJS and CallJS shouldn't make a difference");
+ELSE
+  TestAssert(randomonce != calljs_randomonce, "It looks like CallAsync has been eliminated? Remove this test and IF IsWASM() above this test");
 
 TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));
