@@ -155,7 +155,7 @@ async function testAuthAPI() {
   const loginToken1 = await provider.createLoginToken(testuser);
   const loginToken2 = await provider.createLoginToken(testuser);
   test.assert(decodeJWT(loginToken1).jti, "A token has to have a jti");
-  test.assert(decodeJWT(loginToken1).jti! += decodeJWT(loginToken2).jti, "Each token has a different jti");
+  test.assert(decodeJWT(loginToken1).jti! !== decodeJWT(loginToken2).jti, "Each token has a different jti");
 
   test.eq({ entity: testuser }, await provider.verifyLoginToken(loginToken1));
   test.eq({ error: /Token.*audience/ }, await provider.verifyLoginToken(authresult.idToken));
