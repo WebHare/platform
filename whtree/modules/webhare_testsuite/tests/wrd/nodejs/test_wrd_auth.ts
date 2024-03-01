@@ -8,6 +8,7 @@ import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import { testValues } from "@mod-webhare_testsuite/js/testsupport";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -127,7 +128,12 @@ async function testAuthAPI() {
 
   await whdb.beginWork();
   const testunit = await wrdTestschemaSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
-  const testuser = await wrdTestschemaSchema.insert("wrdPerson", { wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit });
+  const testuser = await wrdTestschemaSchema.insert("wrdPerson", {
+    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit,
+    /* TODO need a nice password set API but I'd prefer insert/update to be smart (and take eg {hash:pwdhash}) instead of moving all the update logic to the claler
+            perhaps we should consider a separate updatePassword(type, entity, field, pwd) API instead of combining it here but that also requires changeset support ..*/
+    whuserPassword: { version: 1, passwords: [{ passwordHash: testValues.pwd_secret$, validFrom: new Date }] }
+  });
   await whdb.commitWork();
 
   //validate openid flow
@@ -160,6 +166,11 @@ async function testAuthAPI() {
   test.eq({ entity: testuser }, await provider.verifyLoginToken(loginToken1));
   test.eq({ error: /Token.*audience/ }, await provider.verifyLoginToken(authresult.idToken));
   //FIXME test rejection when expired, different schema etc
+
+  //Test the frontend login
+  test.eq({ loggedIn: false, error: /Unknown username/ }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
+  test.eq({ loggedIn: false, error: /Unknown username/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
+  test.eq({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 }
 
 test.run([

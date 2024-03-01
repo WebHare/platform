@@ -15,6 +15,13 @@ export async function getTestSiteJS() {
   return await whfs.openSite("webhare_testsuite.testsitejs");
 }
 
+export const testValues = {
+  //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
+  pwd_test: "WHBF:$2y$10$WiHCQT62TCzqcTLGURXPc.dU82JTaAyLizm4F5HAQO8hpnxg2qK4.",
+  pwd_secret: "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO",
+  pwd_secret$: "WHBF:$2y$10$WUm2byXgMFDDa0nmSCLtUO0uNyMoHNmZhNm2YjWLNq8NmV15oFMDG",
+};
+
 export async function testSuiteCleanup() {
   await beginWork();
 

@@ -3,6 +3,9 @@
   <test script="testwrdauthplugin-domainless.whscr" />
   <test script="testwrdauthplugin-expiry.whscr" />
   <jstest file="testwrdauth-frontend.ts" tags="wrdauth" />
+  <group site="webhare_testsuite.testsitejs" name="js">
+    <jstest file="testwrdauth-frontend-js.ts" tags="wrdauth" />
+  </group>
   <jstest file="testwrdauth-authpages.ts" tags="wrdauth" />
   <group skipautotests="true">
     <jstest file="testwrdauth-framelogin.ts" tags="wrdauth" />

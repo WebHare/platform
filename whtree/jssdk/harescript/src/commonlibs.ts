@@ -72,6 +72,11 @@ interface Mod_Publisher_Lib_Siteapi {
   openSiteByName(name: string): Promise<(Mod_Publisher_Lib_Siteapi_Site & HSVMCallsProxy) | null>;
 }
 
+interface Wh_Crypto {
+  verifyWebHarePasswordHash(pwd: string, hash: string): Promise<boolean>;
+  decryptSignedData(data: string, algorithm: string, encryptkey: string): Promise<string>;
+}
+
 interface Wh_Files {
   redirectOutputTo(stream: number): Promise<number>;
   makeBlobFromStream(stream: number): Promise<WebHareBlob>;
@@ -103,6 +108,7 @@ interface Mod_System_Lib_WHFS {
 }
 
 export interface CommonLibraries {
+  "wh::crypto.whlib": Wh_Crypto;
   "wh::files.whlib": Wh_Files;
   "wh::filetypes/archiving.whlib": Wh_Filetypes_Archiving;
   "mod::system/lib/database.whlib": Mod_System_Lib_Database;

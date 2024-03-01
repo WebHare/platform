@@ -5,6 +5,7 @@ import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -421,4 +422,12 @@ export class WHFSApplyTester {
 
 export async function getApplyTesterForObject(obj: WHFSObject) {
   return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj));
+}
+
+export async function getApplyTesterForURL(url: string) {
+  const loc = await lookupPublishedTarget(url);
+  if (!loc)
+    throw new Error(`No target found for ${url}`);
+
+  return new WHFSApplyTester(await getBaseInfoForApplyCheck(loc.targetObject));
 }

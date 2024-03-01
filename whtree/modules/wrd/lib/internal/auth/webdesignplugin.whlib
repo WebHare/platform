@@ -140,6 +140,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   RECORD wrdauthconfig;
 
+  BOOLEAN did_wrdauthjs_check;
+
+  RECORD wrdauthjs;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables & properties
@@ -603,11 +607,37 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN CellExists(this->wrdauthconfig, 'fatalerror');
   }
 
+  BOOLEAN FUNCTION IsValidAccountEntity(INTEGER entityid)
+  {
+    //TODO deal with parent/child types? not sure if they're ever relevant though
+    RETURN RecordExists(SELECT FROM wrd.entities WHERE id = VAR entityid AND limitdate > GetCurrentDatetime() AND type = this->wrdschema->accounttype->id);
+  }
+
   /// Checks whether configuration of the plugin is successfull, throws if this is not the case
   PUBLIC MACRO CheckNotFailed()
   {
     IF(CellExists(this->wrdauthconfig, 'fatalerror'))
       THROW NEW Exception(this->wrdauthconfig.fatalerror);
+
+    IF(NOT this->did_wrdauthjs_check)
+    {
+      this->did_wrdauthjs_check := TRUE;
+      //Do we happen to see an ID Token in the login cookie?
+      IF(IsRequest())
+      {
+        STRING idcookie := GetWebCookie(this->cookiename);
+        IF(idcookie LIKE "* idToken:*") //We're talking to the JS WRDAuth implementation ?
+        {
+          STRING idtoken := Substring(idcookie, SearchSubstring(idcookie,':')+1); //grab the token
+          STRING tokenhash := GetHashForString(idtoken, "SHA-256");
+          RECORD match := SELECT * FROM wrd.tokens WHERE hash = tokenhash AND audience = 0; //find a session attached to us
+          IF(RecordExists(match) AND this->IsValidAccountEntity(match.entity))
+          { //It's s a hit!
+            this->wrdauthjs := [ entity := match.entity ];
+          }
+        }
+      }
+    }
   }
 
   PUBLIC OBJECT FUNCTION __GetWRDAuth()
@@ -622,6 +652,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC BOOLEAN FUNCTION IsLoggedIn()
   {
     this->CheckNotFailed();
+    IF(RecordExists(this->wrdauthjs))
+      RETURN TRUE;
     RETURN /*IsRequest() AND */this->__GetWRDAuthIntegration()->IsLoggedIn();
   }
 
