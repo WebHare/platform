@@ -186,6 +186,9 @@ PUBLIC BOOLEAN FUNCTION IsWHSafePublicEndpoint(STRING url)
           OR relpath LIKE ".uc/*"
           OR relpath LIKE ".wrd/*"
           OR relpath LIKE ".publisher/sd/*"
+          //until enough bookmark users have transitioned to new URLs
+          OR relpath LIKE ".publisher/common/debug/*"
+          OR relpath LIKE ".publisher/common/find/*"
           //TODO consider whether we should just open all of well-known.
           OR relpath LIKE ".well-known/openid-configuration";
 }

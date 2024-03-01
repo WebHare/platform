@@ -1,4 +1,4 @@
 <?wh
 LOADLIB "mod::system/lib/webserver.whlib";
 
-Redirect("/.webhare/direct/publisher/find/?url=" || EncodeURL(GetWebVariable("url")));
+Redirect("/.wh/common/find/?url=" || EncodeURL(GetWebVariable("url")));
