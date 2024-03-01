@@ -3,6 +3,7 @@ import { createDeferred } from "@webhare/std";
 import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from '@mod-system/js/internal/types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
+import { setLink } from "./symbols";
 
 export type ServiceControllerFactoryFunction = () => Promise<BackendServiceController> | BackendServiceController;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
@@ -11,8 +12,6 @@ export type ServiceClientFactoryFunction = (...args: any[]) => Promise<BackendSe
 export interface BackendServiceController {
   createClient(...args: unknown[]): Promise<BackendServiceConnection> | BackendServiceConnection;
 }
-
-const setLink = Symbol("setLink");
 
 /** Base class for service connections */
 export class BackendServiceConnection {
@@ -143,7 +142,7 @@ export class ServiceHandlerBase {
 
         // We'll pass the state object through a global to BackendServiceConnection (if any)
         const handler = await this._factory(...initdata.message.__new);
-        if (!(handler instanceof BackendServiceConnection))
+        if (!(setLink in handler))
           throw new Error(`Service handler (type ${Object.getPrototypeOf(handler).constructor.name}?) is not an instance of BackendServiceConnection`);
 
         if (!state.handler)
@@ -152,8 +151,7 @@ export class ServiceHandlerBase {
           throw new Error(`Service handler initialization failed`);
 
         state.link.send(describePublicInterface(state.handler), msg.msgid);
-        if (setLink in state.handler)
-          (state.handler as BackendServiceConnection)[setLink](state);
+        state.handler[setLink](state);
 
         state.initdefer.resolve(true);
       } catch (e) {
