@@ -21,6 +21,11 @@ function parseMS(ms: string): number {
   return parseInt(ms.substring(1, 4));
 }
 
+/** Test whether a value is a date (even if crossrealm, unlike instanceOf) */
+export function isDate(value: unknown): value is Date {
+  return value instanceof Date || ((value instanceof Object) === false && (value as object)?.constructor?.name === "Date");
+}
+
 /** Parse an ISO8601 duration
  * @param duration - ISO8601 duration string (e.g. "P1Y2M3DT4H5M6S")
  */
@@ -71,7 +76,7 @@ export function addDuration(startingdate: Date, duration: Partial<Duration> | st
  *  @param wait - Wait time as milliseconds or a Date
 */
 export function convertWaitPeriodToDate(wait: WaitPeriod): Date {
-  if (wait instanceof Date) {
+  if (isDate(wait)) {
     return wait;
   } else if (typeof wait === "string") {
     return addDuration(new Date(), wait);

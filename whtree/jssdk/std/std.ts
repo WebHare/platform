@@ -4,4 +4,4 @@ export { encodeString, decodeString, escapeRegExp, wildcardsToRegExp, stringify,
 export { generateRandomId } from "./platformbased";
 export { shuffle, emplace, mapGroupBy, objectGroupBy, pick, omit, isTruthy, type EmplaceHandler } from "./collections";
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
-export { addDuration, parseDuration, convertWaitPeriodToDate, type Duration, type WaitPeriod } from "./datetime";
+export { isDate, addDuration, parseDuration, convertWaitPeriodToDate, type Duration, type WaitPeriod } from "./datetime";

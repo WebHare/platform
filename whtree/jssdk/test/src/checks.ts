@@ -5,7 +5,7 @@ import Ajv2019 from "ajv/dist/2019";
 import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-import { Money } from "@webhare/std";
+import { Money, isDate } from "@webhare/std";
 
 export type { LoadTSTypeOptions } from "./testsupport";
 
@@ -31,10 +31,6 @@ export type RecursivePartialOrRegExp<T> = T extends Array<infer U> ? Array<Recur
 export type RecursiveOrRegExp<T> = T extends Array<infer U> ? Array<RecursiveOrRegExp<U>> : T extends string ? T | `${T}` | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]: RecursiveOrRegExp<T[K]> } : T;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
-
-function isDate(item: unknown) {
-  return item && Object.prototype.toString.call(item) === "[object Date]";
-}
 
 function myTypeOf(item: unknown) {
   if (item === undefined) return 'undefined';

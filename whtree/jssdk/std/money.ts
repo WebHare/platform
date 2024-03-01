@@ -14,6 +14,8 @@ import * as finmath from "./finmath"; //TODO absorb into us as soon as noone ext
 export type MoneyRoundingMode = "none" | "toward-zero" | "down" | "up" | "half-toward-zero" | "half-down" | "half-up" | "toward-infinity" | "half-toward-infinity";
 export type MoneyTestTypes = "<" | "<=" | "==" | "!=" | ">" | ">=";
 
+const moneySymbol = Symbol.for("@webhare/std:Money");
+
 type MoneyParameter = Money | string;
 
 interface SplitNumber {
@@ -64,21 +66,21 @@ function stripUnneededDecimals(num: number, decimals: number) {
     @returns Price parts object
 */
 function splitPrice(money: MoneyParameter): SplitNumber {
-  if (typeof money == 'number') {
-    if (money != Math.floor(money))
+  if (typeof money === 'number') {
+    if (money !== Math.floor(money))
       throw new Error("Passing a non-integer number to splitPrice");
     if (!Number.isSafeInteger(money))
       throw new Error(`The value ${money} is outside the safe value range`);
     return { num: money, decimals: 0 };
   }
-  if (typeof money != 'string')
+  if (typeof money !== 'string')
     throw new Error("splitPrice should receive either number or string, got " + money);
 
   const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/) ?? money.match(/^(-)?()(\.[0-9]{1,5})$/);
   if (!split)
     throw new Error(`splitPrice received illegal price: '${money}'`);
 
-  const sign = split[1] == '-' ? -1 : 1;
+  const sign = split[1] === '-' ? -1 : 1;
   const decimals = split[3] ? split[3].length - 1 : 0;
   const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
   if (!Number.isSafeInteger(num))
@@ -123,6 +125,7 @@ function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number, 
 export class Money {
   /** finmath-compatible value */
   readonly value: string;
+  [moneySymbol] = true;
 
   constructor(value: MoneyParameter = "0") {
     this.value = Money.parseParameter(value);
@@ -131,9 +134,6 @@ export class Money {
     //We need the number to be in the safe range even after adding 5 decimals
     if (intvalue <= (Number.MIN_SAFE_INTEGER / 100000) || intvalue >= (Number.MAX_SAFE_INTEGER / 100000))
       throw new TypeError(`Money value '${value}' is out of range`);
-
-    /// Marker for safe type detections across realms - TODO we need to define a more stable marshalling interface
-    Object.defineProperty(this, "__hstype", { value: 0x11 });
   }
 
   private static parseParameter(param: MoneyParameter): string {
@@ -144,8 +144,9 @@ export class Money {
 
     throw new TypeError(`Money cannot be constructed out of a value of type ${typeof param}`);
   }
+
   static isMoney(value: unknown): value is Money {
-    return typeof value === "object" && Boolean(value) && ((value as { __hstype: unknown }).__hstype === 0x11);
+    return Boolean((value as Money)?.[moneySymbol]);
   }
 
   static fromNumber(value: number): Money {
