@@ -143,7 +143,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLLocks EXTEND DashboardPanelBase
   {
     IF (this->RunSimpleScreen("confirm", this->GetTid(".surekillbackend")) != "yes")
       RETURN;
-    AWAIT ImportJS("node:process")->Kill(^blockedlocks->selection.pid);
+    CallJS("node:process#Kill", ^blockedlocks->selection.pid);
   }
 >;
 

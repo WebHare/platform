@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -33,7 +34,7 @@ BLOB FUNCTION CreatePacketMarshalData(VARIANT data)
 ASYNC MACRO TestHSONEnDeCode(STRING hson, VARIANT val, STRING retval DEFAULTSTO "")
 {
   TestEQ(hson, EncodeHSON(val));
-  STRING res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeHSONEncodeHSON"), VARIANT[ hson ]);
+  STRING res := CallJS("./invoke_hsmarshalling.ts#decodeHSONEncodeHSON", hson);
   TestEQ(retval ?? hson, res);
 }
 
@@ -91,19 +92,19 @@ ASYNC MACRO TestMarshalling()
     ];
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
-  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeEncodePacket"), VARIANT[ encoded ]);
+  res := CallJS("./invoke_hsmarshalling.ts#decodeEncodePacket", encoded);
   TestEQ(encoded, ToUppercase(res));
 
   encoded := EncodeBase16(BlobToString(CreateMarshalData(totest)));
-  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeEncode"), VARIANT[ encoded ]);
+  res := CallJS("./invoke_hsmarshalling.ts#decodeEncode", encoded);
   TestEQ(encoded, ToUppercase(res));
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
-  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodePacketEncodeHSON"), VARIANT[ encoded ]);
+  res := CallJS("./invoke_hsmarshalling.ts#decodePacketEncodeHSON", encoded);
   TestEQ(EncodeHSON(totest), res);
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
-  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeHSONEncodeHSON"), VARIANT[ EncodeHSON(totest) ]);
+  res := CallJS("./invoke_hsmarshalling.ts#decodeHSONEncodeHSON", EncodeHSON(totest));
   TestEQ(EncodeHSON(totest), res);
 
   /* HSON improvements:
@@ -189,11 +190,11 @@ ASYNC MACRO TestMarshalling()
     ];
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
-  VARIANT vres := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#arrayEncodeTest"), VARIANT[]);
+  VARIANT vres := CallJS("./invoke_hsmarshalling.ts#arrayEncodeTest");
   TestEQ(expect_arrays, __HS_MarshalReadFromBlob(StringToBlob(DecodeBase16(vres.marshal))));
   TestEQ(expect_arrays, DecodeHSON(vres.hson));
 
-  RECORD reusingstructure := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#reusingStructureTest"), VARIANT[]);
+  RECORD reusingstructure := CallJS("./invoke_hsmarshalling.ts#reusingStructureTest");
   TestEq([a := [ col := 0, line := 1], b := [ col := 0, line := 1]], DecodeHSON(reusingstructure.hson));
 
   TestRejectedLike('Detected a circular reference', CallAsync(Resolve("invoke_hsmarshalling.ts#cycleStructureTest"), VARIANT[]));

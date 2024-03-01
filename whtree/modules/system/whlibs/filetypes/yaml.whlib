@@ -5,7 +5,7 @@ PUBLIC VARIANT FUNCTION DecodeYAML(STRING input, RECORD options DEFAULTSTO DEFAU
 {
   options := ValidateOptions([ wrapobjects := FALSE ], options);
 
-  VARIANT result := ImportJS("mod::system/js/internal/validation/yaml.ts")->decodeYAML(input, [ json := options.wrapobjects ]);
+  VARIANT result := CallJS("mod::system/js/internal/validation/yaml.ts#decodeYAML", input, [ json := options.wrapobjects ]);
   IF(options.wrapobjects)
     RETURN DecodeJSON(result, DEFAULT RECORD, [ wrapobjects := TRUE ]);
   ELSE

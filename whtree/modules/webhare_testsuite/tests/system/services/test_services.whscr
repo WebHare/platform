@@ -33,14 +33,14 @@ MACRO CryptTest()
 ASYNC MACRO CryptSignaturesTest()
 {
   STRING sig := GetSignatureForThisServer("mytest", "IsATest");
-  TestEQ(sig, AWAIT ImportJS("@webhare/services")->GetSignatureForThisServer("mytest", "IsATest"));
+  TestEQ(sig, AWAIT CallJS("@webhare/services#getSignatureForThisServer", "mytest", "IsATest"));
 
   TestEQ(TRUE, ValidateSignatureForThisServer("mytest", "IsATest", sig));
-  TestEQ(TRUE, AWAIT ImportJS("@webhare/services")->ValidateSignatureForThisServer("mytest", "IsATest", sig));
+  TestEQ(TRUE, AWAIT CallJS("@webhare/services#validateSignatureForThisServer", "mytest", "IsATest", sig));
 
   STRING failsig := (sig LIKE "a*" ? "b" : "a") || SubString(sig, 1);
   TestEQ(FALSE, ValidateSignatureForThisServer("mytest", "IsATest", failsig));
-  TestEQ(FALSE, AWAIT ImportJS("@webhare/services")->ValidateSignatureForThisServer("mytest", "IsATest", failsig));
+  TestEQ(FALSE, AWAIT CallJS("@webhare/services#validateSignatureForThisServer", "mytest", "IsATest", failsig));
 }
 
 MACRO TestRatelimits()
