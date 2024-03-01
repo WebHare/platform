@@ -172,6 +172,18 @@ PUBLIC SCHEMA
     , BLOB "data"
     ; KEY id
     > change_attachments
+
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , INTEGER "audience" NULL := 0
+    , DATETIME "creationdate"
+    , INTEGER "entity" NULL := 0
+    , DATETIME "expirationdate"
+    , STRING "hash" __ATTRIBUTES__(BINARY)
+    , STRING "scopes"
+    , STRING "type"
+    ; KEY "id"
+    > "tokens"
   > wrd;
 
 /** @short Bind the WRD tables

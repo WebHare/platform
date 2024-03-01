@@ -14,11 +14,4 @@
     </attributes>
   </domain>
 
-  <link tag="wrdauth_access_token" linkfrom="wrd_person" linkto="wrdauth_service_provider" deleteclosedafter="1"> <!-- delete expired tokens after a day -->
-    <attributes>
-      <free tag="code" description="OIDC requesttoken code. cleared once code is retrieved" unique="true" />
-      <enumarray tag="scopes" allowedvalues="openid profile email *:*"/>
-    </attributes>
-  </link>
-
 </schemadefinition>

@@ -273,6 +273,31 @@
 
     <d:obsoletetable name="storedqueries" />
 
+    <d:table name="tokens" parentlinkcolumn="entity" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="entity" nullable="0" ondelete="cascade" references=".entities">
+        <d:documentation>Entity for which this token was generated</d:documentation>
+      </d:integer>
+      <d:varchar name="type" maxlength="64" nullable="0">
+        <d:documentation>Token type. Currently we only support 'id'</d:documentation>
+      </d:varchar>
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>Token creation date</d:documentation>
+      </d:datetime>
+      <d:datetime name="expirationdate" nullable="false">
+        <d:documentation>Date when the token will expire</d:documentation>
+      </d:datetime>
+      <d:integer name="audience" ondelete="cascade" references=".entities">
+        <d:documentation>Audience (client) for this token. 0 if WRDAuth itself is the consumer (login id tokens)</d:documentation>
+      </d:integer>
+      <d:varchar name="scopes" maxlength="1024">
+        <d:documentation>Space separated list of scopes in this token</d:documentation>
+      </d:varchar>
+      <d:bytea name="hash" maxlength="32" nullable="0" unique="true">
+        <d:documentation>Hash for this token</d:documentation>
+      </d:bytea>
+    </d:table>
+
     <d:table name="pendingpayments" parentlinkcolumn="providerattr" primarykey="id">
       <d:integer name="id" autonumberstart="1">
         <d:documentation>Payment seq#</d:documentation>
