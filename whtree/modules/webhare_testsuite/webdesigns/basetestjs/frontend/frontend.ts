@@ -11,6 +11,7 @@ import './rtd/rtd';
 import './frontend.scss';
 
 import '../widgets/video';
+import '../pages/wrdauthtest';
 
 /* Commonly used:
 

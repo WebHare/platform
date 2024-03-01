@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import jwt, { JwtPayload, VerifyOptions } from "jsonwebtoken";
 import { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
-import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-system/js/internal/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
@@ -9,6 +9,9 @@ import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
 import { NavigateInstruction } from "@webhare/env";
 import { closeSession, createSession, encryptForThisServer, getSession, updateSession } from "@webhare/services";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { tagToJS } from "./wrdsupport";
+import { loadlib } from "@webhare/harescript";
+import type { AttrRef } from "@mod-wrd/js/internal/types";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -17,6 +20,14 @@ type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string
 type TokenResponse = {
   id_token?: string;
   expires_in: number;
+};
+
+type LoginResult = {
+  loggedIn: true;
+  idToken: string;
+} | {
+  loggedIn: false;
+  error: string;
 };
 
 declare module "@webhare/services" {
@@ -40,6 +51,33 @@ declare module "@webhare/services" {
       validuntil: Date;
     };
   }
+}
+
+export interface WRDAuthSettings {
+  emailAttribute: string | null;
+  loginAttribute: string | null;
+  passwordAttribute: string | null;
+  passwordIsAuthSettings: boolean;
+}
+
+export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings> {
+  const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
+  if (!settings)
+    throw new Error(`WRD Schema ${wrdschema.tag} not found in the database`);
+
+  const persontype = wrdschema.getType("wrdPerson");
+  const attrs = await persontype.ensureAttributes();
+
+  const email = attrs.find(_ => _.id === settings.accountemail);
+  const login = attrs.find(_ => _.id === settings.accountlogin);
+  const password = attrs.find(_ => _.id === settings.accountpassword);
+
+  return {
+    emailAttribute: email ? tagToJS(email.tag) : null,
+    loginAttribute: login ? tagToJS(login.tag) : null,
+    passwordAttribute: password ? tagToJS(password.tag) : null,
+    passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS"
+  };
 }
 
 export async function createSigningKey(): Promise<JsonWebKey> {
@@ -290,18 +328,24 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!subjectguid)
       throw new Error(`Unable to find the wrdGuid for subject #${subject}`);
 
-    const config = await this.getKeyConfig();
-    if (!config || !config.issuer || !config.signingKeys?.length)
-      throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
-
-    const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-
     //TODO Round creationdate and validuntil to whole seconds as JWTs cant store milliseconds
     const creationdate = new Date;
 
     /* Adding a jwtId ensures that each token is unique and that we have no way ourselves to regenerate a token once we've given it out and hashed it
        It is also a proof that we actually generated the token even without a signature - we wouldn't have stored a hashed token without a random jwtId (all the other fields in the JWT are guessable) */
-    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, creationdate, validuntil, { scopes, audiences: clientInfo ? [compressUUID(clientInfo.wrdGuid)] : [], jwtId: generateRandomId() });
+    const jwtId = generateRandomId();
+
+    let token;
+    if (clientInfo) {
+      const config = await this.getKeyConfig();
+      if (!config || !config.issuer || !config.signingKeys?.length)
+        throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
+
+      const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
+      token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, creationdate, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId });
+    } else { //this token is just for us and doesn't need a signature - its existence in our token table is the only proof we accept
+      token = createUnsignedJWT(subjectguid, creationdate, validuntil, { scopes, jwtId });
+    }
 
     const hash = hashSHA256(token);
 
@@ -519,5 +563,39 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: tokeninfo.error };
 
     return { entity: tokeninfo.entity };
+  }
+
+  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: WRDAuthCustomizer | null/*, options: AuthServiceLookupOptions*/): Promise<number | null> {
+    if (!authsettings.loginAttribute)
+      throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
+
+    const user = await this.wrdschema.search("wrdPerson", authsettings.loginAttribute as AttrRef<WRD_Idp_WRDPerson>, loginname);
+    return user || null;
+  }
+
+  async handleFrontendLogin(username: string, password: string, customizer: WRDAuthCustomizer | null/*, { persistent = false} = {}*/): Promise<LoginResult> {
+    const authsettings = await getAuthSettings(this.wrdschema);
+    if (!authsettings.passwordAttribute)
+      throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
+
+    let userid = await this.lookupUser(authsettings, username, customizer);
+    if (userid) {
+      //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
+      const userinfo = await this.wrdschema.getFields("wrdPerson", userid, { password: authsettings.passwordAttribute });
+
+      //FIXME WRD TS needs to provide a password validation API that understands the attribute. perhaps even wrap the whole verification into the IdentityProvider class to ensure central ratelimits/auditing
+      //@ts-ignore see above why we can't get this value typed
+      const hash = userinfo?.password?.passwords?.[0].passwordhash || userinfo?.password;
+      if (hash?.startsWith("WHBF:") || hash?.startsWith("LCR:")) {
+        if (!await loadlib("wh::crypto.whlib").verifyWebHarePasswordHash(password, hash))
+          userid = 0;
+      } else
+        throw new Error(`Unsupported password hash for user #${userid}`); //TODO
+    }
+    if (!userid)
+      return { loggedIn: false, error: "Unknown username or password" }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
+
+    const idToken = await this.createLoginToken(userid);
+    return { loggedIn: true, idToken };
   }
 }

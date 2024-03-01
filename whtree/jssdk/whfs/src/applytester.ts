@@ -3,8 +3,9 @@ import { openFolder, WHFSObject, WHFSFolder, describeContentType, openType } fro
 import { db, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
-import { emplace, pick } from "@webhare/std";
+import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -46,6 +47,35 @@ function isResourceMatch(rule_siteprofileids: number[], test_siteprofileids: num
   //  OR Length(ArrayIntersection(rule_siteprofileids, test_siteprofileids)) > 0;
   return rule_siteprofileids.length == 0 //Rule applies everywhere
     || rule_siteprofileids.filter(_ => test_siteprofileids.includes(_)).length > 0; //intersection between sets
+}
+
+export function buildPluginData(datas: CSPPluginDataRow[]): Omit<CSPPluginDataRow, '__attributes' | '__location'> {
+  /* this is the more-or-less equivalent of CombinePartialNodes. it receives one or more records of the format
+
+    account: 'GTM-TN7QQM',
+    integration: 'script',
+    launch: 'pagerender',
+    __attributes: [ 'ACCOUNT' ],
+    __location: 'mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.xml:63'
+
+    It should take the first record as returnvalue (without the __ props) and for the following records, merge only the cells mentioned in __attributes.
+    Note that __attributes is uppercase but the cells themselvs are lowercase
+   */
+  const data = omit(datas[0], ['__attributes', '__location']);
+  for (const row of datas.slice(1))
+    for (const key of row.__attributes.map(attr => attr.toLowerCase()))
+      data[key] = row[key];
+
+  return data;
+}
+
+export function getWRDPlugindata(data: Record<string, unknown> | null) {
+  return {
+    wrdSchema: data?.wrdschema as string || null,
+    loginPage: data?.loginpage as string || null,
+    cookieName: data?.cookiename as string || "webharelogin",
+    customizer: data?.customizer as string || null
+  };
 }
 
 export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInfo> {
@@ -266,29 +296,19 @@ export class WHFSApplyTester {
     return resultset;
   }
 
-  async getWRDAuth() {
-    const wrdauth = {
-      wrdSchema: null as null | string,
-      loginPage: null as null | string,
-      cookieName: "webharelogin",
-      customizer: null as null | string,
-    };
-
-    for (const apply of await this.getMatchingRules('plugins')) {
+  async getPluginData(namespace: string, name: string): Promise<Omit<CSPPluginDataRow, '__attributes' | '__location'> | null> {
+    const rows: CSPPluginDataRow[] = [];
+    for (const apply of await this.getMatchingRules('plugins'))
       for (const plugin of apply.plugins)
-        if (plugin.name == "wrdauth" && plugin.namespace == "http://www.webhare.net/xmlns/wrd") { //found a wrdauth plugin definition
-          if (plugin.data.__attributes.includes("WRDSCHEMA"))
-            wrdauth.wrdSchema = plugin.data.wrdschema as string;
-          if (plugin.data.__attributes.includes("LOGINPAGE"))
-            wrdauth.loginPage = plugin.data.loginpage as string;
-          if (plugin.data.__attributes.includes("COOKIENAME"))
-            wrdauth.cookieName = plugin.data.cookiename as string;
-          if (plugin.data.__attributes.includes("CUSTOMIZER"))
-            wrdauth.customizer = plugin.data.customizer as string;
-        }
-    }
+        if (plugin.name === name && plugin.namespace === namespace)
+          rows.push(plugin.data);
 
-    return wrdauth;
+    return rows.length ? buildPluginData(rows) : null;
+  }
+
+  async getWRDAuth() {
+    const data = await this.getPluginData("http://www.webhare.net/xmlns/wrd", "wrdauth");
+    return getWRDPlugindata(data);
   }
 
   async getWebDesignInfo() {
@@ -402,4 +422,12 @@ export class WHFSApplyTester {
 
 export async function getApplyTesterForObject(obj: WHFSObject) {
   return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj));
+}
+
+export async function getApplyTesterForURL(url: string) {
+  const loc = await lookupPublishedTarget(url);
+  if (!loc)
+    throw new Error(`No target found for ${url}`);
+
+  return new WHFSApplyTester(await getBaseInfoForApplyCheck(loc.targetObject));
 }

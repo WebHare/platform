@@ -6,6 +6,7 @@ import { createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { nameToSnakeCase, nameToCamelCase } from "@webhare/hscompat/types";
 
 export interface WRDAttributeConfiguration_HS {
+  id: number;
   attributetype: number;
   attributetypename: string;
   tag: string;

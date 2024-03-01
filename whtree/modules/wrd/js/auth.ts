@@ -323,3 +323,5 @@ if (window.$wh && window.$wh.WRDAuthenticationProvider) {
 }
 
 export default WRDAuthenticationProvider;
+
+window.$wh$wrdauth = true; //flag our load - needed during transition to @webhare/wrdauth to prevent double loading

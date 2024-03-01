@@ -13,7 +13,9 @@
   <publisher>
     <webdesignplugin name="wrdauth"
                      namespace="http://www.webhare.net/xmlns/wrd"
-                     objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin" />
+                     objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin"
+                     composerhook="js/internal/wrdauthplugin.ts#hookComposer"
+                     />
     <webdesignplugin name="formpayments"
                      namespace="http://www.webhare.net/xmlns/wrd"
                      objectname="lib/internal/psp/paymentsplugin.whlib#formpaymentsplugin" />

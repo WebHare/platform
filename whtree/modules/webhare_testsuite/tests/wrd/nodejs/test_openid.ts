@@ -9,7 +9,7 @@ import { launchPuppeteer, type PuppeteerBrowser } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
-import { testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
+import { getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = true;
@@ -74,7 +74,7 @@ async function setupOIDC() {
 }
 
 async function verifyRoutes() {
-  const testsite = await openSite("webhare_testsuite.testsitejs");
+  const testsite = await getTestSiteJS();
   const openidconfigReq = await fetch(testsite.webRoot + ".well-known/openid-configuration");
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
   const openidconfig = await openidconfigReq.json();
@@ -122,7 +122,7 @@ async function verifyRoutes() {
 }
 
 async function verifyOpenIDClient() {
-  const testsite = await openSite("webhare_testsuite.testsitejs");
+  const testsite = await getTestSiteJS();
 
   //update client to use firstname as subject
   await beginWork();

@@ -1,15 +1,23 @@
 import { WebHareRouter, WebRequest, WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
-import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForObject, getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { WRDSchema, type WRDAuthCustomizer } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
-import { joinURL, pick } from "@webhare/std";
+import { generateRandomId, joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
+import { buildCookieHeader } from "@webhare/dompack/impl/cookiebuilder";
+
+export interface LoginRemoteOptions {
+  /** Login to a specific site */
+  site?: string;
+  /** Request a persisent login */
+  persistent?: boolean;
+}
 
 async function findLoginPageForSchema(schema: string) {
   const sites = (await listSites(["webFeatures", "webRoot"])).filter((site) => site.webFeatures?.includes("platform:identityprovider"));
@@ -48,7 +56,61 @@ async function findLoginPageForSchema(schema: string) {
   return { loginPage, cookieName: candidates[0].cookieName, customizer: candidates[0].customizer };
 }
 
+async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
+  const url = req.getOriginURL(req.url.searchParams.get('pathname') || '');
+  if (!url)
+    return createJSONResponse(400, { error: "Cannot determine origin URL" });
+
+  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
+  const applytester = await getApplyTesterForURL(url);
+  const settings = await applytester.getWRDAuth();
+  const customizer = settings.customizer ? await makeJSObject(settings.customizer) as WRDAuthCustomizer : null;
+  if (!settings.wrdSchema)
+    return createJSONResponse(400, { error: "No WRD schema defined for URL " + url });
+
+  const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
+  const provider = new IdentityProvider(wrdschema);
+
+  //FIXME validate body size and reject decoding huge bodies. but Webrequest doesn't give us quick access to the body size yet
+  switch (req.url.searchParams.get('type')) {
+    case "login": {
+      //TODO? could move this API closer to OAUTH username/password flow https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
+      const body = await req.json() as { username: string; password: string; cookieName: string };
+      if (typeof body?.username !== "string" || typeof body?.password !== "string")
+        return createJSONResponse(400, { error: "Invalid body" });
+      if (body?.cookieName !== settings.cookieName) {
+        //Where to log? onsole.error);
+        return createJSONResponse(400, { code: "INTERNALERROR", error: `WRDAUTH: login returned a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` });
+      }
+
+      const response = await provider.handleFrontendLogin(body.username, body.password, customizer);
+      if (response.loggedIn === true) {
+        /* FIXME return expiry info etc to user. set expiry in cookie too
+            have createJSONResponse supply us with a proper cookie header builder. get SameSite= from WRD settings. set Secure if request is secure. set domain if WRD settings say so
+            */
+
+        //FIXME webdesignplugin.whlib rewrites the cookiename if the server is not hosted in port 80/443, our authcode should do so too (but probably not inside the plugin)
+        //generateRandomId is prefixed to support C++ webserver webharelogin caching
+        const logincookie = generateRandomId() + " idToken:" + response.idToken;
+        return createJSONResponse(200, {
+          loggedIn: true
+        }, {
+          headers: {
+            "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, { httpOnly: true, path: "/", sameSite: "Lax" })
+          }
+        });
+      } else
+        return createJSONResponse(400, { error: response.error });
+    }
+  }
+
+  return createJSONResponse(400, { error: "Invalid frontend request" });
+}
+
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
+  if (req.url.pathname === "/.wh/openid/frontendservice")
+    return handleFrontendService(req);
+
   const endpoint = req.url.pathname.match(/^\/.wh\/openid\/([^/]+)\/([^/]+)\/([^/?]+)/);
   if (!endpoint)
     return createJSONResponse(400, { error: "Invalid endpoint" });
