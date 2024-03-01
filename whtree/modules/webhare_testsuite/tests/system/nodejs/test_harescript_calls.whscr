@@ -38,4 +38,10 @@ IF(IsWasm()) //Remove once CallAsync is eliminated
 ELSE
   TestAssert(randomonce != calljs_randomonce, "It looks like CallAsync has been eliminated? Remove this test and IF IsWASM() above this test");
 
+//verify void functions don't crash
+imp->RunVoid();
+WaitForPromise(imp->RunAsyncVoid());
+CallJS("./data/calls.ts#runVoid");
+CallJS("./data/calls.ts#runAsyncVoid");
+
 TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));

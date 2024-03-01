@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/otp.whlib";
@@ -28,7 +29,7 @@ ASYNC MACRO TestExpiration()
   userapi->wrd_unit->UpdateEntity(unitid, [ override_expiration := TRUE, expiration := [ locknologin := "P5D" ]]);
   testfw->CommitWork();
 
-  WaitForPromise(CallAsync("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", VARIANT[ userapi->wrdschema->tag ]));
+  CallJS("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", userapi->wrdschema->tag);
 
   TestEq([ WHUSER_DISABLED := TRUE, WHUSER_DISABLE_TYPE := "inactive" ], userapi->accounttype->GetEntityFields(olduser, ["whuser_disabled","whuser_disable_type"] ));
   TestEq([ WHUSER_DISABLED := FALSE, WHUSER_DISABLE_TYPE := "" ], userapi->accounttype->GetEntityFields(loggedinuser, ["whuser_disabled","whuser_disable_type"] ));
@@ -46,8 +47,7 @@ ASYNC MACRO TestExpiration()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close usermgmt app
 
-  WaitForPromise(CallAsync("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", VARIANT[ userapi->wrdschema->tag ]));
-
+  CallJS("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", userapi->wrdschema->tag);
   TestEq([ WHUSER_DISABLED := FALSE, WHUSER_DISABLE_TYPE := "" ], userapi->accounttype->GetEntityFields(olduser, ["whuser_disabled","whuser_disable_type"]), "old user should not be immediately relocked");
 }
 

@@ -86,7 +86,7 @@ trans->BeginWork();
 CleanupAllWRDTemporaries();
 trans->CommitWork();
 
-WaitForPromise(ImportJs("mod::wrd/js/internal/tasks.ts")->cleanupOutdatedEntities());
+CallJS("mod::wrd/js/internal/tasks.ts#cleanupOutdatedEntities");
 
 trans->BeginWork();
 CleanupOutdatedChanges();

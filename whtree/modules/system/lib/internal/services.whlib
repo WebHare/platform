@@ -395,7 +395,13 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
       DELETE FROM this->__calllist AT pos.position;
       SWITCH (hit.type)
       {
-        CASE "value"      { RETURN hit.value.result; }
+        CASE "value"
+        {
+          IF(CellExists(hit.value,'result'))
+            RETURN hit.value.result;
+          ELSE
+            RETURN FALSE; // we invoked a JS function returning undefined or a HS MACRO
+        }
         CASE "exception"  { THROW hit.value; }
       }
     }

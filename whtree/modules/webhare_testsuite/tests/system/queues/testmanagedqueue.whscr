@@ -162,7 +162,7 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
     IF (NOT ObjectExists(link))
       ABORT(`Expected managed task 'cancellable' to run within a minute`);
 
-    RECORD rec := AWAIT ImportJS("./helpers.ts")->testCancelManagedTasks([ taskid ]);
+    RECORD rec := AWAIT CallJS("./helpers.ts#testCancelManagedTasks", [ taskid ]);
 
     RECORD msg := AWAIT link->AsyncReceiveMessage(AddTimeToDate(30 * 1000, GetCurrentDatetime()));
     TestEQ("gone", msg.status, "Task should have been killed by the cancel");

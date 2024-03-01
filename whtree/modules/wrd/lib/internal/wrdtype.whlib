@@ -2373,7 +2373,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         {
           IF (attr.typedeclaration != "" AND IsDebugTagEnabled("wrd:checkjsonfields"))
           {
-            STRING errormsg := WaitForPromise(ImportJS("@mod-wrd/js/internal/typecheck.ts")->checkJSONStructure(attr.typedeclaration, data));
+            STRING errormsg := CallJS("@mod-wrd/js/internal/typecheck.ts#checkJSONStructure", attr.typedeclaration, data);
             IF (errormsg != "")
               THROW NEW Exception(`Value for JSON field doesn't match its typedeclaration: ${errormsg}`);
           }

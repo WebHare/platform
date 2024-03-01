@@ -13,3 +13,11 @@ export function testSync43() {
 export function getOnceRandom() {
   return random;
 }
+
+export function runVoid(): void {
+  return;
+}
+
+export async function runAsyncVoid(): Promise<void> {
+  return;
+}
