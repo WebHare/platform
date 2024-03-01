@@ -1,20 +1,20 @@
 import { buildCookieHeader, type CookieOptions } from '@webhare/dompack/impl/cookiebuilder';
-import { escapeRegExp } from '@webhare/std';
+import { escapeRegExp, parseTyped, stringify } from '@webhare/std';
 
 const isolatedcookies: Record<string, string> = {};
-const backupsession: Record<string, unknown> = {};
-const backuplocal: Record<string, unknown> = {};
-let sessionfail: boolean;
-let localfail: boolean;
+const backup: {
+  sessionStorage?: Record<string, string>;
+  localStorage?: Record<string, string>;
+} = {};
+type BrowserStorage = keyof typeof backup;
 
 //isolate us when running previews, CI tests use same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
 const isolated = typeof document === "undefined" || "whIsolateStorage" in document.documentElement.dataset;
 
 /** @returns True if our storage is fully isolated */
-export function isIsolated() {
+export function isIsolated(): boolean {
   return isolated;
 }
-
 
 export function listCookies() {
   if (isIsolated())
@@ -63,90 +63,48 @@ export function isStorageAvailable(): boolean {
   return _available as boolean;
 }
 
-export function setSession<T>(key: string, value: T) {
-  try {
-    if (value !== null) {
-      backupsession[key] = value;
-      if (!isolated)
-        window.sessionStorage.setItem(key, JSON.stringify(value));
-    } else {
-      delete backupsession[key];
-      if (!isolated)
-        window.sessionStorage.removeItem(key);
-    }
-
-    if (sessionfail) {
-      console.log("storage.setSession succeed after earlier fail");
-      sessionfail = false;
-    }
-  } catch (e) {
-    if (!sessionfail) {
-      console.log("storage.setSession failed", e);
-      sessionfail = true;
+function get(storage: BrowserStorage, key: string): unknown | null {
+  let foundvalue = backup[storage]?.[key];
+  if (foundvalue === undefined && !isolated) { //it's not in the backup
+    try {
+      foundvalue = window[storage].getItem(key) || undefined;
+    } catch (e) {
+      return null; //if storage throws, it's definitely not there
     }
   }
+
+  return foundvalue !== undefined ? parseTyped(foundvalue) : null;
+}
+
+function set(storage: BrowserStorage, key: string, value: unknown) {
+  const tostore = value !== null && value !== undefined ? stringify(value, { typed: true }) : null;
+  if (!backup[storage] && !isolated) //we didn't fall back yet
+    try {
+      if (tostore !== null)
+        window[storage].setItem(key, tostore);
+      else
+        window[storage].removeItem(key);
+      return;
+    } catch (e) {
+      //ignore
+    }
+
+  const store = (backup[storage] ||= {});
+  if (tostore !== null)
+    store[key] = tostore;
+  else
+    delete store[key];
 }
 
 export function getSession<T>(key: string): T | null {
-  if (!isolated) {
-    try {
-      const retval = window.sessionStorage[key];
-      try {
-        return retval ? JSON.parse(retval) : null;
-      } catch (e) {
-        console.log("Failed to parse sessionStorage", e, key);
-        return null;
-      }
-    } catch (e) {
-      if (!sessionfail) {
-        console.log("getSessionStorage failed", e);
-        sessionfail = true;
-      }
-    }
-  }
-  return key in backupsession ? backupsession[key] as T : null;
+  return get("sessionStorage", key) as T | null;
 }
-
-export function setLocal<T>(key: string, value: T) {
-  try {
-    if (value !== null) {
-      backuplocal[key] = value;
-      if (!isolated)
-        window.localStorage.setItem(key, JSON.stringify(value));
-    } else {
-      delete backuplocal[key];
-      if (!isolated)
-        window.localStorage.removeItem(key);
-    }
-
-    if (localfail) {
-      console.log("storage.setLocal succeed after earlier fail");
-      localfail = false;
-    }
-  } catch (e) {
-    if (!localfail) {
-      console.log("storage.setLocal failed", e);
-      localfail = true;
-    }
-  }
+export function setSession<T>(key: string, value: T) {
+  set("sessionStorage", key, value);
 }
-
 export function getLocal<T>(key: string): T | null {
-  if (!isolated) {
-    try {
-      const retval = window.localStorage[key];
-      try {
-        return retval ? JSON.parse(retval) : null;
-      } catch (e) {
-        console.log("Failed to parse localStorage", e, key);
-        return null;
-      }
-    } catch (e) {
-      if (!localfail) {
-        console.log("getLocalStorage failed", e);
-        localfail = true;
-      }
-    }
-  }
-  return key in backuplocal ? backuplocal[key] as T : null;
+  return get("localStorage", key) as T | null;
+}
+export function setLocal<T>(key: string, value: T) {
+  set("localStorage", key, value);
 }

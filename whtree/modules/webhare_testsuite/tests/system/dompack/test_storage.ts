@@ -1,5 +1,6 @@
 import * as test from "@webhare/test-frontend";
 import * as dompack from "@webhare/dompack";
+import { Money } from "@webhare/std";
 
 function runSharedTests() {
   const testApi = test.getWin().__testApi;
@@ -18,6 +19,11 @@ function runSharedTests() {
   test.assert(testApi.listCookies().some(_ => _.name === "testFwCookie"));
   testApi.deleteCookie("testFwCookie");
   test.assert(!testApi.listCookies().some(_ => _.name === "testFwCookie"));
+
+  testApi.setLocal("complexKey", { m: new Money("42.42"), d: new Date("2022-04-02") });
+  testApi.setSession("complexKey", { m: new Money("32.32"), d: new Date("2022-02-01") });
+  test.eq({ m: new Money("42.42"), d: new Date("2022-04-02") }, testApi.getLocal("complexKey"));
+  test.eq({ m: new Money("32.32"), d: new Date("2022-02-01") }, testApi.getSession("complexKey"));
 }
 
 test.run(
