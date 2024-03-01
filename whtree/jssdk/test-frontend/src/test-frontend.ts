@@ -33,5 +33,7 @@ export {
   qR,
   getTestSiteRoot,
   click,
-  fill
+  fill,
+  getWin,
+  getDoc
 } from "@mod-system/js/wh/testframework";
