@@ -1174,7 +1174,7 @@ export class WittyTemplate {
     }
     cellParts.shift();
     while (colVar !== undefined && cellParts.length) {
-      if (typeof colVar !== "object" || Array.isArray(colVar))
+      if (typeof colVar !== "object" || Array.isArray(colVar) || colVar === null)
         return;
       colVar = colVar[cellParts[0] as keyof object];
       cellParts.shift();
