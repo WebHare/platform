@@ -8,7 +8,7 @@ import { generateRandomId, joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
-import { IdentityProvider } from "@webhare/wrd/src/auth";
+import { IdentityProvider, type LoginErrorCodes } from "@webhare/wrd/src/auth";
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import { buildCookieHeader } from "@webhare/dompack/impl/cookiebuilder";
 
@@ -18,6 +18,14 @@ export interface LoginRemoteOptions {
   /** Request a persisent login */
   persistent?: boolean;
 }
+
+export type FrontendLoginResult = {
+  loggedIn: true;
+  expires: string; //ISO8601 date
+} | {
+  error: string;
+  code: LoginErrorCodes;
+};
 
 async function findLoginPageForSchema(schema: string) {
   const sites = (await listSites(["webFeatures", "webRoot"])).filter((site) => site.webFeatures?.includes("platform:identityprovider"));
@@ -77,10 +85,10 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
       //TODO? could move this API closer to OAUTH username/password flow https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
       const body = await req.json() as { username: string; password: string; cookieName: string };
       if (typeof body?.username !== "string" || typeof body?.password !== "string")
-        return createJSONResponse(400, { error: "Invalid body" });
+        return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
       if (body?.cookieName !== settings.cookieName) {
         //Where to log? onsole.error);
-        return createJSONResponse(400, { code: "INTERNALERROR", error: `WRDAUTH: login returned a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` });
+        return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login returned a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
       }
 
       const response = await provider.handleFrontendLogin(body.username, body.password, customizer);
@@ -93,18 +101,24 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         //generateRandomId is prefixed to support C++ webserver webharelogin caching
         const logincookie = generateRandomId() + " idToken:" + response.idToken;
         return createJSONResponse(200, {
-          loggedIn: true
-        }, {
+          loggedIn: true,
+          expires: response.expires.toISOString()
+        } satisfies FrontendLoginResult, {
           headers: {
-            "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, { httpOnly: true, path: "/", sameSite: "Lax" })
+            "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
+              httpOnly: true,
+              path: "/",
+              sameSite: "Lax",
+              expires: response.expires
+            })
           }
         });
       } else
-        return createJSONResponse(400, { error: response.error });
+        return createJSONResponse(400, { code: response.code, error: response.error } satisfies FrontendLoginResult);
     }
   }
 
-  return createJSONResponse(400, { error: "Invalid frontend request" });
+  return createJSONResponse(400, { code: "internal-error", error: "Invalid frontend request" });
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {

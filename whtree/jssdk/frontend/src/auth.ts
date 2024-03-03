@@ -2,7 +2,7 @@ import { createClient } from "@webhare/jsonrpc-client";
 import { NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import { frontendConfig } from "./init";
-import type { LoginRemoteOptions } from "@mod-platform/js/auth/openid";
+import type { FrontendLoginResult, LoginRemoteOptions } from "@mod-platform/js/auth/openid";
 
 const authsettings = frontendConfig["wrd:auth"] as { cookiename: string } | undefined;
 
@@ -82,7 +82,7 @@ export async function login(username: string, password: string, options: LoginOp
       "content-type": "application/json"
     },
     body: JSON.stringify(data)
-  })).json();
+  })).json() as FrontendLoginResult;
 
   if ("error" in result)
     return { loggedIn: false, error: result.error };
