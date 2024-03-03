@@ -78,7 +78,7 @@ class ApplicationTab {
   }
 
   onUpdateScreen(event) {
-    if (event.detail.screen.parentwindow === null) //we only honor updates from the toplevel screen
+    if (event.detail.screen.parentwindow === null || event.detail.screen.parentwindow === undefined) //we only honor updates from the toplevel screen
       this.root.classList.toggle("t-apptab--allowclose", event.detail.allowclose);
   }
 

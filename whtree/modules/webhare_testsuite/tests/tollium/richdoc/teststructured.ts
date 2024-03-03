@@ -190,7 +190,7 @@ test.registerTests(
         test.setTodd('height', '13');
 
         test.subtest("checkimageprops2");
-        await test.wait(() => test.compByName('width').querySelector('input').value === 14); //Wait for width to be updated
+        await test.wait(() => test.compByName('width').querySelector('input').value === "14"); //Wait for width to be updated
 
         test.clickTolliumLabel('Hyperlink');
         test.clickTolliumLabel('External link');

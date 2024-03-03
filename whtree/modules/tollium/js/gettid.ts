@@ -50,8 +50,8 @@ let curLang = "";
 function executeCompiledTidText(text: LanguageText, params: string[], rich: boolean) {
   if (typeof text === "object" && !Array.isArray(text))
     text = text?.[""] as string;
-  if (text === null)
-    return text;
+  if (text === null || text === undefined)
+    return null;
   if (typeof text === "string")
     return rich ? encodeString(text, 'html') : text;
 

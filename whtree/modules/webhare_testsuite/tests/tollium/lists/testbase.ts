@@ -374,7 +374,7 @@ test.registerTests(
     {
       name: 'empty text is shown but empty',
       test: function (doc, win) {
-        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight === 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M08']));
@@ -385,7 +385,7 @@ test.registerTests(
     {
       name: 'empty text is shown and non-empty',
       test: function (doc, win) {
-        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight === 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('empty 1', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M08']));
@@ -396,7 +396,7 @@ test.registerTests(
     {
       name: 'empty text is changed, multiline',
       test: function (doc, win) {
-        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight === 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('empty 2\nsecond line', test.qSA('.emptytext')[0].textContent);
 
         // Show some lines again

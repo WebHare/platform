@@ -61,9 +61,8 @@ export class Base {
   }
 
   getSizeInfo(list, columndef, wrapped) {
-    // test for === null matches null and undefined
     return {
-      resizable: columndef.resizable === null ? true : columndef.resizable,
+      resizable: columndef.resizable === null || columndef.resizable === undefined ? true : columndef.resizable,
       minwidth: columndef.minwidth === null ? minwidth : Math.max(columndef.minwidth, minwidth)
     };
   }

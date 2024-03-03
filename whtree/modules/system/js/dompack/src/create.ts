@@ -101,7 +101,7 @@ function createElement(elementname: string, attributes?: CreateAttributes, toatt
         return void Object.assign(node[attrname], value);
 
       if (attrname === 'childNodes') //append as children
-        return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child !== null && child !== true && child !== false));
+        return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child !== null && child !== true && child !== false && child !== undefined));
 
       if (toattrs && attrHasBooleanValue(attrname)) {
         if (value)
@@ -112,7 +112,7 @@ function createElement(elementname: string, attributes?: CreateAttributes, toatt
       }
 
       if (toattrs && !attrname.startsWith("prop")) {
-        if (value !== null) { // matches not null and not undefined
+        if (value !== null && value !== undefined) {
           if (value && typeof value === "object")
             throw new Error("Cannot store non-null objects in attributes, use a property starting with 'prop'");
           node.setAttribute(attrname, attributes[attrname]);
