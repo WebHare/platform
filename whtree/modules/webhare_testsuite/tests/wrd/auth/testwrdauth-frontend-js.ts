@@ -28,5 +28,6 @@ test.run([
   },
   async function () {
     test.assert(test.qR('#isloggedin').checked);
+    test.assert(test.qR('#js_isloggedin').checked, "JavaScript isloggedin should be set");
   },
 ]);

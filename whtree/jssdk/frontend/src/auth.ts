@@ -6,6 +6,10 @@ import type { FrontendLoginResult, LoginRemoteOptions } from "@mod-platform/js/a
 
 const authsettings = frontendConfig["wrd:auth"] as { cookiename: string } | undefined;
 
+interface AuthLocalData {
+  expires: Date;
+}
+
 export interface LoginOptions extends LoginRemoteOptions {
 }
 
@@ -18,6 +22,12 @@ export type LoginResult = {
   /** Error message */
   error: string;
 };
+
+function getStorageKeyName() {
+  if (!authsettings?.cookiename)
+    throw new Error("No authsettings.cookiename set, storage not available");
+  return "wh:wrdauth-" + authsettings.cookiename;
+}
 
 async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
   dompack.stop(event);
@@ -39,6 +49,12 @@ async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
     //FIXME restore the code & data members from old wrdauth
     failLogin(loginresult.error, { code: "unknown", data: "" }, this);
   }
+}
+
+/** Return whether a user's currently logged in */
+export function isLoggedIn(): boolean {
+  const data = dompack.getLocal<AuthLocalData>(getStorageKeyName());
+  return Boolean(data?.expires && data.expires > new Date());
 }
 
 /** Setup WRDAuth frontend integration */
@@ -87,7 +103,8 @@ export async function login(username: string, password: string, options: LoginOp
   if ("error" in result)
     return { loggedIn: false, error: result.error };
 
-  //we've logged in! TODO storage updates
+  //we've logged in!
+  dompack.setLocal<AuthLocalData>(getStorageKeyName(), { expires: new Date(result.expires) });
   return { loggedIn: true };
 }
 

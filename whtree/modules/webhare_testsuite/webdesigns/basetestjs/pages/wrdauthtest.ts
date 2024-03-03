@@ -1,6 +1,6 @@
 import * as dompack from "@webhare/dompack";
 import { qR } from "@webhare/dompack";
-import { setupWRDAuth } from "@webhare/frontend";
+import { setupWRDAuth, isLoggedIn } from "@webhare/frontend";
 
 dompack.register(".wrdauthtest", container => {
   // window.rpc = new JSONRPC({ url: '/wh_services/webhare_testsuite/formservice' });
@@ -8,6 +8,8 @@ dompack.register(".wrdauthtest", container => {
     event.preventDefault();
     qR('#status').textContent = 'login failed';
   });
+
+  qR<HTMLInputElement>('#js_isloggedin').checked = isLoggedIn();
 });
 
 setupWRDAuth();
