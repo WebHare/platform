@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, createUnsignedJWT, decodeJWT } from "@webhare/wrd/src/auth";
-import type { OnOpenIdReturnParameters, WRDAuthCustomizer } from "@webhare/wrd";
+import { type LookupUsernameParameters, type OnOpenIdReturnParameters, type WRDAuthCustomizer } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
@@ -147,7 +147,7 @@ async function testAuthAPI() {
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken, { audience: peopleClient!.clientId }));
 
   // Test the openid session apis
-  const blockingcustomizer = {
+  const blockingcustomizer: WRDAuthCustomizer = {
     onOpenIdReturn(params: OnOpenIdReturnParameters): NavigateInstruction | null {
       if (params.client === robotClient!.wrdId)
         return { type: "redirect", url: "https://www.webhare.dev/blocked" };
@@ -172,6 +172,20 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
   test.eqPartial({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+
+  //Test the frontend login with customizer setting up multisite support
+  const multisiteCustomizer: WRDAuthCustomizer = {
+    lookupUsername(params: LookupUsernameParameters): number | null {
+      if (params.username === "jonny" && params.site === "site2")
+        return testuser;
+      return null;
+    }
+  };
+
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site1" }));
+  test.eqPartial({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
 }
 
 test.run([

@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import jwt, { JwtPayload, VerifyOptions } from "jsonwebtoken";
 import { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-system/js/internal/generated/wrd/webhare";
-import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, generateRandomId, pick, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
 import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
@@ -16,6 +16,16 @@ import type { AttrRef } from "@mod-wrd/js/internal/types";
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
+
+export interface LoginUsernameLookupOptions {
+  /** Login to a specific site */
+  site?: string;
+}
+
+export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
+  /** Request a persisent login */
+  persistent?: boolean;
+}
 
 type TokenResponse = {
   id_token?: string;
@@ -100,6 +110,11 @@ export async function createSigningKey(): Promise<JsonWebKey> {
   return pvtkey.export({ format: 'jwk' });
 }
 
+export interface LookupUsernameParameters extends LoginUsernameLookupOptions {
+  /** Username to look up */
+  username: string;
+}
+
 export interface OnOpenIdReturnParameters {
   /// ID of the client requesting the token
   client: number;
@@ -109,6 +124,8 @@ export interface OnOpenIdReturnParameters {
   user: number;
 }
 export interface WRDAuthCustomizer {
+  /** Invoked to look up a login name */
+  lookupUsername?: (params: LookupUsernameParameters) => Promise<number | null> | number | null;
   /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
   onOpenIdReturn?: (params: OnOpenIdReturnParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
 }
@@ -571,20 +588,23 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return { entity: tokeninfo.entity };
   }
 
-  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: WRDAuthCustomizer | null/*, options: AuthServiceLookupOptions*/): Promise<number | null> {
+  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: WRDAuthCustomizer | null, options?: LoginUsernameLookupOptions): Promise<number | null> {
     if (!authsettings.loginAttribute)
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
+
+    if (customizer?.lookupUsername)
+      return await customizer.lookupUsername({ username: loginname, ...pick(options || {}, ["site"]) });
 
     const user = await this.wrdschema.search("wrdPerson", authsettings.loginAttribute as AttrRef<WRD_Idp_WRDPerson>, loginname);
     return user || null;
   }
 
-  async handleFrontendLogin(username: string, password: string, customizer: WRDAuthCustomizer | null/*, { persistent = false} = {}*/): Promise<LoginResult> {
+  async handleFrontendLogin(username: string, password: string, customizer: WRDAuthCustomizer | null, options?: LoginRemoteOptions): Promise<LoginResult> {
     const authsettings = await getAuthSettings(this.wrdschema);
     if (!authsettings.passwordAttribute)
       throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
 
-    let userid = await this.lookupUser(authsettings, username, customizer);
+    let userid = await this.lookupUser(authsettings, username, customizer, options);
     if (userid) {
       //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
       const userinfo = await this.wrdschema.getFields("wrdPerson", userid, { password: authsettings.passwordAttribute });

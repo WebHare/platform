@@ -8,16 +8,9 @@ import { generateRandomId, joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
-import { IdentityProvider, type LoginErrorCodes } from "@webhare/wrd/src/auth";
+import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import { buildCookieHeader } from "@webhare/dompack/impl/cookiebuilder";
-
-export interface LoginRemoteOptions {
-  /** Login to a specific site */
-  site?: string;
-  /** Request a persisent login */
-  persistent?: boolean;
-}
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -88,7 +81,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
   switch (req.url.searchParams.get('type')) {
     case "login": {
       //TODO? could move this API closer to OAUTH username/password flow https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
-      const body = await req.json() as { username: string; password: string; cookieName: string };
+      const body = await req.json() as { username: string; password: string; cookieName: string; options?: LoginRemoteOptions };
       if (typeof body?.username !== "string" || typeof body?.password !== "string")
         return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
       if (body?.cookieName !== settings.cookieName) {
@@ -96,7 +89,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
       }
 
-      const response = await provider.handleFrontendLogin(body.username, body.password, customizer);
+      const response = await provider.handleFrontendLogin(body.username, body.password, customizer, pick(body.options || {}, ["persistent", "site"]));
       if (response.loggedIn === true) {
         /* FIXME return expiry info etc to user. set expiry in cookie too
             have createJSONResponse supply us with a proper cookie header builder. get SameSite= from WRD settings. set Secure if request is secure. set domain if WRD settings say so

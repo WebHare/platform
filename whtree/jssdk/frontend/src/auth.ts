@@ -2,7 +2,8 @@ import { createClient } from "@webhare/jsonrpc-client";
 import { NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import { frontendConfig } from "./init";
-import type { FrontendLoginResult, FrontendLogoutResult, LoginRemoteOptions } from "@mod-platform/js/auth/openid";
+import type { FrontendLoginResult, FrontendLogoutResult } from "@mod-platform/js/auth/openid";
+import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
 
 const authsettings = frontendConfig["wrd:auth"] as { cookiename: string } | undefined;
 
@@ -34,6 +35,7 @@ async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
 
   const username = (this.elements.namedItem("login") as HTMLInputElement)?.value;
   const password = (this.elements.namedItem("password") as HTMLInputElement)?.value;
+  const site = (this.elements.namedItem("site") as HTMLInputElement)?.value || undefined;
   const persistentlogin = (this.elements.namedItem("persistent") as HTMLInputElement)?.checked;
   if (!login || !password)
     throw new Error(`submitLoginForm: required elements login/password not set or missing`);
@@ -41,7 +43,7 @@ async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
   using lock = dompack.flagUIBusy({ modal: true });
   void (lock);
 
-  const loginresult = await login(username, password, { persistent: persistentlogin });
+  const loginresult = await login(username, password, { persistent: persistentlogin, site });
   if (loginresult.loggedIn) {
     //Reload the page to get the new login status - TODO put this behind a 'login state change' event and allow users to cancel it if they can deal with login/logout on-page
     location.reload();
