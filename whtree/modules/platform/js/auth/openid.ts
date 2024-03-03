@@ -27,6 +27,11 @@ export type FrontendLoginResult = {
   code: LoginErrorCodes;
 };
 
+export type FrontendLogoutResult = { success: true } | {
+  error: string;
+  code: LoginErrorCodes;
+};
+
 async function findLoginPageForSchema(schema: string) {
   const sites = (await listSites(["webFeatures", "webRoot"])).filter((site) => site.webFeatures?.includes("platform:identityprovider"));
   const candidates = [];
@@ -88,7 +93,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
       if (body?.cookieName !== settings.cookieName) {
         //Where to log? onsole.error);
-        return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login returned a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
+        return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
       }
 
       const response = await provider.handleFrontendLogin(body.username, body.password, customizer);
@@ -115,6 +120,26 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         });
       } else
         return createJSONResponse(400, { code: response.code, error: response.error } satisfies FrontendLoginResult);
+    }
+    case "logout": {
+      const body = await req.json() as { cookieName: string };
+      if (body?.cookieName !== settings.cookieName) {
+        return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: logout offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLogoutResult);
+      }
+
+      return createJSONResponse(200, {
+        success: true
+      } satisfies FrontendLogoutResult, {
+        headers: {
+          "Set-Cookie": buildCookieHeader(settings.cookieName, '', {
+            httpOnly: true,
+            path: "/",
+            sameSite: "Lax",
+            expires: new Date
+          })
+        }
+      });
+
     }
   }
 
