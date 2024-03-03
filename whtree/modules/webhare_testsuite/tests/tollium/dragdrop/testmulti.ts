@@ -54,7 +54,7 @@ test.registerTests(
 
       // logAllDragEvents();
 
-      const dragelt = test.qSA(clist, "span").filter(n => n.textContent == "Draggable")[0];
+      const dragelt = test.qSA(clist, "span").filter(n => n.textContent === "Draggable")[0];
       if (!dragelt)
         throw new Error("no dragelt");
 

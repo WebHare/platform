@@ -27,10 +27,10 @@ function getElFocusZone(el) {
   if (!el)
     return null;
 
-  //  console.error('getElFocusZone ', el == document.body, currentfocuszone, currentfocuszone && domfocus.getFocusableComponents(currentfocuszone).length);
+  //  console.error('getElFocusZone ', el === document.body, currentfocuszone, currentfocuszone && domfocus.getFocusableComponents(currentfocuszone).length);
 
   // IE focuses the body when we have a currentfocuszone without focusable elements
-  if (el == document.documentElement || el == document.body) {
+  if (el === document.documentElement || el === document.body) {
     if (zonehistory[0] && !domfocus.getFocusableComponents(zonehistory[0]).length)
       return zonehistory[0];
   }
@@ -38,7 +38,7 @@ function getElFocusZone(el) {
   el = el.closest(".wh-focuszone") || null;
 
   // Ignore focus zones declarations on html and body nodes
-  if (el == document.documentElement || el == document.body)
+  if (el === document.documentElement || el === document.body)
     return null;
 
   return el;
@@ -71,8 +71,8 @@ function setActiveZone(zone) {
   filterZoneHistory();
 
   // Zone already active?
-  const currentidx = zonehistory.findIndex(item => item == zone);
-  if (currentidx == 0)
+  const currentidx = zonehistory.findIndex(item => item === zone);
+  if (currentidx === 0)
     return;
 
   // Save the current active zone
@@ -117,7 +117,7 @@ function focusTopZoneElement() {
   const zone = zonehistory[0];
   const tofocus = lastfocusedmap.get(zone);
 
-  if (tofocus && getElFocusZone(tofocus) == zone) //it's still in the proper zone
+  if (tofocus && getElFocusZone(tofocus) === zone) //it's still in the proper zone
   {
     if (dompack.debugflags.fcz)
       console.log("[fcz] moving to earlier zone", zone, ", should focus", tofocus);
@@ -156,7 +156,7 @@ function focusFirstFocusable() {
 }
 
 function isElementInZone(zone, tocheck) {
-  return zone.contains(tocheck) && tocheck.closest("body, .wh-focuszone") == zone;
+  return zone.contains(tocheck) && tocheck.closest("body, .wh-focuszone") === zone;
 }
 
 export function focusZone(newzone) {
@@ -168,7 +168,7 @@ export function focusZone(newzone) {
     throw new Error("No such focuszone");
   }
 
-  if (getCurrentFocusZone() == newzone) {
+  if (getCurrentFocusZone() === newzone) {
     //Is the real focus also in the zone?
     const focused = getActiveElement(document);
     if (dompack.debugflags.fcz)
@@ -195,14 +195,14 @@ export function getFocusZoneActiveElement(zone) {
 
   const focus = getActiveElement(zone.ownerDocument);
   if (focus && zone.contains(focus)) { //the live element is in the requested zone. return it immediately
-    if (dompack.debugflags.fcz && lastfocusedmap.get(zone) != focus)
+    if (dompack.debugflags.fcz && lastfocusedmap.get(zone) !== focus)
       console.error("[fcz] Mismatch between real focus ", focus, " and last focus ", lastfocusedmap.get(zone), " for zone ", zone);
 
     return focus;
   }
 
   if (dompack.debugflags.fcz)
-    console.log("[fcz] Requesting focus for " + (zonehistory[0] == zone ? "active" : "historic") + " zone ", zone, " returning ", lastfocusedmap.get(zone));
+    console.log("[fcz] Requesting focus for " + (zonehistory[0] === zone ? "active" : "historic") + " zone ", zone, " returning ", lastfocusedmap.get(zone));
   return lastfocusedmap.get(zone);
 }
 

@@ -19,9 +19,9 @@ const propnames = {
 };
 
 function getFinalKey(event: NormalizedKeyboardEvent) { //get the name for the 'final' key, eg the 'D' in 'alt+control+d'
-  if (event.code.startsWith('Key') && event.code.length == 4)
+  if (event.code.startsWith('Key') && event.code.length === 4)
     return event.code.substring(3, 4).toUpperCase();
-  if (event.code.startsWith('Digit') && event.code.length == 6)
+  if (event.code.startsWith('Digit') && event.code.length === 6)
     return event.code.substring(5, 6).toUpperCase();
   return event.key.length === 1 ? event.key.toUpperCase() : event.key;
 }
@@ -31,7 +31,7 @@ function getKeyNames(event: NormalizedKeyboardEvent) {
 
   /*
     // Firefix under selenium on linux always says 'Unidentified' as key. Backup for some keys.
-    if (basekey == "Unidentified")
+    if (basekey === "Unidentified")
       basekey = selenium_backup[event.keyCode];
   */
   // Create the modifiers in the names array (omit the basekey, so we can sort on modifier first)
@@ -74,7 +74,7 @@ function validateKeyName(key: string) {
 
   const original_order = modifiers.join('+');
   modifiers.sort();
-  if (modifiers.join('+') != original_order)
+  if (modifiers.join('+') !== original_order)
     throw new Error("Illegal key name " + key + ", modifiers must be sorted alphabetically");
 }
 
@@ -149,32 +149,32 @@ export default class KeyboardHandler {
     if (!(target instanceof Node))
       return false;
     const tag = target.nodeName.toLowerCase();
-    if (tag == "select") {
-      if (["ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].indexOf(key) != -1)
+    if (tag === "select") {
+      if (["ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].indexOf(key) !== -1)
         return true;
-    } else if (tag == "input" || tag == "textarea" || (target instanceof HTMLElement && target.isContentEditable)) {
+    } else if (tag === "input" || tag === "textarea" || (target instanceof HTMLElement && target.isContentEditable)) {
       // These keys we ignore, regardless of the modifier
       if ([
         "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
         "PageUp", "PageDown",
         "Home", "End",
         "Insert", "Delete", "Backspace"
-      ].indexOf(key) != -1)
+      ].indexOf(key) !== -1)
         return true;
 
       let is_special_combo = false;
 
       // only input doesn't want exact combo 'Enter', the rest does
-      if (tag != "input" && keynames.indexOf("Enter") != -1)
+      if (tag !== "input" && keynames.indexOf("Enter") !== -1)
         is_special_combo = true;
 
       // Only contenteditable wants "Shift+Enter"
-      if (target instanceof HTMLElement && target.isContentEditable && keynames.indexOf("Shift+Enter") != -1)
+      if (target instanceof HTMLElement && target.isContentEditable && keynames.indexOf("Shift+Enter") !== -1)
         is_special_combo = true;
 
       // These exact combo's are wanted by all inputs
       ["Accel+A", "Accel+V", "Accel+C", "Accel+X"].forEach(function (name) {
-        is_special_combo = is_special_combo || keynames.indexOf(name) != -1;
+        is_special_combo = is_special_combo || keynames.indexOf(name) !== -1;
       });
       return is_special_combo;
     }

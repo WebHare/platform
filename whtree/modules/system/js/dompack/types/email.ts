@@ -16,15 +16,15 @@ function checkPhrase(phrase: string) {
   // quoted-string = [CFWS] DQUOTE *([FWS] qcontent) [FWS] DQUOTE [CFWS]
 
   for (let i = 0; i < phrase.length;) {
-    while (i < phrase.length && ' \r\n\t'.indexOf(phrase[i]) != -1)
+    while (i < phrase.length && ' \r\n\t'.indexOf(phrase[i]) !== -1)
       ++i;
 
-    if (phrase[i] == '(') { // comment
+    if (phrase[i] === '(') { // comment
       ++i;
       let nesting = 1;
       while (nesting > 0 && i < phrase.length) {
         // accept ctext (= ascii - '()\\')
-        while (i < phrase.length && '()\\'.indexOf(phrase[i]) == -1 && phrase.charCodeAt(i) < 128)
+        while (i < phrase.length && '()\\'.indexOf(phrase[i]) === -1 && phrase.charCodeAt(i) < 128)
           ++i;
         switch (phrase[i]) {
           case ')': --nesting; break;
@@ -33,7 +33,7 @@ function checkPhrase(phrase: string) {
             {
               ++i;
               // Accept only text (ascii - '\r\n')
-              if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
+              if ('\r\n'.indexOf(phrase[i]) !== -1 || phrase.charCodeAt(i) >= 128)
                 return false;
             } break;
           default:
@@ -41,16 +41,16 @@ function checkPhrase(phrase: string) {
         }
         ++i;
       }
-      if (nesting != 0)
+      if (nesting !== 0)
         return false;
-    } else if (phrase[i] == '"') {
+    } else if (phrase[i] === '"') {
       // Parse quoted-string
       // Eat starting '"'
       ++i;
       let finished = false;
       while (!finished) {
         // Accept qtext + fws (ascii - '\t\r\n \"' + '\t\r\n ')
-        while (i < phrase.length && '"\\'.indexOf(phrase[i]) == -1 && phrase.charCodeAt(i) < 128)
+        while (i < phrase.length && '"\\'.indexOf(phrase[i]) === -1 && phrase.charCodeAt(i) < 128)
           ++i;
         switch (phrase[i]) {
           case '"': finished = true; break;
@@ -58,7 +58,7 @@ function checkPhrase(phrase: string) {
             {
               ++i;
               // Accept only text (ascii - '\r\n')
-              if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
+              if ('\r\n'.indexOf(phrase[i]) !== -1 || phrase.charCodeAt(i) >= 128)
                 return false;
             } break;
           default:
@@ -74,9 +74,9 @@ function checkPhrase(phrase: string) {
       let cnt = 0;
       // Must be atom - must be non-empty or end of string please
       for (; i < phrase.length; ++i, ++cnt)
-        if (set_atext.indexOf(phrase[i]) == -1)
+        if (set_atext.indexOf(phrase[i]) === -1)
           break;
-      if (cnt == 0 && i < phrase.length)
+      if (cnt === 0 && i < phrase.length)
         return false;
     }
   }
@@ -86,17 +86,17 @@ function checkPhrase(phrase: string) {
 function checkQuoted(word: string) {
   for (let i = 1; i < word.length; ++i) {
     let ch = word[i];
-    if ("\t\r\n \\\"".indexOf(ch) == -1 && word.charCodeAt(i) < 128)
+    if ("\t\r\n \\\"".indexOf(ch) === -1 && word.charCodeAt(i) < 128)
       continue;
 
-    if (ch == '"')
-      return i == word.length - 1;
-    if (ch != '\\')  // If not a slash: it was a non-qtext thingy
+    if (ch === '"')
+      return i === word.length - 1;
+    if (ch !== '\\')  // If not a slash: it was a non-qtext thingy
       return false;
 
     ++i;  // quoated-pair: Eat "\"
     ch = word[i];
-    if ("\r\n".indexOf(ch) != -1 || word.charCodeAt(i) >= 128) // Is text (ascii - '\r\n')
+    if ("\r\n".indexOf(ch) !== -1 || word.charCodeAt(i) >= 128) // Is text (ascii - '\r\n')
       return false;
   }
   return false; // should've ended with '"'
@@ -108,7 +108,7 @@ function checkAtom(word: string) {
     const ch = word[i];
 
     //Check for space & specials
-    if ('()<>@,;:\\".[] '.indexOf(ch) != -1)
+    if ('()<>@,;:\\".[] '.indexOf(ch) !== -1)
       return false;
 
     if (ch.charCodeAt(0) <= 31 || ch.charCodeAt(0) >= 127)
@@ -120,7 +120,7 @@ function checkAtom(word: string) {
 
 
 function checkLocalPart(localpart: string) {
-  if (localpart == "")
+  if (localpart === "")
     return false;
 
   if (localpart.startsWith('"') && localpart.endsWith('"'))
@@ -145,7 +145,7 @@ function checkDomain(domain: string) {
 
   for (let i = 0; i < subdomains.length; ++i) {
     const subdomain = subdomains[i];
-    if (subdomain == "")
+    if (subdomain === "")
       return false;
 
     if (!checkAtom(subdomain))
@@ -161,7 +161,7 @@ export function isValidEmailAddress(emailaddress: string) {
 
   // First check if we have a simple address or a name & address pair
 
-  if (name_addr_check.length == 2) {
+  if (name_addr_check.length === 2) {
     if (!name_addr_check[1].endsWith('>'))
       return false;
 
@@ -174,20 +174,20 @@ export function isValidEmailAddress(emailaddress: string) {
 
     const route_check = routeaddress.split(':');
 
-    if (route_check.length == 2) {
+    if (route_check.length === 2) {
       emailaddress = route_check[1];
-    } else if (route_check.length == 1)
+    } else if (route_check.length === 1)
       emailaddress = routeaddress;
     else
       return false;
-  } else if (name_addr_check.length != 1)
+  } else if (name_addr_check.length !== 1)
     return false;
 
   // Now check the simple address
 
   const address_spec = emailaddress.split('@');
 
-  if (address_spec.length != 2)
+  if (address_spec.length !== 2)
     return false;
 
   if (!checkLocalPart(address_spec[0]))

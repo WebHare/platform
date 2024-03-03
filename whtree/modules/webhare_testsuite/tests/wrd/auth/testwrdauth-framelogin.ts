@@ -30,7 +30,7 @@ async function tryProtectedURL(gotourl: string) {
 
   test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'requirewhaccount.rtd'));
 
-  await test.wait(() => receivedmessage && receivedmessage.type == "webhare_testsuite:requirewhaccount");
+  await test.wait(() => receivedmessage && receivedmessage.type === "webhare_testsuite:requirewhaccount");
 }
 
 test.registerTests(

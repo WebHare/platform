@@ -36,19 +36,19 @@ export function parseUserAgent(ua: string): UserAgentInfo {
   if (!UA)
     UA = ['', 'unknown', "0"];
 
-  if (UA[1] == 'trident') {
+  if (UA[1] === 'trident') {
     UA[1] = 'ie';
     if (UA[4]) UA[2] = UA[4];
-  } else if (UA[1] == 'crios') {
+  } else if (UA[1] === 'crios') {
     UA[1] = 'chrome';
   }
 
   let platform = ua.match(/ip(?:ad|od|hone)/) ? 'ios' : (ua.match(/(?:webos|android)/) || ua.match(/mac|win|linux/) || ['other'])[0];
-  if (platform == 'win')
+  if (platform === 'win')
     platform = 'windows';
 
-  const name = (UA[1] == 'version') ? UA[3] : UA[1];
-  const version = parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]);
+  const name = (UA[1] === 'version') ? UA[3] : UA[1];
+  const version = parseInt((UA[1] === 'opera' && UA[4]) ? UA[4] : UA[2]);
   const device = ua.match(/ipad/) ? 'tablet' : ['ios', 'webos', 'android'].includes(platform) ? 'mobile' : ['mac', 'windows', 'linux'].includes(platform) ? 'desktop' : '';
 
   return {

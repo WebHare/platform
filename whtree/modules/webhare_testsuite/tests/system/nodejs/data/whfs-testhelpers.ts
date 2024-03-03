@@ -11,9 +11,9 @@ export async function verifyNumSettings(objid: number, ns: string, expect: numbe
     .where("fs_object", "=", objid)
     .execute();
 
-  if (instances.length == 2)
+  if (instances.length === 2)
     throw new Error(`Found multiple fs_instances for type ${type.id} and object ${objid}`);
-  if (expect == 0) {
+  if (expect === 0) {
     if (instances.length)
       throw new Error(`Expected no settings but still found an fs_instance for type ${type.id} and object ${objid}`);
     return;

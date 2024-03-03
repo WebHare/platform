@@ -112,7 +112,7 @@ async function mainloop(managedqueuemgr) {
       }
 
       let taskrunner = require(taskinfo.library);
-      if (typeof taskrunner == "object" && taskrunner.default) //es6 syntax?
+      if (typeof taskrunner === "object" && taskrunner.default) //es6 syntax?
         taskrunner = taskrunner.default;
 
       const context = new TaskContext(cache);

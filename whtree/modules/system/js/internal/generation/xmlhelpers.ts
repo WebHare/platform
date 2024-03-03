@@ -84,7 +84,7 @@ export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: E
         return `${module}:${tid}`;
     }
     /* TODO?  tid logging through parsexmltidptr?
-    IF(onparsedtid != DEFAULT MACRO PTR)
+    IF(onparsedtid !== DEFAULT MACRO PTR)
     {
       STRING ARRAY conflicting_attributes; //do we have both tid= and one of title/htmltitle ?
       IF(el -> HasAttributeNS(ns, "html" || attrname))
@@ -107,7 +107,7 @@ export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: E
       const trygidfromname = getXMLTidFromName(module, currentgid, el);
       if (trygidfromname) {
         /* TODO?  tid logging through parsexmltidptr?
-        IF(onparsedtid != DEFAULT MACRO PTR AND trygidfromname.tid != "")
+        IF(onparsedtid !== DEFAULT MACRO PTR AND trygidfromname.tid !== "")
           onparsedtid(CELL[resourcename, trygidfromname.tid, line := el -> linenum, col := 0, attrname := trygidfromname.attr, conflicting_attributes := STRING[] ]);*/
 
         return trygidfromname.tid;
@@ -118,7 +118,7 @@ export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: E
 }
 
 export function determineNodeGid(resourcename: string, node: Node | null): string {
-  while (node && node.nodeType == node.ELEMENT_NODE) {
+  while (node && node.nodeType === node.ELEMENT_NODE) {
     const localgid = (node as Element).getAttribute("gid");
     if (!localgid) {
       node = node.parentNode;

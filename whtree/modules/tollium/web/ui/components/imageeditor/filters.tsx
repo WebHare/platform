@@ -100,7 +100,7 @@ class PhotoFilters extends SurfaceTool {
           icon: toddImages.createImage("tollium:actions/posterize", 24, 24, "b"),
           onExecute: this.posterize.bind(this)
         }));
-      if (typeof CCV == "object") {
+      if (typeof CCV === "object") {
         this.filterpanel.addButton(new Toolbar.Button(this.filterpanel,
           {
             label: getTid("tollium:components.imgedit.editor.findfaces"),
@@ -420,8 +420,8 @@ class PhotoFilters extends SurfaceTool {
         createScreen: this.options.createScreen,
         onButton: result => {
           // Apply the filter if previewing, or if the 'ok' button is pressed and the filter is not yet previewed
-          if (result.button == "preview" || (result.button == "ok" && !previewed)) {
-            previewed = result.button == "preview";
+          if (result.button === "preview" || (result.button === "ok" && !previewed)) {
+            previewed = result.button === "preview";
 
             // Use the initial canvas for running the filter (prevent re-applying the filter on multiple previews)
             this.previewdata = curpixels;
@@ -430,12 +430,12 @@ class PhotoFilters extends SurfaceTool {
             runfilter(result.values);
           }
           // Reset the filterdata and canvas if the 'cancel' button is pressed and the filter has been previewed
-          else if (result.button == "cancel" && previewed) {
+          else if (result.button === "cancel" && previewed) {
             this.filterdata = curdata;
             this.setPixels(this.tmpcanvas, curpixels);
           }
           // Clear the preview initial canvas
-          if (result.button != "preview") {
+          if (result.button !== "preview") {
             this.previewdata = null;
           }
         }

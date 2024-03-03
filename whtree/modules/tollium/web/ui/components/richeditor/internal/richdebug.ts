@@ -23,7 +23,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
 
   // Detect all locators & elements in namedlocators in the first 2 levels (array/record), move to single level object
   for (const [n, elt] of Object.entries(namedlocators)) {
-    if (elt && typeof elt == "object") {
+    if (elt && typeof elt === "object") {
       if ("element" in elt)
         locators[n] = elt as domlevel.Locator;
       else if ("nodeType" in elt) {
@@ -31,7 +31,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
         locators[n + '#elt'].moveToParent();
       } else {
         for (const [m, subelt] of Object.entries(elt)) {
-          if (subelt && typeof subelt == "object") {
+          if (subelt && typeof subelt === "object") {
             if ("element" in subelt)
               locators[n + '.' + m] = subelt as domlevel.Locator;
             else if ("nodeType" in subelt) {
@@ -39,7 +39,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
               locators[n + '.' + m + '#elt'].moveToParent();
             } else {
               for (const [k, subsubelt] of Object.entries(subelt)) {
-                if (subsubelt && typeof subsubelt == "object") {
+                if (subsubelt && typeof subsubelt === "object") {
                   if ("element" in subsubelt)
                     locators[n + '.' + m + '.' + k] = subsubelt as domlevel.Locator;
                   else if ("nodeType" in subsubelt) {
@@ -74,7 +74,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
   if (node.parentNode) {
     const parent = node.parentNode;
     for (const n in locators)
-      if (locators[n].element == parent && locators[n].offset < parent.childNodes.length && parent.childNodes[locators[n].offset] == node)
+      if (locators[n].element === parent && locators[n].offset < parent.childNodes.length && parent.childNodes[locators[n].offset] === node)
         retval += getLocatorText(n, locators[n]);
   }
   if (retval)
@@ -86,7 +86,7 @@ function getStructuredOuterHTML(node: Node, namedlocators: object, options?: num
   if (options.colorize) {
     retval = ["%c" + retval.replace(/\(#/g, "%c(#").replace(/#\)/g, ")%c")];
     for (let i = 0, e = retval[0].split("%c").length - 1; i < e; ++i)
-      retval.push((i % 2) == 0 ? "color:black;" : "color:red;");
+      retval.push((i % 2) === 0 ? "color:black;" : "color:red;");
   }
   return retval;
 }
@@ -98,7 +98,7 @@ function getLocatorText(name, locator) {
 function getNamedLocatorsText(namedlocators, node, offset, indent, incr) {
   let locatortext = '';
   for (const n in namedlocators)
-    if (namedlocators[n].element == node && namedlocators[n].offset == offset)
+    if (namedlocators[n].element === node && namedlocators[n].offset === offset)
       locatortext += getLocatorText(n, namedlocators[n]);
 
   if (locatortext && indent)
@@ -113,9 +113,9 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     return '<undefined>';
 
   let retval = '';
-  if (node.nodeType == 11 || node.nodeType == 9) {
+  if (node.nodeType === 11 || node.nodeType === 9) {
     for (let i = 0; i < node.childNodes.length; ++i) {
-      if (i != 0 && !indent)
+      if (i !== 0 && !indent)
         retval += ' ';
 
       retval += getNamedLocatorsText(namedlocators, node, i, indent);
@@ -126,13 +126,13 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     retval += getNamedLocatorsText(namedlocators, node, node.childNodes.length, indent);
     return retval;
   }
-  if (node.nodeType == 1) {
+  if (node.nodeType === 1) {
     retval += '<' + encodeString(node.nodeName, 'attribute');
     for (let i = 0; i < node.attributes.length; ++i) {
       const attrvalue = String(node.attributes[i].value || node.attributes[i].nodeValue || '');
       if (attrvalue) {
         const attrname = String(node.attributes[i].nodeName);
-        if (attrvalue.substr(0, 9) == "function (") // Readability for IE8
+        if (attrvalue.substr(0, 9) === "function (") // Readability for IE8
           continue;
         retval += ' ' + encodeString(attrname, 'attribute') + '="' + encodeString(attrvalue, 'attribute') + '"';
       }
@@ -144,7 +144,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
 
     let nodecontents = '';
     for (let i = 0; i < node.childNodes.length; ++i) {
-      if (i != 0 && !indent)
+      if (i !== 0 && !indent)
         nodecontents += ' ';
 
       nodecontents += getNamedLocatorsText(namedlocators, node, i, indent, 1);
@@ -159,12 +159,12 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
       retval += getIndentedLineBreak(indent);
     return retval + '</' + encodeString(node.nodeName, 'attribute') + '>';
   }
-  if (node.nodeType == 3 || node.nodeType == 4 || node.nodeType == 8) {
-    if (node.nodeType == 3)
+  if (node.nodeType === 3 || node.nodeType === 4 || node.nodeType === 8) {
+    if (node.nodeType === 3)
       retval += '#text:';
-    if (node.nodeType == 4)
+    if (node.nodeType === 4)
       retval += '#cdata:';
-    if (node.nodeType == 8)
+    if (node.nodeType === 8)
       retval += '#comment:';
     if (node._xtest)
       retval += node._xtest + ':';
@@ -176,7 +176,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     }
     text += getNamedLocatorsText(namedlocators, node, intext.length);
     const valenc = unescape(escape(encodeString(text, 'attribute')).split('%u').join('\\u').split('%A0').join('\\u00A0'));
-    retval += '"' + valenc + '"';// + (valenc != urienc ? ' - "' + urienc + '"' : '');
+    retval += '"' + valenc + '"';// + (valenc !== urienc ? ' - "' + urienc + '"' : '');
     return retval;
   }
   return node.nodeName;
@@ -188,7 +188,7 @@ function unstructureDom(node, locators) {
   for (let i = 0; i < node.childNodes.length;) {
     const child = node.childNodes[i];
 
-    if (child.nodeType != 3) {
+    if (child.nodeType !== 3) {
       unstructureDom(child, locators);
       ++i;
       continue;
@@ -200,7 +200,7 @@ function unstructureDom(node, locators) {
     let locator = new domlevel.Locator(node, i);
     //var hadlocator = false;
     for (let a = 0; a < text.length;) {
-      if (text.substr(a, 2) == '(*') {
+      if (text.substr(a, 2) === '(*') {
         const endpos = text.indexOf('*)', a);
 
         const pos = parseInt(text.substring(a + 2, endpos));
@@ -213,7 +213,7 @@ function unstructureDom(node, locators) {
         foundlocator = true;
         continue;
       }
-      if (text.substr(a, 1) == '"') {
+      if (text.substr(a, 1) === '"') {
         if (!quoted) {
           if (!(result === null)) {
             const next = child.nextSibling;
@@ -257,7 +257,7 @@ function unstructureDom(node, locators) {
   if (foundlocator && ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'blockquote', "li"].includes(node.nodeName.toLowerCase())) {
     const locator = new domlevel.Locator(node);
     const res = locator.scanForward(node, { whitespace: true }); // only whitespace?
-    if (res.type == 'outerblock') {
+    if (res.type === 'outerblock') {
       const br = node.ownerDocument.createElement('br');
       br.setAttribute("data-wh-rte", "bogus");
       locator.insertNode(br);
@@ -322,7 +322,7 @@ class SourceDebugger {
 
 function getAllLocatorsInNode(node) {
   let list = [];
-  if (node.nodeType == 3) {
+  if (node.nodeType === 3) {
     for (let i = 0; i <= node.nodeValue.length; ++i)
       list.push(new domlevel.Locator(node, i));
   } else {
@@ -339,11 +339,11 @@ function getAllLocatorsInNode(node) {
 }
 
 function cloneNodeWithTextQuotesAndMarkedLocators(node, locators) {
-  if (node.nodeType == 3) {
+  if (node.nodeType === 3) {
     let text = '"';
     for (let i = 0; i <= node.nodeValue.length; ++i) {
       for (let l = 0; l < locators.length; ++l)
-        if (locators[l].element == node && locators[l].offset == i)
+        if (locators[l].element === node && locators[l].offset === i)
           text += '(*' + l + '*)';
       text += node.nodeValue.substr(i, 1);
     }
@@ -359,7 +359,7 @@ function cloneNodeWithTextQuotesAndMarkedLocators(node, locators) {
 
   for (let i = 0; i <= node.childNodes.length; ++i) {
     for (let l = 0; l < locators.length; ++l)
-      if (locators[l].element == node && locators[l].offset == i) {
+      if (locators[l].element === node && locators[l].offset === i) {
         const text = '(*' + l + '*)';
         const textnode = document.createTextNode(text);
         copy.appendChild(textnode);

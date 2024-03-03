@@ -13,7 +13,7 @@ import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range'
 const useblockfill = true;
 const alwaysblockfill = '<br data-wh-rte="bogus">'; // Always present blockfill
 const blockfill = alwaysblockfill;
-const ieblockfill = ''; // IE interchange blockfill, only present in getContentsHTML when useblockfill == false
+const ieblockfill = ''; // IE interchange blockfill, only present in getContentsHTML when useblockfill === false
 const blockfillistext = false;
 const quotedblockfill = blockfill;
 const quotedloc01blockfill = '(*0*)(*1*)' + blockfill;
@@ -32,9 +32,9 @@ test.registerTests(
       test: function (doc, win) {
         const rte = win.rte.getEditor();
         const bodynode = rte.getBody();
-        test.assert(bodynode.className.indexOf('html-class') == -1);
-        test.assert(bodynode.className.indexOf('body-class') != -1);
-        test.assert(bodynode.parentNode.className.indexOf('html-class') != -1);
+        test.assert(bodynode.className.indexOf('html-class') === -1);
+        test.assert(bodynode.className.indexOf('body-class') !== -1);
+        test.assert(bodynode.parentNode.className.indexOf('html-class') !== -1);
       }
     },
     {
@@ -72,7 +72,7 @@ test.registerTests(
 
         // Image button should be disabled, as 'img' is not permitted here
         const imgbutton = test.qSA('span.wh-rtd-button[data-button=img]')[0];
-        test.assert(imgbutton != null, "No image button");
+        test.assert(imgbutton !== null, "No image button");
         test.assert(imgbutton.classList.contains('disabled'), "Image button is not disabled");
       }
     },
@@ -85,7 +85,7 @@ test.registerTests(
       name: 'emptytest',
       test: function (doc, win) {
         //blockfill = win.$wh.Rich.Dom.usesBRAsBlockFill() ? '<br>' : '\u200b';
-        //blockfillistext = blockfill.substr(0,1) != '<';
+        //blockfillistext = blockfill.substr(0,1) !== '<';
         //quotedblockfill = !blockfillistext ? blockfill : '"' + blockfill + '"';
         //quotedloc01blockfill = !blockfillistext ? '(*0*)(*1*)' + blockfill : '"(*0*)(*1*)' + blockfill + '"';
 
@@ -311,7 +311,7 @@ test.registerTests(
 
         //this is the style we applied to HEADING1, we're expecting the rte to have properly set the class
         const h1 = body.getElementsByTagName("H1")[0];
-        if (test.getTestArgument(0) != 'dummy')
+        if (test.getTestArgument(0) !== 'dummy')
           test.eqIn(['rgb(221, 221, 221)', '#dddddd'], rtetest.getCompStyle(h1, "color"));
 
         //select the heading1. request the current state
@@ -329,7 +329,7 @@ test.registerTests(
         //select the first P. request the current state
         const p = body.getElementsByTagName("P")[0];
         rte.setCursor(p, 2);
-        if (test.getTestArgument(0) != 'dummy')
+        if (test.getTestArgument(0) !== 'dummy')
           test.eqIn(['rgb(255, 0, 0)', '#ff0000'], rtetest.getCompStyle(p, "color"));
 
         //verify that the 'a' was properly copied into the P after whitelisting

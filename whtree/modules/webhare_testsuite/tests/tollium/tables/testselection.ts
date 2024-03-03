@@ -5,7 +5,7 @@ import * as test from '@mod-tollium/js/testframework';
 
 
 function getSelection(node_tbl) {
-  return test.qSA(node_tbl, '.todd-table__cell--selected').filter(node => node.closest('.todd-table') == node_tbl);
+  return test.qSA(node_tbl, '.todd-table__cell--selected').filter(node => node.closest('.todd-table') === node_tbl);
 }
 
 function hasFocus(node) {

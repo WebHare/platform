@@ -38,7 +38,7 @@ export function getErrorForValidity(field: HTMLSelectElement | HTMLInputElement)
     if (validity.tooLong)
       return getTid("publisher:site.forms.commonerrors.maxlength", field.maxLength);
     if (validity.stepMismatch)
-      if (!field.step || parseInt(field.step) == 1)
+      if (!field.step || parseInt(field.step) === 1)
         return getTid("publisher:site.forms.commonerrors.step1mismatch");
       else
         return getTid("publisher:site.forms.commonerrors.stepmismatch", field.step);

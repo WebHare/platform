@@ -19,7 +19,7 @@ export function getKeyboardEventProps(data) {
   if (data.key.length === 1) // one printable character. Don't even bother with producing right key and char codes
   {
     const keycharcode = data.key.charCodeAt(0);
-    if (keycharcode < 32 || keycharcode == 127)
+    if (keycharcode < 32 || keycharcode === 127)
       throw new Error(`No control characters, please use UI-Events name (used key ${encodeURIComponent(data.key)})`);
     const ukeycharcode = data.key.toUpperCase().charCodeAt(0);
 
@@ -120,8 +120,8 @@ export function getKeyboardEventProps(data) {
     if (!keycode)
       throw new Error(`No keycode mapping for special key ${data.key} defined, please add some`);
 
-    presscode = keycode;//browserName() == "firefox" ? keycode : 0; // only keypress in firefox
-    if (data.key == "Delete") // Delete has a presscode of 127
+    presscode = keycode;//browserName() === "firefox" ? keycode : 0; // only keypress in firefox
+    if (data.key === "Delete") // Delete has a presscode of 127
       presscode = 127;
   }
 
@@ -271,7 +271,7 @@ export function generateKeyboardEvent(target, eventname, data) {
     });
     if (debugflags.testfw)
       console.log('[testfw] Constructed firefox keyboardevent', evt);
-  } else if (browserName() === "edge" || browserName() == "ie") {
+  } else if (browserName() === "edge" || browserName() === "ie") {
     // edge has some diffent mappings for .key. ("-":"Subtract" and "/":"Divide" are only used for numeric pad)
     const keymapping =
     {
@@ -407,26 +407,26 @@ export async function pressKey(keylist, props) {
       retval = _fireKeyboardEvent(focused, 'keypress', props);
 
     if (retval) {
-      if (eventprops.key == 'Tab') {
+      if (eventprops.key === 'Tab') {
         doTabKey(eventprops.shiftKey ? -1 : +1);
-      } else if (focused.nodeName == 'TEXTAREA' || (focused.nodeName == 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
-        if (eventprops.key == 'Backspace') {
-          if (focused.selectionStart == focused.selectionEnd) //delete the character before the cursor
+      } else if (focused.nodeName === 'TEXTAREA' || (focused.nodeName === 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
+        if (eventprops.key === 'Backspace') {
+          if (focused.selectionStart === focused.selectionEnd) //delete the character before the cursor
             focused.value = focused.value.substr(0, focused.selectionStart - 1) + focused.value.substr(focused.selectionEnd);
           else //delete the character
             focused.value = focused.value.substr(0, focused.selectionStart) + focused.value.substr(focused.selectionEnd);
 
           fireHTMLEvent(focused, 'input');
-        } else if (eventprops.key == 'ArrowUp' || eventprops.key == 'ArrowDown') {
-          if (focused.nodeName == 'INPUT' && focused.type == 'number') {
+        } else if (eventprops.key === 'ArrowUp' || eventprops.key === 'ArrowDown') {
+          if (focused.nodeName === 'INPUT' && focused.type === 'number') {
             let value = parseInt(focused.value);
             if (!isNaN(value)) {
               const step = parseInt(focused.getAttribute("step")) || 1;
-              value = value + (eventprops.key == 'ArrowUp' ? Number(step) : -step);
+              value = value + (eventprops.key === 'ArrowUp' ? Number(step) : -step);
 
-              if (eventprops.key == 'ArrowUp' && focused.hasAttribute("max") && value > parseInt(focused.getAttribute("max")))
+              if (eventprops.key === 'ArrowUp' && focused.hasAttribute("max") && value > parseInt(focused.getAttribute("max")))
                 value = parseInt(focused.getAttribute("max"));
-              if (eventprops.key == 'ArrowDown' && focused.hasAttribute("min") && value < parseInt(focused.getAttribute("min")))
+              if (eventprops.key === 'ArrowDown' && focused.hasAttribute("min") && value < parseInt(focused.getAttribute("min")))
                 value = parseInt(focused.getAttribute("min"));
 
               focused.value = value;
@@ -472,7 +472,7 @@ function doTabKey(direction) {
     .map(pair => pair.node);
 
   let curpos = allfocus.indexOf(curfocus);
-  if (curpos == -1 && curfocus != curfocus.ownerDocument.body) {
+  if (curpos === -1 && curfocus !== curfocus.ownerDocument.body) {
     console.log("currentfocus", curfocus);
     console.log("all", allfocus.length, allfocus);
     throw new Error("Unable to find currently focused element in the list of all focusable elements");
@@ -493,7 +493,7 @@ function doTabKey(direction) {
   }
 
   const nowfocused = domfocus.getCurrentlyFocusedElement();
-  if (allfocus[curpos] != nowfocused) //if an element is actally unfocusable, the browser just tends to ignore us (except IE, which loves to throw)
+  if (allfocus[curpos] !== nowfocused) //if an element is actally unfocusable, the browser just tends to ignore us (except IE, which loves to throw)
   {
     console.log("Tried to focus", allfocus[curpos]);
     console.log("Actually focused", nowfocused);

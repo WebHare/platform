@@ -98,7 +98,7 @@ export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, re
       return `Invalid unlessenvironment setting`;
 
     const actualvalue = process.env[split[1]];
-    if (split[3] !== undefined && actualvalue == split[3])
+    if (split[3] !== undefined && actualvalue === split[3])
       return `Environment variable '${split[1]}' matches '${split[3]}'`;
     if (split[3] === undefined && actualvalue !== undefined)
       return `Forbidden environment variable '${split[1]}' set to '${actualvalue}'`;

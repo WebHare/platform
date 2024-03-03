@@ -33,7 +33,7 @@ export class ObjAutoSuggestableBase extends ComponentBase {
   // Lookup support
   //
   async lookup(word: string) {
-    if (this._autosuggest.type == 'static') {
+    if (this._autosuggest.type === 'static') {
       //startswith matches go in the top half, other matches in the bottom half
       const toplist = [], bottomlist = [];
       word = word.toLowerCase();
@@ -170,9 +170,9 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     // minlength must not be greater then maxlength (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#htmlattrdefminlength)
     if (this.maxlength > 0) {
       this.inputnode.maxLength = this.maxlength;
-      if (this.minlength > 0 && this.lengthmeasure == "characters" && this.minlength < this.maxlength)
+      if (this.minlength > 0 && this.lengthmeasure === "characters" && this.minlength < this.maxlength)
         this.inputnode.minLength = this.minlength;
-    } else if (this.minlength > 0 && this.lengthmeasure == "characters")
+    } else if (this.minlength > 0 && this.lengthmeasure === "characters")
       this.inputnode.minLength = this.minlength;
 
     if (this.showcounter) {
@@ -201,7 +201,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   readdComponent(comp: typeof this.buttons[number]) {
     // Replace the offending component
     //if(!comp.parentsplititem)
-    if (comp.parentcomp != this)
+    if (comp.parentcomp !== this)
       return console.error('Child ' + comp.name + ' not inside the textedit is trying to replace itself');
 
     const newcomp = this.owner.addComponent(this, comp.name);
@@ -226,7 +226,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
     // Get the current value, compare with last reported value
     const currentvalue = this.getValue();
-    if (this.lastreportedvalue != currentvalue && this.isEventUnmasked('change')) {
+    if (this.lastreportedvalue !== currentvalue && this.isEventUnmasked('change')) {
       // Only update lastreportedvalue when we're actually reporting.
       this.lastreportedvalue = currentvalue;
       this.transferState(false);
@@ -261,7 +261,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   }
 
   setRequired(value: boolean) {
-    if (value != this.required) {
+    if (value !== this.required) {
       this.required = value;
       this.node.classList.toggle("required", this.required);
       this.inputnode.required = this.required;
@@ -271,7 +271,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   }
 
   setEnabled(value: boolean) {
-    if (value == this.enabled)
+    if (value === this.enabled)
       return;
 
     this.enabled = value;

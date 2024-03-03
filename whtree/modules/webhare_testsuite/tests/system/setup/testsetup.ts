@@ -8,11 +8,11 @@ let setupdata = null;
 let pietjeguid = '';
 
 function getAppInStartMenuByName(name) {
-  return Array.from(test.qSA('li li')).filter(node => node.textContent == name)[0];
+  return Array.from(test.qSA('li li')).filter(node => node.textContent === name)[0];
 }
 
 function addTransportToLink(link) {
-  return link + (link.indexOf("?") == -1 ? "?" : "&") + "transport=" + test.getTestArgument(0);
+  return link + (link.indexOf("?") === -1 ? "?" : "&") + "transport=" + test.getTestArgument(0);
 }
 
 let pietje_resetlink, jantje_resetlink;

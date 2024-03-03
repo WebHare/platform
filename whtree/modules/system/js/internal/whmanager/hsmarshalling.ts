@@ -143,7 +143,7 @@ export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallabl
 
   const type = buf.readU8() as VariableType;
   const retval = marshalReadInternal(buf, type, columns, null);
-  if (buf.readpos != buf.length)
+  if (buf.readpos !== buf.length)
     throw new Error(`Garbage at end of marshalling packet`);
   return retval as SimpleMarshallableData;
 }
@@ -167,7 +167,7 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
       const colsize = buf.readU8();
       columns.push(buf.readRaw(colsize).toString("utf-8").toLowerCase());
     }
-    if (buf.readpos != 20 + columnsize)
+    if (buf.readpos !== 20 + columnsize)
       throw new Error(`Error in marshalling packet: incorrect column section size`);
   }
 
@@ -184,17 +184,17 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
     for (let idx = 0; idx < blobcount; ++idx) {
       blobs.push(buf.readRaw(blobsizes[idx]));
     }
-    if (buf.readpos != 20 + columnsize + datasize + Number(totalblobsize))
+    if (buf.readpos !== 20 + columnsize + datasize + Number(totalblobsize))
       throw new Error(`Error in marshalling packet: incorrect blob section size`);
   }
 
   buf.readpos = 20 + columnsize;
   const dataformat = buf.readU8();
-  if (dataformat != MarshalPacketFormatType)
+  if (dataformat !== MarshalPacketFormatType)
     throw new Error(`Error in marshalling packet: Invalid data format`);
   const type = buf.readU8() as VariableType;
   const retval = marshalReadInternal(buf, type, columns, blobs);
-  if (buf.readpos != 20 + columnsize + datasize)
+  if (buf.readpos !== 20 + columnsize + datasize)
     throw new Error(`Error in marshalling packet: incorrect data section size`);
   return retval;
 }
@@ -203,7 +203,7 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
   if (type & 0x80) {
     const eltcount = buf.readU32();
     const retval: IPCMarshallableData[] = getDefaultValue(type) as IPCMarshallableData[];
-    if (type == VariableType.VariantArray) {
+    if (type === VariableType.VariantArray) {
       for (let i = 0; i < eltcount; ++i) {
         const subtype = buf.readU8() as VariableType;
         retval.push(marshalReadInternal(buf, subtype, columns, blobs));
@@ -443,7 +443,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
 
     const len = (value as unknown[]).length;
     writer.writeU32(len);
-    const subtype = type == VariableType.VariantArray ? null : type & ~VariableType.Array;
+    const subtype = type === VariableType.VariantArray ? null : type & ~VariableType.Array;
     for (let i = 0; i < len; ++i) {
       writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, path);
     }
@@ -538,7 +538,7 @@ export function encodeHSON(value: IPCMarshallableData): string {
 
 function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType): string {
   let type = determineType(value);
-  if (needtype !== undefined && type != needtype) {
+  if (needtype !== undefined && type !== needtype) {
     if (unifyEltTypes(type, needtype) !== needtype)
       throw new Error(`Cannot store an ${VariableType[type] ?? type} in an array for ${VariableType[needtype] ?? needtype}`);
     type = needtype;
@@ -569,9 +569,9 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
 
       if (totalmsecs >= maxDateTimeTotalMsecs) {
         retval = `d"MAX"`;
-      } else if (daysvalue == 0 && msecsvalue == 0 || daysvalue < 0 || msecsvalue < 0) {
+      } else if (daysvalue === 0 && msecsvalue === 0 || daysvalue < 0 || msecsvalue < 0) {
         retval = `d""`;
-      } else if (daysvalue == 0) {
+      } else if (daysvalue === 0) {
         retval = `d"T${msecsvalue}"`;
       } else {
         const year = String(dt.getUTCFullYear()).padStart(4, "0");
@@ -767,11 +767,11 @@ class JSONParser {
     const is_whitespace = val === " " || val === "\r" || val === "\n" || val === "\t";
     const is_tokenchar = val === "{" || val === "}" || val === "[" || val === "]" || val === ":" || val === ",";
     const is_specialchar = val === "'" || val === "\"" || val === "-" || val === "+" || val === ".";
-    const is_comment = this.allowcomments && val == '/';
+    const is_comment = this.allowcomments && val === '/';
 
     // First process tokens that are terminated by a token outside their class (that still needs to be processed afterwards)
 
-    if (this.state == TokenState.TS_LongToken) {
+    if (this.state === TokenState.TS_LongToken) {
       // long token ends by whitespace or tokenchar or specialchar
       if (is_whitespace || is_tokenchar || is_specialchar || is_comment) {
         // Process the long token
@@ -786,7 +786,7 @@ class JSONParser {
       }
     }
 
-    if (this.state == TokenState.TS_Number || this.state == TokenState.TS_NumberPrefix) {
+    if (this.state === TokenState.TS_Number || this.state === TokenState.TS_NumberPrefix) {
       // Number ends with whitespace after first non-prefix character ('+'/'-')
       if (is_tokenchar) {
         // Token character, ends number. Process the number
@@ -798,7 +798,7 @@ class JSONParser {
         // Continue to process the current character too
         this.state = TokenState.TS_Default;
       } else {
-        if (this.state == TokenState.TS_NumberPrefix) {
+        if (this.state === TokenState.TS_NumberPrefix) {
           // Only seen prefixes, skip whitespace
           if (is_comment) {
             this.comment_after_numberprefix = true;
@@ -807,7 +807,7 @@ class JSONParser {
           }
           if (!is_whitespace) {
             // Check if other than prefix
-            if (val != '+' && val != '-') {
+            if (val !== '+' && val !== '-') {
               this.state = TokenState.TS_Number;
               this.comment_after_numberprefix = false;
             }
@@ -833,10 +833,10 @@ class JSONParser {
       }
     }
 
-    if (this.state == TokenState.TS_CommentStart) {
-      if (val == '/')
+    if (this.state === TokenState.TS_CommentStart) {
+      if (val === '/')
         this.state = TokenState.TS_LineComment;
-      else if (val == '*')
+      else if (val === '*')
         this.state = TokenState.TS_BlockComment;
       else {
         this.errormessage = "Unexpected character '" + this.currenttoken + "' encountered, expected '/' or '*'";
@@ -847,25 +847,25 @@ class JSONParser {
       }
       return true;
     }
-    if (this.state == TokenState.TS_LineComment) {
-      if (val == '\n')
+    if (this.state === TokenState.TS_LineComment) {
+      if (val === '\n')
         this.state = this.comment_after_numberprefix ? TokenState.TS_NumberPrefix : TokenState.TS_Default;
       return true;
     }
-    if (this.state == TokenState.TS_BlockComment) {
-      if (val == '*')
+    if (this.state === TokenState.TS_BlockComment) {
+      if (val === '*')
         this.state = TokenState.TS_BlockCommentEnd;
       return true;
     }
-    if (this.state == TokenState.TS_BlockCommentEnd) {
-      if (val == '/')
+    if (this.state === TokenState.TS_BlockCommentEnd) {
+      if (val === '/')
         this.state = this.comment_after_numberprefix ? TokenState.TS_NumberPrefix : TokenState.TS_Default;
-      else if (val != '*')
+      else if (val !== '*')
         this.state = TokenState.TS_BlockComment;
       return true;
     }
 
-    if (this.state == TokenState.TS_Default || this.state == TokenState.TS_Initial) {
+    if (this.state === TokenState.TS_Default || this.state === TokenState.TS_Initial) {
       // Set start of current token
       this.errorline = this.line;
       this.errorcolumn = this.column - 1;
@@ -890,21 +890,21 @@ class JSONParser {
         return true;
       }
       // Detect strings. No need to add them to token, they are decoded immediately
-      if (val == '"') {
+      if (val === '"') {
         this.state = TokenState.TS_DQString;
         return true;
       }
-      if (val == '\'') {
+      if (val === '\'') {
         this.state = TokenState.TS_QString;
         return true;
       }
       // Detect number
-      if (val == '+' || val == '-') {
+      if (val === '+' || val === '-') {
         this.currenttoken = this.currenttoken + val;
         this.state = TokenState.TS_NumberPrefix;
         return true;
       }
-      if ((val >= '0' && val <= '9') || val == '.') {
+      if ((val >= '0' && val <= '9') || val === '.') {
         this.currenttoken = this.currenttoken + val;
         this.state = TokenState.TS_Number;
         return true;
@@ -916,9 +916,9 @@ class JSONParser {
       return true;
     }
 
-    if (this.state == TokenState.TS_DQString || this.state == TokenState.TS_QString) {
+    if (this.state === TokenState.TS_DQString || this.state === TokenState.TS_QString) {
       // End of string?
-      if (val == (this.state == TokenState.TS_DQString ? '"' : '\'')) {
+      if (val === (this.state === TokenState.TS_DQString ? '"' : '\'')) {
         // FIXME: also try to parse `/x`!!  need to use HS compatible decoding
         this.currenttoken = JSON.parse(val + this.currenttoken + val);
         //std::string currentstring;
@@ -930,10 +930,10 @@ class JSONParser {
           return false;
         }
         return true;
-      } else if (val == '\\') { // String escape?
+      } else if (val === '\\') { // String escape?
         this.currenttoken = this.currenttoken + val;
-        this.state = this.state == TokenState.TS_DQString ? TokenState.TS_DQStringEsc : TokenState.TS_QStringEsc;
-      } else if (val < ' ' && val != '\t') {
+        this.state = this.state === TokenState.TS_DQString ? TokenState.TS_DQStringEsc : TokenState.TS_QStringEsc;
+      } else if (val < ' ' && val !== '\t') {
         // Found a control character in a string, do not like that
         this.errormessage = "Control characters not allowed in strings";
         this.errorline = this.line;
@@ -945,13 +945,13 @@ class JSONParser {
       return true;
     }
 
-    if (this.state == TokenState.TS_DQStringEsc || this.state == TokenState.TS_QStringEsc) {
+    if (this.state === TokenState.TS_DQStringEsc || this.state === TokenState.TS_QStringEsc) {
       this.currenttoken = this.currenttoken + val;
-      this.state = this.state == TokenState.TS_DQStringEsc ? TokenState.TS_DQString : TokenState.TS_QString;
+      this.state = this.state === TokenState.TS_DQStringEsc ? TokenState.TS_DQString : TokenState.TS_QString;
       return true;
     }
 
-    if (this.state != TokenState.TS_Error) {
+    if (this.state !== TokenState.TS_Error) {
       this.currenttoken = "";
       this.currenttoken = this.currenttoken + val;
       this.errormessage = "Unexpected character '" + this.currenttoken + "' encountered";
@@ -977,12 +977,12 @@ class JSONParser {
       this.handleToken(this.currenttoken, TokenType.JTT_Number);
       this.state = TokenState.TS_Default;
     }
-    if (this.state != TokenState.TS_Default && this.state != TokenState.TS_Error) {
+    if (this.state !== TokenState.TS_Default && this.state !== TokenState.TS_Error) {
       this.errorline = this.line;
       this.errorcolumn = this.column;
       this.errormessage = "JSON token not complete";
       this.state = TokenState.TS_Error;
-    } else if (this.parsestate != ParseState.PS_Finished) {
+    } else if (this.parsestate !== ParseState.PS_Finished) {
       this.errorline = this.line;
       this.errorcolumn = this.column;
       switch (this.parsestate) {
@@ -1039,21 +1039,21 @@ class JSONParser {
 
     switch (this.parsestate) {
       case ParseState.PS_HSONStart: {
-        if (tokentype != TokenType.JTT_Token || (token != "hson" && token != "json")) {
+        if (tokentype !== TokenType.JTT_Token || (token !== "hson" && token !== "json")) {
           this.errormessage = "Unrecognized data format";
           this.parsestate = ParseState.PS_Error;
           return false;
         }
 
         // Switch back to legacy JSON if starts with 'json:'
-        if (token == "json")
+        if (token === "json")
           this.hson = false;
 
         this.parsestate = ParseState.PS_HSONStartColon;
         return true;
       }
       case ParseState.PS_HSONStartColon: {
-        if (tokentype != TokenType.JTT_SpecialToken || token[0] != ':') {
+        if (tokentype !== TokenType.JTT_SpecialToken || token[0] !== ':') {
           this.errormessage = "Expected a ':'";
           this.parsestate = ParseState.PS_Error;
           return false;
@@ -1064,13 +1064,13 @@ class JSONParser {
       case ParseState.PS_ObjectWantName:
         {
           // End of object (this handles empty objects and extra ',' after last member)
-          if (tokentype == TokenType.JTT_SpecialToken && token[0] == '}') {
+          if (tokentype === TokenType.JTT_SpecialToken && token[0] === '}') {
 
             this.parsestate = this.levels.pop()?.restorestate ?? ParseState.PS_Error;
             return true;
           }
 
-          if ((tokentype != TokenType.JTT_String && tokentype != TokenType.JTT_Token)) {
+          if ((tokentype !== TokenType.JTT_String && tokentype !== TokenType.JTT_Token)) {
             this.errormessage = "Expected a cellname";
             this.parsestate = ParseState.PS_Error;
             return false;
@@ -1081,7 +1081,7 @@ class JSONParser {
         }
       case ParseState.PS_ObjectWantColon:
         {
-          if (tokentype != TokenType.JTT_SpecialToken || token[0] != ':') {
+          if (tokentype !== TokenType.JTT_SpecialToken || token[0] !== ':') {
             this.errormessage = "Expected a ':'";
             this.parsestate = ParseState.PS_Error;
             return false;
@@ -1091,12 +1091,12 @@ class JSONParser {
         }
       case ParseState.PS_ObjectWantComma:
         {
-          if (tokentype != TokenType.JTT_SpecialToken || (token[0] != ',' && token[0] != '}')) {
+          if (tokentype !== TokenType.JTT_SpecialToken || (token[0] !== ',' && token[0] !== '}')) {
             this.errormessage = "Expected a ',' or a '}'";
             this.parsestate = ParseState.PS_Error;
             return false;
           }
-          if (token[0] == ',') {
+          if (token[0] === ',') {
             this.parsestate = ParseState.PS_ObjectWantName;
           } else {
             this.parsestate = this.levels.pop()?.restorestate ?? ParseState.PS_Error;
@@ -1105,18 +1105,18 @@ class JSONParser {
         }
       case ParseState.PS_ArrayWantComma:
         {
-          if (tokentype != TokenType.JTT_SpecialToken || (token[0] != ',' && token[0] != ']')) {
+          if (tokentype !== TokenType.JTT_SpecialToken || (token[0] !== ',' && token[0] !== ']')) {
             this.errormessage = "Expected a ',' or a ']'";
             this.parsestate = ParseState.PS_Error;
             return false;
           }
-          if (token[0] == ',') {
+          if (token[0] === ',') {
             this.parsestate = ParseState.PS_ArrayWantValue;
           } else {
             /*
                                                    // Convert arrays that are all integers, strings or records to their equivalent XXXArray
                                                    HSVM_VariableType type = this.levels[this.levels.length - 1].arrayelttype;
-                        if (type == VariableType.IntegerArray || type == VariableType.StringArray || type == VariableType.RecordArray)
+                        if (type === VariableType.IntegerArray || type === VariableType.StringArray || type === VariableType.RecordArray)
                           GetVirtualMachine(vm) -> stackmachine.ForcedCastTo(this.levels[this.levels.length - 1].var, static_cast < VariableTypes:: Type > (type));
             */
             this.parsestate = this.levels.pop()?.restorestate ?? ParseState.PS_Error;
@@ -1125,7 +1125,7 @@ class JSONParser {
         }
       case ParseState.PS_HSONWantArray:
         {
-          if (tokentype != TokenType.JTT_SpecialToken || token[0] != '[') { // new array
+          if (tokentype !== TokenType.JTT_SpecialToken || token[0] !== '[') { // new array
             this.errormessage = "Expected array start token '[']";
             this.parsestate = ParseState.PS_Error;
             return false;
@@ -1136,11 +1136,11 @@ class JSONParser {
         }
       case ParseState.PS_ArrayWantValue:
         {
-          if (tokentype == TokenType.JTT_SpecialToken && token[0] == ']') {
+          if (tokentype === TokenType.JTT_SpecialToken && token[0] === ']') {
             /*
                                                    // Convert arrays that are all integers, strings or records to their equivalent XXXArray
                                                    HSVM_VariableType type = this.levels[this.levels.length - 1].arrayelttype;
-                        if (type == VariableType.IntegerArray || type == VariableType.StringArray || type == VariableType.RecordArray)
+                        if (type === VariableType.IntegerArray || type === VariableType.StringArray || type === VariableType.RecordArray)
                           GetVirtualMachine(vm) -> stackmachine.ForcedCastTo(this.levels[this.levels.length - 1].var, static_cast < VariableTypes:: Type > (type));
             */
             this.parsestate = this.levels.pop()?.restorestate ?? ParseState.PS_Error;
@@ -1156,7 +1156,7 @@ class JSONParser {
           let key: string | number;
           let restorestate: ParseState;
 
-          const is_hsontypedvalue = this.parsestate == ParseState.PS_HSONWantTypedValue;
+          const is_hsontypedvalue = this.parsestate === ParseState.PS_HSONWantTypedValue;
           if (is_hsontypedvalue)
             this.parsestate = this.hsonrestorestate;
 
@@ -1205,11 +1205,11 @@ class JSONParser {
             return true;
           }
 
-          if (tokentype == TokenType.JTT_SpecialToken) {
-            if (token[0] == '{') { // new object
-              if (this.levels[this.levels.length - 1].arrayelttype == 0)
+          if (tokentype === TokenType.JTT_SpecialToken) {
+            if (token[0] === '{') { // new object
+              if (this.levels[this.levels.length - 1].arrayelttype === 0)
                 this.levels[this.levels.length - 1].arrayelttype = VariableType.RecordArray;
-              else if (this.levels[this.levels.length - 1].arrayelttype != VariableType.RecordArray)
+              else if (this.levels[this.levels.length - 1].arrayelttype !== VariableType.RecordArray)
                 this.levels[this.levels.length - 1].arrayelttype = VariableType.VariantArray;
               this.levels.push(new Level(parent, key, restorestate));
 
@@ -1222,7 +1222,7 @@ class JSONParser {
               parent[key] = {};
               this.parsestate = ParseState.PS_ObjectWantName;
               return true;
-            } else if (token[0] == '[') { // new array
+            } else if (token[0] === '[') { // new array
               if (this.hson) {
                 this.errormessage = "Expected HSON type before '[' token";
                 this.parsestate = ParseState.PS_Error;
@@ -1248,8 +1248,8 @@ class JSONParser {
             }
           }
 
-          if (this.hson && tokentype == TokenType.JTT_Token) { // Either type specifier, '*', 'true' or 'false'
-            if (token.length == 1) {
+          if (this.hson && tokentype === TokenType.JTT_Token) { // Either type specifier, '*', 'true' or 'false'
+            if (token.length === 1) {
               switch (token[0]) {
                 case 'm': this.lasttype = VariableType.HSMoney; break;
                 case 'f': this.lasttype = VariableType.Float; break;
@@ -1274,8 +1274,8 @@ class JSONParser {
               this.hsonrestorestate = this.parsestate;
               this.parsestate = ParseState.PS_HSONWantTypedValue;
               return true;
-            } else if (token.length == 2) {
-              if (token[1] != 'a') {
+            } else if (token.length === 2) {
+              if (token[1] !== 'a') {
                 this.errormessage = "Illegal variable type encoding '" + token + "'";
                 this.parsestate = ParseState.PS_Error;
                 return false;
@@ -1315,7 +1315,7 @@ class JSONParser {
               this.parsestate = ParseState.PS_HSONWantArray;
               return true;
             } else if (token === "i64" || token === "i64a") {
-              const is_array = token.length == 4;
+              const is_array = token.length === 4;
               if (!is_array)
                 this.hsonrestorestate = this.parsestate;
               else {
@@ -1344,9 +1344,9 @@ class JSONParser {
 
           /*
           const type: VariableType = HSVM_GetType(vm, target) | VariableType.Array;
-          if (this.levels[this.levels.length - 1].arrayelttype == 0)
+          if (this.levels[this.levels.length - 1].arrayelttype === 0)
             this.levels[this.levels.length - 1].arrayelttype = type;
-          else if (this.levels[this.levels.length - 1].arrayelttype != type)
+          else if (this.levels[this.levels.length - 1].arrayelttype !== type)
             this.levels[this.levels.length - 1].arrayelttype = VariableType.VariantArray;
           */
 
@@ -1373,7 +1373,7 @@ class JSONParser {
         return true;
       }
       case TokenType.JTT_Token: {
-        if (token == "null" && !this.hson) {
+        if (token === "null" && !this.hson) {
           parent[key] = getDefaultValue(VariableType.Record);
           return true;
         }
@@ -1381,7 +1381,7 @@ class JSONParser {
           parent[key] = false;
           return true;
         }
-        if (token == "true") {
+        if (token === "true") {
           parent[key] = true;
           return true;
         }
@@ -1402,8 +1402,8 @@ class JSONParser {
                     const char * data = token.c_str();
                     const char * limit = data + token.size();
 
-                    while (* data == '+' || * data == '-') {
-                      negate = negate ^ (* data == '-');
+                    while (* data === '+' || * data === '-') {
+                      negate = negate ^ (* data === '-');
                       ++data;
                     }
 
@@ -1413,7 +1413,7 @@ class JSONParser {
                     if (negate)
                       value.Negate();
 
-                    if (finish != limit) {
+                    if (finish !== limit) {
                       errormessage = "Illegal integer constant '" + token + "'";
                       parsestate = PS_Error;
                       return false;
@@ -1440,7 +1440,7 @@ class JSONParser {
                       default: ;
                     }
 
-                    if (postfix == ' ') {
+                    if (postfix === ' ') {
                       // For JSON, we don't auto-convert to MONEY, but immediately to FLOAT
                       if (value.ConvertableToS32())
                         postfix = 'I';
@@ -1512,7 +1512,7 @@ class JSONParser {
         return true;
       }
       case VariableType.Float: {
-        if (tokentype != TokenType.JTT_Number) {
+        if (tokentype !== TokenType.JTT_Number) {
           this.errormessage = "Illegal money/float value '" + token + "'";
           this.parsestate = ParseState.PS_Error;
           return false;
@@ -1522,7 +1522,7 @@ class JSONParser {
         return true;
       }
       case VariableType.Blob: {
-        if (tokentype != TokenType.JTT_String) {
+        if (tokentype !== TokenType.JTT_String) {
           this.errormessage = "Illegal blob value '" + token + "'";
           this.parsestate = ParseState.PS_Error;
           return false;
@@ -1531,7 +1531,7 @@ class JSONParser {
         return true;
       }
       case VariableType.DateTime: {
-        if (tokentype != TokenType.JTT_String) {
+        if (tokentype !== TokenType.JTT_String) {
           this.errormessage = "Illegal datetime value '" + token + "'";
           this.parsestate = ParseState.PS_Error;
           return false;

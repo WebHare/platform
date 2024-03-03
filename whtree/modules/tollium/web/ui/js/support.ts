@@ -152,9 +152,9 @@ export function calculateTextSize(text: string, { width = 0, fontSize = "" } = {
   }
 
   //apparently people are doing this? fix the callers!
-  if (typeof (text) != "string")
+  if (typeof (text) !== "string")
     throw new Error("Shouldn't pass non-strings to calculateTextSize");
-  if (typeof (width) != "number")
+  if (typeof (width) !== "number")
     throw new Error("Shouldn't pass non-numbers to calculateTextSize");
 
   // Check if we have calculated this before
@@ -184,15 +184,15 @@ type ReadSizeResult = { type: 1 | 2 | 3 | 4 | 5; size: number };
 export function ReadSize(sizeval: string): ReadSizeResult | null {
   if (!sizeval)
     return null;
-  if (sizeval.substr(sizeval.length - 2) == 'gr')
+  if (sizeval.substr(sizeval.length - 2) === 'gr')
     return { type: 5, size: parseInt(sizeval, 10) };
-  if (sizeval.substr(sizeval.length - 2) == 'px')
+  if (sizeval.substr(sizeval.length - 2) === 'px')
     return { type: 2, size: parseInt(sizeval, 10) };
-  if (sizeval.substr(sizeval.length - 2) == 'pr')
+  if (sizeval.substr(sizeval.length - 2) === 'pr')
     return { type: 1, size: parseInt(sizeval, 10) };
-  if (sizeval.substr(sizeval.length - 1) == 'x')
+  if (sizeval.substr(sizeval.length - 1) === 'x')
     return { type: 3, size: parseInt(sizeval, 10) };
-  if (sizeval == 'sp')
+  if (sizeval === 'sp')
     return { type: 4, size: 1 };
   return null;
 }
@@ -229,10 +229,10 @@ export function calcAbsSize(size: number | string | ReadSizeResult | null, horiz
   if (!size)
     return 0;
 
-  if (typeof (size) == "number")
+  if (typeof (size) === "number")
     return size;
 
-  if (typeof (size) == "string") { // XML size specification
+  if (typeof (size) === "string") { // XML size specification
     if (size.endsWith('px'))
       return parseInt(size, 10);
     if (size.endsWith('gr')) {
@@ -244,28 +244,28 @@ export function calcAbsSize(size: number | string | ReadSizeResult | null, horiz
 
       return parseInt(size, 10) * gridlineHeight - (inline ? gridlineTotalMargin : 0);
     }
-    if (size.substr(size.length - 1) == 'x') {
+    if (size.substr(size.length - 1) === 'x') {
       if (horizontal)
         return parseInt(size, 10) * desktop.x_width;
       // Round to grid size
       return UpToGridsize(parseInt(size, 10) * desktop.x_height);
     }
-    if (size == 'sp')
+    if (size === 'sp')
       return settings.spacerwidth;
     return parseInt(size, 10);
   }
 
-  if (typeof (size) == "object") { // Internal size record (as returned by ReadSize)
-    if (size.type == 2)
+  if (typeof (size) === "object") { // Internal size record (as returned by ReadSize)
+    if (size.type === 2)
       return size.size;
-    if (size.type == 3) {
+    if (size.type === 3) {
       if (horizontal)
         return size.size * desktop.x_width;
       return UpToGridsize(size.size * desktop.x_height);
     }
-    if (size.type == 4)
+    if (size.type === 4)
       return settings.spacerwidth;
-    if (size.type == 5) //'gr' FIXME prune. the code here contained a fatal bug so this if() was never followed in practice.
+    if (size.type === 5) //'gr' FIXME prune. the code here contained a fatal bug so this if() was never followed in practice.
       return size.size * gridlineHeight - (inline ? gridlineTotalMargin : 0);
   }
 
@@ -274,10 +274,10 @@ export function calcAbsSize(size: number | string | ReadSizeResult | null, horiz
 export const CalcAbsSize = calcAbsSize;
 
 export function isFixedSize(size: string) {
-  return size && (size.substr(size.length - 1) == 'x' //matches both 'px' and 'x' :)
-    || size.substr(size.length - 2) == 'gr'
-    || size == 'sp'
-    || ((String(parseInt(size))) == size) // matches numbers in strings
+  return size && (size.substr(size.length - 1) === 'x' //matches both 'px' and 'x' :)
+    || size.substr(size.length - 2) === 'gr'
+    || size === 'sp'
+    || ((String(parseInt(size))) === size) // matches numbers in strings
   );
 }
 export const IsFixedSize = isFixedSize;
@@ -495,7 +495,7 @@ export function checkEnabledFlags(flags: Array<Record<string, boolean>>, checkfl
   // (the right number of items is already selected) and the selected flags
   // don't have to be checked, so i is initialized with the length of the
   // selected flags.
-  if (checkflags.length == 0 || (checkflags.length == 1 && checkflags[0] == '')) {
+  if (checkflags.length === 0 || (checkflags.length === 1 && checkflags[0] === '')) {
     DebugTypedLog("actionenabler", "- - No checkflags, action should be enabled");
     return true;
   }
@@ -510,21 +510,21 @@ export function checkEnabledFlags(flags: Array<Record<string, boolean>>, checkfl
     for (; j < checkflags.length; ++j) {
       let checkflag = checkflags[j];
       let checkvalue = true;
-      if (checkflag.charAt(0) == '!') {
+      if (checkflag.charAt(0) === '!') {
         checkflag = checkflag.slice(1);
         checkvalue = false;
       }
       DebugTypedLog("actionenabler", "- - Checkflag '" + checkflag + "': " + flags[i][checkflag] + "=" + checkvalue + "?");
-      if (flags[i][checkflag] != checkvalue) {
+      if (flags[i][checkflag] !== checkvalue) {
         DebugTypedLog("actionenabler", "- - Checkflag '" + checkflag + "' not enabled for selected item " + i);
         break;
       }
     }
     if (j < checkflags.length) {
       // This item does not match, so if all must match, the action should be disabled
-      if (selectionmatch == "all")
+      if (selectionmatch === "all")
         break;
-    } else if (selectionmatch == "any") {
+    } else if (selectionmatch === "any") {
       // This item does match, so if any must match, the action should be enabled
       any = true;
       break;
@@ -532,7 +532,7 @@ export function checkEnabledFlags(flags: Array<Record<string, boolean>>, checkfl
   }
   // If selectionmatch = "all", i should point beyond the end of the flags list (all items are checked and all passed)
   // If selectionmatch = "any", any should be true
-  const enabled = (selectionmatch == "all" && i >= flags.length) || (selectionmatch == "any" && any);
+  const enabled = (selectionmatch === "all" && i >= flags.length) || (selectionmatch === "any" && any);
   DebugTypedLog("actionenabler", "- - Action should be " + (enabled ? "enabled" : "disabled"));
   return enabled;
 }

@@ -55,7 +55,7 @@ class DownloadManager {
   startDownload() {
     if (!this.defer) {
       this.defer = dompack.createDeferred();
-      const dlurl = this.url + (this.url.indexOf('?') == -1 ? '?' : '&') + 'wh-download=' + this.downloadid;
+      const dlurl = this.url + (this.url.indexOf('?') === -1 ? '?' : '&') + 'wh-download=' + this.downloadid;
 
       this.dlframe = dompack.create("iframe",
         {

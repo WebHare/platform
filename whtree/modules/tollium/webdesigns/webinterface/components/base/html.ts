@@ -21,14 +21,14 @@ export default class HTMLCompBase extends ComponentBase {
   }
 
   setRequired(value) {
-    if (Boolean(value) != Boolean(this.node.required)) {
+    if (Boolean(value) !== Boolean(this.node.required)) {
       this.node.required = Boolean(value);
     }
   }
 
   setEnabled(value) {
-    if (value != !this.node.disabled) {
-      if (this.node.nodeName == 'INPUT')
+    if (value !== !this.node.disabled) {
+      if (this.node.nodeName === 'INPUT')
         this.node.readOnly = !value;
       else
         this.node.disabled = !value;

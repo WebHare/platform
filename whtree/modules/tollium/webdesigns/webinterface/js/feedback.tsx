@@ -8,7 +8,7 @@ import { prepareFeedback } from "@mod-publisher/js/feedback/screenshot";
 
 function filterDOM(node: Element) {
   // Nodes other than alements (e.g. text, comments) are always allowed
-  if (node.nodeType != Node.ELEMENT_NODE)
+  if (node.nodeType !== Node.ELEMENT_NODE)
     return true;
   // Don't include the trigger element in the screenshot
   return !node.classList.contains("wh-tollium__feedback")

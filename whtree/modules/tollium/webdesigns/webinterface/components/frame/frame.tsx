@@ -145,7 +145,7 @@ export default class Frame extends ComponentBase {
     ///check if we need to update the default button
     const defaultbuttonsetter = activenode.closest('[data-todd-default-button]');
     const newdefault = this.getComponent(defaultbuttonsetter ? defaultbuttonsetter.dataset.toddDefaultButton : '');
-    if (newdefault != this.default_comp) {
+    if (newdefault !== this.default_comp) {
       // If a button was previously made default, remove its default state
       if (this.default_comp)
         this.default_comp.setDefault(false);
@@ -158,7 +158,7 @@ export default class Frame extends ComponentBase {
 
   setMenuBar(newmenuname, rebuildnode) {
     const comp = newmenuname ? this.addComponent(this, newmenuname) : null;
-    if (comp == this.menubarcomponent) //already have it in its place
+    if (comp === this.menubarcomponent) //already have it in its place
       return;
 
     if (this.menubarcomponent) { //remove current menubar
@@ -182,7 +182,7 @@ export default class Frame extends ComponentBase {
 
   setBodyNode(newbodyname, rebuildnode) {
     const newbody = newbodyname ? this.addComponent(this, newbodyname) : null;
-    if (this.bodynode == newbody) //nothing new there
+    if (this.bodynode === newbody) //nothing new there
       return;
 
     if (this.bodynode)
@@ -199,7 +199,7 @@ export default class Frame extends ComponentBase {
 
     for (const key of Object.keys(this.objectmap)) {
       const obj = this.objectmap[key];
-      if (obj && obj != this) //don't self destruct, we're already running destroy
+      if (obj && obj !== this) //don't self destruct, we're already running destroy
         obj.destroy();
     }
 
@@ -221,7 +221,7 @@ export default class Frame extends ComponentBase {
       return null;
 
     const msg = msgs[0];
-    if (msg.instr != 'component')
+    if (msg.instr !== 'component')
       console.warn('Component ' + name + ' needs to be initialized/added, but the first message is not a component definition');
 
     msgs.splice(0, 1);
@@ -246,7 +246,7 @@ export default class Frame extends ComponentBase {
         return null;
       }
       //
-      if (existingcomp.parentcomp == parentcomp) {
+      if (existingcomp.parentcomp === parentcomp) {
         this.debugLog("messages", 'addComponent: Keeping existing ' + existingcomp.componenttype + " '" + name + "' at '" + parentcomp.name + "'");
       } else {
         this.debugLog("messages", 'addComponent: Moving existing ' + existingcomp.componenttype + " '" + name + "' from '" + (existingcomp.parentcomp || { name: 'n/a' }).name + "' to '" + parentcomp.name + "'");
@@ -254,7 +254,7 @@ export default class Frame extends ComponentBase {
         existingcomp.onBeforeReparent();
 
         if (existingcomp.parentcomp)
-          existingcomp.parentcomp.childrencomps = existingcomp.parentcomp.childrencomps.filter(comp => comp != existingcomp);//erase
+          existingcomp.parentcomp.childrencomps = existingcomp.parentcomp.childrencomps.filter(comp => comp !== existingcomp);//erase
         existingcomp.parentcomp = parentcomp;
         parentcomp.childrencomps.push(existingcomp);
       }
@@ -313,7 +313,7 @@ export default class Frame extends ComponentBase {
 
   unregisterComponent(comp, update_focus) {
     this.leftovernodes.push(...comp.getDestroyableNodes());
-    if (this.objectmap[comp.name] != comp)
+    if (this.objectmap[comp.name] !== comp)
       return; //this component is replaced
 
     if (comp.shortcut)
@@ -339,15 +339,15 @@ export default class Frame extends ComponentBase {
 
   readdComponent(comp) {
     //console.log("frame: received readdComponent for ",comp);
-    if (this.bodynode && comp.name == this.bodynode.name) {
+    if (this.bodynode && comp.name === this.bodynode.name) {
       this.setBodyNode(comp.name);
-    } else if (this.menubarcomponent && this.menubarcomponent.name == comp.name) {
+    } else if (this.menubarcomponent && this.menubarcomponent.name === comp.name) {
       //console.log("Replacing menubar",comp.name);
       this.setMenuBar(comp.name);
     } else if (this.specials.includes(comp.name)) {
       //console.log("Ignoring update to special",comp.name);
       this.addComponent(this, comp.name); //no need to register it anywhere in frame
-    } else if (this.toolbar && this.toolbar.name == comp.name) {
+    } else if (this.toolbar && this.toolbar.name === comp.name) {
       this.toolbar = this.addComponent(this, comp.name);
       this.rebuildContentNode();
     } else {
@@ -379,8 +379,8 @@ export default class Frame extends ComponentBase {
       console.error("Deregistering " + listenername + " for action " + actionname + " but it was never registered");
       return;
     }
-    this.actionlisteners[actionname] = this.actionlisteners[actionname].filter(name => name != listenername); //erase
-    if (this.actionlisteners[actionname].length == 0)
+    this.actionlisteners[actionname] = this.actionlisteners[actionname].filter(name => name !== listenername); //erase
+    if (this.actionlisteners[actionname].length === 0)
       delete this.actionlisteners[actionname];
   }
 
@@ -480,7 +480,7 @@ export default class Frame extends ComponentBase {
       let found = false;
       for (let r = 0; r < droptypes.length; ++r) {
         type = droptypes[r];
-        if ((have_access_to_items || is_file_drag) && type.type != item.type) {
+        if ((have_access_to_items || is_file_drag) && type.type !== item.type) {
           $todd.DebugTypedLog("actionenabler", '  droptype #' + r + ' type mismatch: ', type.type);
           continue;
         }
@@ -538,7 +538,7 @@ export default class Frame extends ComponentBase {
           continue;
         }
 
-        if (have_access_to_items && item.type != 'file' && !$todd.checkEnabledFlags([item.data], type.sourceflags, 1, 1, "all")) {
+        if (have_access_to_items && item.type !== 'file' && !$todd.checkEnabledFlags([item.data], type.sourceflags, 1, 1, "all")) {
           $todd.DebugTypedLog("actionenabler", '  droptype #' + r + ' source flags fail', type.sourceflags.join('&'), item.data);
           continue;
         }
@@ -561,7 +561,7 @@ export default class Frame extends ComponentBase {
         return null;
       }
 
-      if (type.type == "file" && type.dropeffects.includes("copy"))
+      if (type.type === "file" && type.dropeffects.includes("copy"))
         dragdata.setDropEffect("copy");
     }
 
@@ -582,7 +582,7 @@ export default class Frame extends ComponentBase {
   }
 
   getMatchedEnableOnRule(enableons) {
-    if (enableons.length == 0) {
+    if (enableons.length === 0) {
       $todd.DebugTypedLog("actionenabler", "No enableons specified, returning '0' as hit rule");
       return 0;
     }
@@ -666,7 +666,7 @@ export default class Frame extends ComponentBase {
 
     // Get variables from all objects
     for (const i in this.objectmap)
-      if (i != "frame" && this.objectmap[i] && this.objectmap[i].shouldSubmitValue()) {
+      if (i !== "frame" && this.objectmap[i] && this.objectmap[i].shouldSubmitValue()) {
         const val = this.objectmap[i].getSubmitValue();
         if (val !== null)
           allvars[i] = val;
@@ -858,7 +858,7 @@ export default class Frame extends ComponentBase {
   }
 
   setActive(active) {
-    if (active == this.active)
+    if (active === this.active)
       return;
 
     this.active = active;
@@ -877,7 +877,7 @@ export default class Frame extends ComponentBase {
 
   setResizable(value) {
     value = Boolean(value);
-    if (value == this.resizable)
+    if (value === this.resizable)
       return;
 
     this.resizable = value;
@@ -1142,7 +1142,7 @@ export default class Frame extends ComponentBase {
   }
 
   hideScreen() {
-    this.displayapp.screenstack = this.displayapp.screenstack.filter(screen => screen != this); //erase
+    this.displayapp.screenstack = this.displayapp.screenstack.filter(screen => screen !== this); //erase
 
     const parent = this.displayapp.screenstack.at(-1);
     if (parent)
@@ -1318,7 +1318,7 @@ export default class Frame extends ComponentBase {
 
     const currentfocus = focuszones.getFocusZoneActiveElement(this.node);
     const currentfocuscomponent = currentfocus ? getToddOwner(currentfocus) : null;
-    const currentlyactive = focuszones.getCurrentFocusZone() == this.node;
+    const currentlyactive = focuszones.getCurrentFocusZone() === this.node;
 
     const deliverabletargets = [];
     messages.forEach(msg => {
@@ -1347,7 +1347,7 @@ export default class Frame extends ComponentBase {
       this.deliverablemessages.splice(0, 1);
 
       const component = this.objectmap[msg.target];
-      if (msg.instr == "component") {
+      if (msg.instr === "component") {
         this.debugLog("messages", "Passive update for component " + msg.target, msg);
         if (!component) {
           console.error("Got passive update for " + msg.target + ", failed due to missing component");
@@ -1382,7 +1382,7 @@ export default class Frame extends ComponentBase {
 
     this._fireUpdatedComponentsEvent();
 
-    if (this.isdestroyed || this.displayapp == null)
+    if (this.isdestroyed || this.displayapp === null)
       return;
 
     //ADDME redo/relayout do this only when needed/requested by a component? or work exclusively with dirty markings?
@@ -1395,10 +1395,10 @@ export default class Frame extends ComponentBase {
 
     if (this.noFocusUpdate) {
       const nowfocus = focuszones.getFocusZoneActiveElement(this.node);
-      if (nowfocus != currentfocus && currentfocuscomponent)
+      if (nowfocus !== currentfocus && currentfocuscomponent)
         this.setFocusTo(currentfocuscomponent);
     }
-    if (currentlyactive && focuszones.getCurrentFocusZone() != this.node) {
+    if (currentlyactive && focuszones.getCurrentFocusZone() !== this.node) {
       //also need to restore focus to this zone, some dom manipulation made it go away
       focuszones.focusZone(this.node);
     }

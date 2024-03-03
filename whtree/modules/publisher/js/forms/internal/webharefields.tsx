@@ -44,8 +44,8 @@ function isValidDate(year, month, day) {
     return false;
   if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
     return false;
-  const isleapyear = (year % 400) == 0 || ((year % 100) != 0 && (year % 4) == 0);
-  if (month == 2 && day > (isleapyear ? 29 : 28))
+  const isleapyear = (year % 400) === 0 || ((year % 100) !== 0 && (year % 4) === 0);
+  if (month === 2 && day > (isleapyear ? 29 : 28))
     return false;
   return true;
 }
@@ -56,7 +56,7 @@ export function reformatDate(datestr: string): string {
 }
 
 function validateDate(date) {
-  if (date.getAttribute('type') != 'date') //it's no longer a date field
+  if (date.getAttribute('type') !== 'date') //it's no longer a date field
     return '';
   if (!date.value) //any required checks should be handled by the HTML5 compat layer, nothing for us to check
     return '';
@@ -76,7 +76,7 @@ function validateDate(date) {
 }
 
 function validateTime(time) {
-  if (time.getAttribute('type') != 'time') //it's no longer a time field
+  if (time.getAttribute('type') !== 'time') //it's no longer a time field
     return '';
   if (!time.value) //any required checks should be handled by the HTML5 compat layer, nothing for us to check
     return '';
@@ -107,7 +107,7 @@ export function setup(form) {
       }
     });
 
-    if (datecontrol.type != 'date' && !datecontrol.whValidationPolyfilled) { //this browser doesn't natively support date fields
+    if (datecontrol.type !== 'date' && !datecontrol.whValidationPolyfilled) { //this browser doesn't natively support date fields
       datecontrol.whValidationPolyfilled = true;
       //ADDME some sort of global validator would be better so we don't get confused by fields that change their type
       setupValidator(datecontrol, validateDate);
@@ -131,7 +131,7 @@ export function setup(form) {
       }
     });
 
-    if (timecontrol.type != 'time' && !timecontrol.whValidationPolyfilled) { //this browser doesn't natively support time fields
+    if (timecontrol.type !== 'time' && !timecontrol.whValidationPolyfilled) { //this browser doesn't natively support time fields
       timecontrol.whValidationPolyfilled = true;
       //ADDME some sort of global validator would be better so we don't get confused by fields that change their type
       setupValidator(timecontrol, validateTime);

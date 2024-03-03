@@ -69,9 +69,9 @@ export class ParsedStructure {
     for (let i = 0; i < this.blockstyles.length; ++i) {
       const style = this.blockstyles[i];
 
-      if (style.listtype == 'ordered')
+      if (style.listtype === 'ordered')
         this.defaultorderedliststyle = this.defaultorderedliststyle || style;
-      if (style.listtype == 'unordered')
+      if (style.listtype === 'unordered')
         this.defaultunorderedliststyle = this.defaultunorderedliststyle || style;
       if (style.istable)
         this.defaulttablestyle = this.defaulttablestyle || style;
@@ -111,21 +111,21 @@ export class ParsedStructure {
         classname: classname,
         def: inblockstyle,
         tag: inblockstyle.tag,
-        istable: inblockstyle.type == "table",
+        istable: inblockstyle.type === "table",
         tabledefaultblockstyle: null,
         tableresizing: [],
         islist: ['ul', 'ol'].includes(containertag),
-        listtype: containertag == 'ul' ? 'unordered' : containertag == 'ol' ? 'ordered' : '',
+        listtype: containertag === 'ul' ? 'unordered' : containertag === 'ol' ? 'ordered' : '',
         importfrom: [],
         nextblockstyle: null,
         allowstyles: [],
-        allowwidgets: inblockstyle.type == "table" && inblockstyle.allowwidgets !== false
+        allowwidgets: inblockstyle.type === "table" && inblockstyle.allowwidgets !== false
       };
 
       if (inblockstyle.importfrom)
         style.importfrom.push(...inblockstyle.importfrom);
 
-      if (inblockstyle.type == "table") {
+      if (inblockstyle.type === "table") {
         if (!inblockstyle.tableresizing || inblockstyle.tableresizing.includes("all"))
           style.tableresizing = ["all"];
         else // using Set to eliminate duplicates
@@ -164,7 +164,7 @@ export class ParsedStructure {
 
   getBlockStyleByTag(tagname: string) {
     for (let i = 0; i < this.blockstyles.length; ++i)
-      if (this.blockstyles[i].tag.toUpperCase() == tagname.toUpperCase())
+      if (this.blockstyles[i].tag.toUpperCase() === tagname.toUpperCase())
         return this.blockstyles[i];
     return null;
   }

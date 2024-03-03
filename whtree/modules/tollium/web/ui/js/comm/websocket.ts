@@ -43,8 +43,8 @@ export default class WebSocketTransport extends TransportBase {
     const res = super.removeEndPoint(endpoint);
     this.updateListenLinks();
 
-    this.signalled = this.signalled.filter(e => e != endpoint);
-    this.sentall = this.sentall.filter(e => e != endpoint);
+    this.signalled = this.signalled.filter(e => e !== endpoint);
+    this.sentall = this.sentall.filter(e => e !== endpoint);
 
     return res;
   }
@@ -100,12 +100,12 @@ export default class WebSocketTransport extends TransportBase {
     //    console.log('endpoint signalled', endpoint.options.linkid, this.socket ? this.socket.readyState : 'n/a');
     if (!this.signalled.includes(endpoint))
       this.signalled.push(endpoint);
-    if (this.socket && this.socket.readyState == 1)
+    if (this.socket && this.socket.readyState === 1)
       this.handleSignalledEndpoints();
   }
 
   updateListenLinks() {
-    if (!this.socket || this.socket.readyState != 1)
+    if (!this.socket || this.socket.readyState !== 1)
       return;
 
     const links = [];

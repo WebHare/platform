@@ -73,7 +73,7 @@ function mySelectSetSelectedIndex(newvalue) {
 export default class Pulldown extends SelectList {
   /** options.fixitemswidth Make the items container as wide as the pulldown. Defaults to true */
   constructor(node, options, old_options) {
-    if (typeof options == 'string')
+    if (typeof options === 'string')
       options = { ...old_options, baseclass: options };
 
     super(options);
@@ -193,7 +193,7 @@ export default class Pulldown extends SelectList {
   _onEscape() {
     const allitems = Array.from(this._items.querySelectorAll(`.${this._class}__item`));
     const selectidx = allitems.findIndex(node => node.classList.contains(this._class + '__item--selected'));
-    if (selectidx == this._replacednode.selectedIndex) //no change
+    if (selectidx === this._replacednode.selectedIndex) //no change
       return;
     if (selectidx >= 0)
       allitems[selectidx].classList.remove(this._class + '__item--selected');
@@ -220,12 +220,12 @@ export default class Pulldown extends SelectList {
     for (let maxiterations = allitems.length; maxiterations > 0; --maxiterations) {
       //go to next item, looping to first if needed
       selectidx += direction;
-      if (selectidx == allitems.length)
+      if (selectidx === allitems.length)
         selectidx = 0;
       else if (selectidx < 0)
         selectidx = allitems.length - 1;
 
-      if (selectidx == current) //back where we started?
+      if (selectidx === current) //back where we started?
         return; //then no match
 
       if (allitems[selectidx].classList.contains(this._class + '__item--disabled'))
@@ -245,13 +245,13 @@ export default class Pulldown extends SelectList {
     }
   }
   _onKey(event, key) {
-    if (key.length != 1 || key == ' ') //special key
+    if (key.length !== 1 || key === ' ') //special key
       return true;
 
     key = key.toUpperCase();
     this._loopToItem(+1, node => {
       const tc = node.textContent.trim();
-      return tc[0] && tc[0].toUpperCase() == key;
+      return tc[0] && tc[0].toUpperCase() === key;
     });
     dompack.stop(event);
   }
@@ -267,9 +267,9 @@ export default class Pulldown extends SelectList {
   }
 
   _onObserve(mutations) {
-    const anyoptionchange = mutations.some(mutation => mutation.type == 'childList'
-      || (mutation.type == 'attributes'
-        && (mutation.attributeName == 'class' || mutation.attributeName == 'disabled')));
+    const anyoptionchange = mutations.some(mutation => mutation.type === 'childList'
+      || (mutation.type === 'attributes'
+        && (mutation.attributeName === 'class' || mutation.attributeName === 'disabled')));
 
     //TODO figure out what exactly changed and optimize, we can take the observer's records i think
     this.refresh({ generateitems: anyoptionchange });
@@ -283,7 +283,7 @@ export default class Pulldown extends SelectList {
 
   _generateOptions(childnodes, inoptgroup, idx) {
     for (const opt of childnodes) {
-      if (!inoptgroup && opt.nodeName == 'OPTGROUP') {
+      if (!inoptgroup && opt.nodeName === 'OPTGROUP') {
         const node = dompack.create('div', {
           className: this._class + '__optgroup' + ' ' + opt.className,
           textContent: opt.getAttribute("label") || '\u00a0',
@@ -295,7 +295,7 @@ export default class Pulldown extends SelectList {
         });
         this._items.appendChild(node);
         idx = this._generateOptions(opt.childNodes, true, idx);
-      } else if (opt.nodeName == 'OPTION') {
+      } else if (opt.nodeName === 'OPTION') {
         const node = dompack.create('div', {
           className: this._class + '__item' + ' '
             + (inoptgroup ? this._class + '__item--ingroup ' : '')
@@ -372,7 +372,7 @@ export default class Pulldown extends SelectList {
   }
 
   _controlMouseDown(evt) {
-    if (evt.button != 0)
+    if (evt.button !== 0)
       return; //only care about LMB
     if (dompack.contains(this._items, evt.target))
       return;//do not interfere with clicks inside the items area
@@ -397,7 +397,7 @@ export default class Pulldown extends SelectList {
     if (this._replacednode.options[selectitem._pulldownidx].disabled)
       return false; //do not close (and not a change)
 
-    if (this._replacednode.selectedIndex == selectitem._pulldownidx)
+    if (this._replacednode.selectedIndex === selectitem._pulldownidx)
       return true; //no change, but would have otherwise been a change, so close
 
     this._replacednode.selectedIndex = selectitem._pulldownidx;

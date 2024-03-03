@@ -127,7 +127,7 @@ class TestFramework {
   }
   getFrameRecord(name, { allowmissing } = {}) {
     name = name ?? this.currenttestframe;
-    const rec = this.testframes.find(r => r.name == name);
+    const rec = this.testframes.find(r => r.name === name);
     if (!rec && !allowmissing)
       throw new Error(`No such testframe with name ${JSON.stringify(name)}`);
     return rec;
@@ -142,9 +142,9 @@ class TestFramework {
     const tabsnode = document.getElementById("testframetabs");
     dompack.empty(tabsnode);
     for (const f of this.testframes) {
-      tabsnode.append(<div data-name={f.name} class={["testframetab", ...f.name == this.currenttestframe ? ["testframetab--selected"] : []]}>{f.name}</div>);
-      f.holder && f.holder.classList.toggle("testframeholder--selected", f.name == this.currenttestframe);
-      if (f.name == this.currenttestframe)
+      tabsnode.append(<div data-name={f.name} class={["testframetab", ...f.name === this.currenttestframe ? ["testframetab--selected"] : []]}>{f.name}</div>);
+      f.holder && f.holder.classList.toggle("testframeholder--selected", f.name === this.currenttestframe);
+      if (f.name === this.currenttestframe)
         f.holder.setAttribute("id", "testframeholder");
       else
         f.holder.removeAttribute("id");
@@ -574,16 +574,16 @@ class TestFramework {
     }
 
     // Swallow exception if in reportid mode unless running just one test (ADDME: abort the current test and move to the next test in reportid mode, but never run further steps)
-    if (!this.reportid || step._rethrow || this.tests.length == 1)
+    if (!this.reportid || step._rethrow || this.tests.length === 1)
       throw e;
   }
 
   /// Execute a load page command
   doLoadPage(step) {
     let loadpage;
-    if (typeof step.loadpage == 'string')
+    if (typeof step.loadpage === 'string')
       loadpage = step.loadpage;
-    else if (typeof step.loadpage == 'function') {
+    else if (typeof step.loadpage === 'function') {
       const framerec = this.getFrameRecord();
       loadpage = step.loadpage(framerec.doc, framerec.win);
     }
@@ -594,7 +594,7 @@ class TestFramework {
     this.resetPageFrame();
     const framerec = this.getFrameRecord();
 
-    const name = framerec.name == "main" ? "testframe" : `testframe-${framerec.name}`;
+    const name = framerec.name === "main" ? "testframe" : `testframe-${framerec.name}`;
     framerec.iframe = dompack.create("iframe", { "id": name, "name": name });
     framerec.holder.appendChild(framerec.iframe);
     framerec.iframe.src = loadpage;
@@ -667,7 +667,7 @@ class TestFramework {
     }
     try {
       const doctitle = framerec.doc.title;
-      if (doctitle == '404 Not found')
+      if (doctitle === '404 Not found')
         throw new Error("The child frame returned a 404 error, please check the url");
     } catch (e) {
       throw new Error("Exception accessing child frame, assuming security error" + e);
@@ -726,11 +726,11 @@ class TestFramework {
         } break;
       case "delete":
         {
-          if (name == "main")
+          if (name === "main")
             throw new Error(`Cannot delete main test iframe`);
           rec.holder.remove();
-          this.testframes = this.testframes.filter(f => f.name != name);
-          if (this.currenttestframe == name)
+          this.testframes = this.testframes.filter(f => f.name !== name);
+          if (this.currenttestframe === name)
             this.currenttestframe = this.testframes[0].name;
         } break;
       case "select":
@@ -854,7 +854,7 @@ class TestFramework {
   async executeWait(step, item, signals) {
     if (Array.isArray(item))
       throw new Error(`executeWait incorrectly invoked with array`);
-    const text = "Wait: " + (typeof item == "function" ? "function" : item);
+    const text = "Wait: " + (typeof item === "function" ? "function" : item);
     this.currentwaitstack = new Error;
     document.getElementById('currentwait').textContent = text;
     document.getElementById('currentwait').style.display = "inline-block";
@@ -862,8 +862,8 @@ class TestFramework {
     if (dompack.debugflags.bus)
       console.log("[bus] Start wait for '" + item + "'");
 
-    // Type == function: execute function on every animation frame until it succeeds
-    if (typeof item == "function") {
+    // Type === function: execute function on every animation frame until it succeeds
+    if (typeof item === "function") {
       // function in waits has signature func(doc, win)
       const framerec = this.getFrameRecord();
       let promise = this.repeatedFunctionTest(step, item.bind(null, framerec.doc, framerec.win));
@@ -879,13 +879,13 @@ class TestFramework {
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
 
-    if (item == "events" || item == "tick") {
+    if (item === "events" || item === "tick") {
       console.warn(`Waiting for '${item}' just waits for 1 millisecond and does nothing magic, so just replace it with await wait(1)`);
       item = 1;
     }
 
     // Number: just wait for so many milliseconds
-    if (typeof item == "number") {
+    if (typeof item === "number") {
       setTimeout(deferred.resolve, item);
       deferred.promise.then(() => this.currentwaitstack = null);
       return deferred.promise.finally(this.executeWaitFinish.bind(this));
@@ -895,7 +895,7 @@ class TestFramework {
       case "ui":
       case "ui-nocheck":
         {
-          if (item == 'ui' && this.lastbusycount == dombusy.getUIBusyCounter())
+          if (item === 'ui' && this.lastbusycount === dombusy.getUIBusyCounter())
             throw new Error("'ui' wait requested but it was never busy since the test started, busycount = " + dombusy.getUIBusyCounter());
 
           dombusy.waitUIFree().then(deferred.resolve);
@@ -1098,7 +1098,7 @@ class TestFramework {
       console.trace();
     }
     const node_teststatus = document.querySelector(`#tests [data-testname="${test.name}"] .teststatus`);
-    if (this.currentstep == -1) {
+    if (this.currentstep === -1) {
       node_teststatus.textContent = "test not loaded";
       Object.assign(node_teststatus.style, { 'font-weight': 'bold', 'color': '#FF0000' });
     } else {
@@ -1174,7 +1174,7 @@ class TestSuite {
     this.testfw = new TestFramework;
 
     const url = new URL(window.location.href);
-    this.repeatuntilerror = url.searchParams.get('repeatuntilerror') == '1';
+    this.repeatuntilerror = url.searchParams.get('repeatuntilerror') === '1';
     this.autostart = url.searchParams.get('autostart') === '1';
 
     this.getTestList();
@@ -1240,7 +1240,7 @@ class TestSuite {
         this.gottests = true;
 
         if (!url.searchParams.get('autostart'))
-          this.autostart = qSA('#tests li').length == 1;
+          this.autostart = qSA('#tests li').length === 1;
 
         if (this.autostart || this.repeatuntilerror)
           this.startTests();

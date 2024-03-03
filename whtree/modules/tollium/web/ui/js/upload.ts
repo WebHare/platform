@@ -95,7 +95,7 @@ async function gatherUploadFiles(items) {
     @param dragdata Dragdata (return value of $todd.checkDropTarget)
     @param callback Callback to call when done uploading. Signature: function (draginfo, dialogclosecallback)
     @cell draginfo.source Source: 'local'/'files'/'external'
-    @cell draginfo.sourcecomp Source component name (only if source == 'local')
+    @cell draginfo.sourcecomp Source component name (only if source === 'local')
     @cell items List of items (for type='file', with cells 'token' and 'name')
     @cell dialogclosecallback Callback to close the progress dialog after drop has finished)
 */
@@ -103,7 +103,7 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
   const draginfo = dragdata.getData();
   let files = dragdata.getFiles();
 
-  const islocal = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner == component.owner;
+  const islocal = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner === component.owner;
   const gotfiles = files && files.length;
 
   const msg =
@@ -122,7 +122,7 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
   }
 
   // If this is a drop through an <acceptfile type="edit" > accept rule, open the image editor before uploading
-  if (files.length == 1 && dragdata.acceptrule && dragdata.acceptrule.imageaction == "edit") {
+  if (files.length === 1 && dragdata.acceptrule && dragdata.acceptrule.imageaction === "edit") {
     const file = files[0];
     if (!ImgeditDialogController.checkTypeAllowed(component.owner, file.type))
       return;
@@ -187,14 +187,14 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
 export function ensureExtension(filename, extension) {
   if (!filename || !extension)
     return filename;
-  if (extension.indexOf(".") != 0)
+  if (extension.indexOf(".") !== 0)
     extension = "." + extension;
 
   // Check for the right extension (png vs jpg, depending on lossless)
   const extdot = filename.lastIndexOf(".");
   if (extdot < 0)
     filename += extension;
-  else if (filename.substr(extdot) != extension)
+  else if (filename.substr(extdot) !== extension)
     filename = filename.substr(0, extdot) + extension;
   return filename;
 }

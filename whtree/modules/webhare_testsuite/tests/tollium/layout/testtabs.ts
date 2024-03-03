@@ -5,7 +5,7 @@ import * as test from '@mod-tollium/js/testframework';
 
 
 function getTabs(startnode) {
-  return Array.from(startnode.querySelectorAll("div[data-tab]")).filter(node => node.closest('t-tabs') == startnode);
+  return Array.from(startnode.querySelectorAll("div[data-tab]")).filter(node => node.closest('t-tabs') === startnode);
 }
 function getActiveTab(startnode) {
   return getTabs(startnode).filter(node => node.classList.contains('active'))[0];

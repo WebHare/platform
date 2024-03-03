@@ -38,7 +38,7 @@ export function isValidName(name: string, { allowSlashes = false }: { allowSlash
 const PublishedFlag_OncePublished = 100000;
 
 function testFlagFromPublished(published: number, flag_to_test: number) {
-  return ((published % (flag_to_test * 2)) / flag_to_test) == 1;
+  return ((published % (flag_to_test * 2)) / flag_to_test) === 1;
 }
 
 function getErrorFromPublished(published: number) {
@@ -51,7 +51,7 @@ function getOncePublishedFromPublished(published: number) {
 }
 
 export function isPublish(published: number) {
-  return getErrorFromPublished(published) != 0 || getOncePublishedFromPublished(published);
+  return getErrorFromPublished(published) !== 0 || getOncePublishedFromPublished(published);
 }
 
 export function formatPathOrId(path: number | string) {

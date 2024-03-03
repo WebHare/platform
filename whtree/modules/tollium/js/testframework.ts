@@ -8,7 +8,7 @@ import type { } from "@mod-tollium/js/internal/debuginterface";
 import type ObjList from '@mod-tollium/webdesigns/webinterface/components/list/list';
 
 function isStringOrRegexpMatch(intext, pattern) {
-  if (typeof pattern == 'string')
+  if (typeof pattern === 'string')
     return intext === pattern;
   if (pattern instanceof RegExp)
     return Boolean(intext.match(pattern));
@@ -72,7 +72,7 @@ class ScreenProxy {
     }
     if (levels)
       for (let i = 0; curitem && i < levels.length; ++i) {
-        if (curitem.nodeName == 'LI') {
+        if (curitem.nodeName === 'LI') {
           // Move to the item first, maybe we're in auto-select mode
           test.sendMouseGesture([{ el: curitem }]);
 
@@ -107,9 +107,9 @@ class ScreenProxy {
     //ADDME support more node types than just <checkbox> and <pulldown>
     if (el.classList.contains("t-checkbox"))
       return el.checked;
-    if (el.nodeName.toLowerCase() == "t-textedit")
+    if (el.nodeName.toLowerCase() === "t-textedit")
       return el.querySelector('input').value;
-    if (el.nodeName.toLowerCase() == "t-textarea")
+    if (el.nodeName.toLowerCase() === "t-textarea")
       return el.querySelector('textarea').value;
     throw new Error("component not yet supported by getInputValue (classes: " + el.className + ")");
   }
@@ -170,7 +170,7 @@ class ScreenProxy {
     }
     if (match.length > 1)
       throw new Error("Multiple matches for name '" + toddname + "'");
-    return match.length == 1 ? match[0] : null;
+    return match.length === 1 ? match[0] : null;
   }
   getNode() {
     return this.win ? this.win.node : null;
@@ -210,7 +210,7 @@ function compByName(toddname) {
 }
 export function compByTitle(title) {
   const elts = getCurrentScreen().qSA('t-text.label,t-button').filter(label => (label.textContent === (title + ":") || label.textContent === title));
-  if (elts.length == 0)
+  if (elts.length === 0)
     throw new Error(`No component with title '${title}'`);
   if (elts.length > 1)
     throw new Error(`Multiple components with title '${title}'`);

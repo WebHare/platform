@@ -65,7 +65,7 @@ export default class ObjRTE extends ComponentBase {
 
     this.hint = data.hint;
     this.required = data.required;
-    this.isemaileditor = data.areatype == 'email'; //FIXME gaat dit nbu wel via 'type' of 'areatype' ?
+    this.isemaileditor = data.areatype === 'email'; //FIXME gaat dit nbu wel via 'type' of 'areatype' ?
     this.borders = data.borders;
     this._showcounter = data.showcounter;
     this._countmethod = data.countmethod;
@@ -79,7 +79,7 @@ export default class ObjRTE extends ComponentBase {
       hidebuttons.push('object-insert');
     if (!data.allowvideo)
       hidebuttons.push('object-video');
-    if (!data.structure || !data.structure.blockstyles.some(function (style) { return style.type == "table"; }))
+    if (!data.structure || !data.structure.blockstyles.some(function (style) { return style.type === "table"; }))
       hidebuttons.push('table');
 
     this.rteoptions =
@@ -138,11 +138,11 @@ export default class ObjRTE extends ComponentBase {
   setValue(newvalue) //set from server
   {
     // Only apply updates if the untouched content changed, or the valuegeneration is newer
-    if (!this.untouchedcontent || this.untouchedcontent != newvalue.value || newvalue.valuegeneration > this.valuegeneration) {
+    if (!this.untouchedcontent || this.untouchedcontent !== newvalue.value || newvalue.valuegeneration > this.valuegeneration) {
       this.untouchedcontent = newvalue.value;
       this.rte.setValue(this.untouchedcontent);
       this.restructuredcontent = this.rte.getValue();
-      if (newvalue.valuedirtycount == 0)
+      if (newvalue.valuedirtycount === 0)
         this.rte.clearDirty();
     }
 
@@ -153,7 +153,7 @@ export default class ObjRTE extends ComponentBase {
   getSubmitValue() {
     /* We can't become async again unless we figure out how to fix unload-autosave then. */
     const suggestedreturnvalue = this.rte.getValue();
-    if (suggestedreturnvalue == this.restructuredcontent) //no material change ( FIXME Let the RTD implement this)
+    if (suggestedreturnvalue === this.restructuredcontent) //no material change ( FIXME Let the RTD implement this)
     {
       console.log("Returning untouched value");
       return this.untouchedcontent;
@@ -300,7 +300,7 @@ export default class ObjRTE extends ComponentBase {
   }
 
   _gotContextMenu(event) {
-    if (this.allowinspect && event.detail.actiontarget && event.detail.actiontarget.type == 'embeddedobject')
+    if (this.allowinspect && event.detail.actiontarget && event.detail.actiontarget.type === 'embeddedobject')
       event.detail.menuitems.push({ action: "webhare-inspect", title: getTid("tollium:components.rte.inspect") });
   }
 
@@ -309,8 +309,8 @@ export default class ObjRTE extends ComponentBase {
   }
 
   onMsgUpdateProps2(data) {
-    const actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id == data.actionid);
-    if (actiontargetidx == -1) {
+    const actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id === data.actionid);
+    if (actiontargetidx === -1) {
       console.log("Received update for unknown actiontarget #" + data.actionid, data);
       return;
     }
@@ -329,7 +329,7 @@ export default class ObjRTE extends ComponentBase {
   }
 
   onMsgClearDirty(data) {
-    if (data.valuegeneration == this.valuegeneration && data.valuedirtycount == this.valuedirtycount) {
+    if (data.valuegeneration === this.valuegeneration && data.valuedirtycount === this.valuedirtycount) {
       this.rte.clearDirty();
     } else {
       console.log("Ignoring stale cleardirty request", data, this.valuegeneration, this.valuedirtycount);

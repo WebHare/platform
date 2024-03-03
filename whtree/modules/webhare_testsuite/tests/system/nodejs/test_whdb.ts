@@ -308,7 +308,7 @@ async function testMutex() {
   //Now release dblock1..
   dblock1.release();
   //Wait for the DB to obtain the locks
-  await test.wait(() => workGotLock == true);
+  await test.wait(() => workGotLock === true);
 
   //Now verify that we can't obtain the locks
   test.eq(null, await lockMutex("webhare_testsuite:dblock2", { timeout: 0 }));

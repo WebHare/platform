@@ -43,7 +43,7 @@ exports.invoke = function () { return request.invoke.apply(request,Array.prototy
       output += "\n";
       // Export both the original function name and the the function name with a lowercase first letter
       const args = func.arguments.map(arg => `/*${arg.type}*/ ${arg.name}`).join(', ');
-      if (func.name[0] != func.name[0].toLowerCase()) {
+      if (func.name[0] !== func.name[0].toLowerCase()) {
         const jsfuncname = func.name[0].toLowerCase() + func.name.substr(1);
         output += `exports.${jsfuncname} = `;
       }

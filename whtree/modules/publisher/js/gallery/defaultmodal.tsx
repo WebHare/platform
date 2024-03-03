@@ -150,7 +150,7 @@ export class DefaultModalGallery extends ModalGalleryBase {
   }
 
   setImageSize(ev) {
-    if (!this.viewport || (ev && ev.type == "resize"))
+    if (!this.viewport || (ev && ev.type === "resize"))
       this.getWindowSize();
 
     const spacing = { x: 100, y: 140 };

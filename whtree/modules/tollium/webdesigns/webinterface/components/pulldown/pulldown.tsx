@@ -79,7 +79,7 @@ export default class ObjPulldown extends HTMLComponentBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
-    const collapsed = this.width.set == this.myminheight;
+    const collapsed = this.width.set === this.myminheight;
 
     this.node.style.width = this.width.set + 'px';
     this.node.classList.toggle("collapsed", collapsed);

@@ -44,7 +44,7 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
     return true; //the element has left the dom... so there's no more bubbling. just drop it
 
   //FIXME the load/scroll is buggy and we should be probably be using new Event (but an earlier attempt at that triggered quite a few test failures)
-  const createtype = /*["load","scroll"].includes(eventtype) == "load" ? "UIEvents" :*/["focus", "blur", "focusin", "focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
+  const createtype = /*["load","scroll"].includes(eventtype) === "load" ? "UIEvents" :*/["focus", "blur", "focusin", "focusout"].includes(eventtype) ? "FocusEvent" : eventtype === "click" ? "MouseEvents" : "HTMLEvents";
   //we verified its non-null ness above but TS doesn't really understand that
   const evt = (element as Node).ownerDocument!.createEvent(createtype);
   evt.initEvent(eventtype, options.bubbles, options.cancelable);
@@ -56,7 +56,7 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
 
   //TODO: Should we keep this code?
   // @ts-ignore IScroll is a custom Window property set by IScroll
-  if (eventtype == 'click' && window.IScroll)
+  if (eventtype === 'click' && window.IScroll)
     // @ts-ignore _constructed is a custom Event property used by IScroll
     evt._constructed = true; //ensure IScroll doesn't blindly cancel our synthetic clicks
 
@@ -142,12 +142,12 @@ export function dispatchCustomEvent<K extends string>(
  */
 export function changeValue(element: FormControlElement, newvalue: string | number | boolean) {
   if (element.matches(`input[type=radio], input[type=checkbox]`)) {
-    if (Boolean((element as HTMLInputElement).checked) == Boolean(newvalue))
+    if (Boolean((element as HTMLInputElement).checked) === Boolean(newvalue))
       return;
     (element as HTMLInputElement).checked = Boolean(newvalue);
   } else {
     //FIXME it's not really clean to assume that this element is changeable - throw for non input/select..
-    if ((element as HTMLInputElement).value == newvalue)
+    if ((element as HTMLInputElement).value === newvalue)
       return;
 
     (element as HTMLInputElement).value = String(newvalue);
@@ -313,7 +313,7 @@ export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboa
     key = String.fromCodePoint(parseInt(key.substring(2), 16));
 
   // Seen in chrome 56.0.2924.76 on linux, numpad '.' without numlock returns key "\u0000"
-  if (evt.key == "\u0000" && evt.code == "NumpadDecimal")
+  if (evt.key === "\u0000" && evt.code === "NumpadDecimal")
     key = ".";
 
   return (

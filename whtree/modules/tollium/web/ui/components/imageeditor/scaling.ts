@@ -136,7 +136,7 @@ class PhotoRotate extends SurfaceTool {
     this.surface.showPreviewCanvas();
     this.active = false;
 
-    if (this.angle == 0 && this.scale.x == 1 && this.scale.y == 1)
+    if (this.angle === 0 && this.scale.x === 1 && this.scale.y === 1)
       return;//no changes
 
     const newprops = { angle: this.angle, scale: this.scale };
@@ -153,7 +153,7 @@ class PhotoRotate extends SurfaceTool {
   applyCanvas(props) {
     let neww = this.surface.canvas.width;
     let newh = this.surface.canvas.height;
-    if (Math.round(Math.cos(props.angle * Math.PI / 180) * 100) == 0) {//rotated 90 or 270 deg.
+    if (Math.round(Math.cos(props.angle * Math.PI / 180) * 100) === 0) {//rotated 90 or 270 deg.
       neww = this.surface.canvas.height;
       newh = this.surface.canvas.width;
 
@@ -165,14 +165,14 @@ class PhotoRotate extends SurfaceTool {
       const rx = this.surface.canvasdata.realsize.x;
       this.surface.canvasdata.realsize.x = this.surface.canvasdata.realsize.y;
       this.surface.canvasdata.realsize.y = rx;
-    } else if (Math.round(Math.sin(props.angle * Math.PI / 180) * 100) == 0) {//rotated 0 or 360 deg.
+    } else if (Math.round(Math.sin(props.angle * Math.PI / 180) * 100) === 0) {//rotated 0 or 360 deg.
       //no change in dimensions
     } else {//arbitrary angle
       //FIXME?
     }
 
     let copy;
-    if (neww != this.surface.canvas.width) {//resize canvas to fit image
+    if (neww !== this.surface.canvas.width) {//resize canvas to fit image
       //Copy image
 
       let idata = this.surface.ctx.getImageData(0, 0, this.surface.canvas.width, this.surface.canvas.height);

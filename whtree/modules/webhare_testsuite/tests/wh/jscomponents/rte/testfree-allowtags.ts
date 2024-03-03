@@ -15,8 +15,8 @@ test.registerTests(
         const boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
         const italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
 
-        test.assert(boldbutton != null);
-        test.assert(!italicbutton != null);
+        test.assert(boldbutton !== null);
+        test.assert(!italicbutton !== null);
         test.assert(!boldbutton.classList.contains('disabled'));
         test.assert(!boldbutton.classList.contains('active'));
 

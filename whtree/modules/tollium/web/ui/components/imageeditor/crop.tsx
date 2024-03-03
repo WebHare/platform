@@ -92,11 +92,11 @@ class PhotoCrop extends SurfaceTool {
       this.draggers.push(dragger);
 
       let pos = { x: 0, y: 0 };
-      if (c == 1)
+      if (c === 1)
         pos = { x: 0, y: this.surface.canvasdata.csssize.y };
-      else if (c == 2)
+      else if (c === 2)
         pos = { x: this.surface.canvasdata.csssize.x, y: 0 };
-      else if (c == 3)
+      else if (c === 3)
         pos = { x: this.surface.canvasdata.csssize.x, y: this.surface.canvasdata.csssize.y };
 
       this.draggers[c].wh_pos = pos;
@@ -171,10 +171,10 @@ class PhotoCrop extends SurfaceTool {
     let vpairednode = null;
     let diagonalnode = null;
     for (c = 0; c < this.draggers.length; c++) {
-      if (this.draggers[c] != dragnode) {
-        if (!hpairednode && this.draggers[c].wh_pos.y == dragnode.wh_pos.y && this.draggers[c].wh_pos.x != dragnode.wh_pos.x) {
+      if (this.draggers[c] !== dragnode) {
+        if (!hpairednode && this.draggers[c].wh_pos.y === dragnode.wh_pos.y && this.draggers[c].wh_pos.x !== dragnode.wh_pos.x) {
           hpairednode = this.draggers[c];
-        } else if (!vpairednode && this.draggers[c].wh_pos.x == dragnode.wh_pos.x && this.draggers[c].wh_pos.y != dragnode.wh_pos.y) {
+        } else if (!vpairednode && this.draggers[c].wh_pos.x === dragnode.wh_pos.x && this.draggers[c].wh_pos.y !== dragnode.wh_pos.y) {
           vpairednode = this.draggers[c];
         } else if (!diagonalnode) {
           diagonalnode = this.draggers[c];
@@ -188,7 +188,7 @@ class PhotoCrop extends SurfaceTool {
       diagonalnode = null;
       //assign directly:
       for (c = 0; c < this.draggers.length; c++) {
-        if (this.draggers[c] != dragnode) {
+        if (this.draggers[c] !== dragnode) {
           if (!hpairednode)
             hpairednode = this.draggers[c];
           else if (!vpairednode)
@@ -358,7 +358,7 @@ class PhotoCrop extends SurfaceTool {
 
   setAspectratio(aspect, callback) {
     let crop = null;
-    if (typeof aspect == "object") {
+    if (typeof aspect === "object") {
       crop = aspect;
       if (!crop || !crop.width || !crop.height)
         aspect = 0;
@@ -460,10 +460,10 @@ class PhotoCrop extends SurfaceTool {
     w = Math.round(w);
     h = Math.round(h);
 
-    const isvalid = inputwidth == w;
+    const isvalid = inputwidth === w;
     if (isvalid) {
       if (fixed) {
-        if (this.fixedsize.height > 0 && this.fixedsize.height != h)
+        if (this.fixedsize.height > 0 && this.fixedsize.height !== h)
           this.fixedsize.height = h;
         this.fixedsize.width = w;
       }
@@ -504,10 +504,10 @@ class PhotoCrop extends SurfaceTool {
     w = Math.round(w);
     h = Math.round(h);
 
-    const isvalid = inputheight == h;
+    const isvalid = inputheight === h;
     if (isvalid) {
       if (fixed) {
-        if (this.fixedsize.width > 0 && this.surface.canvasdata.realsize.x != w)
+        if (this.fixedsize.width > 0 && this.surface.canvasdata.realsize.x !== w)
           this.fixedsize.width = w;
         this.fixedsize.height = h;
       }
@@ -572,7 +572,7 @@ class PhotoCrop extends SurfaceTool {
 
   apply() {
     this.surface.showPreviewCanvas();
-    if (this.crop[0] == 0 && this.crop[1] == 1 && this.crop[2] == 1 && this.crop[3] == 0)
+    if (this.crop[0] === 0 && this.crop[1] === 1 && this.crop[2] === 1 && this.crop[3] === 0)
       return; //no changes
 
     this.applyCanvas({ crop: this.crop });

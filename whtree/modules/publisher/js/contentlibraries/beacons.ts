@@ -78,7 +78,7 @@ function executeClear(tag) {
 
   const beacons = storage.getLocal("wh:beacons") || {};
   for (const key of Object.keys(beacons)) {
-    if (key == tag || (tag instanceof RegExp && key.match(tag))) {
+    if (key === tag || (tag instanceof RegExp && key.match(tag))) {
       if (dompack.debugflags.bac)
         console.log("[bac] Clear beacon", key);
 
@@ -138,7 +138,7 @@ function initVisitCount() {
     if (dompack.debugflags.bac)
       console.log("[bac] New session", sessionId, visitCount);
   } else {
-    // Same session (for new visitors, visitor.sessionId == sessionId and visitor.count == 1)
+    // Same session (for new visitors, visitor.sessionId === sessionId and visitor.count === 1)
     visitCount = visitor.count;
 
     if (dompack.debugflags.bac)
@@ -208,8 +208,8 @@ class TriggerBeacon {
 
   isVisible() {
     let node = this.node;
-    while (node && node != document.body) {
-      if (getComputedStyle(node).display == "none")
+    while (node && node !== document.body) {
+      if (getComputedStyle(node).display === "none")
         return false;
       node = node.parentNode;
     }
@@ -225,7 +225,7 @@ export function __setup(consent) {
       if (!holdbeacons)
         return; //already flushed any beacons
 
-      if (beaconconsent == "*") {
+      if (beaconconsent === "*") {
         if (consentsettings.consent.length) {
           if (dompack.debugflags.bac)
             console.log(`[bac] Got any consent, allow beacons`);

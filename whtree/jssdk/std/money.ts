@@ -189,7 +189,7 @@ export class Money {
   /** Compares two numbers
       @param amount1 - Left hand value
       @param amount2 - Right hand value
-      @returns Returns 0 if amount1 == amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
+      @returns Returns 0 if amount1 === amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
   */
   static cmp(left: MoneyParameter, right: MoneyParameter): -1 | 0 | 1 {
     return finmath.cmp(Money.parseParameter(left), Money.parseParameter(right));

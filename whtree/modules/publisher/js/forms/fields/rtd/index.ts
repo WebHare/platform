@@ -23,7 +23,7 @@ export default class RTDField {
 
     if (!this.options.onInsertVideo)
       hidebuttons.push('object-video');
-    if (structure && !structure.blockstyles.some(style => style.type == "table"))
+    if (structure && !structure.blockstyles.some(style => style.type === "table"))
       hidebuttons.push("table");
     hidebuttons.push('object-insert');
     hidebuttons.push('action-showformatting');
@@ -78,7 +78,7 @@ export default class RTDField {
   }
 
   async executeAction(evt) {
-    if (evt.detail.action == 'object-video' && this.options.onInsertVideo) {
+    if (evt.detail.action === 'object-video' && this.options.onInsertVideo) {
       evt.stopPropagation();
       evt.preventDefault();
       this.options.onInsertVideo(this.node);

@@ -519,9 +519,9 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
           return ""; //Not enough information to create a 'full name'
 
         let fullname = "";
-        if (entityRecord.firstname != "")
+        if (entityRecord.firstname !== "")
           fullname += entityRecord.firstname;
-        else if (entityRecord.firstnames != "")
+        else if (entityRecord.firstnames !== "")
           fullname += entityRecord.firstnames;
         else if (entityRecord.initials)
           fullname += entityRecord.initials;
@@ -575,7 +575,7 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): boolean {
-    return entity_settings[settings_start].rawdata == "1";
+    return entity_settings[settings_start].rawdata === "1";
   }
 
   validateInput(value: boolean) {

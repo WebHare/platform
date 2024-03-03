@@ -26,7 +26,7 @@ export default class ObjIFrame extends ComponentBase {
         load: this.gotIFrameLoad.bind(this)
       }
     });
-    if (data.sandbox != "none")
+    if (data.sandbox !== "none")
       this.iframe.sandbox = data.sandbox;
     this.iframe.src = this.calcFrameSourceUri(data);
 
@@ -79,12 +79,12 @@ export default class ObjIFrame extends ComponentBase {
     while (this.queuedmessages.length) {
       const msg = this.queuedmessages.shift();
 
-      if (msg.type == "print")
+      if (msg.type === "print")
         this.iframe.contentWindow.setTimeout("window.print()", 10);
-      else if (msg.type == "postmessage") {
+      else if (msg.type === "postmessage") {
         //TODO ratelimit or block this origin until the server confirmed it actually wants to talk with this origin
         this.iframe.contentWindow.postMessage(msg.data.message, msg.data.targetorigin);
-      } else if (msg.type == "calljs") {
+      } else if (msg.type === "calljs") {
         const cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
         try {
           this.iframe.contentWindow.eval(cmd);
@@ -150,7 +150,7 @@ export default class ObjIFrame extends ComponentBase {
       this.iframe.style.left = "0";
     }
 
-    if (this.width.set != this.prevwidth || this.height.set != this.prevheight) {
+    if (this.width.set !== this.prevwidth || this.height.set !== this.prevheight) {
       this.prevwidth = this.width.set;
       this.prevheight = this.height.set;
       this.queuedmessages.push({ type: 'resize' });
@@ -180,7 +180,7 @@ export default class ObjIFrame extends ComponentBase {
         this.postQueuedMessages(true);
         return;
       case 'sandbox':
-        if (data.sandbox == 'none')
+        if (data.sandbox === 'none')
           this.iframe.removeAttribute("sandbox");
         else
           this.iframe.sandbox = data.sandbox;
@@ -256,7 +256,7 @@ export default class ObjIFrame extends ComponentBase {
         break;
 
       case 'data':
-        if (typeof data.data == "object") {
+        if (typeof data.data === "object") {
           this.data = data.data;
           this.queueMessage('data', { data: data.data }, false);
         } else
@@ -316,10 +316,10 @@ export default class ObjIFrame extends ComponentBase {
 }
 
 window.addEventListener('message', function (evt) {
-  if (typeof evt.data != "object")
+  if (typeof evt.data !== "object")
     return; // Tollium expects a data RECORD
 
-  const matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow == event.source);
+  const matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow === event.source);
   if (!matchingiframe || !matchingiframe.parentNode || !matchingiframe.parentNode.propTodd)
     return;
 

@@ -12,7 +12,7 @@ const appname = serviceworkerurl.searchParams.get('app');
 if (!appname)
   throw new Error("Unknown app name");
 
-const debugassetpacks = serviceworkerurl.searchParams.get('debug') == '1';
+const debugassetpacks = serviceworkerurl.searchParams.get('debug') === '1';
 
 const logprefix = `[SW ${appname} ${generateRandomId()}] `;
 
@@ -88,7 +88,7 @@ function getWHConfig(pagetext) //extract and parse the wh-config tag
 async function downloadApplication() {
   const cache = await caches.open("pwacache-" + appname);
 
-  //FIXME we can't really assume that appname (webdesignname) == assetpackname
+  //FIXME we can't really assume that appname (webdesignname) === assetpackname
   const assetpackname = appname.replace(':', '.');
 
   //Get the easily guessed assets first
@@ -131,7 +131,7 @@ async function downloadApplication() {
 
   //scrap the ones we already have
   for (const asset of [...baseassets, ...moreassets])
-    manifest.assets = manifest.assets.filter(el => el.path != asset);
+    manifest.assets = manifest.assets.filter(el => el.path !== asset);
 
   moreassets.push(...manifest.assets.map(el => el.path));
 
@@ -226,7 +226,7 @@ self.addEventListener('activate', async function (event) {
 
 async function onFetch(event: FetchEvent) {
   // Let the browser do its default thing for non-GET requests.
-  if (event.request.method != 'GET')
+  if (event.request.method !== 'GET')
     return;
 
   const urlpath = new URL(event.request.url).pathname;
@@ -281,8 +281,8 @@ async function checkVersion(clientversioninfo) {
   const forcerefresh = await getSwStoreValue("forcerefresh");
   console.log(`${logprefix}checkversion`, { currentversion, clientversioninfo });
   return {
-    needsupdate: (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid != versioninfo.pwauid)
-      || versioninfo.updatetok != currentversion.updatetok,
+    needsupdate: (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid !== versioninfo.pwauid)
+      || versioninfo.updatetok !== currentversion.updatetok,
     forcerefresh: new Date(versioninfo.forcerefresh) > forcerefresh
   };
 }

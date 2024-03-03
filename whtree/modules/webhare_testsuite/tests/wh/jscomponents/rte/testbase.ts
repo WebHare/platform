@@ -357,7 +357,7 @@ test.registerTests(
 
         //now try to trigger it by doubleclicking
         win.imgpropshandler = function (targetid, target) {
-          if (target.nodeName.toUpperCase() == 'IMG')
+          if (target.nodeName.toUpperCase() === 'IMG')
             win.imgpropshandler = null;
         };
 

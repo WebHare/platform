@@ -18,7 +18,7 @@ export default class DocPanel {
     dompack.empty(docpanel);
     docpanel.append(<div class={{
       "docpanel": true,
-      "docpanel--canedit": edittoken != ""
+      "docpanel--canedit": edittoken !== ""
     }}>
       <div class="docpanel__buttonarea">
         <div class="docpanel__edit" title={getTid("~edit")} onClick={() => this.edit()}></div>

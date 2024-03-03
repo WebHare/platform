@@ -98,9 +98,9 @@ window.revokeConsent = function () { consenthandler.setConsent([]); };
 async function startCookieRequest() {
   //launch a banner..
   const result = await dialogapi.runMessageBox("Cookies?", [{ title: "remarketing" }, { title: "analytics" }, { title: "no" }]);
-  if (result == "remarketing")
+  if (result === "remarketing")
     consenthandler.setConsent(["remarketing", "analytics"]);
-  else if (result == "analytics")
+  else if (result === "analytics")
     consenthandler.setConsent(["analytics"]);
   else
     consenthandler.setConsent([]);
@@ -110,16 +110,16 @@ const urlparams = new URL(location.href).searchParams;
 window.got_consent_analytics = false;
 window.got_consent_remarketing = false;
 
-if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest")) {
+if (urlparams.get("consent") === "1" || location.href.includes("testpages/consenttest")) {
   const requiredconsent = urlparams.get("analyticsrequiredconsent");
 
-  if (urlparams.get("gtmplugin_integration") != "none") {
+  if (urlparams.get("gtmplugin_integration") !== "none") {
     if (requiredconsent)
       console.error("requireconsent option not supported for GTM");
 
     gtm.initOnConsent();
   }
-  if (urlparams.get("ga4_integration") != "none") {
+  if (urlparams.get("ga4_integration") !== "none") {
     if (requiredconsent)
       ga4.initOnConsent({ requiredconsent: requiredconsent });
     else
@@ -127,7 +127,7 @@ if (urlparams.get("consent") == "1" || location.href.includes("testpages/consent
   }
 }
 
-if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent")) {
+if (urlparams.get("consent") === "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent")) {
   if (urlparams.has("defaultconsent")) {
     consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent").split(",") });
   } else

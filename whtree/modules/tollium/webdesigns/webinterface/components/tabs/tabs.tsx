@@ -37,7 +37,7 @@ export default class ObjTabs extends ComponentBase {
       const pagecomp = this.owner.addComponent(this, page);
 
       let titlecomp;
-      if (this.tabtype != "server") {
+      if (this.tabtype !== "server") {
         //FIXME make part of template ? is it worth creating a component for this ?
         titlecomp = new ObjText(this, {
           value: pagecomp.getTitle(),
@@ -60,18 +60,18 @@ export default class ObjTabs extends ComponentBase {
     });
 
     this.buildNode();
-    if (this.tabtype == "regular")
+    if (this.tabtype === "regular")
       this.navscroll = {
         timer: null,
         left: 0
       };
 
-    this.pendingselect = this.pages.find(page => page.name == data.selected);
+    this.pendingselect = this.pages.find(page => page.name === data.selected);
     this.owner.tabcontrols.push(this); //register last, to prevent callbacks into unfinished components   //ADDME addEvent?
   }
 
   destroy() {
-    this.owner.tabcontrols = this.owner.tabcontrols.filter(tab => tab != this); //erase
+    this.owner.tabcontrols = this.owner.tabcontrols.filter(tab => tab !== this); //erase
     super.destroy();
   }
 
@@ -81,12 +81,12 @@ export default class ObjTabs extends ComponentBase {
     this.visibletabs = 0;
 
     for (let i = 0; i < this.pages.length; ++i) {
-      const newshow = this.owner.getMatchedEnableOnRule(this.pages[i].comp.visibleons) != -1;
+      const newshow = this.owner.getMatchedEnableOnRule(this.pages[i].comp.visibleons) !== -1;
       if (newshow)
         ++this.visibletabs;
       //console.log("Tab control " + this.name + " child #" + i + " (" + this.pages[i].comp.name + ") (" + this.pages[i].comp.visibleons.length + " checks) visibility = " + (newshow?'true':'false'));
 
-      if (this.tabtype != 'server') {
+      if (this.tabtype !== 'server') {
         //        console.log(this.pages[i]);
         if (newshow && !this.pages[i].dynamicvisible) //Make the tab visible?
         {
@@ -103,7 +103,7 @@ export default class ObjTabs extends ComponentBase {
         }
       }
 
-      if (this.pages[i].dynamicvisible != newshow) {
+      if (this.pages[i].dynamicvisible !== newshow) {
         this.pages[i].dynamicvisible = newshow;
         anychange = true;
       }
@@ -193,11 +193,11 @@ export default class ObjTabs extends ComponentBase {
   }
 
   setSelected(value, sendevents) {
-    if (value == this.getSubmitValue())
+    if (value === this.getSubmitValue())
       return;
 
     if (this.pendingselect) {
-      this.pendingselect = this.pages.find(page => page.name == value);
+      this.pendingselect = this.pages.find(page => page.name === value);
       return;
     }
 
@@ -213,7 +213,7 @@ export default class ObjTabs extends ComponentBase {
       if (this.selected.labelnode)
         this.selected.labelnode.classList.add("active");
 
-      if (this.tabtype == "stacked") {
+      if (this.tabtype === "stacked") {
         /* The currently selected sheet is hidden, the new sheet is shown. If the new sheet is located below the current
            sheet, the current sheet is shrunk to 0 height, while the new sheet directly gets the contentheight. If the
            new sheet is above the current sheet, the new sheet is grown to the contentheight, while the current sheet
@@ -223,7 +223,7 @@ export default class ObjTabs extends ComponentBase {
         let heightnode, newheight;
         //var absolute = false; // not used atm
         this.pages.forEach((page, i) => {
-          if (prevselected && page.name == prevselected.name) {
+          if (prevselected && page.name === prevselected.name) {
             // This is the currently selected sheet
             if (!heightnode) {
               // We haven't seen the new sheet, this sheet will shrink
@@ -233,7 +233,7 @@ export default class ObjTabs extends ComponentBase {
               // All following sheets will be absolute positioned
               //absolute = true;
             }
-          } else if (page.name == this.selected.name) {
+          } else if (page.name === this.selected.name) {
             // This is the new selected sheet
             if (!heightnode) {
               // We haven't seen the current sheet, this sheet will grow
@@ -287,7 +287,7 @@ export default class ObjTabs extends ComponentBase {
 
   // Build the DOM node(s) for this component
   buildNode() {
-    if (this.tabtype == "regular") {
+    if (this.tabtype === "regular") {
       this.nodes = {};
       this.nodes.root = <t-tabs class="regular" data-name={this.name} propTodd={this}>
         <nav>
@@ -399,7 +399,7 @@ export default class ObjTabs extends ComponentBase {
     const info = dompack.normalizeKeyboardEventData(ev);
 
     this.tabkeydown = true;
-    if (this.tabtype == "stacked") {
+    if (this.tabtype === "stacked") {
       if (info.key === 'ArrowUp')
         this.previousTab();
       else if (info.key === 'ArrowDown')
@@ -498,7 +498,7 @@ export default class ObjTabs extends ComponentBase {
       page.comp.setHeight(setheight);
     });
 
-    if (this.tabtype == "stacked")
+    if (this.tabtype === "stacked")
       this.contentheight = setheight;
   }
 
@@ -522,12 +522,12 @@ export default class ObjTabs extends ComponentBase {
       page.comp.relayout();
       page.comp.setVisible(false);
 
-      if (this.tabtype == "regular" && page.titlecomp)
+      if (this.tabtype === "regular" && page.titlecomp)
         tabswidth += page.titlecomp.width.calc + regulartab_overheadx;
 
     });
 
-    if (this.tabtype == "regular") {
+    if (this.tabtype === "regular") {
       const showtabnav = tabswidth >= this.width.set;
       this.nodes["nav-tabs"].style.display = showtabnav ? "block" : "none";
 
@@ -541,7 +541,7 @@ export default class ObjTabs extends ComponentBase {
       this.setSelected(toselect.name);
     }
 
-    if (this.tabtype == "stacked") {
+    if (this.tabtype === "stacked") {
       const s = this.getSelectedTab();
       if (s && s.contentnode)
         s.contentnode.style.height = this.contentheight + 'px';
@@ -595,7 +595,7 @@ export default class ObjTabs extends ComponentBase {
   */
 
   getTabWithName(name) {
-    const selected = this.pages.filter(function (page) { return page.name == name; });
+    const selected = this.pages.filter(function (page) { return page.name === name; });
     return selected.length ? selected[0] : null;
   }
 
@@ -603,12 +603,12 @@ export default class ObjTabs extends ComponentBase {
     this.navscroll.timer = clearTimeout(this.navscroll.timer);
 
     const newleft = Math.max(Math.min(this.navscroll.left + Math.round(amount), this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
-    if (newleft == this.navscroll.left)
+    if (newleft === this.navscroll.left)
       return;
     this.navscroll.left = newleft;
     this.nodes.nav.scrollLeft = newleft;
 
-    if (this.tabtype == "regular") {
+    if (this.tabtype === "regular") {
       this.nodes["nav-left"].classList.toggle('show', this.navscroll.left > 0);
       this.nodes["nav-right"].classList.toggle('show', this.navscroll.left < this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth);
     }
@@ -619,12 +619,12 @@ export default class ObjTabs extends ComponentBase {
 
   scrollNavTo(scrollto) {
     const newleft = Math.max(Math.min(scrollto, this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
-    if (newleft == this.navscroll.left)
+    if (newleft === this.navscroll.left)
       return;
     this.navscroll.left = newleft;
     this.nodes.nav.scrollLeft = newleft;
 
-    if (this.tabtype == "regular") {
+    if (this.tabtype === "regular") {
       this.nodes["nav-left"].classList.toggle('show', this.navscroll.left > 0);
       this.nodes["nav-right"].classList.toggle('show', this.navscroll.left < this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth);
     }

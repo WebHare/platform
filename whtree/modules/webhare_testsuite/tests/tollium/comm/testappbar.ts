@@ -132,7 +132,7 @@ test.registerTests(
 
     "check close",
     async function () {
-      await test.wait(() => test.qSA('.t-apptab').length == 2);
+      await test.wait(() => test.qSA('.t-apptab').length === 2);
     }
   ]);
 

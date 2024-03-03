@@ -107,7 +107,7 @@ export default class EventSource<T extends Record<string, unknown>> {
           continue;
 
         handler.callback(data, eventname);
-      } else if (handler.eventname == eventname) {
+      } else if (handler.eventname === eventname) {
         if (handler.filter && !handler.filter(data, eventname))
           continue;
 

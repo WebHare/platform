@@ -31,7 +31,7 @@ export default class PollWebtool {
 
     this._disableInteraction(); //make sure the poll is blocked until we've retrieved the current results
 
-    //if (localStorage["webtools:"+this._getToolId()] == "voted")
+    //if (localStorage["webtools:"+this._getToolId()] === "voted")
     const alreadyvoted = localStorage["wh-webtools-votetime:" + this._getToolId()];
     if (alreadyvoted)
       this.node.classList.add("wh-poll--voted");
@@ -158,7 +158,7 @@ export default class PollWebtool {
 
         if (isNaN(votedtimestamp)) {
           localStorage.removeItem("wh-webtools-votetime:" + this._getToolId());
-        } else if (votedtimestamp != "") {
+        } else if (votedtimestamp !== "") {
           const polldata = dompack.getJSONAttribute(this.node, "data-poll");
 
           console.log("Poll was voted on " + ((unixtimestampnow - votedtimestamp) / 1000).toFixed(0) + " seconds ago. Polls allows voting again after " + polldata.allowvotingagainafter + " seconds.");

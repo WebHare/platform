@@ -116,7 +116,7 @@ class SocialiteNetwork extends EventEmitter {
       return;
 
     this.gotlogincompletion = true;
-    if (securetoken && securetoken != '-fail-') {
+    if (securetoken && securetoken !== '-fail-') {
       if (onaccept) {
         this.socialitetoken = securetoken;
         onaccept({

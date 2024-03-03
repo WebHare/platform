@@ -125,7 +125,7 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       const dt = settings[0]?.setting?.split(":") ?? null;
-      return dt && dt.length == 2 ? makeDateFromParts(parseInt(dt[0]), parseInt(dt[1])) : null;
+      return dt && dt.length === 2 ? makeDateFromParts(parseInt(dt[0]), parseInt(dt[1])) : null;
     }
   },
   "string": {
@@ -216,7 +216,7 @@ export const codecs: { [key: string]: TypeCodec } = {
   },
   "money": {
     encoder: (value: unknown) => {
-      if (typeof value == "number")
+      if (typeof value === "number")
         return value ? { setting: String(value) } : null;
       if (Money.isMoney(value))
         return Money.cmp(value, "0") ? { setting: value.toString() } : null;

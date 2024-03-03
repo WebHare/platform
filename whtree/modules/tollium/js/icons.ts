@@ -28,10 +28,10 @@ let loadimgtimeout = null, loadimglock = null;
 // Load the image(s) and apply to an <img> node src
 export function updateCompositeImage(imgnode, imgnames, width, height, color) {
   // If a white image is requested, fallback to (inverted) black if white not directly available
-  if (color == "w")
+  if (color === "w")
     color = "w,b";
   // If a color image is requested, fallback to black if color not directly available
-  else if (color == "c")
+  else if (color === "c")
     color = "c,b";
 
   const data = { imgnames, width, height, color: color || "" };
@@ -40,7 +40,7 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
   const cached = imagecache.get(key);
 
   // The data-toddimg attribute is used to reload the image after the cache is cleared
-  if (imgnode.dataset.toddimg == key)
+  if (imgnode.dataset.toddimg === key)
     return; //already set or being loaded
 
   // Update the node to explain which image is coming on. Tests that just want to check this name shouldn't need to wait for the image load itself
@@ -187,14 +187,14 @@ async function processImage(key, images, data) {
   let basedata = baseimg.data;
 
   // If the image is black and a white image is wanted, invert the image
-  if (baseimg.invertable && basetype == "image/svg+xml" && baseimg.color == "b" && data.color == "w,b") {
+  if (baseimg.invertable && basetype === "image/svg+xml" && baseimg.color === "b" && data.color === "w,b") {
     if (dompack.debugflags.ild)
       console.log("Inverting image");
     basedata = invertImage(basedata);
   }
 
   // Apply overlays, if any
-  if (images.length == 1) {
+  if (images.length === 1) {
     // No extra processing has to be done; return the current image data as data URI
     return { key, result: "data:" + basetype + ";base64," + basedata };
   }
@@ -215,7 +215,7 @@ async function processImage(key, images, data) {
     // The image data is either the base image data or the overlay image data
     let imgdata = idx ? overlayimg.data : basedata;
     // If this is a black overlay and a white image is wanted, invert the overlay
-    if (idx && overlayimg.invertable && overlayimg.type == "image/svg+xml" && overlayimg.color == "b" && data.color == "w,b") {
+    if (idx && overlayimg.invertable && overlayimg.type === "image/svg+xml" && overlayimg.color === "b" && data.color === "w,b") {
       if (dompack.debugflags.ild)
         console.log("Inverting overlay " + idx);
       imgdata = invertImage(imgdata);

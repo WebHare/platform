@@ -41,7 +41,7 @@ export default class TransportManager { // -------------------------------------
 
   suggestTransportType() {
     const urltransporttype = new URL(location.href).searchParams.get("transport");
-    return urltransporttype && urltransporttype == "jsonrpc" ? "jsonrpc" : "websocket";
+    return urltransporttype && urltransporttype === "jsonrpc" ? "jsonrpc" : "websocket";
   }
 
   /** Registers an endpoint
@@ -51,13 +51,13 @@ export default class TransportManager { // -------------------------------------
 
     let transport = null;
     for (let i = 0; i < this.transports.length; ++i)
-      if (this.transports[i].options.commhost == commhost)
+      if (this.transports[i].options.commhost === commhost)
         transport = this.transports[i];
 
 
     if (!transport) {
       const transporttype = this.suggestTransportType();
-      if (transporttype == "websocket") {
+      if (transporttype === "websocket") {
         transport = new WebSocketTransport(
           {
             commhost: commhost,
@@ -85,12 +85,12 @@ export default class TransportManager { // -------------------------------------
   */
   unregister(endpoint) {
     console.log('unregistering endpoint frontendid:', endpoint.options.frontendid || "-", "linkid:", endpoint.options.linkid || "-", this.endpoints.length, endpoint.transport.endpoints.length);
-    this.endpoints = this.endpoints.filter(e => e != endpoint);
+    this.endpoints = this.endpoints.filter(e => e !== endpoint);
     if (endpoint.transport) {
       const transport = endpoint.transport;
       if (!transport.removeEndPoint(endpoint)) {
         transport.destroy();
-        this.transports = this.transports.filter(e => e != transport);
+        this.transports = this.transports.filter(e => e !== transport);
       }
       console.log('unregistered endpoint', this.endpoints.length, transport.endpoints.length);
     }

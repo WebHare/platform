@@ -66,7 +66,7 @@ function GetOuterPlain(node: Node): string {
 
     return nodes.join('');
   }
-  if (node.nodeType == 3 || node.nodeType == 4) {
+  if (node.nodeType === 3 || node.nodeType === 4) {
     if (!node.nodeValue)
       return '';
     let value = encodeString(node.nodeValue, 'attribute');
@@ -104,9 +104,9 @@ function GetNodeXML(node: Node, inner?: boolean): string {
       const elt = node as Element;
       if (!elt.childNodes.length) {
         // Don't export the bogus Mozilla line break node
-        if (elt.nodeName.toLowerCase() == 'br'
-          && (elt.getAttribute('_moz_editor_bogus_node') == 'TRUE'
-            || elt.getAttribute('type') == '_moz'))
+        if (elt.nodeName.toLowerCase() === 'br'
+          && (elt.getAttribute('_moz_editor_bogus_node') === 'TRUE'
+            || elt.getAttribute('type') === '_moz'))
           break;
         if (!inner)
           s.push('<' + elt.nodeName.toLowerCase() + GetNodeXML_Attributes(elt) + '/>');
@@ -454,7 +454,7 @@ export default class EditorBase {
     }
 
     this.htmldiv.classList.add("wh-rtd--margins-" + margins);
-    if (margins != 'none') //include -active if -any- margin is present. should replace wh-rtd-withcontentarea and wh-rtd__body--contentarea eventually
+    if (margins !== 'none') //include -active if -any- margin is present. should replace wh-rtd-withcontentarea and wh-rtd__body--contentarea eventually
       this.htmldiv.classList.add("wh-rtd--margins-active");
 
     const editoropts = {
@@ -647,7 +647,7 @@ export default class EditorBase {
     if (this.dirty)
       return;
 
-    this.dirty = this.original_value != this.getValue();
+    this.dirty = this.original_value !== this.getValue();
     if (this.dirty) {
       if (dompack.debugflags.rte)
         console.log("[rte] Document got dirty, firing event");
@@ -722,9 +722,9 @@ export default class EditorBase {
       if (node.classList.contains("wh-rtd-embeddedobject")) {
         //we'll simply reinsert
         if (settings) {
-          if (settings.type == 'replace') {
+          if (settings.type === 'replace') {
             this.updateEmbeddedObject(node, settings.data);
-          } else if (settings.type == 'remove') {
+          } else if (settings.type === 'remove') {
             this.removeEmbeddedObject(node);
           }
         }
@@ -741,7 +741,7 @@ export default class EditorBase {
 
       node.align = '';
       node.alt = settings.alttext;
-      node.className = "wh-rtd__img" + (settings.align == 'left' ? " wh-rtd__img--floatleft" : settings.align == "right" ? " wh-rtd__img--floatright" : "");
+      node.className = "wh-rtd__img" + (settings.align === 'left' ? " wh-rtd__img--floatleft" : settings.align === "right" ? " wh-rtd__img--floatright" : "");
 
       let link = node.closest('A');
       if (link && !settings.link) //remove the hyperlink
@@ -880,7 +880,7 @@ export default class EditorBase {
   }
 
   setEnabled(enabled) {
-    if (enabled == this.options.enabled)
+    if (enabled === this.options.enabled)
       return;
 
     this.options.enabled = enabled;
@@ -980,7 +980,7 @@ export default class EditorBase {
   gotUndoChange(name, event) {
     const elt = parseInt(this.undonode.innerHTML);
     //console.log('gotUndoChange', name, event, "new indopos: ", elt, 'current undopos: ', this.undopos);
-    if (elt == this.undopos)
+    if (elt === this.undopos)
       return;
 
     //console.log('un/redo ' + name + ': ' + elt);
@@ -1075,7 +1075,7 @@ export default class EditorBase {
 
   hasFocus() {
     let active = document.activeElement;
-    while (active && active != this.bodydiv)
+    while (active && active !== this.bodydiv)
       active = active.parentNode;
     return Boolean(active);
   }
@@ -1376,7 +1376,7 @@ export default class EditorBase {
     // locators.start should now point to a text node, insert the text
     let textnode = range.start.element;
     let textoffset = range.start.offset;
-    if (textnode.nodeType != 3) // If it's not a text node (e.g. in an empty document), create one
+    if (textnode.nodeType !== 3) // If it's not a text node (e.g. in an empty document), create one
     {
       if (textnode.childNodes.length)
         textnode = textnode.insertBefore(document.createTextNode(''), textnode.childNodes.item(textoffset));
@@ -1504,12 +1504,12 @@ export default class EditorBase {
     let res_blockstyle: object | null = null;
 
     let curnode: Node | null = node;
-    for (; curnode && curnode != root; curnode = curnode.parentNode)
+    for (; curnode && curnode !== root; curnode = curnode.parentNode)
       if (domlevel.testType(curnode, domlevel.NodeType.element)) {
         if (['tr', 'td'].includes(curnode.nodeName.toLowerCase()))
           res_isintable = true;
 
-        if (curnode.nodeName.toLowerCase() == 'li')
+        if (curnode.nodeName.toLowerCase() === 'li')
           res_contentnode = curnode;
         else if (domlevel.isNodeBlockElement(curnode)) {
           const islist = ['ol', 'ul'].includes(curnode.nodeName.toLowerCase());
@@ -1530,7 +1530,7 @@ export default class EditorBase {
       } else if (domlevel.testType(curnode, domlevel.NodeType.documentFragment))
         root = curnode;
 
-    for (; curnode && curnode != root; curnode = curnode.parentNode) {
+    for (; curnode && curnode !== root; curnode = curnode.parentNode) {
       if (domlevel.testType(curnode, domlevel.NodeType.documentFragment))
         root = curnode;
       else if (domlevel.testType(curnode, domlevel.NodeType.element) && this.blockroots.includes(curnode.nodeName.toLowerCase())) { // FIXME: better name for listunbreakablenodes
@@ -1606,7 +1606,7 @@ export default class EditorBase {
     const root = range.getAncestorElement();
 
     // Spanning different blocks!
-    if (startblock.contentnode != endblock.contentnode) {
+    if (startblock.contentnode !== endblock.contentnode) {
       blockend = new domlevel.Locator(endblock.contentnode, "end");
     } else {
       blockend = new domlevel.Locator(range.end.element, "end");
@@ -1757,7 +1757,7 @@ export default class EditorBase {
     let breakparent = domlevel.findParent(range.start.element, ['blockquote', 'th', 'td'], this.getBody());
     let topblockquote;
     while (breakparent) {
-      if (breakparent.nodeName.toLowerCase() != 'blockquote')
+      if (breakparent.nodeName.toLowerCase() !== 'blockquote')
         break;
 
       topblockquote = breakparent;
@@ -1791,7 +1791,7 @@ export default class EditorBase {
 
     // Split the splitparent at selection start (and end if selection isn't empty)
     const splitlocators = [{ locator: locators.start, toward: 'start' }];
-    if (locators.start.element != locators.end.element || locators.start.offset != locators.end.offset)
+    if (locators.start.element !== locators.end.element || locators.start.offset !== locators.end.offset)
       splitlocators.push({ locator: locators.end, toward: 'end' });
 
     //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getBody(), splitlocators.map(function (item){return item.locator;})));
@@ -1801,25 +1801,25 @@ export default class EditorBase {
 
     // Find last node before cursor position (highest ancestor of right element of first part)
     let leftborder = parts[0].end.element;
-    while (leftborder.parentNode && leftborder.parentNode != splitparent)
+    while (leftborder.parentNode && leftborder.parentNode !== splitparent)
       leftborder = leftborder.parentNode;
 
     // Find first node after cursor position (highest ancestor of left element of last part)
     let rightborder = parts[parts.length - 1].start.element;
-    while (rightborder.parentNode && rightborder.parentNode != splitparent)
+    while (rightborder.parentNode && rightborder.parentNode !== splitparent)
       rightborder = rightborder.parentNode;
 
     //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), { leftborder: leftborder, rightborder: rightborder, splitparent: splitparent }));
 
-    if (leftborder.parentNode != splitparent || rightborder.parentNode != splitparent)
+    if (leftborder.parentNode !== splitparent || rightborder.parentNode !== splitparent)
       return;
 
     // Clear all nodes between border nodes
-    if (leftborder != rightborder)
-      while (leftborder.nextSibling && leftborder.nextSibling != rightborder)
+    if (leftborder !== rightborder)
+      while (leftborder.nextSibling && leftborder.nextSibling !== rightborder)
         leftborder.parentNode.removeChild(leftborder.nextSibling);
 
-    if (leftborder != rightborder && leftborder.nextSibling != rightborder)
+    if (leftborder !== rightborder && leftborder.nextSibling !== rightborder)
       return;
 
     // Insert new node between border nodes
@@ -1866,13 +1866,13 @@ export default class EditorBase {
 
       let i;
       for (i = path.length - 1; i >= 0; --i)
-        if (path[i].nodeName.toLowerCase() == 'a') {
+        if (path[i].nodeName.toLowerCase() === 'a') {
           this.selectRange(Range.withinNode(path[i]));
           break;
         }
 
       // No A node found
-      if (i == -1)
+      if (i === -1)
         return;
     }
 
@@ -1900,17 +1900,17 @@ export default class EditorBase {
     const undolock = this.getUndoLock();
 
     let startelement = locators.start.element;
-    if (startelement == body)
+    if (startelement === body)
       startelement = body.firstChild;
     else
-      while (startelement.parentNode != body)
+      while (startelement.parentNode !== body)
         startelement = startelement.parentNode;
 
     let endelement = locators.end.element;
-    if (endelement == body)
+    if (endelement === body)
       endelement = body.lastChild;
     else
-      while (endelement.parentNode != body)
+      while (endelement.parentNode !== body)
         endelement = endelement.parentNode;
     endelement = endelement.nextSibling;
 
@@ -2001,9 +2001,9 @@ export default class EditorBase {
     event.clipboardData.items.forEach(item => {
       console.log("CP item", item, item.kind);
 
-      if (item.kind == "string")
+      if (item.kind === "string")
         item.getAsString(function (str) { console.warn(str); });
-      else if (item.kind == "file") {
+      else if (item.kind === "file") {
         const reader = new FileReader();
         reader.onload = function (loadevent) {
           console.warn(loadevent.target.result);
@@ -2077,8 +2077,8 @@ export default class EditorBase {
       // If already on queue, see if canceling or repeating old action
       for (let i = 0; i < this.delayedsurrounds.length; ++i) {
         const info = this.delayedsurrounds[i];
-        if (info.element == elementinfo.element) {
-          if (info.wrapin == elementinfo.wrapin)
+        if (info.element === elementinfo.element) {
+          if (info.wrapin === elementinfo.wrapin)
             return; // Already on queue
 
           // Canceling queued action by deleting it from the queue
@@ -2117,7 +2117,7 @@ export default class EditorBase {
 
   _canWrapNode(elementinfo, node) {
     if (domlevel.isNodeBlockElement(node))
-      return elementinfo.splitblockelements == true;
+      return elementinfo.splitblockelements === true;
     return !(elementinfo.splitprohibits && elementinfo.splitprohibits.includes(node.nodeName.toLowerCase()));
   }
 
@@ -2140,9 +2140,9 @@ export default class EditorBase {
     const range = this.getSelectionRange();
     if (elementinfo.avoidwhitespace) {
       //Try to remove spaces at begin and end iterator
-      while (range.start.element.nodeType == 3 && range.start.element.textContent[range.start.offset] == ' ' && range.start.compare(range.end) < 0)
+      while (range.start.element.nodeType === 3 && range.start.element.textContent[range.start.offset] === ' ' && range.start.compare(range.end) < 0)
         ++range.start.offset;
-      while (range.end.element.nodeType == 3 && range.end.element.textContent[range.end.offset - 1] == ' ' && range.start.compare(range.end) < 0)
+      while (range.end.element.nodeType === 3 && range.end.element.textContent[range.end.offset - 1] === ' ' && range.start.compare(range.end) < 0)
         --range.end.offset;
     }
     this.surroundRange(range, elementinfo);
@@ -2177,14 +2177,14 @@ export default class EditorBase {
 
   getTextStyleRecordFromNode(node) {
     let nodeName = node.nodeName.toLowerCase();
-    if (nodeName == 'strong')
+    if (nodeName === 'strong')
       nodeName = 'b';
-    else if (nodeName == 'em')
+    else if (nodeName === 'em')
       nodeName = 'i';
-    else if (nodeName == 'a' && node.hasAttribute("href"))
+    else if (nodeName === 'a' && node.hasAttribute("href"))
       nodeName = "a-href";
 
-    if (nodeName == 'b' && node.style.fontWeight == "normal")
+    if (nodeName === 'b' && node.style.fontWeight === "normal")
       return null;// work around googledocs doing it
 
     return ({ nodeName: nodeName });
@@ -2240,7 +2240,7 @@ export default class EditorBase {
     //    if(this.options.log)
     //      console.log("Iterate parents");
     //    var anchornode = sel.Node();
-    for (let curnode: HTMLElement = anchornode; curnode && curnode != this.bodydiv; curnode = curnode.parentNode) {
+    for (let curnode: HTMLElement = anchornode; curnode && curnode !== this.bodydiv; curnode = curnode.parentNode) {
       switch (curnode.nodeName.toUpperCase()) {
         case 'B': case 'STRONG': /* FIXME shouldn't generate STRONGs! */
         case 'I': case 'EM': /* FIXME shouldn't generate EMs! */
@@ -2284,10 +2284,10 @@ export default class EditorBase {
     // Assuming left alignment when no other alignment is specified
     alignment = alignment || 'left';
 
-    formatting.alignleft = alignment == 'left';
-    formatting.aligncenter = alignment == 'center';
-    formatting.alignright = alignment == 'right';
-    formatting.alignjustified = alignment == 'justified';
+    formatting.alignleft = alignment === 'left';
+    formatting.aligncenter = alignment === 'center';
+    formatting.alignright = alignment === 'right';
+    formatting.alignjustified = alignment === 'justified';
 
     /* Action elements must be given back
        - first from within the range, DOM order
@@ -2299,7 +2299,7 @@ export default class EditorBase {
     // Filter out non-contenteditable nodes (allow embbeded objects within a contenteditable parent)
     relevantnodes = relevantnodes.filter(node => node.isContentEditable || (domlevel.isEmbeddedObject(node) && node.parentNode.isContentEditable));
 
-    for (let curnode = range.getAncestorElement(); curnode && curnode != this.bodydiv; curnode = curnode.parentNode)
+    for (let curnode = range.getAncestorElement(); curnode && curnode !== this.bodydiv; curnode = curnode.parentNode)
       relevantnodes.push(curnode);
 
     if (Range.getLogLevel() & 16)
@@ -2329,7 +2329,7 @@ export default class EditorBase {
       const info = this.delayedsurrounds[i];
       let found = false;
       for (let pos = 0; pos < formatting.textstyles.length; ++pos) {
-        if (formatting.textstyles[pos].nodeName == info.element) {
+        if (formatting.textstyles[pos].nodeName === info.element) {
           formatting.textstyles.splice(pos, 1);
           found = true;
           break;
@@ -2356,7 +2356,7 @@ export default class EditorBase {
     const tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getBody());
     formatting.cellparent = tdparent;
 
-    const allow_td_actions = startblock == limitblock && tdparent;
+    const allow_td_actions = startblock === limitblock && tdparent;
     const tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
     const tableactionstate = tableeditor && tableeditor.getActionState(tdparent);
     const allowwidgets = !formatting.tablestyle || formatting.tablestyle?.allowwidgets;
@@ -2422,12 +2422,12 @@ export default class EditorBase {
       "ol":
       {
         available: true,
-        active: actionparent && actionparent.nodeName.toLowerCase() == 'ol'
+        active: actionparent && actionparent.nodeName.toLowerCase() === 'ol'
       },
       "ul":
       {
         available: true,
-        active: actionparent && actionparent.nodeName.toLowerCase() == 'ul'
+        active: actionparent && actionparent.nodeName.toLowerCase() === 'ul'
       },
       "table-addrow-before": { available: allow_td_actions },
       "table-addrow-after": { available: allow_td_actions },
@@ -2435,8 +2435,8 @@ export default class EditorBase {
       "table-addpara-after": { available: allow_td_actions },
       "table-addcolumn-before": { available: allow_td_actions },
       "table-addcolumn-after": { available: allow_td_actions },
-      "table-deleterow": { available: allow_td_actions && tableeditor && tableeditor.numrows != 1 },
-      "table-deletecolumn": { available: allow_td_actions && tableeditor && tableeditor.numcolumns != 1 },
+      "table-deleterow": { available: allow_td_actions && tableeditor && tableeditor.numrows !== 1 },
+      "table-deletecolumn": { available: allow_td_actions && tableeditor && tableeditor.numcolumns !== 1 },
       "table-mergeright": tableactionstate && tableactionstate["table-mergeright"] || { available: false },
       "table-mergedown": tableactionstate && tableactionstate["table-mergedown"] || { available: false },
       "table-splitcols": tableactionstate && tableactionstate["table-splitcols"] || { available: false },
@@ -2473,7 +2473,7 @@ export default class EditorBase {
 
     let actiondata;
     for (let i = 0; i < actionlist.length; ++i)
-      if (actionlist[i].name == action) {
+      if (actionlist[i].name === action) {
         actiondata = actionlist[i];
         break;
       }
@@ -2528,7 +2528,7 @@ export default class EditorBase {
   _gotDOMNodeRemoved(event) {
     // Node removed that's a child of the content node? Check the dom!
     // Needed because of select all+delete in context menu in ff & no selection change events
-    if (event.relatedNode == this.getBody())
+    if (event.relatedNode === this.getBody())
       this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
   }
 
@@ -2849,7 +2849,7 @@ export default class EditorBase {
     if (!event.target || !this.isEditable())
       return;
     //ADDME should there be more doubleclickable?
-    if (event.target && event.target.nodeName.toUpperCase() == "IMG") { //double click on an image should open the action props
+    if (event.target && event.target.nodeName.toUpperCase() === "IMG") { //double click on an image should open the action props
       this.selectNodeOuter(event.target);
       this.executeAction('action-properties');
     }
@@ -2858,7 +2858,7 @@ export default class EditorBase {
   }
 
   setInputEventAttach(attach) {
-    if (this.attachedinputevents == attach)
+    if (this.attachedinputevents === attach)
       return;
 
     if (!this.inputeventfunction)
@@ -2876,11 +2876,11 @@ export default class EditorBase {
   }
 
   scheduleCallbackOnInputOrDelay(callback, name) {
-    if (this.activeinputhandler == name)
+    if (this.activeinputhandler === name)
       return;
 
     for (let i = 0; i < this.oninputhandlers.length; ++i)
-      if (this.oninputhandlers[i].name == name)
+      if (this.oninputhandlers[i].name === name)
         return;
 
     if (!this.oninputhandlers.length) {
@@ -2927,7 +2927,7 @@ export default class EditorBase {
     return this.getBody().classList.contains("wh-rtd-formatting");
   }
   executeDefaultPropertiesAction(event) {
-    if (event.target.nodeName == 'A') {
+    if (event.target.nodeName === 'A') {
       // eslint-disable-next-line no-alert
       const url = prompt(this.GetLanguageText('prompt_hyperlink'), event.target.href);
       if (url)
@@ -2997,7 +2997,7 @@ export default class EditorBase {
     //actiontarget describes the target, and is currently only set for context menu actions but probably every action route should add this
 
     // Fallback for single string argument call without extra parameters - apparently everyone but the 'table' action doe sthis
-    if (typeof action == "string")
+    if (typeof action === "string")
       action = { action: action };
 
     if (!this._isActionAllowed(action.action))
@@ -3012,13 +3012,13 @@ export default class EditorBase {
 
       action.rte = this; //this is the RTE object
 
-      if (action.action == 'a-href') {
+      if (action.action === 'a-href') {
         const selstate = this.getSelectionState();
         if (selstate.hyperlink) //inside a hyperlink
           action.action = 'action-properties'; //rewrite to a properties action
       }
 
-      if (action.action == 'action-properties') {
+      if (action.action === 'action-properties') {
         const selstate = this.getSelectionState();
         if (!selstate.propstarget)
           return;
@@ -3104,7 +3104,7 @@ export default class EditorBase {
       case 'sub': // sub & sup are mutually exclusive
       case 'sup':
         if (!this.getSelectionState().hasTextStyle(action.action))
-          this.applyTextStyle((action.action == 'sub' ? 'sup' : 'sub'), false);
+          this.applyTextStyle((action.action === 'sub' ? 'sup' : 'sub'), false);
         this.applyTextStyle(action.action, !this.getSelectionState().hasTextStyle(action.action));
         break;
 
@@ -3248,12 +3248,12 @@ export class TextFormattingState {
   blockstyle: BlockStyle | null = null;
 
   hasTextStyle(nodeName) {
-    return this.getTextStyleByNodeName(nodeName) != null;
+    return this.getTextStyleByNodeName(nodeName) !== null;
   }
 
   getTextStyleByNodeName(nodeName) {
     for (let i = 0; i < this.textstyles.length; ++i)
-      if (this.textstyles[i].nodeName == nodeName)
+      if (this.textstyles[i].nodeName === nodeName)
         return this.textstyles[i];
     return null;
   }

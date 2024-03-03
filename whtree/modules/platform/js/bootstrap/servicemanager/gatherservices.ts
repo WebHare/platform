@@ -3,7 +3,7 @@ import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefpar
 import { ServiceDefinition, Stage } from './smtypes';
 import { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 
-const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
+const earlywebserver = process.env.WEBHARE_WEBSERVER === "node";
 
 const defaultServices: Record<string, ServiceDefinition> = {
   /* Bootup stage. Here we bring up all passive services that WebHare scripts will need

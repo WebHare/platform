@@ -81,7 +81,7 @@ class DashboardApp {
     });
     this.updateShellSettings();
 
-    if (whintegration.config.dtapstage == 'development')
+    if (whintegration.config.dtapstage === 'development')
       this.app.appmenu.push({ title: getTid("tollium:shell.dashboard.resetimagecache"), cmd: { type: "shell:resetimagecache" } });
 
     callback();
@@ -153,7 +153,7 @@ class DashboardApp {
       return;
 
     const allappnodes = dompack.qSA(this.dashboardappsnode, '.dashboard__app');
-    let curpos = allappnodes.findIndex(node => node == current);
+    let curpos = allappnodes.findIndex(node => node === current);
     if (curpos < 0)
       return;
 
@@ -243,7 +243,7 @@ class DashboardApp {
     document.getElementById('dashboard-bg').style.background = settings.dashboardbg ? settings.dashboardbg.css : `url("/.tollium/ui/skins/default/dashboard_background.jpg") center/cover`;
 
     document.getElementById('dashboard-display-name').textContent = settings.displayname;
-    if (settings.displayimage == "") {
+    if (settings.displayimage === "") {
       document.getElementById('t-apptabs').style.backgroundImage = "none";
       document.getElementById('dashboard-display-name').textContent = settings.displayname;
     } else {
@@ -283,7 +283,7 @@ class DashboardApp {
           { name: 'no', title: getTid("~no") }
         ]
       });
-    if (response == 'yes')
+    if (response === 'yes')
       this.shell.doLogoff();
   }
 }

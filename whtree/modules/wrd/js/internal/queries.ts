@@ -56,7 +56,7 @@ function addAccessorPositions<T extends string>(m: ReturnMap<T>, accpos: Map<str
   }
 }
 
-function cmp<T extends number | string>(a: T, b: T) { return a == b ? 0 : a < b ? -1 : 1; }
+function cmp<T extends number | string>(a: T, b: T) { return a === b ? 0 : a < b ? -1 : 1; }
 
 function createSelectMap<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]>>(type: WRDType<S, T>, selects: O, rootattrs: Map<string, AttrRec>, parentAttrMap: Map<number | null, AttrRec[]>) {
   const fieldset = new Set<keyof S[T] & string>;

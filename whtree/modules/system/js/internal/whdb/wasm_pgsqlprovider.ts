@@ -278,7 +278,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
        that case. Comparing anonymous records returns a 'comparison not implemented'
        error
     */
-    if (fase2keys.length == 1 && need_fase2) {
+    if (fase2keys.length === 1 && need_fase2) {
       // querydata.keycolumn will be filled during result column building
       usefase2 = true;
     } else {
@@ -379,8 +379,8 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     if (!cond.casesensitive)
       colexpr = sql`upper(${colexpr})`;
 
-    let valueexpr = sql.value(cond.condition == "LIKE" ? encodePattern(value as string) : value);
-    if (cond.condition == "IN")
+    let valueexpr = sql.value(cond.condition === "LIKE" ? encodePattern(value as string) : value);
+    if (cond.condition === "IN")
       valueexpr = sql`Any(${valueexpr})`;
     if (!cond.casesensitive)
       valueexpr = sql`upper(${valueexpr})`;
@@ -420,7 +420,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   let updatedtable = "";
 
   let modifyend: RawBuilder<unknown> | undefined;
-  if (query.type == "UPDATE" || query.type == "DELETE") {
+  if (query.type === "UPDATE" || query.type === "DELETE") {
     const fornokeyupdate = query.type === "UPDATE" && !updatingkey;
     updatedtable = query.tablesources[0].name;
     if (usefase2) {

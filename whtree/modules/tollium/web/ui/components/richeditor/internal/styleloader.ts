@@ -27,7 +27,7 @@ function promiseNewLinkNode(element: HTMLLinkElement) {
 
 function findCSSRule(addcss: CSSRef) {
   for (let i = 0; i < addedcss.length; ++i)
-    if (addedcss[i].type == addcss.type && addedcss[i].src == addcss.src)
+    if (addedcss[i].type === addcss.type && addedcss[i].src === addcss.src)
       return { idx: i, rule: addedcss[i] };
 
   return null;
@@ -48,7 +48,7 @@ export function register(rte: CSSRefRequester) {
       rules.push(rulepos.rule);
     } else {
       let node, promise = null;
-      if (rte.addcss[i].type == 'link') {
+      if (rte.addcss[i].type === 'link') {
         node = dompack.create("link", {
           href: rte.addcss[i].src,
           rel: "stylesheet",
@@ -88,7 +88,7 @@ export function unregister(rte: CSSRefRequester) {
   for (let i = rte.addcss.length - 1; i >= 0; --i) {
     const rulepos = findCSSRule(rte.addcss[i]);
     if (rulepos) {
-      rulepos.rule.rtes = rulepos.rule.rtes.filter(el => el != rte); //erase us from the list
+      rulepos.rule.rtes = rulepos.rule.rtes.filter(el => el !== rte); //erase us from the list
       if (!rulepos.rule.rtes.length) {
         rulepos.rule.node.remove();
         addedcss.splice(rulepos.idx, 1);

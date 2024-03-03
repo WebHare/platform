@@ -27,7 +27,7 @@ export function generateNoDBConfig(): NoDBConfig {
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   const installationroot = appendSlashWhenMissing(process.env.WEBHARE_DIR ?? "");
 
-  if (baseport == 0)
+  if (baseport === 0)
     baseport = 13679; //default port, needed for backwards compatibility
   if (baseport < 1024 || baseport > 65500)
     throw new Error("Invalid WEBHARE_BASEPORT");

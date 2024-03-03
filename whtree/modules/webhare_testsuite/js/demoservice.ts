@@ -21,7 +21,7 @@ class ClusterTestLink extends BackendServiceConnection {
 
   constructor(maininstance: Controller | null, testdata: string) {
     super();
-    if (testdata == "abort")
+    if (testdata === "abort")
       throw new Error("abort");
 
     this.testdata = testdata;

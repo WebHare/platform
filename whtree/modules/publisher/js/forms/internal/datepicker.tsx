@@ -69,8 +69,8 @@ class ComponentOverlay {
     window.removeEventListener("touchstart", this._boundGlobalEvents, true);
   }
   _globalEvents(evt) {
-    if (evt && evt.type == "keyup") {
-      if (evt.keyCode == 27)
+    if (evt && evt.type === "keyup") {
+      if (evt.keyCode === 27)
         this._dismissOverlay();
       return;
     }
@@ -160,7 +160,7 @@ class CalendarTable extends ComponentOverlay {
     const startofmonth_weekday = startofmonth.getUTCDay(); //0-6 where 0=Sunday
 
     //Work backwards to a monday (start of the week)
-    const backwardsdays = startofmonth_weekday == 0 ? 6 : startofmonth_weekday - 1;
+    const backwardsdays = startofmonth_weekday === 0 ? 6 : startofmonth_weekday - 1;
     let currentgriddate = startofmonth.getTime() - (backwardsdays * 86400 * 1000);
 
     //Build the grid!
@@ -169,7 +169,7 @@ class CalendarTable extends ComponentOverlay {
 
       for (let day = 0; day < 7; ++day) {
         const date = new Date(currentgriddate);
-        if (this.options.weeknumbers && day == 0)
+        if (this.options.weeknumbers && day === 0)
           rownode.appendChild(<th class={this.options.baseclass + '__weeknr'} scope="row"><span>{datehelpers.getWeekNumber(date)}</span></th>);
 
         const dateY = date.getUTCFullYear();
@@ -185,7 +185,7 @@ class CalendarTable extends ComponentOverlay {
           dataset: { whDatepickerDate: datehelpers.formatJSUTCISODate(date) }
         });
 
-        if (dateM != showmonth || dateY != showyear)
+        if (dateM !== showmonth || dateY !== showyear)
           daynode.classList.add(this.options.baseclass + '__day--othermonth');
 
         if ((mindate && dateY < mindate.year && dateM < mindate.month && dateD < mindate.day)
@@ -196,10 +196,10 @@ class CalendarTable extends ComponentOverlay {
           daynode.classList.add(this.options.baseclass + '__day--selectable');
         }
 
-        if (datehelpers.compareDate(this.today, celldate) == 0)
+        if (datehelpers.compareDate(this.today, celldate) === 0)
           daynode.classList.add(this.options.baseclass + '__day--today');
 
-        if (this.date && datehelpers.compareDate(this.date, celldate) == 0)
+        if (this.date && datehelpers.compareDate(this.date, celldate) === 0)
           daynode.classList.add(this.options.baseclass + '__day--selected');
 
         rownode.appendChild(daynode);
@@ -284,7 +284,7 @@ class Calendar2 extends CalendarTable {
     //month pulldown
     const selectedmonth = this._currentdate.month;
     for (let m = 0; m < 12; ++m)
-      this.monthselectnode.appendChild(<option value={m + 1} selected={m == selectedmonth - 1}>{this._languagetexts[m + 2]}</option>);
+      this.monthselectnode.appendChild(<option value={m + 1} selected={m === selectedmonth - 1}>{this._languagetexts[m + 2]}</option>);
 
     this.node.append(headernode, this.tablenode);//, btnbarnode);
 
@@ -374,7 +374,7 @@ class DatePicker extends Calendar2 {
 
     //we use the node to store our result, so verify it
     //FIXME maybe this should be optional and you be allowed to create a datepicker without a corresponding node if you just manage getvalue/setvalue yourself, or maybe this glue code belongs outside us
-    //     if(node.nodeName != 'INPUT' || node.getAttribute('type') != 'date')
+    //     if(node.nodeName !== 'INPUT' || node.getAttribute('type') !== 'date')
     //       throw new Error("The DatePicker expects to be associated with a input[type=date]");
 
     //     this._node = node;

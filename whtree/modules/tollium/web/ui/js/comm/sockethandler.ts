@@ -39,7 +39,7 @@ class SocketHandler {
   /// inplace deduplicates an array
   _dedupArray(arr) {
     arr.sort();
-    return arr.filter((elt, idx, array) => !idx || array[idx - 1] != elt);
+    return arr.filter((elt, idx, array) => !idx || array[idx - 1] !== elt);
   }
 
   /** Start the connection to a tollium server

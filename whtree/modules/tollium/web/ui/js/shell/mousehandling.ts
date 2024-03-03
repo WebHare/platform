@@ -14,7 +14,7 @@ function onClick(event) {
     return;
 
   const link = event.target.closest("a");
-  if (link && (!link.target || link.target == "_self")) //under NO circumstance a hyperlink may replace the current tollium session - move it to a new window
+  if (link && (!link.target || link.target === "_self")) //under NO circumstance a hyperlink may replace the current tollium session - move it to a new window
   {
     window.open(link, '_blank');
     event.preventDefault();
@@ -34,7 +34,7 @@ function captureSelection(selectbase) {
   document.documentElement.classList.add("mousehandling--selecting");
 }
 function onSelectStart(event) {
-  const target = event.target.nodeType == 3 ? event.target.parentNode : event.target;
+  const target = event.target.nodeType === 3 ? event.target.parentNode : event.target;
   if (target.matches('input,textarea') || target.closest("div.wh-rtd-editor"))
     return; //these are okay to select. MSIE needs these explicitly allowed
 

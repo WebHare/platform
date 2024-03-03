@@ -487,7 +487,7 @@ async function testCollections() {
     }).entries()
   ]);
 
-  while (array[0] != 5)
+  while (array[0] !== 5)
     std.shuffle(array);
   test.eq([1, 2, 3, 4, 5], array.sort()); //shouldn't sort() a number array as it'll do a string compare, but safe with numbers < 10
 

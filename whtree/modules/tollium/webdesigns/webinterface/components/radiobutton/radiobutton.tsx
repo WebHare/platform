@@ -128,7 +128,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
   gotClick(ev) {
     if (this.enabled && !this.readonly) {
       for (const node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
-        node.checked = node == this.radiobuttonnode;
+        node.checked = node === this.radiobuttonnode;
       this.gotSet();
       this.radiobuttonnode.focus();
     }
@@ -140,7 +140,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
     if (this.value && !oldvalue) {
       // when set, there probably is another radio that has been unset, visit them all to synchronize them
       for (const node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
-        if (node != this.node)
+        if (node !== this.node)
           node.propToddObj.gotControlChange();
     }
   }
@@ -153,7 +153,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
     // This function is called everytime the radiobutton is checked, or when another radiobutton in this group is checked (so
     // we'll have to see if this is the radiobutton that got unchecked)
     const newvalue = this.radiobuttonnode.checked;
-    if (newvalue != this.value) {
+    if (newvalue !== this.value) {
       this.value = newvalue;
       this.setDirty();
       if ((this.isEventUnmasked("set") && this.value) || this.enablecomponents.length)

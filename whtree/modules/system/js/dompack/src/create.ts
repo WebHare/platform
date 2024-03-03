@@ -69,11 +69,11 @@ function createElement(elementname: string, attributes?: CreateAttributes, toatt
   const node = document.createElement(elementname);
   if (attributes) {
     Object.keys(attributes).forEach(attrname => {
-      if (attrname == 'events')
+      if (attrname === 'events')
         throw new Error("Use 'on' instead of 'events' in dompack.create");
-      if (attrname == 'styles')
+      if (attrname === 'styles')
         throw new Error("Use 'style' instead of 'styles' in dompack.create");
-      if (attrname == 'children') {
+      if (attrname === 'children') {
         // allow null 'children' property for jsxcreate, property delete is detrimental to performance.
         if (attributes[attrname])
           throw new Error("Use 'childNodes' instead of 'children' in dompack.create");
@@ -82,26 +82,26 @@ function createElement(elementname: string, attributes?: CreateAttributes, toatt
 
       const value = attributes[attrname];
 
-      if (attrname == 'on') //create event listeners
+      if (attrname === 'on') //create event listeners
         return void Object.keys(value).forEach(eventname => node.addEventListener(eventname, value[eventname], false));
       else if (attrname.startsWith("on"))
         return void node.addEventListener(toDashed(attrname.substring(2)), value, false);
 
-      if (attrname == "className" || attrname == "class") {
+      if (attrname === "className" || attrname === "class") {
         if (node.className) // already modified the class?
           throw new Error("Specify either 'className' or 'class' to dompack.create, but not both");
         setClassName(node, value);
         return;
       }
 
-      if (attrname == 'style')
+      if (attrname === 'style')
         return void setStyles(node, value);
 
-      if (attrname == 'dataset') //explicitly assign
+      if (attrname === 'dataset') //explicitly assign
         return void Object.assign(node[attrname], value);
 
-      if (attrname == 'childNodes') //append as children
-        return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child != null && child !== true && child !== false));
+      if (attrname === 'childNodes') //append as children
+        return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child !== null && child !== true && child !== false));
 
       if (toattrs && attrHasBooleanValue(attrname)) {
         if (value)
@@ -112,8 +112,8 @@ function createElement(elementname: string, attributes?: CreateAttributes, toatt
       }
 
       if (toattrs && !attrname.startsWith("prop")) {
-        if (value != null) { // matches not null and not undefined
-          if (value && typeof value == "object")
+        if (value !== null) { // matches not null and not undefined
+          if (value && typeof value === "object")
             throw new Error("Cannot store non-null objects in attributes, use a property starting with 'prop'");
           node.setAttribute(attrname, attributes[attrname]);
         }

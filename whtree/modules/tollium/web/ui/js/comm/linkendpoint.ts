@@ -61,7 +61,7 @@ export default class LinkEndpoint { // -----------------------------------------
   processWireMessage(wiremsg) {
     //console.log('** wire msg', wiremsg);
 
-    if (wiremsg.status == "gone") {
+    if (wiremsg.status === "gone") {
       //      console.log('** link closed - unregistering');
       if (this.onclosed && this.transmgr)
         this.onclosed();
@@ -79,7 +79,7 @@ export default class LinkEndpoint { // -----------------------------------------
     // Dispatch all messages we haven't received yet
     for (i = 0; i < wiremsg.messages.length; ++i) {
       //console.log('dispatch message', this.options.linkid, wiremsg.messages[i].seqnr, this.lastreceivedseqnr + 1);
-      if (wiremsg.messages[i].seqnr == this.lastreceivedseqnr + 1) {
+      if (wiremsg.messages[i].seqnr === this.lastreceivedseqnr + 1) {
         // Mark as received first, processing the message can throw...
         ++this.lastreceivedseqnr;
         this.seennewmessage = true;
@@ -89,7 +89,7 @@ export default class LinkEndpoint { // -----------------------------------------
       }
     }
 
-    return this.queuedmessages.length == 0;
+    return this.queuedmessages.length === 0;
   }
 
   constructWireMessage(sendall) {
@@ -109,7 +109,7 @@ export default class LinkEndpoint { // -----------------------------------------
       messages: sendmessages,
       ack: this.lastreceivedseqnr,
       frontendid: this.options.frontendid,
-      needack: this.queuedmessages.length != 0
+      needack: this.queuedmessages.length !== 0
     };
 
     this.seennewmessage = false;

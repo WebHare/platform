@@ -16,7 +16,7 @@ import * as ListColumn from '@mod-tollium/web/ui/components/listview/listcolumns
 
 class OddRowkeyColumn extends ListColumn.Base {
   render(list, columndef, row, cell) {
-    cell.textContent = row.rownum % 2 == 1 ? 'ja, oneven' : 'nee, even';
+    cell.textContent = row.rownum % 2 === 1 ? 'ja, oneven' : 'nee, even';
     //FIXME AND TEST VALUE
   }
 }
@@ -28,7 +28,7 @@ class TestBaseSource extends ListDataSource {
     this.selected = [];
   }
   getSelectableRowBefore(rownum) {
-    if (this.numrows == 0)
+    if (this.numrows === 0)
       return -1;
 
     if (rownum < 1 || rownum > this.numrows) {
@@ -40,7 +40,7 @@ class TestBaseSource extends ListDataSource {
   }
 
   getSelectableRowAfter(rownum) {
-    if (this.numrows == 0)
+    if (this.numrows === 0)
       return -1;
 
     if (rownum < this.numrows - 1)
@@ -148,8 +148,8 @@ class TestDataSource extends TestBaseSource {
 
     const newrow = [
       "Rij #" + rownum + ".",
-      (rownum % 7) == 2 ? null : this.checked.includes(rownum),   //1:checked
-      (rownum % 7) == 6 ? null : this.selected.includes(rownum)  //2:selected
+      (rownum % 7) === 2 ? null : this.checked.includes(rownum),   //1:checked
+      (rownum % 7) === 6 ? null : this.selected.includes(rownum)  //2:selected
     ];
     this.run(() => this.list.updateRow(rownum, newrow));
   }
@@ -160,9 +160,9 @@ class TestDataSource extends TestBaseSource {
     if (newvalue === null)
       throw new Error("Trying to set null");
 
-    if (cellidx == 2) //selected
+    if (cellidx === 2) //selected
     {
-      if (this.selected.includes(rownum) == newvalue)
+      if (this.selected.includes(rownum) === newvalue)
         throw new Error("Trying to set selected to its current value");
 
       if (newvalue)
@@ -170,9 +170,9 @@ class TestDataSource extends TestBaseSource {
       else
         this.selected.splice(this.selected.indexOf(rownum), 1);
 
-    } else if (cellidx == 1)//checked
+    } else if (cellidx === 1)//checked
     {
-      if (this.checked.includes(rownum) == newvalue)
+      if (this.checked.includes(rownum) === newvalue)
         throw new Error("Trying to set selected to its current value");
 
       if (newvalue)
@@ -216,8 +216,8 @@ class TreeDataSource extends TestBaseSource {
     for (let i = 0; i < rows.length; ++i) {
       this.flatrows.push(rows[i]);
 
-      //note: [1] == expandedidx, [2]==depth, [4] == subnodes
-      if (rows[i][1] == true) //expand it
+      //note: [1] === expandedidx, [2]==depth, [4] === subnodes
+      if (rows[i][1] === true) //expand it
         this.recurseFlattenRows(rows[i][4]);
     }
   }

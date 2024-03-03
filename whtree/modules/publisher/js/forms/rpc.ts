@@ -133,7 +133,7 @@ export default class RPCFormBase extends FormBase {
       console.warn("Message for non-existent field: " + field + ", prop: " + prop + ", value: " + String(value));
       return;
     }
-    if (prop == 'value') {
+    if (prop === 'value') {
       this.setFieldValue(fieldnode, value);
       return;
     }
@@ -345,8 +345,8 @@ export default class RPCFormBase extends FormBase {
   }
 
   async validateSingleFormField(field: HTMLElement): Promise<boolean> {
-    if (field instanceof HTMLInputElement && field.type == "email") { //TODO perhaps move this to webharefields.es ?
-      if (focus.getCurrentlyFocusedElement() == field) { //TODO clearing suggestion on change should probably be generalized
+    if (field instanceof HTMLInputElement && field.type === "email") { //TODO perhaps move this to webharefields.es ?
+      if (focus.getCurrentlyFocusedElement() === field) { //TODO clearing suggestion on change should probably be generalized
         if (field.propWhValidationSuggestion) {
           field.propWhValidationSuggestion = null;
         }

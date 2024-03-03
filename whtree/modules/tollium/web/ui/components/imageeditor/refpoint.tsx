@@ -112,7 +112,7 @@ class PhotoPoint extends SurfaceTool {
       return;
 
     active = Boolean(active);
-    if (active != this.activated) {
+    if (active !== this.activated) {
       const canvas = this.surface.previewcanvas || this.surface.canvas;
       this.activated = active;
       if (active) {

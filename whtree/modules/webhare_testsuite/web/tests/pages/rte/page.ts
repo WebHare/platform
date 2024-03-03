@@ -51,7 +51,7 @@ function delayedhideandshowstep() {
       qS('#delayedhideandshowspan').firstChild.nodeValue = 'hide delay (' + (window.delayedhideandshow.count - 15) + ')';
     else
       qS('#delayedhideandshowspan').firstChild.nodeValue = 'show delay (' + (window.delayedhideandshow.count - 10) + ')';
-    if (window.delayedhideandshow.count == 15)
+    if (window.delayedhideandshow.count === 15)
       qS('#holder').style.display = 'none';
     window.setTimeout(delayedhideandshowstep, 1000);
     return;
@@ -169,11 +169,11 @@ function getStructure(type) {
       { tag: "RED", title: "Red Cell" },
       { tag: "BLUE", title: "Blue Cell" }
     ],
-    contentareawidth: type == 'structured-contentarea' ? "450px" : null
+    contentareawidth: type === 'structured-contentarea' ? "450px" : null
   };
 
   if (params.get("notablestyle"))
-    structure.blockstyles = structure.blockstyles.filter(_ => _.type != "table");
+    structure.blockstyles = structure.blockstyles.filter(_ => _.type !== "table");
 
   return structure;
 }
@@ -183,7 +183,7 @@ function getStructure(type) {
 function gotPropertiesEvent(event) {
   if (event.detail.actiontarget) {
     const affectednodeinfo = rteapi.getTargetInfo(event.detail.actiontarget);
-    if (affectednodeinfo && affectednodeinfo.type == 'hyperlink') {
+    if (affectednodeinfo && affectednodeinfo.type === 'hyperlink') {
       event.preventDefault();
       if (window.apropshandler)
         return window.apropshandler(event.detail.targetid, event.target);
@@ -193,7 +193,7 @@ function gotPropertiesEvent(event) {
         event.detail.rte.updateTarget(event.detail.actiontarget, { link: newurl });
       return;
     }
-    if (affectednodeinfo && affectednodeinfo.type == 'img') {
+    if (affectednodeinfo && affectednodeinfo.type === 'img') {
       event.preventDefault();
       if (window.imgpropshandler)
         return window.imgpropshandler(event.detail.targetid, event.target);
@@ -208,7 +208,7 @@ function gotPropertiesEvent(event) {
 }
 
 function onRTDAction(event) {
-  if (event.detail.action == 'action-properties') {
+  if (event.detail.action === 'action-properties') {
     gotPropertiesEvent(event);
     return;
   }
@@ -237,7 +237,7 @@ function initRTE() {
     htmlclass: "html-class",
     bodyclass: "body-class",
     allowundo: true,
-    enabled: params.get("disabled") != "true",
+    enabled: params.get("disabled") !== "true",
     propertiesaction: true
   };
 
@@ -247,9 +247,9 @@ function initRTE() {
   }
 
   if (allowtags) {
-    rteopts.allowtags = allowtags != '-' ? allowtags.split(',') : [];
+    rteopts.allowtags = allowtags !== '-' ? allowtags.split(',') : [];
   }
-  if (editor != 'free') {
+  if (editor !== 'free') {
     rteopts.structure = getStructure(editor);
   } else {
     rteopts.edittables = true;

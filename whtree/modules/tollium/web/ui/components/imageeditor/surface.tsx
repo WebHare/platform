@@ -98,7 +98,7 @@ class ImageSurface {
     if (!this.options.getBusyLock)
       return true; // No busy lock available
     // If busylock exists, don't accept 'true' as it's already busy, and vice versa
-    if ((this.busylock !== null) == busy)
+    if ((this.busylock !== null) === busy)
       return false; // Already busy
 
     if (busy) {
@@ -128,11 +128,11 @@ class ImageSurface {
     let stepindex = -1;
     let stepaction = "";
     for (let c = 0; c < cursteps.length; c++) {
-      if (stepaction != cursteps[c].action) {
+      if (stepaction !== cursteps[c].action) {
         stepindex = -1;
         stepaction = cursteps[c].action;
       }
-      if (cursteps[c].action == 'crop') {
+      if (cursteps[c].action === 'crop') {
         if (stepindex > -1) {
           const w = steps[stepindex].props.crop[1] - steps[stepindex].props.crop[3];
           const h = steps[stepindex].props.crop[2] - steps[stepindex].props.crop[0];
@@ -145,7 +145,7 @@ class ImageSurface {
           stepindex = steps.length;
           steps.push(cursteps[c]);
         }
-      } else if (cursteps[c].action == 'scale') {
+      } else if (cursteps[c].action === 'scale') {
         if (stepindex > -1) {
           steps[stepindex].props.scale.x *= cursteps[c].props.scale.x;
           steps[stepindex].props.scale.y *= cursteps[c].props.scale.y;
@@ -153,7 +153,7 @@ class ImageSurface {
           stepindex = steps.length;
           steps.push(cursteps[c]);
         }
-      } else if (cursteps[c].action == 'rotate') {
+      } else if (cursteps[c].action === 'rotate') {
         if (stepindex > -1) {
           steps[stepindex].props.angle += cursteps[c].props.angle;
           steps[stepindex].props.angle -= Math.floor(steps[stepindex].props.angle / 360) * 360;//keep range between 0 and 360
@@ -163,14 +163,14 @@ class ImageSurface {
           stepindex = steps.length;
           steps.push(cursteps[c]);
         }
-      } else if (cursteps[c].action == 'filters') {
+      } else if (cursteps[c].action === 'filters') {
         if (stepindex > -1) {
           steps[stepindex].props.data = cursteps[c].props.data;
         } else {
           stepindex = steps.length;
           steps.push(cursteps[c]);
         }
-      } else if (cursteps[c].action == 'refpoint') {
+      } else if (cursteps[c].action === 'refpoint') {
         if (stepindex > -1) {
           steps[stepindex].props.refpoint = cursteps[c].props.refpoint;
         } else {
@@ -403,7 +403,7 @@ class ImageSurface {
     if (replace_same_action
       && this.undostack.length
       && !this.redostack.length
-      && this.undostack[this.undostack.length - 1].action == state.action)
+      && this.undostack[this.undostack.length - 1].action === state.action)
       this.undostack[this.undostack.length - 1] = state;
     else
       this.undostack.push(state);

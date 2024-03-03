@@ -12,7 +12,7 @@ function expectMessage(expect) {
   const deferred = createDeferred();
   const func = function (event) {
     socket.removeEventListener('message', func);
-    if (event.data != expect) {
+    if (event.data !== expect) {
       try {
         throw new Error('wrong data!, got: ' + event.data + ', wanted: ' + expect);
       } catch (e) {
@@ -41,7 +41,7 @@ test.registerTests(
       xfail: !window.WebSocket,
       test: function (doc, win) {
         const url = new URL("/tollium_todd.res/webhare_testsuite/tests/websockets/echo.whsock", location.href);
-        url.protocol = url.protocol == 'https:' ? 'wss:' : 'ws:';
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
         socket = new WebSocket(url.toString());
 
         deferrederrorpromise = createDeferred();

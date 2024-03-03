@@ -216,7 +216,7 @@ test.registerTests(
         test.eq(4, trs.length);
 
         //Adding a row should not change our selection
-        test.assert(extendfromcell == rte.getSelectionRange().getAncestorElement().closest('td'));
+        test.assert(extendfromcell === rte.getSelectionRange().getAncestorElement().closest('td'));
 
         const newtd = trs[1].cells[2];
         test.eq("", newtd.textContent, "new cell must be empty");

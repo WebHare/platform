@@ -10,7 +10,7 @@ export function qS<E extends Element = HTMLElement>(selector: string): E | null;
  * @returns The first matching element or null
  */
 export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
-  if (typeof node_or_selector == 'string')
+  if (typeof node_or_selector === 'string')
     return document.querySelector<E>(node_or_selector);
   else if (selector)
     return node_or_selector.querySelector<E>(selector);
@@ -49,7 +49,7 @@ export function qSA<E extends Element = HTMLElement>(selector: string): E[];
  * @returns The requested elements.
  */
 export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
-  if (typeof node_or_selector == 'string')
+  if (typeof node_or_selector === 'string')
     return Array.from(document.querySelectorAll(node_or_selector));
   else if (selector)
     return Array.from(node_or_selector.querySelectorAll(selector));

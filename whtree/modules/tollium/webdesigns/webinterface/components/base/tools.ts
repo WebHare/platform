@@ -30,7 +30,7 @@ export function getSpacerHeight(spacers: Spacers): number {
 }
 
 export function copyValueToClipboard(node: HTMLInputElement) {
-  const alreadyfocused = node == domfocus.getCurrentlyFocusedElement();
+  const alreadyfocused = node === domfocus.getCurrentlyFocusedElement();
   node.select();
   if (!alreadyfocused)
     dompack.focus(node);

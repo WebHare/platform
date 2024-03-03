@@ -27,7 +27,7 @@ function onLinkClick(event: MouseEvent) {
 
   if (linkopenoptions.extensions) {
     const ext = link.href.split('?')[0].split('#')[0].split('.').at(-1);
-    if (ext && linkopenoptions.extensions.find(match => match.toUpperCase() == ext.toUpperCase())) {
+    if (ext && linkopenoptions.extensions.find(match => match.toUpperCase() === ext.toUpperCase())) {
       link.target = "_blank";
       return;
     }
@@ -46,7 +46,7 @@ export function openLinksInNewWindow(options?: LinkOpenOptions) {
 
   if (!linkopenoptions.internalhosts) {
     const ourdomain = (new URL(location.href)).host.toLowerCase();
-    if (ourdomain.substr(0, 4) == 'www.')
+    if (ourdomain.substr(0, 4) === 'www.')
       linkopenoptions.internalhosts = [ourdomain, ourdomain.substr(4)];
     else
       linkopenoptions.internalhosts = [ourdomain, 'www.' + ourdomain];

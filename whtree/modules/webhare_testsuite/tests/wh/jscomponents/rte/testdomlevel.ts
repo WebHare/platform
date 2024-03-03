@@ -8,11 +8,11 @@ import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range'
 
 function cloneWithLocatorText(node: Node, locators: domlevel.Locator[], options?: { textQuote: string }) {
   options = { textQuote: '"', ...options };
-  if (node.nodeType == 3) {
+  if (node.nodeType === 3) {
     let text = options.textQuote;
     for (let i = 0; i <= node.nodeValue!.length; ++i) {
       for (let l = 0; l < locators.length; ++l)
-        if (locators[l].element == node && locators[l].offset == i)
+        if (locators[l].element === node && locators[l].offset === i)
           text += '(*' + l + '*)';
       text += node.nodeValue!.substring(i, i + 1);
     }
@@ -24,7 +24,7 @@ function cloneWithLocatorText(node: Node, locators: domlevel.Locator[], options?
 
   for (let i = 0; i <= node.childNodes.length; ++i) {
     for (let l = 0; l < locators.length; ++l)
-      if (locators[l].element == node && locators[l].offset == i) {
+      if (locators[l].element === node && locators[l].offset === i) {
         copy.append('(*' + l + '*)');
       }
     const child = node.childNodes[i];
@@ -71,7 +71,7 @@ test.registerTests(
 
       for (let a = 0; a < locators.length; ++a)
         for (let b = 0; b < locators.length; ++b) {
-          test.eq(a == b ? 0 : a < b ? -1 : 1, locators[a].compare(locators[b]));
+          test.eq(a === b ? 0 : a < b ? -1 : 1, locators[a].compare(locators[b]));
         }
     },
     {
@@ -268,17 +268,17 @@ test.registerTests(
 
           let match = -1;
           for (let a = 0; a < locators.length; ++a)
-            if (locators[a].compare(loc) == 0) {
+            if (locators[a].compare(loc) === 0) {
               //console.log(i,'->',a);
               match = a;
             }
-          if (last != match) {
+          if (last !== match) {
             if (last > match) {
               console.log('ordering fail', i, richdebug.getStructuredOuterHTML(rte.getBody(), { afrom: locators[i - 1], ato: locators[last], bfrom: locators[i], bto: locators[match] }));
               test.assert(false);
             }
 
-            if (start != -1)
+            if (start !== -1)
               eqranges.push({ left: start, right: i - 1, match: match });
             last = match;
             start = i;
@@ -287,7 +287,7 @@ test.registerTests(
         eqranges.push({ left: start, right: locators.length - 1 });
 
         for (let i = 0; i < locators.length; ++i) {
-          if (i == 114)//[14,15,16,17].contains(i))
+          if (i === 114)//[14,15,16,17].contains(i))
           {
             console.log('** skip ', i);
             continue;
@@ -299,9 +299,9 @@ test.registerTests(
               rangenr = a;
 
           const mrange = new Range(locators[eqranges[rangenr].left], locators[eqranges[rangenr].right]);
-          const lrangenr = rangenr == 0 ? 0 : rangenr - 1;
+          const lrangenr = rangenr === 0 ? 0 : rangenr - 1;
           const lrange = new Range(locators[eqranges[lrangenr].left], locators[eqranges[lrangenr].right]);
-          const rrangenr = rangenr == eqranges.length - 1 ? eqranges.length - 1 : rangenr + 1;
+          const rrangenr = rangenr === eqranges.length - 1 ? eqranges.length - 1 : rangenr + 1;
           const rrange = new Range(locators[eqranges[rrangenr].left], locators[eqranges[rrangenr].right]);
 
           const tfv = locators[i].clone();

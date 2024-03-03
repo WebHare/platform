@@ -26,7 +26,7 @@ export default class EventTarget {
   removeEventListener(eventtype, fn) {
     let eventhandlers = this.handlers[eventtype];
     if (eventhandlers)
-      eventhandlers = eventhandlers.filter(el => el != fn);
+      eventhandlers = eventhandlers.filter(el => el !== fn);
   }
   dispatchEvent(event) {
     if (!('defaultPrevented' in event))
@@ -91,7 +91,7 @@ class RawUploadItem extends EventTarget {
   /// Returns time elapsed, in seconds
   getElapsedTime() {
     let now = (new Date).getTime();
-    if (!this.pvt_start || this.pvt_start == now)
+    if (!this.pvt_start || this.pvt_start === now)
       return 0;
 
     if (this.pvt_end)
@@ -122,7 +122,7 @@ class RawUploadItem extends EventTarget {
     const last = this.pvt_history[this.pvt_history.length - 1];
     const first = this.pvt_history[0];
 
-    if (last.date - first.date < (this.status == 'loaded' ? 1 : moving_average_min_history))
+    if (last.date - first.date < (this.status === 'loaded' ? 1 : moving_average_min_history))
       return null;
 
     return (last.loaded - first.loaded) / ((last.date - first.date) / 1000);
@@ -300,7 +300,7 @@ class UploaderAggregator extends RawUploadItem {
 
   getCompletedFiles() {
     let result = [];
-    if (this.status == 'loaded')
+    if (this.status === 'loaded')
       this.pvt_subitems.forEach(function (i) { result = result.concat(i.getCompletedFiles()); });
     //sanitize the result, don't leak internal data
     return result.map(file => ({
@@ -317,7 +317,7 @@ class UploaderAggregator extends RawUploadItem {
 
   getFileTokens() {
     let result = [];
-    if (this.status == 'loaded')
+    if (this.status === 'loaded')
       this.pvt_subitems.forEach(function (i) { result = result.concat(i.getFileTokens()); });
     return result;
   }
@@ -346,14 +346,14 @@ class UploaderAggregator extends RawUploadItem {
   }
 
   gotLoad(event) {
-    if (!this.status && !this.pvt_subitems.some(function (i) { return i.status != 'loaded'; })) {
+    if (!this.status && !this.pvt_subitems.some(function (i) { return i.status !== 'loaded'; })) {
       this.status = 'loaded';
       this.fireLoad();
     }
   }
 
   gotLoadEnd(event) {
-    if (!this.pvt_subitems.some(function (i) { return i.status == ''; }) && !this.pvt_sendloadend) {
+    if (!this.pvt_subitems.some(function (i) { return i.status === ''; }) && !this.pvt_sendloadend) {
       this.pvt_sendloadend = true;
       this.fireLoadEnd();
     }
@@ -427,7 +427,7 @@ export class Html5UploadItem extends UploaderAggregator {
         }));
 
       ofs += chunksize;
-      if (ofs == total)
+      if (ofs === total)
         break;
     }
 
@@ -437,7 +437,7 @@ export class Html5UploadItem extends UploaderAggregator {
   }
 
   getCompletedFiles() {
-    return this.status == 'loaded' ? [this] : [];
+    return this.status === 'loaded' ? [this] : [];
   }
 
   getFileTokens() {
@@ -476,7 +476,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
 
   /// Returns whether this chunk can start uploading (either first chunk or first chunk has completed)
   canStart() {
-    return this.options.offset == 0 || this.uploadfile.sessionid != '';
+    return this.options.offset === 0 || this.uploadfile.sessionid !== '';
   }
 
   /** Start upload. Events will be sent (loadstart + progress* + (abort|error|load) + loadend) during upload
@@ -492,7 +492,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
     let url = this.transferbaseurl + "?type=upload-html5&offset=" + this.options.offset
       + "&chunksize=" + this.options.size
       + "&sessionid=" + this.getSessionId();
-    if (this.options.offset != 0)
+    if (this.options.offset !== 0)
       url += "&fileid=" + this.uploadfile.pvt_fileid;
     else {
       url += "&size=" + this.uploadfile.size
@@ -511,7 +511,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
 
     // Slice only when we are are really a subset of the data to be sent
     let data;
-    if (this.options.offset != 0 || this.options.size != this.uploadfile.file.size)
+    if (this.options.offset !== 0 || this.options.size !== this.uploadfile.file.size)
       data = this.uploadfile.file.slice(this.options.offset, this.options.offset + this.options.size);
     else
       data = this.uploadfile.file;
@@ -561,7 +561,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
   }
 
   gotLoad(event) {
-    if (this.xmlhttp.status == 200) {
+    if (this.xmlhttp.status === 200) {
       this.pvt_loaded = this.options.size;
       const data = JSON.parse(this.xmlhttp.responseText);
       if (data && data.sessionid)
@@ -648,7 +648,7 @@ class UploadManager {
           --i;
           this.running.push(item);
           item.start();
-          if (this.running.length == 1)
+          if (this.running.length === 1)
             break;
         }
       }

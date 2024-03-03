@@ -162,7 +162,7 @@ export async function getColumns(schemaName: string, tableName: string): Promise
       characterOctetLength: rawColumn.attlen,
       characterMaximumLength,
       isNullable: foreignKey ? !rawColumn.attnotnull : !checkExpression,
-      dataType: `${rawColumn.nspname == "pg_catalog" ? "" : rawColumn.nspname || "."}${rawColumn.typname}${(characterMaximumLength ? `(${characterMaximumLength})` : "")}`,
+      dataType: `${rawColumn.nspname === "pg_catalog" ? "" : rawColumn.nspname || "."}${rawColumn.typname}${(characterMaximumLength ? `(${characterMaximumLength})` : "")}`,
       onDelete: foreignKey ? mapAction(foreignKey.confdeltype) : null,
       isUnique: Boolean(attrConstraints.find(constraint => constraint.contype === "u" || constraint.contype === "p")),
       referencedTableName: (foreignKey && foreignKey.relname) ?? null,

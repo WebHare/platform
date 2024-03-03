@@ -165,14 +165,14 @@ type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 
 function getPageIdx(state: PageState, page: number | HTMLElement) {
-  if (typeof page == 'number') {
+  if (typeof page === 'number') {
     if (page < 0 || page >= state.pages.length)
       throw new Error(`Cannot navigate to nonexisting page #${page}`);
     return page;
   }
 
   const idx = state.pages.indexOf(page);
-  if (idx == -1) {
+  if (idx === -1) {
     console.error(`Cannot find page by element`, page);
     throw new Error(`Cannot find page`);
   }
@@ -247,7 +247,7 @@ function handleFocusOutEvent(event: FocusEvent) {
   doValidation(event.target, false);
 }
 function handleFocusInEvent(event: FocusEvent) {
-  if (event.relatedTarget && lastfocusout != event.relatedTarget)
+  if (event.relatedTarget && lastfocusout !== event.relatedTarget)
     doValidation(event.relatedTarget, false);
 }
 
@@ -270,7 +270,7 @@ export default class FormBase {
 
   constructor(formnode: HTMLFormElement) {
     this.node = formnode;
-    if (this.node.nodeName != 'FORM')
+    if (this.node.nodeName !== 'FORM')
       throw new Error("Specified node is not a <form>"); //we want our clients to be able to assume 'this.node.elements' works
 
     this.elements = formnode.elements;
@@ -383,14 +383,14 @@ export default class FormBase {
       if (!allvalues.length)
         continue;
 
-      if (field.multi && field.nodes[0].type == 'checkbox') {
+      if (field.multi && field.nodes[0].type === 'checkbox') {
         for (const node of field.nodes) {
           const shouldbechecked = allvalues.includes(node.value);
-          if (shouldbechecked != node.checked) //NOTE: used to read 'field.checked' which doesn't exist so this if() would always evaluate to true
+          if (shouldbechecked !== node.checked) //NOTE: used to read 'field.checked' which doesn't exist so this if() would always evaluate to true
             this.setFieldValue(node, shouldbechecked);
         }
       } else if (field.multi) { //implies radio
-        const tocheck = field.nodes.filter(_ => _.value == allvalues[allvalues.length - 1])[0];
+        const tocheck = field.nodes.filter(_ => _.value === allvalues[allvalues.length - 1])[0];
         if (tocheck && !tocheck.checked)
           this.setFieldValue(tocheck, true);
         if (!tocheck)
@@ -492,7 +492,7 @@ export default class FormBase {
       messagenode.append(error);
       this._addDescribedBy(contextnode, messageid);
 
-      if (type == "error")
+      if (type === "error")
         contextnode.setAttribute("aria-invalid", "true");
     } else {
       this._removeDescribedBy(contextnode, messageid);
@@ -504,9 +504,9 @@ export default class FormBase {
   // add the specified id of the message element to the list of elements in aria-describedby
   _addDescribedBy(contextnode: HTMLElement, messageid: string) {
     const describedby = contextnode.getAttribute("aria-describedby") ?? "";
-    const describedby_fields = describedby != "" ? describedby.split(" ") : [];
+    const describedby_fields = describedby !== "" ? describedby.split(" ") : [];
 
-    if (describedby_fields.indexOf(messageid) == -1) {
+    if (describedby_fields.indexOf(messageid) === -1) {
 
       describedby_fields.push(messageid);
       contextnode.setAttribute("aria-describedby", describedby_fields.join(" "));
@@ -516,10 +516,10 @@ export default class FormBase {
   // remove the specified id of the message element from the list of elements in aria-describedby
   _removeDescribedBy(contextnode: HTMLElement, messageid: string) {
     const describedby = contextnode.getAttribute("aria-describedby") ?? "";
-    const describedby_fields = describedby != "" ? describedby.split(" ") : [];
+    const describedby_fields = describedby !== "" ? describedby.split(" ") : [];
 
     for (let idx = 0; idx < describedby_fields.length; idx++) {
-      if (describedby_fields[idx] == messageid) {
+      if (describedby_fields[idx] === messageid) {
         describedby_fields.splice(idx, 1); // remove that item
         break;
       }
@@ -629,7 +629,7 @@ export default class FormBase {
       const validationresult = await this.validate();
       if (validationresult.valid) {
         const result = await this.submit(extradata);
-        if (result.result && result.result.submittype && result.result.submittype != this._getVariableValueForConditions("formsubmittype")) {
+        if (result.result && result.result.submittype && result.result.submittype !== this._getVariableValueForConditions("formsubmittype")) {
           this.node.setAttribute("data-wh-form-var-formsubmittype", result.result.submittype);
           this._updateConditions(false);
         }
@@ -667,7 +667,7 @@ export default class FormBase {
     const containingpage = evt.target.closest('.wh-form__page');
     if (containingpage && containingpage.classList.contains('wh-form__page--hidden')) {
       //make sure the page containing the errored component is visible
-      const pagenum = dompack.qSA(this.node, '.wh-form__page').findIndex(page => page == containingpage);
+      const pagenum = dompack.qSA(this.node, '.wh-form__page').findIndex(page => page === containingpage);
       if (pagenum >= 0)
         this.gotoPage(pagenum);
     }
@@ -696,8 +696,8 @@ export default class FormBase {
 
   _updatePageVisibility(pagelist: HTMLElement[], currentpage: number) {
     pagelist.forEach((page, idx) => {
-      page.classList.toggle('wh-form__page--hidden', idx != currentpage);
-      page.classList.toggle('wh-form__page--visible', idx == currentpage);
+      page.classList.toggle('wh-form__page--hidden', idx !== currentpage);
+      page.classList.toggle('wh-form__page--visible', idx === currentpage);
     });
   }
 
@@ -713,7 +713,7 @@ export default class FormBase {
     const origscrollto = scrollto;
     scrollto = (scrollto ? scrollto.closest<HTMLElement>('.wh-form__fieldgroup') : undefined) || this.node;
     scrollto = scrollto.querySelector<HTMLElement>('.wh-anchor') || scrollto;
-    if (origscrollto && scrollto != origscrollto && debugFlags.fhv)
+    if (origscrollto && scrollto !== origscrollto && debugFlags.fhv)
       console.log('[fhv] Modified scroll target from ', origscrollto, ' to anchor ', scrollto);
     else if (debugFlags.fhv)
       console.log('[fhv] Scroll to ', scrollto);
@@ -732,7 +732,7 @@ export default class FormBase {
   async gotoPage(page: number | HTMLElement): Promise<void> {
     const state = this._getPageState();
     const pageidx = getPageIdx(state, page);
-    if (state.curpage == pageidx)
+    if (state.curpage === pageidx)
       return;
 
     const goingforward = pageidx > state.curpage;
@@ -833,7 +833,7 @@ export default class FormBase {
         if (!visible)
           hiddenPages.push(formpage); // We don't have to check fields on this page any further
 
-        if (visible != formpage.propWhFormCurrentVisible) {
+        if (visible !== formpage.propWhFormCurrentVisible) {
           anychanges = true;
           formpage.propWhFormCurrentVisible = visible;
           mergeNodes.push(formpage);
@@ -939,7 +939,7 @@ export default class FormBase {
           if (dompack.dispatchCustomEvent(node, "wh:form-require", { bubbles: true, cancelable: true, detail: { required: node_required } })) {
             // Not cancelled, so run our default handler
             if (isFormControl(node)) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
-              if (node.type != 'checkbox') //don't set required on checkboxes, that doesn't do what you want
+              if (node.type !== 'checkbox') //don't set required on checkboxes, that doesn't do what you want
                 node.required = node_required;
             } else if (node_required)
               node.setAttribute("data-wh-form-required", "");
@@ -965,7 +965,7 @@ export default class FormBase {
       const option_enabled = visible && option.propWhFormSavedEnabled;
       const option_hidden = !visible || option.propWhFormSavedHidden;
 
-      if (option_enabled !== option.propWhNodeCurrentEnabled || option_hidden != option.propWhNodeCurrentHidden) {
+      if (option_enabled !== option.propWhNodeCurrentEnabled || option_hidden !== option.propWhNodeCurrentHidden) {
         option.propWhNodeCurrentEnabled = option_enabled;
         option.propWhNodeCurrentHidden = option_hidden;
         option.disabled = !option_enabled;
@@ -1047,7 +1047,7 @@ export default class FormBase {
 
       for (const field of matchfield)
         if (((options && options.checkdisabled) || this._isNowSettable(field)) && field.checked) {
-          if (field.type != "checkbox")
+          if (field.type !== "checkbox")
             return field.value;
 
           if (!currentvalue)
@@ -1061,10 +1061,10 @@ export default class FormBase {
         return null;
     }
 
-    if (matchfield.type == "checkbox")
+    if (matchfield.type === "checkbox")
       return (matchfield as HTMLInputElement).checked ? [matchfield.value] : null;
 
-    if (matchfield.type == "radio")
+    if (matchfield.type === "radio")
       return (matchfield as HTMLInputElement).checked ? matchfield.value : null;
 
     return matchfield.value;
@@ -1148,18 +1148,18 @@ export default class FormBase {
         let age = now.getFullYear() - birthdate.getFullYear();
         //birthdate not hit yet this year? then you lose a year
         if (now.getMonth() < birthdate.getMonth()
-          || (now.getMonth() == birthdate.getMonth() && now.getDate() < birthdate.getDate())) {
+          || (now.getMonth() === birthdate.getMonth() && now.getDate() < birthdate.getDate())) {
           --age;
         }
 
-        return (condition.matchtype == 'AGE<' ? age < condition.value : age >= condition.value);
+        return (condition.matchtype === 'AGE<' ? age < condition.value : age >= condition.value);
       }
     }
 
     const currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
 
-    if (condition.matchtype == "HASVALUE")
-      return Boolean(currentvalue) == Boolean(condition.value);
+    if (condition.matchtype === "HASVALUE")
+      return Boolean(currentvalue) === Boolean(condition.value);
 
     if (["IN", "HAS", "IS"].includes(condition.matchtype)) {
       const matchcase = condition.options?.matchcase !== false; // Defaults to true
@@ -1177,12 +1177,12 @@ export default class FormBase {
 
       // For "HAS" and "IS" conditions, all of the required values should be selected (there shouldn't be required values
       // that are not selected)
-      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && compareagainst.some(value => !currentValArray.includes(value)))
+      if ((condition.matchtype === "HAS" || condition.matchtype === "IS") && compareagainst.some(value => !currentValArray.includes(value)))
         return false;
 
       // For an "IS" condition, all of the selected values should be required (there shouldn't be selected values that are
       // not required)
-      if (condition.matchtype == "IS" && currentValArray.some(value => !compareagainst.includes(value)))
+      if (condition.matchtype === "IS" && currentValArray.some(value => !compareagainst.includes(value)))
         return false;
 
       return true;
@@ -1194,20 +1194,20 @@ export default class FormBase {
   _updatePageNavigation() {
     const pagestate = this._getPageState();
     const nextpage = this._getDestinationPage(pagestate, +1);
-    const morepages = nextpage != -1;
+    const morepages = nextpage !== -1;
     const curpagerole = pagestate.pages[pagestate.curpage] ? pagestate.pages[pagestate.curpage].dataset.whFormPagerole : '';
     const nextpagerole = morepages ? pagestate.pages[nextpage].dataset.whFormPagerole : "";
 
-    this.node.classList.toggle("wh-form--allowprevious", Boolean((pagestate.curpage > 0 && curpagerole != 'thankyou') || (pagestate.curpage <= 0 && this.node.dataset.whFormBacklink)));
-    this.node.classList.toggle("wh-form--allownext", morepages && nextpagerole != 'thankyou');
-    this.node.classList.toggle("wh-form--allowsubmit", curpagerole != 'thankyou' && (!morepages || nextpagerole == 'thankyou'));
+    this.node.classList.toggle("wh-form--allowprevious", Boolean((pagestate.curpage > 0 && curpagerole !== 'thankyou') || (pagestate.curpage <= 0 && this.node.dataset.whFormBacklink)));
+    this.node.classList.toggle("wh-form--allownext", morepages && nextpagerole !== 'thankyou');
+    this.node.classList.toggle("wh-form--allowsubmit", curpagerole !== 'thankyou' && (!morepages || nextpagerole === 'thankyou'));
   }
 
   _navigateToThankYou(richvalues?: RichValues) {
     const state = this._getPageState();
     if (state.curpage >= 0) {
       const nextpage = this._getDestinationPage(state, +1);
-      if (nextpage != -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole == 'thankyou') {
+      if (nextpage !== -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole === 'thankyou') {
         const redirectto = state.pages[nextpage].dataset.whFormPageredirect;
         if (redirectto)
           navigateTo({ type: "redirect", url: redirectto });
@@ -1246,9 +1246,9 @@ export default class FormBase {
       return undefined; //TODO throw? but wasn't currently fatal
     }
 
-    if (field.type == 'file' && field instanceof HTMLInputElement) { //note that field:FormControl.type===file actually implies HTMLInputElement
+    if (field.type === 'file' && field instanceof HTMLInputElement) { //note that field:FormControl.type===file actually implies HTMLInputElement
       //FIXME multiple support
-      if (!field.files || field.files.length == 0)
+      if (!field.files || field.files.length === 0)
         return null;
 
       const dataurl = await compatupload.getFileAsDataURL(field.files[0]);
@@ -1310,7 +1310,7 @@ export default class FormBase {
     const skiparraymembers = options && options.skiparraymembers;
 
     for (const field of this._getFieldsToValidate(options?.startnode)) {
-      if (options && field == options.skipfield) //arrayfield.es needs it
+      if (options && field === options.skipfield) //arrayfield.es needs it
         continue;
       if (!this._isPartOfForm(field))
         continue;
@@ -1323,7 +1323,7 @@ export default class FormBase {
       if (!name)
         continue;
 
-      let addto = foundfields.find(_ => _.name == name);
+      let addto = foundfields.find(_ => _.name === name);
       if (isRadioOrCheckbox(field)) { //expect multiple inputs with this name?
         if (!addto) {
           addto = { name: name, multi: true, nodes: [] };
@@ -1518,7 +1518,7 @@ export default class FormBase {
     //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fields as failed.
     const defer = createDeferred<ValidationResult>();
     this.validationqueue.push({ defer, limitset, options });
-    if (this.validationqueue.length == 1)
+    if (this.validationqueue.length === 1)
       this._executeNextValidation(); //we're first on the queue so process it
 
     return defer.promise;
@@ -1580,7 +1580,7 @@ export default class FormBase {
       //remove the elements from validate for which the promise failed
       const failed = tovalidatelist.filter((fld, idx) => !validationresults[idx]);
       const result: ValidationResult = {
-        valid: failed.length == 0,
+        valid: failed.length === 0,
         failed: failed,
         firstfailed: null
       };

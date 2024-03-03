@@ -96,7 +96,7 @@ class ArrayForm extends RPCFormBase {
 if (location.href.includes('customemailvalidator=1')) {
   //warn against qq@beta.webhare.net - but a custom validation shouldn't break required/email validation
   dompack.register("input[type=email]", node => setupValidator(node, function () {
-    if (node == "qq@beta.webhare.net")
+    if (node === "qq@beta.webhare.net")
       return <span>Please use another email</span>;
   }));
 }
@@ -105,9 +105,9 @@ dompack.register('#coretest-setvalidator',
   node => setupValidator(node, node => {
     if (!node.value)
       return "R<a>am";
-    if (node.value == "raam")
+    if (node.value === "raam")
       return "Roos";
-    if (node.value == "richerror")
+    if (node.value === "richerror")
       return <a href="#test">Rich Error</a>;
 
     return "";
@@ -141,7 +141,7 @@ function initForms() {
   if (location.href.includes("splitdatetime=1")) {
     dompack.register(".wh-form__date", node => {
       let opts;
-      if (node.name == 'weeknumbers')
+      if (node.name === 'weeknumbers')
         opts = { ...opts, weeknumbers: true };
       node.formtestDateHandler = new DateField(node, opts);
     });

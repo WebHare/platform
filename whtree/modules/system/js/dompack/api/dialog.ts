@@ -66,7 +66,7 @@ export class DialogBase {
       ...options
     };
 
-    if (this.options.borrow && typeof this.options.borrow == 'string') {
+    if (this.options.borrow && typeof this.options.borrow === 'string') {
       const borrow = document.querySelector(this.options.borrow);
       if (!borrow)
         throw new Error("Invalid 'borrow' selectior: " + this.options.borrow);
@@ -120,7 +120,7 @@ export class DialogBase {
 
   _checkFocus() {
     const focusable = domfocus.getFocusableComponents(this.contentnode, true);
-    if (focusable.length != 0)
+    if (focusable.length !== 0)
       dompack.focus(focusable[0]);
     else
       dompack.focus(document.body);
@@ -147,7 +147,7 @@ export class DialogBase {
     else if (this._previousfocus)
       dompack.focus(this._previousfocus as HTMLElement);
 
-    if (dialogstack.length == 0 && keyhandler) {
+    if (dialogstack.length === 0 && keyhandler) {
       keyhandler.destroy();
       keyhandler = null;
     }
@@ -218,7 +218,7 @@ type DialogChoice =
  */
 export async function runMessageBox(question: string | HTMLElement | HTMLElement[], choices: DialogChoice[], options?: DialogOptions) {
   choices = choices || [];
-  options = { allowcancel: choices.length == 0, ...options };
+  options = { allowcancel: choices.length === 0, ...options };
 
   const dialog = createDialog(options);
   const choicebuttons = choices.map(choice =>
@@ -230,7 +230,7 @@ export async function runMessageBox(question: string | HTMLElement | HTMLElement
       dataset: { messageboxResult: choice.result || choice.title }
     }));
 
-  if (typeof question == 'string')
+  if (typeof question === 'string')
     question = dompack.create("p", { textContent: question });
 
   if (Array.isArray(question))

@@ -98,12 +98,12 @@ export function registerTests(steps) {
     if (!step)
       continue;  //strip empty items. allows you to be careless with commas when commenting out tests
 
-    if (typeof step == "string") {
+    if (typeof step === "string") {
       lasttestname = step;
       continue;
     }
 
-    if (typeof step == "function")
+    if (typeof step === "function")
       step = { test: step };
 
     if (lasttestname && !step.name) { //merge name into the next test for more reliable counters
@@ -120,7 +120,7 @@ export function getTestArgument(idx) {
   return testfw.args[idx];
 }
 function logExplanation(explanation) {
-  if (typeof explanation == "function")
+  if (typeof explanation === "function")
     explanation = explanation();
   console.error(explanation);
   testfw.log("* " + explanation + "\n");
@@ -134,7 +134,7 @@ export function eqHTML(expected, actual, explanation?: Annotation) {
   expected = fixer.innerHTML;
   fixer.innerHTML = actual;
   actual = fixer.innerHTML;
-  if (expected == actual)
+  if (expected === actual)
     return;
 
   // Extra round. May fix some stuff
@@ -142,7 +142,7 @@ export function eqHTML(expected, actual, explanation?: Annotation) {
   expected = fixer.innerHTML;
   fixer.innerHTML = actual;
   actual = fixer.innerHTML;
-  if (expected == actual)
+  if (expected === actual)
     return;
 
   // Firefox has problems with attribute ordering. Rewrite all attributes to get them in the same order.
@@ -187,19 +187,19 @@ export function eqFloat(expected, actual, delta, explanation?: Annotation) {
   let expected_str = expected;
   let actual_str = actual;
 
-  try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
-  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
+  try { expected_str = typeof expected === "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
+  try { actual_str = typeof actual === "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
 
   if (explanation)
     logExplanation(explanation);
 
   console.log("testEq fails: expected", expected_str);
-  testfw.log("testEq fails: expected " + (typeof expected_str == "string" ? "'" + expected_str + "'" : expected_str));
+  testfw.log("testEq fails: expected " + (typeof expected_str === "string" ? "'" + expected_str + "'" : expected_str));
 
   console.log("testEq fails: actual  ", actual_str);
-  testfw.log("testEq fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
+  testfw.log("testEq fails: actual " + (typeof actual_str === "string" ? "'" + actual_str + "'" : actual_str));
 
-  if (typeof expected == "string" && typeof actual == "string") {
+  if (typeof expected === "string" && typeof actual === "string") {
     testfw.log("E: " + encodeURIComponent(expected));
     testfw.log("A: " + encodeURIComponent(actual));
   }
@@ -233,7 +233,7 @@ export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2
 export function findElementWithText(doc, tagname, text) {
   const els = (doc || getDoc()).querySelectorAll(tagname);
   for (let i = 0; i < els.length; ++i)
-    if (els[i].textContent == text)
+    if (els[i].textContent === text)
       return els[i];
   return null;
 }
@@ -399,13 +399,13 @@ export function getListViewHeader(text) {
   const headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
   if (headers.length > 1)
     console.error("Multiple header matches for '" + text + "'");
-  return headers.length == 1 ? headers[0] : null;
+  return headers.length === 1 ? headers[0] : null;
 }
 export function getListViewRow(text) { //simply reget it for every test, as list may rerender at unspecifide times
   const rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
   if (rows.length > 1)
     console.error("Multiple row matches for '" + text + "'");
-  return rows.length == 1 ? rows[0] : null;
+  return rows.length === 1 ? rows[0] : null;
 }
 export function getListViewExpanded(row) {
   if (row.querySelector(".fa-caret-down"))
@@ -567,7 +567,7 @@ export async function selectFrame(name) {
 }
 
 export async function load(page: string): Promise<void> {
-  if (typeof page != "string") {
+  if (typeof page !== "string") {
     console.error(`test.load expects a string, got`, page);
     throw new Error(`test.load exects a string`);
   }
@@ -587,7 +587,7 @@ export async function load(page: string): Promise<void> {
 
 export function pasteHTML(content) {
   const target = domfocus.getCurrentlyFocusedElement();
-  const htmltext = typeof content == 'string' ? content : content.innerHTML;
+  const htmltext = typeof content === 'string' ? content : content.innerHTML;
 
   /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
      only firefox is said to implement clipboard currently so we'll create a plain event */
@@ -596,7 +596,7 @@ export function pasteHTML(content) {
   const cpdata = {
     types: ['text/html'],
     getData: type => {
-      if (type != 'text/html')
+      if (type !== 'text/html')
         return null;
       return htmltext;
     }
@@ -620,7 +620,7 @@ export async function getFileFromURL(url, filename) {
   xhr.responseType = 'blob';
   xhr.onload = function (e) {
     console.log('onload', this, e, this.response);
-    if (this.status == 200) {
+    if (this.status === 200) {
       // Create a blob with the response's Content-Type as file type
       const file = createFileObject([this.response], filename, { type: this.response.type });
       defer.resolve(file);
@@ -650,7 +650,7 @@ export function canFocus(element) {
 
 export function hasFocus(element) {
   element = pointer._resolveToSingleElement(element);
-  return element == domfocus.getActiveElement(element.ownerDocument);
+  return element === domfocus.getActiveElement(element.ownerDocument);
 }
 
 /** Get pxl log entries
@@ -667,9 +667,9 @@ export function getWebhareVersionNumber() {
   return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
 }
 
-export const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' };
-export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' };
-export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' };
+export const keyboardCopyModifier = { alt: browser.getPlatform() === 'mac', ctrl: browser.getPlatform() !== 'mac' };
+export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() !== 'mac' };
+export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() === 'mac', ctrl: browser.getPlatform() !== 'mac' };
 
 /** Wait for the UI to be ready (UI is marked busy by flagUIBusy) */
 export async function waitUI() { //eases transition to the less-flexible @webhare/test wait()

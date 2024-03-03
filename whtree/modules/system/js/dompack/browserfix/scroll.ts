@@ -11,7 +11,7 @@ const debugscrolling = false;
 
 const clamp = function (min: number, max: number, val: number) { return val < min ? min : val > max ? max : val; };
 const parsepx = function (val: string) {
-  if (val == "0")
+  if (val === "0")
     return parseInt(val, 10);
   if (!/^-?[0-9]+(\.[0-9]*)?px$/.test(val))
     throw new Error("Only 'px' unit is allowed in scrollToElement context");
@@ -35,7 +35,7 @@ const addContextToRect = function (rect: Rect, context: Rect): Rect {
 };
 
 function aniHookSetScrollStyle(node: Element, style: ScrollStyle) {
-  if (node == node.ownerDocument.documentElement) { //scroll its window instead
+  if (node === node.ownerDocument.documentElement) { //scroll its window instead
     const win: Window | null = node.ownerDocument.defaultView;
     if (win) {
       const setx = style.scrollLeft ?? win.scrollX ?? win.document.documentElement.scrollLeft ?? 0;
@@ -63,14 +63,14 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle) {
     }
     else*/
     {
-      if (style.scrollLeft != undefined) {
+      if (style.scrollLeft !== undefined) {
         node.scrollLeft = style.scrollLeft;
-        if (debugscrolling && node.scrollLeft != style.scrollLeft)
+        if (debugscrolling && node.scrollLeft !== style.scrollLeft)
           console.warn('scrollLeft update failed, wanted ' + style.scrollLeft + ' got ' + node.scrollLeft, node);
       }
-      if (style.scrollTop != undefined) {
+      if (style.scrollTop !== undefined) {
         node.scrollTop = style.scrollTop;
-        if (debugscrolling && node.scrollTop != style.scrollTop)
+        if (debugscrolling && node.scrollTop !== style.scrollTop)
           console.warn('scrollTop update failed, wanted ' + style.scrollTop + ' got ' + node.scrollTop, node);
       }
     }
@@ -184,12 +184,12 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
 
   // Extra context (when x & y aren't specified)
   //  var boundrec = node.getBoundingClientRect();
-  //  var extra_context_right = typeof options.x != "number" ? boundrec.right - boundrec.left : 0;
-  //  var extra_context_bottom = typeof options.y != "number" ? boundrec.bottom - boundrec.top : 0;
+  //  var extra_context_right = typeof options.x !== "number" ? boundrec.right - boundrec.left : 0;
+  //  var extra_context_bottom = typeof options.y !== "number" ? boundrec.bottom - boundrec.top : 0;
 
   // Parse context string (accept CSS format eg "20px 0 30px")
   options.context = options.context || "20px";
-  if (typeof options.context == "number")
+  if (typeof options.context === "number")
     options.context = options.context + "px";
 
   const contextparts = options.context.split(' ');
@@ -204,7 +204,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
   };
 
   // Convert body to documentElement in options.limitnode
-  if (options.limit && options.limit == options.limit.ownerDocument.body)
+  if (options.limit && options.limit === options.limit.ownerDocument.body)
     options.limit = options.limit.ownerDocument.documentElement;
 
   // List of actions
@@ -244,7 +244,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     const wnd = doc.defaultView;
 
     //    var parent;
-    if (node == doc.documentElement) { //at the root
+    if (node === doc.documentElement) { //at the root
       const iframe = wnd?.frameElement;
       if (!iframe)
         break;
@@ -252,7 +252,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     }
 
     parent = node.parentElement;
-    if (parent == doc.body)
+    if (parent === doc.body)
       parent = doc.documentElement;
     if (!parent)
       return []; //we were out of the dom..
@@ -264,8 +264,8 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     // returns NaN and doesn't account for borders
     let position =
     {
-      x: node.offsetLeft - (parent == node.offsetParent ? 0 : parent.offsetLeft),
-      y: node.offsetTop - (parent == node.offsetParent ? 0 : parent.offsetTop)
+      x: node.offsetLeft - (parent === node.offsetParent ? 0 : parent.offsetLeft),
+      y: node.offsetTop - (parent === node.offsetParent ? 0 : parent.offsetTop)
     };
 
     if (parent.classList.contains('wh-scrollableview')) // Scrollable view
@@ -281,7 +281,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
       console.log('moved boxes', [...boxes]);
 
     // For the html-tag, we also allow '' & 'visible' as scrollable
-    const match_overflow_set = parent.nodeName != 'HTML'
+    const match_overflow_set = parent.nodeName !== 'HTML'
       ? ["scroll", "auto"]
       : ["scroll", "auto", "", "visible"]; // "" for IE8
 
@@ -355,7 +355,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     }
 
     // Only schedule an action when something changed
-    if (newscrollleft != scrollpos.x || newscrolltop != scrollpos.y) {
+    if (newscrollleft !== scrollpos.x || newscrolltop !== scrollpos.y) {
       const action: ScrollAction =
       {
         duration: options.duration || 0,
@@ -365,12 +365,12 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
         hooksetstyles: aniHookSetScrollStyle.bind(null, parent)
       };
 
-      if (newscrollleft != scrollpos.x) {
+      if (newscrollleft !== scrollpos.x) {
         action.from.scrollLeft = scrollpos.x;
         action.to.scrollLeft = newscrollleft;
       }
 
-      if (newscrolltop != scrollpos.y) {
+      if (newscrolltop !== scrollpos.y) {
         action.from.scrollTop = scrollpos.y;
         action.to.scrollTop = newscrolltop;
       }

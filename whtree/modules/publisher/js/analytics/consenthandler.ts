@@ -65,7 +65,7 @@ export function setup(usecookiename: string, consentrequester?: () => void, opti
     } catch (ignore) {
     }
 
-  if (!consentstatus || typeof consentstatus != "object" || consentstatus.v !== 2 || typeof consentstatus.c != "object")
+  if (!consentstatus || typeof consentstatus !== "object" || consentstatus.v !== 2 || typeof consentstatus.c !== "object")
     consentstatus = { v: 2 };
 
   if (!("c" in consentstatus)) { //simple consent flag
@@ -94,7 +94,7 @@ export function hasConsent(consentsetting: string) {
 export function setConsent(newsetting: string[]) {
   if (cookiename === undefined)
     throw new Error("Invoke consenthandler.setup before modifying consent state!");
-  if (typeof newsetting != "object" || !Array.isArray(newsetting))
+  if (typeof newsetting !== "object" || !Array.isArray(newsetting))
     throw new Error("Expecting an array in call to setConsent");
 
   // Check if there are some consents being revoked

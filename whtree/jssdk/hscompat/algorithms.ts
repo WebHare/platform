@@ -64,10 +64,10 @@ function binaryRecordSearchImpl<
     const half = Math.floor(len / 2);
     const middle = first + half;
     const cmp = groupCompare(searchin[middle], searchrecord, keys, middle);
-    if (cmp == 0) {
+    if (cmp === 0) {
       found = true;
       unsorted_cmp = upper_bound ? -1 : 1;
-    } else if (cmp == unsorted_cmp)
+    } else if (cmp === unsorted_cmp)
       throw new Error(`The provided array was not properly sorted!`);
 
     if (cmp < cmpbound) {
@@ -230,10 +230,10 @@ function binarySearchImpl(searchin: readonly ComparableType[], searchfor: Compar
     const half = Math.floor(len / 2);
     const middle = first + half;
     const cmp = compare(searchin[middle], searchfor);
-    if (cmp == 0) {
+    if (cmp === 0) {
       found = true;
       unsorted_cmp = upper_bound ? -1 : 1;
-    } else if (cmp == unsorted_cmp)
+    } else if (cmp === unsorted_cmp)
       throw new Error(`The provided array was not properly sorted!`);
 
     if (cmp < cmpbound) {

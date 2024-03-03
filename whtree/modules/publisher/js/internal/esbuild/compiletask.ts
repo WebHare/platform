@@ -45,7 +45,7 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
   build.onLoad({ filter: /^\/\/:entrypoint\.js/ }, args => {
     //generate entrypoint.js.
     let prologue = "";
-    if (bundle.bundleconfig.environment == 'window')  //TODO not sure if anything relevant still relies on whBundles?
+    if (bundle.bundleconfig.environment === 'window')  //TODO not sure if anything relevant still relies on whBundles?
       prologue = `window.whBundles||=[];window.whBundles["${bundle.outputtag}"]={dev:${bundle.isdev}};`;
     prologue += `import "@webhare/frontend/src/init";`; //it's side effects will initialize @webhare/env dtapstage
 
@@ -58,7 +58,7 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
   });
 
   build.onResolve({ filter: /^\// }, args => { // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
-    if (args.kind == 'url-token' || args.kind == 'import-rule') {
+    if (args.kind === 'url-token' || args.kind === 'import-rule') {
       if (debugFlags["assetpack"])
         console.log(`[assetpack] kind '${args.kind}' considering as external url: ${args.path}`);
       return { path: args.path, external: true };
@@ -67,7 +67,7 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
 
   build.onResolve({ filter: /^~/ }, async args => { // we need to drop all ~s, they're an alternative module reference
     const filepath = args.path.substring(1).split('?')[0].split('#')[0];
-    const tryextensions = (args.kind == 'url-token' || args.kind == 'import-rule') ? ['', '.scss', '.sass', '.css'] : [];
+    const tryextensions = (args.kind === 'url-token' || args.kind === 'import-rule') ? ['', '.scss', '.sass', '.css'] : [];
     for (const modulepath of getPossibleNodeModulePaths(services.toResourcePath(args.importer)))
       for (const ext of tryextensions) {
         let trypath = path.join(modulepath, filepath) + ext;
@@ -296,7 +296,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     logLevel: data.logLevel || 'silent'
   };
 
-  if (bundle.bundleconfig.environment == 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
+  if (bundle.bundleconfig.environment === 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
     esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
@@ -348,7 +348,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
       missingpath = resolveerror.text.match(/@import *"(.*)"/)?.[1]
         || resolveerror.text.match(/@import *'(.*)'/)?.[1];
 
-      if (missingpath && missingpath[0] == '~') //Modules are prefixed with ~ in webpack style
+      if (missingpath && missingpath[0] === '~') //Modules are prefixed with ~ in webpack style
         missingpath = missingpath.substr(1);
       if (missingpath)
         missingextensions = ["", ".scss", ".sass"];
@@ -398,7 +398,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   const expected_css_path = path.join(outdir, "ap.css");
   //Ensure ap.css exists in the outputFiles set (we want it to be in the manifest too, so we'll append it there)
-  if (!buildresult.outputFiles.find(_ => _.path == expected_css_path)) {
+  if (!buildresult.outputFiles.find(_ => _.path === expected_css_path)) {
     // WebHare will try to load an ap.css so make sure it exists to prevent 404s
     const csstext = "/* The bundle did not generate any CSS */";
     buildresult.outputFiles.push({

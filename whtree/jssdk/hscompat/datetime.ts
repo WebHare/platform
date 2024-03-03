@@ -140,7 +140,7 @@ export function formatISO8601Date(date: Date, options?: FormatISO8601DateOptions
      Also, don't replace the millisecond separator, it's not optional in the non-extended format.
   */
   if (!options?.extended) {
-    if (options?.dateFormat != "month")
+    if (options?.dateFormat !== "month")
       value = value.replaceAll(/[-:]/g, "");
     else
       value = value.replaceAll(/[:]/g, "");

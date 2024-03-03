@@ -134,7 +134,7 @@ program.command('getrecentlog')
       });
       link.close();
       for (const item of result.items) {
-        const printlen = item.data.length - (item.data[item.data.length - 1] == "\n" ? 1 : 0);
+        const printlen = item.data.length - (item.data[item.data.length - 1] === "\n" ? 1 : 0);
         console.log(item.when, item.location ? `${item.location.filename.split('/').reverse()[0] || "unknown"}:${item.location.line}:${item.location.col}` : "unknown:1:1", `${item.data.substring(0, printlen)}`);
       }
     } catch (e) {

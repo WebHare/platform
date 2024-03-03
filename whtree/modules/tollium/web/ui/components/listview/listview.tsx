@@ -104,7 +104,7 @@ export function getScrollbarWidth() {
     const w1 = inner.offsetWidth;
     outer.style.overflow = 'scroll';
     let w2 = inner.offsetWidth;
-    if (w1 == w2)
+    if (w1 === w2)
       w2 = outer.clientWidth;
 
     document.body.removeChild(outer);
@@ -289,7 +289,7 @@ export default class ListView {
   setDataSource(newdatasource) {
     //console.log("setDataSource", newdatasource);
 
-    if (this.datasource == newdatasource)
+    if (this.datasource === newdatasource)
       return;
 
     if (this.datasource)
@@ -305,11 +305,11 @@ export default class ListView {
     //console.log("updateOptions");
     let need_reset = false;
 
-    if (newopts.selectmode && newopts.selectmode != this.options.selectmode) {
+    if (newopts.selectmode && newopts.selectmode !== this.options.selectmode) {
       this.options.selectmode = newopts.selectmode;
       need_reset = true;
     }
-    if (newopts.columnselectmode && newopts.columnselectmode != this.options.columnselectmode) {
+    if (newopts.columnselectmode && newopts.columnselectmode !== this.options.columnselectmode) {
       this.options.columnselectmode = newopts.columnselectmode;
       need_reset = true;
     }
@@ -333,7 +333,7 @@ export default class ListView {
     if (!this.listdomcreated) {
       this.resetList(true);
 
-      if (this.delayed_scrollrowintoview != null)
+      if (this.delayed_scrollrowintoview !== null)
         this.scrollRowIntoView(this.delayed_scrollrowintoview);
     }
   }
@@ -460,7 +460,7 @@ export default class ListView {
     let scrolltop = toscroll.scrollTop;
 
     if (rowtop < scrolltop - this.bodyholderheight // would have to scroll more than a full page (height of the list) ??
-      || center) // (this.cursorrow == -1 )) // the first selection
+      || center) // (this.cursorrow === -1 )) // the first selection
     {
       // calculate the scrolltop for getting the specified row in the middle
       const rowmiddle = rowtop + this.rowheight / 2;
@@ -487,14 +487,14 @@ export default class ListView {
     //boundscheck
     const scrollmax = this.numrows * this.rowheight - this.bodyholderheight;
     scrolltop = Math.max(0, Math.min(scrollmax, scrolltop));
-    if (this.listbodyholder.scrollTop != scrolltop) //we need to scroll
+    if (this.listbodyholder.scrollTop !== scrolltop) //we need to scroll
     {
       scrollmonitor.setScrollPosition(this.listbodyholder, 0, scrolltop);
     }
   }
   //update column widths. although we accept the original columns structure, we'll only use the 'width' parameter
   setColumnsWidths(columns) {
-    if (columns.length != this.cols.length)
+    if (columns.length !== this.cols.length)
       throw new Error("updateColumnsWidths did not receive the number of columns expected");
 
     for (let i = 0; i < columns.length; ++i)
@@ -509,7 +509,7 @@ export default class ListView {
       console.log("$wh.ListView #" + this.listcount + " - setDimensions (size " + width + "x" + height + ")");
 
     // no need to recalculate & relayout everything if our dimensions don't change
-    if (width == this.options.width && height == this.options.height) {
+    if (width === this.options.width && height === this.options.height) {
       if (this.options.debug)
         console.log("Ignoring setdimensions (already at correct dimension).");
       return;
@@ -563,7 +563,7 @@ export default class ListView {
 
   updateDummyRows() {
     if (this.numrows >= this.numvisiblerows
-      || this.numrows == 0 // keep the list empty if there aren't any rows (we want to show an emptytext instead)
+      || this.numrows === 0 // keep the list empty if there aren't any rows (we want to show an emptytext instead)
     ) {
       if (this.dummyrowsholder)
         this.dummyrowsholder.style.display = "none";
@@ -596,8 +596,8 @@ export default class ListView {
 
   _createRowClassName(row, rownum, rowoptions) {
     return 'listrow wh-list__row'
-      + ((rownum % 2) == 0 ? ' odd' : ' even')
-      + (row && (!rowoptions || rowoptions.selectable !== false) && this.options.selectmode != 'none' ? '' : ' unselectable')
+      + ((rownum % 2) === 0 ? ' odd' : ' even')
+      + (row && (!rowoptions || rowoptions.selectable !== false) && this.options.selectmode !== 'none' ? '' : ' unselectable')
       + (row && row[this.selectedidx] && !this._columnselect ? ' wh-list__row--selected' : '')
       + (row && this.highlightidx > 0 && row[this.highlightidx] ? ' highlighted' : '')
       + (rowoptions && rowoptions.classes ? rowoptions.classes.map(classname => ' rowclass-' + classname).join(' ') : '');
@@ -642,7 +642,7 @@ export default class ListView {
     };
 
     this._renderRowContents(rowel, this.datacolumns, this.visiblerows[rownum]);
-    if (rowel.parentNode != this.listbody)
+    if (rowel.parentNode !== this.listbody)
       this.listbody.appendChild(rowel);
     this._applyRowColumnWidths(this.datacolumns, false, this.visiblerows[rownum]);
   }
@@ -675,7 +675,7 @@ export default class ListView {
         dragrow: false
       };
 
-      if (this.footerrows.length == rownum)
+      if (this.footerrows.length === rownum)
         this.footerrows.push(rec);
       else
         this.footerrows[rownum] = rec;
@@ -691,7 +691,7 @@ export default class ListView {
       recs[0].node.remove();
     }
 
-    if (this.footerrows.length != old_footerrows_count) {
+    if (this.footerrows.length !== old_footerrows_count) {
       // Reapply dimensions, must update body height
       this.applyDimensions();
     }
@@ -712,7 +712,7 @@ export default class ListView {
     let curcell = 0;
     for (let i = 0; i < this.datacolumns.length; ++i) {
       // Skip invisible datacolumns
-      if (this.datacolumns[i].x == -1)
+      if (this.datacolumns[i].x === -1)
         continue;
       // Match?
       if (curcell === cellnr)
@@ -736,7 +736,7 @@ export default class ListView {
     let curcell = 0;
     for (let i = 0; i < datacolumns.length; ++i) {
       const col = datacolumns[i];
-      if (col.x == -1)
+      if (col.x === -1)
         continue;
 
       let cell = rowel.childNodes[curcell];
@@ -778,7 +778,7 @@ export default class ListView {
 
   _configureTopNode() {
     this._constrainOptions();
-    this._columnselect = this.options.columnselectmode == "single";
+    this._columnselect = this.options.columnselectmode === "single";
     this.node.classList.toggle("wh-ui-listview--columnselect", this._columnselect);
 
   }
@@ -830,7 +830,7 @@ export default class ListView {
       return;
 
     // If the row is expandable, toggle expandability
-    if (typeof row.cells[this.expandedidx] == "boolean")
+    if (typeof row.cells[this.expandedidx] === "boolean")
       this.datasource.setCell(row.propRow, row.cells, this.expandedidx, !row.cells[this.expandedidx]);
   }
 
@@ -840,7 +840,7 @@ export default class ListView {
   //
   _onBodyScroll() {
     const newfirstvisiblerow = this.getFirstVisibleRow();
-    if (this.firstvisiblerow == newfirstvisiblerow) //this will also absorb duplicate scroll invocations caused by setScrollPosition shortcircuiting scroll
+    if (this.firstvisiblerow === newfirstvisiblerow) //this will also absorb duplicate scroll invocations caused by setScrollPosition shortcircuiting scroll
       return;
 
     //ADDME discard invisible rows?
@@ -921,7 +921,7 @@ export default class ListView {
     dompack.stop(event);
 
     // Only allowed when selectmode is multiple and we actually have rows
-    if (this.options.selectmode != "multiple" || this.numrows == 0)
+    if (this.options.selectmode !== "multiple" || this.numrows === 0)
       return;
 
     this.setCursorRow(this.numrows - 1);
@@ -951,7 +951,7 @@ export default class ListView {
 
   onClickList(event, dblclick) {
     let lastnode, listrow, listcell, anyfocussable, selectnode;
-    for (selectnode = event.target; selectnode && selectnode != this.node; selectnode = selectnode.parentNode) {
+    for (selectnode = event.target; selectnode && selectnode !== this.node; selectnode = selectnode.parentNode) {
       // Ignore clicks on the footer
       if (selectnode.classList.contains("listfooterholder"))
         return false;
@@ -959,7 +959,7 @@ export default class ListView {
       /* label click, eg checkbox row - we only allow this if selectmode is none,
          otherwise we interfere too much with the selection process (but you really
            shouldn't build lists with checkboxes AND selectionmode) */
-      if (selectnode.listViewClickNeighbour && this.options.selectmode == 'none') {
+      if (selectnode.listViewClickNeighbour && this.options.selectmode === 'none') {
         let toclick = null;
         if (selectnode.previousSibling)
           toclick = selectnode.previousSibling.querySelector('input');
@@ -1013,10 +1013,10 @@ export default class ListView {
       }
 
       const column = this.datacolumns[cellnum]; // defined visual columns
-      if (column.src && column.src.edittype == "textedit") {
+      if (column.src && column.src.edittype === "textedit") {
         // If this an editable column, start editing if the current is already selected or not selectable at all
         const canselectrow = srcrow.options && srcrow.options.selectable;
-        const isselected = canselectrow && this.datasource.isSelected(listrow.propRow) && (!this._columnselect || cellnum == this.cursorcol);
+        const isselected = canselectrow && this.datasource.isSelected(listrow.propRow) && (!this._columnselect || cellnum === this.cursorcol);
         if (!canselectrow || isselected)
           celledit = true;
       }
@@ -1048,7 +1048,7 @@ export default class ListView {
       dompack.dispatchCustomEvent(this.node, "wh:listview-selectcolumns", { bubbles: true, cancelable: false });
 
     // fire doubleclick (but only if we clicked the same cell for both clicks)
-    if (dblclick && listrow.propRow == this.cursorrow) {
+    if (dblclick && listrow.propRow === this.cursorrow) {
       if (celledit)
         this._editCell(listrow.propRow, cellnum, true);
       this._runOpenAction(srcrow);
@@ -1149,9 +1149,9 @@ export default class ListView {
     Object.keys(this.visiblerows).forEach(key => {
       const item = this.visiblerows[key];
       if (item.node)
-        dompack.toggleClasses(item.node, { "droptarget--hover": rownr == key });
+        dompack.toggleClasses(item.node, { "droptarget--hover": rownr === key });
     });
-    dompack.toggleClasses(this.listbodyholder, { "droptarget--hover": rownr == -2 });
+    dompack.toggleClasses(this.listbodyholder, { "droptarget--hover": rownr === -2 });
 
     if (clearinsertpoint && this.listinsertline)
       this.listinsertline.style.display = "none";
@@ -1258,7 +1258,7 @@ export default class ListView {
       return;
 
     const leavenode = event.relatedTarget ? event.relatedTarget.closest(".list__header__cell,.list__row__cell") : null;
-    if (leavenode == cellnode) //we haven't actually left
+    if (leavenode === cellnode) //we haven't actually left
       return;
 
     const rownode = cellnode.closest('.listrow');
@@ -1329,7 +1329,7 @@ export default class ListView {
     const rightcol = this.cols[splitinfo.rightcolumn];
 
     // If the left split of column 0 is coupled to this column, this split isn't movable at all.
-    if (rightcol.coupled_cols.indexOf(0) != -1) {
+    if (rightcol.coupled_cols.indexOf(0) !== -1) {
       event.preventDefault();
       return;
     }
@@ -1356,9 +1356,9 @@ export default class ListView {
 
     for (let i = 0; i < rightcol.coupled_cols.length; ++i) {
       const colnr = rightcol.coupled_cols[i];
-      if (rightcol.coupled_cols.indexOf(colnr - 1) == -1)
+      if (rightcol.coupled_cols.indexOf(colnr - 1) === -1)
         left_resize.push(colnr - 1);
-      if (rightcol.coupled_cols.indexOf(colnr + 1) == -1)
+      if (rightcol.coupled_cols.indexOf(colnr + 1) === -1)
         right_resize.push(colnr);
     }
 
@@ -1404,7 +1404,7 @@ export default class ListView {
 
     const firstselectablerow = this.datasource.getSelectableRowAfter(-1);
 
-    if (expandselection && this.options.selectmode == 'multiple') {
+    if (expandselection && this.options.selectmode === 'multiple') {
       // make the current range stretch up to the first row
 
       if (this.range_start_idx > -1)
@@ -1431,7 +1431,7 @@ export default class ListView {
 
     this._startSelectionUpdateGroup();
 
-    if (expandselection && this.options.selectmode == 'multiple') {
+    if (expandselection && this.options.selectmode === 'multiple') {
       // make the current rage stretch down to the last row
 
       if (this.range_start_idx > -1)
@@ -1468,12 +1468,12 @@ export default class ListView {
     else
       new_cursorrow = Math.min(this.range_start_idx, this.range_end_idx); // escape to above our range (when not expanding using shift anymore)
 
-    if (distance == 1)
+    if (distance === 1)
       new_cursorrow = this.datasource.getSelectableRowBefore(new_cursorrow);
     else // find the first selectable row between where we want to be and our cursor position
       new_cursorrow = this.datasource.getSelectableRowAfter(new_cursorrow - distance < 0 ? -1 : new_cursorrow - distance);
 
-    if (new_cursorrow == -1)
+    if (new_cursorrow === -1)
       return; // nothing more to select below us
 
     this.setCursorRow(new_cursorrow);
@@ -1491,12 +1491,12 @@ export default class ListView {
     else
       new_cursorrow = Math.max(this.range_start_idx, this.range_end_idx);
 
-    if (distance == 1)
+    if (distance === 1)
       new_cursorrow = this.datasource.getSelectableRowAfter(new_cursorrow);
     else // find the first selectable row between where we want to be and our cursor position
       new_cursorrow = this.datasource.getSelectableRowBefore(new_cursorrow + distance > this.numrows ? this.numrows : new_cursorrow + distance);
 
-    if (new_cursorrow == -1)
+    if (new_cursorrow === -1)
       return; // nothing more to select below us
 
     this.setCursorRow(new_cursorrow);
@@ -1510,7 +1510,7 @@ export default class ListView {
   }
 
   updateSelection(rownum, options) {
-    if (this.options.selectmode == 'none')
+    if (this.options.selectmode === 'none')
       return false;
 
     this.cursorrow = rownum;
@@ -1521,7 +1521,7 @@ export default class ListView {
     this._startSelectionUpdateGroup();
     try {
       // click + shift expands
-      if (rownum > -1 && options.expandselection && this.options.selectmode == 'multiple') {
+      if (rownum > -1 && options.expandselection && this.options.selectmode === 'multiple') {
         // FIXME: improve performance by only clearing/updating the parts that may have changed
         if (this.range_start_idx > -1)
           this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
@@ -1539,7 +1539,7 @@ export default class ListView {
       this.range_end_idx = this.range_start_idx; //-1; // no active range anymore
 
       if (rownum < 0) {
-        if (!options.expandselection || this.options.selectmode != 'multiple')
+        if (!options.expandselection || this.options.selectmode !== 'multiple')
           this.datasource.clearSelection(); //Negative rownumber clears selection
 
         return false;
@@ -1551,7 +1551,7 @@ export default class ListView {
       } else {
         const srcrow = this.visiblerows[rownum];
         const status = srcrow.cells[this.selectedidx];
-        if (this.options.selectmode == "multiple") {
+        if (this.options.selectmode === "multiple") {
           this.datasource.setSelectionForRange(rownum, rownum, !status || options.forceselected);
           if (options.columnschanged) //then we need to send an update to the rest of the selection to make sure they select the proper cell
             this.refreshSelectedRows();
@@ -1665,7 +1665,7 @@ export default class ListView {
     this._setupRowLayouts(structure.rowlayout, structure.dragrowlayout);
 
     for (let i = 0; i < this.cols.length; ++i) {
-      if (i != this.cols.length - 1 && this.cols[i].combinewithnext)
+      if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
       var col = this.datacolumns[this.cols[i].header];
@@ -1688,7 +1688,7 @@ export default class ListView {
     this.listheader.appendChild(this.headerfiller);
 
     for (let i = 1; i < this.cols.length; ++i) {
-      if (i != this.cols.length - 1 && this.cols[i].combinewithnext)
+      if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
       const splitnode = dompack.create('div', {
@@ -1753,14 +1753,14 @@ export default class ListView {
       // MARK WIP
       // compensate the minwidth and width of the first and last column
       // to compensate for their extra padding
-      if (i == 0) {
+      if (i === 0) {
         //console.log("minwidth of first column was " + newcol.width + ", updating to " + (newcol.width + this.options.lastcolumn_rightpadding));
         newcol.width += this.options.firstcolumn_leftpadding;
         newcol.minwidth += this.options.firstcolumn_leftpadding;
       }
 
       // MARK WIP
-      if (i == cols.length - 1) {
+      if (i === cols.length - 1) {
         //console.log("minwidth of last column was " + newcol.width + ", updating to " + (newcol.width + this.options.lastcolumn_rightpadding));
         newcol.width += this.options.lastcolumn_rightpadding;
         newcol.minwidth += this.options.lastcolumn_rightpadding;
@@ -1790,15 +1790,15 @@ export default class ListView {
           datacolumns[i].resizable = sizeinfo.resizable;
 
           // Adjust minwidth for paddings
-          if (i == 0)
+          if (i === 0)
             datacolumns[i].minwidth += this.options.firstcolumn_leftpadding;
-          if (i == this.cols.length - 1)
+          if (i === this.cols.length - 1)
             datacolumns[i].minwidth += this.options.lastcolumn_rightpadding;
         }
       }
 
       return 1;
-    } else if (this.cols.length == 0) {
+    } else if (this.cols.length === 0) {
       return 1;
     } else {
       //console.log("Amount of columns: " + this.cols.length);
@@ -1860,15 +1860,15 @@ export default class ListView {
             }
 
             // Adjust minwidth for paddings
-            if (cell.x == 0)
+            if (cell.x === 0)
               cell.minwidth += this.options.firstcolumn_leftpadding;
-            if (cell.x + cell.w == this.cols.length)
+            if (cell.x + cell.w === this.cols.length)
               cell.minwidth += this.options.lastcolumn_rightpadding;
           }
         }
       }
 
-      if (filldepth.length == 0) {
+      if (filldepth.length === 0) {
         console.error("Filldepth should not be 0 (Math.max will give us -Infinity");
         return 1;
       }
@@ -1888,7 +1888,7 @@ export default class ListView {
 
     this._calculateCoupledColumns();
     dompack.toggleClasses(this.node, {
-      singleline: this.linesperrow == 1,
+      singleline: this.linesperrow === 1,
       multiline: this.linesperrow > 1
     });
     this.rowheight = this.lineheight * this.linesperrow + this.linepadding * 2;
@@ -1904,7 +1904,7 @@ export default class ListView {
     const right_cc = this.cols[right].coupled_cols;
 
     // Already array-coupled? (could test for left in right_cc, but this is faster)
-    if (left_cc == right_cc)
+    if (left_cc === right_cc)
       return;
 
     // Replace arrays of all users of right_cc column group with left_cc column group array
@@ -1937,7 +1937,7 @@ export default class ListView {
     // Gather the datacolumns per start position, for easy access
     const celllists = this.cols.map(function () { return []; });
     this.datacolumns.forEach(function (cell) {
-      if (cell.x != -1)
+      if (cell.x !== -1)
         celllists[cell.x].push(cell);
     });
 
@@ -1958,7 +1958,7 @@ export default class ListView {
 
       // Calculate the minwidth, by getting max of left minwidth for all columns that end at this column
       let minwidth = ListColumn.minwidth;
-      rows.forEach(function (row) { if (row.lastcolumn == colidx && row.minwidth > minwidth) minwidth = row.minwidth; });
+      rows.forEach(function (row) { if (row.lastcolumn === colidx && row.minwidth > minwidth) minwidth = row.minwidth; });
       col.minwidth = minwidth;
 
       // Adjust minwidth for the cols that end at a later column
@@ -1972,7 +1972,7 @@ export default class ListView {
     if (!col || !col.src.sortable)
       return;
 
-    this.setSort(hdr, !(this.sortascending && this.sortcolumn == hdr));
+    this.setSort(hdr, !(this.sortascending && this.sortcolumn === hdr));
     dompack.dispatchCustomEvent(this.node, "wh:listview-sortchange", { bubbles: true, cancelable: false, detail: { target: this, column: this.sortcolumn, colidx: hdr, ascending: this.sortascending } });
   }
   applyColumnWidths() {
@@ -1989,25 +1989,25 @@ export default class ListView {
     for (let i = 0; i < this.cols.length; ++i) {
       colwidth += this.cols[i].width;
 
-      if (i != this.cols.length - 1 && this.cols[i].combinewithnext)
+      if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
       const headernode = this.listheader.childNodes[childnr];
 
       // MARK WIP
-      if (i == 0) {
+      if (i === 0) {
         headernode.classList.add("leftside");
         //colwidth += this.options.firstcolumn_leftpadding;
       }
 
       // MARK WIP
-      if (i == this.cols.length - 1) {
+      if (i === this.cols.length - 1) {
         headernode.classList.add("rightside");
         //colwidth += this.options.lastcolumn_rightpadding;
       }
 
       headernode.style.width = colwidth + "px";
-      if (childnr != 0)
+      if (childnr !== 0)
         splitterpositions.push(total);
 
       total += colwidth;
@@ -2034,7 +2034,7 @@ export default class ListView {
 
     for (let i = 0; i < datacolumns.length; ++i) {
       const col = datacolumns[i];
-      if (col.x == -1)
+      if (col.x === -1)
         continue;
 
       const cell = visiblerow.node.childNodes[outpos];
@@ -2060,13 +2060,13 @@ export default class ListView {
       }
 
       // MARK WIP
-      if (col.x == 0) {
+      if (col.x === 0) {
         sizes.padleft = this.options.firstcolumn_leftpadding;
         cell.classList.add("leftside");
       }
 
       // MARK WIP
-      if (col.x == this.cols.length - 1) {
+      if (col.x === this.cols.length - 1) {
         sizes.padright = this.options.lastcolumn_rightpadding;
         cell.classList.add("rightside");
       }

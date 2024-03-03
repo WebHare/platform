@@ -159,7 +159,7 @@ export class LocalServiceHandlerBase {
       }
       return;
     }
-    if (message.type != "callRequest") {
+    if (message.type !== "callRequest") {
       state.link.postMessage({ type: "callError", id: message.id, error: encodeIPCException(new Error("Duplicate init message")) });
       return;
     }
@@ -232,7 +232,7 @@ export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
   }
 
   has(target: object, prop: string): boolean {
-    return Boolean(!this.description || this.description.methods.find(m => m.name === prop)) || prop == "close";
+    return Boolean(!this.description || this.description.methods.find(m => m.name === prop)) || prop === "close";
   }
 
   set(target: object, prop: string): boolean {

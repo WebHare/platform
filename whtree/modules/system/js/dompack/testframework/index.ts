@@ -76,11 +76,11 @@ async function runTests() {
 
   if (testhost)
     testhost.onTestFinish({
-      success: currenttest == testlist.length,
+      success: currenttest === testlist.length,
       donesteps: currenttest,
       error
     });
-  else if (currenttest == testlist.length)
+  else if (currenttest === testlist.length)
     console.log(`${currenttest} tests done!`);
   else
     console.warn(`${currenttest} tests ran, fail: ${error}`);
@@ -178,7 +178,7 @@ export function addTests(tests) {
   let testcount = tests.length;
 
   for (const test of tests) {
-    if (typeof test == 'string') {
+    if (typeof test === 'string') {
       nexttestname = test;
       testcount = 0;
       continue;
@@ -266,7 +266,7 @@ async function executeWaitFunction(func) {
 }
 
 async function executeWait(waittype) {
-  if (typeof waittype == "function") {
+  if (typeof waittype === "function") {
     testspa.setCurrentWait("Wait: function");
     await executeWaitFunction(waittype);
   } else {

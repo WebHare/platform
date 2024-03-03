@@ -32,7 +32,7 @@ export default class SelectList {
   {
     evt.preventDefault();
 
-    if (evt.target == this._items && Boolean(window.MSInputMethodContext) && Boolean(document.documentMode)) //quick & dirty IE11 check
+    if (evt.target === this._items && Boolean(window.MSInputMethodContext) && Boolean(document.documentMode)) //quick & dirty IE11 check
     {
       //IE11 has an issue that clicking the scrollbar resets the focus even after cancelling, so fix that by simply blocking blur for a while
       const blurblocker = evt => dompack.stop(evt);
@@ -109,9 +109,9 @@ export default class SelectList {
       return;
     //we need to copy it, getBCR is a weird object
     const bcr = this._anchornode.getBoundingClientRect();
-    if (this._lastpulldowncoords.top != bcr.top
-      || this._lastpulldowncoords.left != bcr.left
-      || this._lastpulldowncoords.bottom != bcr.bottom) { //we moved
+    if (this._lastpulldowncoords.top !== bcr.top
+      || this._lastpulldowncoords.left !== bcr.left
+      || this._lastpulldowncoords.bottom !== bcr.bottom) { //we moved
       this._lastpulldowncoords = bcr;
       if (this._openbottom) {
         //this._items.style.top = Math.ceil(pulldowncoords.bottom) + 'px';

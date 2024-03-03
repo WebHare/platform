@@ -47,7 +47,7 @@ export function initOnConsent(options) {
   }
 
   onConsentChange(consentsettings => {
-    if (options.requiredconsent == "*") {
+    if (options.requiredconsent === "*") {
       if (consentsettings.consent.length) {
         if (debugflags.anl)
           console.log(`[anl] Got any consent, starting GA4`);

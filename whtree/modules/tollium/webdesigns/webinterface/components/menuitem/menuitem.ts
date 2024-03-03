@@ -40,7 +40,7 @@ export default class ObjMenuItem extends ComponentBase {
     this.indent = Math.max(data.indent || 0, 0);
     this.visible = data.visible;
 
-    if (this.shortcut && browser.getPlatform() == "mac") {
+    if (this.shortcut && browser.getPlatform() === "mac") {
       const osx_keysymbols =
         [
           { key: "ctrl+", symbol: "\u2303" },
@@ -71,7 +71,7 @@ export default class ObjMenuItem extends ComponentBase {
       this.shortcut = this.shortcut.replace(/\+/g, "\u200B+\u200B");
     }
 
-    if (typeof this.action == "object")
+    if (typeof this.action === "object")
       this.action = this.action.name;
 
     this.items = data.items;
@@ -104,7 +104,7 @@ export default class ObjMenuItem extends ComponentBase {
         disabled: !enabled,
         checked: this.checked,
         selected: this.selected
-        //, hidden: this.disablemode == 'hidden' && !enabled
+        //, hidden: this.disablemode === 'hidden' && !enabled
       },
       on: { click: evt => this.onClick(evt) }
     });
@@ -144,7 +144,7 @@ export default class ObjMenuItem extends ComponentBase {
   cloneItems(ascontextmenu) {
     const result = [];
     this.items.forEach(item => {
-      if (item == "tollium$divider") {
+      if (item === "tollium$divider") {
         result.push(dompack.create("li", { className: "divider" }));
         return;
       }
@@ -208,7 +208,7 @@ export default class ObjMenuItem extends ComponentBase {
       }
       return false;
     }
-    if (this.disablemode != "hidden" && !ascontextmenu) //ignore disablemode for context menu items
+    if (this.disablemode !== "hidden" && !ascontextmenu) //ignore disablemode for context menu items
       return true;
     return this.isEnabled();
   }

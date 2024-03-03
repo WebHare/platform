@@ -6,7 +6,7 @@ import whbridge from "@mod-system/js/internal/whmanager/bridge";
 // non-bridge stuff is placed into hmrinternal so it can be loaded first (bridge also registers as non-reloadable)
 
 async function gotEvent({ name, data }: { name: string; data: unknown }) {
-  if (name.startsWith("system:modulefolder.") && typeof data == "object" && data) {
+  if (name.startsWith("system:modulefolder.") && typeof data === "object" && data) {
     let resource = (data as { resourcename?: string })?.resourcename ?? null;
     if (!resource)
       return;

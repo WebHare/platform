@@ -22,7 +22,7 @@ export default class PasteCleanup {
     // FIXME: test for partial table selection
     for (let i = 0; i < todelete.length; ++i) {
       let node: Node = todelete[i];
-      while (node != this.data && node.parentNode && !node.firstChild) {
+      while (node !== this.data && node.parentNode && !node.firstChild) {
         const parent = node.parentNode;
         parent.removeChild(node);
         node = parent;
@@ -36,7 +36,7 @@ export default class PasteCleanup {
         const node = pnodes[i];
         const locator = new domlevel.Locator(node, 0);
         const res = locator.scanForward(node, { whitespace: true });
-        if (res.type == 'outerblock')
+        if (res.type === 'outerblock')
           pnodes[i].remove();
       }
 
@@ -47,7 +47,7 @@ export default class PasteCleanup {
       if (!['ol', 'ul'].includes(parent?.nodeName.toLowerCase() || "")) {
         let node: Node | null = linodes[i];
         const nodes = [];
-        for (; node && node.nodeType == 1 && node.nodeName.toLowerCase() == 'li'; node = node.nextSibling)
+        for (; node && node.nodeType === 1 && node.nodeName.toLowerCase() === 'li'; node = node.nextSibling)
           nodes.push(node);
 
         const listnode = document.createElement('ul');
@@ -58,7 +58,7 @@ export default class PasteCleanup {
     }
 
     // If we have a top-level <br>, that is an interchange BR signalling a selected block barrier
-    if (data.lastChild && data.lastChild.nodeType == 1 && data.lastChild.nodeName.toLowerCase() == 'br') {
+    if (data.lastChild && data.lastChild.nodeType === 1 && data.lastChild.nodeName.toLowerCase() === 'br') {
       data.removeChild(data.lastChild);
       result.breakafter = true;
     }

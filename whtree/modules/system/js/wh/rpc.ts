@@ -59,7 +59,7 @@ class ControlledCall {
       while (true) //loop for 429
       {
         response = await fetchpromise;
-        if (response.status == 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
+        if (response.status === 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
           const retryafter = parseInt(response.headers.get("Retry-After"));
           if (this.options.debug)
             console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
@@ -102,7 +102,7 @@ class ControlledCall {
       throw new Error("RPC Error: " + (jsonresponse.error.message || "Unknown error"));
     }
 
-    if (response.status == 200 && jsonresponse && jsonresponse.id !== id)
+    if (response.status === 200 && jsonresponse && jsonresponse.id !== id)
       throw new Error("RPC Failed: Invalid JSON/RPC response received");
 
     if (this.options.wrapresult) {
@@ -176,7 +176,7 @@ export default class RPCClient {
 
   invoke(...params) {
     let options;
-    if (typeof params[0] == "object")
+    if (typeof params[0] === "object")
       options = { ...this.options, ...params.shift() };
     else
       options = this.options;

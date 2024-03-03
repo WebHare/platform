@@ -103,7 +103,7 @@ export async function readLanguageFile(module: string, language: string, filelis
   }
 
   // Only one language, return its nodes directly
-  if (files.length == 1)
+  if (files.length === 1)
     return files[0].filedata.texts;
 
   // addLanguageTexts overwrite existing nodes, so we follow the fallbacklanguage chain backwards, which keeps the fallback
@@ -151,11 +151,11 @@ export function parseLanguageFile(moduletexts: ModuleTids, gids: string[], data:
     for (let i = 0; i < tidparts.length - 1; ++i) {
       if (!storeptr[tidparts[i]])
         storeptr[tidparts[i]] = {};
-      else if (typeof storeptr[tidparts[i]] == "string")
+      else if (typeof storeptr[tidparts[i]] === "string")
         storeptr[tidparts[i]] = { "": storeptr[tidparts[i]] };
       storeptr = storeptr[tidparts[i]] as ModuleTids;
     }
-    if (typeof storeptr[tidparts[tidparts.length - 1]] == "object")
+    if (typeof storeptr[tidparts[tidparts.length - 1]] === "object")
       (storeptr[tidparts[tidparts.length - 1]] as ModuleTids)[""] = tid.text;
     else
       storeptr[tidparts[tidparts.length - 1]] = tid.text;

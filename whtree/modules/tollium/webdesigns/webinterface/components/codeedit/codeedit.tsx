@@ -147,7 +147,7 @@ export default class ObjCodeEdit extends ComponentBase {
     this.markerholderdiv.scrollTop = this.linenumberdiv.scrollTop;
 
     this.markers.forEach(item => {
-      const is_gutter_marker = item.type.substr(0, 6) == "gutter";
+      const is_gutter_marker = item.type.substr(0, 6) === "gutter";
 
       this.markerscrolldiv.appendChild(
         <div className={"marker " + item.type}
@@ -174,7 +174,7 @@ export default class ObjCodeEdit extends ComponentBase {
     }
 
     this.syncLineNumbers();
-    const selectpos = line == 0 ? 0 : this.textarea.value.split('\n').slice(0, line).join('\n').length + 1;
+    const selectpos = line === 0 ? 0 : this.textarea.value.split('\n').slice(0, line).join('\n').length + 1;
     try {
       this.setSelection(selectpos, selectpos);
     } catch (ex) {
@@ -237,7 +237,7 @@ export default class ObjCodeEdit extends ComponentBase {
   }
 
   setEnabled(enabled: boolean) {
-    if (this.enabled == enabled)
+    if (this.enabled === enabled)
       return;
 
     this.textarea.readOnly = !enabled;
@@ -250,7 +250,7 @@ export default class ObjCodeEdit extends ComponentBase {
     let element: HTMLElement | null = event.target as HTMLElement;
     let nextoffsetparent: HTMLElement | null = element;
     while (nextoffsetparent) {
-      if (element == nextoffsetparent) {
+      if (element === nextoffsetparent) {
         y += element.scrollTop - element.offsetTop;
         nextoffsetparent = element.offsetParent as HTMLElement | null;
       } else

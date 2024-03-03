@@ -49,7 +49,7 @@ class ToolbarButton {
 
   setEnabled(enabled) {
     enabled = Boolean(enabled);
-    if (enabled != this.options.enabled) {
+    if (enabled !== this.options.enabled) {
       this.options.enabled = enabled;
       dompack.toggleClasses(this.node, { disabled: !this.options.enabled });
     }
@@ -57,7 +57,7 @@ class ToolbarButton {
 
   setPressed(pressed) {
     pressed = Boolean(pressed);
-    if (pressed != this.options.pressed) {
+    if (pressed !== this.options.pressed) {
       this.options.pressed = pressed;
       dompack.toggleClasses(this.node, { pressed: this.options.pressed });
     }
@@ -87,7 +87,7 @@ class ToolbarPanel {
   }
 
   addButton(button) {
-    if (typeof button != 'object')
+    if (typeof button !== 'object')
       throw new Error("Specify explicit element to addButton"); //might have sneaked through when we did $(button)
     this.addComponent(button);
   }

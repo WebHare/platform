@@ -37,9 +37,9 @@ test.registerTests(
         test.eq(0, test.qSA("#listview .wh-list__row--selected").length);
 
         //current rendering should be showing rows up to #18, and #19 is rendered because some scenarios show 2 partial rows, and #19 is the second partial row
-        test.assert(test.getListViewRow('Rij #18') != null);
-        test.assert(test.getListViewRow('Rij #19.') != null);
-        test.assert(!test.getListViewRow('Rij #20.') != null);
+        test.assert(test.getListViewRow('Rij #18') !== null);
+        test.assert(test.getListViewRow('Rij #19.') !== null);
+        test.assert(!test.getListViewRow('Rij #20.') !== null);
       }
     },
 
@@ -143,12 +143,12 @@ test.registerTests(
       test.fill('#datasource', 'emptysource');
 
       test.focus("#listview");
-      await test.pressKey("A", browser.platform == "mac" ? { metaKey: true } : { ctrlKey: true });
+      await test.pressKey("A", browser.platform === "mac" ? { metaKey: true } : { ctrlKey: true });
 
       test.fill('#datasource', 'none');
 
       test.focus("#listview");
-      await test.pressKey("A", browser.platform == "mac" ? { metaKey: true } : { ctrlKey: true });
+      await test.pressKey("A", browser.platform === "mac" ? { metaKey: true } : { ctrlKey: true });
     },
 
     'treeexpand',
@@ -158,20 +158,20 @@ test.registerTests(
 
       test.assert(!test.getListViewExpanded(test.getListViewRow('B-Lex'))); //should be initially expandable but not expanded
       test.assert(test.getListViewExpanded(test.getListViewRow('Kleine sites'))); //should be initially expanded
-      test.assert(test.getListViewRow('Subitem') != null);
+      test.assert(test.getListViewRow('Subitem') !== null);
       test.eq(null, test.getListViewExpanded(test.getListViewRow('Subitem')));
 
       test.eq(3, test.qSA('#listview .listrow').length);
-      test.assert(test.getListViewRow('B-Lex').querySelector('.expander') != null);
+      test.assert(test.getListViewRow('B-Lex').querySelector('.expander') !== null);
       test.click(test.getListViewRow('B-Lex').querySelector('.expander'));
       test.assert(test.getListViewExpanded(test.getListViewRow('B-Lex')));
       test.eq(5, test.qSA('#listview .listrow').length);
-      test.assert(test.getListViewRow('Designfiles b-lex') != null);
+      test.assert(test.getListViewRow('Designfiles b-lex') !== null);
 
       test.click(test.getListViewRow('B-Lex').querySelector('.expander'));
       test.assert(!test.getListViewExpanded(test.getListViewRow('B-Lex')));
       test.eq(3, test.qSA('#listview .listrow').length);
-      test.assert(!test.getListViewRow('Designfiles b-lex') != null);
+      test.assert(!test.getListViewRow('Designfiles b-lex') !== null);
 
       test.click(test.getListViewRow('Subitem'));
       test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
@@ -196,9 +196,9 @@ test.registerTests(
         test.fill('#datasource', 'multirowsource');
 
         //current rendering should be showing rows up to #9 and #10
-        test.assert(test.getListViewRow('Rij #9') != null);
-        test.assert(test.getListViewRow('Rij #10') != null, 'row #10 should be in the dom');
-        test.assert(!test.getListViewRow('Rij #11') != null, 'row #11 shouldnt be in the dom');
+        test.assert(test.getListViewRow('Rij #9') !== null);
+        test.assert(test.getListViewRow('Rij #10') !== null, 'row #10 should be in the dom');
+        test.assert(!test.getListViewRow('Rij #11') !== null, 'row #11 shouldnt be in the dom');
       }
     }
   ]);

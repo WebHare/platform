@@ -65,21 +65,21 @@ export class RestService extends services.BackendServiceConnection {
     //     looks like swagger itself also needs a bit of inline styling, so adding that
     const metapageheaders = { "content-security-policy": "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: 'self' https://cdnjs.cloudflare.com;" };
 
-    if (relurl == "" || relurl == relurl_swaggerui) { //webpage
+    if (relurl === "" || relurl === relurl_swaggerui) { //webpage
       const witty = await loadWittyResource("mod::system/js/internal/openapi/openapi.witty");
-      const comp = relurl == relurl_swaggerui ? "swaggerui" : "root";
+      const comp = relurl === relurl_swaggerui ? "swaggerui" : "root";
       return createWebResponse(await witty.runComponent(comp, apidata), { headers: metapageheaders });
     }
 
     /* https://publicatie.centrumvoorstandaarden.nl/api/adr/#documentation API-51: Publish OAS document at a standard location in JSON-format
         Publish it at /openapi.json (we used /openapi/openapi.json before) */
-    if (relurl == relurl_spec) {
+    if (relurl === relurl_spec) {
       const indent = ["1", "true"].includes(new URL(req.url).searchParams.get("indent") || "");
       return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, indent });
     }
 
     // Temporary redirect for old url. Remove eg. after 2023-06-13
-    if (relurl == "openapi/openapi.json")
+    if (relurl === "openapi/openapi.json")
       return createWebResponse("Moved permanently", { status: HTTPSuccessCode.MovedPermanently, headers: { location: apibaseurl + relurl_spec } });
 
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
@@ -106,7 +106,7 @@ export class RestService extends services.BackendServiceConnection {
 
       if (env.debugFlags.etr)
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack });
-      else if (services.backendConfig.dtapstage == "development")
+      else if (services.backendConfig.dtapstage === "development")
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error - enable the 'etr' debug flag to enable full error tracing" });
       else
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error" });

@@ -11,7 +11,7 @@ let totpdata;
 let totpbackupcodes;
 
 function getAppInStartMenuByName(name) {
-  return Array.from(test.qSA('li li')).filter(node => node.textContent == name)[0];
+  return Array.from(test.qSA('li li')).filter(node => node.textContent === name)[0];
 }
 
 
@@ -93,7 +93,7 @@ test.registerTests(
     async function enable2FA() {
       test.click(test.qS("#dashboard-user-name"));
       await test.wait('ui');
-      test.click(test.qSA("t-button").filter(e => e.textContent == "Change")[1]);
+      test.click(test.qSA("t-button").filter(e => e.textContent === "Change")[1]);
       await test.wait('ui');
 
       // setup one-time access code
@@ -105,7 +105,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.click(test.qSA("t-text").filter(e => e.textContent == "Show the secret key")[0]);
+      test.click(test.qSA("t-text").filter(e => e.textContent === "Show the secret key")[0]);
       await test.wait('ui');
 
       totpsecret = test.getCurrentScreen().getValue("totpsecret");

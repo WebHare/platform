@@ -136,7 +136,7 @@ export default class ObjList extends ComponentBase {
     ["Top", "Right", "Bottom", "Left"].forEach(bordername => {
       if (this.borders[bordername.toLowerCase()]) {
         this.node.style[`border${bordername}Width`] = "1px";
-        if (bordername == "Top" || bordername == "Bottom")
+        if (bordername === "Top" || bordername === "Bottom")
           this.overheady += 1;
         else
           this.overheadx += 1;
@@ -179,10 +179,10 @@ export default class ObjList extends ComponentBase {
     let small_left_padding = false;
 
     // Use small left padding when first column is a checkbox column and no highlight is present
-    if (this.rowlayout.length == 1
+    if (this.rowlayout.length === 1
       && this.rowlayout[0].cells.length
       && this.datacolumns[this.rowlayout[0].cells[0].cellnum].checkbox
-      && this.highlightidx == -1) {
+      && this.highlightidx === -1) {
       small_left_padding = true;
       this.node.classList.add("wh-ui-listview__small-left-padding");
     }
@@ -199,7 +199,7 @@ export default class ObjList extends ComponentBase {
 
       headerheight: 28,
       lineheight: 20,
-      linepadding: data.class == "verticaltabs" ? 8 : 2,
+      linepadding: data.class === "verticaltabs" ? 8 : 2,
       //, cssheights: true
 
       hideheader: !data.columnheaders,
@@ -239,10 +239,10 @@ export default class ObjList extends ComponentBase {
     */
 
     /* FIXME
-      if(this.rowlayout.rows.length == 1) //multiple rows don't allow layout ordering (and just sending row#0 will even confuse tollium, its all or nothing) so dont bother
+      if(this.rowlayout.rows.length === 1) //multiple rows don't allow layout ordering (and just sending row#0 will even confuse tollium, its all or nothing) so dont bother
       {
         for(var i=0;i<this.layoutcolumns.length;++i)
-          if (this.layoutcolumns[i].type != 'todd_scroll')
+          if (this.layoutcolumns[i].type !== 'todd_scroll')
             retval += ' l' + this.layoutcolumns[i].name;
       }
 
@@ -279,7 +279,7 @@ export default class ObjList extends ComponentBase {
     for (let i = 0; i < this.flatrows.length; ++i) {
       const row = this.flatrows[i];
       const selected = rowkeys.includes(row[0].rowkey);
-      if (selected != row[1]) {
+      if (selected !== row[1]) {
         row[1] = selected;
         changed = true;
         this.sendRow(i);
@@ -295,9 +295,9 @@ export default class ObjList extends ComponentBase {
           this.sortcolumn = null;
           this.sortascending = true;
 
-          if (data.col != "<ordered>") {
+          if (data.col !== "<ordered>") {
             for (let i = 0; i < this.datacolumns.length; ++i) {
-              if (this.datacolumns[i].name == data.col) {
+              if (this.datacolumns[i].name === data.col) {
                 this.sortcolumn = i;
                 this.sortascending = data.ascending;
               }
@@ -334,7 +334,7 @@ export default class ObjList extends ComponentBase {
             data.rows.forEach(newrow => {
               if (row[0].rowkey === newrow[0].rowkey) {
                 row[0].flags = newrow[0].flags;
-                row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.checkEnabledFlags([row[0].flags], this.selectableflags.split(" "), 1, 1, "all");
+                row[0].selectable = !this.selectableflags || this.selectableflags === "" || $todd.checkEnabledFlags([row[0].flags], this.selectableflags.split(" "), 1, 1, "all");
                 row[0].highlight = newrow[0].highlight;
                 row[0].stylebold = newrow[0].stylebold;
                 row[0].styleitalic = newrow[0].styleitalic;
@@ -475,11 +475,11 @@ export default class ObjList extends ComponentBase {
 
       if (this.datacolumns[i].sort && this.sortcolumnname === this.datacolumns[i].name) {
         this.sortcolumn = i;
-        this.sortascending = this.datacolumns[i].sort == "asc";
+        this.sortascending = this.datacolumns[i].sort === "asc";
       }
     }
 
-    //    if (this.sortcolumnname != "<ordered>" && !this.sortcolumn)
+    //    if (this.sortcolumnname !== "<ordered>" && !this.sortcolumn)
     //      console.warn("List " + this.name + ": could not locate column '" + this.sortcolumnname + "'", this.datacolumns);
 
     const rowspans = [];
@@ -540,7 +540,7 @@ export default class ObjList extends ComponentBase {
   initRows(rows) {
     for (let idx = 0; idx < rows.length; idx++) {
       const row = rows[idx];
-      row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.checkEnabledFlags([row[0].flags], this.selectableflags.split(" "), 1, 1, "all");
+      row[0].selectable = !this.selectableflags || this.selectableflags === "" || $todd.checkEnabledFlags([row[0].flags], this.selectableflags.split(" "), 1, 1, "all");
       row[0].ordering = idx;
     }
 
@@ -572,7 +572,7 @@ export default class ObjList extends ComponentBase {
   }
 
   iterateRowTree(elts, func) {
-    for (let i = 0, e = elts.length; i != e; ++i) {
+    for (let i = 0, e = elts.length; i !== e; ++i) {
       func(elts[i]);
       const subrows = elts[i][0].subrows;
       if (subrows)
@@ -596,7 +596,7 @@ export default class ObjList extends ComponentBase {
   onListCellClick(event) {
     const col = this.datacolumns[event.detail.cellidx];
     const row = event.detail.row;
-    if (col && (col.type == "icon" || col.type == "icons") && col.iconlink && this.isEventUnmasked("iconclick") && event.detail.clicknode.closest("img, canvas")) {
+    if (col && (col.type === "icon" || col.type === "icons") && col.iconlink && this.isEventUnmasked("iconclick") && event.detail.clicknode.closest("img, canvas")) {
       // If this is an 'icon(s)' column, handle icon click
       event.preventDefault();
       event.stopPropagation();
@@ -608,7 +608,7 @@ export default class ObjList extends ComponentBase {
   onListCellEdit(event) {
     const col = this.datacolumns[event.detail.cellidx];
     const row = event.detail.row;
-    if (col.edittype == "textedit") {
+    if (col.edittype === "textedit") {
       event.preventDefault();
       event.stopPropagation();
 
@@ -633,7 +633,7 @@ export default class ObjList extends ComponentBase {
     const actions: HTMLElement[] = [<li onClick={() => this._requestMagicAction('inspectrow', row.rownum)}>Inspect row #{row.rownum}</li>];
     for (const [idx, action] of this.debugactions.entries()) {
       const target = this.getCellByName(this.flatrows[row.rownum], action.cellname);
-      const title = action.type == "entityid" ? `Inspect WRD entity #${target}` : action.type == "fsobjectid" ? `Inspect fsobject #${target}` : action.type;
+      const title = action.type === "entityid" ? `Inspect WRD entity #${target}` : action.type === "fsobjectid" ? `Inspect fsobject #${target}` : action.type;
       actions.push(<li onClick={() => this._requestMagicAction('debugaction:' + idx, row.rownum)}>{title}</li>);
     }
     event.detail.submenu.prepend(...actions);
@@ -642,7 +642,7 @@ export default class ObjList extends ComponentBase {
   onCheck(event) {
     if (this.isEventUnmasked("check")) {
       for (let i = 0; i < this.checkboxcolumns.length; ++i)
-        if (this.checkboxcolumns[i].checkboxidx == event.detail.checkboxidx) {
+        if (this.checkboxcolumns[i].checkboxidx === event.detail.checkboxidx) {
           this.setDirty();
           this.queueEvent(this.owner.screenname + "." + this.name, "check " + event.detail.row[0].rowkey + " " + this.checkboxcolumns[i].checkbox, true);
           break;
@@ -657,7 +657,7 @@ export default class ObjList extends ComponentBase {
       lhsdata = lhs[col.sortidx];
       rhsdata = rhs[col.sortidx];
 
-      if (lhsdata != rhsdata) {
+      if (lhsdata !== rhsdata) {
         diff = lhsdata < rhsdata ? - 1 : 1;
         return this.sortascending ? diff : -diff;
       }
@@ -667,7 +667,7 @@ export default class ObjList extends ComponentBase {
     lhsdata = lhs[0].ordering;
     rhsdata = rhs[0].ordering;
 
-    diff = lhsdata < rhsdata ? - 1 : lhsdata == rhsdata ? 0 : 1;
+    diff = lhsdata < rhsdata ? - 1 : lhsdata === rhsdata ? 0 : 1;
     return this.sortascending ? diff : -diff;
   }
   onSortchange(event) {
@@ -746,7 +746,7 @@ export default class ObjList extends ComponentBase {
     // a setting in the future, but for now we'll take the data cell of the first 'text' column.
     let searchidx = -1;
     for (let i = 0; searchidx < 0 && i < this.datacolumns.length; ++i)
-      if (this.datacolumns[i].type == "text")
+      if (this.datacolumns[i].type === "text")
         searchidx = this.datacolumns[i].dataidx;
 
     const retval = {
@@ -837,14 +837,14 @@ export default class ObjList extends ComponentBase {
   setCell(rownum, row, cellidx, newvalue) {
     row[cellidx] = newvalue;
 
-    if (cellidx == 1) //changing selected state
+    if (cellidx === 1) //changing selected state
     {
       this.sendRow(rownum);
       this.owner.actionEnabler();
 
       if (this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
-    } else if (cellidx == 2) //changing expanded state
+    } else if (cellidx === 2) //changing expanded state
     {
       this.flattenRows();
       this.list.invalidateAllRows();
@@ -868,7 +868,7 @@ export default class ObjList extends ComponentBase {
   }
 
   startSelectionUpdateGroup() {
-    if (++this.selectionupdates == 1) {
+    if (++this.selectionupdates === 1) {
       this.selectionoriginal = [];
       for (let i = 0; i < this.flatrows.length; ++i)
         if (this.flatrows[i][1])
@@ -877,16 +877,16 @@ export default class ObjList extends ComponentBase {
   }
 
   finishSelectionUpdateGroup() {
-    if (--this.selectionupdates == 0) {
+    if (--this.selectionupdates === 0) {
       const newselection = [];
       for (let i = 0; i < this.flatrows.length; ++i)
         if (this.flatrows[i][1])
           newselection.push(this.flatrows[i][0].rowkey);
 
-      let changed = newselection.length != this.selectionoriginal.length;
+      let changed = newselection.length !== this.selectionoriginal.length;
       if (!changed) {
         for (let i = 0; i < newselection.length; ++i)
-          changed = changed || newselection[i] != this.selectionoriginal[i];
+          changed = changed || newselection[i] !== this.selectionoriginal[i];
       }
 
       this.selectionoriginal = null;
@@ -969,7 +969,7 @@ export default class ObjList extends ComponentBase {
       if (!this.flatrows[i][0].selectable)
         continue;
       //console.log(this.flatrows[i][0]);
-      if (this.flatrows[i][1] != newvalue) //isselected
+      if (this.flatrows[i][1] !== newvalue) //isselected
       {
         changed = true;
         this.flatrows[i][1] = newvalue;
@@ -982,13 +982,13 @@ export default class ObjList extends ComponentBase {
 
   lookupRowByRowkey(rowkey) {
     for (let i = 0; i < this.flatrows.length; ++i)
-      if (this.flatrows[i][0].rowkey == rowkey)
+      if (this.flatrows[i][0].rowkey === rowkey)
         return this.flatrows[i];
     return null;
   }
 
   doNoLoopCheck(targetrow, sourcecomp, rowkeys) {
-    if (sourcecomp != this)
+    if (sourcecomp !== this)
       return true;
 
     while (targetrow) {
@@ -1068,7 +1068,7 @@ export default class ObjList extends ComponentBase {
 
     // Get depth of next and previous row
     let nextdepth = !this.flatrows || rownum >= this.flatrows.length ? 0 : this.flatrows[rownum][3];
-    const prevdepth = rownum == 0 || !this.flatrows || this.flatrows.length == 0 ? -1 : this.flatrows[rownum - 1][3];
+    const prevdepth = rownum === 0 || !this.flatrows || this.flatrows.length === 0 ? -1 : this.flatrows[rownum - 1][3];
 
     // Get range of allowed drop depths
     const mindepth = nextdepth;
@@ -1083,10 +1083,10 @@ export default class ObjList extends ComponentBase {
     // Test range of allowed drops (from deepest to shallowest, we want the first match below or at the requested depth)
     for (let i = maxdepth; i >= mindepth; --i) // mindepth >= 0
     {
-      const location = i != nextdepth ? "appendchild" : "insertbefore";
+      const location = i !== nextdepth ? "appendchild" : "insertbefore";
 
       var test_rownum;
-      if (location == "insertbefore") {
+      if (location === "insertbefore") {
         // Row in 'rownum' has requested depth, so we must insert before that node
         test_rownum = rownum;
       } else {
@@ -1152,8 +1152,8 @@ export default class ObjList extends ComponentBase {
 
     let looped = false;
     let newidx = -1;
-    for (let i = firstselected; !looped || i != firstselected; ++i) {
-      if (i == flatrowslen) {
+    for (let i = firstselected; !looped || i !== firstselected; ++i) {
+      if (i === flatrowslen) {
         i = -1;
         looped = true;
         continue;
@@ -1180,7 +1180,7 @@ export default class ObjList extends ComponentBase {
   // ???
   //
 
-  //check enabledon. colidx == 1 for selection, or a checkboxcolumn otherwise
+  //check enabledon. colidx === 1 for selection, or a checkboxcolumn otherwise
   isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, colidx) {
     const flags = collectFlags(this.getSelectedRows(colidx));
     $todd.DebugTypedLog("actionenabler", "flags = " + JSON.stringify(flags));
@@ -1193,7 +1193,7 @@ export default class ObjList extends ComponentBase {
   }
 
   enabledOn(checkflags, min, max, selectionmatch) {
-    if (this.selectmode != "none") {
+    if (this.selectmode !== "none") {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(",") + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
       return this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, 1);
     } else //FIXME reimplement adn test checkbox enabledon..
@@ -1201,7 +1201,7 @@ export default class ObjList extends ComponentBase {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(',') + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by checkboxes/radios");
 
       for (let i = 0; i < this.datacolumns.length; ++i)
-        if (this.datacolumns[i].type != "todd_scroll" && this.datacolumns[i].checkbox) {
+        if (this.datacolumns[i].type !== "todd_scroll" && this.datacolumns[i].checkbox) {
           const match = this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, this.datacolumns[i].checkboxidx);
           $todd.DebugTypedLog("actionenabler", `- Matching by checkboxcolumn '${this.datacolumns[i].name}', result = `, match);
           if (match)
@@ -1229,7 +1229,7 @@ export default class ObjList extends ComponentBase {
   }
 
   anySelected() {
-    return this.getFirstSelectedRow() != -1;
+    return this.getFirstSelectedRow() !== -1;
   }
 
   onContextmenu(event) {
@@ -1245,7 +1245,7 @@ export default class ObjList extends ComponentBase {
   }
   jumpToSelection() {
     const selectedrow = this.getFirstSelectedRow();
-    if (selectedrow == -1)
+    if (selectedrow === -1)
       return;
 
     //this.list.scrollRowIntoView(selectedrow);
@@ -1293,7 +1293,7 @@ class IconColumn extends Base {
     const icondimensions = columndef.rowspan > 1 ? 24 : 16;
 
     cell.classList.toggle("bigicon", columndef.rowspan > 1);
-    cell.classList.toggle("firsticonmargin", !wrapped && columndef.x == 0);
+    cell.classList.toggle("firsticonmargin", !wrapped && columndef.x === 0);
 
     setIcon(this.toddlist, columndef, row, cell, icondimensions, icondimensions, icon);
 
@@ -1319,7 +1319,7 @@ class IconsColumn extends Base {
   render(list, columndef, row, cell, data, wrapped) {
     const icondimensions = columndef.rowspan > 1 ? 24 : 16;
 
-    if (columndef.align == "right")
+    if (columndef.align === "right")
       cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
 
     dompack.empty(cell);
@@ -1387,7 +1387,7 @@ class IconWrapper extends Base {
       //this.restholder = restholder;
     }
 
-    dompack.toggleClasses(cell, { firsticonmargin: !wrapped && columndef.x == 0 });
+    dompack.toggleClasses(cell, { firsticonmargin: !wrapped && columndef.x === 0 });
 
     var multiline = this.toddlist.list.linesperrow > 1;
 
@@ -1417,7 +1417,7 @@ class IconWrapper extends Base {
   getSizeInfo(list, columndef, wrapped) {
     const info = this.base.getSizeInfo(list, columndef);
     info.minwidth += columndef.rowspan > 1 ? 24 : 16; // icon must be visible
-    info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x == 0 ? 4 : 0;
+    info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x === 0 ? 4 : 0;
     return info;
   }
 }

@@ -122,7 +122,7 @@ export function register<E extends Element = HTMLElement>(selector: string, hand
     num: components.length,
     afterdomready: !options || options.afterdomready
   };
-  if (components.length == 0 && !domtree.isDomReady()) //first component... we'll need a ready handler
+  if (components.length === 0 && !domtree.isDomReady()) //first component... we'll need a ready handler
     domtree.onDomReady(() => registerMissed());
 
   components.push(newreg as ComponentRegistration<Element>);

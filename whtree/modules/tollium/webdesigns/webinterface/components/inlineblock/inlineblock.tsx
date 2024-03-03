@@ -44,8 +44,8 @@ export default class ObjInlineBlock extends ComponentBase {
         srcline.target = this.name + "#line$" + i;
         srcline.destroywithparent = true;
         const line = new ObjPanelLine(this, srcline, {
-          removetopmargin: i == 0,
-          removebottommargin: i == data.lines.length - 1
+          removetopmargin: i === 0,
+          removebottommargin: i === data.lines.length - 1
         });
         this.lines.push(line);
 
@@ -57,7 +57,7 @@ export default class ObjInlineBlock extends ComponentBase {
             destroywithparent: true
           });
 
-          if (line.layout == 'form') //we need to keep the title separated
+          if (line.layout === 'form') //we need to keep the title separated
             line.titlecomp = titlecomp;
           else
             line.items.push(titlecomp);
@@ -108,7 +108,7 @@ export default class ObjInlineBlock extends ComponentBase {
 
   readdComponent(comp) {
     for (let i = 0; i < this.lines.length; ++i)
-      if (this.lines[i].items.indexOf(comp) != -1) {
+      if (this.lines[i].items.indexOf(comp) !== -1) {
         this.lines[i].readdComponent(comp);
         return;
       }

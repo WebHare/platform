@@ -92,7 +92,7 @@ async function testServiceState() {
   test.eq(["instance1", "instance2"], await instance2.getConnections());
 
   instance1.close();
-  await test.wait(async () => JSON.stringify(["instance2"]) == JSON.stringify(await instance2.getConnections()));
+  await test.wait(async () => JSON.stringify(["instance2"]) === JSON.stringify(await instance2.getConnections()));
 
   instance2.close();
 }
@@ -376,7 +376,7 @@ async function testLogs() {
   services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
   services.log("webhare_testsuite:test", {
     val: "1234567890".repeat(4000),
-    f: function() { console.error("Cant log this"); },
+    f: function () { console.error("Cant log this"); },
     g: function g2() { console.error("Cant log this"); },
     u: undefined,
     s: Symbol(),
@@ -415,12 +415,12 @@ async function testLogs() {
   services.logNotice("error", "Foutmelding", { data: { extra: 43 } });
   services.logNotice("info", "Ter info");
 
-  const mydebug = (await readLog("system:debug")).filter(_ => _.source == 'webhare_testsuite:services_test');
+  const mydebug = (await readLog("system:debug")).filter(_ => _.source === 'webhare_testsuite:services_test');
   test.eqProps([{ data: { test: 42 } }], mydebug);
 
   const mygroupid = mydebug[0].groupid;
 
-  const mynotices = (await readLog("system:notice")).filter(_ => _.groupid == mygroupid);
+  const mynotices = (await readLog("system:notice")).filter(_ => _.groupid === mygroupid);
   test.eqProps([
     {
       message: 'Broken',

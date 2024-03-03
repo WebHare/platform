@@ -61,7 +61,7 @@ export default class ObjTextArea extends ComponentBase {
   }
 
   setValue(value) {
-    if (value != this.value) {
+    if (value !== this.value) {
       this.value = value;
       if (this.inputnode)
         this.inputnode.value = this.value;
@@ -69,7 +69,7 @@ export default class ObjTextArea extends ComponentBase {
   }
 
   setRequired(value) {
-    if (value != this.required) {
+    if (value !== this.required) {
       this.required = value;
       this.node.classList.toggle("required", this.required);
       this.inputnode.required = this.required;
@@ -79,7 +79,7 @@ export default class ObjTextArea extends ComponentBase {
   }
 
   setEnabled(value) {
-    if (value != this.enabled) {
+    if (value !== this.enabled) {
       this.enabled = value;
       this.node.classList.toggle("disabled", !this.enabled);
       this.inputnode.readOnly = !this.enabled;
@@ -104,7 +104,7 @@ export default class ObjTextArea extends ComponentBase {
       autocomplete: "off",
       placeholder: this.placeholder.split("\n").join(", ")
     });
-    if (this.minlength > 0 && this.lengthmeasure == "characters")
+    if (this.minlength > 0 && this.lengthmeasure === "characters")
       this.inputnode.minLength = this.minlength;
     if (this.maxlength > 0)
       this.inputnode.maxLength = this.maxlength;

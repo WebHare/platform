@@ -131,7 +131,7 @@ export function handleModuleInvalidation(path: string) {
       if (lib && lib.fixed)
         continue;
 
-      if (module.children.some(({ id }) => id == testid && (!lib || !lib.dynamicloader || lib.directloads.includes(id)))) {
+      if (module.children.some(({ id }) => id === testid && (!lib || !lib.dynamicloader || lib.directloads.includes(id)))) {
         toinvalidate.push(key);
       }
     }

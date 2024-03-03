@@ -222,12 +222,12 @@ test.registerTests([
     test.eq('Kies minimaal 1 item.', test.qR(checkboxgroup, '.wh-form__error').textContent);
     let result = await formhandler.validate(checkboxgroup);
     test.eq(checkboxgroup, result.firstfailed);
-    test.assert(result.failed.length == 1);
+    test.assert(result.failed.length === 1);
 
     delete checkboxgroup.dataset.whMin; // Removing required number of selected checkboxes
     result = await formhandler.validate(checkboxgroup);
     test.eq(null, result.firstfailed);
-    test.assert(result.failed.length == 0);
+    test.assert(result.failed.length === 0);
 
     test.click('#coretest-checkboxesvisible');
     test.qR('#coreformsubmitresponse').textContent = '';
@@ -277,7 +277,7 @@ test.registerTests([
     test.click('#submitbutton');
     await test.wait('ui');
 
-    if (test.qR("#coretest-password").value != "secret") {
+    if (test.qR("#coretest-password").value !== "secret") {
       console.error('YOUR PASSWORD MANAGER CHANGED THE PASSWORD!\n\n'
         + `  For LastPass: Go to the LastPass Vault > Account Settings > Never URLs\n`
         + `  Add the URL ${test.getWin().location.origin}/webhare-testsuite.site/* to the "Never Do Anything" list\n\n`);
@@ -356,7 +356,7 @@ test.registerTests([
 
     result = await formhandler.validate(emailgroup);
     test.eq(test.qR('#coretest-email'), result.firstfailed);
-    test.assert(result.failed.length == 1);
+    test.assert(result.failed.length === 1);
     test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), 'email group should be marked as error');
     test.eq('Dit veld is verplicht.', test.qR(emailgroup, '.wh-form__error').textContent);
 
@@ -364,7 +364,7 @@ test.registerTests([
     result = await formhandler.validate(test.qR('#coretest-setvalidator'));
     test.assert(!result.valid, 'setvalidator should be seen as invalid');
     test.eq(test.qR('#coretest-setvalidator'), result.firstfailed);
-    test.assert(result.failed.length == 1);
+    test.assert(result.failed.length === 1);
 
     //test custom errors
     test.qR('#coretest-email').value = 'klaas@example.org';

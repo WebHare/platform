@@ -2,7 +2,7 @@ import * as dompack from "../index";
 
 /** Add swipe event */
 
-const HAS_TOUCHEVENT = typeof TouchEvent != "undefined"; // Desktop Safari doesn't have TouchEvent
+const HAS_TOUCHEVENT = typeof TouchEvent !== "undefined"; // Desktop Safari doesn't have TouchEvent
 
 const swipedetect = Symbol("dompack swipedetect");
 interface SwipeEventTarget extends EventTarget {
@@ -132,7 +132,7 @@ class SwipeDetect {
     if (this.options.threshold_distance && this.options.threshold_speed && abs_y > this.options.threshold_distance && abs_y / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
       this.swipeinfo.direction += dy > 0 ? "s" : "n";
 
-    if (this.swipeinfo.direction != "") {
+    if (this.swipeinfo.direction !== "") {
       dompack.dispatchCustomEvent(this.node, "dompack:swipe", {
         bubbles: true,
         cancelable: true,

@@ -50,17 +50,17 @@ async function testFS() {
 
   const direntries = await readDirRecursive(tempdir);
 
-  test.assert(direntries.find(_ => _.path === tempdir && _.name == "1.txt")?.isFile());
-  test.assert(direntries.find(_ => _.path === tempdir && _.name == "subdir")?.isDirectory());
-  test.assert(!direntries.find(_ => _.path === path.join(tempdir, "subdir") && _.name == "backup")?.isDirectory());
-  test.assert(direntries.find(_ => _.path === path.join(tempdir, "subdir") && _.name == "backup")?.isSymbolicLink());
-  test.assert(direntries.find(_ => _.path === path.join(tempdir, "subdir") && _.name == "deeper")?.isDirectory());
-  test.assert(direntries.find(_ => _.path === path.join(tempdir, "subdir", "deeper") && _.name == "deepest.txt")?.isFile());
+  test.assert(direntries.find(_ => _.path === tempdir && _.name === "1.txt")?.isFile());
+  test.assert(direntries.find(_ => _.path === tempdir && _.name === "subdir")?.isDirectory());
+  test.assert(!direntries.find(_ => _.path === path.join(tempdir, "subdir") && _.name === "backup")?.isDirectory());
+  test.assert(direntries.find(_ => _.path === path.join(tempdir, "subdir") && _.name === "backup")?.isSymbolicLink());
+  test.assert(direntries.find(_ => _.path === path.join(tempdir, "subdir") && _.name === "deeper")?.isDirectory());
+  test.assert(direntries.find(_ => _.path === path.join(tempdir, "subdir", "deeper") && _.name === "deepest.txt")?.isFile());
 
   const should_disappear = [path.join(tempdir, "subdir", "deeper", "deepest.txt"), path.join(tempdir, "subdir", "backup")];
   should_disappear.forEach(p => test.assert(existsSync(p), `${p} should exist for now...`));
 
-  test.eq(false, await deleteRecursive(tempdir, { keep: _ => _.name == "deep2.txt" }));
+  test.eq(false, await deleteRecursive(tempdir, { keep: _ => _.name === "deep2.txt" }));
   test.assert(existsSync(path.join(tempdir, "subdir", "deeper", "deep2.txt")));
   should_disappear.forEach(p => test.assert(!existsSync(p), `${p} should be gone now...`));
 

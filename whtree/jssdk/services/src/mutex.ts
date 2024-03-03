@@ -100,9 +100,9 @@ export async function lockMutex(name: string, options?: { timeout: std.WaitPerio
     });
 
     const lockresult = await lockrequest;
-    if (lockresult.status == "timeout" || lockresult.status == "no")
+    if (lockresult.status === "timeout" || lockresult.status === "no")
       return null;
-    if (lockresult.status == "ok")
+    if (lockresult.status === "ok")
       return new Mutex(mutexmanager!, name);
 
     throw new Error(`Unexpected status '${lockresult.status}' from mutexmanager locking '${name}'`);

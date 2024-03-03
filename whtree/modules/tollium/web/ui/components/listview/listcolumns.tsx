@@ -61,10 +61,10 @@ export class Base {
   }
 
   getSizeInfo(list, columndef, wrapped) {
-    // test for == null matches null and undefined
+    // test for === null matches null and undefined
     return {
-      resizable: columndef.resizable == null ? true : columndef.resizable,
-      minwidth: columndef.minwidth == null ? minwidth : Math.max(columndef.minwidth, minwidth)
+      resizable: columndef.resizable === null ? true : columndef.resizable,
+      minwidth: columndef.minwidth === null ? minwidth : Math.max(columndef.minwidth, minwidth)
     };
   }
 
@@ -212,14 +212,14 @@ export class Text extends BaseEditable {
     cell.classList.add("text"); // so CSS can apply ellipsis
     if (data.indexOf('\n') >= 0) //linefeeds should be converted to ;
     {
-      while (data[0] == '\n')
+      while (data[0] === '\n')
         data = data.substr(1);
-      while (data[data.length - 1] == '\n')
+      while (data[data.length - 1] === '\n')
         data = data.substr(0, data.length - 1);
       data = data.split('\n').join('; ');
     }
     cell.textContent = data;
-    if (columndef.align == 'right')
+    if (columndef.align === 'right')
       cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
   }
 }
@@ -240,7 +240,7 @@ export class Email extends BaseEditable {
         cell.appendChild(node);
       }
 
-      if (columndef.align == 'right')
+      if (columndef.align === 'right')
         cell.style.textAlign = "right";
     }
   }
@@ -272,7 +272,7 @@ export class URL extends BaseEditable {
         cell.appendChild(node);
       }
 
-      if (columndef.align == 'right')
+      if (columndef.align === 'right')
         cell.style.textAlign = "right";
     }
   }
@@ -314,7 +314,7 @@ export class TreeWrapper extends Base {
         });
       cell.appendChild(indentholder);
     }
-    if (typeof expanded != 'boolean') //not expandable
+    if (typeof expanded !== 'boolean') //not expandable
       indentholder.style.visibility = "hidden";
     else {
       indentholder.classList[expanded ? "add" : "remove"]("fa-caret-down");
@@ -364,7 +364,7 @@ export class LinkWrapper extends Base {
     const link = row.cells[columndef.linkidx];
 
     if (link) {
-      if ((!cell.firstChild || cell.firstChild.tagName != 'A')) //create the link
+      if ((!cell.firstChild || cell.firstChild.tagName !== 'A')) //create the link
       {
         const linkholder = <a target="_blank" href={link} rel="noreferrer" />;
         cell.appendChild(linkholder);
@@ -374,7 +374,7 @@ export class LinkWrapper extends Base {
         cell.firstChild.href = link;
         cell = cell.firstChild;
       }
-    } else if (!link && cell.firstChild && cell.firstChild.tagName == 'A') //remove the link
+    } else if (!link && cell.firstChild && cell.firstChild.tagName === 'A') //remove the link
     {
       const child = cell.firstChild;
       cell.replaceWith(child);
@@ -421,7 +421,7 @@ export class CheckboxWrapper extends BaseEditable {
       checkbox.disabled = true;
     } else {
       checkbox.checked = row.cells[columndef.checkboxidx] !== false;
-      checkbox.disabled = typeof columndef.checkboxenabledidx != "undefined" && columndef.checkboxenabledidx != -1 && !row.cells[columndef.checkboxenabledidx];
+      checkbox.disabled = typeof columndef.checkboxenabledidx !== "undefined" && columndef.checkboxenabledidx !== -1 && !row.cells[columndef.checkboxenabledidx];
     }
 
     let restholder = cell.childNodes[1];

@@ -177,7 +177,7 @@ class IndyShell extends TolliumShell {
     return application;
   }
   startBackendApplication(appname, parentapp, options) {
-    if (appname == '__jsapp_hack__') //FIXME proper way to start JS frontend apps
+    if (appname === '__jsapp_hack__') //FIXME proper way to start JS frontend apps
       return this.startFrontendApplication('TestJSApp', parentapp, { src: '/tollium_todd.res/webhare_testsuite/tollium/jsapp.js' });
 
     this.towl.hideNotification("tollium:shell.frontendclose");
@@ -214,7 +214,7 @@ class IndyShell extends TolliumShell {
   }
   getApplicationById(id) {
     for (let i = 0; i < $todd.applications.length; ++i)
-      if ($todd.applications[i].whsid == id)
+      if ($todd.applications[i].whsid === id)
         return $todd.applications[i];
     return null;
   }
@@ -407,7 +407,7 @@ class IndyShell extends TolliumShell {
     if (this.isloggingoff) //do not interfere with the normal closing of apps
       return;
 
-    if ($todd.applications.length == 0) //no dashboard and no way to open an app?
+    if ($todd.applications.length === 0) //no dashboard and no way to open an app?
     {
       if (this.invitetype)  //reload without invite vars
         location.href = location.href.split('?')[0];
@@ -444,7 +444,7 @@ class IndyShell extends TolliumShell {
     this.tolliumservice.getCurrentVersion().then(this.gotCurrentVersion.bind(this));
   }
   gotCurrentVersion(res) {
-    if (this.anyConnectedApplications() || res.jsversion == whintegration.config.obj.jsversion)
+    if (this.anyConnectedApplications() || res.jsversion === whintegration.config.obj.jsversion)
       return;
 
     ///This is an updated WebHare version; use that info
@@ -453,7 +453,7 @@ class IndyShell extends TolliumShell {
     location.reload();
   }
   checkWasJustUpdated() {
-    const wasjustupdated = storage.getSession("WebHare-lastInitVersion-updated") == "1";
+    const wasjustupdated = storage.getSession("WebHare-lastInitVersion-updated") === "1";
     storage.setSession("WebHare-lastInitVersion-updated", null);
     return wasjustupdated;
   }
@@ -502,7 +502,7 @@ class IndyShell extends TolliumShell {
       for (var i = 0; i < $todd.applications.length; ++i) {
         //console.log('Compare with ' + i + ' app:' + $todd.applications[i].appname + ' target:', $todd.applications[i].apptarget);
 
-        if ($todd.applications[i].appname == app && JSON.stringify($todd.applications[i].apptarget) == JSON.stringify(target)) {
+        if ($todd.applications[i].appname === app && JSON.stringify($todd.applications[i].apptarget) === JSON.stringify(target)) {
           //Found it!
           //console.log("Reuse application #" + i);
 
@@ -524,24 +524,24 @@ class IndyShell extends TolliumShell {
       }
     }
 
-    if (app == "tollium:builtin.oauth")
+    if (app === "tollium:builtin.oauth")
       return this.startFrontendApplication(app, null, { onappbar: true, ...appoptions });
 
     return this.startBackendApplication(app, null, { target: target, message: message, inbackground: inbackground, ...appoptions });
   }
   executeInstruction(instr: ShellInstruction) {
-    if (instr.type == 'appmessage') {
+    if (instr.type === 'appmessage') {
       //ADDME background flag is now missing with initial launches, but i think it should just be specified by caller
       this.sendApplicationMessage(instr.app, instr.target, instr.message, instr.reuse_instance, instr.inbackground);
       return;
     }
 
-    if (instr.type == 'windowopen') {
+    if (instr.type === 'windowopen') {
       window.open(instr.link, '_blank');
       return;
     }
 
-    if (instr.type == "shell:resetimagecache") {
+    if (instr.type === "shell:resetimagecache") {
       toddImages.resetImageCache();
       return;
     }
@@ -616,7 +616,7 @@ class IndyShell extends TolliumShell {
       }
     });
 
-    this.frontendids = this.frontendids.filter(id => id != frontendid); //erase
+    this.frontendids = this.frontendids.filter(id => id !== frontendid); //erase
 
     if (openapps) {
       const notification =

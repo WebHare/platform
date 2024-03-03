@@ -69,10 +69,10 @@ export default class IframeTestRunner {
 
     try {
       const doctitle = this.getDoc().title;
-      if (doctitle == '404 Not found')
+      if (doctitle === '404 Not found')
         throw new Error("The child frame returned a 404 error, please check the url");
     } catch (e) {
-      if (e.code && e.code == e.SECURITY_ERR)
+      if (e.code && e.code === e.SECURITY_ERR)
         this.handleSecurityError();
       throw e;
     }

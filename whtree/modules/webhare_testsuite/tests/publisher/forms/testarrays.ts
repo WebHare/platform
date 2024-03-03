@@ -388,7 +388,7 @@ test.registerTests(
       // Click the second radiobutton's label
       test.click(fieldgroup.querySelectorAll(".wh-form__fieldline")[1].querySelector("label.wh-form__optionlabel"));
       // The second radiobutton should now be checked
-      test.assert([...fieldgroup.querySelectorAll("input")].filter(_ => _.checked)[0]?.value == "yellow");
+      test.assert([...fieldgroup.querySelectorAll("input")].filter(_ => _.checked)[0]?.value === "yellow");
     },
 
     "Test adding subfields dynamically and using inter-subfield conditions",

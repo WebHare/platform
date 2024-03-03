@@ -39,7 +39,7 @@ function initYouTube(node, video, playback) {
   if (video.endtime)
     args.push("end=" + Math.floor(video.endtime));
 
-  if (typeof playback.controls != "undefined" && !playback.controls)
+  if (typeof playback.controls !== "undefined" && !playback.controls)
     args.push("controls=0");
 
   if (video.loop || playback.loop) {
@@ -80,7 +80,7 @@ function initVimeo(node, video, playback) {
     console.warn("setting an endtime doesn't work for Vimeo video's");
 
   // NOTE: actually disabling controls is possible, but ONLY if the video is hosted by a Plus account or higher
-  if (typeof playback.controls != "undefined" && !playback.controls)
+  if (typeof playback.controls !== "undefined" && !playback.controls)
     console.warn("disabling video controls not possible for Vimeo video's");
 
   if (video.loop || playback.loop)
@@ -155,7 +155,7 @@ function initializeVideoElementV2(node) {
     // Because we don't use <button> we must implement it's keyboard interaction
     playbutton.addEventListener("keypress", function (evt) {
       // we are only interested in enter and space keypressed
-      if (evt.keyCode != 13 && evt.keyCode != 32)
+      if (evt.keyCode !== 13 && evt.keyCode !== 32)
         return;
 
       // prevent other code getting the event or the space both triggering the video AND scrolling the page

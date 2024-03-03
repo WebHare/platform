@@ -51,7 +51,7 @@ function testMenuTap(event) {
     if (activatetouches.length > 1)
       dompack.stop(event);
 
-    if (activatetouches.length == expectnumtouches)
+    if (activatetouches.length === expectnumtouches)
       runPWADebugMenu();
   }
 }
@@ -66,4 +66,3 @@ dompack.register("[data-app-activatedebugmenu]", node => {
   node.addEventListener("touchstart", testMenuTap);
   node.addEventListener("click", testMenuTap);
 });
-

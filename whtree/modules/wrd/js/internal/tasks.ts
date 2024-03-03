@@ -11,7 +11,7 @@ export async function cleanupOutdatedEntities(options?: { forSchema?: string }) 
   const modifiedBefore = addDuration(now, "-P1D");
 
   // List all types of all schemas
-  const schemas = (await listSchemas()).filter(schema => !options?.forSchema || schema.tag == options.forSchema);
+  const schemas = (await listSchemas()).filter(schema => !options?.forSchema || schema.tag === options.forSchema);
   const types = await db<PlatformDB>()
     .selectFrom("wrd.types")
     .select(["id", "deleteclosedafter"])

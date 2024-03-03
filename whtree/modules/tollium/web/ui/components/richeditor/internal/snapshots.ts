@@ -71,11 +71,11 @@ function restoreAttributes(node, attrs) {
   for (const attr in current) {
     if (!(attr in attrs))
       node.removeAttribute(attr);
-    else if (current[attr] != attrs[attr]) {
+    else if (current[attr] !== attrs[attr]) {
       /* Don't overwrite src of img. At paste, the delay-loading will changes
          them to the correct value *after* the creation of the snapshot.
       */
-      if (attr == "src" && node.nodeName.toLowerCase() == "img")
+      if (attr === "src" && node.nodeName.toLowerCase() === "img")
         attrs.src = current.src;
       else
         needset = true;
@@ -100,7 +100,7 @@ function restoreNode(doc, item) {
   if (item.type === "text") {
     try {
       // IE sometimes transforms text nodes to EmptyTextNodes - can't change nodeValue, can't insert
-      if (result.nodeValue != item.nodeValue)
+      if (result.nodeValue !== item.nodeValue)
         result.nodeValue = item.nodeValue;
     } catch (e) {
       // If that happens, don't care about browser undo anymore
@@ -162,9 +162,9 @@ export function restoreSnapshot(rootnode, snapshot) {
   restoreSnapshotRecursive(rootnode.ownerDocument, rootnode, snapshot.childNodes);
 
   const range = snapshot.range.clone();
-  if (range.start.element == snapshot.node)
+  if (range.start.element === snapshot.node)
     range.start.element = rootnode;
-  if (range.end.element == snapshot.node)
+  if (range.end.element === snapshot.node)
     range.end.element = rootnode;
 
   return range;
@@ -221,7 +221,7 @@ export function compressSnapshotChildNodes(left, right) {
       || l.type !== r.type
       || (l.childNodes || r.childNodes) // childnodes are eliminated if equal
       || l.nodeValue !== r.nodeValue
-      || !attrsEqual(l.attrs, r.attrs, r.node.nodeName.toLowerCase() == "img")) {
+      || !attrsEqual(l.attrs, r.attrs, r.node.nodeName.toLowerCase() === "img")) {
       //console.log(`cscn childnode idx ${i} differs`, left, right);
 
       return havechange ? { left, right } : null;
@@ -280,7 +280,7 @@ export function dumpSnapShot(item, snapshot, indent) {
   snapshot = snapshot || item;
   indent = indent || 0;
 
-  if (item.type == "text")
+  if (item.type === "text")
     return `"${item.nodeValue}"`;
 
   let res = `<${item.node.nodeName}`;

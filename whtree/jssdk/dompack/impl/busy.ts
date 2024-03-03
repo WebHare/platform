@@ -37,7 +37,7 @@ function anyModalLocks() {
 /* scheduleCheckUIFree is invoked by release() or when waitUIFree is explicitly called. the call from release() should
    be a 'fast' path. We schedule a full check for the next tick if there's a chance it might actually find a free UI */
 function scheduleCheckUIFree() {
-  if (!uiwatcher && locallocks.length == 0)
+  if (!uiwatcher && locallocks.length === 0)
     uiwatcher = setTimeout(() => checkUIFree(), 0);
 }
 
@@ -127,7 +127,7 @@ class LockManager {
   }
   release(lock: BusyLock) {
     const pos = this.locks.indexOf(lock);
-    if (pos == -1) {
+    if (pos === -1) {
       if (debugFlags.bus) {
         console.error("Duplicate release of busy lock #" + lock.locknum);
         console.log("Lock allocated:");
@@ -148,7 +148,7 @@ class LockManager {
     scheduleCheckUIFree();
   }
   checkUIFree() {
-    if (this.locks.length == 0 && this.busyframes.size == 0 && this.deferreduipromise) {
+    if (this.locks.length === 0 && this.busyframes.size === 0 && this.deferreduipromise) {
       this.deferreduipromise.resolve(true);
       this.deferreduipromise = null;
     }

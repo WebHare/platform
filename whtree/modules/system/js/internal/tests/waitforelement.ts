@@ -6,19 +6,19 @@ export type Selector = SelectorPart[] | string;
 
 function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector): HTMLElement | null {
   let currentmatch: Document | HTMLElement | HTMLElement[] = start;
-  if (typeof selector == "string")
+  if (typeof selector === "string")
     selector = [selector];
 
-  if (typeof selector[0] == 'object' && (selector[0] as HTMLElement).ownerDocument) {
+  if (typeof selector[0] === 'object' && (selector[0] as HTMLElement).ownerDocument) {
     currentmatch = selector[0] as HTMLElement;
     selector = selector.slice(1); //don't edit the original selector list ... repeated waits always need the full list
   }
 
   for (const step of selector) {
-    if (typeof step == "string") {
+    if (typeof step === "string") {
       if (Array.isArray(currentmatch)) {
         //Special case - if currentmatch[0] is an iframe we will query into it (to allow ["#site2", ".whlive-chat__input"] paths)
-        if (currentmatch.length == 1 && currentmatch[0].matches("iframe")) {
+        if (currentmatch.length === 1 && currentmatch[0].matches("iframe")) {
           const doc: Document | null = (currentmatch[0] as HTMLIFrameElement).contentDocument; //enter the iframe document
           if (!doc)
             return null; //not available yet  TODO: also do a cross-origin test and return null if the iframe is inacessible
@@ -33,7 +33,7 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
       currentmatch = dompack.qSA(currentmatch, step);
       if (!currentmatch.length)
         return null; //not yet resolvable
-    } else if (typeof step == "object" && step instanceof RegExp) {
+    } else if (typeof step === "object" && step instanceof RegExp) {
       if (Array.isArray(currentmatch)) { //we could redefine this as a 'is filter'
         currentmatch = currentmatch.filter(_ => _.textContent.match(step));
         if (!currentmatch.length)
@@ -42,7 +42,7 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
         if (!currentmatch.textContent?.match(step))
           return null; //not yet matching
       }
-    } else if (typeof step == "number") {
+    } else if (typeof step === "number") {
       if (!Array.isArray(currentmatch))
         throw new Error("Invalid testfw-selector, require selector before index");
       if (step >= currentmatch.length)

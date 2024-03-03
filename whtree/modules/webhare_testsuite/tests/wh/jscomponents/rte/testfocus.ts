@@ -322,7 +322,7 @@ test.registerTests(
 
     {
       name: 'selectionrestore-setwhenhidden-test',
-      xfail: test.getTestArgument(0) == 'contenteditable' && (browser.getName() === "chrome"), // see comment at -prepare
+      xfail: test.getTestArgument(0) === 'contenteditable' && (browser.getName() === "chrome"), // see comment at -prepare
       test: function (doc, win) {
         const rte = win.rte.getEditor();
         const range = rte.debugGetRawSelectionRange();

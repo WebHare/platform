@@ -220,7 +220,7 @@ export class ApplicationBase {
     this.busylocks.splice(pos, 1);
 
     $todd.DebugTypedLog("messages", "Busy lock released, now " + this.busylocks.length + " locks active");
-    if (this.busylocks.length != 0) //still something up
+    if (this.busylocks.length !== 0) //still something up
       return;
 
     //    this.setBusyFlag(Object.getLength(this.busylocks) && !Object.getLength(this.busysuppressors), false);
@@ -283,7 +283,7 @@ export class ApplicationBase {
 
   /// request a graceful close
   requestClose() {
-    if (this.screenstack.length != 1) //modal dialog open
+    if (this.screenstack.length !== 1) //modal dialog open
       return;
     this.screenstack[0].requestClose();
   }
@@ -323,13 +323,13 @@ export class ApplicationBase {
   }
 
   setVisible(newvisible) {
-    if (this.visible == newvisible)
+    if (this.visible === newvisible)
       return;
 
     this.visible = newvisible;
 
     if (!this.visible) {
-      if (this == $todd.applicationstack.at(-1)) //we're the currently selected app
+      if (this === $todd.applicationstack.at(-1)) //we're the currently selected app
       {
         if ($todd.applicationstack.length >= 2)
           $todd.applicationstack[$todd.applicationstack.length - 2].activateApp();
@@ -405,12 +405,12 @@ export class ApplicationBase {
   // Application state
   //
   isActiveApplication() {
-    return this == $todd.applicationstack.at(-1);
+    return this === $todd.applicationstack.at(-1);
   }
   activateApp() {
     const curapp = $todd.applicationstack.at(-1);
 
-    if (curapp != this) {
+    if (curapp !== this) {
       if (curapp) {
         //deactivate current application
         curapp.appnodes.root.classList.remove('appcanvas--visible');
@@ -491,7 +491,7 @@ export class ApplicationBase {
 
   setAppTitle(newtitle) {
     this.title = newtitle;
-    if ($todd.getActiveApplication() == this) {
+    if ($todd.getActiveApplication() === this) {
       const prefix = this.shell.getCurrentSettings().browsertitleprefix;
       document.title = (prefix ? prefix + ' ' : '') + this.title;
     }
@@ -826,7 +826,7 @@ export class BackendApplication extends ApplicationBase {
     // Execute callbacks for the events, and remove them from the callbacks array
     replies.forEach(reply => {
       $todd.DebugTypedLog("messages", 'got reply for ', reply.seqnr);
-      const pos = this.eventcallbacks.findIndex(callback => callback.seqnr == reply.seqnr);
+      const pos = this.eventcallbacks.findIndex(callback => callback.seqnr === reply.seqnr);
       if (pos >= 0) {
         const rec = this.eventcallbacks.splice(pos, 1)[0];
         if (rec.callback)
@@ -854,7 +854,7 @@ export class BackendApplication extends ApplicationBase {
     const types = [];
     msg.screens.forEach(screen =>
       screen.messages.forEach(screenmsg => {
-        if (screenmsg.instr == 'component' && !types.includes(screenmsg.type))
+        if (screenmsg.instr === 'component' && !types.includes(screenmsg.type))
           types.push(screenmsg.type);
       }));
     return types;
@@ -883,7 +883,7 @@ export class BackendApplication extends ApplicationBase {
     const promises = [];
     for (const screen of msg.screens)
       for (const screenmsg of screen.messages)
-        if (screenmsg.instr == 'component') {
+        if (screenmsg.instr === 'component') {
           const componenttype = this.shell.getComponentType(screenmsg.type);
           const promise = componenttype.asyncTransformMessage(screenmsg);
           if (promise)
@@ -910,29 +910,29 @@ export class BackendApplication extends ApplicationBase {
     response.instructions.forEach(function (instr) {
       const instrname = instr.instr;
 
-      if (instrname == "shellinstruction")
+      if (instrname === "shellinstruction")
         this.shell.executeInstruction(instr);
-      else if (instrname == "reply")
+      else if (instrname === "reply")
         pendingreplies.push(instr);
-      else if (instrname == "appdebuginfo") {
+      else if (instrname === "appdebuginfo") {
         instr.msg.trim().split('\n').forEach(line => console.log("APP:" + line));
-      } else if (instrname == "init") {
+      } else if (instrname === "init") {
         isappinit = true;
         this.applyAppInit(instr);
-      } else if (instrname == "appupdate") {
+      } else if (instrname === "appupdate") {
         this.applyAppUpdate(instr);
-      } else if (instrname == "grabactivation") {
+      } else if (instrname === "grabactivation") {
         grabactivation = 1;
-      } else if (instrname == "redirect") {
+      } else if (instrname === "redirect") {
         if (whintegration.config.tollium.frontendmode)
           window.parent.location.href = instr.url;
         else
           console.warn("Ignoring redirection instruction, they are only accepted in frontend mode");
-      } else if (instrname == "sendformstate") {
+      } else if (instrname === "sendformstate") {
         if (sendformstate < instr.id)
           sendformstate = instr.id;
         sendformstatesync = sendformstatesync || instr.sync;
-      } else if (instrname == "appcall") {
+      } else if (instrname === "appcall") {
         this._executeAppCall(instr);
       } else {
         console.error("Unknown instruction '" + instrname + "' received");
@@ -1092,7 +1092,7 @@ export class BackendApplication extends ApplicationBase {
       initlock.release();
       await runSimpleScreen(this,
         {
-          text: whintegration.config.dtapstage == 'development'
+          text: whintegration.config.dtapstage === 'development'
             ? getTid("tollium:shell.errors.appstartfailed-development")
             : getTid("tollium:shell.errors.appstartfailed"),
           buttons: [
@@ -1109,7 +1109,7 @@ export class BackendApplication extends ApplicationBase {
     //ADDME dealing with subapps?
 
     //destroy any screens - FIXME why??
-    if (data.status != 'ok') {
+    if (data.status !== 'ok') {
       this.setAppTitle('Application');
       this._fireUpdateAppEvent();
       handleApplicationErrors(this, data);
@@ -1120,7 +1120,7 @@ export class BackendApplication extends ApplicationBase {
     this.shell.registerApplicationFrontendLink({ ...data, commhost: location.origin });
 
     const appstartmsg = data.appdata;
-    if (appstartmsg.type == 'appstart') {
+    if (appstartmsg.type === 'appstart') {
       //this.startoptions = options;
 
       this.start(data.frontendid);

@@ -49,7 +49,7 @@ export default class ObjButtonGroup extends ComponentBase {
   readdComponent(comp) {
     // Replace the offending component
     //if(!comp.parentsplititem)
-    if (comp.parentcomp != this)
+    if (comp.parentcomp !== this)
       return console.error('Child ' + comp.name + ' not inside the buttongroup is trying to replace itself');
 
     const newcomp = this.owner.addComponent(this, comp.name);
@@ -92,7 +92,7 @@ export default class ObjButtonGroup extends ComponentBase {
   calculateDimWidth() {
     const borderwidth = toddtools.getBorderWidth(this.borders);
 
-    if (this.layout == "horizontal") {
+    if (this.layout === "horizontal") {
       const divideroverhead = Number(Math.max(0, this.buttons.length - 1));
       this.width.overhead = divideroverhead + borderwidth;
       this.setSizeToSumOf('width', this.buttons, this.width.overhead);
@@ -104,7 +104,7 @@ export default class ObjButtonGroup extends ComponentBase {
   calculateDimHeight() {
     const borderheight = toddtools.getBorderHeight(this.borders);
 
-    if (this.layout == "horizontal") {
+    if (this.layout === "horizontal") {
       this.height.overhead = borderheight;
       this.setSizeToMaxOf('height', this.buttons, this.height.overhead);
     } else {
@@ -116,14 +116,14 @@ export default class ObjButtonGroup extends ComponentBase {
 
   applySetWidth() {
     const setwidth = this.width.set - this.width.overhead;
-    if (this.layout == "horizontal")
+    if (this.layout === "horizontal")
       this.distributeSizeProps('width', setwidth, this.buttons, true);
     else
       this.buttons.forEach(button => button.setWidth(setwidth));
   }
   applySetHeight() {
     const setheight = this.height.set - this.height.overhead;
-    if (this.layout == "horizontal")
+    if (this.layout === "horizontal")
       this.buttons.forEach(button => button.setHeight(setheight));
     else
       this.distributeSizeProps('height', setheight, this.buttons, false);
