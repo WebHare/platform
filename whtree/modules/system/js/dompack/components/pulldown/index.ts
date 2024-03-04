@@ -72,7 +72,7 @@ function mySelectSetSelectedIndex(newvalue) {
 
 export default class Pulldown extends SelectList {
   /** options.fixitemswidth Make the items container as wide as the pulldown. Defaults to true */
-  constructor(node, options, old_options) {
+  constructor(node, options?, old_options?) {
     if (typeof options === 'string')
       options = { ...old_options, baseclass: options };
 

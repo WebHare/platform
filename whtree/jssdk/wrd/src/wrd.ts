@@ -1,5 +1,6 @@
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 export type { WRDAuthCustomizer, LookupUsernameParameters, OnOpenIdReturnParameters } from "./auth";
+export { getRequestUser } from "./authfrontend";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { db } from "@webhare/whdb";
 

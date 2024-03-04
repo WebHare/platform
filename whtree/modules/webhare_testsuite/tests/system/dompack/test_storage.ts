@@ -1,9 +1,10 @@
 import * as test from "@webhare/test-frontend";
 import * as dompack from "@webhare/dompack";
 import { Money } from "@webhare/std";
+import type { DompackApi } from "@mod-webhare_testsuite/web/tests/pages/dompack/dompackexample";
 
 function runSharedTests() {
-  const testApi = test.getWin().__testApi;
+  const testApi = test.importExposed<DompackApi>("dompackApi");
 
   test.eq(null, testApi.getLocal("testFwKey"));
   test.eq(null, testApi.getSession("testFwKey"));
@@ -35,7 +36,7 @@ test.run(
       dompack.deleteCookie("testFwCookie");
 
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=empty'); //we need 'a' page, doesn't matter which
-      const testApi = test.getWin().__testApi;
+      const testApi = test.importExposed<DompackApi>("dompackApi");
       test.assert(!testApi.isStorageIsolated());
       runSharedTests();
     },
@@ -43,7 +44,7 @@ test.run(
     "Test isolated storage",
     async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=empty&isolatestorage=1');
-      const testApi = test.getWin().__testApi;
+      const testApi = test.importExposed<DompackApi>("dompackApi");
       test.assert(testApi.isStorageIsolated());
       runSharedTests();
     },
@@ -51,7 +52,7 @@ test.run(
     "Test non-isolated storage again",
     async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=empty'); //we need 'a' page, doesn't matter which
-      const testApi = test.getWin().__testApi;
+      const testApi = test.importExposed<DompackApi>("dompackApi");
       test.eq({ x: 42 }, testApi.getLocal("testFwKey"));
       test.eq({ x: 32 }, testApi.getSession("testFwKey"));
       test.eq(null, testApi.getCookie("testFwCookie"));

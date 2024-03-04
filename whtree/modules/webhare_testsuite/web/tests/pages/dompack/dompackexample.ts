@@ -4,6 +4,7 @@
 import './dompackexample.scss';
 
 import * as dompack from "@webhare/dompack";
+import { expose } from "@webhare/test-frontend";
 import Pulldown from "dompack/components/pulldown/index";
 import AutoSuggest from "dompack/components/autosuggest/index";
 import StaticSuggestionList from "dompack/components/autosuggest/staticlist";
@@ -11,46 +12,22 @@ import * as dialog from 'dompack/components/dialog/index';
 import * as dialogapi from 'dompack/api/dialog';
 import OverlayManager from "@webhare/dompack-overlays";
 
-const dompackTestApi = {
-  getLocal: dompack.getLocal,
-  setLocal: dompack.setLocal,
-  setSession: dompack.setSession,
-  getSession: dompack.getSession,
-  isStorageIsolated: dompack.isStorageIsolated,
-  getCookie: dompack.getCookie,
-  setCookie: dompack.setCookie,
-  deleteCookie: dompack.deleteCookie,
-  listCookies: dompack.listCookies,
-  flagUIBusy: dompack.flagUIBusy,
-  setupBusyModal: dompack.setupBusyModal
-};
-
-export type DompackTestApi = typeof dompackTestApi;
-
-declare global {
-  interface Window {
-    __testApi: DompackTestApi;
-  }
-}
-window.__testApi = dompackTestApi;
+const dompackApi = expose("dompackApi", dompack);
+export type DompackApi = typeof dompackApi;
 
 function fillRidiculous() {
   dompack.qR('#ridiculous').replaceChildren(dompack.create("option", { selected: true, disabled: true, textContent: 'Many' }));
   for (let i = 1; i < 360; ++i) {
     const node = dompack.create("option", { value: i, textContent: "item " + i });
-    dompack.qS('#ridiculous').appendChild(node);
+    dompack.qR('#ridiculous').appendChild(node);
   }
 }
 function refillJustenough() {
-  dompack.empty(dompack.qS('#justenoughselect'));
-  dompack.qS('#justenoughselect').appendChild(dompack.create('option', {
+  dompack.qR('#justenoughselect').replaceChildren(dompack.create('option', {
     selected: true,
     disabled: true,
     textContent: 'Just Enough'
-  }));
-  ["can't", "get", "it", "though"].forEach(function (text) {
-    dompack.qS('#justenoughselect').appendChild(dompack.create('option', { value: text, textContent: text }));
-  });
+  }), ...["can't", "get", "it", "though"].map(text => dompack.create('option', { value: text, textContent: text })));
 }
 function makeScrollable() {
   console.log("makeScrollable");
@@ -58,30 +35,29 @@ function makeScrollable() {
 }
 function toggleClass() {
   console.log("toggleClass");
-  dompack.qS("#togglethisclass").classList.toggle("copytoggle");
+  dompack.qR("#togglethisclass").classList.toggle("copytoggle");
 }
 function pageinit() {
   if (dompack.qS('#refill_justenough')) {
-    dompack.qS('#refill_justenough').addEventListener("click", refillJustenough);
-    dompack.qS('#fillridiculous').addEventListener("click", fillRidiculous);
-    dompack.qS('#scrollable').addEventListener("click", makeScrollable);
-    if (dompack.qS('#toggleclass'))
-      dompack.qS('#toggleclass').addEventListener("click", toggleClass);
+    dompack.qR('#refill_justenough').addEventListener("click", refillJustenough);
+    dompack.qR('#fillridiculous').addEventListener("click", fillRidiculous);
+    dompack.qR('#scrollable').addEventListener("click", makeScrollable);
+    dompack.qS('#toggleclass')?.addEventListener("click", toggleClass);
   }
 }
 
 
-function onDirectSuggest(inword) {
+function onDirectSuggest(inword: string) {
   if (inword.includes('-'))
     return [];
   return "123456789_.".split("").map(char => inword + char);
 }
 
-const regcountmaps = { item: [], current: [] };
+const regcountmaps = { item: {} as Record<string, number>, current: {} as Record<string, number> };
 
-function updateRegCount(type, node) {
+function updateRegCount(type: 'item' | 'current', node: HTMLElement) {
   //strip any reg# from the text, so we have a unique key into our regcounts;
-  const text = node.textContent.split(' reg#')[0];
+  const text = node.textContent?.split(' reg#')[0] || '';
   if (!regcountmaps[type][text])
     regcountmaps[type][text] = 0;
 
@@ -114,10 +90,10 @@ dompack.register('select', node => new Pulldown(node));
 dompack.register('input.directsuggest', node => new AutoSuggest(node, onDirectSuggest, { immediateresuggest: true }));
 dompack.register('input.staticlistsuggest', node =>
   new AutoSuggest(node
-    , new StaticSuggestionList(["Aap", "Alfa", "Noot", "Mies", "Spatie "], { casesensitive: ["1", "true"].includes(node.dataset.casesensitive) })
+    , new StaticSuggestionList(["Aap", "Alfa", "Noot", "Mies", "Spatie "], { casesensitive: ["1", "true"].includes(node.dataset.casesensitive || '') })
     , {
-      minlength: parseInt(node.dataset.minlength),
-      triminput: !["0", "false"].includes(node.dataset.triminput)
+      minlength: parseInt(node.dataset.minlength || ''),
+      triminput: !["0", "false"].includes(node.dataset.triminput || '')
     }));
 
 dompack.register('input.titleslistsuggest', node =>
