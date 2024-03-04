@@ -26,7 +26,7 @@ export const configurableSubsystems: Record<ConfigurableSubsystem, SubsystemData
 
 export interface ApplyConfigurationOptions {
   modules?: string[];
-  subsystems: ConfigurableSubsystem[];
+  subsystems: Array<ConfigurableSubsystem | "all">;
   verbose?: boolean;
   force?: boolean;
   source: string;
@@ -37,23 +37,25 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
   void (mutex);
 
   const start = Date.now();
-  logDebug("platform:configuration", { type: "apply", modules: options.modules, subsystems: options.subsystems, source: options.source });
+  const todo = (options.subsystems.includes('all') ? Object.keys(configurableSubsystems) : options.subsystems) as ConfigurableSubsystem[];
+  const verbose = Boolean(options.verbose);
+  logDebug("platform:configuration", { type: "apply", modules: options.modules, subsystems: todo, source: options.source });
   try {
     //Which config files to update
     const togenerate = new Set<GeneratorType>(["config"]);
     for (const [subsystem, settings] of Object.entries(configurableSubsystems))
-      if (options.subsystems.includes(subsystem as ConfigurableSubsystem) && settings.generate)
+      if (settings.generate && (todo.includes(subsystem as ConfigurableSubsystem)))
         settings.generate.forEach(_ => togenerate.add(_));
 
-    const generateContext = await buildGeneratorContext(null, options.verbose || false);
-    await updateGeneratedFiles([...togenerate], { verbose: options.verbose, nodb: false, dryRun: false, generateContext });
+    const generateContext = await buildGeneratorContext(null, verbose || false);
+    await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: false, dryRun: false, generateContext });
 
-    if (options.subsystems.includes('assetpacks')) {
+    if (todo.includes('assetpacks')) {
       const assetpackcontroller = await openBackendService<AssetPackControlClient>("publisher:assetpackcontrol");
       await assetpackcontroller.reload();
     }
 
-    if (options.subsystems.includes('registry')) {
+    if (todo.includes('registry')) {
       /* Initialize missing registry keys. This should be done before eg. WRD so that wrd upgrade scripts can read the registry
 
          We could port this to JS... but then we'd have to process XML too *and* HS would have to be updated to process YML keys too (to match expectations)
@@ -62,24 +64,24 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
       await loadlib("mod::system/lib/internal/modules/moduleregistry.whlib").InitModuleRegistryKeys(options.modules || Object.keys(backendConfig.module));
     }
 
-    if (options.subsystems.includes('wrd')) {
+    if (todo.includes('wrd')) {
       //Update WRD schemas (TODO limit ourselves based on module mask)
       if (options.verbose)
         console.log("Updating WRD schemas based on their schema definitions");
       const applyupdates = loadlib("mod::wrd/lib/internal/metadata/applyupdates.whlib");
-      if (!await applyupdates.UpdateAllModuleSchemas({ schemamasks: [], reportupdates: true, reportskips: options.verbose, force: options.force }))
+      if (!await applyupdates.UpdateAllModuleSchemas({ schemamasks: [], reportupdates: true, reportskips: verbose, force: options.force }))
         process.exitCode = 1;
 
       await beginWork();
       await scheduleTimedTask("wrd:scanforissues");
       await commitWork();
 
-      await updateGeneratedFiles(["wrd"], { verbose: options.verbose, nodb: false, dryRun: false, generateContext });
+      await updateGeneratedFiles(["wrd"], { verbose, nodb: false, dryRun: false, generateContext });
     }
 
-    if (options.subsystems.includes('siteprofiles')) {
+    if (todo.includes('siteprofiles')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true);
-    } else if (options.subsystems.includes('siteprofilerefs')) {
+    } else if (todo.includes('siteprofilerefs')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib").UpdateSiteProfileRefs(null);
     }
 

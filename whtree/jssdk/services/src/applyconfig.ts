@@ -19,7 +19,7 @@ export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
 
 //TODO Support module targeted updates, for now we only record the subsystems
 class ApplyFinishHandler implements FinishHandler {
-  private subsystems = new Set<ConfigurableSubsystem>();
+  private subsystems = new Set<ConfigurableSubsystem | "all">();
   private sources = new Set<string>();
   private defer = createDeferred<void>();
   private applying = false;
@@ -28,7 +28,7 @@ class ApplyFinishHandler implements FinishHandler {
     this.defer.promise.catch(() => { }); //prevent unhandled rejection if the promise is never requested
   }
 
-  add(subsystem: ConfigurableSubsystem, source: string): void {
+  add(subsystem: ConfigurableSubsystem | "all", source: string): void {
     this.sources.add(source);
     this.subsystems.add(subsystem);
   }
