@@ -28,6 +28,9 @@ test.run([
   async function () {
     test.assert(test.qR('#isloggedin').checked);
     test.assert(test.qR('#js_isloggedin').checked, "JavaScript isloggedin should be set");
+    const frontendAuthApi = test.importExposed<FrontendAuthApi>("frontendAuthApi");
+    const userinfo = await frontendAuthApi.validateLoggedinUser();
+    test.eqPartial({ user: "Pietje Tester" }, userinfo);
   },
   'click #static',
   async function () {

@@ -1,6 +1,8 @@
+import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { MyService } from "./type";
 import { debugFlags } from "@webhare/env";
 import { WebRequest } from "@webhare/router";
+import { getRequestUser } from "@webhare/wrd";
 
 export class TestNoAuthJS implements MyService {
   private req: WebRequest;
@@ -27,5 +29,15 @@ export class TestNoAuthJS implements MyService {
   async doConsoleLog() {
     console.log(`This log statement was generated on the server by the TestNoAuthJS service`);
     return null;
+  }
+  async validateLoggedinUser(pathname: string): Promise<{ user: string }> {
+    const userinfo = await getRequestUser(this.req, pathname);
+    if (userinfo) {
+      const user = await wrdTestschemaSchema.getFields("wrdPerson", userinfo.user, ["wrdFullName"]);
+      if (user)
+        return { user: user.wrdFullName };
+    }
+
+    return { user: "" };
   }
 }
