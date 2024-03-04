@@ -330,10 +330,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     IF(webdesign EXTENDSFROM WebDesignBase AND webdesign->IsDynamicPublication() AND NOT this->HasFailed())
     {
-      IF(GetWebCookie(this->cookiename || "_j") = "" //missing javascript state
-         AND GetWebCookie(this->cookiename) != "")
+      IF(GetWebCookie(this->cookiename || "_j") = "") //missing javascript state
       {
-        this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
+        STRING logincookie := GetWebCookie(this->cookiename);
+        IF(logincookie != "" AND logincookie NOT LIKE "* idToken:*") //don't destroy modern cookies
+        {
+          this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
+        }
       }
     }
   }
