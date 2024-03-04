@@ -23,7 +23,7 @@ export interface LoginUsernameLookupOptions {
 }
 
 export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
-  /** Request a persisent login */
+  /** Request a persistent login */
   persistent?: boolean;
 }
 
