@@ -1,19 +1,13 @@
+import { prepareWRDAuthTest } from "@mod-webhare_testsuite/js/wrd/frontendhelpers";
+import type { FrontendAuthApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/pages/wrdauthtest";
 import * as test from "@webhare/test-frontend";
 
-let setupdata: { url: string } | undefined;
-
-async function prepareReset() {
-  setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest/", "-js@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
-  await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest/");
-
-  if (test.getWin().frontendTestApi.isLoggedIn()) {
-    await test.getWin().frontendTestApi.logout();
-    await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest/");
-  }
-}
+let setupdata;
 
 test.run([
-  prepareReset,
+  async function () {
+    setupdata = await prepareWRDAuthTest("js", { js: true, multisite: false });
+  },
   "login",
   async function () {
     test.assert(!test.qR('#isloggedin').checked);

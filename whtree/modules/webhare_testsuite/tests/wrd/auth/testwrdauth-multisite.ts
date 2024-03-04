@@ -1,23 +1,12 @@
-//import * as test from "@mod-system/js/wh/testframework";
+import { prepareWRDAuthTest } from "@mod-webhare_testsuite/js/wrd/frontendhelpers";
+import type { FrontendAuthApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/pages/wrdauthtest";
 import * as test from "@webhare/test-frontend";
-
-async function prepareReset() {
-  await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest/", "-multisite@beta.webhare.net", true); //executes TestInvoke_SetupWRDAuth
-  await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-multisite/");
-
-  if (test.getWin().frontendTestApi.isLoggedIn()) {
-    await test.getWin().frontendTestApi.logout();
-    await test.load(test.getWin().location.href);
-  }
-}
 
 test.run(
   [
-    prepareReset,
-
     "Test login APIs",
     async function () {
-      //The login APIs
+      await prepareWRDAuthTest("multisite", { multisite: true });
     },
 
     "Login for site1",
@@ -55,7 +44,8 @@ test.run(
       test.assert(!test.qR('#js_isloggedin').checked);
 
       //try the JS login
-      const res = await test.getWin().frontendTestApi.login('jantje-multisite@beta.webhare.net', 'secret', { site: '2' });
+      const frontendAuthApi = test.importExposed<FrontendAuthApi>("frontendAuthApi");
+      const res = await frontendAuthApi.login('jantje-multisite@beta.webhare.net', 'secret', { site: '2' });
       test.eq(true, res.loggedIn);
       await test.load(test.getWin().location.href);
       test.assert(test.qR('#js_isloggedin').checked);

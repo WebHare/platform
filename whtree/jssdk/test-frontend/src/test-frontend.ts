@@ -21,6 +21,32 @@ export async function waitForLoad(): Promise<void> {
   await oldWait("load");
 }
 
+/** Expose an API for use by tests through importExposed */
+export function expose<T>(name: string, api: T): T {
+  try {
+    if (window.top?.__testframework)
+      window.top.__testframework.expose(name, api);
+  } catch (e) {
+    console.log(`Failed to register exposed API ${name}`, e);
+  }
+  return api;
+}
+
+/** Retrieve an exposed API */
+export function importExposed<T>(name: string): T {
+  let testfw;
+  try {
+    testfw = window.top?.__testframework;
+  } catch (e) {
+    //ignore
+  }
+
+  if (!testfw)
+    throw new Error(`Testframework is not available`);
+
+  return testfw.importExposed(name) as T;
+}
+
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
 

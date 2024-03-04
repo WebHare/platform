@@ -10,7 +10,6 @@ import { reportException, waitForReports } from "@mod-system/js/wh/errorreportin
 import "./testsuite.css";
 import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
-import { DeferredPromise } from '@mod-system/js/types';
 
 const sourceCache = {};
 const testframetabname = 'testframe' + Math.random();
@@ -41,6 +40,12 @@ function findBestStackLocation(stacktrace) {
     !filename.endsWith("/testsuite.tsx"));
 
   return filtered[0] || null;
+}
+
+declare global {
+  interface Window {
+    __testframework?: TestFramework;
+  }
 }
 
 class TestFramework {
@@ -77,13 +82,20 @@ class TestFramework {
 
   waitstack = [];
 
+  private exposed = new Map<string, unknown>();
+
   constructor() {
     this.pagetitle = document.title;
+    addEventListener("message", this.onMessage);
 
-    if (window.__testframework)
-      return console.error("Multiple testframeworks registered. Only one instance of a TestFramework may be created");
-    if (window.parent && window.parent.__testframework)
-      return console.error("Recursive testframework detected");
+    if (window.__testframework) {
+      console.error("Multiple testframeworks registered. Only one instance of a TestFramework may be created");
+      return;
+    }
+    if (window.parent && window.parent.__testframework) {
+      console.error("Recursive testframework detected");
+      return;
+    }
     window.__testframework = this;
 
     this.stoppromise = dompack.createDeferred();
@@ -100,10 +112,27 @@ class TestFramework {
         this.rebuildFrameTabs();
       }
     });
-
-    //for debugging, offer access to 'test' and 'testfw' in the main frame
-    window.testfw = this;
   }
+
+  onMessage = (event: MessageEvent) => {
+    if (event.data?.type === "compilefailure") {
+      //Clean this up a bit, this was just a quick copy from testbundlecompilefailed.es
+      const steps = [
+        {
+          name: "test compilation failed",
+          test: () => {
+            const bundlestatus = event.data.bundlestatus;
+            this.log(`Got compilation errors for ${bundlestatus.file}:\n${bundlestatus.errors}`);
+            throw new Error(`Compilation of ${bundlestatus.file} failed: ${bundlestatus.errors}`);
+          }
+        }
+      ];
+
+      const setTestSuiteCallbacks = () => void (0);
+      this.runTestSteps(steps, setTestSuiteCallbacks);
+    }
+  };
+
   haveDevtoolsUplink() {
     return Boolean(this.reportid);
   }
@@ -163,7 +192,23 @@ class TestFramework {
     this.scriptframedoc = null;
   }
 
+  expose(name: string, api: unknown) {
+    //clear the old version if we owned it (no need as soons we register as a proxy)
+    if (name in window && this.exposed.get(name) === (window as unknown as Record<string, unknown>)[name])
+      delete (window as unknown as Record<string, unknown>)[name];
 
+    this.exposed.set(name, api);
+    if (!(name in window)) //also expose as a global object for devtools convenience
+      (window as unknown as Record<string, unknown>)[name] = this.importExposed(name);
+  }
+
+  importExposed(name: string) {
+    //TODO Return a proxy so we can automatically rebind the returned interface on reload
+    if (!this.exposed.has(name))
+      throw new Error(`No such exposed API '${name}'`);
+
+    return this.exposed.get(name);
+  }
 
   /// Constuct an error with a fixed stack trace
   constructErrorWithTrace(errormsg) {
@@ -1164,6 +1209,8 @@ class TestFramework {
 }
 
 class TestSuite {
+  testfw?: TestFramework;
+
   constructor() {
     this.gottests = false;
     this.started = false;
@@ -1300,24 +1347,3 @@ class TestSuite {
 
 
 new TestSuite;
-
-function onMessage(event: MessageEvent) {
-  if (event.data?.type === "compilefailure") {
-    //Clean this up a bit, this was just a quick copy from testbundlecompilefailed.es
-    const steps = [
-      {
-        name: "test compilation failed",
-        test: function gotTestError() {
-          const bundlestatus = event.data.bundlestatus;
-          testfw.log(`Got compilation errors for ${bundlestatus.file}:\n${bundlestatus.errors}`);
-          throw new Error(`Compilation of ${bundlestatus.file} failed: ${bundlestatus.errors}`);
-        }
-      }
-    ];
-
-    const setTestSuiteCallbacks = () => void (0);
-    window.__testframework.runTestSteps(steps, setTestSuiteCallbacks);
-  }
-}
-
-addEventListener("message", onMessage);

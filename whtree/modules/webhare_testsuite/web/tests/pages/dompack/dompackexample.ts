@@ -4,6 +4,7 @@
 import './dompackexample.scss';
 
 import * as dompack from "@webhare/dompack";
+import { expose } from "@webhare/test-frontend";
 import Pulldown from "dompack/components/pulldown/index";
 import AutoSuggest from "dompack/components/autosuggest/index";
 import StaticSuggestionList from "dompack/components/autosuggest/staticlist";
@@ -11,28 +12,8 @@ import * as dialog from 'dompack/components/dialog/index';
 import * as dialogapi from 'dompack/api/dialog';
 import OverlayManager from "@webhare/dompack-overlays";
 
-const dompackTestApi = {
-  getLocal: dompack.getLocal,
-  setLocal: dompack.setLocal,
-  setSession: dompack.setSession,
-  getSession: dompack.getSession,
-  isStorageIsolated: dompack.isStorageIsolated,
-  getCookie: dompack.getCookie,
-  setCookie: dompack.setCookie,
-  deleteCookie: dompack.deleteCookie,
-  listCookies: dompack.listCookies,
-  flagUIBusy: dompack.flagUIBusy,
-  setupBusyModal: dompack.setupBusyModal
-};
-
-export type DompackTestApi = typeof dompackTestApi;
-
-declare global {
-  interface Window {
-    __testApi: DompackTestApi;
-  }
-}
-window.__testApi = dompackTestApi;
+const dompackApi = expose("dompackApi", dompack);
+export type DompackApi = typeof dompackApi;
 
 function fillRidiculous() {
   dompack.qR('#ridiculous').replaceChildren(dompack.create("option", { selected: true, disabled: true, textContent: 'Many' }));
