@@ -4,7 +4,7 @@
 import { normalizeSelectValues } from './index';
 
 export default class StaticSuggestionList {
-  constructor(list, options) {
+  constructor(list, options?) {
     this._casesensitive = options && options.casesensitive;
     this._list = normalizeSelectValues(list);
   }
