@@ -193,7 +193,7 @@ class TestFramework {
   }
 
   expose(name: string, api: unknown) {
-    //clear the old version if we owned it (no need as soons we register as a proxy)
+    //clear the old version if we owned it (no need as soon we register as a proxy)
     if (name in window && this.exposed.get(name) === (window as unknown as Record<string, unknown>)[name])
       delete (window as unknown as Record<string, unknown>)[name];
 
