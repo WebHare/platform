@@ -1,7 +1,8 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
-import { Money } from "../../../../../jssdk/std/money";
 import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
+import { isDate } from "../../../../../jssdk/std/datetime";
+import { Money } from "../../../../../jssdk/std/money";
 import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 
@@ -120,9 +121,6 @@ export function annotateExistingArray<V extends ArrayVariableType>(type: Variabl
   return Object.defineProperty(array, "__hstype", { value: type });
 }
 
-export function isDate(value: unknown): value is Date {
-  return Boolean(typeof value === "object" && value && "getDate" in value);
-}
 
 const MarshalFormatType = 2;
 const MarshalPacketFormatType = 3;
@@ -371,7 +369,7 @@ function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
 
 export function determineType(value: unknown): VariableType {
   if (Array.isArray(value)) {
-    if (value && typeof value == "object" && "__hstype" in value) {
+    if (value && typeof value === "object" && "__hstype" in value) {
       const rec = value as Record<"__hstype", VariableType>;
       if (rec.__hstype)
         return rec.__hstype as VariableType;
@@ -394,6 +392,8 @@ export function determineType(value: unknown): VariableType {
         return VariableType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
         return VariableType.String;
+      if (Money.isMoney(value))
+        return VariableType.HSMoney;
       if (isDate(value))
         return VariableType.DateTime;
       if (value && "__hstype" in value) {

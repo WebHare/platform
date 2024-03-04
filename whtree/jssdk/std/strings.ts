@@ -1,3 +1,4 @@
+import { isDate } from "./datetime";
 import { Money } from "./money";
 
 /** Encode string for use in a regexp
@@ -140,10 +141,9 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
   const usereplacer: JSONReplacerArgument = options?.stable || options?.typed ? (function (this: unknown, key: string, value: unknown) {
     if (options.typed) {
       const origvalue = (this as Record<string, unknown>)[key]; //We can't use 'value' as .toJSON() will already have been invoked
-
-      if (origvalue instanceof Money)
+      if (Money.isMoney(origvalue))
         value = { "$stdType": "Money", money: origvalue.value };
-      else if (origvalue instanceof Date)
+      else if (isDate(origvalue))
         value = { "$stdType": "Date", date: origvalue.toISOString() };
       else if (typeof origvalue === "object" && (origvalue as { "$stdType": string })?.["$stdType"])
         throw new Error(`Cannot encode objects with already embedded '$stdType's`);

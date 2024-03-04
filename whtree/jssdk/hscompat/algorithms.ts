@@ -1,5 +1,5 @@
-import { Money } from "@webhare/std";
-import { isDate, determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { isDate, Money } from "@webhare/std";
+import { determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { defaultDateTime } from "./datetime";
 
 export type ComparableType = number | null | bigint | string | Date | Money | boolean | Buffer;

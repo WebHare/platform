@@ -11,32 +11,28 @@ import * as dialog from 'dompack/components/dialog/index';
 import * as dialogapi from 'dompack/api/dialog';
 import OverlayManager from "@webhare/dompack-overlays";
 
-export interface DompackExampleGlobalAPI {
-  storageSetLocal: typeof dompack.setLocal;
-  storageGetLocal: typeof dompack.getLocal;
-  storageSetSession: typeof dompack.setSession;
-  storageGetSession: typeof dompack.getSession;
-  storageIsIsolated: typeof dompack.isStorageIsolated;
-  cookieRead: typeof dompack.getCookie;
-  cookieWrite: typeof dompack.setCookie;
-  cookieRemove: typeof dompack.deleteCookie;
-  cookieList: typeof dompack.listCookies;
-  flagUIBusy: typeof dompack.flagUIBusy;
-  setupBusyModal: typeof dompack.setupBusyModal;
-}
+const dompackTestApi = {
+  getLocal: dompack.getLocal,
+  setLocal: dompack.setLocal,
+  setSession: dompack.setSession,
+  getSession: dompack.getSession,
+  isStorageIsolated: dompack.isStorageIsolated,
+  getCookie: dompack.getCookie,
+  setCookie: dompack.setCookie,
+  deleteCookie: dompack.deleteCookie,
+  listCookies: dompack.listCookies,
+  flagUIBusy: dompack.flagUIBusy,
+  setupBusyModal: dompack.setupBusyModal
+};
 
-const updatewindow = window as typeof window & DompackExampleGlobalAPI;
-updatewindow.storageSetLocal = dompack.setLocal;
-updatewindow.storageGetLocal = dompack.getLocal;
-updatewindow.storageSetSession = dompack.setSession;
-updatewindow.storageGetSession = dompack.getSession;
-updatewindow.storageIsIsolated = dompack.isStorageIsolated;
-updatewindow.cookieRead = dompack.getCookie;
-updatewindow.cookieWrite = dompack.setCookie;
-updatewindow.cookieRemove = dompack.deleteCookie;
-updatewindow.cookieList = dompack.listCookies;
-updatewindow.flagUIBusy = dompack.flagUIBusy;
-updatewindow.setupBusyModal = dompack.setupBusyModal;
+export type DompackTestApi = typeof dompackTestApi;
+
+declare global {
+  interface Window {
+    __testApi: DompackTestApi;
+  }
+}
+window.__testApi = dompackTestApi;
 
 function fillRidiculous() {
   dompack.qR('#ridiculous').replaceChildren(dompack.create("option", { selected: true, disabled: true, textContent: 'Many' }));
