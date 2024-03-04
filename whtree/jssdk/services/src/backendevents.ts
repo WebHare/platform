@@ -24,7 +24,7 @@ class EventSubscription {
       if (!isValidBackendEventName(mask.replaceAll('*', 'xx')))
         throw new Error(`Mask must be in the format module:eventname, got '${mask}'`);
 
-      if (mask.indexOf('*') != -1 && !mask.endsWith('.*'))
+      if (mask.indexOf('*') !== -1 && !mask.endsWith('.*'))
         throw new Error(`Mask must be exact or end in '.*', got '${mask}'`);
     }
 

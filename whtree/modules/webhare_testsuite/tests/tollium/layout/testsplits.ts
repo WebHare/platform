@@ -30,8 +30,8 @@ test.registerTests(
         const splitleft = test.compByName("split_left");
         const splitright = test.compByName("split_right");
 
-        test.assert(splitleft != null);
-        test.assert(splitright != null);
+        test.assert(splitleft !== null);
+        test.assert(splitright !== null);
 
         test.eq(480, splitleft.offsetHeight);
         test.eq(480, splitright.offsetHeight);

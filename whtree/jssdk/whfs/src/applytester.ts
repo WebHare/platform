@@ -24,7 +24,7 @@ interface SiteApplicabilityInfo {
 
 ///describe a specific site for apply testing
 async function getSiteApplicabilityInfo(siteid: number | null): Promise<SiteApplicabilityInfo> {
-  const match = getExtractedHSConfig("siteprofilerefs").find(_ => _.id == siteid);
+  const match = getExtractedHSConfig("siteprofilerefs").find(_ => _.id === siteid);
   return match ? pick(match, ["siteprofileids", "roottype", "sitedesign"]) : { siteprofileids: [], roottype: 0, sitedesign: "" };
 }
 
@@ -45,7 +45,7 @@ interface BaseInfo extends SiteApplicabilityInfo {
 function isResourceMatch(rule_siteprofileids: number[], test_siteprofileids: number[]) {
   // RETURN Length(rule_siteprofileids) = 0 //applies everywhere
   //  OR Length(ArrayIntersection(rule_siteprofileids, test_siteprofileids)) > 0;
-  return rule_siteprofileids.length == 0 //Rule applies everywhere
+  return rule_siteprofileids.length === 0 //Rule applies everywhere
     || rule_siteprofileids.filter(_ => test_siteprofileids.includes(_)).length > 0; //intersection between sets
 }
 
@@ -150,7 +150,7 @@ export class WHFSApplyTester {
       case "testdata": { /* TODO can we git rid of <testdata> ? it's one of the few reasons why
                             we are async and have to be able to reach out to the DB (and implement caching which is also gets
                             flaky very fast... just see the <testdata> tests in HS) */
-        const totest = element.target == "parent" ? folder && folder.id : element.target == "root" ? site?.id || 0 : this.objinfo.obj.id;
+        const totest = element.target === "parent" ? folder && folder.id : element.target === "root" ? site?.id || 0 : this.objinfo.obj.id;
         if (!totest)
           return false;
 
@@ -158,13 +158,13 @@ export class WHFSApplyTester {
         const field = (await openType(element.typedef).get(totest))[element.membername];
 
         if (typeof field === "string")
-          return field == (element?.value ?? '');
+          return field === (element?.value ?? '');
         if (typeof field === "number")
-          return field == (element?.value ? Number(element.value) : 0);
+          return field === (element?.value ? Number(element.value) : 0);
         if (typeof field === "boolean")
-          return field == (element?.value ? element.value == "true" : false);
+          return field === (element?.value ? element.value === "true" : false);
         if (field instanceof Date && element?.value)
-          return field.getTime() == new Date(element.value).getTime(); //new Date("invalid").getTime() === nan
+          return field.getTime() === new Date(element.value).getTime(); //new Date("invalid").getTime() === nan
         else if (field === null) //just like HS <testdata> is very limited, we'll assume null is a DEFAULT DATETIME. in practice that's tested for using value="" so..
           return !element.value;
 
@@ -174,7 +174,7 @@ export class WHFSApplyTester {
       case "to": {
         if (element.match_file && !this.objinfo.isfile)
           return false;
-        if (element.match_index && (!folder || folder.indexDoc != this.objinfo.obj.id))
+        if (element.match_index && (!folder || folder.indexDoc !== this.objinfo.obj.id))
           return false;
         if (element.match_folder && this.objinfo.isfile)
           return false;
@@ -194,7 +194,7 @@ export class WHFSApplyTester {
           return false;
 
         //TODO can we somehow share with GetMatchesBySiteFilter ?
-        if (element.sitename && (!site || site.name.toUpperCase() != element.sitename.toUpperCase()))
+        if (element.sitename && (!site || site.name.toUpperCase() !== element.sitename.toUpperCase()))
           return false;
         if (element.sitemask && (!site || isNotLike(site.name.toUpperCase(), element.sitemask.toUpperCase())))
           return false;
@@ -223,7 +223,7 @@ export class WHFSApplyTester {
       return false; //Implement this, but we'll need to gather more info during baseobj info OR become async too
     if (rec.whfspathmask && !isNotLike(this.objinfo.obj.whfsPath.toUpperCase(), rec.whfspathmask.toUpperCase()))
       return false;
-    if (rec.sitetype != "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
+    if (rec.sitetype !== "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
       return false;
     if (rec.pathregex && !matchPathRegex(rec.pathregex, this.objinfo.obj.fullPath))
       return false;
@@ -255,11 +255,11 @@ export class WHFSApplyTester {
 
   matchType(folderType: number | null, matchwith: string, isfolder: boolean) {
     folderType = folderType ?? 0; // emulate HareScript behaviour for typeless files/folders
-    if (folderType && folderType < 1000 && matchwith == String(folderType)) //only match by ID for well-knowns
+    if (folderType && folderType < 1000 && matchwith === String(folderType)) //only match by ID for well-knowns
       return true;
 
     const types = getExtractedHSConfig("siteprofiles").contenttypes;
-    const matchtype = types.find(_ => (isfolder ? _.foldertype : _.filetype) && _.id == folderType);
+    const matchtype = types.find(_ => (isfolder ? _.foldertype : _.filetype) && _.id === folderType);
     return matchtype && isLike(matchtype.namespace, matchwith);
   }
 
@@ -413,7 +413,7 @@ export class WHFSApplyTester {
 
     for (const apply of await this.getMatchingRules('userdata'))
       for (const userdataentry of apply.userdata)
-        if (userdataentry.key == key)
+        if (userdataentry.key === key)
           userdata = { ...(userdata || {}), ...JSON.parse(userdataentry.value) };
 
     return userdata;

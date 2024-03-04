@@ -86,13 +86,13 @@ class InternetRequester extends EventEmitter {
   }
 
   onStateChange(event) {
-    if (this.conn.readyState != 4 || this.have_response)
+    if (this.conn.readyState !== 4 || this.have_response)
       return;
 
     this.have_response = true;
 
     const datestr = this.conn.getResponseHeader("date");
-    if (datestr != "") {
+    if (datestr !== "") {
       const parseddate = Date.parse(datestr);
       this.__date_server = parseddate;
       this.__date_client = new Date();
@@ -101,8 +101,8 @@ class InternetRequester extends EventEmitter {
 
     const evt = {
       target: this,
-      success: this.conn.status == 200,
-      internalerror: this.conn.status == 500,
+      success: this.conn.status === 200,
+      internalerror: this.conn.status === 500,
       message: this.conn.status,
 
       responsetext: this.conn.responseText,

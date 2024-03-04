@@ -213,7 +213,7 @@ test.registerTests(
       test.click(ridiculous_replacement);
 
       const menu = testhelpers.getOpenSelectList();
-      test.eq(true, menu.getBoundingClientRect().top == ridiculous_replacement.getBoundingClientRect().bottom, 'expecting menu to open downwards and be attached');
+      test.eq(true, menu.getBoundingClientRect().top === ridiculous_replacement.getBoundingClientRect().bottom, 'expecting menu to open downwards and be attached');
     },
     'Ignore right mouse button',
     function () {

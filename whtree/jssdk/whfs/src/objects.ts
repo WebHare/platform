@@ -341,9 +341,9 @@ export class WHFSFolder extends WHFSObject {
     }
     basename = basename.trim();
 
-    if (extension == '.gz') { // .tar.gz?
+    if (extension === '.gz') { // .tar.gz?
       const e2 = extname(basename).trim();
-      if (e2 == '.tar') {
+      if (e2 === '.tar') {
         extension = e2 + extension;
         basename = parse(basename).name.trim();
       }
@@ -398,10 +398,10 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
   let now = startingpoint;
   let limitparent = 0;
 
-  if (fullpath[0] == '/') //starting at an absolute point?
+  if (fullpath[0] === '/') //starting at an absolute point?
     limitparent = now; //then we can't move past that point
 
-  if (startingpoint == 0 && fullpath.startsWith('whfs::'))
+  if (startingpoint === 0 && fullpath.startsWith('whfs::'))
     fullpath = fullpath.substring(6);
 
   const pathtoks = fullpath.split('/');
@@ -409,7 +409,7 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
     const tok = pathtoks[i];
     let trynew = 0;
 
-    if (i == 0 && now == 0 && tok.startsWith("site::")) {
+    if (i === 0 && now === 0 && tok.startsWith("site::")) {
       trynew = (await db<PlatformDB>()
         .selectFrom("system.sites")
         .select("id")

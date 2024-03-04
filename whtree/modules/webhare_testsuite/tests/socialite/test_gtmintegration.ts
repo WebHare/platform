@@ -32,7 +32,7 @@ test.registerTests(
       checkForGTM({ selfhosted: 1 });
 
       //Check datalayerpush
-      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
     },
 
     "Test assetpack mode",
@@ -43,7 +43,7 @@ test.registerTests(
       checkForGTM({ remote: 1 });
 
       //Check datalayerpush
-      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
     },
 
     "Test script integration",
@@ -54,7 +54,7 @@ test.registerTests(
       checkForGTM({ remote: 1, snippet: 1 }); //snippet loads remote, so both should be here
 
       //Check datalayerpush
-      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
     },
 
     "The new debugflag 'sne' should disable selfhosting",
@@ -82,7 +82,7 @@ test.registerTests(
       test.throws(test.getWin().hasConsent);
 
       test.eq(undefined, test.getWin().hasConsent("remarketing"));
-      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename); //already on the datalayer
+      test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename); //already on the datalayer
       test.eq("unknown", test.getDoc().documentElement.dataset.whConsent);
 
       test.click('[data-messagebox-result="analytics"]');

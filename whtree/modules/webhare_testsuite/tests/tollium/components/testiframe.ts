@@ -36,7 +36,7 @@ test.registerTests(
         //var iframe = test.qSA('iframe')[0];
         test.click(test.getMenu(['I00']));
       },
-      waits: [function () { return test.qSA('textarea')[0].value != lasttextareavalue; }]
+      waits: [function () { return test.qSA('textarea')[0].value !== lasttextareavalue; }]
     },
 
     {
@@ -98,7 +98,7 @@ test.registerTests(
         'ui', (doc, win) => {
           const iframe = test.qSA('iframe')[0];
           const source = iframe.contentWindow.document.getElementById('source');
-          return source && source.dataset.source == 'htmlcontent2';
+          return source && source.dataset.source === 'htmlcontent2';
         }
       ]
     },
@@ -138,7 +138,7 @@ test.registerTests(
 
       //wait for blobcontent4 to appear
       await test.wait(() => test.qS("iframe").contentWindow.document.getElementById('source')
-        && test.qS("iframe").contentWindow.document.getElementById('source').dataset.source == 'blobcontent4');
+        && test.qS("iframe").contentWindow.document.getElementById('source').dataset.source === 'blobcontent4');
 
       const imgpreload = await loadImage(test.qS("iframe").contentWindow.document.getElementById('image').src);
       test.eq(428, imgpreload.naturalWidth);

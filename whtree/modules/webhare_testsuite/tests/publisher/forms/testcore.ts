@@ -5,7 +5,7 @@ import * as test from '@mod-system/js/wh/testframework';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';
 
-const urlappend = test.getTestArgument(0) == 'replacedcomponents' ? '?dompackpulldown=1' : '';
+const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpulldown=1' : '';
 
 function quickFillDefaultRequiredFields() {
   //fill required fields so we can submit

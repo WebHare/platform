@@ -83,21 +83,21 @@ function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number) 
     @returns Price parts object
 */
 function splitPrice(money: FinmathInput): SplitNumber {
-  if (typeof money == 'number') {
-    if (money != Math.floor(money))
+  if (typeof money === 'number') {
+    if (money !== Math.floor(money))
       throw new Error("Passing a non-integer number to splitPrice");
     if (!Number.isSafeInteger(money))
       throw new Error(`The value ${money} is outside the safe value range`);
     return { num: money, decimals: 0 };
   }
-  if (typeof money != 'string')
+  if (typeof money !== 'string')
     throw new Error("splitPrice should receive either number or string, got " + money);
 
   const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/) ?? money.match(/^(-)?()(\.[0-9]{1,5})$/);
   if (!split)
     throw new Error(`splitPrice received illegal price: '${money}'`);
 
-  const sign = split[1] == '-' ? -1 : 1;
+  const sign = split[1] === '-' ? -1 : 1;
   const decimals = split[3] ? split[3].length - 1 : 0;
   const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
   if (!Number.isSafeInteger(num))
@@ -131,7 +131,7 @@ function adjustDecimals(amount: SplitNumber, requiredecimals: number) {
 /** Returns if a price string is valid
 */
 export function isValidPrice(money: string) {
-  if (typeof money != 'string' || !money.match(/[0-9]+(\.[0-9]{0,5})?$/))
+  if (typeof money !== 'string' || !money.match(/[0-9]+(\.[0-9]{0,5})?$/))
     return false;
   return true;
 }
@@ -173,11 +173,11 @@ export function multiply(amount1: FinmathInput, amount2: FinmathInput): string {
 /** Compares two numbers
     @param amount1 - Left hand value
     @param amount2 - Right hand value
-    @returns Returns 0 if amount1 == amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
+    @returns Returns 0 if amount1 === amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
 */
 export function cmp(amount1: FinmathInput, amount2: FinmathInput) {
   const diff = __add(splitPrice(amount1), __multiply(splitPrice(amount2), { num: -1, decimals: 0 }));
-  return diff.num < 0 ? -1 : diff.num == 0 ? 0 : 1;
+  return diff.num < 0 ? -1 : diff.num === 0 ? 0 : 1;
 }
 
 /** Returns a percentage of an amount

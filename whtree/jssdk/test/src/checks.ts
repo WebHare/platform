@@ -86,13 +86,13 @@ function testMoney(expect: Money, actual: unknown, path: string) {
   if (!Money.isMoney(actual)) {
     onLog("Money fails type: expected", expect);
     onLog("Money fails type: actual  ", actual);
-    throw new Error("Expected type: Money actual type: " + typeof actual + (path != "" ? " at " + path : ""));
+    throw new Error("Expected type: Money actual type: " + typeof actual + (path !== "" ? " at " + path : ""));
   }
 
   if (Money.cmp(expect, actual) !== 0) {
     onLog("Money fails: expected", expect);
     onLog("Money fails: actual  ", actual);
-    throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path != "" ? " at " + path : ""));
+    throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path !== "" ? " at " + path : ""));
   }
 }
 
@@ -100,13 +100,13 @@ function testRegExp(expect: RegExp, actual: unknown, path: string) {
   if (typeof actual !== "string") {
     onLog("regExp fails type: expected", expect);
     onLog("regExp fails type: actual  ", actual);
-    throw new Error("Expected type: string actual type: " + typeof actual + (path != "" ? " at " + path : ""));
+    throw new Error("Expected type: string actual type: " + typeof actual + (path !== "" ? " at " + path : ""));
   }
 
   if (!expect.test(actual)) {
     onLog("regExp fails: expected", expect);
     onLog("regExp fails: actual  ", actual);
-    throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path != "" ? " at " + path : ""));
+    throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path !== "" ? " at " + path : ""));
   }
 }
 
@@ -118,12 +118,12 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
     if (actual === null)
       return; //ok!
     else
-      throw new Error("Expected null, got " + (path != "" ? " at " + path : ""));
+      throw new Error("Expected null, got " + (path !== "" ? " at " + path : ""));
 
   if (actual === null)
-    throw new Error("Got a null, but expected " + expected + (path != "" ? " at " + path : ""));
+    throw new Error("Got a null, but expected " + expected + (path !== "" ? " at " + path : ""));
   if (actual === undefined)
-    throw new Error("Got undefined, but expected " + expected + (path != "" ? " at " + path : ""));
+    throw new Error("Got undefined, but expected " + expected + (path !== "" ? " at " + path : ""));
 
   if (expected instanceof RegExp)
     return testRegExp(expected, actual, path);
@@ -132,15 +132,15 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
 
   const t_expected = typeof expected;
   const t_actual = typeof actual;
-  if (t_expected != t_actual)
-    throw new Error("Expected type: " + t_expected + " actual type: " + t_actual + (path != "" ? " at " + path : ""));
+  if (t_expected !== t_actual)
+    throw new Error("Expected type: " + t_expected + " actual type: " + t_actual + (path !== "" ? " at " + path : ""));
 
   if (typeof expected !== "object") {//simple value mismatch
-    if (typeof expected == "string" && typeof actual == "string") {
+    if (typeof expected === "string" && typeof actual === "string") {
       printColoredTextDiff(expected, actual);
     }
 
-    throw new Error("Expected: " + expected + " actual: " + actual + (path != "" ? " at " + path : ""));
+    throw new Error("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""));
   }
 
   if ((expected as Promise<unknown>)?.then)
@@ -152,30 +152,30 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
   const type_expected = myTypeOf(expected);
   const type_actual = myTypeOf(actual);
 
-  if (type_expected != type_actual)
-    throw new Error("Expected type: " + type_expected + " actual type: " + type_actual + (path != "" ? " at " + path : ""));
+  if (type_expected !== type_actual)
+    throw new Error("Expected type: " + type_expected + " actual type: " + type_actual + (path !== "" ? " at " + path : ""));
 
   if (type_expected === 'date') {
     expected = JSON.stringify(expected);
     actual = JSON.stringify(actual);
     if (expected !== actual)
-      throw new Error("Expected date: " + expected + " actual date: " + actual + (path != "" ? " at " + path : ""));
+      throw new Error("Expected date: " + expected + " actual date: " + actual + (path !== "" ? " at " + path : ""));
     return;
   }
 
-  if (['element', 'textnode', 'whitespace'].includes(type_expected) && expected != actual) {
+  if (['element', 'textnode', 'whitespace'].includes(type_expected) && expected !== actual) {
     onLog("Expected node: ", expected);
     onLog("Actual node:", actual);
-    throw new Error("Expected DOM node: " + presentDomNode(expected as Node) + " actual: " + presentDomNode(actual as Node) + (path != "" ? " at " + path : ""));
+    throw new Error("Expected DOM node: " + presentDomNode(expected as Node) + " actual: " + presentDomNode(actual as Node) + (path !== "" ? " at " + path : ""));
   }
 
-  if (['window', 'collection', 'document'].includes(type_expected) && expected != actual) {
-    throw new Error("Expected: " + expected + " actual: " + actual + (path != "" ? " at " + path : ""));
+  if (['window', 'collection', 'document'].includes(type_expected) && expected !== actual) {
+    throw new Error("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""));
   }
 
   if (Array.isArray(expected) && Array.isArray(actual)) {
-    if (expected.length != actual.length)
-      throw new Error("Expected: " + expected.length + " elements, actual: " + actual.length + " elements" + (path != "" ? " at " + path : ""));
+    if (expected.length !== actual.length)
+      throw new Error("Expected: " + expected.length + " elements, actual: " + actual.length + " elements" + (path !== "" ? " at " + path : ""));
 
     for (let i = 0; i < expected.length; ++i)
       testDeepEq(expected[i], actual[i], path + "[" + i + "]");
@@ -190,7 +190,7 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
         if ((expected as any)[key] === undefined) // allow undefined to function as missing-property indicator too
           continue;
 
-        throw new Error("Expected key: " + key + ", didn't actually exist" + (path != "" ? " at " + path : ""));
+        throw new Error("Expected key: " + key + ", didn't actually exist" + (path !== "" ? " at " + path : ""));
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -198,7 +198,7 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
     }
     for (const key of actualkeys) {
       if (!expectedkeys.includes(key))
-        throw new Error("Key unexpectedly exists: " + key + (path != "" ? " at " + path : ""));
+        throw new Error("Key unexpectedly exists: " + key + (path !== "" ? " at " + path : ""));
     }
   }
 }
@@ -213,7 +213,7 @@ function isEqual(a: unknown, b: unknown) {
 }
 
 function logAnnotation(annotation: Annotation) {
-  if (typeof annotation == "function")
+  if (typeof annotation === "function")
     annotation = annotation();
 
   console.error(annotation);
@@ -271,7 +271,7 @@ export function eq<T>(expected: NoInfer<RecursiveOrRegExp<T>>, actual: T, annota
   if (typeof actual === "object" && actual && "then" in actual)
     onLog("actual looks like a promise, did you await it?");
 
-  if (typeof expected == "string" && typeof actual == "string") {
+  if (typeof expected === "string" && typeof actual === "string") {
     onLog("E: " + encodeURIComponent(expected));
     onLog("A: " + encodeURIComponent(actual));
 
@@ -372,7 +372,7 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
   let retval;
   try {
     //If we got a function, execute it
-    const potentialpromise = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
+    const potentialpromise = typeof func_or_promise === "function" ? func_or_promise() : func_or_promise;
     if ((potentialpromise as Promise<unknown>)?.then)
       return checkPromiseErrorsHandled(throwsAsync(expect, potentialpromise as Promise<unknown>, annotation));
 
@@ -429,7 +429,7 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual:
           return;
         }
         const expectarray = Array.isArray(expect);
-        if (expectarray != Array.isArray(actual)) {
+        if (expectarray !== Array.isArray(actual)) {
           onLog({ expect, actual });
           throw Error(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`);
         }
@@ -439,7 +439,7 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual:
             throw Error(`Expected array, got object, at ${path}`);
           }
 
-          if (expect.length != actual.length) {
+          if (expect.length !== actual.length) {
             onLog({ expect, actual });
             throw Error(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`);
           }
@@ -496,12 +496,12 @@ export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation)
 
   let actual_str = actual;
   try {
-    actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual);
+    actual_str = typeof actual === "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual);
   } catch (ignore) {
     //Ignoring
   }
   onLog("testEqMatch fails: actual  ", actual_str);
-  // testfw.log("testEqMatch fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
+  // testfw.log("testEqMatch fails: actual " + (typeof actual_str === "string" ? "'" + actual_str + "'" : actual_str));
 
   throw new Error("testEqMatch failed");
 }
@@ -589,7 +589,7 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
 type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 
 export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
-  if (typeof options == "string" || typeof options == "function")
+  if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
   const { timeout = 60000, annotation } = options ?? {};
@@ -598,7 +598,7 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
   let gottimeout = false;
   function gotTimeout() { return gottimeout; }
 
-  if (typeof waitfor == "function") {
+  if (typeof waitfor === "function") {
     const timeout_cb = setTimeout(() => gottimeout = true, timeout);
     while (!gotTimeout()) {
       const result = await waitfor();

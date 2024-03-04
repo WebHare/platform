@@ -93,11 +93,11 @@ function pxlFailed(errormessage: string, ...params: unknown[]) {
 export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventData | null, options?: Partial<PxlOptions>) {
   options = { ...globalOptions, ...options };
 
-  if (typeof eventname != "string")
+  if (typeof eventname !== "string")
     return pxlFailed(`Invalid eventname name '${eventname}', expected string, got ${typeof eventname}`);
   if (!eventname_regex.test(eventname))
     return pxlFailed(`Invalid eventname name '${eventname}', must only contain letters, digits, underscores and colons`);
-  if (data && typeof data != "object")
+  if (data && typeof data !== "object")
     return pxlFailed(`Invalid data, expected object, got ${typeof data}`);
 
   if (!pagesession)
@@ -111,7 +111,7 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
 
   // See: https://developer.mozilla.org/en-US/docs/Web/API/navigator/doNotTrack
   // The 'doNotTrack' option overrides the browser setting if not "unspecified"
-  const donottrack = options.donottrack == "1" || (options.donottrack == "unspecified" && (window.navigator.doNotTrack == "1" || window.navigator.doNotTrack == "yes"));
+  const donottrack = options.donottrack === "1" || (options.donottrack === "unspecified" && (window.navigator.doNotTrack === "1" || window.navigator.doNotTrack === "yes"));
   if (!donottrack) {
     url.searchParams.set("pi", getPxlId());
     url.searchParams.set("ps", getPxlSessionId());
@@ -150,12 +150,12 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
 
         url.searchParams.set(name, value as string || '');
       } else if (test[2]) { // Number
-        if (value && type != "number")
+        if (value && type !== "number")
           return pxlFailed(`Invalid value type '${type}', expected 'number' for field '${name}'`);
 
         url.searchParams.set(name, String(value) || '0');
       } else if (test[3]) { // Boolean
-        if (value && type != "boolean")
+        if (value && type !== "boolean")
           return pxlFailed(`Invalid value type '${type}', expected 'boolean' for field '${name}'`);
 
         url.searchParams.set(name, value ? "true" : "false");

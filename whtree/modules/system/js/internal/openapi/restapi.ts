@@ -75,7 +75,7 @@ function filterXWebHare(def: unknown): unknown {
 //  Match a request path with a route path, part by part, storing {parameters} in the request
 function matchesPath(path: string[], routePath: string[], req: WebRequest): Record<string, string> | null {
   const rpl = routePath.length;
-  if (path.length != rpl)
+  if (path.length !== rpl)
     return null;
 
   const params: Record<string, string> = {};
@@ -84,7 +84,7 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
       return null;
     if (routePath[i].startsWith("{") && routePath[i].endsWith("}"))
       params[routePath[i].substring(1, routePath[i].length - 1)] = path[i];
-    else if (path[i] != routePath[i])
+    else if (path[i] !== routePath[i])
       return null;
   }
 
@@ -435,7 +435,7 @@ export class WorkerRestAPIHandler {
     if (bodyschema && this.shouldValidate(endpoint.inputValidation, ["always"])) {
       //We have something useful to proces
       const ctype = req.headers.get("content-type");
-      if (ctype != "application/json") //TODO what about endpoints supporting multiple types?
+      if (ctype !== "application/json") //TODO what about endpoints supporting multiple types?
         return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid content-type '${ctype}', expected application/json` });
 
       try {

@@ -32,10 +32,10 @@ async function testWHFS() {
   test.eq(/^https?:.*/, testsite.webRoot);
   test.eq(testsite.id, (await whfs.openSite(testsite.id)).id);
   //verify listSites and exact typing of response value
-  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite"));
-  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites([])).find(_ => _.name == "webhare_testsuite.testsite"));
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites()).find(_ => _.name === "webhare_testsuite.testsite"));
+  test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites([])).find(_ => _.name === "webhare_testsuite.testsite"));
 
-  const testSites = (await whfs.listSites(["webDesign", "webFeatures"])).filter(_ => _.name == "webhare_testsuite.testsite" || _.name == "webhare_testsuite.testsitejs").toSorted((a, b) => a.name.localeCompare(b.name));
+  const testSites = (await whfs.listSites(["webDesign", "webFeatures"])).filter(_ => _.name === "webhare_testsuite.testsite" || _.name === "webhare_testsuite.testsitejs").toSorted((a, b) => a.name.localeCompare(b.name));
   test.eq([
     { id: testsite.id, name: "webhare_testsuite.testsite", webDesign: "webhare_testsuite:basetest", webFeatures: null },
     { id: testsitejs.id, name: "webhare_testsuite.testsitejs", webDesign: "webhare_testsuite:basetestjs", webFeatures: ["platform:identityprovider"] }
@@ -75,7 +75,7 @@ async function testWHFS() {
       parent: testpagesfolder.id,
       publish: true
     }
-  ], list.filter(e => e.name == markdownfile.name));
+  ], list.filter(e => e.name === markdownfile.name));
   test.eqProps({ publish: false }, list.find(e => e.name === "unpublished"));
   for (let i = 0; i < list.length - 1; ++i)
     test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
@@ -83,8 +83,8 @@ async function testWHFS() {
   const list2 = await testpagesfolder.list(["type"]);
   test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", list2.find(_ => _.name === 'staticpage-ps-af')?.type);
 
-  test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name == markdownfile.name), "Verify list() works without any keys");
-  test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name == markdownfile.name), "Verify list() works with empty keys");
+  test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name === markdownfile.name), "Verify list() works without any keys");
+  test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name === markdownfile.name), "Verify list() works with empty keys");
 
   //Compare other opening routes
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);

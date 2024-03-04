@@ -48,7 +48,7 @@ export class WRDAuthenticationProvider {
     if (!jsstate)
       return;
 
-    if (!currentstate || currentstate.substr(0, jsstate.length) != jsstate) {
+    if (!currentstate || currentstate.substr(0, jsstate.length) !== jsstate) {
       location.replace('/.wrd/auth/restoresession.shtml' + getBackVar(location.href));
       return;
     } else {
@@ -73,7 +73,7 @@ export class WRDAuthenticationProvider {
     let backurl = location.href;
     if (this.logouturl) {
       const logouturl = new URL(this.logouturl, backurl).toString();
-      if (getURLOrigin(backurl) != getURLOrigin(logouturl))
+      if (getURLOrigin(backurl) !== getURLOrigin(logouturl))
         throw new Error("A logout URL is not allowed to change the origin"); //we won't be an open redirect. and getBackVar will clear the origin anyway
 
       backurl = logouturl;

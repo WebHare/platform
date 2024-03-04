@@ -49,7 +49,7 @@ export default class ObjCustomHTML extends ComponentBase {
   }
 
   clearSelectionFlag(flag) {
-    this.selectionflags = this.selectionflags.filter(item => item != flag); //erase
+    this.selectionflags = this.selectionflags.filter(item => item !== flag); //erase
     this.owner.actionEnabler();
   }
 
@@ -68,7 +68,7 @@ export default class ObjCustomHTML extends ComponentBase {
       "width": this.width.set,
       "height": this.height.set
     });
-    if (this.width.set != this.prevwidth || this.height.set != this.prevheight) {
+    if (this.width.set !== this.prevwidth || this.height.set !== this.prevheight) {
       this.prevwidth = this.width.set;
       this.prevheight = this.height.set;
 

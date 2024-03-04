@@ -136,7 +136,7 @@ let islive: boolean = isLive;
 
 export function initEnv(setDtapStage: DTAPStage, setBackendBase: string) {
   dtapStage = setDtapStage;
-  isLive = dtapStage == DTAPStage.Production || dtapStage == DTAPStage.Acceptance;
+  isLive = dtapStage === DTAPStage.Production || dtapStage === DTAPStage.Acceptance;
   backendBase = setBackendBase;
 
   dtapstage = dtapStage;

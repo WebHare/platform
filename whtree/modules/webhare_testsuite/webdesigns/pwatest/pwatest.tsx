@@ -20,7 +20,7 @@ async function appEntryPoint() {
   document.querySelector('main').append(logdiv);
 
   const dynload = await import('./shared/testdynamicload');
-  if (dynload.getAnswer() != 42)
+  if (dynload.getAnswer() !== 42)
     throw new Error("dynload failure");
 
   logdiv.append(<div id="pwa-greeting">I am alive</div>);

@@ -212,7 +212,7 @@ class ProcessManager {
 
     this.stopDefer.resolve(exitreason);
 
-    if (this.service.run == "once")
+    if (this.service.run === "once")
       finishedWaitForCompletionServices.add(this.name);
     processes.unregister(this);
 
@@ -307,7 +307,7 @@ async function updateForCurrentStage(): Promise<void> {
       }
       if (!process) {
         const proc = new ProcessManager(name, service);
-        if (service.run == "once")
+        if (service.run === "once")
           subpromises.push(proc.stopDefer.promise); //TODO should we have a timeout? (but what do you do if it hits? terminate? move to next stage?)
       }
     }

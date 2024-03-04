@@ -61,7 +61,7 @@ test.registerTests(
       test.fill('#emailform-email', "fixme@bijna.beta.WEBHARE.net");
       await test.pressKey('Tab');
 
-      await test.wait(() => test.qS('#emailform-email').value == 'fixme@exact.beta.webhare.net');
+      await test.wait(() => test.qS('#emailform-email').value === 'fixme@exact.beta.webhare.net');
       test.eq(2, getFormRPCRequests().length);
     },
     'Check smart email field SUGGESTING on focus',

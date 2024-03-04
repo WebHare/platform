@@ -21,7 +21,7 @@ test.registerTests(
       let modalcontainer = test.qS(".wh-gallery-modal");
       test.assert(modalcontainer);
 
-      await test.wait(() => test.qSA(".wh-gallery-modal__image--selected").length == 1);
+      await test.wait(() => test.qSA(".wh-gallery-modal__image--selected").length === 1);
       let currentimage = test.qS(".wh-gallery-modal__image--selected");
       test.assert(test.canClick(currentimage));
 
@@ -33,7 +33,7 @@ test.registerTests(
 
       await test.pressKey('ArrowRight');
 
-      await test.wait(() => test.qSA(".wh-gallery-modal__image--selected").length == 1);
+      await test.wait(() => test.qSA(".wh-gallery-modal__image--selected").length === 1);
       currentimage = test.qS(".wh-gallery-modal__image--selected");
       test.assert(test.canClick(currentimage));
       test.assert(!modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
@@ -51,7 +51,7 @@ test.registerTests(
       await test.pressKey('ArrowLeft');
       await test.pressKey('ArrowLeft');
 
-      await test.wait(() => test.qSA(".wh-gallery-modal__image--selected").length == 1);
+      await test.wait(() => test.qSA(".wh-gallery-modal__image--selected").length === 1);
       currentimage = test.qS(".wh-gallery-modal__image--selected");
       test.eqFloat(600, currentimage.getBoundingClientRect().width, 0.1);
       test.eqFloat(450, currentimage.getBoundingClientRect().height, 0.1);

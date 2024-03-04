@@ -170,8 +170,8 @@ class EventServerConnection extends InternetRequester {
 
     let url = this.options.url;
     let groups = '';
-    for (let i = 0, e = this.groups.length; i != e; ++i) {
-      if (i != 0)
+    for (let i = 0, e = this.groups.length; i !== e; ++i) {
+      if (i !== 0)
         groups += ',';
 
       const groupid = this.groups[i];
@@ -232,9 +232,9 @@ class EventServerConnection extends InternetRequester {
 
       url = this.addURLparam(url, 'postgroup', broadcast.group);
       url = this.addURLparam(url, 'token', broadcast.token);
-      if (broadcast.tag && typeof broadcast.tag == "string")
+      if (broadcast.tag && typeof broadcast.tag === "string")
         url = this.addURLparam(url, 'tag', broadcast.tag);
-      if (broadcast.ttl && typeof broadcast.ttl == "number")
+      if (broadcast.ttl && typeof broadcast.ttl === "number")
         url = this.addURLparam(url, 'ttl', broadcast.ttl);
 
       if (this.lasterrormessage)
@@ -242,7 +242,7 @@ class EventServerConnection extends InternetRequester {
       this.have_response = false;
     } else {
       // No need to schedule
-      if (this.groups.length == 0)
+      if (this.groups.length === 0)
         return;
 
       url = this.getGroupListenURL();

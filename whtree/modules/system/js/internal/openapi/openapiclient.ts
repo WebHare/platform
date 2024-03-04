@@ -30,7 +30,7 @@ export class OpenAPIClient {
 
     const call = await fetch(this.baseurl + route, fetchoptions);
     const contenttype = call.headers.get("Content-Type") || "";
-    const responsebody = contenttype == "application/json" ? await call.json() : await call.text();
+    const responsebody = contenttype === "application/json" ? await call.json() : await call.text();
     const retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
 
     return retval;

@@ -185,7 +185,7 @@ class HSLockManager {
             allReachedEnd = false;
             break;
           }
-          if (entry.lock.processData.waitFor == lockData) {
+          if (entry.lock.processData.waitFor === lockData) {
             if (debugFlags["locallocks"])
               console.log(`  ${entry.lock.processData.groupId} mark as noDeadlock`);
             entry.lock.processData.noDeadlock = true;
@@ -215,7 +215,7 @@ class HSLockManager {
           this.locks.delete(hslock.name);
         else
           lockData.enableLockEvents();
-        if (hslock.processData.waitFor == lockData)
+        if (hslock.processData.waitFor === lockData)
           hslock.processData.waitFor = null;
         const lidx = hslock.processData.locks.findIndex(l => l === entry);
         if (lidx >= 0) {
@@ -238,7 +238,7 @@ class HSLockManager {
         if (entry.maxConcurrent < maxConcurrent)
           maxConcurrent = entry.maxConcurrent;
 
-        const lockOrder = entry.lock.processData.locks.findIndex(e => e == entry);
+        const lockOrder = entry.lock.processData.locks.findIndex(e => e === entry);
 
         retval.push({
           name: entry.lock.name,

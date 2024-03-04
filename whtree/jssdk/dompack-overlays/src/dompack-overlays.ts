@@ -182,7 +182,7 @@ export class OverlayManager {
 
     this.overlays.forEach(overlay => {
       const shouldbeselected = selection.includes(overlay);
-      if (shouldbeselected == overlay.selected)
+      if (shouldbeselected === overlay.selected)
         return;
 
       overlay.selected = shouldbeselected;
@@ -335,10 +335,10 @@ class ResizeableOverlayRectangle //we may export these separately in the future,
   /** @short if specified area is a change, the changed will be used and an overlay change event will be fired
   */
   _setNewAreaAndFireOverlayChange(area, useraction) {
-    if (this.rect.left == area.left
-      && this.rect.top == area.top
-      && (this.rect.right - this.rect.left) == area.width
-      && (this.rect.bottom - this.rect.top) == area.height)
+    if (this.rect.left === area.left
+      && this.rect.top === area.top
+      && (this.rect.right - this.rect.left) === area.width
+      && (this.rect.bottom - this.rect.top) === area.height)
       return; // no change, so nothing to do
 
     this.rect = area;

@@ -40,40 +40,40 @@ test.registerTests(
         test.eqIn(["rgb(255, 0, 255)", "#ff00ff"], getComputedStyle(row5cells[0].parentNode).backgroundColor);
 
         //rowicon
-        test.assert(row1cells[0].querySelector('img, canvas') != null);
+        test.assert(row1cells[0].querySelector('img, canvas') !== null);
         test.eq("hover row1cell0", row1cells[0].querySelector('img, canvas').getAttribute("title"));
-        test.assert(row1cells[0].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('soundon') != -1);
-        test.assert(!row2cells[0].querySelector('img, canvas') != null);
-        test.assert(row3cells[0].querySelector('img, canvas') != null);
+        test.assert(row1cells[0].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('soundon') !== -1);
+        test.assert(!row2cells[0].querySelector('img, canvas') !== null);
+        test.assert(row3cells[0].querySelector('img, canvas') !== null);
         test.assert(!row3cells[0].querySelector('img, canvas').hasAttribute("title"));
 
         //icon
-        test.assert(!row1cells[2].querySelector('img, canvas') != null);
-        test.assert(row2cells[2].querySelector('img, canvas') != null);
-        test.assert(row2cells[2].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened') != -1);
+        test.assert(!row1cells[2].querySelector('img, canvas') !== null);
+        test.assert(row2cells[2].querySelector('img, canvas') !== null);
+        test.assert(row2cells[2].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened') !== -1);
         test.eq("No.", row2cells[2].querySelector('img, canvas').getAttribute("title"));
 
         // ADDME: find a way to test whether the hint on a icon column works?
 
         //icon+email
-        test.assert(!row1cells[4].querySelector('img, canvas') != null);
-        test.assert(row2cells[4].querySelector('img, canvas') != null);
-        test.assert(row2cells[4].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened') != -1);
+        test.assert(!row1cells[4].querySelector('img, canvas') !== null);
+        test.assert(row2cells[4].querySelector('img, canvas') !== null);
+        test.assert(row2cells[4].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened') !== -1);
 
-        test.assert(row1cells[4].querySelector('a') != null);
+        test.assert(row1cells[4].querySelector('a') !== null);
         test.eq("mailto:info@example.net", row1cells[4].querySelector('a').href);
         test.eq("info@example.net", row1cells[4].querySelector('a').textContent);
 
         // ADDME: test icon+url
-        test.assert(!row1cells[5].querySelector('img, canvas') != null);
-        test.assert(row2cells[5].querySelector('img, canvas') != null);
-        test.assert(row2cells[5].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened') != -1);
+        test.assert(!row1cells[5].querySelector('img, canvas') !== null);
+        test.assert(row2cells[5].querySelector('img, canvas') !== null);
+        test.assert(row2cells[5].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened') !== -1);
 
-        test.assert(row1cells[5].querySelector('a') != null);
+        test.assert(row1cells[5].querySelector('a') !== null);
         test.eq("http://www.webhare.nl/", row1cells[5].querySelector('a').href);
         test.eq("http://www.webhare.nl", row1cells[5].querySelector('a').textContent);
 
-        test.assert(!row2cells[4].querySelector('a') != null);
+        test.assert(!row2cells[4].querySelector('a') !== null);
 
         // alternative url
         test.eq("visit us!", row1cells[6].textContent);

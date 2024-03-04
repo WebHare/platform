@@ -22,7 +22,7 @@ function updateBeacons(nd) {
   const count = beacons.getVisitCount();
   const vc = dompack.qS("#visitcount");
   vc.dataset.visitCount = count;
-  vc.textContent = `${count} visit${count != 1 ? "s" : ""}`;
+  vc.textContent = `${count} visit${count !== 1 ? "s" : ""}`;
 }
 
 dompack.register("#nowdate", _ => setInterval(() => updateBeacons(_), 200));

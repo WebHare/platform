@@ -160,7 +160,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   */
   private refs: RefTracker;
 
-  /// Port this link is connecting to (for mode == connecting)
+  /// Port this link is connecting to (for mode === connecting)
   private connectporttitle?: string;
 
   constructor(id: string, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting", connectporttitle?: string) {
@@ -174,7 +174,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     this.refs = new RefTracker(this.port, { initialref: true });
 
     // If this is a link created by 'connect', init a defer that waits on the connection result
-    if (mode == "connecting")
+    if (mode === "connecting")
       this.defer = createDeferred<void>();
   }
 
@@ -205,7 +205,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     if (this.closed)
       return false;
     // handle connectresult immediately, don't let it go through the queue
-    if (this.queue && !isqueueitem && ctrlmsg.type != IPCEndPointImplControlMessageType.ConnectResult) {
+    if (this.queue && !isqueueitem && ctrlmsg.type !== IPCEndPointImplControlMessageType.ConnectResult) {
       this.queue.push(ctrlmsg);
       if (logmessages)
         console.log(` queued`);
@@ -223,7 +223,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
         } break;
         case IPCEndPointImplControlMessageType.Message: {
           const message = readMarshalPacket(Buffer.from(ctrlmsg.buffer));
-          if (typeof message != "object")
+          if (typeof message !== "object")
             return false;
 
           const req = ctrlmsg.replyto && this.requests.get(ctrlmsg.replyto);
@@ -249,9 +249,9 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   async activate(): Promise<void> {
     this.activationStarted = true;
     // send back a message that the link has been accepted (and messages will be received)
-    if (this.mode == "accepting")
+    if (this.mode === "accepting")
       this.sendPortMessage({ type: IPCEndPointImplControlMessageType.ConnectResult, success: true });
-    else if (this.mode == "connecting") {
+    else if (this.mode === "connecting") {
       try {
         await this.defer?.promise;
       } catch (e) {
@@ -346,7 +346,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   parseExceptions(message: ReceiveType | IPCExceptionMessage): ReceiveType {
-    if (typeof message == "object" && message && "__exception" in message) {
+    if (typeof message === "object" && message && "__exception" in message) {
       const exceptionmessage = message as IPCExceptionMessage;
       const error = new Error(exceptionmessage.__exception.what);
       const trace = exceptionmessage.__exception.trace?.map(item =>

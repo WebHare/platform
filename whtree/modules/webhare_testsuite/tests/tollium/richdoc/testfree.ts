@@ -111,7 +111,7 @@ test.registerTests(
         test.eq(/^cid:/, imgs[2].src, 'remote img src failed (upload/download failure?)');
         // The CID url's should be the same; they're the same filetransfer.shtml url (should be recognized by $todd.ObjLayout.isMyFileTransferURL)
         test.eq(imgs[0].src, imgs[1].src);
-        test.assert(imgs[1].src != imgs[2].src);
+        test.assert(imgs[1].src !== imgs[2].src);
 
         test.clickTolliumButton("Cancel");
       },

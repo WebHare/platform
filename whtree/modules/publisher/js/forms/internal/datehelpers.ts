@@ -48,8 +48,8 @@ export function isValidDate(year, month, day) {
     return false;
   if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
     return false;
-  const isleapyear = (year % 400) == 0 || ((year % 100) != 0 && (year % 4) == 0);
-  if (month == 2 && day > (isleapyear ? 29 : 28))
+  const isleapyear = (year % 400) === 0 || ((year % 100) !== 0 && (year % 4) === 0);
+  if (month === 2 && day > (isleapyear ? 29 : 28))
     return false;
   return true;
 }
@@ -74,7 +74,7 @@ export function parseDate(format: string, newdate: string, options?: { nofail: b
   const setdate = newdate.replace(/[./]/g, '-');
   const parts = setdate.split('-');
 
-  if (parts.length == 3)//parseable
+  if (parts.length === 3)//parseable
   {
     format = format.toLowerCase();
     const dayoffset = format.indexOf('d');

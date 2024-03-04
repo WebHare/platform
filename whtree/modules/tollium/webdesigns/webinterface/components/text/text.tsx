@@ -64,7 +64,7 @@ export default class ObjText extends ComponentBase {
     }
 
     Object.keys(this.styles).forEach(key => {
-      if (typeof (settings[key]) == typeof (this.styles[key]))
+      if (typeof (settings[key]) === typeof (this.styles[key]))
         this.styles[key] = settings[key];
     });
   }
@@ -194,14 +194,14 @@ export default class ObjText extends ComponentBase {
   onClick(event) {
     const anchor = event.target.closest('a');
     if (anchor) {
-      const rec = this.linkactions.find(action => action.url == anchor.href);
+      const rec = this.linkactions.find(action => action.url === anchor.href);
       if (rec)
         this.owner.executeAction(rec.action);
       else if (this.isEventUnmasked("clicklink"))
         this.queueEvent(this.owner.screenname + "." + this.name, 'clicklink ' + anchor.href, true);
-      else if (anchor.href.substr(0, 7) == 'mailto:')
+      else if (anchor.href.substr(0, 7) === 'mailto:')
         return; //let it be, follow the link. the only exit which does _not_ event.stop...
-      else if (anchor.href.substr(0, 11) != 'javascript:')
+      else if (anchor.href.substr(0, 11) !== 'javascript:')
         window.open(anchor.href, '_blank');
 
       event.preventDefault();

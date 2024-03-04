@@ -145,7 +145,7 @@ class WebServer {
 
   reconfigure(config: Configuration) {
     for (const port of config.ports) {
-      const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port == port.id) : undefined;
+      const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port === port.id) : undefined;
       this.ports.add(new WebServerPort(port, fixedhost));
     }
   }

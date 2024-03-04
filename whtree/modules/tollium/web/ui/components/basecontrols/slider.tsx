@@ -127,7 +127,7 @@ export default class Slider {
 
       this.values.push(startvalue);
 
-      if (i == 0 || startvalue < minvalue)
+      if (i === 0 || startvalue < minvalue)
         minvalue = startvalue;
 
       dragnode.wh_value = startvalue;
@@ -191,7 +191,7 @@ export default class Slider {
     onTickClick(ticknode)
     {
       var val = ticknode.get('data-value');
-      if(val != null)
+      if(val !== null)
       {
         val = Number(val);
         var valindex = -1;
@@ -199,7 +199,7 @@ export default class Slider {
         for(var i = 0; i < this.values.length; i++) //get nearest value
         {
           var dval = Math.abs(this.values[i] - val);
-          if(dval < delta || valindex == -1)
+          if(dval < delta || valindex === -1)
           {
             delta = dval;
             valindex = i;
@@ -310,9 +310,9 @@ export default class Slider {
               var val = (dragnode.wh_dragpos - delta)*this.scale + this.options.minvalue;
               if(this.options.snap > 0)
                 val = this.calcSnapValue(val);
-              changed = changed || (val != this.values[i]);
+              changed = changed || (val !== this.values[i]);
               values[i] = val;
-              if(dragnode == minnode)
+              if(dragnode === minnode)
                 this.value = val;
             }.bind(this));
           }
@@ -320,11 +320,11 @@ export default class Slider {
         else*/
     {//move nearest dragnode to new position
       dragnodes.forEach((dragnode, i) => {
-        if (nearestnode == dragnode) {
+        if (nearestnode === dragnode) {
           let val = mousepos * this.scale + this.options.minvalue;
           if (this.options.snap > 0)
             val = this.calcSnapValue(val);
-          changed = (val != this.values[i]);
+          changed = (val !== this.values[i]);
           values[i] = val;
           this.value = val;
         }
@@ -396,7 +396,7 @@ export default class Slider {
 
   //Public: Override intial/current dragger values
   setValues(values, nosnap, events) {
-    if (typeof values == 'object') {
+    if (typeof values === 'object') {
       for (let c = 0; c < values.length && c < this.values.length; c++)
         this.values[c] = values[c];
     } else if (this.values.length) {
@@ -435,8 +435,8 @@ export default class Slider {
     const pos = this.calcDragInfo2(event.detail, dragnode);
     let changed = false;
 
-    if (this.value != null)
-      changed = pos.snapvalue != this.value;
+    if (this.value !== null)
+      changed = pos.snapvalue !== this.value;
 
     this.value = this.options.snap > 0 ? pos.snapvalue : pos.value;
     dragnode.wh_value = this.value;
@@ -457,7 +457,7 @@ export default class Slider {
     if(this.options.limitdragarea)
     {
       var parentnode = event.target.closest('.wh-slider-holder');
-      if(parentnode != this.node && event.target != this.node)
+      if(parentnode !== this.node && event.target !== this.node)
       {
         dragnode.wh_dragger.fireEvent("dragcancel", event);
         dragnode.wh_dragger.dragging = null;
@@ -510,7 +510,7 @@ export default class Slider {
       pos = this.calcDragInfo(event.page,dragnode);
 
       if(this.value!=null)
-        changed = pos.snapvalue != this.value;
+        changed = pos.snapvalue !== this.value;
 
       this.updateKnobPosition(pos,dragnode);
       this.value = this.options.snap > 0 ? pos.snapvalue : pos.value;
@@ -618,7 +618,7 @@ export function replaceRangeComponent(inputnode, options) {
     if (inputnode.getAttribute('data-values')) {
       values = inputnode.getAttribute('data-values').replace(/[^0-9\.]+/g, ',').split(',');//only allow numbers separated by comma
       for (c = 0; c < values.length; c++) {
-        if (values[c] != '')
+        if (values[c] !== '')
           options.startvalues.push(Number(values[c]));
       }
     } else {
@@ -634,7 +634,7 @@ export function replaceRangeComponent(inputnode, options) {
   if (!("ticklist" in options))
   {
     options.ticklist = [];
-    if(inputnode.dataset.ticks != null)
+    if(inputnode.dataset.ticks !== null)
     {
       var tickliststr = inputnode.get('data-ticks').replace(/,/g,' ');
       tickliststr = tickliststr.replace(/\s+/g,' ');
@@ -649,7 +649,7 @@ export function replaceRangeComponent(inputnode, options) {
   }
 */
   const orientation = inputnode.getAttribute('orient');
-  const isvertical = (orientation && orientation.toUpperCase() == 'VERTICAL');
+  const isvertical = (orientation && orientation.toUpperCase() === 'VERTICAL');
 
   let tabindex = inputnode.tabIndex;
   if (!tabindex)

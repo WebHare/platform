@@ -16,7 +16,7 @@ export function readBackgroundUrl(imgnode) {
   const prop = getComputedStyle(imgnode).backgroundImage;
   if (prop && prop.match(/url\(.*\)/)) {
     let url = prop.substr(4, prop.length - 5);
-    if (url[0] == url[url.length - 1] && (url[0] == "'" || url[0] == '"'))
+    if (url[0] === url[url.length - 1] && (url[0] === "'" || url[0] === '"'))
       url = url.substr(1, url.length - 2);
     return url;
   }
@@ -40,7 +40,7 @@ export default class ImgEditField extends FileEditBase {
 
   checkForUploadOrClear(evt) {
     // We're only interested when the enter or space key was pressed
-    if (evt.keyCode != 13 && evt.keyCode != 32)
+    if (evt.keyCode !== 13 && evt.keyCode !== 32)
       return;
 
     const deletebutton = evt.target.closest(".wh-form__imgeditdelete");
@@ -136,7 +136,7 @@ export default class ImgEditField extends FileEditBase {
        can't just take a dataurl and preview it immediately (not without parsing EXIF)
        until we'd support image-editor integration */
 
-    if (!result.type || result.type.indexOf("image/") != 0)
+    if (!result.type || result.type.indexOf("image/") !== 0)
       return;//Not an image
 
     const imgpreload = await loadImage(result.url);

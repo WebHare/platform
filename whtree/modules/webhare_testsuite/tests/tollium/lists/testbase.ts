@@ -52,7 +52,7 @@ test.registerTests(
 
         // Test if highlighted class is present
         const rownode = test.getCurrentScreen().getListRow('staticlist', 'Row #1|');
-        test.assert(rownode != null);
+        test.assert(rownode !== null);
         test.assert(rownode.classList.contains("highlighted"));
       }
     },
@@ -88,14 +88,14 @@ test.registerTests(
 
         //Row #1.1 is initially expanded, check for visibility
         test.assert(getexpanded(test.getCurrentScreen().getListRow('staticlist', 'Row #1|')));
-        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') != null);
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') !== null);
 
         // Must have selected class
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1|').classList.contains("wh-list__row--selected"));
 
         //Row #2.1 is not initially expanded, and should NOT be visible
         test.assert(!getexpanded(test.getCurrentScreen().getListRow('staticlist', 'Row #2|')));
-        test.assert(!test.getCurrentScreen().getListRow('staticlist', 'Row #2.1') != null);
+        test.assert(!test.getCurrentScreen().getListRow('staticlist', 'Row #2.1') !== null);
 
         const staticlist = test.compByName("staticlist");
         let cells = getListRowCells(staticlist, "Row #1|");
@@ -119,14 +119,14 @@ test.registerTests(
 
         //Row #2.1 should be there now
         test.assert(getexpanded(test.getCurrentScreen().getListRow('staticlist', 'Row #2|')));
-        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1') != null);
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1') !== null);
 
         //collapse row #1
         clickRowExpander(test.getCurrentScreen().getListRow('staticlist', 'Row #1|'));
         test.assert(!getexpanded(test.getCurrentScreen().getListRow('staticlist', 'Row #1|')));
         test.assert(getexpanded(test.getCurrentScreen().getListRow('staticlist', 'Row #2|')));
-        test.assert(!test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') != null);
-        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1') != null);
+        test.assert(!test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') !== null);
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1') !== null);
 
         cells = getListRowCells(staticlist, "Row #1|");
         test.eq("Row #1 is collapsed", cells[2].textContent);
@@ -170,7 +170,7 @@ test.registerTests(
       name: 'statictree-buttonplay2',
       test: function (doc, win) {
         //this should have selected and expanded Row#1.1
-        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') != null);
+        test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') !== null);
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
         test.eq('2', test.compByName("staticlistselection").textContent); //we didn't even touch it...
       }
@@ -227,7 +227,7 @@ test.registerTests(
         test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20')));
       },
       //, waits:["ui"]
-      waits: [function () { return test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30') != null; }]
+      waits: [function () { return test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30') !== null; }]
     },
 
 
@@ -264,7 +264,7 @@ test.registerTests(
       name: 'contextmenu',
       test: function (doc, win) {
         let ctxtmenu = test.qS('.toddContextMenu');
-        test.assert(ctxtmenu == null);
+        test.assert(ctxtmenu === null);
 
         test.sendMouseGesture([
           { el: test.getCurrentScreen().getListRow('staticlist', 'Row #2|'), down: 2 },
@@ -374,7 +374,7 @@ test.registerTests(
     {
       name: 'empty text is shown but empty',
       test: function (doc, win) {
-        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M08']));
@@ -385,7 +385,7 @@ test.registerTests(
     {
       name: 'empty text is shown and non-empty',
       test: function (doc, win) {
-        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('empty 1', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M08']));
@@ -396,7 +396,7 @@ test.registerTests(
     {
       name: 'empty text is changed, multiline',
       test: function (doc, win) {
-        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('empty 2\nsecond line', test.qSA('.emptytext')[0].textContent);
 
         // Show some lines again
@@ -408,7 +408,7 @@ test.registerTests(
     {
       name: 'empty text is hidden again',
       test: function (doc, win) {
-        test.assert(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight === 0);
       }
     },
 

@@ -157,7 +157,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   }
 
   updateNode(data) {
-    if (data.src && data.src == this.imgsrc)
+    if (data.src && data.src === this.imgsrc)
       return;
 
     //We'll be loading a new promise
@@ -219,7 +219,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   }
 
   _testTranslatedAreaChanged(translated, origtranslated) {
-    if (translated.type != origtranslated.type)
+    if (translated.type !== origtranslated.type)
       return true;
 
     switch (translated.type) {
@@ -328,7 +328,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
     this._updateOverlayManager();
 
 
-    if (this.overlays.length == 0) {
+    if (this.overlays.length === 0) {
       // ! we must use a shallow copy (using slice() of the array because
       //   the array will be modified during running
       for (const o of this.overlaymanager.overlays.slice())
@@ -367,7 +367,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
 
       const ostorage = overlayobj[this.overlaystorage];
 
-      if (overlay.title != "") {
+      if (overlay.title !== "") {
         if (!ostorage.titlenode) {
           ostorage.titlenode = dompack.create("div", { className: "t-image__overlay__title" });
           overlayobj.nodes.container.appendChild(ostorage.titlenode);
@@ -380,7 +380,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
         ostorage.titlenode = null;
       }
 
-      if (overlay.hint != "")
+      if (overlay.hint !== "")
         overlayobj.nodes.container.setAttribute("title", overlay.hint);
       else
         overlayobj.nodes.container.removeAttribute("title");
@@ -428,7 +428,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   _gotOverlayDeleted(evt) {
     // also delete from our administration so refreshing doesn't recreate the overlay
     for (let idx = 0; idx < this.overlays.length; idx++) {
-      if (this.overlays[idx].rowkey == evt.detail.overlay[this.overlaystorage].rowkey) {
+      if (this.overlays[idx].rowkey === evt.detail.overlay[this.overlaystorage].rowkey) {
         this.overlays.splice(idx, 1);
       }
     }
@@ -456,7 +456,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   {
     const selectionrowkeys = this.overlaymanager.getSelection().filter(o => !o[this.overlaystorage].newid).map(o => o[this.overlaystorage].rowkey);
 
-    if (this.selectionrowkeys == selectionrowkeys)
+    if (this.selectionrowkeys === selectionrowkeys)
       return;
 
     // Apply the selection states from the overlaymanager to our own list
@@ -567,20 +567,20 @@ export default class ObjImage extends ActionableBase { // ----------------------
     // overlay: { rowkey: <rowkey>, top: 0, left: 0, right: 0, bottom: 0, type: "rectangle" }
     let changed = false;
     this.overlays.forEach(function (curoverlay) {
-      if (curoverlay.rowkey == overlay.rowkey) {
-        if (curoverlay.top != overlay.top) {
+      if (curoverlay.rowkey === overlay.rowkey) {
+        if (curoverlay.top !== overlay.top) {
           curoverlay.top = overlay.top;
           changed = true;
         }
-        if (curoverlay.left != overlay.left) {
+        if (curoverlay.left !== overlay.left) {
           curoverlay.left = overlay.left;
           changed = true;
         }
-        if (curoverlay.right != overlay.right) {
+        if (curoverlay.right !== overlay.right) {
           curoverlay.right = overlay.right;
           changed = true;
         }
-        if (curoverlay.bottom != overlay.bottom) {
+        if (curoverlay.bottom !== overlay.bottom) {
           curoverlay.bottom = overlay.bottom;
           changed = true;
         }
@@ -597,8 +597,8 @@ export default class ObjImage extends ActionableBase { // ----------------------
       var changed = false;
       this.overlays = this.overlays.filter(function (curoverlay)
       {
-        changed = changed || curoverlay.rowkey == overlay.rowkey;
-        return curoverlay.rowkey != overlay.rowkey;
+        changed = changed || curoverlay.rowkey === overlay.rowkey;
+        return curoverlay.rowkey !== overlay.rowkey;
       });
       if (changed)
         this.queueMessage('overlays', this.overlays, true);

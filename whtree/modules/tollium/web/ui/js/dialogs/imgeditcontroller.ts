@@ -80,7 +80,7 @@ class ImgeditDialogController {
     // Take a busy lock during loading
     this.busylock = this.screen.displayapp.getBusyLock();
 
-    if (src.indexOf("data:") == 0) {
+    if (src.indexOf("data:") === 0) {
       //console.log("Convert image data from data URL to blob");
       const blob = dataURItoBlob(src);
       this._readImageFile(blob, settings);
@@ -173,7 +173,7 @@ class ImgeditDialogController {
   _skipEditor(width, height, mimetype) {
     //console.log(this.options.action,this.options.imgsize,width,height,mimetype);
     // When editing, show editor
-    if (this.options.action == "edit")
+    if (this.options.action === "edit")
       return false;
 
     return !ImageEditor.resizeMethodApplied(this.options.imgsize, width, height, mimetype);
@@ -262,7 +262,7 @@ class ImgeditDialogController {
       editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
     };
 
-    if (this.options.action == "edit") {
+    if (this.options.action === "edit") {
       if (this.options.resetImage)
         options.resetImage = this.options.resetImage;
       //ADDME: Drag-n-drop file upload in image editor?
@@ -393,7 +393,7 @@ class ImgeditDialogController {
           });
         callback();
 
-        if (await dialog == 'yes')
+        if (await dialog === 'yes')
           this._closeImageEditor();
 
         return;
@@ -419,9 +419,9 @@ class ImgeditDialogController {
 
         callback();
 
-        if (await dialog == 'yes')
+        if (await dialog === 'yes')
           this._closeImageEditor(true);
-        else if (await dialog == 'no')
+        else if (await dialog === 'no')
           this._closeImageEditor();
 
         return;

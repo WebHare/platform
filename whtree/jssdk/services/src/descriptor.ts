@@ -159,7 +159,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
     return {}; //assuming it was't an image
   }
 
-  const istransparent = stats && stats?.channels.length >= 4 && (stats.channels[0].sum + stats.channels[1].sum + stats.channels[2].sum + stats.channels[3].sum) == 0;
+  const istransparent = stats && stats?.channels.length >= 4 && (stats.channels[0].sum + stats.channels[1].sum + stats.channels[2].sum + stats.channels[3].sum) === 0;
 
   const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
   const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
@@ -183,12 +183,12 @@ export function encodeScanData(meta: EncodableResourceMetaData): string {
   const data: SerializedScanData = {};
   if (!meta.hash)
     throw new Error("Hash is required");
-  else if (meta.hash != EmptyFileHash)
+  else if (meta.hash !== EmptyFileHash)
     data.x = meta.hash;
 
   if (!meta.mediaType)
     throw new Error("MediaType is required");
-  else if (meta.mediaType != DefaultMediaType)
+  else if (meta.mediaType !== DefaultMediaType)
     data.m = meta.mediaType;
 
   if (BitmapImageTypes.includes(meta.mediaType) && (!meta.width || !meta.height))
@@ -242,7 +242,7 @@ export function decodeScanData(scandata: string): ResourceMetaData {
   const parseddata = scandata ? decodeHSON(scandata) as SerializedScanData : {};
 
   let fileName = parseddata.f || null;
-  if (fileName && (fileName == 'noname' || fileName.startsWith('noname.')))
+  if (fileName && (fileName === 'noname' || fileName.startsWith('noname.')))
     fileName = null; //WebHare would write 'noname' followed by the extension if the filename was not set. make it clear we didn't have a filename (TODO stop writing 'noname', probably need to rename 'f' for backwards compat with existing data)
 
   const rotation = parseddata.w ? (parseddata.r || 0) : null;

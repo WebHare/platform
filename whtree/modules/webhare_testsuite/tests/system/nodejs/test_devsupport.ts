@@ -7,7 +7,7 @@ async function testDevBridge() {
   test.eq("@mod-system/js/internal/generated/whdb/platform", devbridge.getImportPath(backendConfig.installationroot + "modules/system/js/internal/generated/whdb/platform.ts"));
 
   const test_platform_files = await devbridge.getGeneratedFiles({ module: "platform" });
-  test.eqProps({ importPath: '@mod-system/js/internal/generated/whdb/platform' }, test_platform_files.find(_ => _.type == "whdb"));
+  test.eqProps({ importPath: '@mod-system/js/internal/generated/whdb/platform' }, test_platform_files.find(_ => _.type === "whdb"));
 
   const platform_whdb_defs = await devbridge.getDatabaseDefs({ module: "platform" });
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
@@ -33,8 +33,8 @@ async function testDevBridge() {
 
   const test_whts_files = await devbridge.getGeneratedFiles({ module: "webhare_testsuite" });
   // console.log(test_whts_files);
-  test.eqProps({ importPath: 'wh:wrd/webhare_testsuite' }, test_whts_files.find(_ => _.type == "wrd"));
-  test.eqProps({ importPath: 'wh:whdb/webhare_testsuite' }, test_whts_files.find(_ => _.type == "whdb"));
+  test.eqProps({ importPath: 'wh:wrd/webhare_testsuite' }, test_whts_files.find(_ => _.type === "wrd"));
+  test.eqProps({ importPath: 'wh:whdb/webhare_testsuite' }, test_whts_files.find(_ => _.type === "whdb"));
 }
 
 test.run([testDevBridge]);

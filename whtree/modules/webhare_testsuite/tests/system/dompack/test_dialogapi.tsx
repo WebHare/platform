@@ -48,18 +48,18 @@ test.registerTests(
       //set the focus to the toplevel window
       test.focus('#textedit4');
       test.pressKey('a');
-      await test.wait(() => test.qR('#textedit4').value == 'a');
+      await test.wait(() => test.qR('#textedit4').value === 'a');
 
       //and ESCAPE!
       test.eq(2, test.qR("#dialoglog").childNodes.length);
       test.pressKey("Escape");
-      await test.wait(() => test.qR("#dialoglog").childNodes.length == 3);
+      await test.wait(() => test.qR("#dialoglog").childNodes.length === 3);
 
       test.eq('Dialog 4: null', test.qR("#dialoglog > :last-child").textContent);
       test.eq(3, test.qR("#dialoglog").childNodes.length);
 
       test.pressKey("Escape");
-      await test.wait(() => test.qR("#dialoglog").childNodes.length == 4);
+      await test.wait(() => test.qR("#dialoglog").childNodes.length === 4);
 
       test.eq('Dialog 3: null', test.qR("#dialoglog > :last-child").textContent);
     },

@@ -39,7 +39,7 @@ export function getLevelActionableListNodes(range, scope) {
 
   const endliparent = domlevel.findParent(range.end.getNearestNode(), "li", scope);
   if (endliparent) {
-    if (endliparent == startliparent) {
+    if (endliparent === startliparent) {
       range.end.assign(domlevel.Locator.newPointingAfter(startliparent));
     } else {
       range.end.ascend(scope, false);
@@ -67,13 +67,13 @@ export function getLevelActionableListNodes(range, scope) {
       prevlist.moveToPreviousBlockBoundary(linodes[i].parentNode.parentNode, true);
       //console.log('glaln prevlist:', richdebug.getStructuredOuterHTML(scope, { prevlist: prevlist }, true));
       prevlist = prevlist.getPointedNode();
-      if (!prevlist || prevlist == linodes[i].parentNode || (prevlist.nodeName.toUpperCase() != "UL" && prevlist.nodeName.toUpperCase() != "OL"))
+      if (!prevlist || prevlist === linodes[i].parentNode || (prevlist.nodeName.toUpperCase() !== "UL" && prevlist.nodeName.toUpperCase() !== "OL"))
         continue;
-    } else if (linodes[i].previousSibling.nodeType != 1 || linodes[i].previousSibling.nodeName.toLowerCase() != 'li')
+    } else if (linodes[i].previousSibling.nodeType !== 1 || linodes[i].previousSibling.nodeName.toLowerCase() !== 'li')
       continue;
 
     // Don't select partial nodes when our selection starts in a list within that node
-    if (startliparent && linodes[i] != startliparent && linodes[i].contains(startliparent))
+    if (startliparent && linodes[i] !== startliparent && linodes[i].contains(startliparent))
       continue;
 
     if (!updatePathForNextNode(path, linodes[i]))
@@ -90,7 +90,7 @@ export function getLevelActionableListNodes(range, scope) {
       continue;
 
     // Don't select partial nodes when our selection starts in a list within that node
-    if (linodes[i] != startliparent && linodes[i].contains(startliparent))
+    if (linodes[i] !== startliparent && linodes[i].contains(startliparent))
       continue;
 
     if (!updatePathForNextNode(path, linodes[i]))

@@ -39,7 +39,7 @@ export async function testSuiteCleanup() {
   test.assert(testsitejs, "We need the JS testsite to exist");
 
   let updateres;
-  if (JSON.stringify(await testsitejs.getWebFeatures()) != JSON.stringify(["platform:identityprovider"]) || await testsitejs.getWebDesign() != "webhare_testsuite:basetestjs") {
+  if (JSON.stringify(await testsitejs.getWebFeatures()) !== JSON.stringify(["platform:identityprovider"]) || await testsitejs.getWebDesign() !== "webhare_testsuite:basetestjs") {
     updateres = await testsitejs.update({ webFeatures: ["platform:identityprovider"], webDesign: "webhare_testsuite:basetestjs" });
   }
 

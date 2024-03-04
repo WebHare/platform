@@ -33,7 +33,7 @@ export default class ObjToolbar extends ComponentBase {
 
     this.items = data.items.map(item => {
       if (item.divider)
-        return { comp: null, flex: item.type == "flex" };
+        return { comp: null, flex: item.type === "flex" };
       return { comp: this.owner.addComponent(this, item.name) };
     });
 
@@ -81,8 +81,8 @@ export default class ObjToolbar extends ComponentBase {
    * Component management
    */
   readdComponent(comp) {
-    const buttonpos = this.items.findIndex(node => node.comp == comp);
-    if (buttonpos == -1) {
+    const buttonpos = this.items.findIndex(node => node.comp === comp);
+    if (buttonpos === -1) {
       console.error('Toolbar ' + this.name + ' got offered a component to replace, but it wasn\'t found in the toolbar', comp);
       return;
     }

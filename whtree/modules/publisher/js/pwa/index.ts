@@ -122,7 +122,7 @@ export async function onReady(initfunction, options) {
     if (swregistration.installing) //detect an installing worker going straight to redundant
     {
       swregistration.installing.addEventListener("statechange", event => {
-        if (event.target.state == "redundant")
+        if (event.target.state === "redundant")
           offlinedeferred.reject(new Error("The serviceWorker failed to install"));
       });
     }
@@ -151,11 +151,11 @@ async function precheckExistingWorkers() {
 }
 
 function onServiceWorkerMessage(event) {
-  if (event.data.type == 'forceRefresh') {
+  if (event.data.type === 'forceRefresh') {
     location.reload(true);
     return;
   }
-  if (event.data.type == "log") {
+  if (event.data.type === "log") {
     console[event.data.loglevel]("[From ServiceWorker] " + event.data.message);
     return;
   }

@@ -44,7 +44,7 @@ abstract class MultiInputSubstition {
     setupMyValueProperty(this._replacednode);
   }
   _onOriginalChange() { //capture browser initiated changes (they don't go through our value property)
-    if (this._replacednode.value == this._lastsetvalue)
+    if (this._replacednode.value === this._lastsetvalue)
       return;
 
     this._lastsetvalue = this._replacednode.value;
@@ -70,7 +70,7 @@ abstract class MultiInputSubstition {
     //now with EARLY focus
     //FIXME cleanup field first?
     //FIXME determine whether to use NUMBER of TEL.
-    // if(field && field.input.length == )
+    // if(field && field.input.length === )
     if (!field)
       return false;
 
@@ -154,7 +154,7 @@ abstract class MultiInputSubstition {
   }
 
   _setReplacedValue(setvalue) {
-    if (setvalue != this._lastsetvalue) {
+    if (setvalue !== this._lastsetvalue) {
       __setUnderlyingValue(this._replacednode, setvalue); //direct update to prevent it from rewriting our fields
       this._lastsetvalue = setvalue;
 
@@ -184,7 +184,7 @@ abstract class MultiInputSubstition {
   _arrowHorizontal(evt, dir) {
     const field = evt.target;
 
-    if ((field.selectionStart != field.selectionEnd) //theres a selection, let the browser deal with that
+    if ((field.selectionStart !== field.selectionEnd) //theres a selection, let the browser deal with that
       || (dir < 0 && field.selectionStart > 0) //not at the left edge
       || (dir > 0 && field.selectionEnd < field.value.length)) // not at the right edge
       return;
@@ -265,15 +265,15 @@ export class DateField extends MultiInputSubstition {
     this._nodes.month.min = 1;
     this._nodes.month.max = 12;
 
-    if (this._replacednode.min != "") { //Should be iso date
+    if (this._replacednode.min !== "") { //Should be iso date
       const minyear = this._replacednode.min.split(/[^0-9]+/)[0];
-      if (minyear != "")
+      if (minyear !== "")
         this._nodes.year.min = minyear;
     }
 
-    if (this._replacednode.max != "") { //Should be iso date
+    if (this._replacednode.max !== "") { //Should be iso date
       const maxyear = this._replacednode.max.split(/[^0-9]+/)[0];
-      if (maxyear != "")
+      if (maxyear !== "")
         this._nodes.year.max = maxyear;
     }
 
@@ -312,7 +312,7 @@ export class DateField extends MultiInputSubstition {
     if (this._nodes[partname])
       throw new Error(`Duplicate '${partname}' node`);
 
-    this._nodes[partname] = this._constructPart(partname, { maxlength: partname == "year" ? 4 : 2 });
+    this._nodes[partname] = this._constructPart(partname, { maxlength: partname === "year" ? 4 : 2 });
     return this._nodes[partname];
   }
 
@@ -342,11 +342,11 @@ export class DateField extends MultiInputSubstition {
   }
 
   _getFieldTextLength(field) {
-    return field == this._nodes.year ? 4 : 2;
+    return field === this._nodes.year ? 4 : 2;
   }
   _getNextField(field) {
-    return field == this._nodes.day ? this._nodes.month
-      : field == this._nodes.month ? this._nodes.year
+    return field === this._nodes.day ? this._nodes.month
+      : field === this._nodes.month ? this._nodes.year
         : null;
 
   }
@@ -356,7 +356,7 @@ export class DateField extends MultiInputSubstition {
     const month = parseInt(this._nodes.month.value, 0);
     const day = parseInt(this._nodes.day.value, 0);
 
-    if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff != "") {
+    if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff !== "") {
       const cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
       if (year < cutoff) //to do someday.. current century might not be 2000 anymore
         year += 2000;
@@ -373,11 +373,11 @@ export class DateField extends MultiInputSubstition {
       return; //not sure what to do with a corrupt
 
     let newdate = new Date(isodate);
-    if (node == this._nodes.day) {
+    if (node === this._nodes.day) {
       newdate = new Date(Number(newdate) + (change * 86400000));
-    } else if (node == this._nodes.month) {
+    } else if (node === this._nodes.month) {
       newdate.setUTCMonth(newdate.getUTCMonth() + change);
-    } else if (node == this._nodes.year) {
+    } else if (node === this._nodes.year) {
       newdate.setUTCFullYear(newdate.getUTCFullYear() + change);
     } else {
       return;
@@ -426,7 +426,7 @@ export class DateField extends MultiInputSubstition {
     const month = parseInt(fields.month, 0);
     const day = parseInt(fields.day, 0);
 
-    if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff != "") {
+    if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff !== "") {
       const cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
       if (year < cutoff) //TODO current century might not be 2000 anymore
         year += 2000;
@@ -441,7 +441,7 @@ export class DateField extends MultiInputSubstition {
   }
 
   _onKeyPress(evt, key) {
-    if (key == '-' || key == '/') {
+    if (key === '-' || key === '/') {
       const nextfield = this._getNextField(evt.target);
       if (nextfield)
         dompack.focus(nextfield);
@@ -459,7 +459,7 @@ export class DateField extends MultiInputSubstition {
       let prevval = this.previous.value;
       this.previous.value = node.value;
 
-      if( ev.keyCode == 8 && node.value == "" && prevval == "" )//backspace
+      if( ev.keyCode === 8 && node.value === "" && prevval === "" )//backspace
       {
         //Try to set focus on previous input
         let prevnode = node.parentNode.previousSibling;
@@ -476,14 +476,14 @@ export class DateField extends MultiInputSubstition {
       //First some basic validation
       let value = node.value.replace(/[^0-9]+/g,'');
 
-      if( value == "" || value != node.value || 1*value < 1*node.min || 1*value > 1*node.max )
+      if( value === "" || value !== node.value || 1*value < 1*node.min || 1*value > 1*node.max )
         return;
 
       //Is field value minimal length
-      if( (node == this.yearnode && value.length < 4) || (node != this.yearnode && value.length < 2) )
+      if( (node === this.yearnode && value.length < 4) || (node !== this.yearnode && value.length < 2) )
         return;
 
-      if( prevval == node.value )
+      if( prevval === node.value )
           return;//Only go to next input if value changed
 
       //Try to set focus on next input
@@ -522,8 +522,8 @@ export class TimeField extends MultiInputSubstition {
 
     const step = parseFloat(this._replacednode.getAttribute("step") || '0');
     this.previous = { value: '' };
-    this._showmsec = step != Math.floor(step); //fraction
-    this._showsecond = this._showmsec || (step % 60 != 0); //unable to round to minute... so seconds
+    this._showmsec = step !== Math.floor(step); //fraction
+    this._showsecond = this._showmsec || (step % 60 !== 0); //unable to round to minute... so seconds
 
     this._placeholder = { hour: "hh", minute: "mm", second: "ss", msec: "mmm" };
 
@@ -564,7 +564,7 @@ export class TimeField extends MultiInputSubstition {
     const max = parseInt(node.getAttribute("max"));
 
     if (newval < 0 || newval > max) {
-      if (nodeidx == 0) //already at top level, no wrapping..
+      if (nodeidx === 0) //already at top level, no wrapping..
         return false;
 
       newval = change < 0 ? max : 0; //wrap it!
@@ -574,7 +574,7 @@ export class TimeField extends MultiInputSubstition {
     }
 
     //Cannot use dompack.changeValue here as we need to explicitly tell onInput not to move the next field
-    node.value = ('000' + newval).slice(nodeidx == 3 ? -3 : -2);
+    node.value = ('000' + newval).slice(nodeidx === 3 ? -3 : -2);
     return true;
   }
 
@@ -583,7 +583,7 @@ export class TimeField extends MultiInputSubstition {
       throw new Error(`Duplicate '${partname}' node`);
 
     this._nodes[partname] = this._constructPart(partname, {
-      maxlength: partname == 'msec' ? 3 : 2,
+      maxlength: partname === 'msec' ? 3 : 2,
       min: "0"
     });
 
@@ -614,7 +614,7 @@ export class TimeField extends MultiInputSubstition {
   }
 
   _getFieldTextLength(field) {
-    return field == this._nodes.msec ? 3 : 2;
+    return field === this._nodes.msec ? 3 : 2;
   }
   _getSubInputs() {
     return [
@@ -657,7 +657,7 @@ export class TimeField extends MultiInputSubstition {
   }
 
   _onKeyPress(evt, key) {
-    if (key == ':' || key == '.') {
+    if (key === ':' || key === '.') {
       const nextfield = this._getNextField(evt.target);
       if (nextfield)
         dompack.focus(nextfield);
@@ -667,8 +667,8 @@ export class TimeField extends MultiInputSubstition {
   }
 
   _getNextField(field) {
-    return field == this._nodes.hour ? this._nodes.minute
-      : field == this._nodes.minute ? this._nodes.second
+    return field === this._nodes.hour ? this._nodes.minute
+      : field === this._nodes.minute ? this._nodes.second
         : null;
 
   }
@@ -683,7 +683,7 @@ export class TimeField extends MultiInputSubstition {
       let prevval = this.previous.value;
       this.previous.value = node.value;
 
-      if( ev.keyCode == 8 && node.value == "" && prevval == "" )//backspace
+      if( ev.keyCode === 8 && node.value === "" && prevval === "" )//backspace
       {
         //Try to set focus on previous input
         let prevnode = node.parentNode.previousSibling;
@@ -699,14 +699,14 @@ export class TimeField extends MultiInputSubstition {
 
       //First some basic validation
       let value = node.value.replace(/[^0-9]+/g,'');
-      if( value == "" || value != node.value || 1*value < 1*node.min || 1*value > 1*node.max )
+      if( value === "" || value !== node.value || 1*value < 1*node.min || 1*value > 1*node.max )
         return;
 
       //Is field value minimal length
       if( value.length < 2 )
         return;
 
-      if( prevval == node.value )
+      if( prevval === node.value )
           return;//Only go to next input if value changed
 
       //Try to set focus on next input

@@ -28,7 +28,7 @@ function explainIntoLines(parsed) {
   const lines = [];
   let curinlineitems = [];
   for (const node of parsed) {
-    if (['block', 'table', 'list', 'br'].includes(node.type) || (node.type == "embeddedobject" && node.embedtype != 'inline')) //a block starts
+    if (['block', 'table', 'list', 'br'].includes(node.type) || (node.type === "embeddedobject" && node.embedtype !== 'inline')) //a block starts
     {
       if (curinlineitems.length) {
         lines.push({ inline: curinlineitems });
@@ -47,14 +47,14 @@ function explainIntoLines(parsed) {
 }
 function fixIntralineSpaves(items) {
   //Remove any initial space
-  while (items.length && items[0].type == 'text' && items[0].value[0] == ' ') {
+  while (items.length && items[0].type === 'text' && items[0].value[0] === ' ') {
     items[0].value = items[0].value.substr(1);
     if (!items[0].value) //that was all the data we had?
       items.shift(); //remove first element
   }
 
   //Remove any final space
-  while (items.length && items[items.length - 1].type == 'text' && items[items.length - 1].value.endsWith(' ')) {
+  while (items.length && items[items.length - 1].type === 'text' && items[items.length - 1].value.endsWith(' ')) {
     items[items.length - 1].value = items[items.length - 1].value.substr(0, items[items.length - 1].value.length - 1);
     if (!items[items.length - 1].value) //that was all the data we had?
       items.pop(); //remove last element
@@ -62,12 +62,12 @@ function fixIntralineSpaves(items) {
 
   //If two consecutive text nodes both have a space on their shared edge, remove it from the second node
   for (let i = 1; i < items.length; ++i) {
-    if (items[i].type == 'text' && items[i].value[0] == ' ' && items[i - 1].type == 'text' && items[i - 1].value.endsWith(' '))
+    if (items[i].type === 'text' && items[i].value[0] === ' ' && items[i - 1].type === 'text' && items[i - 1].value.endsWith(' '))
       items[i].value = items[i].value.substr(1); //strip the starting space
   }
 
   //Remove any fully empty textnodes
-  items = items.filter(_ => !(_.type == 'text' && !_.value));
+  items = items.filter(_ => !(_.type === 'text' && !_.value));
   return items;
 }
 
@@ -103,9 +103,9 @@ export default class StructuredEditor extends EditorBase {
     const findcontainertag = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
     const selstate = this.getSelectionState();
     const currentstyle = selstate.blockstyle;
-    const availablestyles = this.getAvailableBlockStyles(selstate).filter(fstyle => fstyle.def.containertag.toUpperCase() == findcontainertag);
-    const currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
-    if (availablestyles.length == 0)
+    const availablestyles = this.getAvailableBlockStyles(selstate).filter(fstyle => fstyle.def.containertag.toUpperCase() === findcontainertag);
+    const currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname === currentstyle.classname) : -1;
+    if (availablestyles.length === 0)
       return;
 
     dompack.stop(event);
@@ -197,7 +197,7 @@ export default class StructuredEditor extends EditorBase {
             }
           }
         }
-      } else if (browser.getName() == "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
+      } else if (browser.getName() === "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
         // Safari doesn't handle pastes of images well, it does pastes a 'webkit-fake-url://..../<urlpath>' url.
         // We can try to get the URL ourselves
 
@@ -265,7 +265,7 @@ export default class StructuredEditor extends EditorBase {
   async _validateEmbeddedObjects() {
     //FIXME also handle duplicates? but not sure yet how to reproduce/test those
     let embobjs = domlevel.queryEmbeddedObjects(this.getBody());
-    if (embobjs.length == 0)
+    if (embobjs.length === 0)
       return;
 
     // Remove all nested embedded objects (keep those that aren't a child of the previously kept object)
@@ -304,7 +304,7 @@ export default class StructuredEditor extends EditorBase {
     const upres = up.scanForward(this.getBody(), { whitespace: true, blocks: true });
 
     // We're before the first content block?
-    if ((upres.type != 'outerblock' || upres.data != this.getBody()) && rawselection.start.compare(up) < 0) {
+    if ((upres.type !== 'outerblock' || upres.data !== this.getBody()) && rawselection.start.compare(up) < 0) {
       //console.log('need to fix selection');
       rawselection.start.assign(up);
       if (up.compare(rawselection.end) > 0)
@@ -404,7 +404,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   executeDefaultPropertiesAction(event) {
-    if (event.target.nodeName.toLowerCase() == 'div' && event.detail.subaction == "delete") {
+    if (event.target.nodeName.toLowerCase() === 'div' && event.detail.subaction === "delete") {
       this.removeEmbeddedObject(event.target);
       return;
     }
@@ -423,12 +423,12 @@ export default class StructuredEditor extends EditorBase {
   */
   canCombineNodes(denylist, left, right) {
     let res;
-    if (left.nodeName.toLowerCase() != right.nodeName.toLowerCase())
+    if (left.nodeName.toLowerCase() !== right.nodeName.toLowerCase())
       res = false;
     else {
       if (denylist.includes(left) || denylist.includes(right))
         res = false;
-      else if (['ol', 'ul'].includes(left.nodeName.toLowerCase()) && left.className == right.className)
+      else if (['ol', 'ul'].includes(left.nodeName.toLowerCase()) && left.className === right.className)
         res = true; // ol and ul: need classname match
       else if (!this.textstyletags.includes(left.nodeName.toLowerCase()))
         res = false;
@@ -451,7 +451,7 @@ export default class StructuredEditor extends EditorBase {
 
   /// Removes a range, does not try to stitch everything together
   removeRange(from, to, ancestor) {
-    if (from.element == to.element && from.offset == to.offset)
+    if (from.element === to.element && from.offset === to.offset)
       return from.clone();
 
     ancestor = ancestor || domlevel.Locator.findCommonAncestorElement(from, to);
@@ -512,7 +512,7 @@ export default class StructuredEditor extends EditorBase {
 
     locator = locator.clone();
     const res = locator.scanForward(this.getBody(), {});
-    if (res.type != 'br')
+    if (res.type !== 'br')
       return null;
     //    if ((!res.segmentbreak && !res.zerowidthspace) || res.blockboundary) // Segment break that is not a block boundary is a <br> or (not implemented) a visible '\n'
     //      return null;
@@ -538,7 +538,7 @@ export default class StructuredEditor extends EditorBase {
 
     // Only search for last br when we're actually in a block
     let segmentbreakrange = null;
-    if (block.blockroot != block.node)
+    if (block.blockroot !== block.node)
       segmentbreakrange = this.pointsToLastBlockBR(locator);
 
     //console.log('insertBlockNode albr: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, segmentbreakrange: segmentbreakrange }));
@@ -672,7 +672,7 @@ export default class StructuredEditor extends EditorBase {
 
   _insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem) {
     // Get info about the current block & block root
-    if (embobjnode.nodeName == 'SPAN') {
+    if (embobjnode.nodeName === 'SPAN') {
       const res = this.insertNodeAutoSplit(locator, embobjnode, preservelocators, undoitem);
       const afternodelocator = res.next;
       // don't want the afternode locator to be corrected to after a newly inserted br
@@ -688,7 +688,7 @@ export default class StructuredEditor extends EditorBase {
 
       // Only search for last br when we're actually in a block
       let segmentbreakrange = null;
-      if (block.blockroot != block.node)
+      if (block.blockroot !== block.node)
         segmentbreakrange = this.pointsToLastBlockBR(locator);
 
       // Move past last br
@@ -776,7 +776,7 @@ export default class StructuredEditor extends EditorBase {
 
     // Only search for last br when we're actually in a block
     let segmentbreakrange = null;
-    if (block.blockroot != block.node)
+    if (block.blockroot !== block.node)
       segmentbreakrange = this.pointsToLastBlockBR(locator);
 
     // Move past last br
@@ -890,7 +890,7 @@ export default class StructuredEditor extends EditorBase {
       Update: adds whitelisted attributes to the record
   */
   getTextStyleRecordFromNode(curnode) {
-    if (curnode.nodeName.toLowerCase() == 'span')
+    if (curnode.nodeName.toLowerCase() === 'span')
       return null;
 
     let rec = super.getTextStyleRecordFromNode(curnode);
@@ -917,9 +917,9 @@ export default class StructuredEditor extends EditorBase {
     if (curnode.classList.contains("wh-rtd__img--uploading")) //don't lose this status during upload
       node["class"] += " wh-rtd__img--uploading";
 
-    if (curnode.classList.contains("wh-rtd__img--floatleft") || curnode.classList.contains("-wh-rtd-floatleft") || curnode.classList.contains("wh-rtd-floatleft") || align == "left")
+    if (curnode.classList.contains("wh-rtd__img--floatleft") || curnode.classList.contains("-wh-rtd-floatleft") || curnode.classList.contains("wh-rtd-floatleft") || align === "left")
       node["class"] += " wh-rtd__img--floatleft";
-    else if (curnode.classList.contains("wh-rtd__img--floatright") || curnode.classList.contains("-wh-rtd-floatright") || curnode.classList.contains("wh-rtd-floatright") || align == "right")
+    else if (curnode.classList.contains("wh-rtd__img--floatright") || curnode.classList.contains("-wh-rtd-floatright") || curnode.classList.contains("wh-rtd-floatright") || align === "right")
       node["class"] += " wh-rtd__img--floatright";
 
     node = { ...node, ...domlevel.getAttributes(curnode, ['width', 'height', 'alt', 'src']) };
@@ -929,7 +929,7 @@ export default class StructuredEditor extends EditorBase {
 
   isNodeTextStyleMatch(node, textstyle) {
     const nodestyle = this.getTextStyleRecordFromNode(node);
-    if (!nodestyle || nodestyle.nodeName != textstyle.nodeName)
+    if (!nodestyle || nodestyle.nodeName !== textstyle.nodeName)
       return false;
 
     const list = this.textstylewhitelistedattributes[nodestyle.nodeName];
@@ -945,7 +945,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   createTextStyleNode(textstyle) {
-    const node = textstyle.nodeName == "a-href" ? "a" : textstyle.nodeName;
+    const node = textstyle.nodeName === "a-href" ? "a" : textstyle.nodeName;
 
     const stylenode = document.createElement(node);
 
@@ -1007,11 +1007,11 @@ export default class StructuredEditor extends EditorBase {
       // console.log('IIFN pre ascend html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, breaknode: breaknode }));
       locator.ascend(breaknode, true);
 
-      if (locator.element != breaknode) {
+      if (locator.element !== breaknode) {
         // Got an element in our path we do not want in the final style
         // Calculate until which element (how deep) we need to split, then do the split
         //        var splitparent = path.length ? path[0] : locator.element;
-        //        if (splitparent.nodeType != 1)
+        //        if (splitparent.nodeType !== 1)
         //          splitparent = splitparent.parentNode;
 
         // console.log('IIFN pre split html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
@@ -1072,7 +1072,7 @@ export default class StructuredEditor extends EditorBase {
   */
   getBlockAtNode(node) {
     const res = super.getBlockAtNode(node);
-    if (res.blockparent != res.node)
+    if (res.blockparent !== res.node)
       res.blockstyle = this.structure.getBlockStyleByTag(res.node.className.split(' ')[0]);
     else
       res.blockstyle = null;
@@ -1099,7 +1099,7 @@ export default class StructuredEditor extends EditorBase {
     range.start.moveToPreviousBlockBoundary(this.getBody(), true);
 
     // If end is placed before all visible content in a block, need to place it before the its block (but after range.start!)
-    if (range.end.movePastLastVisible(this.getBody()).type == 'outerblock') {
+    if (range.end.movePastLastVisible(this.getBody()).type === 'outerblock') {
       // When <p>...</p><p>(*end*), place the end in the previous block
       range.end.ascend(this.getBody(), false);
       // Now: <p>...</p>(*end*)<p> or <body>(*end*)<p>
@@ -1128,17 +1128,17 @@ export default class StructuredEditor extends EditorBase {
     const blocks = [];
     for (let i = 0; i < blocknodes.length; ++i) {
       const block = this.getBlockAtNode(blocknodes[i]);
-      if (block.islist && block.contentnode == block.node)
+      if (block.islist && block.contentnode === block.node)
         continue;
 
       blocks.push({ type: 'block', block: block });
     }
 
-    if (range.start.element == range.end.element) {
+    if (range.start.element === range.end.element) {
       const block = this.getBlockAtNode(range.start.element);
-      if (block.contentnode == block.blockparent) // Non-block enclosed text
+      if (block.contentnode === block.blockparent) // Non-block enclosed text
       {
-        if (blocknodes.length == 0) {
+        if (blocknodes.length === 0) {
           blocks.push({ type: 'range', range: range });
         } else {
           const startrange = range.clone();
@@ -1174,7 +1174,7 @@ export default class StructuredEditor extends EditorBase {
     const blockstyles = [], blockstyletags = [];
 
     for (let i = 0; i < blockranges.length; ++i) {
-      if (blockranges[i].type != 'block' || !blockranges[i].block.blockstyle)
+      if (blockranges[i].type !== 'block' || !blockranges[i].block.blockstyle)
         continue;
 
       const blockstyle = blockranges[i].block.blockstyle;
@@ -1233,7 +1233,7 @@ export default class StructuredEditor extends EditorBase {
   parseNode(node) {
     // text nodes?
     if ([3, 4].includes(node.nodeType))
-      return node.nodeValue == '' ? { type: 'ignore' } : { type: 'text', data: node.nodeValue };
+      return node.nodeValue === '' ? { type: 'ignore' } : { type: 'text', data: node.nodeValue };
 
     // Not an element or fragment?
     if (![1, 11].includes(node.nodeType))
@@ -1254,7 +1254,7 @@ export default class StructuredEditor extends EditorBase {
         htmltext: htmltext,
         typetext: node.getAttribute("data-widget-typetext") || '',
         canedit: node.classList.contains("wh-rtd-embeddedobject--editable"),
-        embedtype: node.nodeName == 'SPAN' ? 'inline' : 'block',
+        embedtype: node.nodeName === 'SPAN' ? 'inline' : 'block',
         wide: node.hasAttribute("data-widget-wide")
       };
     }
@@ -1277,15 +1277,15 @@ export default class StructuredEditor extends EditorBase {
 
       // Match on classname (but don't change list to non-list or table to non-table & vv).
       if (!classmatch
-        && (blockstyle.islist == islist)
-        && (Boolean(blockstyle.istable) == Boolean(istable))
+        && (blockstyle.islist === islist)
+        && (Boolean(blockstyle.istable) === Boolean(istable))
         && node.classList.contains(blockstyle.classname)) {
         classmatch = blockstyle;
       }
 
       // Match h1-h6 on tag name too
       if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(nodename)
-        && nodename == blockstyle.def.containertag.toLowerCase()
+        && nodename === blockstyle.def.containertag.toLowerCase()
         && !tagmatch)
         tagmatch = blockstyle;
     }
@@ -1307,9 +1307,9 @@ export default class StructuredEditor extends EditorBase {
     if (style && this.textstyletags.includes(style.nodeName))
       return { type: 'textstyle', style: style, displayblock: node.style.display === "block" };
 
-    if (node.nodeName.toLowerCase() == 'br')
+    if (node.nodeName.toLowerCase() === 'br')
       return { type: 'br', isinterchange: node.classList.contains("Apple-interchange-newline") };
-    if (node.nodeName.toLowerCase() == "img")
+    if (node.nodeName.toLowerCase() === "img")
       return { type: "img" };
 
     // Ignore style, script, meta nodes
@@ -1318,11 +1318,11 @@ export default class StructuredEditor extends EditorBase {
       return { type: 'ignore' };
 
     //do fallbacks
-    if (node.nodeName.toLowerCase() == 'ol' && (this.structure.defaultorderedliststyle || this.structure.defaultunorderedliststyle))
+    if (node.nodeName.toLowerCase() === 'ol' && (this.structure.defaultorderedliststyle || this.structure.defaultunorderedliststyle))
       return { type: 'blockstyle', style: this.structure.defaultorderedliststyle || this.structure.defaultunorderedliststyle };
-    if (node.nodeName.toLowerCase() == 'ul' && (this.structure.defaultunorderedliststyle || this.structure.defaultorderedliststyle))
+    if (node.nodeName.toLowerCase() === 'ul' && (this.structure.defaultunorderedliststyle || this.structure.defaultorderedliststyle))
       return { type: 'blockstyle', style: this.structure.defaultunorderedliststyle || this.structure.defaultorderedliststyle };
-    if (node.nodeName.toLowerCase() == 'table' && this.structure.defaulttablestyle)
+    if (node.nodeName.toLowerCase() === 'table' && this.structure.defaulttablestyle)
       return { type: 'tablestyle', style: this.structure.defaulttablestyle };
 
     // Return all unrecognized inline nodes as 'unknown', which triggers a recursive parse while ignoring the nodes themselves
@@ -1346,7 +1346,7 @@ export default class StructuredEditor extends EditorBase {
     //no_br_to_p: we don't want to convert leftover BRs to blocks (eg from insertContainerContents)
     this.parseContainerContentsRecursive(node, null, topblocklist, [], initialblockstyle, { externalcontent: externalcontent });
 
-    if (topblocklist.length != 0 && inblock)
+    if (topblocklist.length !== 0 && inblock)
       topblocklist[0].temporary = true;
 
     return topblocklist;
@@ -1355,13 +1355,13 @@ export default class StructuredEditor extends EditorBase {
   _addItemToBlockNodes(block, item) {
     if (block.deferredbr) {
       // ignore whitespace just after a br if it is the last in a block
-      if (item.type == "text" && item.value.match(/^[ \t\r\n]*$/)) {
+      if (item.type === "text" && item.value.match(/^[ \t\r\n]*$/)) {
         block.deferredbr.push(item);
         return;
       }
       block.nodes.push(...block.deferredbr);
     }
-    if (item.type == "br") {
+    if (item.type === "br") {
       block.deferredbr = [item];
       block.forcevisible = true;
     } else {
@@ -1378,13 +1378,13 @@ export default class StructuredEditor extends EditorBase {
       const child = children[ci];
       const type = this.parseNode(child);
       //console.log("Parsed", child, type);
-      if (!type || type.type == 'ignore')
+      if (!type || type.type === 'ignore')
         continue;
 
-      if ((!block || block.type == "cellitem") && ['text', 'textstyle', 'br', "img"].includes(type.type)) {
+      if ((!block || block.type === "cellitem") && ['text', 'textstyle', 'br', "img"].includes(type.type)) {
         // Ignore text nodes with only whitespace in block-less nodes or cellitems
-        if (type.type == 'text') {
-          while (type.data && ' \t\r\n'.indexOf(type.data.substr(0, 1)) != -1)
+        if (type.type === 'text') {
+          while (type.data && ' \t\r\n'.indexOf(type.data.substr(0, 1)) !== -1)
             type.data = type.data.substr(1);
           if (!type.data) {
             //console.log('ignore empty text');
@@ -1393,7 +1393,7 @@ export default class StructuredEditor extends EditorBase {
         }
 
         // If this is an inline node within a cellitem block, create a block with the default (table) style
-        const style = block && block.type == "cellitem" && block.defaultstyle ? block.defaultstyle : initialblockstyle || this.structure.defaultblockstyle;
+        const style = block && block.type === "cellitem" && block.defaultstyle ? block.defaultstyle : initialblockstyle || this.structure.defaultblockstyle;
         initialblockstyle = null;
         block = { type: 'block', style: style, nodes: [], surrogate: true };
         topblocklist.push(block);
@@ -1448,9 +1448,9 @@ export default class StructuredEditor extends EditorBase {
             while (text.includes("  "))
               text = text.replaceAll("  ", " ");
 
-            if (text != type.data)
+            if (text !== type.data)
               block.forcevisible = true;
-            if (text != '')
+            if (text !== '')
               this._addItemToBlockNodes(block, { type: 'text', value: text, textstyles: textstyles });
           } break;
         case "img":
@@ -1470,7 +1470,7 @@ export default class StructuredEditor extends EditorBase {
         case 'br':
           {
             // Ignore chrome interchange br's if followed by one of our bogus br's
-            if (!type.isinterchange || !child.nextSibling || child.nextSibling.nodeName.toLowerCase() != "br") {
+            if (!type.isinterchange || !child.nextSibling || child.nextSibling.nodeName.toLowerCase() !== "br") {
               this._addItemToBlockNodes(block, { type: type.type, value: this.getTextStyleRecordFromNode(child) });
 
               // Treats BR's at top-level as paragraph breaks - force new block at next content
@@ -1480,7 +1480,7 @@ export default class StructuredEditor extends EditorBase {
           } break;
         case 'embeddedobject':
           {
-            if (type.embedtype == "block") {
+            if (type.embedtype === "block") {
               block = null;
               topblocklist.push(type);
             } else {
@@ -1645,8 +1645,8 @@ export default class StructuredEditor extends EditorBase {
 
     for (let i = 0; i < parsed.length; ++i) {
       console.log(istr + 'b ' + i + ': ' + parsed[i].type
-        + (parsed[i].type == 'text' ? ' "' + parsed[i].value + '"' : '')
-        + (parsed[i].type == "img" ? ' ' + JSON.stringify(parsed[i].value) : '')
+        + (parsed[i].type === 'text' ? ' "' + parsed[i].value + '"' : '')
+        + (parsed[i].type === "img" ? ' ' + JSON.stringify(parsed[i].value) : '')
         + (['list', 'block'].includes(parsed[i].type) ? ' ' + parsed[i].style.def.containertag + '.' + parsed[i].style.tag : '')
         + (parsed[i].forcevisible ? ' forcevisible' : '')
         + (parsed[i].temporary ? ' temporary' : '')
@@ -1729,7 +1729,7 @@ export default class StructuredEditor extends EditorBase {
               if (!node.nodes.length)
                 continue;
 
-              if (inlist && node.temporary && node.nodes.length == 1) {
+              if (inlist && node.temporary && node.nodes.length === 1) {
                 locator = this._insertParsed(locator, node.nodes[0].nodes, inblock, inlist, intable, preservelocators, undoitem);
                 continue;
               }
@@ -1746,7 +1746,7 @@ export default class StructuredEditor extends EditorBase {
                 this.requireVisibleContentInBlockAfterLocator(locator, [locator], undoitem);
               }
 
-              if (res.node.childNodes.length == 0) {
+              if (res.node.childNodes.length === 0) {
                 locator = domlevel.Locator.newPointingTo(res.node);
                 locator.removeNode(preservelocators, undoitem);
               } else
@@ -1818,13 +1818,13 @@ export default class StructuredEditor extends EditorBase {
             /*            let j;
                         for (j = subnodes.length - 1; j >= 0; --j)
                         {
-                          if (subnodes[j].type == 'br') // bogus BR!
+                          if (subnodes[j].type === 'br') // bogus BR!
                           {
                             subnodes.pop();
                             node.forcevisible = true;
                             break;
                           }
-                          else if (subnodes[j].type != 'text' || !subnodes[j].value.match(/^[ \t\r\n]*$/))
+                          else if (subnodes[j].type !== 'text' || !subnodes[j].value.match(/^[ \t\r\n]*$/))
                             break;
                         }
             */
@@ -1832,7 +1832,7 @@ export default class StructuredEditor extends EditorBase {
               this.cleanupParsedExternalContent(subnodes);
 
             // No subnodes left? Remove block (listitem is mostly visible) FIXME: better determination
-            if (node.type == 'block' && !subnodes.length && !node.forcevisible)
+            if (node.type === 'block' && !subnodes.length && !node.forcevisible)
               nodes.splice(i--, 1);
           } break;
 
@@ -1841,7 +1841,7 @@ export default class StructuredEditor extends EditorBase {
             this.cleanupParsedExternalContent(node.nodes);
 
             // No list items left? Remove list.
-            if (node.nodes.length == 0)
+            if (node.nodes.length === 0)
               nodes.splice(i--, 1);
           } break;
       }
@@ -1866,10 +1866,10 @@ export default class StructuredEditor extends EditorBase {
     const inlist = block.islist;
 
     let breakblock = false;
-    if (typeof options.inblock == "undefined") {
+    if (typeof options.inblock === "undefined") {
       //      console.warn("inblock not specified, checking if at start of block");
       const downres = locator.clone().scanBackward(this.getBody(), { whitespace: true });
-      if (downres.type == 'outerblock') {
+      if (downres.type === 'outerblock') {
         options.inblock = block.islist;
         breakblock = true;
       } else
@@ -1901,7 +1901,7 @@ export default class StructuredEditor extends EditorBase {
         }
       } else {
         // break block at insert position into two, append at the end of the first part
-        if (block.contentnode != block.blockroot) {
+        if (block.contentnode !== block.blockroot) {
           const down = locator.clone();
           down.scanBackward(this.getBody(), { whitespace: true });
 
@@ -2017,7 +2017,7 @@ export default class StructuredEditor extends EditorBase {
   changeRangeBlockStyle(range, ancestor, newblockstyle, preservelocators, undoitem) {
     if (!ancestor.contains(range.getAncestorElement()))
       throw new Error("Ancestor not parent of range in changeRangeBlockStyle");
-    if (range.start.element != range.end.element)
+    if (range.start.element !== range.end.element)
       throw new Error("Simple range required in changeRangeBlockStyle");
 
     //    console.error('changeRangeBlockStyle start:', richdebug.getStructuredOuterHTML(ancestor, { ancestor: ancestor, range:range }));
@@ -2068,7 +2068,7 @@ export default class StructuredEditor extends EditorBase {
     const undolock = this.getUndoLock();
 
     let blockstyle = newblockstyle;
-    if (typeof blockstyle == "string")
+    if (typeof blockstyle === "string")
       blockstyle = this.structure.getBlockStyleByTag(blockstyle);
     if (!blockstyle)
       throw new Error("Invalid blockstyle " + newblockstyle);
@@ -2084,7 +2084,7 @@ export default class StructuredEditor extends EditorBase {
     if (!forced && blockstyle.islist) {
       let allmatch = true;
       for (let i = 0; i < blockranges.length; ++i)
-        if (blockranges[i].type != 'block' || blockranges[i].block.blockstyle.tag != blockstyle.tag) {
+        if (blockranges[i].type !== 'block' || blockranges[i].block.blockstyle.tag !== blockstyle.tag) {
           //console.log(blockranges[i].type, blockranges[i].block.blockstyle.tag, blockstyle.tag);
           allmatch = false;
           break;
@@ -2099,13 +2099,13 @@ export default class StructuredEditor extends EditorBase {
       //      console.log(blockrange);
 
       let ancestor, localrange;
-      if (blockrange.type == 'range') {
+      if (blockrange.type === 'range') {
         ancestor = blockrange.range.getAncestorElement();
         localrange = blockrange.range;
-      } else // block.type == 'block'
+      } else // block.type === 'block'
       {
         // Table part or no change needed?
-        if (!blockrange.block.blockstyle || blockrange.block.blockstyle.istable || blockrange.block.blockstyle.tag == blockstyle.tag)
+        if (!blockrange.block.blockstyle || blockrange.block.blockstyle.istable || blockrange.block.blockstyle.tag === blockstyle.tag)
           continue;
 
         ancestor = blockrange.block.islist && blockstyle.islist ? blockrange.block.blockparent : blockrange.block.blockroot;
@@ -2113,7 +2113,7 @@ export default class StructuredEditor extends EditorBase {
       }
 
       const resultres = this.changeRangeBlockStyle(localrange, ancestor, blockstyle, [range], undolock.undoitem);
-      if (i == blockranges.length - 1)
+      if (i === blockranges.length - 1)
         range.end.assign(resultres.end);
       range.start.assign(resultres.start);
     }
@@ -2193,11 +2193,11 @@ export default class StructuredEditor extends EditorBase {
     let eres = range.end.moveToFirstVisible(endblock.contentnode);
 
     // Is the selection from block start/until the block end?
-    const selectfromblockstart = sres.type == "outerblock";
-    let selecteduntilblockend = eres.type == 'outerblock';
+    const selectfromblockstart = sres.type === "outerblock";
+    let selecteduntilblockend = eres.type === 'outerblock';
 
     // See if the end selection hits the end <br> of a block, if so include it in the range
-    if (eres.type == 'br') {
+    if (eres.type === 'br') {
       const brrange = this.pointsToLastBlockBR(range.end);
       if (brrange) {
         range.end.assign(brrange.end);
@@ -2242,7 +2242,7 @@ export default class StructuredEditor extends EditorBase {
 
     if (!perform_split) {
       // insert a new block before the currently selected block
-      const prevblock = sres.type == "outerblock" && sres.data.previousElementSibling;
+      const prevblock = sres.type === "outerblock" && sres.data.previousElementSibling;
       if (prevblock)
         reference_block = this.getBlockAtNode(prevblock);
 
@@ -2602,7 +2602,7 @@ export default class StructuredEditor extends EditorBase {
 
       //console.log('rll postcombine2', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange }, true));
 
-      if (parent.parentNode && parent.childNodes.length == 0)
+      if (parent.parentNode && parent.childNodes.length === 0)
         domlevel.Locator.newPointingTo(parent).removeNode([orgrange], undolock.undoitem);
 
       this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(newli, 0), [orgrange], undolock.undoitem);
@@ -2633,7 +2633,7 @@ export default class StructuredEditor extends EditorBase {
     domlevel.cleanupBogusBreaks(range.getAncestorElement(), preservelocators);
 
     // If the current block has lost its style, reset to default block style
-    if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode) && !block.isintable) {
+    if (block.blockparent !== block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode) && !block.isintable) {
       const localrange = Range.fromNodeInner(block.contentnode);
       this.changeRangeBlockStyle(localrange, block.blockparent, this.structure.defaultblockstyle, preservelocators.concat([range]));
     }
@@ -2643,7 +2643,7 @@ export default class StructuredEditor extends EditorBase {
     let res = locator.scanForward(this.getBody(), { whitespace: true });
 
     // Yes, there is visible content.
-    if (!['innerblock'].includes(res.type) && !(res.type == 'node' && domlevel.isEmbeddedObject(res.data))) {
+    if (!['innerblock'].includes(res.type) && !(res.type === 'node' && domlevel.isEmbeddedObject(res.data))) {
       // Wrap everything until next block
       locator.moveToNextBlockBoundary(this.getBody(), false);
 
@@ -2748,7 +2748,7 @@ export default class StructuredEditor extends EditorBase {
 
     const rowspans = [];
     data.nodes.forEach((rowitem, row) => {
-      if (rowitem.type != 'rowitem')
+      if (rowitem.type !== 'rowitem')
         throw new Error("Unexpected table rowitem node");
 
       const tr = document.createElement('tr');
@@ -2757,7 +2757,7 @@ export default class StructuredEditor extends EditorBase {
 
       let col = 0;
       rowitem.nodes.forEach(cellitem => {
-        if (rowitem.type != 'rowitem')
+        if (rowitem.type !== 'rowitem')
           throw new Error("Unexpected table rowitem node");
 
         // Determine the current column based on rowspans
@@ -2840,8 +2840,8 @@ export default class StructuredEditor extends EditorBase {
   getAvailableListActions(range) {
     const listdata = lists.getLevelActionableListNodes(range, this.getBody());
     return {
-      canincrease: listdata.addable.length != 0,
-      candecrease: listdata.removeable.length != 0
+      canincrease: listdata.addable.length !== 0,
+      candecrease: listdata.removeable.length !== 0
     };
   }
 }

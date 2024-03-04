@@ -4,7 +4,7 @@ const blocklevel_elements = [
 ];
 
 export function convertHtmlToPlainText(doc: HTMLElement, options: HTMLToPlainTextConverterOptions | number = {}, linkresolver?: (link: string) => string) {
-  if (typeof options == "number") {
+  if (typeof options === "number") {
     // fallback for legacy arguments
     options = { imagehandling: options };
     if (linkresolver !== undefined)
@@ -116,7 +116,7 @@ class HTMLToPlainTextConverter {
 
   getAttr(attrs: Attr[], field: string) {
     for (let idx = 0; idx < attrs.length; ++idx)
-      if (attrs[idx].name.toUpperCase() == field)
+      if (attrs[idx].name.toUpperCase() === field)
         return attrs[idx].value;
     return "";
   }
@@ -150,10 +150,10 @@ class HTMLToPlainTextConverter {
       case "IMG":                         // Image - insert 'alt' text, if any
         {
           const alt = this.getAttr(attrs, "ALT");
-          if (alt == "")
+          if (alt === "")
             return;
 
-          this.plain_text = this.plain_text + (this.options.imagehandling == 1 ? "[[" : "[") + alt + "]";
+          this.plain_text = this.plain_text + (this.options.imagehandling === 1 ? "[[" : "[") + alt + "]";
         } break;
       case "UL":                           // Unordered list - set start value to -1 (don't display number)
         {
@@ -169,7 +169,7 @@ class HTMLToPlainTextConverter {
         } break;
       case "LI":                           // Prefix list item with '*' or number value
         {
-          if (this.ol == -1)
+          if (this.ol === -1)
             this.plain_text = this.plain_text + "\r\n* ";
           else {
             const value = parseInt(this.getAttr(attrs, "VALUE"));
@@ -200,11 +200,11 @@ class HTMLToPlainTextConverter {
     if (this.options.linkresolver)
       hyperlink = this.options.linkresolver(hyperlink);
 
-    if (text == hyperlink)
+    if (text === hyperlink)
       return true;
-    if (hyperlink == "mailto:" + text) //just a simple mailto link ?
+    if (hyperlink === "mailto:" + text) //just a simple mailto link ?
       return true;
-    if (hyperlink.startsWith("http://") && ("http://" + text == hyperlink || "http://" + text + "/" == hyperlink))
+    if (hyperlink.startsWith("http://") && ("http://" + text === hyperlink || "http://" + text + "/" === hyperlink))
       return true;
 
     return false;
@@ -212,23 +212,23 @@ class HTMLToPlainTextConverter {
 
   plainElementEnd(name: string) {
     // Print hyperlink href, if we have any
-    if (!this.options.suppress_urls && name.toUpperCase() == "A" && this.hyperlink != "") {
+    if (!this.options.suppress_urls && name.toUpperCase() === "A" && this.hyperlink !== "") {
       if (!this.textEqualsHyperlink(this.hyperlink_text, this.hyperlink))
         this.plain_text = this.plain_text + " <URL:" + this.hyperlink + ">";
       this.hyperlink = "";
     }
-    if (name.toUpperCase() == "STYLE")
+    if (name.toUpperCase() === "STYLE")
       this.in_style_tag = false;
-    if (name.toUpperCase() == "TITLE")
+    if (name.toUpperCase() === "TITLE")
       this.in_title_tag = false;
-    if (name.toUpperCase() == "TR")
+    if (name.toUpperCase() === "TR")
       this.plain_text = this.plain_text + "\r\n";
   }
 
   plainText(text: string) {
     if (this.in_style_tag || this.in_title_tag)
       return;
-    if (this.hyperlink != "")
+    if (this.hyperlink !== "")
       this.hyperlink_text = this.hyperlink_text + text;
 
     // Change newlines/tabs/nbsps to spaces

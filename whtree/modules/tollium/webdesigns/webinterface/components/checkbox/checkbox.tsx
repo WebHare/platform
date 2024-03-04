@@ -28,8 +28,8 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
   //
 
   enabledOn(checkflags, min, max, selectionmatch) {
-    return (min > 0 && max != 0 && this.getValue().value)
-      || (min <= 0 && max == 0 && !this.getValue().value);
+    return (min > 0 && max !== 0 && this.getValue().value)
+      || (min <= 0 && max === 0 && !this.getValue().value);
   }
 
   // ---------------------------------------------------------------------------
@@ -54,14 +54,14 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
   }
 
   setReadOnly(value) {
-    if (value != this.readonly) {
+    if (value !== this.readonly) {
       this.readonly = value;
       this.node.disabled = !(this.enabled && !this.readonly);
     }
   }
 
   setEnabled(value) {
-    if (value != this.enabled) {
+    if (value !== this.enabled) {
       this.enabled = value;
       this.node.disabled = !(this.enabled && !this.readonly);
     }

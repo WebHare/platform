@@ -17,7 +17,7 @@ async function listTestChecks(type: string) {
     where("wrdLeftEntity", "in", rows.map((row) => row.wrdId)).
     execute();
 
-  const retval = rows.map(row => ({ ...row, history: history.filter(hist => hist.wrdLeftEntity == row.wrdId).sort(byDateId) })).sort(byDateId);
+  const retval = rows.map(row => ({ ...row, history: history.filter(hist => hist.wrdLeftEntity === row.wrdId).sort(byDateId) })).sort(byDateId);
   //TODO workaround for TS giving us incorrect definitions for enum with wildcard patterns. should be just 'return retval'
   return retval as Array<Omit<typeof retval[0], "type"> & { type: string }>;
 }
@@ -183,7 +183,7 @@ async function testTheChecks() {
   await whdb.commitWork();
 
   console.log('Waiting for testissue to disappear');
-  await test.wait(async () => (await listTestSuiteIntervalIssues()).length == 0);
+  await test.wait(async () => (await listTestSuiteIntervalIssues()).length === 0);
 }
 
 test.run([

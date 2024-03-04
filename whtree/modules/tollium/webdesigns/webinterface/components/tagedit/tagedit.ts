@@ -55,7 +55,7 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
   }
 
   setValue(value) {
-    if (value != this.value) {
+    if (value !== this.value) {
       this.value = value;
       if (this.control)
         this.control.setStringValue(this.value);
@@ -144,7 +144,7 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
 
   onMsgValidateTagsReply(data) {
     for (let i = 0; i < this.validatequeries.length; ++i) {
-      if (this.validatequeries[i].msgid == data.replyto) {
+      if (this.validatequeries[i].msgid === data.replyto) {
         this.validatequeries[i].defer.resolve(data.tags);
         this.validatequeries.splice(i, 1);
         return;

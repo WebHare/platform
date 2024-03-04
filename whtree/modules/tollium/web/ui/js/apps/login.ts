@@ -66,7 +66,7 @@ class LoginApp {
   }
 
   triggerWebHareSSO(tag: string) { //NOTE: exposing this API also recognized us as the login app
-    const matchmethod = this.loginconfig.methods.find(item => (item as LoginMethodSSO).tag?.toLowerCase() == tag.toLowerCase());
+    const matchmethod = this.loginconfig.methods.find(item => (item as LoginMethodSSO).tag?.toLowerCase() === tag.toLowerCase());
     if (!matchmethod)
       return false;
 
@@ -311,7 +311,7 @@ class LoginApp {
               });
 
             /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
-            if (item.autologin && item.type == "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
+            if (item.autologin && item.type === "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
             {
               getIndyShell().wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
                 .then(this.handlePassiveSAMLLogin)
@@ -322,7 +322,7 @@ class LoginApp {
 
         case "password":
           {
-            const is_only_method = visiblemethods.length == 1;
+            const is_only_method = visiblemethods.length === 1;
             screencomponents =
             {
               ...screencomponents,
@@ -441,7 +441,7 @@ class LoginApp {
       method_panels.push("samlpanel");
 
     method_panels.forEach((item, idx) => {
-      if (idx != 0) {
+      if (idx !== 0) {
         screencomponents["hr_" + idx] =
         {
           type: "hr",
@@ -463,7 +463,7 @@ class LoginApp {
   }
 
   handleSubmitInstruction(instr: NavigateInstruction, callback: () => void) {
-    if (instr.type == "reload") {
+    if (instr.type === "reload") {
       //no need to execute the submit instruction, it just redirects back to the shell..
       this.app.terminateApplication();
       getIndyShell().wrdauth.refresh();
@@ -504,7 +504,7 @@ class LoginApp {
         callback();
         return;
       }
-      if (result.code == "REQUIRESETUPSECONDFACTOR") {
+      if (result.code === "REQUIRESETUPSECONDFACTOR") {
         this.topscreen.getComponent('password').setValue("");
         const app = getIndyShell().startBackendApplication("system:managetwofactorauth", null,
           {
@@ -517,7 +517,7 @@ class LoginApp {
         callback();
         return;
       }
-      if (result.code == "FAILEDVALIDATIONCHECKS") {
+      if (result.code === "FAILEDVALIDATIONCHECKS") {
         this.topscreen.getComponent('password').setValue("");
         const app = getIndyShell().startBackendApplication("system:resetpassword", null,
           {
@@ -531,8 +531,8 @@ class LoginApp {
         return;
       }
 
-      const text = result.code == "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
-        : result.code == "DISABLED" ? getTid("tollium:shell.login.disabledlogin")
+      const text = result.code === "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
+        : result.code === "DISABLED" ? getTid("tollium:shell.login.disabledlogin")
           : getTid("tollium:shell.login.invalidlogin");
       const errorscreen = runSimpleScreen(this.app, { text: text, buttons: [{ name: 'ok', title: getTid("~ok") }] });
       callback();
@@ -585,8 +585,8 @@ class LoginApp {
     window.addEventListener("message", e => {
       const data = JSON.parse(e.data);
       console.log(data, instr, instr.requestid);
-      if (data && data.id == instr.requestid) {
-        if (data.status == "loggedin") {
+      if (data && data.id === instr.requestid) {
+        if (data.status === "loggedin") {
           // not logged in into shell, so reload won't trigger unload warning
           location.reload();
         }

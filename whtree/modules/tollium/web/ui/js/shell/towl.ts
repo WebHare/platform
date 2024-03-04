@@ -83,7 +83,7 @@ class TowlNotifications {
     // Lookup the notification in the list of currently visible notifications
     let data;
     for (let i = 0; i < this._notifications.length; ++i)
-      if (this._notifications[i].id == notification.id)
+      if (this._notifications[i].id === notification.id)
         data = this._notifications[i];
 
     // Initialize the data if not present yet
@@ -104,7 +104,7 @@ class TowlNotifications {
       timeout: notification.timeout,
       appmsg: notification.applicationmessage,
       onclick: notification.onclick,
-      persistent: typeof (notification.persistent) == "undefined" ? false : notification.persistent
+      persistent: typeof (notification.persistent) === "undefined" ? false : notification.persistent
     });
 
     // Reset the hidetimeout if present
@@ -114,7 +114,7 @@ class TowlNotifications {
     }
 
     // Native enabled and requested?
-    if (this._preferred_location == "desktop" && this._native_notifications && Notification.permission === "granted") {
+    if (this._preferred_location === "desktop" && this._native_notifications && Notification.permission === "granted") {
       this._firstbrowsernotification = true;
 
       // Clear local notification if present
@@ -178,7 +178,7 @@ class TowlNotifications {
       if (notification.icon) {
         const icondiv = dompack.create("div", { className: "icon" });
         data.div.appendChild(icondiv);
-        if (typeof notification.icon == 'string')
+        if (typeof notification.icon === 'string')
           icondiv.appendChild(toddImages.createImage(notification.icon, 24, 24, 'b'));
         else
           icondiv.appendChild(notification.icon);
@@ -244,12 +244,12 @@ class TowlNotifications {
     if (!["browser", "desktop", "none"].includes(type))
       throw new Error("Illegal notification location '" + type + "'");
 
-    this._enable_notifications = type != "none";
-    this._use_native = type == "desktop";
-    if (type != "desktop") {
+    this._enable_notifications = type !== "none";
+    this._use_native = type === "desktop";
+    if (type !== "desktop") {
       // Request for native not needed anymore
       this.hideNotification("towl:request_native_permissions");
-    } else if (this._preferred_location != "desktop" && !this._firstbrowsernotification && !this._native_request_visible) {
+    } else if (this._preferred_location !== "desktop" && !this._firstbrowsernotification && !this._native_request_visible) {
       if (this._native_notifications && Notification.permission === "default") {
         // When the location switched to 'desktop', show the request dialog
         this._showPermissionRequestNotification();
@@ -260,7 +260,7 @@ class TowlNotifications {
   }
 
   updateForCurrentNotificationPermission() {
-    if (this._preferred_location != "desktop" || !this._native_request_visible)
+    if (this._preferred_location !== "desktop" || !this._native_request_visible)
       return;
 
     // Native request is only visible when browser supports native notifications.
@@ -288,7 +288,7 @@ class TowlNotifications {
     // Show a 'click here to get desktop notifications' notification when native notifications are available but not
     // yet granted or denied
     let request_native_permissions = false;
-    if (this._preferred_location == "desktop"
+    if (this._preferred_location === "desktop"
       && this._firstbrowsernotification
       && this._native_notifications
       && Notification.permission === "default")
@@ -305,11 +305,11 @@ class TowlNotifications {
       @param notificationid The id the of the notification to hide
   */
   hideNotification(notificationid) {
-    if (notificationid == "towl:request_native_permissions")
+    if (notificationid === "towl:request_native_permissions")
       this._native_request_visible = false;
 
     for (let i = 0; i < this._notifications.length; ++i)
-      if (this._notifications[i].id == notificationid) {
+      if (this._notifications[i].id === notificationid) {
         const data = this._notifications[i];
         if (data.div)
           this._hideDiv(data);

@@ -78,7 +78,7 @@ class ApplicationTab {
   }
 
   onUpdateScreen(event) {
-    if (event.detail.screen.parentwindow == null) //we only honor updates from the toplevel screen
+    if (event.detail.screen.parentwindow === null || event.detail.screen.parentwindow === undefined) //we only honor updates from the toplevel screen
       this.root.classList.toggle("t-apptab--allowclose", event.detail.allowclose);
   }
 
@@ -87,7 +87,7 @@ class ApplicationTab {
     this.root.classList.toggle('t-apptab--hasissues', this.app.hasissues);
     this.root.classList.toggle('t-apptab--isdebugrunning', this.app.isdebugged && !this.app.isdebugpaused);
     this.root.classList.toggle('t-apptab--isdebugpaused', this.app.isdebugged && this.app.isdebugpaused);
-    if (this.root[appbarsymbol].tabmodifier != this.app.tabmodifier) {
+    if (this.root[appbarsymbol].tabmodifier !== this.app.tabmodifier) {
       if (this.root[appbarsymbol].tabmodifier)
         this.root.classList.remove('t-apptab--' + this.root[appbarsymbol].tabmodifier);
       if (this.app.tabmodifier)
@@ -246,14 +246,14 @@ export default class ApplicationBar {
   }
 
   _gotoApp(how, idx) {
-    if (how == 'relative') {
-      const appidx = this.apps.findIndex(app => app.app == $todd.getActiveApplication());
+    if (how === 'relative') {
+      const appidx = this.apps.findIndex(app => app.app === $todd.getActiveApplication());
       if (appidx < 0)
         return;
 
       const gotoappidx = (appidx + this.apps.length + idx) % this.apps.length;
       this.apps[gotoappidx].app.activateApp();
-    } else if (how == 'absolute') {
+    } else if (how === 'absolute') {
       if (idx < this.apps.length)
         this.apps[idx].app.activateApp();
     }
@@ -262,7 +262,7 @@ export default class ApplicationBar {
   // shortcut.app Application object
   // shortcut.icononly Only show icon (e.g. for homescreen app)
   toggleShortcut(app, show, fixed) {
-    const appidx = this.apps.findIndex(elt => elt.app == app);
+    const appidx = this.apps.findIndex(elt => elt.app === app);
     fixed = fixed || false;
 
     if (show) {
@@ -274,7 +274,7 @@ export default class ApplicationBar {
         newtab = this.apps[appidx];
 
         // If not changed from fixed<->dynamic, we're done
-        if (newtab.fixed == fixed)
+        if (newtab.fixed === fixed)
           return;
 
         newtab.fixed = fixed;
@@ -307,9 +307,9 @@ export default class ApplicationBar {
     const allnodes = dompack.qSA(this.node, ".t-apptab");
 
     allnodes.forEach(function (item, idx) {
-      item.classList.toggle("t-apptab--first", idx == 0);
-      item.classList.toggle("t-apptab--last", idx == allnodes.length - 1);
-      item.classList.toggle("t-apptab--prevactiveapp", idx != 0 && allnodes[idx - 1].classList.contains("t-apptab--activeapp"));
+      item.classList.toggle("t-apptab--first", idx === 0);
+      item.classList.toggle("t-apptab--last", idx === allnodes.length - 1);
+      item.classList.toggle("t-apptab--prevactiveapp", idx !== 0 && allnodes[idx - 1].classList.contains("t-apptab--activeapp"));
     });
   }
 
@@ -328,7 +328,7 @@ export default class ApplicationBar {
     const overflow = dyn_scroll_width > dyn_width;
     const dyn_content_width = dyn_width - (overflow ? nav_width : 0);
 
-    const can_scroll_left = dyn_scroll_pos != 0;
+    const can_scroll_left = dyn_scroll_pos !== 0;
     const can_scroll_right = dyn_scroll_width - dyn_content_width - dyn_scroll_pos >= 1;
 
     this.dyn_node.style.left = fixed_width + 'px';
@@ -351,7 +351,7 @@ export default class ApplicationBar {
     for (const appnode of this.node.querySelectorAll(".t-apptab--activeapp"))
       appnode.classList.remove("t-apptab--activeapp");
 
-    const appidx = this.apps.findIndex(app => app.app == $todd.getActiveApplication());
+    const appidx = this.apps.findIndex(app => app.app === $todd.getActiveApplication());
     if (appidx >= 0) {
       this.apps[appidx].root.classList.add("t-apptab--activeapp");
 
@@ -377,8 +377,8 @@ export default class ApplicationBar {
     return this.apps.length > 0;
   }
   replaceAppWith(oldapp, newapp) {
-    const idx = this.apps.findIndex(_ => _.app == oldapp);
-    if (idx == -1) //old app isn't on the bar either
+    const idx = this.apps.findIndex(_ => _.app === oldapp);
+    if (idx === -1) //old app isn't on the bar either
       return;
 
     this.apps[idx].replaceApp(newapp);

@@ -12,7 +12,7 @@ import './upload.css';
 
 function getLabelText(node) {
   let label;
-  if (node.id != "") {
+  if (node.id !== "") {
     const labelnode = document.querySelector(`label[for="${node.id}"]`);
     if (labelnode)
       label = labelnode.textContent;
@@ -74,7 +74,7 @@ export default class UploadField extends FileEditBase {
   // check whether the delete button was activated through a keypress
   _checkForDelete(evt) {
     // We only interested when the enter or space key was pressed
-    if (evt.keyCode != 13 && evt.keyCode != 32)
+    if (evt.keyCode !== 13 && evt.keyCode !== 32)
       return;
 
     this._doDelete(evt);

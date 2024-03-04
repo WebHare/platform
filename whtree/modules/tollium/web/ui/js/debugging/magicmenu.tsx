@@ -10,7 +10,7 @@ const ClicksWithinMsecs = 1000;
 
 ///Is the magic menu active? (Always on development but we'll still let you play the animation on Dev)
 function isActive() {
-  return dtapStage == 'development' || magicmenuactive;
+  return dtapStage === 'development' || magicmenuactive;
 }
 
 function onTopbarClick(event: MouseEvent) {
@@ -19,7 +19,7 @@ function onTopbarClick(event: MouseEvent) {
 
   clicks.splice(0, clicks.length - (ClicksRequired - 1)); //Keep last two clicks
   clicks.push(Date.now()); //and add our click
-  if (clicks.length == 3 && (clicks[2] - clicks[0]) < ClicksWithinMsecs) {
+  if (clicks.length === 3 && (clicks[2] - clicks[0]) < ClicksWithinMsecs) {
     magicmenuactive = true;
     dompack.qR('.wh-backend__topbar').classList.add('wh-backend__topbar--play');
     window.setTimeout(() => dompack.qR('.wh-backend__topbar').classList.remove('wh-backend__topbar--play'), 1);

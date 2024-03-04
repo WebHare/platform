@@ -491,8 +491,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
   wasmmodule.registerExternalMacro("__EM_SYSCALL_RESOLVE:::IIV", (vm, var_requestid, var_mode, var_param) => {
     const requestid = var_requestid.getInteger();
-    const reqidx = vm.pendingFunctionRequests.findIndex(_ => _.id == requestid);
-    if (reqidx == -1) //already resolved
+    const reqidx = vm.pendingFunctionRequests.findIndex(_ => _.id === requestid);
+    if (reqidx === -1) //already resolved
       return;
 
     const req = vm.pendingFunctionRequests.splice(reqidx, 1)[0];
@@ -550,9 +550,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     let result = `'`;
     for (const char of str) {
       const code = char.codePointAt(0) ?? 0;
-      if (char == `'`)
+      if (char === `'`)
         result += char;
-      else if (code < 32 || code == 127) {
+      else if (code < 32 || code === 127) {
         switch (code) {
           case 8:    /* \b */ result += '\\b'; break;
           case 12:   /* \f */ result += '\\f'; break;
@@ -563,7 +563,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
         }
         have_backslashes = true;
         continue;
-      } else if (char == '\\') {
+      } else if (char === '\\') {
         result += char;
         have_backslashes = true;
       }
@@ -1005,7 +1005,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("__DOEVPCRYPT::R:SBSSSS", (vm, id_set, var_algo, var_encrypt, var_keydata, var_data, var_iv, var_tag) => {
     const algo = var_algo.getString() as "bf-cbc" | "bf-ecb" | "aes-256-gcm";
-    if (algo != "bf-cbc" && algo != "bf-ecb" && algo != "aes-256-gcm")
+    if (algo !== "bf-cbc" && algo !== "bf-ecb" && algo !== "aes-256-gcm")
       throw new Error(`Invalid algorithm ${JSON.stringify(algo)}`);
 
     let key = var_keydata.getStringAsBuffer();
@@ -1019,14 +1019,14 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       key = Buffer.concat([key, toadd]);
     }
 
-    if (iv.byteLength !== 0 && iv.byteLength !== (algo == "aes-256-gcm" ? 12 : 8))
-      throw new Error(`Encryption iv length is wrong, expected ${algo == "aes-256-gcm" ? 12 : 8} bytes, got ${iv.byteLength} bytes`);
+    if (iv.byteLength !== 0 && iv.byteLength !== (algo === "aes-256-gcm" ? 12 : 8))
+      throw new Error(`Encryption iv length is wrong, expected ${algo === "aes-256-gcm" ? 12 : 8} bytes, got ${iv.byteLength} bytes`);
 
     const cipher = encrypt ?
       crypto.createCipheriv(algo, key, iv) :
       crypto.createDecipheriv(algo, key, iv);
 
-    if (!encrypt && algo == 'aes-256-gcm' && tag.length)
+    if (!encrypt && algo === 'aes-256-gcm' && tag.length)
       (cipher as crypto.DecipherGCM).setAuthTag(tag);
 
     let output = cipher.update(var_data.getStringAsBuffer());
@@ -1034,7 +1034,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     id_set.setJSValue({
       data: output,
-      tag: encrypt && algo == 'aes-256-gcm' ? (cipher as crypto.CipherGCM).getAuthTag() : Buffer.from("")
+      tag: encrypt && algo === 'aes-256-gcm' ? (cipher as crypto.CipherGCM).getAuthTag() : Buffer.from("")
     });
   });
 

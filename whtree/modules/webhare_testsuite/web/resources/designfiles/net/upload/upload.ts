@@ -21,7 +21,7 @@ function logItemEvent(event, type, elt) {
           'abort': aborted
           'error': other error
       */
-      let speed = elt.item.status == 'loaded' ? elt.item.getAverageSpeed() : elt.item.getCurrentSpeed();
+      let speed = elt.item.status === 'loaded' ? elt.item.getAverageSpeed() : elt.item.getCurrentSpeed();
 
       postfix = 'B/s';
       if (speed > 1100000) {

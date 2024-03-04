@@ -142,7 +142,7 @@ function collectFormValues(formnode: HTMLFormElement): DataLayerVars {
     let idx = 0;
     const values = [];
     const labels = [];
-    const checkboxes = multifields.filter(node => node.name == multifield.name);
+    const checkboxes = multifields.filter(node => node.name === multifield.name);
 
     for (const node of checkboxes.filter(cbox => cbox.checked)) {
       const keyname = 'form_' + multifield.name + (idx ? '_' + idx : '');

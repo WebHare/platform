@@ -18,7 +18,7 @@ export function getNextAction() {
 
 export class RTEDriver {
   constructor(rte) {
-    if (rte && typeof rte == 'string') {
+    if (rte && typeof rte === 'string') {
       const comp = test.compByName(rte);
       if (comp)
         rte = comp.propTodd.rte;
@@ -74,7 +74,7 @@ export class RTEDriver {
 }
 
 export function getTextChild(node) {
-  while (node && node.nodeType != 3)
+  while (node && node.nodeType !== 3)
     node = node.firstChild;
   return node;
 }
@@ -84,7 +84,7 @@ export function RunIteratorOnRange2(win, range) {
   const list = [];
 
   while (!itr.atEnd()) {
-    const name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
+    const name = itr.node.nodeType === 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
     list.push(name);
     itr.nextRecursive();
   }
@@ -137,7 +137,7 @@ export function setRawStructuredContent(win, structuredhtml) {
 }
 
 export function setStructuredContent(rte, structuredhtml, options) {
-  options = { raw: false, verify: true, ...(typeof options == "boolean" ? { raw: options } : options || {}) };
+  options = { raw: false, verify: true, ...(typeof options === "boolean" ? { raw: options } : options || {}) };
 
   if (!rte) {
     rte = test.getWin().rte;

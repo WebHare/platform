@@ -21,7 +21,7 @@ export type Rect =
   };
 
 function generateInsertList(nodes: Array<string | Node>) {
-  if (nodes.length == 1)
+  if (nodes.length === 1)
     return typeof nodes[0] === 'string' ? document.createTextNode(nodes[0]) : nodes[0];
 
   const frag = document.createDocumentFragment();
@@ -184,7 +184,7 @@ export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
 
 export function isDomReady() {
   //ensure no domready events can run if there will never be a dom
-  return typeof document !== "undefined" && (document.readyState == "interactive" || document.readyState == "complete");
+  return typeof document !== "undefined" && (document.readyState === "interactive" || document.readyState === "complete");
 }
 
 /* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions from the ready handler will not be fatal to the rest of code execution */

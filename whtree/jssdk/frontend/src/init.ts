@@ -45,7 +45,7 @@ export interface WHConfigScriptData_LegacyFields {
 let config, siteroot;
 let dtapStage = DTAPStage.Production;
 if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
-  const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
+  const whconfigel = typeof document !== "undefined" ? document.querySelector('script#wh-config') : null;
   if (whconfigel?.textContent) {
     config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
 

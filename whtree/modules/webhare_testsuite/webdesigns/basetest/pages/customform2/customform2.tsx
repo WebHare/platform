@@ -22,7 +22,7 @@ async function myValidator(node: HTMLInputElement) {
   // make it async and really slow
   await new Promise(resolve => setTimeout(resolve, 250));
 
-  if (node.value != "RPC ok") {
+  if (node.value !== "RPC ok") {
     return "RPC not called yet";
   }
 

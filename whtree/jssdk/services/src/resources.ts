@@ -14,10 +14,10 @@ export function toFSPath(resource: string, options?: { allowUnmatched: boolean }
   const namespace = resource.substring(0, resource.indexOf("::")).toLowerCase();
   const restpath = resource.substring(namespace.length + 2);
 
-  if (namespace == "mod" || namespace == "storage") {
+  if (namespace === "mod" || namespace === "storage") {
     const nextslash = restpath.indexOf('/');
-    const modulename = nextslash == -1 ? restpath : restpath.substr(0, nextslash);
-    if (modulename == "") {
+    const modulename = nextslash === -1 ? restpath : restpath.substr(0, nextslash);
+    if (modulename === "") {
       if (options?.allowUnmatched)
         return null;
 
@@ -32,9 +32,9 @@ export function toFSPath(resource: string, options?: { allowUnmatched: boolean }
       throw new Error(`No such resource: no such module '${modulename}'`);
     }
 
-    const basedir = namespace == "mod" ? modinfo.root : `${backendConfig.dataroot}storage/${modulename}/`;
+    const basedir = namespace === "mod" ? modinfo.root : `${backendConfig.dataroot}storage/${modulename}/`;
 
-    if (nextslash == -1)
+    if (nextslash === -1)
       return basedir; //we'll always terminate a path like `mod::system` with a slash
     else
       return path.join(basedir, restpath.substring(nextslash));

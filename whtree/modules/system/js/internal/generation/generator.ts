@@ -47,9 +47,9 @@ function getPaths() {
 }
 
 export function getGeneratedFilePath(module: string, type: string, path: string) {
-  if (module == "platform" && type == "schema")
+  if (module === "platform" && type === "schema")
     return toFSPath(`mod::platform/generated/${path}`);
-  if (module == "platform" && type != 'extract')
+  if (module === "platform" && type !== 'extract')
     return backendConfig.installationroot + "modules/system/js/internal/generated/" + path;
   return backendConfig.dataroot + "storage/system/generated/" + path;
 }

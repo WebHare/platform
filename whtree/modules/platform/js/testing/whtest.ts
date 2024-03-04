@@ -96,7 +96,7 @@ export async function invoke(libfunc: string, ...params: unknown[]): Promise<any
   // console.log(`test.invoke ${libfunc}`, params);
   const result = await jstestsrpc.invoke(libfunc, params);
 
-  if (typeof result == "object" && result && (result as { __outputtoolsdata: unknown }).__outputtoolsdata) {
+  if (typeof result === "object" && result && (result as { __outputtoolsdata: unknown }).__outputtoolsdata) {
     if (typeof window !== 'undefined')
       dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles: false, cancelable: false, detail: (result as { __outputtoolsdata: unknown }).__outputtoolsdata });
 

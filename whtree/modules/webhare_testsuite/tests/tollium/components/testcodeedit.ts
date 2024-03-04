@@ -15,7 +15,7 @@ test.registerTests(
       name: 'initialselectedline',
       test: function (doc, win) {
         test.assert(test.hasFocus(test.qS('textarea')));
-        test.assert(!test.qS('textarea').scrollTop == 0, 'scrollTop = 0, so no initial selection done');
+        test.assert(test.qS('textarea').scrollTop !== 0, 'scrollTop = 0, so no initial selection done');
         test.assert(!test.qS('textarea').readOnly);
 
         // Disable
@@ -28,7 +28,7 @@ test.registerTests(
       name: 'disabled',
       test: function (doc, win) {
         test.assert(test.qS('textarea').readOnly);
-        test.assert(!test.qS('textarea').scrollTop == 0);
+        test.assert(test.qS('textarea').scrollTop !== 0);
 
         // Enable
         test.click(test.getMenu(['I04']));
@@ -40,7 +40,7 @@ test.registerTests(
       name: 'reenabled',
       test: function (doc, win) {
         test.assert(!test.qS('textarea').readOnly);
-        test.assert(!test.qS('textarea').scrollTop == 0);
+        test.assert(test.qS('textarea').scrollTop !== 0);
 
         // First line
         test.click(test.getMenu(['I01']));
@@ -51,7 +51,7 @@ test.registerTests(
     {
       name: 'firstline',
       test: function (doc, win) {
-        test.assert(test.qS('textarea').scrollTop == 0);
+        test.assert(test.qS('textarea').scrollTop === 0);
 
         // Last line
         test.click(test.getMenu(['I02']));
@@ -74,7 +74,7 @@ test.registerTests(
     {
       name: 'reset',
       test: function (doc, win) {
-        test.assert(test.qS('textarea').scrollTop == 0);
+        test.assert(test.qS('textarea').scrollTop === 0);
         const textarea = test.qS('textarea');
         test.eq('', textarea.value);
       }

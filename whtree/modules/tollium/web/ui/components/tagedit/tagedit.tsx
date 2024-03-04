@@ -101,7 +101,7 @@ class TagEdit {
     while (tag) {
       // Remove the tag from the array
       this.tags = this.tags.filter(function (check) {
-        return check != tag;
+        return check !== tag;
       });
       // Get a reference to the next node to focus
       const selNode = tag.node.nextSibling;
@@ -133,7 +133,7 @@ class TagEdit {
   }
 
   setStringValue(value) {
-    const wasempty = this.tags.length == 0;
+    const wasempty = this.tags.length === 0;
     this.tags = [];
     this._updateTagNodes();
     this._addTagsFromValue(value, false);
@@ -150,7 +150,7 @@ class TagEdit {
   }
 
   haveUnprocessedInput() {
-    return this._getInputText().trim() != '';
+    return this._getInputText().trim() !== '';
   }
 
   // ---------------------------------------------------------------------------
@@ -367,7 +367,7 @@ class TagEdit {
   */
   _testAutoCompleteResultContainsTag(text, result) {
     return result.values.some(function (value) {
-      return value.value.toUpperCase() == text.toUpperCase();
+      return value.value.toUpperCase() === text.toUpperCase();
     });
   }
 
@@ -444,7 +444,7 @@ class TagEdit {
 
   /** Add multiple tags from values) */
   _addTagsFromValues(values, from_autocomplete) {
-    if (values.length == 0)
+    if (values.length === 0)
       return Promise.resolve(false);
 
     let res = this._validateTags(values, from_autocomplete);
@@ -452,7 +452,7 @@ class TagEdit {
     // When we have the valid tags, add them, return whether we have added a tag
     res.then(function (validtags) {
       this._addValidTags(validtags);
-      return validtags.length != 0;
+      return validtags.length !== 0;
     }.bind(this));
 
     res = res["catch"](function (e) { console.error('Got exception validating tags: ', e.stack || e); return []; });
@@ -516,7 +516,7 @@ class TagEdit {
   */
   _getTag(tag) {
     // If not searching for a string, find the requested tag object
-    if (typeof tag != "string")
+    if (typeof tag !== "string")
       return this.tags.filter(function (check) {
         return check === tag;
       })[0];
@@ -564,12 +564,12 @@ class TagEdit {
   //
 
   _onNodeMouseDown(event) {
-    if (event.target == this.node)
+    if (event.target === this.node)
       event.preventDefault();
   }
 
   _onNodeClick(event) {
-    if (event.target == this.node)
+    if (event.target === this.node)
       dompack.focus(this.inputnode);
   }
 
@@ -617,7 +617,7 @@ class TagEdit {
 
   _onInputKeyPress(event) {
     // Add the entered text as tag
-    if (event.key == this.options.tagSeparator) {
+    if (event.key === this.options.tagSeparator) {
       dompack.stop(event);
       this._processInputText();
     }

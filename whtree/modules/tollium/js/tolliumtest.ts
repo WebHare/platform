@@ -78,7 +78,7 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
 export function comp(name: string, options?: { allowMissing: boolean }): ComponentProxy | null {
   const screen = getCurrentScreen();
   const candidates = (screen.qSA('*[data-name]')! as HTMLElement[]).filter(
-    el => el.dataset.name == `${screen.win.screenname}:${name}`
+    el => el.dataset.name === `${screen.win.screenname}:${name}`
       || (name.startsWith(':') && matchesLabel(el, name.substring(1))));
 
   if (candidates.length > 1) {
@@ -86,7 +86,7 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
     throw new Error(`Multiple matches for name '${name}'`);
   }
 
-  if (candidates.length == 0) {
+  if (candidates.length === 0) {
     if (!options?.allowMissing)
       throw new Error(`Component '${name}' not found in screen '${screen.win.screenname}'`);
     return null;

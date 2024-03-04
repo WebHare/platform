@@ -31,7 +31,7 @@ test.registerTests(
       const h1 = test.getCurrentScreen().qSA('h1.heading1');
       test.eq(1, h1.length);
       //ADDME css ready would be nice, but we'll just wait
-      await test.wait(() => getComputedStyle(h1[0]).color == 'rgb(0, 0, 255)');
+      await test.wait(() => getComputedStyle(h1[0]).color === 'rgb(0, 0, 255)');
       await test.sleep(200);
     },
     "Empty line between objects disappear on save",

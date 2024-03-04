@@ -783,7 +783,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           ? hsmarshalling.readMarshalData(data.systemconfigdata)
           : {};
 
-        if (typeof decoded == "object" && decoded) {
+        if (typeof decoded === "object" && decoded) {
           this.systemconfig = decoded as Record<string, unknown>;
         }
         for (const bridge of this.localbridges) {
@@ -1354,7 +1354,7 @@ function hookConsoleLog() {
   };
 
   for (const [key, func] of Object.entries(old_console_funcs)) {
-    if (key != "Console" && key != "trace") {
+    if (key !== "Console" && key !== "trace") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (console as any)[key] = (...args: unknown[]) => {
         if (source.method) {
@@ -1385,7 +1385,7 @@ function hookConsoleLog() {
       source.loggedlocation = true;
     }
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
-    const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
+    const tolog: string = typeof data === "string" ? data : Buffer.from(data).toString("utf-8");
     const consoleLogItem = { method: source.method, data: tolog, when: source.when, ...(source.location ? { location: source.location } : null) };
     consoledata.push(consoleLogItem);
     if (consoledata.length > 100)
@@ -1405,7 +1405,7 @@ function hookConsoleLog() {
       source.loggedlocation = true;
     }
     const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
-    const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
+    const tolog: string = typeof data === "string" ? data : Buffer.from(data).toString("utf-8");
     const consoleLogItem = { method: source.method, data: tolog, when: source.when, ...(source.location ? { location: source.location } : null) };
     consoledata.push(consoleLogItem);
     if (consoledata.length > 100)
@@ -1437,8 +1437,8 @@ registerAsNonReloadableLibrary(module);
 const process_exit_backup = process.exit; // compatibility with taskrunner.ts taking over process.exit (TODO properly manage process.exit in contexts without breaking bridge)
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
-  console.error(origin == "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
-  bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
+  console.error(origin === "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
+  bridge.logError(error, { errortype: origin === "unhandledRejection" ? origin : "exception" });
 });
 
 process.on('uncaughtException', async (error) => {

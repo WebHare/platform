@@ -55,7 +55,7 @@ export function fixupDNDEvent(event) {
   /* FireFox adjusts the dropeffect based on the pressed keys. Chrome, Safari and IE don't, so just
      implement that behaviour for them. Also, override the mouse cursor in IE
   */
-  if ((event.type == 'drop' || event.type.indexOf('drag') == 0) && browser.getName() != 'firefox') {
+  if ((event.type === 'drop' || event.type.indexOf('drag') === 0) && browser.getName() !== 'firefox') {
     // Set default drop effect for allowed effects
     let effectAllowed = "all";
     try {
@@ -110,7 +110,7 @@ function getWebHareData(event) {
     return;
 
   // Check if this is a WebHare data URL
-  if (data.substr(0, webharedataurl.length) != webharedataurl)
+  if (data.substr(0, webharedataurl.length) !== webharedataurl)
     return;
 
   // Retrieve and decode the data
@@ -198,7 +198,7 @@ class CurrentDragData {
   }
 
   haveDataAccess() {
-    return this.localdrag || this.event.type == 'drop';
+    return this.localdrag || this.event.type === 'drop';
   }
 
   isFileDrag() {
@@ -245,7 +245,7 @@ class CurrentDragData {
 
 function getEventItemsTypeHash(event) {
   // The downloadurl type is set when initializing the drag event, but it won't be present in the drop event.
-  return Array.from(event.dataTransfer.types).filter(t => t != "downloadurl").sort().join("\t");
+  return Array.from(event.dataTransfer.types).filter(t => t !== "downloadurl").sort().join("\t");
 }
 
 export function getDragData(event) {
@@ -283,7 +283,7 @@ export function tryStartDrag(comp, items, event) {
       infos.push({ type: items[i].info.type, data: items[i].info.data, id: items[i].id });
 
   let download = null;
-  if (items.length == 1 && items[0].info.candownload) {
+  if (items.length === 1 && items[0].info.candownload) {
     //ADDME: rowkey?
     const url = comp.getFileTransferURL('download', { type: 'dragout', rowkey: items[0].id }, { filename: items[0].info.data.filename }).url;
     download =

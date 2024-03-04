@@ -61,7 +61,7 @@ export default class ObjDateTime extends ComponentBase {
   _reportChangesCallback(event) {
     // Get the current value, compare with last reported value
     const currentvalue = this.getValue();
-    if (this.lastreportedvalue != currentvalue)// && this.isEventUnmasked('change'))
+    if (this.lastreportedvalue !== currentvalue)// && this.isEventUnmasked('change'))
     {
       this.setDirty();
 
@@ -97,9 +97,9 @@ export default class ObjDateTime extends ComponentBase {
       }
       if (this.timefield) {
         timeval = ("0" + parsed.hour).slice(-2) + ":" + ("0" + parsed.min).slice(-2);
-        if (this.precision == 'seconds' || this.precision == 'milliseconds')
+        if (this.precision === 'seconds' || this.precision === 'milliseconds')
           timeval += ':' + ("0" + parsed.sec).slice(-2);
-        if (this.precision == 'milliseconds')
+        if (this.precision === 'milliseconds')
           timeval += '.' + ("00" + parsed.msec).slice(-3);
       }
     }
@@ -126,7 +126,7 @@ export default class ObjDateTime extends ComponentBase {
       const datevalue = this.datefield.value;
       retval = '0000-00-00';
       const parts = datevalue.replace(/\//g, '-').split('-');
-      if (parts.length == 3) {
+      if (parts.length === 3) {
         retval = this._padLeft(parts[0], 4) + '-' + this._padLeft(parts[1], 2) + '-' + this._padLeft(parts[2], 2);//Just plain db format
         defaultdate = false;
       }
@@ -145,12 +145,12 @@ export default class ObjDateTime extends ComponentBase {
       else
         retval += '00:00';
 
-      if ((this.precision == 'seconds' || this.precision == 'milliseconds') && parts.length >= 3)
+      if ((this.precision === 'seconds' || this.precision === 'milliseconds') && parts.length >= 3)
         retval += ':' + this._padLeft(parts[2], 2);
       else
         retval += ':00';
 
-      if (this.precision == 'milliseconds' && parts.length >= 4)
+      if (this.precision === 'milliseconds' && parts.length >= 4)
         retval += '.' + (parts[3] + '000').substr(0, 3);
       else
         retval += '.000';
@@ -171,7 +171,7 @@ export default class ObjDateTime extends ComponentBase {
       this._reportChangesCallback();
   }
   setRequired(value) {
-    if (value != this.required) {
+    if (value !== this.required) {
       this.required = value;
       this.node.classList.toggle("required", this.required);
 
@@ -186,7 +186,7 @@ export default class ObjDateTime extends ComponentBase {
   }
 
   setEnabled(value) {
-    if (value != this.enabled) {
+    if (value !== this.enabled) {
       this.enabled = value;
       this.node.classList.toggle("disabled", !this.enabled);
 
@@ -207,7 +207,7 @@ export default class ObjDateTime extends ComponentBase {
   // Build the DOM node(s) for this component
   buildNode(data) {
     this.node = <t-datetime data-name={this.name} propTodd={this} title={this.hint || ''} />;
-    if (this.fieldtype == 'date' || this.fieldtype == 'datetime') {
+    if (this.fieldtype === 'date' || this.fieldtype === 'datetime') {
       let suggestion_isodate = "";
       if (this.suggestion) {
         const parsed = this._parseTolliumValue(this.suggestion);
@@ -232,17 +232,17 @@ export default class ObjDateTime extends ComponentBase {
 
       // this.datefield.fireEvent("wh-refresh");
     }
-    if (this.fieldtype == 'datetime') {
+    if (this.fieldtype === 'datetime') {
       this.node.appendChild(<span>&nbsp;</span>);
     }
-    if (this.fieldtype == 'time' || this.fieldtype == 'datetime') {
+    if (this.fieldtype === 'time' || this.fieldtype === 'datetime') {
       let placeholder = "00:00";
       let step = "60"; // minutes
-      if (this.precision == 'seconds' || this.precision == 'milliseconds') {
+      if (this.precision === 'seconds' || this.precision === 'milliseconds') {
         placeholder += ":00";
         step = "1"; // seconds
       }
-      if (this.precision == 'milliseconds') {
+      if (this.precision === 'milliseconds') {
         placeholder += ".000";
         step = ".001"; // milliseconds
       }

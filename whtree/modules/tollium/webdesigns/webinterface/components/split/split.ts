@@ -43,7 +43,7 @@ export default class ObjSplit extends ComponentBase {
   readdComponent(comp) {
     // Replace the offending component
     //if(!comp.parentsplititem)
-    if (comp.parentcomp != this)
+    if (comp.parentcomp !== this)
       return console.error('Child ' + comp.name + ' not inside the split is trying to replace itself');
 
     const newcomp = this.owner.addComponent(this, comp.name);
@@ -142,7 +142,7 @@ export default class ObjSplit extends ComponentBase {
       items = items.filter((item, idx) => {
         // This part is affected if it's the part before the splitter or after the splitter (splitter 0 is located between part
         // 0 and part 1)
-        const affected = idx == this.movesplitter || idx == this.movesplitter + 1;
+        const affected = idx === this.movesplitter || idx === this.movesplitter + 1;
         // If this part is not affected, it keeps its size
         if (!affected)
           available -= item[property].set;

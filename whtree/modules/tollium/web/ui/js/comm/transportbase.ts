@@ -36,8 +36,8 @@ export default class TransportBase {
 
   removeEndPoint(endpoint) {
     endpoint.transport = null;
-    this.endpoints = this.endpoints.filter(e => e != endpoint);
-    return this.endpoints.length != 0;
+    this.endpoints = this.endpoints.filter(e => e !== endpoint);
+    return this.endpoints.length !== 0;
   }
 
   /// Called within onunload handler - to push out stuff as quick as possible
@@ -51,7 +51,7 @@ export default class TransportBase {
 
   processWireMessage(msg) {
     for (let j = 0; j < this.endpoints.length; ++j)
-      if (this.endpoints[j].options.linkid == msg.linkid) {
+      if (this.endpoints[j].options.linkid === msg.linkid) {
         const endpoint = this.endpoints[j];
 
         // FIXME trycatch!

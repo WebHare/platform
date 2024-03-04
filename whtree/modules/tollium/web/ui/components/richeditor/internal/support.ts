@@ -106,24 +106,24 @@ export function replaceClasses(node: HTMLElement, removeclass: string, addclass:
   removeclass = removeclass.trim();
   addclass = addclass.trim();
 
-  if (removeclass != "") {
+  if (removeclass !== "") {
     // remove old classes (to keep extra classes set later intact)
     for (const cname of removeclass.split(" ")) {
-      if (cname != "")
+      if (cname !== "")
         node.classList.remove(cname);
     }
   }
 
-  if (addclass != "") {
+  if (addclass !== "") {
     for (const cname of addclass.split(" ")) {
-      if (cname != "")
+      if (cname !== "")
         node.classList.add(cname);
     }
   }
 }
 
 export function buildEmbeddedObjectNode(data: RTEWidget, config: RTESettings): HTMLElement {
-  const isinline = data.embedtype == 'inline';
+  const isinline = data.embedtype === 'inline';
   const basenode = isinline ? 'span' : 'div';
 
   const has_inlinepreview = /wh-rtd__inlinepreview/.exec(data.htmltext);

@@ -97,7 +97,7 @@ export default class FileEditBase {
       || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
   }
   async uploadFile(files, lock) {
-    if (files.length == 0) {
+    if (files.length === 0) {
       lock.release();
       return;
     }

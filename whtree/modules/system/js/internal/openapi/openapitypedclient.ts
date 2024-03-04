@@ -123,12 +123,12 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       }, url.toString().slice(this.baseurl.length));
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";
-      const responsebody = contenttype == "application/json" ? JSON.parse(await res.body.text()) : res.body;
+      const responsebody = contenttype === "application/json" ? JSON.parse(await res.body.text()) : res.body;
       retval = { status: res.status, headers, contenttype, body: responsebody };
     } else {
       const call = await fetch(url.toString(), fetchoptions);
       const contenttype = call.headers.get("Content-Type") || "";
-      const responsebody = contenttype == "application/json" ? await call.json() : await call.text();
+      const responsebody = contenttype === "application/json" ? await call.json() : await call.text();
       retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
     }
 

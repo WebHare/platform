@@ -12,7 +12,7 @@ test.registerTests(
       await test.wait('ui');
       test.eq(2, test.qSA('.t-apptab').length);
       test.eq(1, test.qSA('.t-apptab--activeapp').length);
-      test.assert(test.qSA('.t-screen.active').length == 1);
+      test.assert(test.qSA('.t-screen.active').length === 1);
       test.eq('app_0_0', test.getDoc().title);
 
       // Start app with target {test:1}
@@ -182,7 +182,7 @@ test.registerTests(
       test.click(test.getMenu(['X08']));
 
       // wait for screen change
-      await test.wait(() => test.getCurrentApp().getNumOpenScreens() == 2);
+      await test.wait(() => test.getCurrentApp().getNumOpenScreens() === 2);
 
       test.eq(true, Boolean(/session has expired/.exec(test.getCurrentScreen().getToddElement("text").textContent)));
       test.click(test.compByTitle("OK"));

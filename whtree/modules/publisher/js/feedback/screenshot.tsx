@@ -4,7 +4,7 @@ import { pointAtDOM } from '@mod-publisher/js/feedback/dompointer';
 import type { FeedbackOptions, PointResult, PreparedFeedback } from "./index";
 
 function filterElements(node: Element, feedbackOptions?: FeedbackOptions): boolean {
-  if (node instanceof HTMLElement && (node.dataset.whScreenshot === "skip" || "whScreenshotSkip" in node.dataset || node.nodeName == "WH-AUTHORBAR")) {
+  if (node instanceof HTMLElement && (node.dataset.whScreenshot === "skip" || "whScreenshotSkip" in node.dataset || node.nodeName === "WH-AUTHORBAR")) {
     return false;
   }
   return feedbackOptions?.domFilterCallback === undefined || !(node instanceof Element) || feedbackOptions.domFilterCallback(node);

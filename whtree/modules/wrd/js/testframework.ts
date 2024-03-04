@@ -17,7 +17,7 @@ export function testResetPassword(options) {
       const emails = await test.waitForEmails(options.email, { count: 1, timeout: 10000 });
       test.eq(true, emails[0].subject.startsWith("Reset your password for"), "Unexpected subject " + emails[0].subject);
 
-      const resetlink = emails[0].links.filter(link => link.textcontent == "this link")[0];
+      const resetlink = emails[0].links.filter(link => link.textcontent === "this link")[0];
       test.eq(true, Boolean(resetlink), "Didn't find a reset link");
       test.getWin().location.href = resetlink.href;
       await test.waitNavigation();

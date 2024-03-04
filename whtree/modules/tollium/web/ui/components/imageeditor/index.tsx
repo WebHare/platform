@@ -233,7 +233,7 @@ class ImageEditor {
     const minwarning = (orgwidth > 0 && orgwidth < width) || (orgheight > 0 && orgheight < height);
     const maxwarning = (orgwidth > 0 || orgheight > 0)
       && this.surface.imagelimited
-      && !this.surface.undostack.some(function (item) { return item.action == "crop"; });
+      && !this.surface.undostack.some(function (item) { return item.action === "crop"; });
     this.options.setStatus(status, minwarning ? "min" : maxwarning ? "max" : null);
   }
   updateActionButtons() {
@@ -247,7 +247,7 @@ class ImageEditor {
     // Setting the reference point only makes sense if the image is not resized (it may be resized in the image cache using
     // the reference point) or if the resize method is fill (which actually crops the image). It is not enabled when 'all'
     // actions are allowed; it has to be enabled explicitly.
-    const method_refpoint = !this.options.imgsize || this.options.imgsize.method == "none" || this.options.imgsize.method == "fill";
+    const method_refpoint = !this.options.imgsize || this.options.imgsize.method === "none" || this.options.imgsize.method === "fill";
     return method_refpoint && this.allowedactions.indexOf("refpoint") >= 0;
   }
   getAllowedFilters() {
@@ -255,7 +255,7 @@ class ImageEditor {
   }
   resetImage() {
     this.options.resetImage().then(function (result) {
-      this.dirty = this.dirty || result == "yes";
+      this.dirty = this.dirty || result === "yes";
     }.bind(this));
   }
 }
@@ -288,13 +288,13 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
       canvasheight = Math.round(canvaswidth * imageheight / imagewidth);
     }
 
-    if (resizemethod == "stretch") {
+    if (resizemethod === "stretch") {
       // Just stretch to canvas
       imagewidth = canvaswidth;
       imageheight = canvasheight;
     } else if (resizemethod.indexOf("fit") === 0 && imagewidth <= canvaswidth && imageheight <= canvasheight) {
       // Don't resize
-      if (resizemethod == "fit") {
+      if (resizemethod === "fit") {
         canvaswidth = imagewidth;
         canvasheight = imageheight;
       }
@@ -308,7 +308,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
         // If not scaling to canvas, only keep image width
         if (resizemethod.indexOf("canvas") < 0)
           canvaswidth = imagewidth;
-      } else if (resizemethod == "fill") {
+      } else if (resizemethod === "fill") {
         // Scale height proportionally, keep width
         imageheight = Math.round(canvaswidth * imageheight / imagewidth);
         imagewidth = canvaswidth;
@@ -323,7 +323,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
         // If not scaling to canvas, only keep image height
         if (resizemethod.indexOf("canvas") < 0)
           canvasheight = imageheight;
-      } else if (resizemethod == "fill") {
+      } else if (resizemethod === "fill") {
         // Scale width proportionally, keep height
         imagewidth = Math.round(canvasheight * imagewidth / imageheight);
         imageheight = canvasheight;
@@ -335,7 +335,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
     imageleft = Math.round((canvaswidth - imagewidth) / 2);
 
     let rect = null;
-    if (resizemethod == "fill") {
+    if (resizemethod === "fill") {
       // When filling, either top or left is 0, the other is <0
       rect = {
         left: Math.abs(imageleft),
@@ -383,7 +383,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
     const resized = <canvas width={canvaswidth} height={canvasheight} />;
     const ctx = resized.getContext("2d");
     // Set background color, if specified
-    if (imgsize.bgcolor !== "" && imgsize.bgcolor != "transparent") {
+    if (imgsize.bgcolor !== "" && imgsize.bgcolor !== "transparent") {
       ctx.fillStyle = imgsize.bgcolor;
       ctx.fillRect(0, 0, canvaswidth, canvasheight);
     }
@@ -396,11 +396,11 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
 // Check if the given resize method is applied for an image with given widht, height and MIME type
 ImageEditor.resizeMethodApplied = function (imgsize, width, height, mimetype) {
   // If preserveifunchanged is not set (unless resize method is "none"), the method is applied
-  if (!imgsize.noforce && imgsize.method != "none")
+  if (!imgsize.noforce && imgsize.method !== "none")
     return true;
 
   // If the image doesn't have the expected MIME type, the method is applied
-  if (imgsize.format !== "" && mimetype != imgsize.format)
+  if (imgsize.format !== "" && mimetype !== imgsize.format)
     return true;
 
   switch (imgsize.method) {
@@ -416,7 +416,7 @@ ImageEditor.resizeMethodApplied = function (imgsize, width, height, mimetype) {
       {
         // Image method is applied if the image doesn't match both the set width and height exactly
         //ADDME: If image has transparency, only skip editor if conversionbackground is transparent
-        return width != imgsize.setwidth || height != imgsize.setheight;
+        return width !== imgsize.setwidth || height !== imgsize.setheight;
       }
     case "fit":
       {
@@ -427,8 +427,8 @@ ImageEditor.resizeMethodApplied = function (imgsize, width, height, mimetype) {
     case "scale":
       {
         // Image method is applied if the image size has an incorrect width and/or height
-        return (imgsize.setwidth > 0 && width != imgsize.setwidth)
-          || (imgsize.setheight > 0 && height != imgsize.setheight);
+        return (imgsize.setwidth > 0 && width !== imgsize.setwidth)
+          || (imgsize.setheight > 0 && height !== imgsize.setheight);
       }
   }
   // Don't know, assume it's applied

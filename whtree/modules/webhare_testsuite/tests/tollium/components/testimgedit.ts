@@ -20,7 +20,7 @@ function testBackground(doc, win) {
   });
   // In Chrome, the url is enclosed in quotes, in Safari it's not
   let src = backgrounds[1];
-  if (src[0] == "\"")
+  if (src[0] === "\"")
     src = src.split("\"")[1];
   else
     src = src.split("\"")[0];

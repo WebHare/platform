@@ -41,12 +41,12 @@ function applyScrollFixList() {
 }
 
 function doFixScrollPosition(node: HTMLElement) {
-  if (browser.getName() == "firefox") { // Firefox delays scroll resets, so we'll need to delay our fix.
+  if (browser.getName() === "firefox") { // Firefox delays scroll resets, so we'll need to delay our fix.
 
-    if (scrollfixlist.length == 0) {
+    if (scrollfixlist.length === 0) {
       //  Animationframe is more reliable than timeout for firefox
       requestAnimationFrame(applyScrollFixList);
-    } else if (scrollfixlist.find(tofix => tofix.node == node))
+    } else if (scrollfixlist.find(tofix => tofix.node === node))
       return; //already have this on our fixlist
 
     scrollfixlist.push({
@@ -86,7 +86,7 @@ export class Monitor {
 }
 
 export function fixScrollPosition(node: HTMLElement) {
-  if (node.scrollTop == parseFloat(node.dataset.dompackSavedScrollTop || "") && node.scrollLeft == parseFloat(node.dataset.dompackSavedScrollLeft || ""))
+  if (node.scrollTop === parseFloat(node.dataset.dompackSavedScrollTop || "") && node.scrollLeft === parseFloat(node.dataset.dompackSavedScrollLeft || ""))
     return false;
 
   doFixScrollPosition(node);

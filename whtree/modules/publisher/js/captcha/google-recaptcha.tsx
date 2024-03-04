@@ -41,7 +41,7 @@ export async function runRecaptchaDialog(sitekey: string, settings: CaptchaSetti
       {captchanode}
     </div>);
 
-    if (sitekey == 'mock') {
+    if (sitekey === 'mock') {
       captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => diag!.resolve('mock') }} />I am a human, beep-bop</label>);
     } else {
       //@ts-ignore the recaptcha/api.js adds grecaptcha to the window
@@ -82,7 +82,7 @@ export async function runRecaptcha(sitekey: string, settings: CaptchaSettings) {
         {captchanode}
       </div>);
 
-    if (sitekey == 'mock') {
+    if (sitekey === 'mock') {
       captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => defer.resolve('mock') }} />I am a human, beep-bop</label>);
     } else {
       const recaptchaid = window.grecaptcha.render(captchanode, {

@@ -33,9 +33,9 @@ export default class ModalGalleryBase {
 
     swipe.enable(node);
     node.addEventListener("dompack:swipe", ev => {
-      if (ev.detail.direction == "e")
+      if (ev.detail.direction === "e")
         this.previousImage();
-      else if (ev.detail.direction == "w")
+      else if (ev.detail.direction === "w")
         this.nextImage();
     });
   }
@@ -54,7 +54,7 @@ export default class ModalGalleryBase {
   }
 
   close() {
-    if (document.hasFocus() && document.activeElement == this._currentoverlay) {
+    if (document.hasFocus() && document.activeElement === this._currentoverlay) {
       const slides = this.gallery._getSlides();
       console.log(slides[this._selectedidx]);
       if (this._selectedidx < slides.length)
@@ -89,10 +89,9 @@ export default class ModalGalleryBase {
     const retval = {
       total: photos,
       current: this._selectedidx,
-      first: this._selectedidx == 0,
-      last: this._selectedidx == photos - 1
+      first: this._selectedidx === 0,
+      last: this._selectedidx === photos - 1
     };
     return retval;
   }
 }
-

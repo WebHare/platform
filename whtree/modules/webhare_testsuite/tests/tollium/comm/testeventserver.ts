@@ -46,7 +46,7 @@ test.registerTests(
     "Check third event - should REPLACE second event",
     async function () {
       test.click(test.getMenu(['A01']));
-      await test.wait(() => getTowlNotifications()[1].querySelector('.description').textContent == 'Message count: 3'
+      await test.wait(() => getTowlNotifications()[1].querySelector('.description').textContent === 'Message count: 3'
         || getTowlNotifications().length > 2);
 
       test.eq(2, getTowlNotifications().length);

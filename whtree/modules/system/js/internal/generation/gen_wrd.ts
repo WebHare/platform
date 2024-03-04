@@ -303,9 +303,9 @@ ${schemaconsts.join("\n")}
 
 function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (decl: string) => string): string {
   let typedef = "";
-  if (attr.attributeType == WRDAttributeType.Enum || attr.attributeType == WRDAttributeType.EnumArray) {
+  if (attr.attributeType === WRDAttributeType.Enum || attr.attributeType === WRDAttributeType.EnumArray) {
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { allowedvalues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")} }>`;
-  } else if (attr.attributeType == WRDAttributeType.Array) {
+  } else if (attr.attributeType === WRDAttributeType.Array) {
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, {\n${indent}  members: {\n`;
     if (attr.childAttributes) {
       for (const [tag, subattr] of Object.entries(attr.childAttributes)) {
@@ -315,7 +315,7 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
       }
     }
     typedef += `${indent}  };\n${indent}}>`;
-  } else if (attr.attributeType == WRDAttributeType.JSON) {
+  } else if (attr.attributeType === WRDAttributeType.JSON) {
     const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { type: ${typedeclname} }>`;
   } else {

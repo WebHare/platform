@@ -71,7 +71,7 @@ export default class AddressField {
     if (this._updatingFields)
       return; // We're updating our own fields
 
-    if (event.target == this.countryNode && this.currentcountry != this.countryNode.value) {
+    if (event.target === this.countryNode && this.currentcountry !== this.countryNode.value) {
       //country changed. clear errors on all fields before revalidating.. otherwise the errors will just seem to 'linger' for a while after switching
       this._clearErrors();
       this.currentcountry = this.countryNode.value;
@@ -127,7 +127,7 @@ export default class AddressField {
     for (const fieldname of ['street', 'city']) {
       const field = this.allFields.get(fieldname);
       if (field)
-        if (country.toUpperCase() == 'NL')
+        if (country.toUpperCase() === 'NL')
           field.node.setAttribute("data-wh-form-skipnativevalidation", "");
         else
           field.node.removeAttribute("data-wh-form-skipnativevalidation");
@@ -148,7 +148,7 @@ export default class AddressField {
         visiblefields.push(field.node.closest(".wh-form__fieldgroup")!);
         value[key as keyof AddressValue] = field.node.value;
 
-        if (!anyset && key != 'country' && field.node.value)
+        if (!anyset && key !== 'country' && field.node.value)
           anyset = true;
         if (field.node.required && !field.node.value && !field.node.hasAttribute("data-wh-form-skipnativevalidation"))
           allrequiredset = false;
@@ -186,12 +186,12 @@ export default class AddressField {
       console.error(`Error while validating value: ${e}`);
       return;
     } finally {
-      if (--this.numvaliditycalls == 0) //we're the last call
+      if (--this.numvaliditycalls === 0) //we're the last call
         curstate.visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
 
       lock.release();
     }
-    if (this._getCurState().lookupkey != curstate.lookupkey)
+    if (this._getCurState().lookupkey !== curstate.lookupkey)
       return; //abandon this _checkValidity call, the field has already changed.
 
     if (flags.fhv)

@@ -29,9 +29,9 @@ function encodeEntities(str: string, html: boolean) {
   let s = "";
   for (const char of str) {
     const curch = char.codePointAt(0);
-    if (curch == undefined || isHTMLUnrepresentableChar(curch))
+    if (curch === undefined || isHTMLUnrepresentableChar(curch))
       continue;
-    if (curch >= 32 && curch < 128 && curch != 38 && curch != 60 && curch != 62) {
+    if (curch >= 32 && curch < 128 && curch !== 38 && curch !== 60 && curch !== 62) {
       s += String.fromCodePoint(curch);
       continue;
     }
@@ -84,6 +84,6 @@ function encodeEntities(str: string, html: boolean) {
 }
 
 function isHTMLUnrepresentableChar(curch: number) {
-  return (curch < 32 && curch != 9 && curch != 10 && curch != 13)
+  return (curch < 32 && curch !== 9 && curch !== 10 && curch !== 13)
     || (curch >= 128 && curch <= 159);
 }

@@ -139,7 +139,7 @@ test.registerTests(
       //open context menu
       test.click(body.childNodes[1], { button: 2 });
       const propsevent = rtetest.getNextAction();
-      test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Properties")[0]);
+      test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent === "Properties")[0]);
 
       const result = await propsevent;
       test.eq("action-properties", result.detail.action);

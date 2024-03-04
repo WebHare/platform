@@ -12,12 +12,12 @@ import * as domfocus from 'dompack/browserfix/focus';
 
 function getToddFocusedComponent() {
   for (let node = domfocus.getCurrentlyFocusedElement(); node; node = node.parentNode) {
-    if (node.nodeType == 9)//#document
+    if (node.nodeType === 9)//#document
       continue;
     if (!node.getAttribute)
       return null; //not in a dom?
     const toddname = node.getAttribute('data-name');
-    if (toddname && toddname.indexOf('#') == -1)
+    if (toddname && toddname.indexOf('#') === -1)
       return toddname;
   }
   return null;
@@ -87,7 +87,7 @@ test.registerTests(
       await test.pressKey('Tab', { shiftKey: true });
       await test.pressKey('Tab', { shiftKey: true });
       await test.pressKey('Tab', { shiftKey: true });
-      test.assert(domfocus.getCurrentlyFocusedElement().ownerDocument != doc);
+      test.assert(domfocus.getCurrentlyFocusedElement().ownerDocument !== doc);
       //and come back!
       await test.pressKey('Tab');
       await test.pressKey('Tab');

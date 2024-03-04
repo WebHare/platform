@@ -248,7 +248,7 @@ async function testNewAPI() {
   test.eq(schema.tag, schemaById.tag);
   test.eq(null, await openWRDSchemaById(999999999));
 
-  test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag == testSchemaTag));
+  test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
   await whdb.beginWork();
   await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: WRDAttributeType.Free });
@@ -881,7 +881,7 @@ async function testComparisons() {
         for (const comparetype of comparetypes) {
           if (/Enum/.test(attr) && [">", ">=", "<=", "<"].includes(comparetype))
             continue;
-          if (comparetype == "in")
+          if (comparetype === "in")
             othervalue = [othervalue];
           const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("__getfields").execute();
           const expect = cmp(value, comparetype, othervalue);

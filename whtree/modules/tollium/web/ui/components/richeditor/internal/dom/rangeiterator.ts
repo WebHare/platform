@@ -69,7 +69,7 @@ export default class RangeIterator2 {
     if (this.localstart && this.current.equals(this.localstart)) {
       //console.log(' at localstart');
       if (this.localstart.equals(this.range.start)) {
-        //console.log(' localstart == range.start');
+        //console.log(' localstart === range.start');
         this.localstart = null;
       } else {
         this.localstart = this.range.start.clone();
@@ -127,4 +127,3 @@ export default class RangeIterator2 {
     }
   }
 }
-

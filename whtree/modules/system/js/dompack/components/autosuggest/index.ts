@@ -8,7 +8,7 @@ import KeyboardHandler from '../../extra/keyboard';
 export function normalizeSelectValues(values) {
   const outvalues = [];
   for (let val of values) {
-    if (typeof val == "string")
+    if (typeof val === "string")
       val = { value: val };
     outvalues.push(val);
   }
@@ -49,7 +49,7 @@ export default class AutoSuggest extends SelectList {
   }
 
   _onFocus() {
-    if (this.options.minlength == 0 && this._getCurrentInput().length == 0)
+    if (this.options.minlength === 0 && this._getCurrentInput().length === 0)
       this._onInput();
   }
 
@@ -103,14 +103,14 @@ export default class AutoSuggest extends SelectList {
     return input;
   }
   async _lookup(input) {
-    const historyhit = this._lookuphistory.find(entry => entry.input == input);
+    const historyhit = this._lookuphistory.find(entry => entry.input === input);
     if (historyhit)
       return historyhit.values;
 
     this._lookuppending = true;
 
     let lookupresult;
-    if (typeof this._getsuggestions == "function") {
+    if (typeof this._getsuggestions === "function") {
       lookupresult = await Promise.resolve(this._getsuggestions(input));
     } else {
       lookupresult = await Promise.resolve(this._getsuggestions.lookup(input));
@@ -137,9 +137,9 @@ export default class AutoSuggest extends SelectList {
         return;
 
       values = await this._lookup(input);
-    } while (input != this._getCurrentInput());
+    } while (input !== this._getCurrentInput());
 
-    if (!values || values.length == 0) {
+    if (!values || values.length === 0) {
       if (this._items)
         this.closeSelectList();
       return;

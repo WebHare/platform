@@ -104,7 +104,7 @@ function mergeNode(node: HTMLElement, set: string, data: any) {
 export async function run(mergenode: ParentNode, data: any, { filter }: { filter?: (node: Element) => boolean } = {}) {
   const nodes = mergenode.querySelectorAll('*[data-merge],*[data-wh-merge]') as NodeListOf<HTMLElement>;
   for (const node of Array.from(nodes)) { //FIXME drop support for data-wh-merge as soon as we've completed the phase out
-    if (node.nodeType != 1 || (filter && !filter(node)))
+    if (node.nodeType !== 1 || (filter && !filter(node)))
       continue;
 
     // Parse 'a=b;c=d(e)'

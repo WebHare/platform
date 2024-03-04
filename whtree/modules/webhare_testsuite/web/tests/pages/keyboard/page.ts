@@ -40,10 +40,10 @@ function onkeyevent(e) {
   //console.log("onkeyevent", e, convertToHex(utf8_key), norm.key);
 
   //exception safe updates of JSON data, so callers can easily clear 'm'
-  if (e.type == 'keydown' || e.type == 'keyup') {
+  if (e.type === 'keydown' || e.type === 'keyup') {
     let currentdownkeys = [];
     ignoreExceptions(() => currentdownkeys = JSON.parse(dompack.qS('#keysdown').value));
-    if (e.type == 'keydown') {
+    if (e.type === 'keydown') {
       if (!~currentdownkeys.indexOf(e.key))
         currentdownkeys.push(e.key);
     } else {
@@ -52,7 +52,7 @@ function onkeyevent(e) {
         currentdownkeys.splice(keyindex, 1);
     }
     dompack.qS('#keysdown').value = JSON.stringify(currentdownkeys);
-  } else if (e.type == 'keypress') {
+  } else if (e.type === 'keypress') {
     let currentpressed = [];
     ignoreExceptions(() => currentpressed = JSON.parse(dompack.qS('#keyspressed').value));
     currentpressed.push(e.key);
@@ -103,7 +103,7 @@ function onkeyevent(e) {
   dompack.qS('#eventlist').value = JSON.stringify(eventlist);
 
   node.textContent = 'simulated ' + simultext;
-  if (text != simultext)
+  if (text !== simultext)
     node.style.color = "#FF0000";
 
   dompack.qS('#keylog').appendChild(dompack.create("br"));

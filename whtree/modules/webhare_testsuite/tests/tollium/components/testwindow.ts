@@ -37,9 +37,9 @@ test.registerTests(
 
         //var menu = activewindow[0].getElement('.wh-menubar');
         const N01 = test.getMenu(['N01']); //shouldn't be here
-        test.assert(!N01 != null);
+        test.assert(!N01 !== null);
         const M01 = test.getMenu(['M01']); //shoud be here
-        test.assert(M01 != null);
+        test.assert(M01 !== null);
 
         //Test for existence of the text in the disappearing panel
         test.assert(activewindow[0].textContent.includes("Test <text> node"));

@@ -159,7 +159,7 @@ class LockController extends EventTarget {
 export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked, onWaitingForOwner, onLocked, onFailed, onReleaseRequest, onLockStolen, onReleaseRequestDenied }) {
   if (!onLocked || !onFailed || !onLockStolen)
     throw new Error("getExclusiveAccess parameters onLocked, onFailed and onLockStolen are both required");
-  if (!onAlreadyLocked != !onWaitingForOwner)
+  if (!onAlreadyLocked !== !onWaitingForOwner)
     throw new Error("getExclusiveAccess parameters onalreadylocked and onrequestingclose must both be omitted or both be provided");
 
   userinfo = { entityid: userinfo.entityid ?? 0, login: userinfo.login ?? "", realname: userinfo.realname ?? "" };
@@ -413,7 +413,7 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
             { title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" },
             { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
           ], { signal: actrl.signal, allowcancel: false });
-        if (res == "yes")
+        if (res === "yes")
           ctrl.requestLock();
         else
           ctrl.cancel();
@@ -446,7 +446,7 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
             { title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" },
             { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
           ], { signal: actrl.signal, allowcancel: false });
-        ctrl.respond(res == "yes");
+        ctrl.respond(res === "yes");
       },
       onLockStolen: async (info) => {
         const message = (onLockStolen && onLockStolen({ login: info.login || info.realname, realname: info.realname })) ||

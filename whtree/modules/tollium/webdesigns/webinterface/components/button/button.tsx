@@ -85,7 +85,7 @@ export default class ObjButton extends ActionableBase {
    */
 
   setTitle(value) {
-    if (value == this.title)
+    if (value === this.title)
       return;
 
     this.title = value;
@@ -97,7 +97,7 @@ export default class ObjButton extends ActionableBase {
   readdComponent(comp) {
     // Replace the offending component
     //if(!comp.parentsplititem)
-    if (comp.parentcomp != this)
+    if (comp.parentcomp !== this)
       return console.error('Child ' + comp.name + ' not inside the textedit is trying to replace itself');
 
     const newcomp = this.owner.addComponent(this, comp.name);
@@ -118,7 +118,7 @@ export default class ObjButton extends ActionableBase {
     return Boolean(this.node.closest('div.tabs-space'));
   }
   isToolbarButton() {
-    return this.parentcomp && this.parentcomp.componenttype == 'toolbar';
+    return this.parentcomp && this.parentcomp.componenttype === 'toolbar';
   }
 
   /****************************************************************************************************************************

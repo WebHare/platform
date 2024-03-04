@@ -35,8 +35,8 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
     if (!entrypoint.endsWith('.scss')) {
-      test.assert(manifest.assets.find(file => file.subpath == 'ap.js' && !file.compressed && !file.sourcemap));
-      test.eq(!isdev, manifest.assets.some(file => file.subpath == 'ap.js.gz' && file.compressed && !file.sourcemap));
+      test.assert(manifest.assets.find(file => file.subpath === 'ap.js' && !file.compressed && !file.sourcemap));
+      test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.js.gz' && file.compressed && !file.sourcemap));
     }
 
     manifest.assets.forEach(file => {
@@ -79,10 +79,10 @@ async function testCompileerrors() {
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.scss")));
     test.assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.es")));
-    test.assert(filedeps.filter(entry => entry[0] != '/').length == 0); //no weird entries, no 'stdin'...
+    test.assert(filedeps.filter(entry => entry[0] !== '/').length === 0); //no weird entries, no 'stdin'...
 
     const missingdeps = Array.from(result.info.dependencies.missingDependencies);
-    test.assert(missingdeps.length == 0);
+    test.assert(missingdeps.length === 0);
 
   }
 
@@ -105,7 +105,7 @@ async function testCompileerrors() {
 
     test.assert(filedeps.includes(path.join(__dirname, "dependencies/include-import-fail.es")));
     test.assert(filedeps.includes(path.join(__dirname, "dependencies/deeper/import-fail.es")));
-    test.assert(filedeps.filter(entry => entry[0] != '/').length == 0); //no weird entries, no 'stdin'...
+    test.assert(filedeps.filter(entry => entry[0] !== '/').length === 0); //no weird entries, no 'stdin'...
   }
 
   console.log("looking for a nonexisting node_module should register missingDependencies on node_modules");
@@ -175,7 +175,7 @@ async function testCompileerrors() {
 
     const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
     const urls = [...css.matchAll(/(url\(.*\))/g)].map(_ => _[1]);
-    test.assert(urls.length == 1);
+    test.assert(urls.length === 1);
     test.assert(urls[0].startsWith("url("));
     test.assert(!urls[0].startsWith("url(/"));
   }
@@ -223,7 +223,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 
     const missingdeps = Array.from(result.info.dependencies.missingDependencies);
-    test.assert(missingdeps.length == 0);
+    test.assert(missingdeps.length === 0);
   }
 
   console.log("test other tricky dependencies");

@@ -46,7 +46,7 @@ test.registerTests(
       name: "click away first subscreen",
       test: function (doc, win) {
         test.eq(4, test.qSA(".t-screen").length);
-        test.assert(test.getMenu(['M01', 'A02']) != null); //check if M01 A02 exists, then assume all is good
+        test.assert(test.getMenu(['M01', 'A02']) !== null); //check if M01 A02 exists, then assume all is good
         test.getCurrentScreen().clickCloser();
       },
       waits: ['ui']
@@ -55,7 +55,7 @@ test.registerTests(
       name: "click away second subscreen",
       test: function (doc, win) {
         test.eq(4, test.qSA(".t-screen").length);
-        test.assert(!test.getMenu(['M01', 'A02']) != null);
+        test.assert(!test.getMenu(['M01', 'A02']) !== null);
         test.click(test.getCurrentScreen().qS('t-button'));
       },
       waits: ['ui']

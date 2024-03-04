@@ -111,7 +111,7 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
         const primarykey = dbtable.getAttribute("primarykey");
 
         for (const col of Array.from(dbtable.childNodes).filter(elt => elt.nodeType === elt.ELEMENT_NODE) as Element[]) {
-          if (col.localName == "documentation") {
+          if (col.localName === "documentation") {
             tableinfo.documentation = formatDocumentation(col, "");
             continue;
           }
@@ -226,7 +226,7 @@ export function generateKyselyDefs(context: GenerateContext, modulename: string)
     for (const [tablename, tableinfo] of Object.entries(schemainfo.tables)) {
       let tabledef = `${tableinfo.documentation}export interface ${tableinfo.interface} {\n`;
       for (const [name, col] of Object.entries(tableinfo.columns)) {
-        if (col.type == 'blob')
+        if (col.type === 'blob')
           hasblobs = true;
 
         tabledef += `${col.documentation}`;

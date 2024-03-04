@@ -124,7 +124,7 @@ export class SiteResponse<T extends object = object> {
 
     //FIXME adhoc bundle support
     /* TODO cachebuster /! support
-      IF(cachebuster != "")
+      IF(cachebuster !== "")
         bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
     */
     const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === this.settings.assetpack);

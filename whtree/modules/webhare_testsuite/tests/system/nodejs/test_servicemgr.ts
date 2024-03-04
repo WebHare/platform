@@ -89,7 +89,7 @@ service = runBackendService(port, () => new Client);`
   test.eqProps({ isRunning: false }, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:ondemandservice"));
 
   const testondemand_reconect = await openBackendService<any>("webhare_testsuite_temp:ondemandservice", []);
-  test.assert(instanceid != (await testondemand_reconect.info()).instanceid);
+  test.assert(instanceid !== (await testondemand_reconect.info()).instanceid);
 
   state = await smservice.getWebHareState();
   test.eqProps({ isRunning: true }, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:ondemandservice"));
@@ -97,7 +97,7 @@ service = runBackendService(port, () => new Client);`
   //Have HareScript connect to an ondemand service
   const ondemandThroughHS = await loadlib("mod::system/lib/services.whlib").openWebHareService("webhare_testsuite_temp:ondemandservice2") as HSVMObject;
   test.eqProps({ x: 42, port: "webhare_testsuite_temp:ondemandservice2" }, await ondemandThroughHS.info());
-  test.assert(instanceid != (await ondemandThroughHS.info()).instanceid);
+  test.assert(instanceid !== (await ondemandThroughHS.info()).instanceid);
 
   //Delete the module again
   await deleteTestModule("webhare_testsuite_temp");

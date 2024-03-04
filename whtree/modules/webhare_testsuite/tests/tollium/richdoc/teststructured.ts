@@ -41,7 +41,7 @@ test.registerTests(
 
         // Must have an instance
         instanceref = test.qS(rte.editnode, '.wh-rtd-embeddedobject').dataset.instanceref || '';
-        test.assert(instanceref != '');
+        test.assert(instanceref !== '');
 
         //select the paragraph
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -114,7 +114,7 @@ test.registerTests(
         const rawcode = rtetest.getRawHTMLCode(win);
 
         // Instance id should not have changed on the backend site
-        test.assert(rawcode.indexOf(instanceid) != -1);
+        test.assert(rawcode.indexOf(instanceid) !== -1);
 
         const comparecode = rawcode.replace('data-instanceid="' + instanceid, 'data-instanceref="' + encodeString(instanceref, 'attribute'));
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should no longer be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
@@ -144,7 +144,7 @@ test.registerTests(
       await test.wait("ui");
 
       const code = rtetest.getRawHTMLCode(test.getWin());
-      test.assert(code.indexOf('src="cid:') != -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
+      test.assert(code.indexOf('src="cid:') !== -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
       test.getCurrentScreen().clickCloser();
       await test.wait("ui");
     },
@@ -166,7 +166,7 @@ test.registerTests(
       await test.wait("ui");
 
       const code = rtetest.getRawHTMLCode(test.getWin());
-      test.assert(code.indexOf('src="cid:') != -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
+      test.assert(code.indexOf('src="cid:') !== -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
       test.getCurrentScreen().clickCloser();
       await test.wait("ui");
     },
@@ -190,7 +190,7 @@ test.registerTests(
         test.setTodd('height', '13');
 
         test.subtest("checkimageprops2");
-        await test.wait(() => test.compByName('width').querySelector('input').value == 14); //Wait for width to be updated
+        await test.wait(() => test.compByName('width').querySelector('input').value === "14"); //Wait for width to be updated
 
         test.clickTolliumLabel('Hyperlink');
         test.clickTolliumLabel('External link');

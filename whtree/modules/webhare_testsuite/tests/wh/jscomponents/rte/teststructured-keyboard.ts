@@ -16,7 +16,7 @@ test.registerTests(
       test.eq("HEADING1", stylepulldown.value);
 
       driver.rte.takeFocus();
-      const keycombo = navigator.platform == "MacIntel" ? { metaKey: true, altKey: true } : { ctrlKey: true, altKey: true };
+      const keycombo = navigator.platform === "MacIntel" ? { metaKey: true, altKey: true } : { ctrlKey: true, altKey: true };
 
       await test.pressKey("2", keycombo); //FIXME other keys on windows?
       await test.sleep(1);

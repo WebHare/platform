@@ -191,7 +191,7 @@ test.registerTests(
 
         test.eq(null, lastcustomactioninfo);
         test.click(X11);
-        test.assert(lastcustomactioninfo != null);
+        test.assert(lastcustomactioninfo !== null);
         test.eq(/:customaction$/, lastcustomactioninfo.action);
         test.eq(test.getCurrentScreen().win, lastcustomactioninfo.screen);
       },
@@ -214,7 +214,7 @@ test.registerTests(
         test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
 
         const X10 = test.getMenu(['X01', 'X10']);
-        test.assert(X10 != null);
+        test.assert(X10 !== null);
         test.click(X10);
       },
       waits: ['ui']
@@ -227,9 +227,9 @@ test.registerTests(
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
         test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
 
-        test.assert(!test.getMenu(['X01']) != null);
+        test.assert(!test.getMenu(['X01']) !== null);
         const X22 = test.getMenu(['X21', 'x22']);
-        test.assert(X22 != null);
+        test.assert(X22 !== null);
         test.click(X22);
       },
       waits: ['ui']
@@ -242,8 +242,8 @@ test.registerTests(
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
         test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
 
-        test.assert(!test.getMenu() != null);
-        test.assert(test.compByName('b02_togglebutton') != null);
+        test.assert(!test.getMenu() !== null);
+        test.assert(test.compByName('b02_togglebutton') !== null);
         test.click(test.compByName('b01_switchbar'));
       },
       waits: ['ui']
@@ -253,7 +253,7 @@ test.registerTests(
       name: 'toolbarbuttonvisible',
       test: function (doc, win) {
         const X13 = test.getMenu(['X01', 'X13']);
-        test.assert(X13 != null);
+        test.assert(X13 !== null);
         test.click(X13);
       },
       waits: ['ui']
@@ -268,7 +268,7 @@ test.registerTests(
     {
       name: 'toolbarbuttonvisible3',
       test: function (doc, win) {
-        test.assert(test.compByName('b02_togglebutton') != null);
+        test.assert(test.compByName('b02_togglebutton') !== null);
       }
     },
 

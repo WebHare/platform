@@ -16,7 +16,7 @@ function testStackTrace() {
     corrected_native.split(' at ').map(x => x.trim()).slice(1),
     generat.map((i, idx) => {
       const loc = `${i.filename}:${i.line}:${i.col}`;
-      return i.func && i.func != "unknown" ? `${i.func} (${loc})` : loc;
+      return i.func && i.func !== "unknown" ? `${i.func} (${loc})` : loc;
     }));
 
   // See if getCallerLocation(0) returns the correct caller function name

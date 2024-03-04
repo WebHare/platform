@@ -64,7 +64,7 @@ export default class SelectionInterface {
   */
   getSelectionRange() {
     const selection = this.doc.getSelection();
-    if (!selection || selection.rangeCount == 0)
+    if (!selection || selection.rangeCount === 0)
       return null;
 
     const domrange = selection.getRangeAt(0);

@@ -101,13 +101,13 @@ class ToolbarButton extends ToolbarSimpleButtonBase {
   }
 
   isAllowed(allowtagset) {
-    if (this.type == "li-increase-level" || this.type == "li-decrease-level")
+    if (this.type === "li-increase-level" || this.type === "li-decrease-level")
       return allowtagset.includes("ul") || allowtagset.includes("ol");
-    if (this.type == "action-properties")
+    if (this.type === "action-properties")
       return allowtagset.includes("a-href") || allowtagset.includes("img") || allowtagset.includes("object-video");
-    if (this.type == "action-clearformatting")
+    if (this.type === "action-clearformatting")
       return true; //ADDME or remove when allowtagset is empty, but do we really filter then? allowtagset.length>0;
-    if (this.type == "object-insert")
+    if (this.type === "object-insert")
       return true;
     return allowtagset.includes(this.type);
   }
@@ -214,7 +214,7 @@ class StyleButtonBase extends ToolbarButtonBase {
       //      for (var i = 0; i < this.optionlist.length; ++i)
       //      {
       //        var style = this.optionlist[i].blockstyle;
-      //        this.optionlist[i].classList.toggle('-wh-rtd-unavailable', selstate.blockstyle.listtype != style.listtype)
+      //        this.optionlist[i].classList.toggle('-wh-rtd-unavailable', selstate.blockstyle.listtype !== style.listtype)
       //      }
 
       this.select.value = this.getCurrentStyle(selstate);
@@ -319,9 +319,9 @@ class InsertTableButton extends MenuButton {
     for (let row = 0; row < this.initialrows; ++row)
       for (let col = 0; col < this.initialcolumns; ++col) {
         const classNames = ["wh-rtd-tablemenuitem"];
-        if (col == 0)
+        if (col === 0)
           classNames.push("wh-rtd-tablemenuitem-newrow");
-        if (row == 0)
+        if (row === 0)
           classNames.push("wh-rtd-tablemenuitem-newcol");
         this.listnode.appendChild(new dompack.create("li",
           {
@@ -340,7 +340,7 @@ class InsertTableButton extends MenuButton {
 
   updateState(selstate) {
     // Cannot insert table into a table
-    this.available = selstate && selstate.tables.length == 0;
+    this.available = selstate && selstate.tables.length === 0;
     super.updateState(selstate);
   }
 
@@ -353,7 +353,7 @@ class InsertTableButton extends MenuButton {
     event.stopPropagation();
     event.preventDefault();
 
-    if (event.name == "mousemove" && event.target.nodeName.toUpperCase() != "LI")
+    if (event.name === "mousemove" && event.target.nodeName.toUpperCase() !== "LI")
       return;
 
     const selsize = this.getItemSize(event.target);
@@ -462,7 +462,7 @@ export default class RTEToolbar {
       for (let groupidx = 0; groupidx < row.length; ++groupidx) {
         const group = row[groupidx];
 
-        if (typeof group == "string") //button in own group
+        if (typeof group === "string") //button in own group
         {
           const buttonobj = this.createButtonObject(group);
           if (!buttonobj)
@@ -518,13 +518,13 @@ export default class RTEToolbar {
 
   getButton(buttonname) {
     for (let i = 0; i < this.buttons.length; ++i)
-      if (this.buttons[i].type == buttonname)
+      if (this.buttons[i].type === buttonname)
         return this.buttons[i];
   }
 
   OnButtonHover(action, event) {
     /*
-    if (action == this.lastactionhover)
+    if (action === this.lastactionhover)
       return;
     this.lastactionhover = action;
 

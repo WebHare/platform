@@ -163,7 +163,7 @@ export class TableEditor {
 
     this.resizing = null;
     this.node = node;
-    if (this.node.nodeName.toUpperCase() != "TABLE")
+    if (this.node.nodeName.toUpperCase() !== "TABLE")
       throw new Error("TableEditor can only be used on table nodes");
     this.node_win = node.ownerDocument.window;
     this.containernode = containernode;
@@ -267,7 +267,7 @@ export class TableEditor {
           if (this.options.resize_rows && row + cells[cell].rowSpan < this.numrows)
             this._createResizer(cells[cell], "row", row + cells[cell].rowSpan - 1);
           // If this is the last cell in the first column, add a table resizer
-          else if (this.options.resize_rows && this.options.resize_table && col == 1 && row + cells[cell].rowSpan == this.numrows)
+          else if (this.options.resize_rows && this.options.resize_table && col === 1 && row + cells[cell].rowSpan === this.numrows)
             this._createResizer(cells[cell], "row", -1);
 
           ++cell;
@@ -275,7 +275,7 @@ export class TableEditor {
       }
 
       // If this is the first row, add a table resizer to the last cell
-      if (this.options.resize_columns && this.options.resize_table && row == 0)
+      if (this.options.resize_columns && this.options.resize_table && row === 0)
         this._createResizer(cells[cell - 1], "col", -1);
     });
 
@@ -386,7 +386,7 @@ export class TableEditor {
   */
   insertColumns(td, before, num, width, options) {
     const table = td.closest("table");
-    if (table != this.node)
+    if (table !== this.node)
       return;
 
     const undolock = this.getUndoLock();
@@ -411,7 +411,7 @@ export class TableEditor {
   */
   insertRows(td, before, num, width, options) {
     const table = td.closest("table");
-    if (table != this.node)
+    if (table !== this.node)
       return;
 
     const undolock = this.getUndoLock();
@@ -432,7 +432,7 @@ export class TableEditor {
   */
   deleteColumns(td, num) {
     const table = td.closest("table");
-    if (table != this.node)
+    if (table !== this.node)
       return;
 
     const undolock = this.getUndoLock();
@@ -451,7 +451,7 @@ export class TableEditor {
   */
   deleteRows(td, num) {
     const table = td.closest("table");
-    if (table != this.node)
+    if (table !== this.node)
       return;
 
     const undolock = this.getUndoLock();
@@ -556,7 +556,7 @@ export class TableEditor {
   }
 
   getCaptionNode() {
-    if (this.node.firstElementChild?.tagName == "CAPTION")
+    if (this.node.firstElementChild?.tagName === "CAPTION")
       return this.node.firstElementChild;
 
     return null;
@@ -595,8 +595,8 @@ export class TableEditor {
       const want_topheader = row < datacellrow;
       const want_leftheader = col < datacellcol;
 
-      const wanttag = want_topheader != want_leftheader ? "th" : "td";
-      if (td.nodeName.toLowerCase() != wanttag) {
+      const wanttag = want_topheader !== want_leftheader ? "th" : "td";
+      if (td.nodeName.toLowerCase() !== wanttag) {
         // Make new element, clone the attributes of the old element
         const elt = document.createElement(wanttag);
         domlevel.setAttributes(elt, domlevel.getAllAttributes(td));
@@ -614,7 +614,7 @@ export class TableEditor {
         havechange = true;
       }
 
-      td.setAttribute("scope", wanttag == "td" ? "" : want_topheader ? "col" : "row");
+      td.setAttribute("scope", wanttag === "td" ? "" : want_topheader ? "col" : "row");
     });
 
     rtesupport.fixupScopeTRs(this.node);
@@ -655,8 +655,8 @@ export class TableEditor {
 
     const retval =
     {
-      "table-deleterow": { available: this.numrows != 1 },
-      "table-deletecolumn": { available: this.numcolumns != 1 },
+      "table-deleterow": { available: this.numrows !== 1 },
+      "table-deletecolumn": { available: this.numcolumns !== 1 },
       "table-mergeright": { available: Boolean(mergedata.mergerightcells) },
       "table-mergedown": { available: Boolean(mergedata.mergedowncells) },
       "table-splitcols": { available: cellnode.colSpan !== 1 },
@@ -822,7 +822,7 @@ export class TableEditor {
     resizer.contentEditable = "false";
     resizer.myTdNode = td;
     if (!tableresizing)
-      resizer[dir == 'col' ? 'propWhCol' : 'propWhRow'] = idx;
+      resizer[dir === 'col' ? 'propWhCol' : 'propWhRow'] = idx;
     this.resizers.push(resizer);
   }
 
@@ -885,7 +885,7 @@ export class TableEditor {
     if (leftidx < 0)
       leftidx = widths.length + leftidx;
 
-    const istableresize = leftidx == widths.length - 1;
+    const istableresize = leftidx === widths.length - 1;
     if (istableresize) {
       // when resizing the table, don't grow beyond max width
       const { cursize, maxsize } = this._getSizes();
@@ -909,7 +909,7 @@ export class TableEditor {
     // sizediff is now the shrink of shrinkidx, always positive
     let realshrink = sizediff;
 
-    if (shrinkidx != -1) {
+    if (shrinkidx !== -1) {
       // Shrink the column with the requested amount
       let testwidths = [...widths];
 
@@ -930,9 +930,9 @@ export class TableEditor {
       realshrink = widths[shrinkidx] - testwidths[shrinkidx];
     }
 
-    if (shrinkidx != -1)
+    if (shrinkidx !== -1)
       widths[shrinkidx] -= realshrink;
-    if (growidx != -1)
+    if (growidx !== -1)
       widths[growidx] += realshrink;
 
     this._applyColumnWidths(widths);
@@ -975,14 +975,14 @@ export class TableEditor {
           --rowspans[col++]; // Increments the col
         } else {
           for (let s = 1; col <= idx && s <= cells[cell].colSpan; ++s) {
-            if (col == idx) {
+            if (col === idx) {
               // This is the column we're inserting the new columns before or after. If the current cell is spanning into the
               // previous or next column, just increase the colspan, otherwise insert the columns
               if ((before && s > 1 && s <= cells[cell].colSpan) || (!before && s >= 1 && s < cells[cell].colSpan))
                 cells[cell].colSpan += num;
               else
                 for (let i = 0; i < num; ++i) {
-                  const tag = (col < firstdatacell.col) != (row < firstdatacell.row) ? "th" : "td";
+                  const tag = (col < firstdatacell.col) !== (row < firstdatacell.row) ? "th" : "td";
                   const newelt = dompack.create(tag, { rowSpan: cells[cell].rowSpan });
                   if (before)
                     cells[cell].before(newelt);
@@ -1046,7 +1046,7 @@ export class TableEditor {
     for (const tr of toinsert) {
       for (const elt of todupl)
         if (!elt.extendcell) {
-          const tag = (elt.col < firstdatacell.col) != (row < firstdatacell.row) ? "th" : "td";
+          const tag = (elt.col < firstdatacell.col) !== (row < firstdatacell.row) ? "th" : "td";
           const newelt = dompack.create(tag);
           if (elt.td.colSpan > 1)
             newelt.colSpan = elt.td.colSpan;
@@ -1149,7 +1149,7 @@ export class TableEditor {
       return;
     }
     // Check if this is a column resize
-    const colresize = dir == "col";
+    const colresize = dir === "col";
     // Check if this is a table resize
     const tableresize = resizer.classList.contains("wh-tableeditor-resize-table");
 
@@ -1297,7 +1297,7 @@ export function cleanupTree(tree) {
 
 //Capture all load events, see if we need to resize tables
 document.addEventListener("load", function (event) {
-  if (event.target && event.target.nodeName == 'LINK' && event.target.rel == 'stylesheet') {
+  if (event.target && event.target.nodeName === 'LINK' && event.target.rel === 'stylesheet') {
     activetables.forEach(table => table.updateResizers());
   }
 }, true);

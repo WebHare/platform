@@ -60,7 +60,7 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
   has(target: object, prop: string): boolean {
     if (!this.isjs)
       prop = prop.toUpperCase();
-    return Boolean(this.description.methods.find(m => m.name === prop)) || prop == "close";
+    return Boolean(this.description.methods.find(m => m.name === prop)) || prop === "close";
   }
 
   set(target: object, prop: string): boolean {

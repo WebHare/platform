@@ -55,7 +55,7 @@ class Client extends BackendServiceConnection {
   async onClose() {
     const backendservices = getExtractedConfig("services").backendServices;
     for (const service of this.suppressing) {
-      const srvinfo = backendservices.find((s) => s.name == service);
+      const srvinfo = backendservices.find((s) => s.name === service);
       if (!srvinfo)
         continue;
 
@@ -71,7 +71,7 @@ async function main() {
   const backendservices = getExtractedConfig("services").backendServices;
 
   if (program.args[0]) { //debug this specific service
-    const service = backendservices.find((s) => s.name == program.args[0]);
+    const service = backendservices.find((s) => s.name === program.args[0]);
     if (!service)
       throw new Error(`Unknown service ${service}`);
 

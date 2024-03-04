@@ -13,7 +13,7 @@ test.registerTests(
         test.fill(test.qS('#datasource'), 'resizerowsource');
         const row = test.getListViewRow('the fourth cell');
         console.log(row);
-        const mycell = Array.from(row.children).filter(node => node.nodeName == 'SPAN')[4];
+        const mycell = Array.from(row.children).filter(node => node.nodeName === 'SPAN')[4];
 
         test.sendMouseGesture([{ el: mycell }]);
         test.assert(mycell.offsetWidth < mycell.scrollWidth, '#4 cell should be overflowing');

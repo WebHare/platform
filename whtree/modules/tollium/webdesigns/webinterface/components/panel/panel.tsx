@@ -148,7 +148,7 @@ export default class ObjPanel extends ComponentBase {
             destroywithparent: true
           });
 
-          if (line.layout == 'form') //we need to keep the title separated
+          if (line.layout === 'form') //we need to keep the title separated
             line.titlecomp = titlecomp;
           else
             line.items.push(titlecomp);
@@ -174,7 +174,7 @@ export default class ObjPanel extends ComponentBase {
           }, this);
       }, this);
 
-    if (this.parentcomp.componenttype != "split") {
+    if (this.parentcomp.componenttype !== "split") {
       this.setMinToAbs(this.height);
       this.setMinToAbs(this.width);
     }
@@ -189,8 +189,8 @@ export default class ObjPanel extends ComponentBase {
 
   allowScroll() {
     return this.vscroll; /* rely on explicit vscroll setting
-    return this.parentcomp == this.owner            // the bodynode may scroll
-        || this.parentcomp.componenttype == "tabs"  // tab sheets may scroll
+    return this.parentcomp === this.owner            // the bodynode may scroll
+        || this.parentcomp.componenttype === "tabs"  // tab sheets may scroll
         || this.vscroll; */
   }
 
@@ -200,7 +200,7 @@ export default class ObjPanel extends ComponentBase {
 
   readdComponent(comp) {
     for (let i = 0; i < this.lines.length; ++i)
-      if (this.lines[i].items.indexOf(comp) != -1) {
+      if (this.lines[i].items.indexOf(comp) !== -1) {
         this.lines[i].readdComponent(comp);
         return;
       }
@@ -212,7 +212,7 @@ export default class ObjPanel extends ComponentBase {
   */
 
   setTitle(value) {
-    if (value != this.title) {
+    if (value !== this.title) {
       this.title = value;
       if (this.titlecomp)
         this.titlecomp.setValue(this.title);
@@ -394,7 +394,7 @@ export default class ObjPanel extends ComponentBase {
   }
 
   onDragLeave(event) {
-    if (this.draggingentered == 1) // leaving the last subcomponent, remove hover state
+    if (this.draggingentered === 1) // leaving the last subcomponent, remove hover state
     {
       this.node.classList.remove("droptarget--hover");
       this.preventertarget = null;
@@ -452,7 +452,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     this.title = line.title || '';
     this.titlelabelfor = line.labelfor;
     this.layout = line.layout || 'form';
-    this.block = line.layout == "block";
+    this.block = line.layout === "block";
     this.holdsinlineitems = !this.block; //we 'hold' inline components. comps use this to figure out (is it a hack?) whether they're inline
 
     this.paddingtop = !this.block && !this.options.removetopmargin ? $todd.gridlineTopMargin : 0;
@@ -465,7 +465,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     return this.items.filter(item => item.getVisible());
   }
   buildNode() {
-    this.node = <div class={this.layout + (this.layout != "block" ? " line" : "")} />;
+    this.node = <div class={this.layout + (this.layout !== "block" ? " line" : "")} />;
     if (this.paddingtop)
       this.node.style.paddingTop = this.paddingtop + 'px';
     if (this.paddingBottom)
@@ -476,13 +476,13 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   fillNode() {
     // Get a list of currently visible components to check if anything has changed
     const curcomponents = this.getVisibleChildren().map(comp => comp.name).join("\t");
-    if (curcomponents == this.fillcomponents)
+    if (curcomponents === this.fillcomponents)
       return;
 
     this.fillcomponents = curcomponents;
     dompack.empty(this.node);
 
-    if (this.layout == 'form' && this.titlecomp)
+    if (this.layout === 'form' && this.titlecomp)
       this.node.appendChild(this.titlecomp.getNode());
 
     this.node.append(...this.getVisibleItems().map(item => this._getLineItemNode(item)));
@@ -498,7 +498,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     return item.nodewrapper;
   }
   getSpacersOverhead() {
-    return $todd.settings.spacerwidth * ((this.layout == 'form' && this.parentcomp.getLabelAreaWidth() ? 1 : 0) + this.getVisibleItems().length - 1);
+    return $todd.settings.spacerwidth * ((this.layout === 'form' && this.parentcomp.getLabelAreaWidth() ? 1 : 0) + this.getVisibleItems().length - 1);
   }
 
   beforeRelayout() {
@@ -508,7 +508,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   }
 
   calculateDimWidth() {
-    this.setSizeToSumOf('width', this.getVisibleItems(), (this.layout == 'form' ? this.parentcomp.getLabelAreaWidth() : 0) + this.getSpacersOverhead());
+    this.setSizeToSumOf('width', this.getVisibleItems(), (this.layout === 'form' ? this.parentcomp.getLabelAreaWidth() : 0) + this.getSpacersOverhead());
   }
 
   calculateDimHeight() {
@@ -520,7 +520,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     let linewidth = this.width.set - this.getSpacersOverhead();
     this.debugLog("dimensions", "width: calc=" + this.width.calc + ", set=" + this.width.set, " effective width=" + linewidth);
 
-    if (this.layout == 'form') {
+    if (this.layout === 'form') {
       const labelareawidth = this.parentcomp.getLabelAreaWidth();
       linewidth -= labelareawidth;
 
@@ -547,7 +547,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   readdComponent(comp) {
     //console.log("Replace panel item '" +comp.name + "'");
     if (!this.owner) {
-      console.error("CANNOT READD NODE: owner == null! " + comp.name, this);
+      console.error("CANNOT READD NODE: owner === null! " + comp.name, this);
       return; //FIXME
     }
     const newcomp = this.owner.addComponent(this, comp.name);
@@ -562,7 +562,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   relayout() {
     this.node.style.height = this.height.set + 'px';
 
-    if (this.layout == "form") {
+    if (this.layout === "form") {
       if (this.titlecomp)
         this.titlecomp.relayout();
       else {

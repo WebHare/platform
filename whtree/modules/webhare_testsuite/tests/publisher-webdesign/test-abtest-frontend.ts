@@ -30,7 +30,7 @@ test.registerTests(
       await test.wait('ui');
 
       // The thankyou node is now filled
-      const thankyou = test.qSA('h1').filter(node => node.textContent == "Thank you!");
+      const thankyou = test.qSA('h1').filter(node => node.textContent === "Thank you!");
       test.eq(1, thankyou.length, "Cannot find thankyou node");
       test.assert(test.canClick(thankyou[0]), "Thankyou node should NOW be visible");
       test.assert(!test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");

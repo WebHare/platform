@@ -11,7 +11,7 @@ let totpdata;
 let totpbackupcodes;
 
 function getAppInStartMenuByName(name) {
-  return Array.from(test.qSA('.dashboard__apps li li')).filter(node => node.textContent == name)[0];
+  return Array.from(test.qSA('.dashboard__apps li li')).filter(node => node.textContent === name)[0];
 }
 
 
@@ -76,7 +76,7 @@ test.registerTests(
 
       // wait for screen to close, the busy lock is released somwehere in between the closing process
       //await test.wait('ui');
-      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length == 1);
+      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length === 1);
 
       // should be back in login window
       test.setTodd('password', "secret");
@@ -127,7 +127,7 @@ test.registerTests(
       test.clickToddButton('OK');
 
       // should go back to login window, login with new password
-      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length == 1);
+      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length === 1);
       test.setTodd('password', "secret");
       test.clickToddButton('Login');
       await test.wait('ui');
@@ -270,7 +270,7 @@ test.registerTests(
       await test.wait('ui');
 
       // show the 2FA secret key, so we can read it
-      test.click(test.qSA("t-text").filter(e => e.textContent == "Show the secret key")[0]);
+      test.click(test.qSA("t-text").filter(e => e.textContent === "Show the secret key")[0]);
       await test.wait('ui');
 
       totpsecret = test.getCurrentScreen().getValue("totpsecret");
@@ -290,7 +290,7 @@ test.registerTests(
       await test.wait('ui');
 
       // backend app close can't be waited on with ui wait, wait for login window to become the top window afain
-      await test.wait(f => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent == "Login").length == 1);
+      await test.wait(f => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent === "Login").length === 1);
       test.setTodd('password', "secret");
 
       // login again, now with TOTP code

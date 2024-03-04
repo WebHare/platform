@@ -26,7 +26,7 @@ class ForumCommentsForm extends FormBase {
       if (response.success) {
         this.commentstool._initComments();
         this.reset();
-      } else if (response.error == "CAPTCHA") {
+      } else if (response.error === "CAPTCHA") {
         setTimeout(async () => {
           const captcharesponse = await getCaptchaResponse(response.apikey, { busycomponent: this.node });
           if (captcharesponse) //retry with the response

@@ -65,7 +65,7 @@ export default class ObjAction extends ActionForwardBase {
     if (this.owner.isBusy() && !options.ignorebusy)
       return false;
 
-    if (hitrule == -1) //we are not enabled
+    if (hitrule === -1) //we are not enabled
     {
       this.debugLog("actionenabler", "- Action is explicitly disabled by client");
       return false;
@@ -107,7 +107,7 @@ export default class ObjAction extends ActionForwardBase {
       return -1;
     }
 
-    const checked = this.frameflags.length == 0 || this.owner.enabledOn(this.frameflags, 1, 1, "all");
+    const checked = this.frameflags.length === 0 || this.owner.enabledOn(this.frameflags, 1, 1, "all");
     if (!checked) {
       this.debugLog("actionenabler", "- Action is disabled by frameflags");
       return -1;
@@ -134,7 +134,7 @@ export default class ObjAction extends ActionForwardBase {
        Synchronize the code with HareScript TolliumAction::TolliumClick
     */
 
-    const enabled = this.getHitRule() != -1;
+    const enabled = this.getHitRule() !== -1;
     this.debugLog("actionenabler", "- Action is " + (enabled ? "enabled" : "disabled"));
 
     if (this.lastenabled !== enabled) {
@@ -219,12 +219,12 @@ export default class ObjAction extends ActionForwardBase {
   }
 
   onDownloadStarted(dl, id) {
-    this.pendingdownloads = this.pendingdownloads.filter(item => item != dl); //erase
+    this.pendingdownloads = this.pendingdownloads.filter(item => item !== dl); //erase
     this.queueMessage("download-started", { ftid: id }, true);
   }
 
   onDownloadFailed(dl, id) {
-    this.pendingdownloads = this.pendingdownloads.filter(item => item != dl); //erase
+    this.pendingdownloads = this.pendingdownloads.filter(item => item !== dl); //erase
     this.queueMessage("download-failed", { ftid: id }, true);
   }
 
@@ -244,7 +244,7 @@ export default class ObjAction extends ActionForwardBase {
             { name: "no", title: getTid("~no") }
           ],
           onclose: function (result) {
-            if (result == "yes")
+            if (result === "yes")
               this.queueMessage("resend", {}, true);
             resolve(result);
           }.bind(this)

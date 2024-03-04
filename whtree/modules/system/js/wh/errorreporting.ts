@@ -18,9 +18,9 @@ let saved_onerror = null;
 
 // Determine root object
 let root;
-if (typeof window != "undefined")
+if (typeof window !== "undefined")
   root = window;
-else if (typeof self != "undefined")
+else if (typeof self !== "undefined")
   root = self;
 
 // With promise debugging, we replace the promise constructor to add a stack trace to the promise
@@ -137,7 +137,7 @@ export async function reportException(errorobj: Error, options?) {
       data.data = Object.fromEntries(Object.entries(options.extradata));
     }
 
-    if (typeof (root.location) == 'undefined')
+    if (typeof (root.location) === 'undefined')
       return;
 
     const serviceuri = (new URL((options && options.serviceuri) || "/wh_services/publisher/designfiles/", root.location.href)).toString();

@@ -22,9 +22,9 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
 
 
   // Initialize the schema, and test the attribute name function
-  if (options.deleteClosedAfter != 0)
+  if (options.deleteClosedAfter !== 0)
     await persontype.updateMetadata({ deleteClosedAfter: options.deleteClosedAfter });
-  if (options.keepHistoryDays != 0)
+  if (options.keepHistoryDays !== 0)
     await persontype.updateMetadata({ keepHistoryDays: options.keepHistoryDays });
   await persontype.createAttribute("wrdContactPhoneXX", { attributeType: WRDAttributeType.Telephone, title: "Phone" });
   await persontype.createAttribute("personlink", { attributeType: WRDAttributeType.Domain, title: "Person", domain: "wrdPerson" });

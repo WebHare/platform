@@ -119,7 +119,7 @@ export default class Range {
       const enda = findParent(this.end.getNearestNode(), 'a', maxancestor);
       const starta = findParent(this.start.getNearestNode(), 'a', maxancestor);
 
-      if (starta != enda && enda)
+      if (starta !== enda && enda)
         this.end.assign(this.start);
       else
         this.start.assign(this.end);
@@ -156,8 +156,8 @@ export default class Range {
 
   splitStartBoundary(preservelocators: PreservedLocatorList) {
     if (!this.start.parentIsElementOrFragmentNode()) {
-      // Try to move start to its parent (and try to move end too, in case start == end at end of text node)
-      if (this.start.element == this.end.element)
+      // Try to move start to its parent (and try to move end too, in case start === end at end of text node)
+      if (this.start.element === this.end.element)
         this.end.moveToParent(true);
 
       // Try to move to parent, fails if within text
@@ -186,7 +186,7 @@ export default class Range {
     const retval = this.start.clone();
     /*var newnode = */this.start.insertNode(node, (preservelocators || []).concat(this));
     //    ++this.start.offset;
-    //    if (this.end.element == this.start.element)
+    //    if (this.end.element === this.start.element)
     //      ++this.end.offset;
     return retval;
   }
@@ -279,7 +279,7 @@ export default class Range {
         if (child.matches(selector))
           result.push(child);
 
-        if (itr.offset == copy.start.offset || itr.offset == copy.end.offset - 1) { // May be partial!
+        if (itr.offset === copy.start.offset || itr.offset === copy.end.offset - 1) { // May be partial!
           const subrange = this.clone().intersect(Range.fromNodeInner(child));
           result = result.concat(subrange.querySelectorAll(selector));
         } else {

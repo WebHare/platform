@@ -95,7 +95,7 @@ class JSONRPC extends InternetRequester {
    * @return The request id
    */
   request(method, params, onsuccess, onfailure, options) {
-    if (!params || typeof params != "object" || params.length === undefined)
+    if (!params || typeof params !== "object" || params.length === undefined)
       throw new Error("The parameters passed to request must be an Array");
 
     const id = ++this.lastid;
@@ -108,8 +108,8 @@ class JSONRPC extends InternetRequester {
     else
       url = location.href; //we do not support appendfunctionname for self-posts
 
-    const timeout = Math.max((options && typeof options.timeout == "number") ? options.timeout : 0, 0);
-    const waittimeout = (options && typeof options.waittimeout == "number") ? options.waittimeout : this.options.waittimeout;
+    const timeout = Math.max((options && typeof options.timeout === "number") ? options.timeout : 0, 0);
+    const waittimeout = (options && typeof options.waittimeout === "number") ? options.waittimeout : this.options.waittimeout;
     const synchronous = options && options.synchronous || false;
     const errortrace = options && options.errortrace || null;
 
@@ -141,21 +141,21 @@ class JSONRPC extends InternetRequester {
 
   //ADDME is it possible for the 'next' response to already be .delay/setTimeout() scheduled, racing against our cancel ?
   __cancelRequest(id) {
-    if (typeof id != 'number')
+    if (typeof id !== 'number')
       return;
 
-    if (this.activerequest == id) {
+    if (this.activerequest === id) {
       this.stopCurrentRequest();
       this.activerequest = null;
 
       const request = this.requestqueue.shift();
-      if (request.timeout && typeof request.timeout != "boolean")
+      if (request.timeout && typeof request.timeout !== "boolean")
         clearTimeout(request.timeout);
 
       this.processNextRequest();
     } else {
       for (let i = 0; i < this.requestqueue.length; ++i)
-        if (this.requestqueue[i].id == id) {
+        if (this.requestqueue[i].id === id) {
           this.requestqueue.splice(i, 1);
           break;
         }
@@ -178,8 +178,8 @@ class JSONRPC extends InternetRequester {
           console.log("JSONRPC request - processNextRequest, queue is empty");
         return;
       }
-      if (request.timeout && typeof request.timeout == "boolean") {
-        this.requestqueue = this.requestqueue.filter(el => el != request);
+      if (request.timeout && typeof request.timeout === "boolean") {
+        this.requestqueue = this.requestqueue.filter(el => el !== request);
         request = this.requestqueue[0];
       }
     }
@@ -212,7 +212,7 @@ class JSONRPC extends InternetRequester {
     this.requestqueue = this.requestqueue.slice(1);
 
     if (request.timeout) {
-      if (typeof request.timeout == "boolean") {
+      if (typeof request.timeout === "boolean") {
         this.processNextRequest();
         return;
       }
@@ -260,7 +260,7 @@ class JSONRPC extends InternetRequester {
       if (!json) {
         status = JSONRPC.JSON_ERROR;
         result = "Invalid JSON response";
-      } else if (json.id === null || json.id != request.id) {
+      } else if (json.id === null || json.id !== request.id) {
         status = JSONRPC.PROTOCOL_ERROR;
         result = "Protocol error: invalid id";
       } else if (json.error !== null) {
@@ -295,7 +295,7 @@ class JSONRPC extends InternetRequester {
 
   onTimeout(request) {
     request.timeout = true;
-    if (this.activerequest == request.id) {
+    if (this.activerequest === request.id) {
       this.activerequest = null;
       this.stopCurrentRequest();
       this.processNextRequest();
@@ -336,7 +336,7 @@ class JSONRPC extends InternetRequester {
       }
     }
 
-    if (this.waitingNow != waiting) {
+    if (this.waitingNow !== waiting) {
       this.waitingNow = waiting;
       setTimeout(() => this.waitCallback(waiting), 0);
     }
@@ -397,7 +397,7 @@ class Request //extends PreloadableAsset
     if (event.isaborted)
       this.cancelled = true;
 
-    if (status == 0) {
+    if (status === 0) {
       if (this.onsuccess && !this.cancelled)
         this.onsuccess(result);
       //this.donePreload(true);

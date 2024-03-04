@@ -22,19 +22,19 @@ test.registerTests(
       //doc is live now. verify the log, it should show one install + one active event
       console.log("lookup logs");
       const swlog = await pwatests.getSWLog();
-      test.eq(1, swlog.filter(entry => entry.event == 'install').length);
+      test.eq(1, swlog.filter(entry => entry.event === 'install').length);
     },
 
     "check for update",
     async function () {
       test.click('#checkforupdate');
-      await test.wait(() => test.qS("#pwa-update-status").textContent != 'Checking...');
+      await test.wait(() => test.qS("#pwa-update-status").textContent !== 'Checking...');
       test.eq("we are uptodate", test.qS("#pwa-update-status").textContent);
 
       await pwatests.touchPage(); //to trigger a refresh
 
       test.click('#checkforupdate');
-      await test.wait(() => test.qS("#pwa-update-status").textContent != 'Checking...');
+      await test.wait(() => test.qS("#pwa-update-status").textContent !== 'Checking...');
       test.eq("UPDATE AVAILABLE", test.qS("#pwa-update-status").textContent);
     },
 
@@ -48,7 +48,7 @@ test.registerTests(
       test.eq(clock, test.qS("#pwa-published-at").textContent, "Shouldnt see the updated file yet, we're supposed to be offline - make sure 'Bypass for network' is not enabled in devtools>app>sw");
 
       test.click('#downloadupdate');
-      await test.wait(() => test.qS("#pwa-update-status").textContent != 'Downloading...');
+      await test.wait(() => test.qS("#pwa-update-status").textContent !== 'Downloading...');
       test.eq("DOWNLOAD COMPLETE", test.qS("#pwa-update-status").textContent);
 
       test.click('#updatenow');
@@ -56,7 +56,7 @@ test.registerTests(
 
       await test.wait("pageload");
       await test.wait(() => test.qS("#pwa-offline"));
-      test.eq(false, clock == test.qS("#pwa-published-at").textContent);
+      test.eq(false, clock === test.qS("#pwa-published-at").textContent);
     },
 
     "get image",
@@ -70,7 +70,7 @@ test.registerTests(
       test.eq("This is a public text file", (await textfile.text()).trim());
       // test.qS("#textfilelink").src = ;
 
-      const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event == 'miss');
+      const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event === 'miss');
       test.eq([], cachemissses, "Fetches must not have caused miss-es in the log");
     },
 
@@ -78,19 +78,19 @@ test.registerTests(
     async function () {
       let exclusionresult = await (await test.getWin().fetch("../exclusiontestpage/")).json();
       let exclusionresult2 = await (await test.getWin().fetch("../exclusiontestpage/")).json();
-      test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #1");
+      test.assert(exclusionresult2.now !== exclusionresult.now, "Fetches must not have been cached #1");
 
       exclusionresult = await (await test.getWin().fetch("../exclusiontestpage/?test")).json();
       exclusionresult2 = await (await test.getWin().fetch("../exclusiontestpage/?test")).json();
-      test.assert(exclusionresult2.now != exclusionresult.now, "Parameters should not matter in exclusion list");
-      test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #2");
+      test.assert(exclusionresult2.now !== exclusionresult.now, "Parameters should not matter in exclusion list");
+      test.assert(exclusionresult2.now !== exclusionresult.now, "Fetches must not have been cached #2");
 
       exclusionresult = await (await test.getWin().fetch("../exclusiontestpage/#test")).json();
       exclusionresult2 = await (await test.getWin().fetch("../exclusiontestpage/#test")).json();
-      test.assert(exclusionresult2.now != exclusionresult.now, "Hashes should not matter in exclusion list");
-      test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #3");
+      test.assert(exclusionresult2.now !== exclusionresult.now, "Hashes should not matter in exclusion list");
+      test.assert(exclusionresult2.now !== exclusionresult.now, "Fetches must not have been cached #3");
 
-      const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event == 'miss');
+      const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event === 'miss');
       test.eq([], cachemissses, "Fetches must not have caused miss-es in the log");
     },
 
@@ -101,8 +101,8 @@ test.registerTests(
       await pwatests.forceRefresh(); //to trigger a refresh
       await test.load(test.getTestSiteRoot() + 'pwatest/');
       await test.wait('pageload');
-      test.eq(false, clock == test.qS("#pwa-published-at").textContent);
-      // await test.wait( () => test.qS("#pwa-published-at").textContent != clock);
+      test.eq(false, clock === test.qS("#pwa-published-at").textContent);
+      // await test.wait( () => test.qS("#pwa-published-at").textContent !== clock);
     },
 
     "check error handling",
@@ -110,7 +110,7 @@ test.registerTests(
       //Load one never pre-reported asset
       await test.getWin().fetch("https://beta.webhare.net/", { mode: 'no-cors' });
 
-      const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event == 'miss');
+      const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event === 'miss');
       if (cachemissses.length > 1)
         console.table(cachemissses);
       test.eq(1, cachemissses.length);

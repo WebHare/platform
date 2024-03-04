@@ -43,11 +43,11 @@ class OauthApp {
 
     let error = "";
 
-    if (this.oauth_clientid == "")
+    if (this.oauth_clientid === "")
       error = getTid("tollium:shell.oauth.messages.missing_client");
     else if (!scopes.length)
       error = getTid("tollium:shell.oauth.messages.missing_scopes"); //FIXME future versions should *only* accept scope 'webhare' for this oauth flow
-    else if (this.oauth_redirect == "")
+    else if (this.oauth_redirect === "")
       error = getTid("tollium:shell.oauth.messages.missing_redirect");
     else if (this.oauth_redirect.indexOf(this.oauth_clientid))
       error = getTid("tollium:shell.oauth.messages.invalid_redirect");

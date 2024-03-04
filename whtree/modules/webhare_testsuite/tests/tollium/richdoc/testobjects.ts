@@ -4,7 +4,7 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
-const testblock = test.getTestArgument(0) == 'block';
+const testblock = test.getTestArgument(0) === 'block';
 
 test.registerTests(
   [
@@ -15,7 +15,7 @@ test.registerTests(
 
     "Test initial objects",
     async function () {
-      test.click(test.qSA("nav t-text").filter(node => node.textContent == "Tab with Structured RTE")[0]);
+      test.click(test.qSA("nav t-text").filter(node => node.textContent === "Tab with Structured RTE")[0]);
 
       const rte = rtetest.getRTE(test.getWin(), 'structured');
       const inlineobj = rte.getBody().querySelector("span.wh-rtd-embeddedobject .wh-rtd-embeddedobject__preview");
@@ -147,7 +147,7 @@ test.registerTests(
 
         const pasteblock = document.createElement("div");
         const firstblock = rte.qS('div.wh-rtd-embeddedobject').cloneNode(true);
-        test.assert(firstblock.dataset.instanceref != '');
+        test.assert(firstblock.dataset.instanceref !== '');
 
         //corrupt the instance ref to make it look like it's from a different source
         firstblock.dataset.instanceref = firstblock.dataset.instanceref.substr(0, 15) + 'gggg' + firstblock.dataset.instanceref.substr(19);

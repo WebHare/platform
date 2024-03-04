@@ -7,7 +7,7 @@ window.focusZones = require('@mod-tollium/web/ui/components/focuszones');
 
 function onZoneFocus(event) {
   console.log('focus event', event);
-  if (event.target == document.getElementById('focuszone2'))
+  if (event.target === document.getElementById('focuszone2'))
     document.getElementById('log').append(<div>{"Focused focuszone2"}</div>);
 }
 

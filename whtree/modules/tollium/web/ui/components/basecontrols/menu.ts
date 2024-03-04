@@ -216,7 +216,7 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
   }
 
   // Global key handling
-  if (keydata.key == "Escape") {
+  if (keydata.key === "Escape") {
     closeAll();
     htmlevent.preventDefault();
     htmlevent.stopPropagation();
@@ -224,7 +224,7 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
   }
 
   for (let i = activemenus.length - 1; i >= 0; --i) {
-    if (activemenus[i]._handleKey(htmlevent, i == 0)) {
+    if (activemenus[i]._handleKey(htmlevent, i === 0)) {
       if (dompack.debugflags.men)
         console.log("[men] globalKeyDown handler captured keyboard event that was handled by a menu, cancelling the event", activemenus[i], htmlevent);
 
@@ -287,7 +287,7 @@ function mouseEnteredMenu(menu: MenuBase) {
 
 function setMenuActive(menu: MenuBase, active: boolean) {
   const activeidx = activemenus.indexOf(menu);
-  if (active == (activeidx != -1))
+  if (active === (activeidx !== -1))
     return;
 
   if (active)
@@ -295,15 +295,15 @@ function setMenuActive(menu: MenuBase, active: boolean) {
   else
     activemenus.splice(activeidx, 1);
 
-  if (activemenus.length == (active ? 1 : 0)) { // did we change from/tone no active menus?
+  if (activemenus.length === (active ? 1 : 0)) { // did we change from/tone no active menus?
     if (active) { // First active menu
       window.addEventListener("mousedown", _gotGlobalMouseDown, true); //capture if possible
       window.addEventListener("keydown", _gotGlobalKeyPressed, true);
 
-      if (document.activeElement?.nodeName == 'IFRAME') {
+      if (document.activeElement?.nodeName === 'IFRAME') {
         //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
         (document.activeElement as HTMLIFrameElement).blur();//remove focus from iframe
-        if (!document.activeElement || document.activeElement.nodeName == 'IFRAME')
+        if (!document.activeElement || document.activeElement.nodeName === 'IFRAME')
           window.focus();
       }
 
@@ -334,7 +334,7 @@ function mouseLeftMenu(menu: MenuBase) {
   if (mousemenuidx !== -1)
     mousemenus.splice(mousemenuidx, 1);
 
-  if (mousemenus.length == 0 && activemenus.length && !tookfocus) { //left all menus, and not taken focus?
+  if (mousemenus.length === 0 && activemenus.length && !tookfocus) { //left all menus, and not taken focus?
     // Reset the close timeout, and set a new one
     clearCloseTimeout();
     checkclosedelay = setTimeout(() => _checkMenuClose(), hoverclosetimeout);
@@ -373,7 +373,7 @@ function openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIEl
     return null;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
-  submenu._openMenu(dompack.getRelativeBounds(li), horizontalsubs ? parentmenu.currentalign == 'right' ? 'left' : 'right' : 'down', parentmenu, horizontalsubs ? parentmenu.currentalign : null, horizontalsubs ? "left" : "top", 0);
+  submenu._openMenu(dompack.getRelativeBounds(li), horizontalsubs ? parentmenu.currentalign === 'right' ? 'left' : 'right' : 'down', parentmenu, horizontalsubs ? parentmenu.currentalign : null, horizontalsubs ? "left" : "top", 0);
   recomputeSubSelection();
 
   return submenu;
@@ -514,7 +514,7 @@ class MenuBase {
 
   //   if (pos < 0)
   //   {
-  //     if (this.exitdirection == (this._isOrientationVertical() ? "top" : "left"))
+  //     if (this.exitdirection === (this._isOrientationVertical() ? "top" : "left"))
   //       this._selectItem(null);
 
   //     return;
@@ -632,7 +632,7 @@ class MenuBase {
       return;
 
     // Need to select item if hovering above non-selected item, or have item selected in submenu
-    const must_select = (li != this.selecteditem) || (this.openedsubmenu && this.openedsubmenu.selecteditem);
+    const must_select = (li !== this.selecteditem) || (this.openedsubmenu && this.openedsubmenu.selecteditem);
     if (!must_select)
       return;
 
@@ -679,7 +679,7 @@ class MenuBase {
       // this._selectRelativeItem("previous", true);
       return true;
     } else {
-      if (this.selecteditem && this.exitdirection == "top") {
+      if (this.selecteditem && this.exitdirection === "top") {
         this._selectItem(null);
         return true;
       }
@@ -713,7 +713,7 @@ class MenuBase {
       console.log("[men] _handleKeyLeft");
 
     if (this._isOrientationVertical()) {
-      if (this.selecteditem && this.exitdirection == "left") {
+      if (this.selecteditem && this.exitdirection === "left") {
         this._selectItem(null);
         return true;
       }
@@ -1077,17 +1077,17 @@ class MenuList extends MenuBase {
     }
 
     // ADDME: maybe save the resulting direction and alignment in this.currentdirection and this.currentalign
-    if (preferreddirection == "left" || preferreddirection == "right" || !preferreddirection) {
+    if (preferreddirection === "left" || preferreddirection === "right" || !preferreddirection) {
       // Right is preferred direction
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferreddirection == "left", false);
+      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferreddirection === "left", false);
 
       // Down is preferred alignment
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferredalign == "up", true);
+      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferredalign === "up", true);
     } else {
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferreddirection == "up", false);
+      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferreddirection === "up", false);
 
       // Left is preferred alignment
-      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferredalign == "right", true);
+      this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferredalign === "right", true);
     }
 
     if (dompack.debugflags.men)
@@ -1135,7 +1135,7 @@ class MenuList extends MenuBase {
 export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; target?: HTMLElement } | HTMLElement, options?: MenuOptions) {
   ///@ts-ignore -- FIXME fully clean up the options
   options = { ...options };
-  if (typeof el != 'object')
+  if (typeof el !== 'object')
     throw new Error("openAt requires an object, not an #id");
 
   let coords: dompack.Rect;

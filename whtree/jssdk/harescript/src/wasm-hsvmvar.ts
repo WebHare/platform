@@ -388,7 +388,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Record: {
-        if (typeof value == "object" && value?.[Marshaller]?.setValue) {
+        if (typeof value === "object" && value?.[Marshaller]?.setValue) {
           value?.[Marshaller]?.setValue.apply(value, [this]);
           return;
         }
@@ -501,7 +501,7 @@ export class HSVMVar {
     }
   }
   copyFrom(variable: HSVMVar): void {
-    if (variable.vm != this.vm)
+    if (variable.vm !== this.vm)
       throw new Error(`cross-vm copy not supported`);
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, this.id, variable.id);
     this.type = variable.type;

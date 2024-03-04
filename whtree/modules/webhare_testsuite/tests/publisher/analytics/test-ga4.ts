@@ -18,7 +18,7 @@ function checkForGTM(opts) {
   test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
 }
 function checkForAnonymizeIp(expect) {
-  const config = test.getWin().dataLayer.find(_ => _[0] == 'config');
+  const config = test.getWin().dataLayer.find(_ => _[0] === 'config');
   test.assert(config);
   const anonymize_ip = config[2].anonymize_ip;
   test.eq(Boolean(expect), Boolean(anonymize_ip));
@@ -44,7 +44,7 @@ test.registerTests(
       checkForGTM({ selfhosted: false, remote: false, snippet: false });
 
       //Check datalayerpush
-      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
     },
 
     "Test integration=onload (auto activation by ga4.es)",
@@ -57,7 +57,7 @@ test.registerTests(
       // checkForGTM({remote:1});
 
       //Check datalayerpush
-      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
     },
 
     // Test GA4 loading only after the analytics consent option has been chosen.
@@ -182,7 +182,7 @@ test.registerTests(
       // checkForGTM({remote:1});
 
       //Check datalayerpush
-      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
     }
 
 

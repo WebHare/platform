@@ -48,7 +48,7 @@ export async function getUser(req: TypedRestRequest<unknown, "get /users/{userid
   if (typeof req.params.wait !== "undefined" && typeof req.params.wait !== "boolean") {
     return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Parameter 'wait' has type ${typeof req.params.wait}` });
   }
-  return createJSONResponse(HTTPSuccessCode.Ok, persons.find(_ => _.id == req.params.userid));
+  return createJSONResponse(HTTPSuccessCode.Ok, persons.find(_ => _.id === req.params.userid));
 }
 
 export async function createUser(req: MyRestRequest): Promise<WebResponse> {

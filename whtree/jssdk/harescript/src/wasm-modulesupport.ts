@@ -219,17 +219,17 @@ export class WASMModule extends WASMModuleBase {
     libname = libname.substring(type.length + 2);
     libname = path.normalize(libname);
 
-    if (type == "module" || type == "moduledata" || type == "modulescript" || type == "moduleroot") { //module:: should be rewritten to mod:: /lib/
+    if (type === "module" || type === "moduledata" || type === "modulescript" || type === "moduleroot") { //module:: should be rewritten to mod:: /lib/
       // Grab the prefixed root. For mod/site we also want the first path component
       const firstslash = libname.indexOf("/");
       const modulename = libname.substring(0, firstslash);
       let subpart = "";
 
-      if (type == "moduledata") {
+      if (type === "moduledata") {
         subpart = "/data/";
-      } else if (type == "modulescript") {
+      } else if (type === "modulescript") {
         subpart = "/scripts/";
-      } else if (type == "moduleroot") {
+      } else if (type === "moduleroot") {
         subpart = "/";
       } else {
         //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
@@ -244,7 +244,7 @@ export class WASMModule extends WASMModuleBase {
       }
       libname = "mod::" + modulename + subpart + libname.substring(firstslash + 1);
     } else {
-      libname = type + (type == "direct" || type == "directclib" ? "::/" : "::") + libname;
+      libname = type + (type === "direct" || type === "directclib" ? "::/" : "::") + libname;
     }
 
     if (libname.startsWith("mod::system/whlibs/"))
