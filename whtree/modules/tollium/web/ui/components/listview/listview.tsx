@@ -333,7 +333,7 @@ export default class ListView {
     if (!this.listdomcreated) {
       this.resetList(true);
 
-      if (this.delayed_scrollrowintoview !== null)
+      if (this.delayed_scrollrowintoview !== null && this.delayed_scrollrowintoview !== undefined)
         this.scrollRowIntoView(this.delayed_scrollrowintoview);
     }
   }

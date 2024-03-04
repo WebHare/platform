@@ -63,7 +63,8 @@ export class Base {
   getSizeInfo(list, columndef, wrapped) {
     return {
       resizable: columndef.resizable === null || columndef.resizable === undefined ? true : columndef.resizable,
-      minwidth: columndef.minwidth === null ? minwidth : Math.max(columndef.minwidth, minwidth)
+      minwidth: columndef.minwidth === null || columndef.minwidth === 
+undefined ? minwidth : Math.max(columndef.minwidth, minwidth)
     };
   }
 
