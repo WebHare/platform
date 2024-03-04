@@ -150,24 +150,10 @@ export function getDoc() {
   return top.document.querySelector('#testframeholder iframe').contentDocument;
 }
 
-export function qS(node_or_selector, selector) {
-  if (typeof node_or_selector !== 'string')
-    return node_or_selector.querySelector(selector);
-
-  return getDoc().querySelector(node_or_selector);
-}
-
 export function fill(element, newvalue) {
   element = _resolveToSingleElement(element);
   _getFocusableElement(element).focus();
   dompack.changeValue(element, newvalue);
-}
-
-export function qSA(node_or_selector, selector) {
-  if (typeof node_or_selector !== 'string')
-    return Array.from(node_or_selector.querySelectorAll(selector));
-
-  return Array.from(getDoc().querySelectorAll(node_or_selector));
 }
 
 export function addTests(tests) {
@@ -292,16 +278,4 @@ export async function wait(...waits) {
       await wait(...waitelt);
     else
       await executeWait(waitelt);
-}
-
-
-// Export some functions to window for easier testing
-if (window) {
-  window.test =
-  {
-    qS: qS,
-    qSA: qSA,
-    getWin: getWin,
-    getDoc: getDoc
-  };
 }

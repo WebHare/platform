@@ -53,6 +53,7 @@ export * from "@mod-platform/js/testing/whtest";
 //We individually vet APIs from testframework. We should only export APIs with proper typings!
 export {
   load,
+  canClick,
   waitForElement,
   qS,
   qSA,

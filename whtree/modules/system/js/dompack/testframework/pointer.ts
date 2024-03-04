@@ -6,7 +6,7 @@ import * as domevents from '../src/events';
 import * as domscroll from '../browserfix/scroll';
 import * as domfocus from "../browserfix/focus";
 import { getName, getPlatform } from "../extra/browser";
-import { qSA } from './index';
+import { qSA } from '@webhare/test-frontend';
 
 const default_mousestate =
 {
@@ -480,7 +480,7 @@ function _processPartPositionTarget(part) {
 }
 
 
-export function _resolveToSingleElement(element) {
+export function _resolveToSingleElement(element: ValidElementTarget): HTMLElement {
   if (element instanceof NodeList) {
     if (element.length === 0)
       throw new Error("Passed an empty $$()");
@@ -488,7 +488,7 @@ export function _resolveToSingleElement(element) {
       console.log(element);
       throw new Error("Passed multiple elements using $$(), make sure the selector only matches one!");
     }
-    return element[0];
+    return element[0] as HTMLElement;
   } else if (typeof element === "string") {
     let elements = qSA(element);
     if (elements.length === 0) {
@@ -517,7 +517,7 @@ export function _resolveToSingleElement(element) {
   if (!element) {
     throw new Error("Invalid (falsy) element passed");
   }
-  return element;
+  return element as HTMLElement;
 }
 
 /* sending complex mouse gestures
@@ -1168,8 +1168,15 @@ export type ElementTargetOptions = {
   /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full height. If not set, defaults to 50% */
   y?: number | string;
 }
+export type ElementClickOptions = ElementTargetOptions & {
+  button?: 0 | 1 | 2;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+  meta?: boolean;
+}
 
-export function click(element: ValidElementTarget, options?) {
+export function click(element: ValidElementTarget, options?: ElementTargetOptions) {
   element = _resolveToSingleElement(element);
 
   const x = options && "x" in options ? options.x : "50%";
@@ -1182,9 +1189,9 @@ export function click(element: ValidElementTarget, options?) {
   ]);
 }
 
-export function focus(element) //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
+export function focus(target: ValidElementTarget) //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
 {
-  element = _resolveToSingleElement(element);
+  const element = _resolveToSingleElement(target);
   if (!canClick(element)) {
     console.error("Cannot focus nonclickable element", element);
     throw new Error("Cannot focus nonclickable element");
@@ -1196,7 +1203,20 @@ export function focus(element) //focus could have gone into either pointer.es or
   element.focus();
 }
 
-export function canClick(element, x?, y?) { //FIXME make options argument out of this.. just like click
+export function canClick(element: ValidElementTarget, options?: ElementTargetOptions) { //FIXME make options argument out of this.. just like click
+  let x: string | number = "50%", y: string | number = "50%";
+  // eslint-disable-next-line prefer-rest-params
+  if (typeof arguments[1] === 'number') { // receiving old style x,y coordinates
+    // eslint-disable-next-line prefer-rest-params
+    x = arguments[1];
+    // eslint-disable-next-line prefer-rest-params
+    y = arguments[2] || "%50%";
+    console.warn("Deprecated canClick syntax, use {x,y} as option parameters in WH5.5+");
+  } else {
+    x = options?.x ?? "50%";
+    y = options?.y ?? "50%";
+  }
+
   element = _resolveToSingleElement(element);
 
   const atpos = getPartPosition({ el: element, x: x, y: y });
@@ -1205,7 +1225,7 @@ export function canClick(element, x?, y?) { //FIXME make options argument out of
   const elhere = element.ownerDocument.elementFromPoint(atpos.x, atpos.y);
 
   //console.log('canClick', element,atpos,elhere,element.getBoundingClientRect(), elhere && elhere.getBoundingClientRect());
-  return dompack.contains(element, elhere);
+  return element.contains(elhere);
 }
 
 export function startExternalFileDrag(file) {
