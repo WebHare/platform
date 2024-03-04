@@ -76,6 +76,13 @@
                  />
   </apply>
 
+  <apply>
+    <to type="file" pathmask="/testpages/wrdauthtest*multisite*" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             customizer="pages/wrdauthtest.backend.ts#MultisiteCustomizer"
+             cookiename="webharelogin-js-multisite"/>
+  </apply>
+
   <!-- Other siteprofile imports (applysiteprofile) must always be at end of this primary siteprofile -->
   <applysiteprofile path="frontend/rtd/rtd.siteprl.xml" />
 

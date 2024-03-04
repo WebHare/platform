@@ -2,9 +2,14 @@ import { createClient } from "@webhare/jsonrpc-client";
 import { NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import { frontendConfig } from "./init";
-import type { LoginRemoteOptions } from "@mod-platform/js/auth/openid";
+import type { FrontendLoginResult, FrontendLogoutResult } from "@mod-platform/js/auth/openid";
+import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
 
 const authsettings = frontendConfig["wrd:auth"] as { cookiename: string } | undefined;
+
+interface AuthLocalData {
+  expires: Date;
+}
 
 export interface LoginOptions extends LoginRemoteOptions {
 }
@@ -19,11 +24,18 @@ export type LoginResult = {
   error: string;
 };
 
+function getStorageKeyName() {
+  if (!authsettings?.cookiename)
+    throw new Error("No authsettings.cookiename set, storage not available");
+  return "wh:wrdauth-" + authsettings.cookiename;
+}
+
 async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
   dompack.stop(event);
 
   const username = (this.elements.namedItem("login") as HTMLInputElement)?.value;
   const password = (this.elements.namedItem("password") as HTMLInputElement)?.value;
+  const site = (this.elements.namedItem("site") as HTMLInputElement)?.value || undefined;
   const persistentlogin = (this.elements.namedItem("persistent") as HTMLInputElement)?.checked;
   if (!login || !password)
     throw new Error(`submitLoginForm: required elements login/password not set or missing`);
@@ -31,7 +43,7 @@ async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
   using lock = dompack.flagUIBusy({ modal: true });
   void (lock);
 
-  const loginresult = await login(username, password, { persistent: persistentlogin });
+  const loginresult = await login(username, password, { persistent: persistentlogin, site });
   if (loginresult.loggedIn) {
     //Reload the page to get the new login status - TODO put this behind a 'login state change' event and allow users to cancel it if they can deal with login/logout on-page
     location.reload();
@@ -41,12 +53,27 @@ async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
   }
 }
 
+/** Return whether a user's currently logged in */
+export function isLoggedIn(): boolean {
+  const data = dompack.getLocal<AuthLocalData>(getStorageKeyName());
+  return Boolean(data?.expires && data.expires > new Date());
+}
+
 /** Setup WRDAuth frontend integration */
 export function setupWRDAuth() {
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
     // node.whplugin_processed = true;
     node.addEventListener("submit", submitLoginForm);
   });
+  dompack.register('.wh-wrdauth__logout', node => {
+    // node.whplugin_processed = true;
+    node.addEventListener("click", async event => {
+      dompack.stop(event);
+      await logout();
+      location.reload(); //TODO put this behind a 'login state change' event
+    });
+  });
+
   dompack.onDomReady(() => {
     if ("$wh$wrdauth" in window) {
       console.error("Both @webhare/wrdauth and @mod-wrd/js/auth are present in this page. Mixing these is not supported!");
@@ -82,13 +109,32 @@ export async function login(username: string, password: string, options: LoginOp
       "content-type": "application/json"
     },
     body: JSON.stringify(data)
-  })).json();
+  })).json() as FrontendLoginResult;
 
   if ("error" in result)
     return { loggedIn: false, error: result.error };
 
-  //we've logged in! TODO storage updates
+  //we've logged in!
+  dompack.setLocal<AuthLocalData>(getStorageKeyName(), { expires: new Date(result.expires) });
   return { loggedIn: true };
+}
+
+export async function logout() {
+  const data = { cookieName: authsettings?.cookiename };
+  const result = await (await fetch(`/.wh/openid/frontendservice?type=logout&pathname=${encodeURIComponent(location.pathname)}`, {
+    method: "post",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(data)
+  })).json() as FrontendLogoutResult;
+  if ("error" in result) {
+    console.error("Logout failed", result.error);
+    return { success: false, error: result.error };
+  }
+
+  dompack.setLocal(getStorageKeyName(), null);
+  return { success: true };
 }
 
 export interface MyService {

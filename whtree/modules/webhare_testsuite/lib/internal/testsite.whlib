@@ -1241,12 +1241,15 @@ PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD optio
              ];
 }
 
-PUBLIC MACRO DoSetupWRDAuth()
+PUBLIC MACRO DoSetupWRDAuth(BOOLEAN multisite DEFAULTSTO FALSE)
 {
   testfw->BeginWork();
 
   OBJECT persontype := testfw->GetWRDSchema()->GetType("WRD_PERSON");
   persontype->CreateAttribute("PASSWORD","PASSWORD");
+  persontype->CreateAttribute("MULTISITE","FREE");
+  IF(multisite)
+    persontype->UpdateAttribute("wrd_contact_email", [ isunique := false ]);
 
   testfw->GetWRDSchema()->UpdateMetadata(
       [ accounttype :=      persontype->id
@@ -1514,7 +1517,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
   RETURN retval;
 }
 
-PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix)
+PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix, BOOLEAN multisite DEFAULTSTO FALSE)
 {
   OpenPrimary();
   TRY
@@ -1526,7 +1529,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     //logout failed, but we don't care in tests
   }
 
-  RunTestFramework([ PTR DoSetupWRDAuth], [wrdauth := FALSE]);
+  RunTestFramework([ PTR DoSetupWRDAuth(multisite) ], [wrdauth := FALSE]);
 
   testfw->BeginWork();
   SetWRDSetting(testfw->GetWRDSchema(), "password_validation_checks", "minlength:5 symbols:1");
@@ -1546,7 +1549,20 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
     , password := testfw->hashedpasswords.secret_dollar
     , whuser_unit :=            testfw->testunit
+    , multisite := "site1"
     ]);
+  IF(multisite)
+  {
+    testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+      [ wrd_firstname := "Jantje2"
+      , wrd_lastname := "Tester2"
+      , wrd_contact_email := "jantje" || emailsuffix
+      , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABD"
+      , password := testfw->hashedpasswords.secret
+      , whuser_unit :=            testfw->testunit
+      , multisite := "site2"
+      ]);
+  }
   testfw->CommitWork();
 
   RETURN BuildWebtoolForm( [ wrdprefill := TRUE

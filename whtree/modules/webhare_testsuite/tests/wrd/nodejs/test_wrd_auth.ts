@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, createUnsignedJWT, decodeJWT } from "@webhare/wrd/src/auth";
-import type { OnOpenIdReturnParameters, WRDAuthCustomizer } from "@webhare/wrd";
+import { type LookupUsernameParameters, type OnOpenIdReturnParameters, type WRDAuthCustomizer } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
@@ -147,7 +147,7 @@ async function testAuthAPI() {
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken, { audience: peopleClient!.clientId }));
 
   // Test the openid session apis
-  const blockingcustomizer = {
+  const blockingcustomizer: WRDAuthCustomizer = {
     onOpenIdReturn(params: OnOpenIdReturnParameters): NavigateInstruction | null {
       if (params.client === robotClient!.wrdId)
         return { type: "redirect", url: "https://www.webhare.dev/blocked" };
@@ -158,19 +158,34 @@ async function testAuthAPI() {
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
 
   //Test simple login tokens
-  const loginToken1 = await provider.createLoginToken(testuser);
-  const loginToken2 = await provider.createLoginToken(testuser);
-  test.assert(decodeJWT(loginToken1).jti, "A token has to have a jti");
-  test.assert(decodeJWT(loginToken1).jti! !== decodeJWT(loginToken2).jti, "Each token has a different jti");
+  const login1 = await provider.createLoginToken(testuser);
+  const login2 = await provider.createLoginToken(testuser);
+  test.assert(decodeJWT(login1.idToken).jti, "A token has to have a jti");
+  test.assert(decodeJWT(login1.idToken).jti! !== decodeJWT(login2.idToken).jti, "Each token has a different jti");
 
-  test.eq({ entity: testuser }, await provider.verifyLoginToken(loginToken1));
+  test.eq({ entity: testuser }, await provider.verifyLoginToken(login1.idToken));
   test.eq({ error: /Token.*audience/ }, await provider.verifyLoginToken(authresult.idToken));
+
   //FIXME test rejection when expired, different schema etc
 
   //Test the frontend login
-  test.eq({ loggedIn: false, error: /Unknown username/ }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: false, error: /Unknown username/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
+  test.eqPartial({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+
+  //Test the frontend login with customizer setting up multisite support
+  const multisiteCustomizer: WRDAuthCustomizer = {
+    lookupUsername(params: LookupUsernameParameters): number | null {
+      if (params.username === "jonny" && params.site === "site2")
+        return testuser;
+      return null;
+    }
+  };
+
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site1" }));
+  test.eqPartial({ loggedIn: true, idToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
 }
 
 test.run([

@@ -232,6 +232,8 @@ MACRO SetupTestSite(OBJECT testsite)
   {
     OBJECT wrdauthtest := testpages->CreateFile( [ name := basename, typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest", publish := TRUE ] );
 
+    OBJECT wrdauthtest_multisite := testpages->CreateFile( [ name := basename || "-multisite", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest", publish := TRUE ] );
+
     OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
 
     OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );

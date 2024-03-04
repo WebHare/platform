@@ -1,7 +1,7 @@
 import { onDomReady } from "@webhare/dompack";
 import "./reset.css";
 export { frontendConfig } from "./init";
-export { startSSOLogin, login, setupWRDAuth } from "./auth";
+export { startSSOLogin, login, setupWRDAuth, isLoggedIn } from "./auth";
 import { navigateTo as envNavigateTo } from "@webhare/env";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 

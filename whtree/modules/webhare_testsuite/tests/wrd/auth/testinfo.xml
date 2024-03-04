@@ -5,6 +5,7 @@
   <jstest file="testwrdauth-frontend.ts" tags="wrdauth" />
   <group site="webhare_testsuite.testsitejs" name="js">
     <jstest file="testwrdauth-frontend-js.ts" tags="wrdauth" />
+    <jstest file="testwrdauth-multisite.ts" tags="wrdauth" />
   </group>
   <jstest file="testwrdauth-authpages.ts" tags="wrdauth" />
   <group skipautotests="true">
