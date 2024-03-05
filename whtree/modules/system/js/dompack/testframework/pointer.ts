@@ -1203,14 +1203,14 @@ export function focus(target: ValidElementTarget) //focus could have gone into e
   element.focus();
 }
 
-export function canClick(element: ValidElementTarget, options?: ElementTargetOptions) { //FIXME make options argument out of this.. just like click
+export function canClick(element: ValidElementTarget, options?: ElementTargetOptions) {
   let x: string | number = "50%", y: string | number = "50%";
   // eslint-disable-next-line prefer-rest-params
   if (typeof arguments[1] === 'number') { // receiving old style x,y coordinates
     // eslint-disable-next-line prefer-rest-params
     x = arguments[1];
     // eslint-disable-next-line prefer-rest-params
-    y = arguments[2] || "%50%";
+    y = arguments[2] || "50%";
     console.warn("Deprecated canClick syntax, use {x,y} as option parameters in WH5.5+");
   } else {
     x = options?.x ?? "50%";
