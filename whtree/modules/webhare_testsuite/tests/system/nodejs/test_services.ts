@@ -85,6 +85,10 @@ async function testServices() {
 async function testServiceState() {
   const instance1 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance1"], { linger: true });
   const instance2 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
+  const instance3 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance3"], { linger: true });
+
+  const instance1closed = new Promise<void>(resolve => instance1.addEventListener("close", () => resolve(), { once: true }));
+  const instance3closed = new Promise<void>(resolve => instance3.addEventListener("close", () => resolve(), { once: true }));
 
   test.assert(!('onClose' in instance2), "onClose is a server-side callback and shouldn't be transmitted runtime");
   ///@ts-expect-error onClose shouldn't be there
@@ -93,9 +97,15 @@ async function testServiceState() {
   const randomkey = "KEY" + Math.random();
   await instance1.setShared(randomkey);
   test.eq(randomkey, await instance2.getShared());
-  test.eq(["instance1", "instance2"], await instance2.getConnections());
+  test.eq(["instance1", "instance2", "instance3"], await instance2.getConnections());
 
   instance1.close();
+  await instance1closed;
+  await test.wait(async () => JSON.stringify(["instance2", "instance3"]) === JSON.stringify(await instance2.getConnections()));
+
+  instance2.closeConnection("instance3");
+  await instance3closed;
+
   await test.wait(async () => JSON.stringify(["instance2"]) === JSON.stringify(await instance2.getConnections()));
 
   instance2.close();

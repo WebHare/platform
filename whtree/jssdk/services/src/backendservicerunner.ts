@@ -30,6 +30,11 @@ export class BackendServiceConnection {
       this.#link.link.send({ event, data });
     }
   }
+  /** Invoke to close this connection. This will cause onClose to be invoked */
+  close() {
+    this.#link?.link.close();
+  }
+
   /** Invoked when the client explicitly closed the connection */
   onClose() {
   }

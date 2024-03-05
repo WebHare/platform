@@ -37,6 +37,7 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
     this.sb = sb;
     this.link = link;
     link.on("message", _ => this.onMessage(_));
+    link.on("close", _ => this.onClose());
 
     this.description = description;
     this.isjs = description.isjs || false;
@@ -86,6 +87,10 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
       this.sb.dispatchEvent(new CustomEvent(msg.message.event, { detail: msg.message.data }));
     else
       console.error("Unknown message type", msg);
+  }
+
+  onClose() {
+    this.sb.dispatchEvent(new CustomEvent("close"));
   }
 }
 

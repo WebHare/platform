@@ -3,7 +3,7 @@ import { BackendServiceConnection, BackendServiceController } from "@webhare/ser
 
 class Controller implements BackendServiceController {
   dummy = "-1";
-  connections = new Set<string>;
+  connections = new Map<string, ClusterTestLink>;
 
   async createClient(testdata: string) {
     await Promise.resolve(); //wait a tick
@@ -26,7 +26,7 @@ class ClusterTestLink extends BackendServiceConnection {
 
     this.testdata = testdata;
     this.mainobject = maininstance;
-    this.mainobject?.connections.add(testdata);
+    this.mainobject?.connections.set(testdata, this);
   }
 
   ping(arg1: unknown, arg2: unknown) {
@@ -76,7 +76,12 @@ class ClusterTestLink extends BackendServiceConnection {
     return null;
   }
   getConnections(): string[] {
-    return [...this.mainobject?.connections ?? []].toSorted();
+    return [...this.mainobject?.connections.keys() ?? []].toSorted();
+  }
+  closeConnection(name: string) {
+    if (!this.mainobject?.connections.has(name))
+      throw new Error("No such connection");
+    this.mainobject?.connections.get(name)?.close();
   }
   onClose() {
     this.mainobject?.connections.delete(this.testdata);
