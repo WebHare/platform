@@ -31,7 +31,7 @@ OBJECTTYPE CheckerObject
 
     IF(this->validateconfig.futuremodule AND category = "error")
       category := "warning";
-    ELSE IF(this->validateconfig.nowarnings AND category = "warning")
+    ELSE IF(this->validateconfig.nowarnings AND category = "warning" AND issue.source NOT IN["eslint"])
       category := "error";
 
     RECORD rec := CELL[ issue.resourcename, issue.line, issue.col, issue.message, category ];

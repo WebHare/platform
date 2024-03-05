@@ -81,6 +81,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
                 , line
                 , col
                 , fatal
+                , source
              FROM result.messages)
       , result.hasfixes
       , output :=       result.hasfixes ? StringToBlob(DecodeBase64(result.output)) : libdata
