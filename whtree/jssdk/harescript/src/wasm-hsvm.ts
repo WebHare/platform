@@ -99,8 +99,17 @@ export async function recompileHarescriptLibraryRaw(uri: string, options?: { for
     }
     throw new Error(`Could not contact HareScript compiler, status code ${res.status}`);
   } catch (e) {
-    console.log({ recompileerror: e });
-    throw e;
+    /*
+      iserror: !errorparts[0] || !errorparts[0].startsWith("W"),
+      line: parseInt(errorparts[1]),
+      col: parseInt(errorparts[2]),
+      filename: errorparts[3],
+      code: parseInt(errorparts[4]),
+      msg1: errorparts[5],
+      msg2: errorparts[6],
+      message: decodeString(errorparts[7], 'html')
+    (*/
+    return `E\t0\t0\t${uri}\t0\t${(e as Error).message}\t\tCompilation failed: ${(e as Error).message}`;
   }
 }
 

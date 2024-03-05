@@ -615,6 +615,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       if (hash?.startsWith("WHBF:") || hash?.startsWith("LCR:")) {
         if (!await loadlib("wh::crypto.whlib").verifyWebHarePasswordHash(password, hash))
           userid = 0;
+      } else if (hash?.startsWith('PLAIN:')) {
+        if (hash.substring(6) !== password)
+          userid = 0;
       } else
         throw new Error(`Unsupported password hash for user #${userid}`); //TODO
     }

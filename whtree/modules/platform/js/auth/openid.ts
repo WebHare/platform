@@ -105,6 +105,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
           headers: {
             "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
               httpOnly: true,
+              secure: req.url.protocol === "https:",
               path: "/",
               sameSite: "Lax",
               expires: response.expires
