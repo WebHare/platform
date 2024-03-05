@@ -9,8 +9,6 @@ import * as envbackend from "@webhare/env/src/envbackend";
 import { MessagePort, receiveMessageOnPort, TransferListItem } from 'node:worker_threads';
 import { StackTrace, parseTrace } from "@webhare/js-api-tools";
 
-const logmessages = envbackend.debugFlags.ipc;
-
 export type IPCEncodedException = {
   type: string;
   what: string;
@@ -196,7 +194,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean): boolean {
-    if (logmessages) {
+    if (envbackend.debugFlags.ipc) {
       const tolog = ctrlmsg.type === IPCEndPointImplControlMessageType.Message
         ? { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type], buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer)) }
         : { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] };
@@ -207,7 +205,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     // handle connectresult immediately, don't let it go through the queue
     if (this.queue && !isqueueitem && ctrlmsg.type !== IPCEndPointImplControlMessageType.ConnectResult) {
       this.queue.push(ctrlmsg);
-      if (logmessages)
+      if (envbackend.debugFlags.ipc)
         console.log(` queued`);
     } else {
       switch (ctrlmsg.type) {
@@ -263,7 +261,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   emitQueue() {
-    if (logmessages)
+    if (envbackend.debugFlags.ipc)
       console.log(` emitQueue`, this.emitting, this.queue);
     if (this.emitting || !this.queue)
       return;
@@ -277,7 +275,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     if (this.closed)
       return;
 
-    if (logmessages) {
+    if (envbackend.debugFlags.ipc) {
       console.log(`ipclink ${this.id} closed`);
     }
 
@@ -292,7 +290,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   sendPortMessage(msg: IPCEndPointImplControlMessage, transferlist?: ArrayBuffer[]) {
-    if (logmessages) {
+    if (envbackend.debugFlags.ipc) {
       const tolog = msg.type === IPCEndPointImplControlMessageType.Message
         ? { ...msg, type: IPCEndPointImplControlMessageType[msg.type], buffer: readMarshalPacket(msg.buffer) }
         : { ...msg, type: IPCEndPointImplControlMessageType[msg.type] };
@@ -456,7 +454,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   }
 
   handleControlMessage(ctrlmsg: IPCPortControlMessage) {
-    if (logmessages)
+    if (envbackend.debugFlags.ipc)
       console.log(`port ${this.name} ctrl msg`, { ...ctrlmsg, type: IPCPortControlMessageType[ctrlmsg.type] });
     switch (ctrlmsg.type) {
       case IPCPortControlMessageType.RegisterResult: {
@@ -495,7 +493,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   handleItem(link: IPCEndPointImpl<SendType, ReceiveType>, isqueueitem?: boolean) {
     if (!this.closed) {
       if (this.queue && !isqueueitem) {
-        if (logmessages)
+        if (envbackend.debugFlags.ipc)
           console.log(` queued`);
         this.queue.push(link);
       } else {
