@@ -128,13 +128,13 @@ MACRO TestAssetpackManifest()
 
   // dumpvalue(manifest.assets,'boxed');
 
-  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.js.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
+  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.mjs.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
-  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.js"));
+  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.mjs"));
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(testfw->GetTestSite()->webroot));
-  TestEq([ jslink := "/.ap/webhare_testsuite.basetest/ap.js", outputtag := "webhare_testsuite:basetest", jstype := "" ], ExtractBundleOutputTag(testfw->browser->document));
+  TestEq([ jslink := "/.ap/webhare_testsuite.basetest/ap.mjs", outputtag := "webhare_testsuite:basetest", jstype := "module" ], ExtractBundleOutputTag(testfw->browser->document));
 }
 
 MACRO TestAssetpackManifestModule()

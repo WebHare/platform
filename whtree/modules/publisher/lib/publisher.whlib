@@ -877,7 +877,6 @@ PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD opti
   options := ValidateOptions(CELL[ asyncbundle := TRUE
                                  , designroot := ""
                                  , cachebuster := ""
-                                 , module := FALSE
                                  ], options);
 
   STRING jssettings;
@@ -892,7 +891,7 @@ PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD opti
   IF(options.designroot != "")
     bundlebaseurl := ResolveToAbsoluteURL(options.designroot, bundlebaseurl);
 
-  STRING scriptsrc := bundlebaseurl || "ap" || (options.module ? ".mjs" : ".js");
+  STRING scriptsrc := bundlebaseurl || "ap.mjs";
   RETURN `<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`
-         || `<script src="${EncodeValue(scriptsrc)}"${jssettings}${options.module ? " type=\"module\"" : ""}></script>`;
+         || `<script src="${EncodeValue(scriptsrc)}"${jssettings} type="module"></script>`;
 }

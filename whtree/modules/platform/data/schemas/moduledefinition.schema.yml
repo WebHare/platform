@@ -164,7 +164,7 @@ definitions:
             description: "Whether to include WebHare polyfills (defaults to true)"
             type: boolean
           module:
-            description: "Output an ES module"
+            description: "Output an ES module. This setting no longer applies to WH5.5 and up which will always generate and expect modules"
             type: boolean
           afterCompileTask:
             description: "Task to run after compiling the asset pack"

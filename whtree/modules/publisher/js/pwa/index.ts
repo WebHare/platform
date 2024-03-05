@@ -112,7 +112,7 @@ export async function onReady(initfunction, options) {
     return;
   }
 
-  let swurl = "/.publisher/common/pwa/serviceworker/ap.js?app=" + encodeURIComponent(settings.getAppName());
+  let swurl = "/.publisher/common/pwa/serviceworker/ap.mjs?app=" + encodeURIComponent(settings.getAppName());
   if (document.getElementById("wh-publisher-outputtools"))
     swurl += "&debug=1";
 

@@ -195,6 +195,7 @@
     </webrule>
     <webrule path="allroots:/.ap/*/ap.css" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
     <webrule path="allroots:/.ap/*/ap.js" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
+    <webrule path="allroots:/.ap/*/ap.mjs" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
   </backend>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">

@@ -1309,7 +1309,6 @@ STATIC OBJECTTYPE ApplyRuleTester
       {
         webdesign.assetpack            := apply.webdesign.assetpack;
         webdesign.supportedlanguages   := apply.webdesign.supportedlanguages;
-        webdesign.module               := apply.webdesign.module;
       }
 
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;

@@ -7,8 +7,8 @@ import * as rtetestapi from '@mod-tollium/js/testframework-rte';
 const videobuttonselector = '[data-wh-form-name="rtd"] [data-button="object-video"]';
 const tablebuttonselector = '[data-wh-form-name="rtd"] [data-button="table"]';
 
-function verifyBeagleVideo() {
-  const rtebody = test.qS('[data-wh-form-name="rtd"] .wh-rtd__body');
+async function verifyBeagleVideo() {
+  const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
   test.eq(2, rtebody.querySelectorAll('p').length);
 
   const embobj = rtebody.querySelector('div.wh-rtd-embeddedobject');
@@ -37,13 +37,13 @@ test.registerTests(
 
     {
       name: 'Reset RTE',
-      test: function () {
+      test: async function () {
         //We didn't specify a video provider so the button shouldn't be there
         test.eq(null, test.qS(videobuttonselector), 'video button should not be present yet');
         //There is no table style defined in the rtd's structure so the button shouldn't be there
         test.eq(null, test.qS(tablebuttonselector), 'table button should not be present yet');
 
-        const rtebody = test.qS('[data-wh-form-name="rtd"] .wh-rtd__body');
+        const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
         rtebody.innerHTML = '<p class="normal">Initial state</p>';
         test.click(test.qS('#submitbutton'));
       },
@@ -58,8 +58,8 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Verify basic RTE content',
-      test: function () {
-        const rtebody = test.qS('[data-wh-form-name="rtd"] .wh-rtd__body');
+      test: async function () {
+        const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
         test.eq(1, rtebody.querySelectorAll('p').length);
         test.eq('Initial state', rtebody.querySelectorAll('p')[0].textContent);
       }
@@ -104,8 +104,8 @@ test.registerTests(
     },
     {
       name: 'Test beagle',
-      test: function () {
-        verifyBeagleVideo();
+      test: async function () {
+        await verifyBeagleVideo();
         test.click(test.qS('#submitbutton'));
       },
       waits: ['ui']
@@ -113,8 +113,8 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Test beagle after reload',
-      test: function () {
-        verifyBeagleVideo();
+      test: async function () {
+        await verifyBeagleVideo();
       }
     },
 
@@ -172,6 +172,7 @@ test.registerTests(
     {
       name: 'Test error handling',
       test: async function () {
+        await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal"><br data-wh-rte="bogus"/></p>');
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');

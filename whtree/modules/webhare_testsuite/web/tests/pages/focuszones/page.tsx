@@ -29,4 +29,4 @@ function pageinit() {
 
 window.addEventListener("wh:focuszone-focus", onZoneFocus);
 window.addEventListener("dompack:takefocus", evt => console.log("prefocus event", evt));
-document.addEventListener("DOMContentLoaded", pageinit);
+dompack.onDomReady(pageinit);

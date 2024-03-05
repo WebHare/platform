@@ -583,7 +583,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , has_supportsaccessdenied := node->HasAttribute("supportsaccessdenied")
                         , has_asyncbundle          := node->HasAttribute("async")
                         , has_contentnavstops      := node->HasAttribute("contentnavstops")
-                        , module := FALSE
                         ];
 
     webdesign.assetpack := QualifyName(this->module,node->GetAttribute("assetpack"));
@@ -594,7 +593,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       {
         //Cache important settings which would be too slow to look up separately from <webdeisgn>
         webdesign.supportedlanguages := assetpackinfo.supportedlanguages;
-        webdesign.module := assetpackinfo.module;
       }
       ELSE
       {

@@ -20,7 +20,6 @@ export interface AssetPack {
   afterCompileTask: string;
   esBuildSettings: string;
   extraRequires: string[];
-  module: boolean;
 }
 
 export interface BackendServiceDescriptor {
@@ -82,7 +81,6 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           environment: getAttr(assetpacknode, "environment", "window"),
           afterCompileTask: addModule(mod, getAttr(assetpacknode, "aftercompiletask")),
           esBuildSettings: getAttr(assetpacknode, "esbuildsettings"), //FIXME deprecate this, we should just let users supply a JS function to apply to the esbuild config
-          module: false,
           extraRequires: []
         });
       }
@@ -128,7 +126,6 @@ function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML):
         environment: "window", //TODO can we rempve this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
         afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
         esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
-        module: assetpack.module ?? false,
         extraRequires: []
       });
     }
