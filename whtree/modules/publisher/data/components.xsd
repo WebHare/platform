@@ -7,7 +7,6 @@
   xmlns="http://www.webhare.net/xmlns/publisher/components"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/publisher/components"
   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
   elementFormDefault="qualified"
@@ -241,17 +240,11 @@
     <xs:attribute name="mask" type="xs:string" default="*">
       <xs:annotation>
         <xs:documentation>
-          <p>
-            When mask is specified only files/folders with names matching the specified mask will be used as options.
-            The mask is case insensitive and its syntax is the same as the LIKE instruction in Harescript.
-          </p>
+          When mask is specified only files/folders with names matching the specified mask will be used as options.
+          The mask is case insensitive and its syntax is the same as the LIKE instruction in Harescript.
 
-          <p>
-            Examples:
-            <ul>
-              <li>*test* will match all files and folders which have test in their name</li>
-            </ul>
-          </p>
+          Examples:
+          - *test* will match all files and folders which have test in their name
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -288,15 +281,12 @@
       <xs:annotation>
         <xs:documentation>
           To specify a namespace mask to only show files/folders of a certain type.
-          <ul>
-            <li>only a single namespace is allowed (there is no support for space separated masks)</li>
-            <li>since it's a mask you can use a LIKE match</li>
-          </ul>
-          (only a single namespace is allowed,
+
+          - only a single namespace is allowed (there is no support for space separated masks)
+          - since it's a mask you can use a LIKE match
+
           Examples:
-          <ul>
-            <li>http://www.mysite.nl/xlmns/widgets/*</li>
-          </ul>
+          - `http://www.mysite.nl/xlmns/widgets/*`
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -393,14 +383,14 @@
     <xs:attribute name="newcontextmenu" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).</html:p>
+          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="flags" type="s:Flags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If you define a flag, you can show or disable tabs. So if something is selected, you can show data and hide data</html:p>
+          If you define a flag, you can show or disable tabs. So if something is selected, you can show data and hide data
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -410,10 +400,10 @@
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onselect event will fire when the selection changes.
             Use list-&gt;selection to read the selection.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -447,10 +437,10 @@
     <xs:attribute name="columnheaders" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Specifies whether the headers with the column titles must be shown.
             Default is TRUE, the headers will be hidden when set to FALSE.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -485,7 +475,7 @@
     <xs:attribute name="savestate">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "expanded".</html:p>
+          Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "expanded".
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -541,14 +531,14 @@
     <xs:attribute name="newcontextmenu" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).</html:p>
+          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="flags" type="s:Flags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If you define a flag, you can show or disable tabs. So if something is selected, you can show data and hide data</html:p>
+          If you define a flag, you can show or disable tabs. So if something is selected, you can show data and hide data
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -558,10 +548,10 @@
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onselect event will fire when the selection changes.
             Use list-&gt;selection to read the selection.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -591,9 +581,9 @@
           <tai:callbacksignature arguments="" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Called when the user changes the sort column, or whether it is sorted in ascending or descenting order.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -670,7 +660,7 @@
     <xs:attribute name="savestate">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "selected".</html:p>
+          Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "selected".
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -938,9 +928,9 @@
     <xs:attribute name="orderable" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Allow the items to be reordered
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -950,10 +940,10 @@
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onselect event will fire when the selection changes.
             (use ->value or ->selection to read what was selected)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -982,9 +972,9 @@
     <xs:attribute name="display">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Type of data of the whfs object to show
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -999,9 +989,9 @@
     <xs:attribute name="checkboxname" type="s:Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column that contains the value of the column checkbox for a row. If empty, no checkbox is shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1009,9 +999,9 @@
     <xs:attribute name="checkboxvisible" type="s:Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column that specifies whether the column checkbox is visible in that row. If empty, all checkboxes are shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1019,9 +1009,9 @@
     <xs:attribute name="align" type="s:HorizontalAlignment" default="left">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Horizontal alignment of the content within the column.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1029,9 +1019,9 @@
     <xs:attribute name="style" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the style to use for this row.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1082,9 +1072,9 @@
     <xs:attribute name="orderable" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Allow the rows to be reordered
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1212,7 +1202,7 @@
       <xs:attribute name="placeholder" type="xs:string">
         <xs:annotation>
           <xs:documentation>
-            <html:p>The text to use as placeholder text, which is displayed when nothing is filled in yet, but will not be returned as the textedit's value.</html:p>
+            The text to use as placeholder text, which is displayed when nothing is filled in yet, but will not be returned as the textedit's value.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -1220,7 +1210,7 @@
       <xs:attribute name="placeholdertid" type="sc:Tid">
         <xs:annotation>
           <xs:documentation>
-            <html:p>The tid to use as the placeholder text.</html:p>
+            The tid to use as the placeholder text.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -1287,7 +1277,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:documentation>
-          <html:p>This is an internal component used by Publisher search</html:p>
+          This is an internal component used by Publisher search
         </xs:documentation>
         <xs:appinfo>
           <tai:tolliumcomponent placement="block" fragment="/tolliumapps/filemanager/search.xml#searchfilter" />
@@ -1339,7 +1329,7 @@
           <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/snippet.xml#snippet" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>A snippet selection component</html:p>
+          A snippet selection component
         </xs:documentation>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
@@ -1355,7 +1345,7 @@
           <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/slot.xml#dcslot" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>A slot selection component</html:p>
+          A slot selection component
         </xs:documentation>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
@@ -1376,7 +1366,7 @@
           <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/beacon.xml#dcbeacon" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>A beacon selection component</html:p>
+          A beacon selection component
         </xs:documentation>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />

@@ -3,7 +3,6 @@
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns="http://www.webhare.net/xmlns/system/testinfo"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
   targetNamespace="http://www.webhare.net/xmlns/system/testinfo"
   elementFormDefault="qualified"

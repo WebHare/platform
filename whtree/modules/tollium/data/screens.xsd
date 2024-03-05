@@ -10,7 +10,6 @@ To change a <xs:attribute /> for adding descriptions
 -->
 <xs:schema xmlns="http://www.webhare.net/xmlns/tollium/screens"
            xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
-           xmlns:html="http://www.w3.org/1999/xhtml"
            xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
            xmlns:sc="http://www.webhare.net/xmlns/system/common"
            xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
@@ -80,7 +79,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:simpleType name="AbsSizeOrSp">
     <xs:annotation>
       <xs:documentation>
-        <html:p>An absolute size may not be proportional</html:p>
+        An absolute size may not be proportional
       </xs:documentation>
     </xs:annotation>
     <xs:restriction base="xs:string">
@@ -97,7 +96,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:simpleType name="FixedSize">
     <xs:annotation>
       <xs:documentation>
-        <html:p>A fixed size is a font-size independent size (only pixels at the moment)</html:p>
+        A fixed size is a font-size independent size (only pixels at the moment)
       </xs:documentation>
     </xs:annotation>
     <xs:restriction base="xs:string">
@@ -339,7 +338,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="composition" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          Specify where to store the data in this instance, relative to the base object for this composition.<br/>
+          Specify where to store the data in this instance, relative to the base object for this composition.
+
           This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
           recommended as it is incompatible with the history/versioning system.
         </xs:documentation>
@@ -381,56 +381,56 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="bold" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Makes bold</html:p>
+          Makes bold
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="italic" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Makes italic</html:p>
+          Makes italic
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="before" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Before</html:p>
+          Before
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="after" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>After</html:p>
+          After
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="left" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Left</html:p>
+          Left
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="right" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Right</html:p>
+          Right
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="backgroundcolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The backgroundcolor</html:p>
+          The backgroundcolor
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="textcolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The textcolor</html:p>
+          The textcolor
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -448,7 +448,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="action" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the action to use for this component, as defined in the &lt;actions&gt; section.</html:p>
+          The name of the action to use for this component, as defined in the &lt;actions&gt; section.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -458,7 +458,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="icon" type="sc:ImageSrc">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The icon to use for this component.</html:p>
+          The icon to use for this component.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -479,7 +479,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function to call when someone has clicked on the component. A record containing the X and Y coordinates (relative to the original imagesize) will be passed as argument to the onclick function.</html:p>
+          The name of the function to call when someone has clicked on the component. A record containing the X and Y coordinates (relative to the original imagesize) will be passed as argument to the onclick function.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -489,7 +489,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="errorlabel" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The text to use as the name of this component in error messages.</html:p>
+          The text to use as the name of this component in error messages.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -499,7 +499,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="errorlabeltid" type="Tid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The tid to use as the name of this component in error messages.</html:p>
+          The tid to use as the name of this component in error messages.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -509,7 +509,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="layout" type="Layout">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The type of layout to use for this component. Possible values are "left", "form" and "right".</html:p>
+          The type of layout to use for this component. Possible values are "left", "form" and "right".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -590,7 +590,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Screens">
     <xs:annotation>
       <xs:documentation>
-        <html:p>This is the root element of a screens XML file. It contains the different screens and global settings.</html:p>
+        This is the root element of a screens XML file. It contains the different screens and global settings.
       </xs:documentation>
     </xs:annotation>
     <xs:sequence>
@@ -839,25 +839,25 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="sc:TidOrTitle">
       <xs:annotation>
         <xs:documentation>
-            <html:p>Used as message within the messagebox.</html:p>
+            Used as message within the messagebox.
           </xs:documentation>
       </xs:annotation>
     </xs:attributeGroup>
     <xs:attribute name="name" type="Name" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
             The name of this messagebox.
-            Screens can use messageboxes in the same screens XML file using <i>this-&gt;RunMessageBox(".messageboxname");</i>.
-            To use a messagebox from another screens file (not recommended) use <i>this-&gt;RunMessageBox("myscreen.messageboxname");</i>
-          </html:p>
+
+            Screens can use messageboxes in the same screens XML file using `his-&gt;RunMessageBox(".messageboxname");`
+
+            To use a messagebox from another screens file (not recommended) use `his-&gt;RunMessageBox("myscreen.messageboxname");`
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="icon">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The icon to use for this messagebox. If no icon specified, the "information" icon will be displayed. If an empty icon is specified, no icon will be displayed.</html:p>
+          The icon to use for this messagebox. If no icon specified, the "information" icon will be displayed. If an empty icon is specified, no icon will be displayed.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -875,7 +875,7 @@ To change a <xs:attribute /> for adding descriptions
       <!-- Add a "Don't show this dialog again" option -->
       <xs:annotation>
         <xs:documentation>
-          <html:p>If not empty, the message box will have a checkbox option "Don't show this dialog again", which when checked will always return the selected result, if one of the dontshowagain values is chosen.</html:p>
+          If not empty, the message box will have a checkbox option "Don't show this dialog again", which when checked will always return the selected result, if one of the dontshowagain values is chosen.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -886,7 +886,7 @@ To change a <xs:attribute /> for adding descriptions
       <!-- To insert default buttons -->
       <xs:annotation>
         <xs:documentation>
-          <html:p>Defines which (default) buttons to use. Examples are "ok" and "yes no".</html:p>
+          Defines which (default) buttons to use. Examples are "ok" and "yes no".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -909,19 +909,16 @@ To change a <xs:attribute /> for adding descriptions
         <tai:childcomponents adoptfields="lines" field="contents" target="./s:contents" />
       </xs:appinfo>
       <xs:documentation>
-        <html:p>
           Resuable Tollium component excerpts.
+
           It provides some of the API and elements which screens have. (such as actions, menus, compositions).
           (but not RunMessageBox, tolliumuser, tolliumcontroller).
-        </html:p>
 
-        <html:p>
+
           Compositions can interact with the screen or fragment in which the fragment is used.
-          <html:ul>
-            <html:li>by giving the composition in a parent a mergecompositions attribute</html:li>
-            <html:li>by using composition="parentscope-&gt;compositionname" in a field within this fragment</html:li>
-          </html:ul>
-        </html:p>
+          - by giving the composition in a parent a mergecompositions attribute
+          -by using composition="parentscope-&gt;compositionname" in a field within this fragment
+
       </xs:documentation>
     </xs:annotation>
     <xs:sequence>
@@ -933,7 +930,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="name" type="Name" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of this fragment. This name must be unique within the screens file.</html:p>
+          The name of this fragment. This name must be unique within the screens file.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -941,10 +938,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="contentpanel" type="Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             A panel inside this panel, that will receive any content lines passed to this fragment
             (ADDME: describe what it's usefull for)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -976,7 +973,7 @@ To change a <xs:attribute /> for adding descriptions
         <tai:childcomponents field="footernode" target="./s:footer" />
       </xs:appinfo>
       <xs:documentation>
-        <html:p>This is a screen element. Its child elements describe its layout.</html:p>
+        This is a screen element. Its child elements describe its layout.
       </xs:documentation>
     </xs:annotation>
     <xs:sequence>
@@ -1028,7 +1025,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="flags" type="tc:Flags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define the screen flags here, used as "enable" filters for your actions. These flags can be set from your library using <i>this-&gt;frame-&gt;flags.flagname</i>.</html:p>
+          Define the screen flags here, used as "enable" filters for your actions. These flags can be set from your library using `this-&gt;frame-&gt;flags.flagname`.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1040,7 +1037,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="savestate">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Save the selected window properties in the user's registry and restore them upon reopening the window. The value can be any combination of "position" and "size".</html:p>
+          Save the selected window properties in the user's registry and restore them upon reopening the window. The value can be any combination of "position" and "size".
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -1064,21 +1061,21 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="allowclose" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to false, a user cannot close the window by using the 'X' icon or the 'Escape' key on the keyboard. Default is 'true'.</html:p>
+          If set to false, a user cannot close the window by using the 'X' icon or the 'Escape' key on the keyboard. Default is 'true'.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="allpublic" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Makes all components in the screen public.</html:p>
+          Makes all components in the screen public.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="menubar" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the menu to use as a menubar. By default, this menu will be shown at the top of the screen.</html:p>
+          The name of the menu to use as a menubar. By default, this menu will be shown at the top of the screen.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1088,14 +1085,14 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Function pointer to the macro to call every specified interval.</html:p>
+          Function pointer to the macro to call every specified interval.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="interval" type="xs:nonNegativeInteger">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Specifies the time between each call to oninterval in milliseconds</html:p>
+          Specifies the time between each call to oninterval in milliseconds
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1105,7 +1102,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>onshow is fired after initialization of a screen (after the init())</html:p>
+          onshow is fired after initialization of a screen (after the init())
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1115,7 +1112,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Function that needs to be executed when the screen is unloading. Note that this handler may not be invoked if an application closes unexpectedly (crashed or abandoned by user)</html:p>
+          Function that needs to be executed when the screen is unloading. Note that this handler may not be invoked if an application closes unexpectedly (crashed or abandoned by user)
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1125,7 +1122,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Function that needs to be executed when a message is send to the application</html:p>
+          Function that needs to be executed when a message is send to the application
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1156,7 +1153,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="tolliumresult" type="xs:string" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Value returned by RunMessageBox() when the button was used.</html:p>
+          Value returned by RunMessageBox() when the button was used.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1179,24 +1176,24 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="tolliumresult" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            Value returned by the screen or messagebox when the button has been used.<br/>
-            Example of use:<br/>
-            STRING tolliumresult := this-&gt;LoadScreen(".mydialog")-&gt;RunModal();<br/>
-            <br/>
-            There are a few special values which also adds a specific behaviour:<br/>
-          </html:p>
-          <html:ul>
-            <li>"tollium_submit" calls Submit() in the screen (like the defaultformbuttons 'ok' button), 'ok' will be returned as value.</li>
-            <li>"tollium_cancel" has the same effect as the defaultformbutton 'cancel', 'cancel' will be returned as value.</li>
-          </html:ul>
+
+            Value returned by the screen or messagebox when the button has been used.
+
+            Example of use:
+
+            STRING tolliumresult := this-&gt;LoadScreen(".mydialog")-&gt;RunModal();
+
+            There are a few special values which also adds a specific behaviour:
+
+          - "tollium_submit" calls Submit() in the screen (like the defaultformbuttons 'ok' button), 'ok' will be returned as value.
+          = "tollium_cancel" has the same effect as the defaultformbutton 'cancel', 'cancel' will be returned as value.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="action" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the action to use when the component is activated.</html:p>
+          The name of the action to use when the component is activated.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1210,8 +1207,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="align" type="HorizontalAlignment" default="center">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Alignment of the text and icon within the button (only for standard buttons). Right
-          alignment places the button on the right side of the button.</html:p>
+          Alignment of the text and icon within the button (only for standard buttons). Right
+          alignment places the button on the right side of the button.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1259,9 +1256,9 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="frameflags" type="CheckFlags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define the "enable" flags for this action, as defined in the 'screen' node.
+          Define the "enable" flags for this action, as defined in the 'screen' node.
              If these flags flags evaluate to 'true', the action will be enabled.
-             To check if a flag evaluates to 'false' prepand it with !.</html:p>
+             To check if a flag evaluates to 'false' prepand it with !.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1293,8 +1290,8 @@ To change a <xs:attribute /> for adding descriptions
           <tai:extraparser type="enableons" field="enableon" target="./s:enableon" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>An action allows you to execute commands in your application, and to set up client-side checking
-             whether the action should be allowed.</html:p>
+          An action allows you to execute commands in your application, and to set up client-side checking
+             whether the action should be allowed.
         </xs:documentation>
       </xs:annotation>
       <xs:sequence>
@@ -1317,9 +1314,9 @@ To change a <xs:attribute /> for adding descriptions
           <tai:extraparser type="enableons" field="enableon" target="./s:enableon" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>An action to start a download. When activated, this action will already start the download before sending the instruction to
+          An action to start a download. When activated, this action will already start the download before sending the instruction to
             the server, so it should only be offered by handlers that will be able to provide a download in a matter of seconds.
-            The 'ondownload' handler will receive an object on which it can invoke '-&gt;SendFile(BLOB data, STRING mimetype, STRING name)</html:p>
+            The 'ondownload' handler will receive an object on which it can invoke '-&gt;SendFile(BLOB data, STRING mimetype, STRING name)
         </xs:documentation>
       </xs:annotation>
       <xs:sequence>
@@ -1361,10 +1358,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="imageactiontype" default="upload">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The type of image action. One of "upload" (request a new image to upload from the user) or "edit" (edit an
             existing image using the Execute function).
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -1424,7 +1421,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="target" type="xs:string">
         <xs:annotation>
           <xs:documentation>
-            <html:p>The target to use for the window.open call</html:p>
+            The target to use for the window.open call
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -1484,7 +1481,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="source" type="ComponentRef" use="required">
         <xs:annotation>
           <xs:documentation>
-            <html:p>The name of the component to copy from.</html:p>
+            The name of the component to copy from.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -1514,37 +1511,37 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="source" type="ComponentRef" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the source list to use for the "enabled" check.</html:p>
+          The name of the source list to use for the "enabled" check.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="checkflags" type="CheckFlags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define the flags of the source list, as defined by the flags="" parameter of the list node.
+          Define the flags of the source list, as defined by the flags="" parameter of the list node.
              If these flags evaluate to 'true', the action will be enabled.
-             To check if a flag evaluates to 'false' prepand it with !.</html:p>
+             To check if a flag evaluates to 'false' prepand it with !.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="min" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The minimum number of selected list entries to enable the action. Defaults to 1.</html:p>
+          The minimum number of selected list entries to enable the action. Defaults to 1.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="max" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The maximum number of selected list entries to enable the action, or -1 for unlimited. Defaults to -1.</html:p>
+          The maximum number of selected list entries to enable the action, or -1 for unlimited. Defaults to -1.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="selectionmatch" default="all">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Should all (default) or any (at least one) of the selected items match the enableon rule.</html:p>
+          Should all (default) or any (at least one) of the selected items match the enableon rule.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -1557,15 +1554,15 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="requirefocus" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, the action will only be enabled when the item has focus (e.g. is selected).
-             This only works with a single enable on. When an action has multiple enableons, requirefocus will be be overriden to be true.</html:p>
+          If set to true, the action will only be enabled when the item has focus (e.g. is selected).
+             This only works with a single enable on. When an action has multiple enableons, requirefocus will be be overriden to be true.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="requirevisible" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, this enableon will only be relevant when the referred source is visible</html:p>
+          If set to true, this enableon will only be relevant when the referred source is visible
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1586,7 +1583,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function from the accompanying library to run when calling this action.</html:p>
+          The name of the function from the accompanying library to run when calling this action.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1617,7 +1614,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function from the accompanying library to run to handle uploads. It will receive a record array of (filename, data, mimetype) of the uploaded files. The mimetypes are those as reported by the uploader, not as detected by ScanBlob.</html:p>
+          The name of the function from the accompanying library to run to handle uploads. It will receive a record array of (filename, data, mimetype) of the uploaded files. The mimetypes are those as reported by the uploader, not as detected by ScanBlob.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1625,7 +1622,7 @@ To change a <xs:attribute /> for adding descriptions
       <!-- FIXME test -->
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, multiple files can be added at once through this file edit component.</html:p>
+          If set to true, multiple files can be added at once through this file edit component.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1633,7 +1630,7 @@ To change a <xs:attribute /> for adding descriptions
       <!-- FIXME implement and test -->
       <xs:annotation>
         <xs:documentation>
-          <html:p>The maximum size for the uploaded file, in bytes.</html:p>
+          The maximum size for the uploaded file, in bytes.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1641,7 +1638,7 @@ To change a <xs:attribute /> for adding descriptions
       <!-- FIXME implement and test -->
       <xs:annotation>
         <xs:documentation>
-          <html:p>A space-separated list of mimetypes to allow for the uploaded file. Examples are "image/*" (all image mimetypes), "application/pdf" and "video/mpeg".</html:p>
+          A space-separated list of mimetypes to allow for the uploaded file. Examples are "image/*" (all image mimetypes), "application/pdf" and "video/mpeg".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1654,7 +1651,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="object" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function from the accompanying library to run to handle window opens. This function, of signature MACRO onwindowopen(OBJECT openhandler) should invoke the SendURL function on the openhandler with the URL to open.</html:p>
+          The name of the function from the accompanying library to run to handle window opens. This function, of signature MACRO onwindowopen(OBJECT openhandler) should invoke the SendURL function on the openhandler with the URL to open.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1762,7 +1759,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="disablemode" type="DisableModes" default="grayed">
           <xs:annotation>
             <xs:documentation>
-              <html:p>The disable mode to use when this action has been disabled. Possible values are "grayed" (default) and "hidden".</html:p>
+              The disable mode to use when this action has been disabled. Possible values are "grayed" (default) and "hidden".
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
@@ -1993,7 +1990,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="savestate">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Save the control'ss in the user's registry and restore them upon reopening the window. This component only supports saving its "value".</html:p>
+          Save the control'ss in the user's registry and restore them upon reopening the window. This component only supports saving its "value".
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -2011,7 +2008,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:attributeGroup name="TextEditBaseAttributes">
     <xs:annotation>
       <xs:documentation tc:component="readonly">
-        <html:p>If set to true, the value of this component will be shown as normal text instead of a textedit field.</html:p>
+        If set to true, the value of this component will be shown as normal text instead of a textedit field.
       </xs:documentation>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2034,90 +2031,90 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="lengthmeasure" type="TextLengthMeasureMethods" default="characters">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters).</html:p>
+          The way the number of characters is measured (UTF-8 bytes or Unicode characters).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="maxlengthmeasure" type="TextLengthMeasureMethods">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use 'lengthmeasure'.</html:p>
+          The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use 'lengthmeasure'.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.</html:p>
+          If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="trimwhitespace" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, any whitespace surrounding the submitted value will be removed.</html:p>
+          If set to true, any whitespace surrounding the submitted value will be removed.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="valuetype" type="VariableTypes" default="string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The variable type to use when submitting the value. Possible values are: "string" (default), integer, money and float.</html:p>
+          The variable type to use when submitting the value. Possible values are: "string" (default), integer, money and float.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="value" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The default value for this field upon opening the screen.</html:p>
+          The default value for this field upon opening the screen.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="validationchecks" type="sc:ValidationChecks">
       <xs:annotation>
         <xs:documentation>
-          <html:p>A list of checks the entered value must pass.</html:p>
+          A list of checks the entered value must pass.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="decimals" type="xs:nonNegativeInteger" default="0">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Number of decimals to show in money and float (also the max. number of accepted decimals for input when the property round is set to true).</html:p>
+          Number of decimals to show in money and float (also the max. number of accepted decimals for input when the property round is set to true).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="round" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Whether to round precision in excess of the set number of decimals, or just to show it.
             Only valid for valuetype 'money'.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="minvalue" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set, minimum valid value.</html:p>
+          If set, minimum valid value.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="maxvalue" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set, maximum valid value.</html:p>
+          If set, maximum valid value.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="emptyvalue" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The value that will be returned when the field isn't filled in.
             When the value property of this textedit is set to this value, the textvalue will become empty.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2285,14 +2282,14 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="password" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, all entered data will be shown as '*' characters.</html:p>
+          If set to true, all entered data will be shown as '*' characters.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="autocomplete">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The value for the autocomplete attribute on the input DOM node.</html:p>
+          The value for the autocomplete attribute on the input DOM node.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -2450,21 +2447,21 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="label" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The label that follows the checkbox</html:p>
+          The label that follows the checkbox
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="labeltid" type="Tid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>A tid for the label that follows the checkbox</html:p>
+          A tid for the label that follows the checkbox
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="value" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, the checkbox will be checked upon opening the screen.</html:p>
+          If set to true, the checkbox will be checked upon opening the screen.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2483,44 +2480,46 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="label" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The label that follows the radio button</html:p>
+          The label that follows the radio button
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="labeltid" type="Tid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>A tid for the label that follows the radio button</html:p>
+          A tid for the label that follows the radio button
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="rowkey" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When reading the value of a radiogroup, the rowkey of the selected radiobutton will be returned.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="group" type="ComponentRef" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            All radiobuttons must have a 'group'. Radiobuttons with the same name are 'grouped'.<br/>
-            Selecting a radiobutton will deselect other radiobuttons in that group.<br/>
+
+            All radiobuttons must have a 'group'. Radiobuttons with the same name are 'grouped'.
+
+            Selecting a radiobutton will deselect other radiobuttons in that group.
+
             When reading the value of a radiogroup, the rowkey of the selected radiobutton element within the group will
             be returned.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="value" type="xs:boolean" default="false">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The value of a radiobutton is TRUE if selected and FALSE if not selected.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2530,23 +2529,23 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onset event will be fired when a radiobutton's value changes to TRUE.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="enablecomponents" type="ComponentRefList">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When the radiobutton is selected, the components (separated with a space)
             in enablecomponents will be enabled. When the radiobutton is deselected
             the components will be disabled.
-          </html:p>
-          <html:p>
+
+
              The disabled setting on the components themselves are overriden when they are used in enabledcomponents.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2569,49 +2568,49 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="minlength" type="xs:integer" default="-1">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The minimum number of characters required in this text area.</html:p>
+          The minimum number of characters required in this text area.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="maxlength" type="xs:integer" default="-1">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The maximum number of characters allowed for this text area.</html:p>
+          The maximum number of characters allowed for this text area.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="lengthmeasure" type="TextLengthMeasureMethods" default="characters">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters).</html:p>
+          The way the number of characters is measured (UTF-8 bytes or Unicode characters).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="maxlengthmeasure" type="TextLengthMeasureMethods">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use attribute lengthmeasure</html:p>
+          The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use attribute lengthmeasure
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.</html:p>
+          If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="value" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The text which will be shown in this text area upon opening the screen.</html:p>
+          The text which will be shown in this text area upon opening the screen.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="validationchecks" type="sc:ValidationChecks">
       <xs:annotation>
         <xs:documentation>
-          <html:p>A list of checks the entered value must pass.</html:p>
+          A list of checks the entered value must pass.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2643,7 +2642,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with a count.</html:p>
+          If set to true, a counter will be shown with a count.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2863,7 +2862,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="value" type="xs:string">
           <xs:annotation>
             <xs:documentation>
-              <html:p>The contents of the editor.</html:p>
+              The contents of the editor.
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
@@ -2871,18 +2870,18 @@ To change a <xs:attribute /> for adding descriptions
           <!-- required: experiment to force people to be explicit about the type they want -->
           <xs:annotation>
             <xs:documentation>
-              <html:p>The type of content to edit. Possible types are "html", "html-inline", "html-block", "email", "richdocument".</html:p>
+              The type of content to edit. Possible types are "html", "html-inline", "html-block", "email", "richdocument".
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="tagfilter" default="*">
           <xs:annotation>
             <xs:documentation>
-              <html:p>List of allowed tags. If left empty, defaults to all tags relevant for the RTE type.
+              List of allowed tags. If left empty, defaults to all tags relevant for the RTE type.
                 Supported tags are: "BR", "SUB", "SUP", "SPAN", "A-HREF", "IMG", "B", "I", "U", "STRIKE"
                 , "P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "LI", "DL", "DT", "DD", "BLOCKQUOTE", "PRE"
                 , "TABLE", "CAPTION", "TBODY", "TR", "TD", "TH"
-                , "HTML", "HEAD", "STYLE", "BODY", "TITLE"</html:p>
+                , "HTML", "HEAD", "STYLE", "BODY", "TITLE"
             </xs:documentation>
           </xs:annotation>
           <xs:simpleType>
@@ -2972,14 +2971,14 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="value" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The contents of the sourcecode editor.</html:p>
+          The contents of the sourcecode editor.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="type" type="EditCodeTypes" default="html">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The type of content to edit. Possible types are "text", "c", "cpp", "css", "java", "javascript", "html", "php", "sql" and "xml".</html:p>
+          The type of content to edit. Possible types are "text", "c", "cpp", "css", "java", "javascript", "html", "php", "sql" and "xml".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2989,7 +2988,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="integer" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Called when clicked on the gutter, passes the line number (1-based!).</html:p>
+          Called when clicked on the gutter, passes the line number (1-based!).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3013,21 +3012,21 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" returntype="boolean" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name a function to call when the contents are about to change.</html:p>
+          The name a function to call when the contents are about to change.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="maxsize" type="xs:integer" default="-1">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The maximum size for the uploaded file, in bytes.</html:p>
+          The maximum size for the uploaded file, in bytes.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="mimetypes" type="StringList">
       <xs:annotation>
         <xs:documentation>
-          <html:p>A space-separated list of mimetypes to allow for the uploaded file. Examples are "image/*" (all image mimetypes), "application/pdf" and "video/mpeg".</html:p>
+          A space-separated list of mimetypes to allow for the uploaded file. Examples are "image/*" (all image mimetypes), "application/pdf" and "video/mpeg".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3047,7 +3046,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="type" default="colors_375">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The color picker type. Currently the only supported value is 'colors_375', a palette of 375 colors.</html:p>
+          The color picker type. Currently the only supported value is 'colors_375', a palette of 375 colors.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -3061,7 +3060,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="showedit" type="xs:boolean" default="false">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If a textedit with the selected color should be shown in the color picker.</html:p>
+          If a textedit with the selected color should be shown in the color picker.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3084,7 +3083,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Called if the the date value is changed using the date picker.</html:p>
+          Called if the the date value is changed using the date picker.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3092,8 +3091,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="cutoffyear" type="xs:integer" default="70">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If the entered year is smaller than the cutoff year, 1900 is added, otherwise 2000 is added (set to 0 to
-            always add 1900, to 100 to always add 2000, or to -1 to never add a century). Defaults to 70</html:p>
+          If the entered year is smaller than the cutoff year, 1900 is added, otherwise 2000 is added (set to 0 to
+            always add 1900, to 100 to always add 2000, or to -1 to never add a century). Defaults to 70
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3105,7 +3104,7 @@ To change a <xs:attribute /> for adding descriptions
         <tai:tolliumcomponent objecttype="/lib/components/datetime.whlib#TolliumDateTime" placement="inline" />
       </xs:appinfo>
       <xs:documentation tc:component="readonly">
-        <html:p>If set to true, the value of this component will be shown as normal text instead of a date time field.</html:p>
+        If set to true, the value of this component will be shown as normal text instead of a date time field.
       </xs:documentation>
     </xs:annotation>
     <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -3119,16 +3118,16 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Called if the the date value is changed using the date picker.</html:p>
+          Called if the the date value is changed using the date picker.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="type" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The type to use for this date time field. Possible values are "datetime" (default), "date" and "time".
+          The type to use for this date time field. Possible values are "datetime" (default), "date" and "time".
           To check validity of time, use the ValidateValue() method or the invalidtime property.
-          (as type "time" may return DEFAULT DATETIME when 00:00 is given as time)</html:p>
+          (as type "time" may return DEFAULT DATETIME when 00:00 is given as time)
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -3142,15 +3141,15 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="precision" type="TimePrecision" default="minutes">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The precision of the date time field to use. Possible values are "minutes", "seconds" and milliseconds". The
-             shown fields will depend on the precision.</html:p>
+          The precision of the date time field to use. Possible values are "minutes", "seconds" and milliseconds". The
+             shown fields will depend on the precision.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="emptyvalue" default="default datetime">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The value this field will have when no data is filled in (if not specified, default datetime)</html:p>
+          The value this field will have when no data is filled in (if not specified, default datetime)
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -3163,8 +3162,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="cutoffyear" type="xs:integer" default="70">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If the entered year is smaller than the cutoff year, 1900 is added, otherwise 2000 is added (set to 0 to
-            always add 1900, to 100 to always add 2000, or to -1 to never add a century). Defaults to 70</html:p>
+          If the entered year is smaller than the cutoff year, 1900 is added, otherwise 2000 is added (set to 0 to
+            always add 1900, to 100 to always add 2000, or to -1 to never add a century). Defaults to 70
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3193,8 +3192,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="precision" type="TimePrecision" default="minutes">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The precision of the date time field to use. Possible values are "minutes", "seconds" and milliseconds". The
-             shown fields will depend on the precision.</html:p>
+          The precision of the date time field to use. Possible values are "minutes", "seconds" and milliseconds". The
+             shown fields will depend on the precision.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3331,7 +3330,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="backgroundcolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define the background color for this panel. Use HTML-like color codes for this, like "#33FFCC".</html:p>
+          Define the background color for this panel. Use HTML-like color codes for this, like "#33FFCC".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3353,7 +3352,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="vscroll" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, this panel will be rendered with a vertical scroll bar.</html:p>
+          If set to true, this panel will be rendered with a vertical scroll bar.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3401,12 +3400,12 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="hidecancel" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             If set to true, the wizard will be rendered without a cancel button.
             The close button and escape key will still continue to work.
 
             (FIXME: so what's the use of this feature??)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3437,7 +3436,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="selectedtab" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the tab to show as the default tab (upon loading the screen). By default, this is the first tab.</html:p>
+          The name of the tab to show as the default tab (upon loading the screen). By default, this is the first tab.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3447,15 +3446,15 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function to use from the accompanying library when the user selects one of the tabs.</html:p>
+          The name of the function to use from the accompanying library when the user selects one of the tabs.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="type" default="regular">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The type of this tab. Possible values are "regular" (default), "server" (invisible tabs) and "stacked"
-             (vertical tabs).</html:p>
+          The type of this tab. Possible values are "regular" (default), "server" (invisible tabs) and "stacked"
+             (vertical tabs).
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -3469,7 +3468,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="savestate">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Save the tabs properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "selectedtab".</html:p>
+          Save the tabs properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "selectedtab".
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -3509,22 +3508,22 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="checkbox" type="xs:boolean">
           <xs:annotation>
             <xs:documentation>
-              <html:p>If set to true, this box will get a checkbox, which can be used to enable and disable components
-                 from this box.</html:p>
+              If set to true, this box will get a checkbox, which can be used to enable and disable components
+                 from this box.
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="value" type="xs:boolean">
           <xs:annotation>
             <xs:documentation>
-              <html:p>To be used in conjunction with the "checkbox" attribute. If set to true, the checkbox will be checked.</html:p>
+              To be used in conjunction with the "checkbox" attribute. If set to true, the checkbox will be checked.
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="enablecomponents" type="ComponentRefList">
           <xs:annotation>
             <xs:documentation>
-              <html:p>A space-separated list of component names, which will be enabled/disabled based on the "value" attribute.</html:p>
+              A space-separated list of component names, which will be enabled/disabled based on the "value" attribute.
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
@@ -3577,22 +3576,22 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="checkbox" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, this box will get a checkbox, which can be used to enable and disable components
-             from this box.</html:p>
+          If set to true, this box will get a checkbox, which can be used to enable and disable components
+             from this box.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="value" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>To be used in conjunction with the "checkbox" attribute. If set to true, the checkbox will be checked.</html:p>
+          To be used in conjunction with the "checkbox" attribute. If set to true, the checkbox will be checked.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="enablecomponents" type="ComponentRefList">
       <xs:annotation>
         <xs:documentation>
-          <html:p>A space-separated list of component names, which will be enabled/disabled based on the "value" attribute.</html:p>
+          A space-separated list of component names, which will be enabled/disabled based on the "value" attribute.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3791,7 +3790,7 @@ To change a <xs:attribute /> for adding descriptions
             <xs:attribute name="height" type="VertSize">
               <xs:annotation>
                 <xs:documentation>
-                  <html:p>Height of the row</html:p>
+                  Height of the row
                 </xs:documentation>
               </xs:annotation>
             </xs:attribute>
@@ -3825,7 +3824,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="defaultborder" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Must there be a default border on the table? Options: TRUE, FALSE  (FIXME: this is the border value to apply to each cell?)</html:p>
+          Must there be a default border on the table? Options: TRUE, FALSE  (FIXME: this is the border value to apply to each cell?)
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3834,7 +3833,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="overlaycontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3843,7 +3841,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="cellcontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3855,7 +3852,6 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3867,9 +3863,9 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="object record string" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onoverlayresize event will fire when an editable overlay is resized
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3878,7 +3874,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="action" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3887,7 +3882,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="openaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3896,7 +3890,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="contextclickaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3905,7 +3898,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="selectmode" type="SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3914,7 +3906,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="cols" type="Integers">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3923,7 +3914,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="colwidth" type="Size">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3932,7 +3922,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="colminwidth" type="AbsSize">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3941,7 +3930,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="rows" type="Integers">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3950,7 +3938,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="rowheight" type="Size">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3959,7 +3946,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="rowminheight" type="AbsSize">
       <xs:annotation>
         <xs:documentation>
-          <html:p/>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3987,64 +3973,64 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="datetime datetime" returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function from the accompanying library to use upon loading the calendar.</html:p>
+          The name of the function from the accompanying library to use upon loading the calendar.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="selectmode" type="SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The type of selecting events for this calendar. Possible values are "none" (default), "single"
-             and "multiple".</html:p>
+          The type of selecting events for this calendar. Possible values are "none" (default), "single"
+             and "multiple".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="storeutc" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, the calendar will show datetime's in UTC.</html:p>
+          If set to true, the calendar will show datetime's in UTC.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="selectcontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the menu to show when right-clicking on events (as defined in a &lt;menu&gt;).</html:p>
+          The name of the menu to show when right-clicking on events (as defined in a &lt;menu&gt;).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="newcontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu&gt;).</html:p>
+          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu&gt;).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="openaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the action from the accompanying library to use when double-clicking on an event.</html:p>
+          The name of the action from the accompanying library to use when double-clicking on an event.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="weekdayformat" type="xs:string" default="%A">
       <xs:annotation>
         <xs:documentation>
-          <html:p>How to render week day names. Defaults to %A.</html:p>
+          How to render week day names. Defaults to %A.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="monthdayformat" type="xs:string" default="%#d %b">
       <xs:annotation>
         <xs:documentation>
-          <html:p>How to render month day names. Defaults to %#d %b.</html:p>
+          How to render month day names. Defaults to %#d %b.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="type" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The calendar rendering type. Possible values are "day", "week" and "month". Currently only "week" is supported.</html:p>
+          The calendar rendering type. Possible values are "day", "week" and "month". Currently only "week" is supported.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -4061,63 +4047,63 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function to perform when a change occurs for this component, as defined in the &lt;actions&gt; section.</html:p>
+          The name of the function to perform when a change occurs for this component, as defined in the &lt;actions&gt; section.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="showallday" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Show the all-day events row in the calendar.</html:p>
+          Show the all-day events row in the calendar.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="workcolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Working hours are shown using this color.</html:p>
+          Working hours are shown using this color.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="freecolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Free (non-working) hours are shown using this color.</html:p>
+          Free (non-working) hours are shown using this color.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="weekendcolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Weekend hours are shown using this color. This color overrides working/free hours on weekend days.</html:p>
+          Weekend hours are shown using this color. This color overrides working/free hours on weekend days.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="todaycolor" type="Color">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Today's hours are shown using this color. This color overrides all other colors.</html:p>
+          Today's hours are shown using this color. This color overrides all other colors.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="workstarttime" type="TimeType">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The time at which working hours start, e.g. 9:00. This time is specified in the user's local time, regardless of the storeutc setting.</html:p>
+          The time at which working hours start, e.g. 9:00. This time is specified in the user's local time, regardless of the storeutc setting.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="workendtime" type="TimeType">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The time at which working hours end, e.g. 17:00. This time is specified in the user's local time, regardless of the storeutc setting.</html:p>
+          The time at which working hours end, e.g. 17:00. This time is specified in the user's local time, regardless of the storeutc setting.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="workdays">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Days of the week on which working hours are shown. All other days are shown using weekendcolor.</html:p>
+          Days of the week on which working hours are shown. All other days are shown using weekendcolor.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -4173,21 +4159,21 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="wordwrap" type="xs:boolean" default="false">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to TRUE, the text (value) will be wrapped. (note that this does not wrap the title, but the value!)</html:p>
+          If set to TRUE, the text (value) will be wrapped. (note that this does not wrap the title, but the value!)
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="ellipsis" type="xs:boolean" default="false">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to TRUE, the text (value) have ellipsis applies. (note that this does apply on the title, but the value!)</html:p>
+          If set to TRUE, the text (value) have ellipsis applies. (note that this does apply on the title, but the value!)
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="selectable" type="xs:boolean" default="false">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to TRUE, the text (value) can be selected. (which is usefull when the user should be able to copy &amp; paste the text)</html:p>
+          If set to TRUE, the text (value) can be selected. (which is usefull when the user should be able to copy &amp; paste the text)
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4217,7 +4203,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="orientation" type="sc:HVOrientation">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Direction of the slider. Only 'horizontal' is supported at the moment.</html:p>
+          Direction of the slider. Only 'horizontal' is supported at the moment.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4237,7 +4223,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="updatecomponent" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Name of the component in which to show the value of the slider.</html:p>
+          Name of the component in which to show the value of the slider.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4276,7 +4262,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="stringarray" returntype="stringarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Called to validate tags before accepting them in the frontend. Return the (filtered) list of allowed tags.</html:p>
+          Called to validate tags before accepting them in the frontend. Return the (filtered) list of allowed tags.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4286,14 +4272,14 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="placeholder" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The text to use as placeholder text, which is displayed when nothing is filled in yet, but will not be returned as the textedit's value.</html:p>
+          The text to use as placeholder text, which is displayed when nothing is filled in yet, but will not be returned as the textedit's value.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="placeholdertid" type="Tid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The tid to use as the placeholder text.</html:p>
+          The tid to use as the placeholder text.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4324,7 +4310,7 @@ To change a <xs:attribute /> for adding descriptions
         <tai:tolliumcomponent objecttype="/lib/components/spacer.whlib#TolliumSpacer" placement="inline" />
       </xs:appinfo>
       <xs:documentation>
-          <html:p>Creates space between two inline components. Defaults to 1pr width.</html:p>
+          Creates space between two inline components. Defaults to 1pr width.
         </xs:documentation>
     </xs:annotation>
     <xs:attributeGroup ref="ComponentBase" />
@@ -4367,14 +4353,14 @@ To change a <xs:attribute /> for adding descriptions
       <xs:enumeration value="html">
         <xs:annotation>
           <xs:documentation>
-            <html:p>Return the HTML including the HTML tag.</html:p>
+            Return the HTML including the HTML tag.
           </xs:documentation>
         </xs:annotation>
       </xs:enumeration>
       <xs:enumeration value="html-block">
         <xs:annotation>
           <xs:documentation>
-            <html:p>Return the HTML content without the surrounding HTML tag</html:p>
+            Return the HTML content without the surrounding HTML tag
           </xs:documentation>
         </xs:annotation>
       </xs:enumeration>
@@ -4389,14 +4375,14 @@ To change a <xs:attribute /> for adding descriptions
       <xs:enumeration value="html">
         <xs:annotation>
           <xs:documentation>
-            <html:p>Return the HTML including the HTML tag.</html:p>
+            Return the HTML including the HTML tag.
           </xs:documentation>
         </xs:annotation>
       </xs:enumeration>
       <xs:enumeration value="html-block">
         <xs:annotation>
           <xs:documentation>
-            <html:p>Return the HTML content without the surrounding HTML tag</html:p>
+            Return the HTML content without the surrounding HTML tag
           </xs:documentation>
         </xs:annotation>
       </xs:enumeration>
@@ -4451,7 +4437,7 @@ To change a <xs:attribute /> for adding descriptions
           <xs:enumeration value="checkbox">
             <xs:annotation>
               <xs:documentation>
-                <html:p>note: required has no effect on selects with type checkbox</html:p>
+                note: required has no effect on selects with type checkbox
               </xs:documentation>
             </xs:annotation>
           </xs:enumeration>
@@ -4465,9 +4451,9 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="orientation" type="sc:HVOrientation" default="vertical">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Layout direction (only applicable when select type "checkbox" or "radio" is used).
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4480,12 +4466,13 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="optiongid" type="OptionalGid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            When specified, the gid specified in optiongid will be used to translate all options (except if the rowkey is an empty string).<br/>
-            The optiongid can be relative of absolute like any gid attribute, but is not influenced by the gid on the &lt;select&gt; it's used on.<br/>
-            <br/>
+
+            When specified, the gid specified in optiongid will be used to translate all options (except if the rowkey is an empty string).
+
+            The optiongid can be relative of absolute like any gid attribute, but is not influenced by the gid on the &lt;select&gt; it's used on.
+
             In contrast to using gid=""/tid="" to translate options, you can use title="" with optiongid="" or use different titles for components while still reusing options.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4493,18 +4480,18 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="empty" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When there are no options available, this defined text will be shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="implicitenablecomponents" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             If set, automatically add components inside an &lt;option&gt; to their enablecomponents. Defaults to true
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4537,9 +4524,9 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="invalidselection" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When the &lt;select&gt; has required="true", any option with invalidselection="true" won't be seen as a valid selection when validating the value.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4565,95 +4552,95 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="columnheaders" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Specifies whether the headers with the column titles must be shown.
             Default is TRUE, the headers will be hidden when set to FALSE.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="flags" type="tc:Flags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
+          Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="selectableflags" type="CheckFlags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Only rows with these flags set to TRUE will be selectable. Make sure that these flags are specified in the flags property.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="sortable" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Is the input sortable for the user</html:p>
+          Is the input sortable for the user
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="sortascending" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Whether to sort the input ascending</html:p>
+          Whether to sort the input ascending
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="sortcolumn" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Column name which the input needs to be sorted</html:p>
+          Column name which the input needs to be sorted
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="icons" type="sc:ImageSrcList">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Contains a list of iconnames, separated by a space.
             Each iconname is written in this format: modulename:category/iconname.
             The icon itself must be a PNG picture with the path/filename: modulename/web/img/category/iconname.16x16.png.
             Icons can be used by using the 'iconname'-attribute in a list &lt;column&gt;.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="emptytid" type="Tid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When the list is empty, the text with the given tid will be shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="empty" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When the list is empty, the text defined here will be shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="rowiconname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column containing an index into the icons list for row level icons
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="rowiconhintname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column containing hint texts for the rowicon
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4663,10 +4650,10 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onselect event will fire when the selection changes.
             Use selection property to read the selection.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4681,8 +4668,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="selectevent" type="EventMode" default="asynchronous">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-          </html:p>
+
+
             The mode in which the select event fires. Asynchronous (the default) will let
             the user continue after a select (smoother interface), but results in
             races when the value of editable components is saved and updated with values
@@ -4693,9 +4680,9 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="highlightname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column containing the row highlight attribute
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4747,7 +4734,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="variant" returntype="variant" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Defines which function of the screen is used to retrieve list of rowkeys which define the path to the row. The list starts at the row in the root and ends with the rowkey of the node for which the path was requested.</html:p>
+          Defines which function of the screen is used to retrieve list of rowkeys which define the path to the row. The list starts at the row in the root and ends with the rowkey of the node for which the path was requested.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4757,7 +4744,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Defines which function of the screen is used to get all rows.</html:p>
+          Defines which function of the screen is used to get all rows.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4767,9 +4754,9 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Defines which function of the screen is used to get subnodes of a list row.
+          Defines which function of the screen is used to get subnodes of a list row.
              The RECORD with the row for which the subnodes are requested is passed to this function.
-             If DEFAULT RECORD is passed, the root level rows are requested.</html:p>
+             If DEFAULT RECORD is passed, the root level rows are requested.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4811,27 +4798,27 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="addactionoverride" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The action that will be used to add rows.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="editactionoverride" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The action that will be used to edit a row.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="deleteactionoverride" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The action that will be used to delete rows.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4860,9 +4847,9 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="openaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The openaction will be fired when a list item is doubleclicked.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4872,9 +4859,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
-            Handler used to implement adding/editing rows. By default, the roweditscreen is used
-          </html:p>
+          Handler used to implement adding/editing rows. By default, the roweditscreen is used. Invoked with the row being edited
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4925,14 +4910,14 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
-            (NOTE: preferable use onmultiplerowdelete instead. Using onrowdelete will revert the selectmode of the list to 'single').<br/>
-            <br/>
+
+            (NOTE: preferable use onmultiplerowdelete instead. Using onrowdelete will revert the selectmode of the list to 'single').
+
             Handler used in case of the user trying to delete a row.
-            This can be used to implement your own messagebox and perform direct deletion of data.<br/>
-            <br/>
+            This can be used to implement your own messagebox and perform direct deletion of data.
+
             (NOTE: unlike the onrowdelete attribute for &lt;ArrayEdit&gt; of ListEdit, this handler does not need to return a BOOLEAN)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4942,12 +4927,12 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Handler used in case of the user trying to delete one or more rows.
-            This can be used to implement your own messagebox and perform direct deletion of data.<br/>
-            <br/>
+            This can be used to implement your own messagebox and perform direct deletion of data.
+
             (NOTE: unlike the onrowdelete attribute for &lt;ArrayEdit&gt; of ListEdit, this handler does not need to return a BOOLEAN)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4957,10 +4942,10 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="variant" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The onchangeorder handler will fire when the ordering of rows is changed. It will receive the rowkeys in their new ordering.
             Setting this handler shows and enables the moveup/movedown buttons
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -4987,21 +4972,21 @@ To change a <xs:attribute /> for adding descriptions
           <xs:attributeGroup ref="sc:TidOrTitle">
             <xs:annotation>
               <xs:documentation>
-                <html:p>The titel/tid to use for this type in the arrayedit's inbuild add (select type) screen.</html:p>
+                The titel/tid to use for this type in the arrayedit's inbuild add (select type) screen.
               </xs:documentation>
             </xs:annotation>
           </xs:attributeGroup>
           <xs:attribute name="type" type="StringList">
             <xs:annotation>
               <xs:documentation>
-                <html:p>The value which the type field must have to use this editscreen.</html:p>
+                The value which the type field must have to use this editscreen.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="screen" type="tc:ScreenFragmentReference" default="">
             <xs:annotation>
               <xs:documentation>
-                <html:p>The (row)editscreen to edit this type of data. If no screen is specified, adding a row of this type gives a RECORD containing only the type field (with the cell name as specified in rowtypename and the type of this rowdatatype as value)</html:p>
+                The (row)editscreen to edit this type of data. If no screen is specified, adding a row of this type gives a RECORD containing only the type field (with the cell name as specified in rowtypename and the type of this rowdatatype as value)
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
@@ -5020,7 +5005,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>The name of the function to perform when the ordering of rows changes</html:p>
+          The name of the function to perform when the ordering of rows changes
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5030,15 +5015,15 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record" returntype="boolean" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
-            (NOTE: preferable use onmultiplerowdelete instead. Using onrowdelete will revert the selectmode of the list to 'single').<br/>
-            <br/>
+
+            (NOTE: preferable use onmultiplerowdelete instead. Using onrowdelete will revert the selectmode of the list to 'single').
+
             Handler used in case of the user trying to delete a row.
-            This can be used to implement your own messagebox and perform direct deletion of data.<br/>
-            <br/>
+            This can be used to implement your own messagebox and perform direct deletion of data.
+
             The returnvalue (boolean) of the function specifies whether the row will be deleted.
             If onrowdelete is specified, the default confirmation messagebox will not be used.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5048,13 +5033,13 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="recordarray" returntype="boolean" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Handler used in case of the user trying to delete one or more rows.
-            This can be used to implement your own messagebox and perform direct deletion of data.<br/>
-            <br/>
+            This can be used to implement your own messagebox and perform direct deletion of data.
+
             The returnvalue (boolean) of the function specifies whether the row will be deleted.
             If onrowsdelete is specified, the default confirmation messagebox will not be used.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5062,31 +5047,31 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="roweditscreen" type="tc:ScreenFragmentReference" default="">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Reference to the screen to use to edit a row.
             The editscreen should use a implementation="rowedit" (required for siteprofiles and currently the only supported mode).
             If &lt;rowdatatype&gt;'s are used, the editscreen must be specified in these elements and roweditscreen may not be specified.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="rowtypename" type="Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column which specifies which type of data that is contained in the row.
             This information is used to determine which roweditscreen to use (which is specified through usage of &lt;rowdatatype&gt;'s').
             (NOTE: the valuetype of the specified field must be a STRING)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="orderable" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Allow the rows to be reordered
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5096,24 +5081,24 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="recordarray" returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Handler to preprocess the array value before displaying it as list rows. Can be used to convert/add columns to the list.
             It must return the same number of rows, in their original order
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="minrows" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Minimum required number of rows.</html:p>
+          Minimum required number of rows.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="maxrows" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Maximum allowed number of rows.</html:p>
+          Maximum allowed number of rows.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5159,11 +5144,13 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="selectmode" type="SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            If selectmode is "none" (default), no row can be selected and the list-&gt;selection will return DEFAULT RECORD.<br/>
-            If selectmode is "single", only one row can be selected and the list-&gt;selection will return a RECORD.<br/>
+
+            If selectmode is "none" (default), no row can be selected and the list-&gt;selection will return DEFAULT RECORD.
+
+            If selectmode is "single", only one row can be selected and the list-&gt;selection will return a RECORD.
+
             If selectmode is "multiple", multiple rows can be selected and the list-&gt;selection will return a RECORD ARRAY.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5194,10 +5181,10 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record string" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             The name of the function to perform when the value of a checkbox in the list is changed.
             The row and columnname in which the checkbox was checked or unchecked is passed to this function.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5207,54 +5194,54 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="record string" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             ADDME
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="openaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The openaction will be fired when a list item is doubleclicked.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="dragsingleicon" type="sc:ImageSrc" default="actions/dragsingle">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Specifies the source of the icon which is used as icon under the mousepointer to show one row is being dragged.
             Not used anymore.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="dragmultipleicon" type="sc:ImageSrc" default="actions/dragmultiple">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Specifies the source of the icon which is used as icon under the mousepointer to show multiple rows are being dragged.
             Not used anymore.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="rowlayout" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The name of the selected row layout. Omit or leave empty for default row layout
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="savestate">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "expanded".</html:p>
+          Save the selected list properties in the user's registry and restore them upon reopening the window. At the moment the only possible value is "expanded".
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -5274,9 +5261,9 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Called when the user changes the sort column, or whether it is sorted in ascending or descenting order.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5304,18 +5291,18 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="selectcontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The name of the menu which will be used as context menu when activated on a used row.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="newcontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The name of the menu which will be used as context menu when activated on a empty row.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5364,110 +5351,113 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="optiongid" type="OptionalGid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            When specified, the gid specified in optiongid will be used to translate the values in the column by getting the tid based on "optiongid.rowkey" (except when the rowkey is an empty string).<br/>
-            The optiongid can be relative of absolute like any gid attribute, but is not influenced by the gid on the &lt;column&gt; it's used on.<br/>
-            <br/>
+
+            When specified, the gid specified in optiongid will be used to translate the values in the column by getting the tid based on "optiongid.rowkey" (except when the rowkey is an empty string).
+
+            The optiongid can be relative of absolute like any gid attribute, but is not influenced by the gid on the &lt;column&gt; it's used on.
+
+
             Unlike titlefromrowkey="true" (which has a similar function to optiongid), the tid and title attribute don't affect the translation, so they can be freely used to specify the column header.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="collapsedname" type="Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the row cell with alternative data to use, if this row is collapsed
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="titlefromrowkey" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            When true, the column won't show the actual value, but a translation of the value.<br/>
-            <br/>
-            The tid used to translate the value in the column will be:<br/>
-            'column's gid + column's name + - + column's value'.<br/>
+
+            When true, the column won't show the actual value, but a translation of the value.
+
+            The tid used to translate the value in the column will be:
+            'column's gid + column's name + - + column's value'.
+
             A tid specified directly on the column doesn't effect the translation,
             so it can be used the have the header show a different title than
             a select using the same title.
-            <br/>
-            There are a few issues with this attribute:<br/>
-            - the name doesn't reflect what it does. 'titlefromvalue' would be a much better name, rowkey doesn't have anything to do with what the attribute does.<br/>
-            - since the column's name is used to translate, there's no way to reuse translations in multiple columns<br/>
-            - be carefull: renaming a column will require you to update the tid's/name in other places where you reuse the same tid's<br/>
+
+            There are a few issues with this attribute:
+            - the name doesn't reflect what it does. 'titlefromvalue' would be a much better name, rowkey doesn't have anything to do with what the attribute does.
+            - since the column's name is used to translate, there's no way to reuse translations in multiple columns
+            - be carefull: renaming a column will require you to update the tid's/name in other places where you reuse the same tid's
             - unlike &lt;select&gt; the column's name is used (select uses it's tid if it's set)
-            <br/>
-            Zie ook<br/>
-            #433 - gid (of optiongid) voor &lt;select&gt;<br/>
+
+                        Zie ook
+            #433 - gid (of optiongid) voor &lt;select&gt;
             #5831 - bij gebruik vertaling van select options en listcolumn weinig controle over titel van het component
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="type" type="ListColumnType" use="required">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The type of data which will be used in this column.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="tree" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
-            If set to 'true', this column will show its rows in a tree.<br/>
+
+            If set to 'true', this column will show its rows in a tree.
+
             This means that rows with subnodes will get a '+' or '-' sign in front of the column content
             that can be used to open (expand) and close the subnodes.
-          </html:p>
-          <html:p>
+
             If you have subnodes and no column with tree set to 'true', then all subnodes will be hidden.
-          </html:p>
-          <html:p>
+
+
             It is possible to have multiple columns in a tree.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="iconname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Specifies the field in the row which gives the number of the icon to use.
             Icons are numbered by the position in the &lt;list&gt;'s 'icons'-attribute starting with 1.
             (note that these icons never fire oniconclick, use an column with type="icon" if you want to use oniconclick)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="selecticonname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the row cell in which the id of the column icon is placed that must be shown when the row is selected (instead of the normal icon specified in iconname)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="iconoverlayname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the row cell in which the id of the overlay for the column icon is placed (empty if no icon overlay is present)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="edittype">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             If an edittype is specified the contents of the column can be edited inline using the type specified in edittype.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -5480,99 +5470,99 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="iconlink" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Whether the icon in this column is clickable for oniconclick (only for columns of type 'icon')
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="storeutc" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Whether the data/datetime stored in the row is stored as UTC, and must be converted to the user's timezone (default: FALSE).
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="decimals" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The number of decimals to show, for money columns (default: 0)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="round" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Set to TRUE to round to the specified number of decimals (default: FALSE)
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="precision" type="TimePrecision" default="minutes">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Precision used to show time/datetime. Possible values: 'minutes', 'seconds', 'milliseconds'. (optional, default: 'minutes')
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="checkboxname" type="Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column that contains the value of the column checkbox for a row. If empty, no checkbox is shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="checkboxenabled" type="Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column that specifies whether the column checkbox is enabled in that row. If empty, all checkboxes are enabled.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="checkboxvisible" type="Name">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the column that specifies whether the column checkbox is visible in that row. If empty, all checkboxes are shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="align" type="HorizontalAlignment" default="left">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Horizontal alignment of the content within the column.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="style" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Name of the style to use for this row.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="show">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             For columns of type 'blobrecord', the field to show, defaults to 'filename'.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -5590,16 +5580,16 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="variant" returntype="variant" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             A function to remap input values to the specified column type
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="emptyvalue" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If the a row contains this value for this column, show an empty field.</html:p>
+          If the a row contains this value for this column, show an empty field.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -5806,15 +5796,15 @@ To change a <xs:attribute /> for adding descriptions
           <xs:attribute name="iscompletion" type="xs:boolean">
             <xs:annotation>
               <xs:documentation>
-                <html:p>If set to true, any next button that will point to this page will become a "finish" button</html:p>
+                If set to true, any next button that will point to this page will become a "finish" button
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="isfinish" type="xs:boolean">
             <xs:annotation>
               <xs:documentation>
-                <html:p>If set to true, this page will end the wizard (the "next" button will become a "finish" button
-                   on this page, it will call Submit() and close the dialog if Submit() returns true).</html:p>
+                If set to true, this page will end the wizard (the "next" button will become a "finish" button
+                   on this page, it will call Submit() and close the dialog if Submit() returns true).
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
@@ -5824,7 +5814,7 @@ To change a <xs:attribute /> for adding descriptions
                 <tai:callbacksignature arguments="record" />
               </xs:appinfo>
               <xs:documentation>
-                <html:p><!-- FIXME: Doc --></html:p>
+                <!-- FIXME: Doc -->
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
@@ -5834,8 +5824,8 @@ To change a <xs:attribute /> for adding descriptions
                 <tai:callbacksignature returntype="boolean" />
               </xs:appinfo>
               <xs:documentation>
-                <html:p>The name of the function to use from the accompanying library when the user presses the "next"
-                   button on this page.</html:p>
+                The name of the function to use from the accompanying library when the user presses the "next"
+                   button on this page.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
@@ -5921,7 +5911,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Actions">
     <xs:annotation>
       <xs:documentation>
-        <html:p>This element groups all individual actions.</html:p>
+        This element groups all individual actions.
       </xs:documentation>
     </xs:annotation>
     <xs:sequence>
@@ -5995,21 +5985,21 @@ To change a <xs:attribute /> for adding descriptions
           <xs:attribute name="colspan" type="xs:integer">
             <xs:annotation>
               <xs:documentation>
-                <html:p>Span between columns, so you can add multiple rows and multiple columns and merge them when neccesary</html:p>
+                Span between columns, so you can add multiple rows and multiple columns and merge them when neccesary
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="rowspan" type="xs:integer">
             <xs:annotation>
               <xs:documentation>
-                <html:p>Span between rows, so you can merge rows together</html:p>
+                Span between rows, so you can merge rows together
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="valign" type="VerticalAlignment">
             <xs:annotation>
               <xs:documentation>
-                <html:p>Vertical alignment, default is set to middle</html:p>
+                Vertical alignment, default is set to middle
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
@@ -6076,20 +6066,20 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="src" type="xs:string" use="required">
         <xs:annotation>
           <xs:documentation>
-            <html:p>Define the background image for this element.</html:p>
+            Define the background image for this element.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="position">
         <xs:annotation>
           <xs:documentation>
-            <html:p>
+
               Define the background image position for this element. The default value is "center", which will center the
               image both horizontally and vertically. If one of "left" or "right" is specified, it will set the horizontal
               alignment.
               If one of "top" or "bottom" is specified, it will set the vertical alignment. Both horizontal and vertical
               alignment can be given.
-            </html:p>
+
           </xs:documentation>
         </xs:annotation>
         <xs:simpleType>
@@ -6109,11 +6099,11 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="repeat">
         <xs:annotation>
           <xs:documentation>
-            <html:p>
+
               Define if and how the background image should be repeated. If set to "repeat" (the default value), the image is
               repeated both horizontally and vertically. If set to "repeat-x" or "repeat-y", the image is repeated
               horizontally resp. vertically only. If set to "no-repeat", the image is not repeated.
-            </html:p>
+
           </xs:documentation>
         </xs:annotation>
         <xs:simpleType>
@@ -6128,7 +6118,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="size">
         <xs:annotation>
           <xs:documentation>
-            <html:p>cover, contain, auto</html:p>
+            cover, contain, auto
           </xs:documentation>
         </xs:annotation>
         <xs:simpleType>
@@ -6152,8 +6142,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="masks">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define which events this listener reacts on. If the name matches the mask via a LIKE operation, the onevent callback
-             is fired, and then the Invalidate() function is called on the components in the invalidatecomponents list.</html:p>
+          Define which events this listener reacts on. If the name matches the mask via a LIKE operation, the onevent callback
+             is fired, and then the Invalidate() function is called on the components in the invalidatecomponents list.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
@@ -6176,7 +6166,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="object" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Called if the callback url is opened.</html:p>
+          Called if the callback url is opened.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -6199,17 +6189,17 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>Called once if one of the registered fields is marked dirty.</html:p>
+          Called once if one of the registered fields is marked dirty.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="makeappdirty" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             This dirty listener influences the application's dirty status. If an application is marked dirty, the browser
             will prevent the user from accidentally navigating away from the WebHare interface.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -6246,8 +6236,8 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="emptyvalue" type="xs:string">
         <xs:annotation>
           <xs:documentation>
-            <html:p>The value that will be returned when the textedit isn't filled in. Also, when the value property of
-            this textedit is set to this value, the textvalue will become empty.</html:p>
+            The value that will be returned when the textedit isn't filled in. Also, when the value property of
+            this textedit is set to this value, the textvalue will become empty.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -6256,9 +6246,9 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="empty" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-            <html:p>
+
               When the value is the default value for the specified valuetype, this text will be shown
-            </html:p>
+
           </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -6268,10 +6258,10 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="variant" returntype="variant" />
         </xs:appinfo>
         <xs:documentation>
-            <html:p>
+
               The function which will open the dialog to browse.
               The function must return the new value.
-            </html:p>
+
           </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -6281,16 +6271,16 @@ To change a <xs:attribute /> for adding descriptions
           <tai:callbacksignature arguments="variant" returntype="variant" />
         </xs:appinfo>
         <xs:documentation>
-            <html:p>
+
               A function to remap the value to a title. If not used, the value (integer or string) will be shown as title.
-            </html:p>
+
           </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="value" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-            <html:p>The default value used</html:p>
+            The default value used
           </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -6298,7 +6288,7 @@ To change a <xs:attribute /> for adding descriptions
       <!-- type="VariableTypes" -->
       <xs:annotation>
         <xs:documentation>
-            <html:p>The variable type to use when submitting the value. Default is "string". (almost all variable and array types are possible)</html:p>
+            The variable type to use when submitting the value. Default is "string". (almost all variable and array types are possible)
           </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -6393,17 +6383,11 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="mask" type="xs:string" default="*">
         <xs:annotation>
           <xs:documentation>
-            <p>
-              When mask is specified only files/folders with names matching the specified mask will be used as options.
-              The mask is case insensitive and its syntax is the same as the LIKE instruction in Harescript.
-            </p>
+            When mask is specified only files/folders with names matching the specified mask will be used as options.
+            The mask is case insensitive and its syntax is the same as the LIKE instruction in Harescript.
 
-            <p>
-              Examples:
-              <ul>
-                <li>*test* will match all files and folders which have test in their name</li>
-              </ul>
-            </p>
+           Examples:
+           - `*test*` will match all files and folders which have test in their name
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>

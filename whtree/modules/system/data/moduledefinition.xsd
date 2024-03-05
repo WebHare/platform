@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
@@ -311,7 +310,8 @@
           <xs:annotation>
             <xs:documentation>
               Rights are a hierarchy, every right must be implied by another right (and no cycles are
-              allowed!)<br/>
+              allowed!)
+
               The root right, system:sysop, is implied by itself, and is the only right that may do so.
             </xs:documentation>
           </xs:annotation>
@@ -585,10 +585,10 @@
           <xs:attribute name="when" default="aftertablecreation" >
             <xs:annotation>
               <xs:documentation>
-                This attribute controls when the script is run:<br/>
-                - After schema creation: the schema of the module exists, but the tables may not<br/>
-                - After table creation: the schema and tables of the module all exist, but obsolete columns where not yet removed<br />
-                - After registry update: the schema is completely up to date. Missing registration keys have been added<br />
+                This attribute controls when the script is run:
+                - After schema creation: the schema of the module exists, but the tables may not
+                - After table creation: the schema and tables of the module all exist, but obsolete columns where not yet removed
+                - After registry update: the schema is completely up to date. Missing registration keys have been added
               </xs:documentation>
             </xs:annotation>
             <xs:simpleType>
@@ -762,7 +762,7 @@
       <xs:element name="applicationgroup" minOccurs="0" maxOccurs="unbounded">
         <xs:annotation>
           <xs:documentation>
-            A named group for applications in the startmenu.<br />
+            A named group for applications in the startmenu.
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -789,7 +789,7 @@
         <xs:element name="application">
           <xs:annotation>
             <xs:documentation>
-              Describes an application in this module. <br />
+              Describes an application in this module.
               There are two ways to start an application: by screen and by library/startmacro
             </xs:documentation>
           </xs:annotation>

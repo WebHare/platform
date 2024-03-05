@@ -6,7 +6,6 @@
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns="http://www.webhare.net/xmlns/socialite/components"
   targetNamespace="http://www.webhare.net/xmlns/socialite/components"
   xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"

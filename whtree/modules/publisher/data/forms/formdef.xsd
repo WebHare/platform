@@ -2,8 +2,7 @@
 <xs:schema xmlns="http://www.webhare.net/xmlns/publisher/forms"
            xmlns:fai="http://www.webhare.net/xmlns/publisher/forms/appinfo"
            xmlns:forms="http://www.webhare.net/xmlns/publisher/forms"
-           xmlns:html="http://www.w3.org/1999/xhtml"
-           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+                    xmlns:sc="http://www.webhare.net/xmlns/system/common"
            xmlns:xs="http://www.w3.org/2001/XMLSchema"
            elementFormDefault="qualified"
            targetNamespace="http://www.webhare.net/xmlns/publisher/forms"
@@ -635,7 +634,7 @@
       <xs:attribute name="validationchecks" type="sc:ValidationChecks">
         <xs:annotation>
           <xs:documentation>
-            <html:p>A list of checks the entered value must pass.</html:p>
+            A list of checks the entered value must pass.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>

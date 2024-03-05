@@ -6,7 +6,6 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/tollium/portal/components"
   elementFormDefault="qualified"
   xml:lang="en">
@@ -29,7 +28,7 @@
                 <tai:callbacksignature />
               </xs:appinfo>
               <xs:documentation>
-                <html:p>The name of the macro to execute before adding the actual menu item.</html:p>
+                The name of the macro to execute before adding the actual menu item.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>

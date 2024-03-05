@@ -4,7 +4,6 @@
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:t="http://www.webhare.net/xmlns/system/restapi"
   xmlns="http://www.webhare.net/xmlns/system/restapi"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   targetNamespace="http://www.webhare.net/xmlns/system/restapi"
   elementFormDefault="qualified"

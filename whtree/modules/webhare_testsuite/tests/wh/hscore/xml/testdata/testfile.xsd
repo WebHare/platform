@@ -5,7 +5,6 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testfile"
   xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testfile"
   targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testfile"
