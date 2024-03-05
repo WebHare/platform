@@ -54,6 +54,10 @@ test.registerTests(
         const node = dompack.jsxcreate('input', { type: 'text', onChange: anyEventHandler });
         dompack.changeValue(node, 'newvalue');
         test.eq(1, eventcount, 'expected change event');
+        dompack.changeValue(node, '5');
+        test.eq(2, eventcount, 'expected change event');
+        dompack.changeValue(node, 5);
+        test.eq(2, eventcount, 'should NOT trigger change event');
       }
 
       {

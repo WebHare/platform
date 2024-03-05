@@ -147,7 +147,8 @@ export function changeValue(element: FormControlElement, newvalue: string | numb
     (element as HTMLInputElement).checked = Boolean(newvalue);
   } else {
     //FIXME it's not really clean to assume that this element is changeable - throw for non input/select..
-    if ((element as HTMLInputElement).value === newvalue)
+    const asString = String(newvalue);
+    if ((element as HTMLInputElement).value === asString)
       return;
 
     (element as HTMLInputElement).value = String(newvalue);
