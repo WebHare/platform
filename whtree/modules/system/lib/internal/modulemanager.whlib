@@ -863,7 +863,8 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
   EnsureFileContents(MergePath(whdataroot, ".eslintrc.json"),
   `{
     "extends": "@webhare/eslint-config"
-  }`);
+  }
+`);
 
   /* When runnning `npm install` in the dataroot or a subdirectory (without its own package.json),
      npm will use the node_modules in the dataroot to place the new packages. It will then happily

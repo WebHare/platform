@@ -1031,11 +1031,11 @@ MACRO TestESLint()
 {
   RECORD res;
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log(`fail`);")]);
-  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 13, message := "Parsing error: Unexpected character \'`\' (eslint)", source := "unknown", metadata := DEFAULT RECORD ]], res.errors);
+  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 13, message := "Parsing error: Unexpected character \'`\' (eslint)", source := "eslint", metadata := DEFAULT RECORD ]], res.errors);
 
   //we used to consider this as a warning, but eslintrc.json has marked it an error so why wouldn't we...
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log('test')")]);
-  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @typescript-eslint/semi)", source := "unknown", metadata := DEFAULT RECORD ]], res.errors);
+  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @typescript-eslint/semi)", source := "eslint", metadata := DEFAULT RECORD ]], res.errors);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("let x=42;")]);
   TestEq(1, Length(res.errors));

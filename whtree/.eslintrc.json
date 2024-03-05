@@ -1,5 +1,8 @@
 {
     "extends": "@webhare/eslint-config",
+    "rules": {
+        "eqeqeq": "warn"
+    },
     "ignorePatterns": [
         "**/dist/*.js",
         "**/vendor/*"

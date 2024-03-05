@@ -106,7 +106,7 @@
         "no-fallthrough": "error",
         //Prevent these from accidentally lingering in code
         "no-alert": "error",
-        //Added with 5.5, require !== / === for performance and to prevent subtle bugs. we'll phase it in with a warning first
+        //Added with 5.5, require !== / === for performance and to prevent subtle bugs. we'll phase it in with a warning for now that is not part of `nowarnings`
         "eqeqeq": "warn",
         //We're fine with explicit ! assertions.
         "@typescript-eslint/no-non-null-assertion": "off",

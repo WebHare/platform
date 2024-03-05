@@ -29,7 +29,8 @@ export async function handleLintingCommand(indata: LintingCommand) {
       col: message.column || 1,
       //a simple JS parse error (eg Unexpected character '`'") will have ruleId null
       message: `${message.message} ${message.ruleId ? `(eslint rule: ${message.ruleId})` : "(eslint)"}`,
-      fatal: message.severity === 2 //2 = error
+      fatal: message.severity === 2, //2 = error
+      source: "eslint"
     })),
     hasfixes: typeof results[0].output === "string",
     output: Buffer.from(results[0].output || "", "utf-8").toString("base64")
