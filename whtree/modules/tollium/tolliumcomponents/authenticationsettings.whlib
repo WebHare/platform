@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/qrcode.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -15,7 +16,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
-
+LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
 
 /// Keeps anonymous authentication settings
 STATIC OBJECTTYPE AuthenticationSettingValue
@@ -345,6 +346,8 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag)
   {
+    IF(NOT (entity EXTENDSFROM WRDEntity2017))
+      THROW NEW Exception(`Entity passed to LoadEntityField is not a WRDEntity2017 (retrieved by eg. GetEntity) but a ${GetObjectTypeName(entity)}`);
     this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag);
     this->Reload();
   }
