@@ -69,7 +69,7 @@ MACRO TestRegistry()
     , ReadRegistryNode("webhare_testsuite.__webhare_testsuite_base_node__"));
 
   DeleteRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue");
-  TestThrowsLike("No such registry key*", PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  TestThrowsLike("No such registry key '*'", PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
 
 
   testfw->CommitWork();
