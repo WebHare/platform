@@ -61,7 +61,7 @@ export function describePublicInterface(inobj: object): WebHareServiceDescriptio
   //iterate to top and discover all methods
   for (; inobj !== Object.prototype && inobj !== BackendServiceConnection.prototype; inobj = Object.getPrototypeOf(inobj)) {
     for (const name of Object.getOwnPropertyNames(inobj)) {
-      if (name === 'constructor' || name[0] === '_')
+      if (name === 'constructor' || name[0] === '_' || name === 'onClose')
         continue; //no need to explain the constructor, it's already been invoked. and skip 'private' functions
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cleanup later, creating interfaces this way is ugly anyway

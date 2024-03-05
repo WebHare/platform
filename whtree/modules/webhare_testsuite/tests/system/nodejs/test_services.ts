@@ -8,7 +8,7 @@ import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/tra
 import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
 import { runBackendService } from "@webhare/services";
 import { createVM, HSVMObject } from "@webhare/harescript";
-import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
+import { CallableVM } from "@webhare/harescript/src/machinewrapper";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
@@ -86,6 +86,10 @@ async function testServiceState() {
   const instance1 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance1"], { linger: true });
   const instance2 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
 
+  test.assert(!('onClose' in instance2), "onClose is a server-side callback and shouldn't be transmitted runtime");
+  ///@ts-expect-error onClose shouldn't be there
+  test.typeAssert<test.Extends<typeof instance2, { onClose: unknown }>>();
+
   const randomkey = "KEY" + Math.random();
   await instance1.setShared(randomkey);
   test.eq(randomkey, await instance2.getShared());
@@ -157,7 +161,7 @@ async function testEvents() {
   test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
 }
 
-async function runOpenPrimary(hsvm: CallableVMWrapper) {
+async function runOpenPrimary(hsvm: CallableVM) {
   const database = hsvm.loadlib("mod::system/lib/database.whlib");
   const primary = await database.openPrimary();
   test.eq(1, await hsvm._getHSVM().__getNumRemoteUnmarshallables());
@@ -186,7 +190,7 @@ async function testHareScriptVM() {
   //TODO verify that if the hsvm is garbagecollected associated objects are gone too on the HS side?
 }
 
-async function runPrintCallbackTest(hsvm: CallableVMWrapper) {
+async function runPrintCallbackTest(hsvm: CallableVM) {
   //Ensure we can setup simple 'callbacks' that just print placeholders
   const print_helloworld_callback = await hsvm._getHSVM().createPrintCallback(`Hello, world!`);
   const fileswhlib = hsvm.loadlib("wh::files.whlib");
