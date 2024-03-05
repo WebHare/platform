@@ -22,7 +22,7 @@ test.registerTests(
       name: 'focus zones using mouse',
       test: async function (doc, win) {
         test.assert(doc.hasFocus(), "This test requires the browser to have focus");
-        test.eq("Focused focuszone2", test.qS('#log').lastElementChild.textContent, 'make sure the test has focus');
+        await test.wait(() => test.qS('#log').lastElementChild?.textContent === "Focused focuszone2");
         test.assert(test.hasFocus(test.qS('#input2_2')));
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id);
 
