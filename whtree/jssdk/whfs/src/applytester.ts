@@ -322,7 +322,6 @@ export class WHFSApplyTester {
       maxContentWidth: "",
       wittyEncoding: "HTML",
       defaultGid: "",
-      asyncBundle: false,
 
       renderInfo: null,
       supportsErrors: true,
@@ -331,7 +330,6 @@ export class WHFSApplyTester {
       siteProfile: "",
       is404: false,
       contentNavStops: [],
-      lazyLoadCSS: false,
 
       plugins: [] as PluginData[]
     };
@@ -358,9 +356,7 @@ export class WHFSApplyTester {
 
       webDesign.supportsErrors = apply.webdesign.has_supportserrors ? apply.webdesign.supportserrors : webDesign.supportsErrors;
       webDesign.supportsAccessDenied = apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webDesign.supportsAccessDenied;
-      webDesign.asyncBundle = apply.webdesign.has_asyncbundle ? apply.webdesign.asyncbundle : webDesign.asyncBundle;
       webDesign.contentNavStops = apply.webdesign.has_contentnavstops ? apply.webdesign.contentnavstops : webDesign.contentNavStops;
-      webDesign.lazyLoadCSS = apply.webdesign.has_lazyloadcss ? apply.webdesign.lazyloadcss : webDesign.lazyLoadCSS;
     }
 
     /* FIXME content link support. we should consider

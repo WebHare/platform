@@ -574,14 +574,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , siteprofile              := this->siteprof->name
                         , supportserrors           := ParseXSBoolean(node->GetAttribute("supportserrors"))
                         , supportsaccessdenied     := ParseXSBoolean(node->GetAttribute("supportsaccessdenied"))
-                        , asyncbundle              := ParseXSBoolean(node->GetAttribute("async"))
                         , supportedlanguages       := ParseXSList(node->GetAttribute("supportedlanguages"))
                         , contentnavstops          := ParseXSList(node->GetAttribute("contentnavstops"))
 
                         , has_assetpack            := node->HasAttribute("assetpack")
                         , has_supportserrors       := node->HasAttribute("supportserrors")
                         , has_supportsaccessdenied := node->HasAttribute("supportsaccessdenied")
-                        , has_asyncbundle          := node->HasAttribute("async")
                         , has_contentnavstops      := node->HasAttribute("contentnavstops")
                         ];
 

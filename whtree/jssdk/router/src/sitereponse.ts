@@ -32,13 +32,11 @@ function encodeAttr(s: string): string {
   return encodeString(s, "attribute");
 }
 
-export function getAssetpackIntegrationCode(assetpack: string, { asyncBundle = true, designRoot = '', cacheBuster = '' } = {}) {
+export function getAssetpackIntegrationCode(assetpack: string, { designRoot = '', cacheBuster = '' } = {}) {
   let scriptsettings = '';
-  if (asyncBundle)
-    scriptsettings += ' async';
   if (designRoot !== "")
     scriptsettings += ' crossorigin="anonymous"';
-  scriptsettings += ' type="module"';
+  scriptsettings += ' async type="module"';
 
   let bundleBaseUrl = "/.ap/" + assetpack.replace(":", ".") + "/";
   if (cacheBuster)

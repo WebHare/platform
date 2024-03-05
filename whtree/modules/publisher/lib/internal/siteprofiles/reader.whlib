@@ -287,7 +287,6 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       , maxcontentwidth := ""
                       , wittyencoding   := "HTML"
                       , defaultgid      := ""
-                      , asyncbundle     := FALSE
                       , module          := FALSE
 
                       , renderinfo      := DEFAULT RECORD
@@ -1313,7 +1312,6 @@ STATIC OBJECTTYPE ApplyRuleTester
 
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
-      webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
       webdesign.contentnavstops      := apply.webdesign.has_contentnavstops      ? apply.webdesign.contentnavstops      : webdesign.contentnavstops;
 
       IF(apply.webdesign.objectname != "")

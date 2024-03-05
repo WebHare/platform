@@ -181,8 +181,7 @@ STATIC OBJECTTYPE Resolver
   {
     this->EnsurePackingInfo();
     Print(GetAssetpackIntegrationCode(this->assetpack, CELL
-      [ asyncbundle := ObjectExists(webdesign) ? webdesign->asyncbundle : FALSE
-      , designroot := usedesignroot
+      [ designroot := usedesignroot
       , cachebuster
       ]));
 

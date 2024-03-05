@@ -874,14 +874,11 @@ PUBLIC RECORD FUNCTION MakeIntExtExternalLink(STRING href)
 
 PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ asyncbundle := TRUE
-                                 , designroot := ""
+  options := ValidateOptions(CELL[ designroot := ""
                                  , cachebuster := ""
                                  ], options);
 
   STRING jssettings;
-  IF(options.asyncbundle)
-    jssettings := jssettings || ' async';
   IF(options.designroot != "")
     jssettings := jssettings || ' crossorigin="anonymous"';
 
@@ -893,5 +890,5 @@ PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD opti
 
   STRING scriptsrc := bundlebaseurl || "ap.mjs";
   RETURN `<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`
-         || `<script src="${EncodeValue(scriptsrc)}"${jssettings} type="module"></script>`;
+         || `<script src="${EncodeValue(scriptsrc)}"${jssettings} type="module" async></script>`;
 }
