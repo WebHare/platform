@@ -372,7 +372,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     }
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
-    //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' tpye
+    //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' type
     const subjectValue = (await this.wrdschema.getFields("wrdPerson", subject, [subfield]))?.[subfield] as string;
     if (!subjectValue)
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
@@ -389,7 +389,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const payload = preparePayload(subjectValue, creationdate, validuntil, { scopes, jwtId, audiences: clientInfo ? [compressUUID(clientInfo?.wrdGuid)] : [] });
 
     //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
-    if (customizer?.onCreateJWT) //force-cast it to make clear which fields are already set and which youi shouldn't modify
+    if (customizer?.onCreateJWT) //force-cast it to make clear which fields are already set and which you shouldn't modify
       await customizer.onCreateJWT({ user: subject, client }, payload as JWTPayload);
 
     if (clientInfo) {
