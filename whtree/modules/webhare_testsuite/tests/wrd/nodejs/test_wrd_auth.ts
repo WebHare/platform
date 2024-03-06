@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, createUnsignedJWT, decodeJWT } from "@webhare/wrd/src/auth";
-import { type LookupUsernameParameters, type OnOpenIdReturnParameters, type WRDAuthCustomizer } from "@webhare/wrd";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, createUnsignedJWT, decodeJWT, } from "@webhare/wrd/src/auth";
+import { type LookupUsernameParameters, type OnOpenIdReturnParameters, type WRDAuthCustomizer, type onCreateJWTParameters, type JWTPayload } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
@@ -82,7 +82,7 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   const tokens = await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer);
   test.assert(tokens.error === null);
   test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer));
-  test.eq({ entity: user, scopes: ["openid"], audience: clientWrdId }, await provider.verifyOwnToken(tokens.body.id_token!, clientWrdId));
+  test.eqPartial({ entity: user, scopes: ["openid"], audience: clientWrdId }, await provider.verifyOwnToken(tokens.body.id_token!, clientWrdId));
 
   const verifyresult = await provider.validateToken(tokens.body.id_token!);
   test.eqPartial({ aud: clientId, iss: "https://my.webhare.dev/testfw/issuer" }, verifyresult);
@@ -157,9 +157,27 @@ async function testAuthAPI() {
 
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
 
+  // Test modifying the claims
+  const almostInfiniteTime = new Date("2099-01-01");
+  const claimCustomizer: WRDAuthCustomizer = {
+    async onCreateJWT(params: onCreateJWTParameters, payload: JWTPayload) {
+      test.assert(payload.exp >= (Date.now() / 1000) && payload.exp < (Date.now() / 1000 + 30 * 86400));
+      const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
+      if (!userinfo)
+        throw new Error(`No such user`);
+      payload.name = userinfo?.wrdFullName;
+      payload.exp = almostInfiniteTime.getTime() / 1000;
+    }
+  };
+  const claimResult = await mockAuthorizeFlow(provider, robotClient!, testuser, claimCustomizer);
+  test.assert(claimResult.idToken);
+  test.assert(claimResult.expiresIn * 1000 > (almostInfiniteTime.getTime() - Date.now()) - 60000); //60 second safety margin should be more tha enough
+  test.eqPartial({ exp: almostInfiniteTime.getTime() / 1000, name: "Jon Show" }, await provider.validateToken(claimResult.idToken!));
+  test.eqPartial({ expires: almostInfiniteTime }, await provider.verifyOwnToken(claimResult.idToken!, robotClient!.wrdId));
+
   //Test simple login tokens
-  const login1 = await provider.createLoginToken(testuser);
-  const login2 = await provider.createLoginToken(testuser);
+  const login1 = await provider.createLoginToken(testuser, null);
+  const login2 = await provider.createLoginToken(testuser, null);
   test.assert(decodeJWT(login1.idToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.idToken).jti! !== decodeJWT(login2.idToken).jti, "Each token has a different jti");
 

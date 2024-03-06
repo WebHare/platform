@@ -73,13 +73,14 @@ export function addDuration(startingdate: Date, duration: Partial<Duration> | st
 }
 
 /** Convert a WaitPeriod parameter to a Date
- *  @param wait - Wait time as milliseconds or a Date
+ * @param wait - Wait time as milliseconds or a Date
+ * @param relativeTo - Date to use as a reference for relative waits
 */
-export function convertWaitPeriodToDate(wait: WaitPeriod): Date {
+export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }: { relativeTo?: Date | null } = {}): Date {
   if (isDate(wait)) {
     return wait;
   } else if (typeof wait === "string") {
-    return addDuration(new Date(), wait);
+    return addDuration(relativeTo ?? new Date(), wait);
   } else if (typeof wait === "number") {
     if (wait === 0)
       return new Date(-864000 * 1000 * 10000000);
@@ -88,7 +89,7 @@ export function convertWaitPeriodToDate(wait: WaitPeriod): Date {
     if (wait > 7 * 86400 * 1000)
       throw new Error("Invalid wait duration - a wait may not be longer than a week"); //prevents you from passing in Date.now() based values
     if (wait > 0)
-      return new Date(Date.now() + wait);
+      return new Date((relativeTo?.getTime() ?? Date.now()) + wait);
   }
 
   throw new Error("Invalid wait duration - it must either be an absolute date, 0, a number of milliseconds or Infinity");
