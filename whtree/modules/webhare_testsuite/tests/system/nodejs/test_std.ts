@@ -268,6 +268,9 @@ function testDateTime() {
   const now = Date.now(), soon = std.convertWaitPeriodToDate(100);
   test.assert(now <= soon.getTime() && soon.getTime() <= now + 1000);
 
+  test.eq(new Date("2022-04-03T12:15:01Z"), std.convertWaitPeriodToDate(1000, { relativeTo: new Date("2022-04-03T12:15:00Z") }));
+  test.eq(new Date("2022-04-04T12:15:00Z"), std.convertWaitPeriodToDate("P1D", { relativeTo: new Date("2022-04-03T12:15:00Z") }));
+
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
