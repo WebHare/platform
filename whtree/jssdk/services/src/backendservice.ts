@@ -37,6 +37,7 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
     this.sb = sb;
     this.link = link;
     link.on("message", _ => this.onMessage(_));
+    link.on("close", _ => this.onClose());
 
     this.description = description;
     this.isjs = description.isjs || false;
@@ -87,6 +88,10 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
     else
       console.error("Unknown message type", msg);
   }
+
+  onClose() {
+    this.sb.dispatchEvent(new CustomEvent("close"));
+  }
 }
 
 export interface BackendServiceOptions {
@@ -103,7 +108,7 @@ export interface BackendServiceOptions {
 */
 export type ConvertToClientInterface<BackendHandlerType extends object> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
-  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close" | "emit"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
+  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close" | "emit" | "onClose"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
 } & ServiceBase;
 
 async function attemptAutoStart(name: string) {

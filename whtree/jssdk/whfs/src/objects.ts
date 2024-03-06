@@ -1,4 +1,4 @@
-import { db, sql, Selectable, Updateable } from "@webhare/whdb";
+import { db, sql, Selectable, Updateable, isWorkOpen } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
@@ -278,6 +278,9 @@ export class WHFSFolder extends WHFSObject {
   }
 
   async ensureFile(name: string, requiredmetadata?: UpdateFileMetadata, options?: { ifNew: UpdateFileMetadata }): Promise<WHFSFile> {
+    if (!isWorkOpen()) //ensure work is open (or users might not realize it's needed if no actual update happens)
+      throw new Error(`ensureFile requires open work`);
+
     let existingfile = await this.openFile(name, { allowMissing: true });
     if (!existingfile)
       existingfile = await this.createFile(name, { ...requiredmetadata, ...options?.ifNew });
@@ -296,6 +299,9 @@ export class WHFSFolder extends WHFSObject {
   }
 
   async ensureFolder(name: string, requiredmetadata?: UpdateFolderMetadata, options?: { ifNew: UpdateFolderMetadata }): Promise<WHFSFolder> {
+    if (!isWorkOpen()) //ensure work is open (or users might not realize it's needed if no actual update happens)
+      throw new Error(`ensureFolder requires open work`);
+
     let existingfolder = await this.openFolder(name, { allowMissing: true });
     if (!existingfolder)
       existingfolder = await this.createFolder(name, { ...requiredmetadata, ...options?.ifNew });

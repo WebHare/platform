@@ -24,9 +24,6 @@ export type { IPCMessagePacket, IPCLinkType } from "./ipc";
 export type { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 export { dumpActiveIPCMessagePorts } from "./transport";
 
-const logmessages = envbackend.debugFlags.ipc;
-const logpackets = envbackend.debugFlags.ipcpackets;
-
 /** Number of milliseconds before connection to whmanager times out. At startup, just the connect alone can
     take multiple seconds, so using a very high number here.
 */
@@ -322,7 +319,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   }
 
   handleControlMessage(message: ToLocalBridgeMessage) {
-    if (logmessages)
+    if (envbackend.debugFlags.ipc)
       console.log(`localbridge ${this.id}: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
     switch (message.type) {
       case ToLocalBridgeMessageType.SystemConfig: {
@@ -345,7 +342,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       } break;
       case ToLocalBridgeMessageType.FlushLogResult: {
         const reg = this.pendingflushlogs.get(message.requestid);
-        if (logmessages)
+        if (envbackend.debugFlags.ipc)
           console.log(`localbridge ${this.id}: pending flush logs`, this.pendingflushlogs, reg);
         if (reg) {
           this.pendingflushlogs.delete(message.requestid);
@@ -357,7 +354,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       } break;
       case ToLocalBridgeMessageType.EnsureDataSentResult: {
         const reg = this.pendingensuredatasent.get(message.requestid);
-        if (logmessages)
+        if (envbackend.debugFlags.ipc)
           console.log(`localbridge ${this.id}: ensuredatasent result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendingensuredatasent.delete(message.requestid);
@@ -366,7 +363,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       } break;
       case ToLocalBridgeMessageType.GetProcessListResult: {
         const reg = this.pendinggetprocesslists.get(message.requestid);
-        if (logmessages)
+        if (envbackend.debugFlags.ipc)
           console.log(`localbridge ${this.id}: pendinggetprocesslists result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
@@ -375,7 +372,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       } break;
       case ToLocalBridgeMessageType.ConfigureLogsResult: {
         const reg = this.pendingreconfigurelogs.get(message.requestid);
-        if (logmessages)
+        if (envbackend.debugFlags.ipc)
           console.log(`localbridge ${this.id}: pendingreconfigurelogs result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
@@ -384,7 +381,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       } break;
       case ToLocalBridgeMessageType.ConnectToLocalServiceResult: {
         const reg = this.pendingconnectlocalservice.get(message.requestid);
-        if (logmessages)
+        if (envbackend.debugFlags.ipc)
           console.log(`localbridge ${this.id}: pendingconnectlocalservice result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
@@ -750,13 +747,13 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   sendData(data: WHMRequest) {
-    if (logpackets)
+    if (envbackend.debugFlags.ipcpackets)
       console.error(`${this.bridgename} send to whmanager`, { ...data, opcode: WHMRequestOpcode[data.opcode] });
     this.conn.send(data);
   }
 
   gotWHManagerResponse(data: WHMResponse) {
-    if (logpackets)
+    if (envbackend.debugFlags.ipcpackets)
       console.error(`${this.bridgename} data from whmanager`, { ...data, opcode: WHMResponseOpcode[data.opcode] });
 
     switch (data.opcode) {
@@ -930,7 +927,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   async gotLocalBridgeMessage(localBridge: LocalBridgeData, message: ToMainBridgeMessage) {
-    if (logmessages)
+    if (envbackend.debugFlags.ipc)
       console.log(`${this.bridgename}: message from local bridge ${localBridge.id}`, { ...message, type: ToMainBridgeMessageType[message.type] });
     switch (message.type) {
       case ToMainBridgeMessageType.SendEvent: {
@@ -998,7 +995,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           });
         }
         message.port.on("close", () => {
-          if (logmessages)
+          if (envbackend.debugFlags.ipc)
             console.log(`main bridge: ${message.global ? "global" : "local"}  port ${message.name} closed`);
           if (this.ports.get(message.name) === reg)
             this.ports.delete(message.name);
@@ -1183,7 +1180,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   initLinkHandling(portname: string, linkid: number, msgid: bigint, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>) {
     this.links.set(linkid, { name: portname, port: port, partialmessages: new Map });
     port.on("message", (ctrlmsg: IPCEndPointImplControlMessage) => {
-      if (logmessages)
+      if (envbackend.debugFlags.ipc)
         console.log(`main bridge: incoming message from local endpoint of ${linkid} (${portname})`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] });
       switch (ctrlmsg.type) {
         case IPCEndPointImplControlMessageType.ConnectResult: {
@@ -1307,7 +1304,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   gotLocalBridgeClose(data: LocalBridgeData) {
-    if (logmessages)
+    if (envbackend.debugFlags.ipc)
       console.log(`${this.bridgename}: local bridge ${data.id} closed`);
     this.localbridges.delete(data.id);
   }
