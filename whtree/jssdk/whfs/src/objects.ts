@@ -279,7 +279,7 @@ export class WHFSFolder extends WHFSObject {
 
   async ensureFile(name: string, requiredmetadata?: UpdateFileMetadata, options?: { ifNew: UpdateFileMetadata }): Promise<WHFSFile> {
     if (!isWorkOpen()) //ensure work is open (or users might not realize it's needed if no actual update happens)
-      throw new Error(`ensureFolder requires open work`);
+      throw new Error(`ensureFile requires open work`);
 
     let existingfile = await this.openFile(name, { allowMissing: true });
     if (!existingfile)
