@@ -22,6 +22,8 @@ export interface WHConfigScriptData {
   server: number;
   /** Root URL of this site */
   siteRoot: string;
+  /** @deprecated Use `document.documentElement.lang` instead */
+  locale: never;
 }
 
 //names fields can still have when not yet republished
