@@ -1,12 +1,9 @@
 /* eslint-disable */
 // @ts-nocheck -- needs porting!
 
-/**
-@import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
-*/
-
 import * as browser from 'dompack/extra/browser';
 import { getDragModeOverride } from "dompack/extra/keyboard";
+import type { AcceptType } from './types';
 
 // Our custom data url
 const webharedataurl = "webhare://data/";
@@ -151,7 +148,7 @@ function parseEffectList(effects) {
   return effectstrs[mask];
 }
 
-let currentdrag = null;
+let currentdrag: CurrentDragData | null = null;
 
 function initWebhareDragEvent(event, data) {
   currentdrag =
@@ -181,7 +178,12 @@ function initWebhareDragEvent(event, data) {
 }
 
 class CurrentDragData {
-  constructor(event, localdrag) {
+  acceptrule?: AcceptType;
+  event: DragEvent;
+  dataTransfer: DataTransfer | null;
+  localdrag: CurrentDragData | null;
+
+  constructor(event: DragEvent, localdrag) {
     /// Current event
     this.event = event;
 
@@ -243,12 +245,12 @@ class CurrentDragData {
   }
 }
 
-function getEventItemsTypeHash(event) {
+function getEventItemsTypeHash(event: DragEvent) {
   // The downloadurl type is set when initializing the drag event, but it won't be present in the drop event.
   return Array.from(event.dataTransfer.types).filter(t => t !== "downloadurl").sort().join("\t");
 }
 
-export function getDragData(event) {
+export function getDragData(event: DragEvent) {
   if (currentdrag && currentdrag.typehash !== getEventItemsTypeHash(event))
     currentdrag = null;
 

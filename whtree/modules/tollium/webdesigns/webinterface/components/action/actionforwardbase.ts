@@ -4,6 +4,8 @@
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 export default class ActionForwardBase extends ComponentBase {
+  shortcut;
+
   constructor(parentcomp, data) {
     super(parentcomp, data);
     this.shortcut = data.shortcut;

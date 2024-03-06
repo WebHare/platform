@@ -1,33 +1,50 @@
-/* eslint-disable */
-// @ts-nocheck -- needs porting!
+/* eslint-disable @typescript-eslint/no-explicit-any -- TODO remove this once we have more types */
 
 //import * as components from './componentbase';
-/* globals $shell */
 
 import * as dompack from 'dompack';
 import * as movable from 'dompack/browserfix/movable';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import KeyboardHandler from 'dompack/extra/keyboard';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
-import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-//require("../common.lang.json");
-//require("../components/imageeditor/imageeditor.lang.json");
 import * as domfocus from 'dompack/browserfix/focus';
 import * as focuszones from '@mod-tollium/web/ui/components/focuszones';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
-import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
+import { ApplicationBase, type BackendApplication } from '@mod-tollium/web/ui/js/application';
 import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
+import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
+import { isTruthy } from '@webhare/std/collections';
+import type ObjTabs from '../tabs/tabs';
+import type ActionForwardBase from '../action/actionforwardbase';
+import type ObjMenuItem from '../menuitem/menuitem';
+import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
+import type ObjAction from '../action/action';
 
 
 // Give each frame a unique identifier
 let framecounter = 0;
 
 
-function getToddOwner(node) {
-  const namedcomponent = node.closest('*[data-name]');
+function getToddOwner(node: HTMLElement) {
+  const namedcomponent = node.closest<HTMLElement>('*[data-name]');
   return namedcomponent ? namedcomponent.dataset.name : null;
+}
+
+export type FrontendMessageHandler = (data: unknown, callback: () => void) => void;
+
+interface FrameAttributes extends ComponentStandardAttributes {
+  menubar: string;
+  allowresize: boolean;
+  allowclose: boolean;
+  badge: string;
+  screenname: string;
+  toolbars: string[];
+  realbody: string;
+  flags: Record<string, boolean>;
+  specials: string[];
+  bodynode: string;
 }
 
 /****************************************************************************************************************************
@@ -49,14 +66,78 @@ const screen_minheight = 20;
 // FIXME: remove all click handlers from menuitems
 // FIXME: remove all scroll handling for menu's (let DF menu do that)
 
-export default class Frame extends ComponentBase {
+export default class Frame extends ToddCompBase {
   node: HTMLElement;
   screenname: string;
   hostapp: ApplicationBase;
+  pendingmessages: Record<string, TolliumMessage[]> = {};
+  deliverablemessages: TolliumMessage[] = [];
+  specials: string[] = [];
+  actionlisteners: Record<string, string[]> = {};
+  default_comp: ToddCompBase | null = null;
+  toolbar: ToddCompBase | null = null;
+  tabcontrols: ObjTabs[] = [];
+
+  componenttype = "frame";
+
+  title = '';
+
+  frontendevents: Record<string, FrontendMessageHandler> = {};
+  addedgrabbers = false;
+  isdestroyed = false;
+  headerheight = 0;
+
+  //the app displaying the screen (the one owning our canvas - we're on its screenstack, if visible)
+  displayapp: ApplicationBase | null = null;
+
+  fullscreen = false;
+
+  // Nodes to call destroy on after current round of message processing
+  leftovernodes: HTMLElement[] = [];
+
+  menubarcomponent: ObjMenuItem | null = null;
+  menubarhandler: menu.MenuBar | null = null;
+  // We can't start setting focus until we're in the DOM, so we need to save the element to focus during init
+  pendingsetfocus: string | null = null;
+
+  // names of currently focused components with focusin/focusout handlers
+  focusedcomponentnames: string[] = [];
+
+  frameid = ++framecounter;
+
+  keyboard;
+  keyboard2;
+
+  scrollmonitor;
 
   objectmap: Record<string, ToddCompBase> = {};
 
-  constructor(hostapp: ApplicationBase, data) {
+  bodynode: ToddCompBase | null = null;
+  menubarnode: HTMLUListElement | null = null;
+
+  active = false;
+  allowclose = true;
+  resizable = false;
+  parentwindow: Frame | null = null;
+
+  left = 0;
+  top = 0;
+  draginfo: null | {
+    type: "move";
+    initial: { x: number; y: number };
+    minpos: { x: number; y: number };
+    maxpos: { x: number; y: number };
+  } | {
+    type: "resize";
+    dir: string; //"n", "e", "s", "w", "nw", "ne", "se", "sw"
+    outline: HTMLDivElement;
+  } = null;
+
+  noFocusUpdate = false;
+
+  flags: FlagSet = [];
+
+  constructor(hostapp: ApplicationBase, data: FrameAttributes) {
     /* NOTE:
        initialize() will NEVER receive a true, original response when a window is constructed anymore (see createNewScreen)
        instead, it will receive a dummy initialization and its first message will contain the actual initialization data
@@ -64,42 +145,15 @@ export default class Frame extends ComponentBase {
        ADDME: the constructor isn't cleaned up enough yet to recognize this
        */
     super(null, data);
-
-    this.componenttype = "frame";
-
-    this.pendingmessages = {};
-    this.deliverablemessages = [];
-    this.specials = [];
-    this.actionlisteners = {};
-    this.default_comp = null;
-    this.toolbar = null;
-    this.tabcontrols = [];
-    this.title = '';
-    //  this.windowvisible = false;
-    this.frontendevents = {};
-    this.addedgrabbers = false;
-    this.isdestroyed = false;
-    this.headerheight = 0;
     this.objectmap[this.name] = this;
 
     //the app hosting the screen (the one we will communicate with - we're on its screenmap)
     this.hostapp = hostapp;
-    //the app displaying the screen (the one owning our canvas - we're on its screenstack, if visible)
-    this.displayapp = null;
 
-    this.fullscreen = false;
 
-    // Nodes to call destroy on after current round of message processing
-    this.leftovernodes = [];
+    // Component relation initialization
 
-    this.menubarcomponent = null;
-    this.menubarhandler = null;
-    // We can't start setting focus until we're in the DOM, so we need to save the element to focus during init
-    this.pendingsetfocus = null;
-
-    // names of currently focused components with focusin/focusout handlers
-    this.focusedcomponentnames = [];
-
+    this.screenname = data.window;
 
     this.nodes = {};
     this.node = this.nodes.root =
@@ -121,20 +175,17 @@ export default class Frame extends ComponentBase {
           ]
       });
 
-    this.frameid = ++framecounter;
     this.nodes.windowheader.addEventListener("dompack:movestart", evt => this.onWindowMoveStart(evt));
     this.nodes.windowheader.addEventListener("dompack:move", evt => this.onWindowMove(evt));
     this.nodes.windowheader.addEventListener("dompack:moveend", evt => this.onWindowMoveEnd(evt));
     this.nodes.root.addEventListener("wh:focuszone-firstfocus", this.onFirstFocus.bind(this));
     this.nodes.root.addEventListener("submit", dompack.stop); //prevent shift+enter from submitting the dialog, fixes #1010
 
-    // Component relation initialization
     this.nodes.title.textContent = this.title;
     this.nodes.closewindow.addEventListener("click", this.onCancel.bind(this, false));
     this.nodes.closewindow.addEventListener("mousedown", event => dompack.stop(event));
     movable.enable(this.nodes.windowheader);
 
-    this.screenname = data.window;
     // Create a keyboard manager and register it
     this.keyboard = new KeyboardHandler(this.node, {
       "Enter": this.onDefault.bind(this),
@@ -146,15 +197,14 @@ export default class Frame extends ComponentBase {
       "Control+Enter": this.onDefault.bind(this)
     }, { stopmapped: true, captureunsafekeys: true });
 
-    this.desktoplistener = this.onDesktopResized.bind(this);
-    window.addEventListener("resize", this.desktoplistener);
+    window.addEventListener("resize", this.onDesktopResized);
 
     this.node.addEventListener("focusin", evt => this._gotFocus(evt));
 
     this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
 
-  _gotFocus(evt) {
+  _gotFocus(evt: FocusEvent) {
     ///focusin event support: Enumerate current selected compomnents with focusin handlers.
     const new_focusedcomponentnames = Object.values(this.objectmap).filter(comp => comp.isEventUnmasked("focusin") && comp.hasfocus()).map(c => c.name);
     // If a component is added to the set, trigger their focusin handler
@@ -165,16 +215,16 @@ export default class Frame extends ComponentBase {
     }
     this.focusedcomponentnames = new_focusedcomponentnames;
 
-    this._updateDefaultButton(evt.target);
+    this._updateDefaultButton(evt.target as HTMLElement);
   }
 
-  _updateDefaultButton(activenode) {
+  _updateDefaultButton(activenode: HTMLElement) {
     /* Any component can override the default button by setting a data-todd-default-button
        attribute. other buttons disable the default button by setting an explictt empty data-todd-default-button */
 
     ///check if we need to update the default button
-    const defaultbuttonsetter = activenode.closest('[data-todd-default-button]');
-    const newdefault = this.getComponent(defaultbuttonsetter ? defaultbuttonsetter.dataset.toddDefaultButton : '');
+    const defaultbuttonsetter = activenode.closest<HTMLElement>('[data-todd-default-button]');
+    const newdefault = this.getComponent(defaultbuttonsetter ? defaultbuttonsetter.dataset.toddDefaultButton! : '');
     if (newdefault !== this.default_comp) {
       // If a button was previously made default, remove its default state
       if (this.default_comp)
@@ -186,7 +236,7 @@ export default class Frame extends ComponentBase {
     }
   }
 
-  setMenuBar(newmenuname, rebuildnode) {
+  setMenuBar(newmenuname: string, rebuildnode?: false) {
     const comp = newmenuname ? this.addComponent(this, newmenuname) : null;
     if (comp === this.menubarcomponent) //already have it in its place
       return;
@@ -196,9 +246,8 @@ export default class Frame extends ComponentBase {
       this.menubarnode = null;
     }
 
-    this.menubarcomponent = comp;
-    if (this.menubarcomponent) //add new menubar
-    {
+    this.menubarcomponent = comp as ObjMenuItem | null;
+    if (this.menubarcomponent) { //add new menubar
       this.menubarnode = dompack.create('ul', {
         childNodes: this.menubarcomponent.cloneItems(false),
         className: "showshortcuts"
@@ -210,7 +259,7 @@ export default class Frame extends ComponentBase {
       this.rebuildContentNode();
   }
 
-  setBodyNode(newbodyname, rebuildnode) {
+  private setBodyNode(newbodyname: string, rebuildnode?: false) {
     const newbody = newbodyname ? this.addComponent(this, newbodyname) : null;
     if (this.bodynode === newbody) //nothing new there
       return;
@@ -225,7 +274,7 @@ export default class Frame extends ComponentBase {
 
   destroy() {
     this.isdestroyed = true;
-    window.removeEventListener("resize", this.desktoplistener);
+    window.removeEventListener("resize", this.onDesktopResized);
 
     for (const key of Object.keys(this.objectmap)) {
       const obj = this.objectmap[key];
@@ -245,7 +294,7 @@ export default class Frame extends ComponentBase {
    * Component management
    */
 
-  getPendingComponent(name) {
+  getPendingComponent(name: string) {
     const msgs = this.pendingmessages[name];
     if (!msgs)
       return null;
@@ -265,7 +314,7 @@ export default class Frame extends ComponentBase {
   // @param name The name of the component to initialize
   // @param response Server response containing the component (for tollium components only)
   // @return The requested component, created if necessary
-  addComponent(parentcomp, name) {
+  addComponent(parentcomp: ToddCompBase, name: string) {
     const existingcomp = this.getComponent(name);
     const newcomp = this.getPendingComponent(name); //in current response? (either new or being updated)
 
@@ -295,7 +344,7 @@ export default class Frame extends ComponentBase {
       this.debugLog("messages", "addComponent: Recreating '" + name + "' (" + existingcomp.componenttype + ") for parent '" + parentcomp.name + "'");
 
       // Add '(replaced)' to component name. Need to unregister first, because that needs the original name.
-      this.unregisterComponent(existingcomp, false);
+      this.unregisterComponent(existingcomp);
       existingcomp.name += " (replaced)";
       if (existingcomp.node) {
         existingcomp.node.dataset.name = existingcomp.name;
@@ -306,17 +355,17 @@ export default class Frame extends ComponentBase {
       this.debugLog("messages", "Adding new component '" + name + "' (" + newcomp.type + ") to parent '" + parentcomp.name + "'", newcomp);
 
     //console.log('addComponent: Constructing ' + xmlcomp.xml.base.type + ' ' + name + ' for parent ' + parentcomp.name);
-    const createdcomp = $shell.createComponent(newcomp.type, parentcomp, newcomp);
-    createdcomp.afterConstructor(newcomp);
+    const createdcomp = getIndyShell().createComponent(newcomp.type, parentcomp, newcomp);
+    createdcomp.afterConstructor(newcomp as any);
 
     return createdcomp;
   }
 
-  getComponent(name) {
+  getComponent(name: string) {
     return this.objectmap[name];
   }
 
-  registerComponent(comp) {
+  registerComponent(comp: ToddCompBase) {
     if (this.objectmap[comp.name])
       console.error("Multiple elements with name '" + comp.name + "'.\n" +
         "Already existing element is of type " + this.objectmap[comp.name].componenttype +
@@ -327,27 +376,27 @@ export default class Frame extends ComponentBase {
     }
   }
 
-  registerComponentShortcut(comp) {
+  registerComponentShortcut(comp: ActionForwardBase) {
     const shortcut = getShortcutEvent(comp.shortcut);
     if (!shortcut)
       return;
     this.keyboard.addKey(shortcut, comp.onShortcut.bind(comp));
   }
 
-  unregisterComponentShortcut(comp) {
+  unregisterComponentShortcut(comp: ActionForwardBase) {
     const shortcut = getShortcutEvent(comp.shortcut);
     if (!shortcut)
       return;
     this.keyboard.removeKey(shortcut);
   }
 
-  unregisterComponent(comp, update_focus) {
+  unregisterComponent(comp: ToddCompBase) {
     this.leftovernodes.push(...comp.getDestroyableNodes());
     if (this.objectmap[comp.name] !== comp)
       return; //this component is replaced
 
     if (comp.shortcut)
-      this.unregisterComponentShortcut(comp);
+      this.unregisterComponentShortcut(comp as ActionForwardBase);
 
     // Delete component from this window's object list
     delete this.objectmap[comp.name];
@@ -367,7 +416,7 @@ export default class Frame extends ComponentBase {
     return this.getComponent(active_component_name);
   }
 
-  readdComponent(comp) {
+  readdComponent(comp: ToddCompBase) {
     //console.log("frame: received readdComponent for ",comp);
     if (this.bodynode && comp.name === this.bodynode.name) {
       this.setBodyNode(comp.name);
@@ -387,7 +436,7 @@ export default class Frame extends ComponentBase {
     // No need to relayout - we can only be called from within processMessages and that function will relayout for us.
   }
 
-  broadcastActionUpdated(action) {
+  broadcastActionUpdated(action: ActionForwardBase) {
     if (!this.actionlisteners[action.name])
       return;
     this.actionlisteners[action.name].forEach(elname => {
@@ -395,16 +444,16 @@ export default class Frame extends ComponentBase {
       if (comp)
         comp.onActionUpdated();
       else
-        console.warn("Lost element '" + elname + "' trying to update for action '" + action.ame + "'");
+        console.warn("Lost element '" + elname + "' trying to update for action '" + action.name + "'");
     });
   }
 
-  registerActionListener(actionname, listenername) {
+  registerActionListener(actionname: string, listenername: string) {
     if (!this.actionlisteners[actionname])
       this.actionlisteners[actionname] = [];
     this.actionlisteners[actionname].push(listenername);
   }
-  unregisterActionListener(actionname, listenername) {
+  unregisterActionListener(actionname: string, listenername: string) {
     if (!this.actionlisteners[actionname] || !this.actionlisteners[actionname].includes(listenername)) {
       console.error("Deregistering " + listenername + " for action " + actionname + " but it was never registered");
       return;
@@ -437,12 +486,12 @@ export default class Frame extends ComponentBase {
       console.groupEnd();
   }
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: "all" | "any") {
     $todd.DebugTypedLog("actionenabler", "- Checking action enabled for windowroot " + this.name + ".'" + checkflags + "' (" + selectionmatch + ")");
     return $todd.checkEnabledFlags(this.flags, checkflags, min, max, selectionmatch);
   }
 
-  checkDropTarget(event, droptypes, activeflags, noloopscheck, droplocation) {
+  checkDropTarget(event: DragEvent, droptypes: AcceptType[], activeflags: Record<string, boolean> | null, noloopscheck: (sourcecomp: ToddCompBase, rowkeys: string[]) => boolean | null, droplocation: DropLocation) {
     //droptypes
     //  .sourceflags
     //  .targetflags
@@ -503,7 +552,7 @@ export default class Frame extends ComponentBase {
     const check_noloops = [];
 
     // Loop will be skipped when files/items are not available
-    let type;
+    let type: AcceptType | undefined;
     for (let i = 0; i < items.length; ++i) {
       const item = items[i];
       $todd.DebugTypedLog("actionenabler", ' test item #' + i + ' type:', item.type);
@@ -591,7 +640,7 @@ export default class Frame extends ComponentBase {
         return null;
       }
 
-      if (type.type === "file" && type.dropeffects.includes("copy"))
+      if (type?.type === "file" && type?.dropeffects.includes("copy"))
         dragdata.setDropEffect("copy");
     }
 
@@ -611,7 +660,7 @@ export default class Frame extends ComponentBase {
     return dragdata;
   }
 
-  getMatchedEnableOnRule(enableons) {
+  getMatchedEnableOnRule(enableons: EnableOnRule[]) {
     if (enableons.length === 0) {
       $todd.DebugTypedLog("actionenabler", "No enableons specified, returning '0' as hit rule");
       return 0;
@@ -623,7 +672,7 @@ export default class Frame extends ComponentBase {
     const checkenableons = [];
 
     for (let j = 0; j < enableons.length; ++j) {
-      var sourceobj = this.getComponent(enableons[j].source);
+      const sourceobj = this.getComponent(enableons[j].source);
       if (enableons[j].requirevisible && !sourceobj) {
         $todd.DebugTypedLog("actionenabler", `Ignoring rule #${j}, source '${enableons[j].source}' not found but must be visible`);
         continue;
@@ -641,7 +690,7 @@ export default class Frame extends ComponentBase {
       $todd.DebugTypedLog("actionenabler", `- Checking against rule #${j}, rule:`, enableon);
 
       // Lookup the source component
-      sourceobj = this.getComponent(enableon.source);
+      const sourceobj = this.getComponent(enableon.source);
       if (!sourceobj) {
         $todd.DebugTypedLog("actionenabler", "- - Source does not exist - skipping rule");
         continue; // Source does not exist, continue to next source
@@ -679,18 +728,26 @@ export default class Frame extends ComponentBase {
   getSubmitVariables() {
     const focused = this.getActiveComponent();
 
-    const allvars = { frame: { focused: focused ? focused.name : "" } };
+    const framevar = { focused: focused ? focused.name : "" } as {
+      focused: string;
+      width?: number;
+      height?: number;
+    };
+
+    const allvars: Record<string, unknown> = {
+      frame: framevar
+    };
 
     //      if (this.position_y)
     //        allvars.frame.top = Math.floor(this.position_y);
     //      if (this.position_x)
     //        allvars.frame.left = Math.floor(this.position_x);
     if (this.width.set) {
-      allvars.frame.width = Math.floor(this.width.set);
+      framevar.width = Math.floor(this.width.set);
       //        this.width.xml_set = allvars.frame.width + "px";
     }
     if (this.height.set) {
-      allvars.frame.height = Math.floor(this.height.set);
+      framevar.height = Math.floor(this.height.set);
       //        this.height.xml_set = allvars.frame.height + "px";
     }
 
@@ -711,7 +768,7 @@ export default class Frame extends ComponentBase {
     this.destroy();
   }
 
-  applyUpdate(data) {
+  applyUpdate(data: any) {
     switch (data.type) {
       case "title":
         this.setTitle(data.title);
@@ -735,7 +792,7 @@ export default class Frame extends ComponentBase {
     }
   }
 
-  setFocusTo(compname) {
+  setFocusTo(compname: string) {
     if (!this.active) {
       this.pendingsetfocus = compname;
       return;
@@ -745,12 +802,12 @@ export default class Frame extends ComponentBase {
     if (tofocus)
       tofocus.focusComponent();
   }
-  processIncomingMessage(type, data) {
+  processIncomingMessage(type: string, data: any) {
     switch (type) {
       case "completelogin":
         {
-          const block = this.displayapp.getBusyLock('completelogin');
-          $shell.completeLogin(data.data, block);
+          const block = this.displayapp!.getBusyLock();
+          getIndyShell().completeLogin(data.data, block);
           return;
         }
 
@@ -760,7 +817,7 @@ export default class Frame extends ComponentBase {
             case 'notifications':
               {
                 // Request native notification permission
-                getIndyShell().towl.checkNativeNotificationPermission();
+                getIndyShell().towl!.checkNativeNotificationPermission();
                 return;
               }
           }
@@ -784,11 +841,11 @@ export default class Frame extends ComponentBase {
             timeout: 5000,
             maximumAge: 0
           };
-          const self = this;
+
           let senterror = false;
-          navigator.geolocation.getCurrentPosition(function (pos) {
+          navigator.geolocation.getCurrentPosition(pos => {
             // Success :-) Return the current location
-            self.queueMessage("message", {
+            this.queueMessage("message", {
               status: 0,
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
@@ -798,13 +855,13 @@ export default class Frame extends ComponentBase {
               heading: pos.coords.heading,
               speed: pos.coords.speed
             });
-          }, function (err) {
+          }, err => {
             // getCurrentPosition also gives a timeout after an error on Chrome
             if (senterror)
               return;
             senterror = true;
             // Error :-( Return the error code and message
-            self.queueMessage("message", {
+            this.queueMessage("message", {
               status: err.code,
               message: err.message
             });
@@ -814,12 +871,12 @@ export default class Frame extends ComponentBase {
     }
     super.processIncomingMessage(type, data);
   }
-  applyUpdatedComp(data) {
+  applyUpdatedComp(data: FrameAttributes) {
     this.setupAllProperties(data);
     delete this.pendingmessages[data.target];
   }
 
-  setupSpecials(specialslist) {
+  setupSpecials(specialslist: string[]) {
     this.specials = [];
     specialslist.forEach(specialname => {
       if (this.addComponent(this, specialname))
@@ -828,7 +885,7 @@ export default class Frame extends ComponentBase {
       //        console.warn("Failed to find special '" + specialname + "'");
     });
   }
-  deleteComponentsByName(componentlist) {
+  deleteComponentsByName(componentlist: string[]) {
     for (let i = 0; i < componentlist.length; ++i) {
       const comp = this.getComponent(componentlist[i]);
       if (comp)
@@ -836,7 +893,7 @@ export default class Frame extends ComponentBase {
     }
   }
 
-  setupAllProperties(data) {
+  setupAllProperties(data: FrameAttributes) {
     this.setTitle(data.title);
 
     if (data.screenname)
@@ -874,7 +931,7 @@ export default class Frame extends ComponentBase {
   }
 
   rebuildContentNode() {
-    const newnodes = [this.menubarnode, this.toolbar ? this.toolbar.getNode() : null, this.bodynode.getNode()].filter(nonempty => nonempty);
+    const newnodes = [this.menubarnode, this.toolbar ? this.toolbar.getNode() : null, this.bodynode?.getNode()].filter(isTruthy);
     dompack.empty(this.nodes.contentnode);
     this.nodes.contentnode.append(...newnodes);
   }
@@ -883,11 +940,7 @@ export default class Frame extends ComponentBase {
    * Property getters & setters
    */
 
-  getActive() {
-    return this.active;
-  }
-
-  setActive(active) {
+  setActive(active: boolean) {
     if (active === this.active)
       return;
 
@@ -895,7 +948,7 @@ export default class Frame extends ComponentBase {
     this.setAllowFocus(active);
     this.node.classList.toggle("active", this.active);
     if (this.active) {
-      if (this.displayapp.isActiveApplication()) //our subsceen may only take focus if we're actually the active tab
+      if (this.displayapp!.isActiveApplication()) //our subscreen may only take focus if we're actually the active tab
         focuszones.focusZone(this.node);
       this.actionEnabler();
 
@@ -905,7 +958,7 @@ export default class Frame extends ComponentBase {
     return this;
   }
 
-  setResizable(value) {
+  private setResizable(value: boolean) {
     value = Boolean(value);
     if (value === this.resizable)
       return;
@@ -914,7 +967,7 @@ export default class Frame extends ComponentBase {
     this.updateFrameDecoration();
   }
 
-  setTitle(title) {
+  setTitle(title: string) {
     this.title = title || '';
     this.nodes.title.textContent = this.title;
   }
@@ -937,7 +990,7 @@ export default class Frame extends ComponentBase {
     evt.preventDefault();
   }
 
-  setParentWindow(parentwindow) {
+  setParentWindow(parentwindow: Frame | null) {
     this.parentwindow = parentwindow;
     this.updateFrameDecoration();
     this.headerheight = this.fullscreen ? 0 : this.nodes.windowheader.getBoundingClientRect().height;
@@ -990,18 +1043,24 @@ export default class Frame extends ComponentBase {
       console.groupCollapsed(this.screenname + ": Recalculating widths");
     this.calculateDimension(true);
 
-    if ($todd.IsDebugTypeEnabled("dimensions"))
-      console.groupEnd(), console.groupCollapsed(this.screenname + ": Applying widths");
+    if ($todd.IsDebugTypeEnabled("dimensions")) {
+      console.groupEnd();
+      console.groupCollapsed(this.screenname + ": Applying widths");
+    }
     this.setWidth(this.width.calc);
     this.applyDimension(true);
 
-    if ($todd.IsDebugTypeEnabled("dimensions"))
-      console.groupEnd(), console.groupCollapsed(this.screenname + ": Recalculating heights");
+    if ($todd.IsDebugTypeEnabled("dimensions")) {
+      console.groupEnd();
+      console.groupCollapsed(this.screenname + ": Recalculating heights");
+    }
 
     this.calculateDimension(false);
 
-    if ($todd.IsDebugTypeEnabled("dimensions"))
-      console.groupEnd(), console.groupCollapsed(this.screenname + ": Applying heights");
+    if ($todd.IsDebugTypeEnabled("dimensions")) {
+      console.groupEnd();
+      console.groupCollapsed(this.screenname + ": Applying heights");
+    }
 
     this.setHeight(this.height.calc);
     this.applyDimension(false);
@@ -1013,11 +1072,11 @@ export default class Frame extends ComponentBase {
   calculateDimWidth() {
     this.debugLog("dimensions", "Recalculating width");
 
-    this.setSizeToMaxOf('width', [this.toolbar, this.bodynode]);
+    this.setSizeToMaxOf('width', [this.toolbar, this.bodynode].filter(isTruthy));
     this.width.min = Math.max(screen_minwidth, this.width.min);
   }
   fixupCalculatedWidths() {
-    const appcanvasdim = this.node.parentNode.getBoundingClientRect();
+    const appcanvasdim = (this.node.parentNode as HTMLElement).getBoundingClientRect();
     if (!this.fullscreen) {
       this.width.min = Math.floor(Math.min(this.width.min, appcanvasdim.width * $todd.settings.fullscreen_maxx));
       this.width.calc = Math.floor(Math.min(this.width.calc, appcanvasdim.width * $todd.settings.fullscreen_maxx));
@@ -1032,8 +1091,8 @@ export default class Frame extends ComponentBase {
     this.getVisibleChildren().forEach(comp => comp.setWidth(width));
   }
 
-  getVisibleChildren() {
-    return [this.toolbar, this.bodynode].filter(node => Boolean(node));
+  getVisibleChildren(): ToddCompBase[] {
+    return [this.toolbar, this.bodynode].filter(isTruthy);
   }
   getHeightOverhead() {
     let contentheight = this.headerheight; // Counter extra border width and header height as content height
@@ -1049,7 +1108,7 @@ export default class Frame extends ComponentBase {
     this.height.min = Math.max(screen_minheight, this.height.min);
   }
   fixupCalculatedHeights() {
-    const appcanvasdim = this.node.parentNode.getBoundingClientRect();
+    const appcanvasdim = (this.node.parentNode as HTMLElement).getBoundingClientRect();
     if (!this.fullscreen) {
       this.height.min = Math.floor(Math.min(this.height.min, appcanvasdim.height * $todd.settings.fullscreen_maxy));
       this.height.calc = Math.floor(Math.min(this.height.calc, appcanvasdim.height * $todd.settings.fullscreen_maxy));
@@ -1089,7 +1148,7 @@ export default class Frame extends ComponentBase {
       this.toolbar.relayout();
 
     if (this.bodynode)
-      this.bodynode.relayout(true);
+      this.bodynode.relayout();
 
     if ($todd.IsDebugTypeEnabled("dimensions"))
       console.groupEnd();
@@ -1099,26 +1158,26 @@ export default class Frame extends ComponentBase {
    * Component state
    */
 
-  showScreen(displayapp) {
+  showScreen(displayapp: ApplicationBase) {
     if (this.displayapp) {
       console.log("We're already visible in app", displayapp);
       throw new Error("Trying to show a screen in multiple apps");
     }
 
     this.displayapp = displayapp;
-    this.displayapp.appnodes.root.addEventListener("tollium:appcanvas-resize", this.desktoplistener);
+    this.displayapp.appnodes.root.addEventListener("tollium:appcanvas-resize", this.onDesktopResized);
 
     const parent = this.displayapp.screenstack.at(-1);
     if (parent)
       parent.setActive(false);
 
-    this.setParentWindow(parent);
+    this.setParentWindow(parent || null);
     this.displayapp.screenstack.push(this);
     this._updateDefaultButton(this.node); //ensures defaultbutton is processed
     this.setActive(true); // focuses a component, can update the default button
 
     if (!this.fullscreen) {
-      const appcanvasdim = this.node.parentNode.getBoundingClientRect();
+      const appcanvasdim = (this.node.parentNode as HTMLElement).getBoundingClientRect();
       this.left = Math.floor(Math.max((appcanvasdim.width - this.width.set) / 2, 0));
       this.top = Math.floor(Math.max((appcanvasdim.height - this.height.set) / 3, 0));
       // Re-position the window. center
@@ -1128,7 +1187,6 @@ export default class Frame extends ComponentBase {
     if (this.bodynode)
       this.bodynode.onShow();
 
-    this.removing = false;
     this.node.style.visibility = "visible";
 
     if (this.pendingsetfocus) {
@@ -1138,23 +1196,24 @@ export default class Frame extends ComponentBase {
   }
 
   hideScreen() {
+    if (!this.displayapp)
+      throw new Error(`hideScreen called but displayapp is not set`);
     this.displayapp.screenstack = this.displayapp.screenstack.filter(screen => screen !== this); //erase
 
     const parent = this.displayapp.screenstack.at(-1);
     if (parent)
       parent.setActive(true);
 
-    this.displayapp.appnodes.root.removeEventListener("tollium:appcanvas-resize", this.desktoplistener);
+    this.displayapp.appnodes.root.removeEventListener("tollium:appcanvas-resize", this.onDesktopResized);
     this.displayapp = null;
     this.node.remove();
   }
 
-  setAllowFocus(allowfocus) //ADDME 'inert' would make our lives easier once browsers start implementing it
-  {
+  setAllowFocus(allowfocus: boolean) { //ADDME 'inert' would make our lives easier once browsers start implementing it
     if (allowfocus) {
       dompack.qSA(this.node, "*[todd-savedtabindex]").forEach(el => {
         if (el.getAttribute("todd-savedtabindex") !== "none")
-          el.setAttribute("tabindex", el.getAttribute("todd-savedtabindex"));
+          el.setAttribute("tabindex", el.getAttribute("todd-savedtabindex")!);
         else
           el.removeAttribute('tabindex');
 
@@ -1162,7 +1221,7 @@ export default class Frame extends ComponentBase {
       });
     } else {
       domfocus.getFocusableComponents(this.node, false).forEach(function (el) {
-        el.setAttribute("todd-savedtabindex", el.hasAttribute("tabindex") ? el.getAttribute("tabindex") : "none");
+        el.setAttribute("todd-savedtabindex", el.hasAttribute("tabindex") ? el.getAttribute("tabindex")! : "none");
         el.setAttribute("tabindex", "-1");
       });
     }
@@ -1177,7 +1236,7 @@ export default class Frame extends ComponentBase {
    * Events
    */
 
-  onWindowMoveStart(event) {
+  onWindowMoveStart(event: movable.DompackMoveEvent) {
     event.stopPropagation();
 
     this.node.classList.add("moving");
@@ -1186,7 +1245,7 @@ export default class Frame extends ComponentBase {
     const pos = { x: this.left, y: this.top };
 
     // Calculate the min position
-    const desktopdims = this.displayapp.getAppCanvas().getBoundingClientRect();
+    const desktopdims = this.displayapp!.getAppCanvas().getBoundingClientRect();
     const min = { x: pos.x - event.detail.pageX + desktopdims.left, y: pos.y - event.detail.pageY + desktopdims.top };
     const max = { x: desktopdims.width - 1 + min.x, y: desktopdims.height + min.y - 1 }; // inclusive bound, not a limit!
     this.draginfo = {
@@ -1198,7 +1257,7 @@ export default class Frame extends ComponentBase {
   }
 
 
-  onResizerMoveStart(event) {
+  onResizerMoveStart(event: movable.DompackMoveEvent) {
     event.stopPropagation();
 
     // If this window can be resized, check if one of the resizers was hit
@@ -1206,14 +1265,16 @@ export default class Frame extends ComponentBase {
     this.node.appendChild(outline);
     this.draginfo = {
       type: "resize",
-      dir: event.detail.listener.dataset.resize,
+      dir: (event.detail.listener as HTMLElement).dataset.resize!,
       outline: outline
     };
     return;
   }
 
-  onWindowMove(event) {
+  onWindowMove(event: movable.DompackMoveEvent) {
     event.stopPropagation();
+    if (this.draginfo?.type !== "move")
+      throw new Error("draginfo should be type: move");
 
     // Calculate the new frame position
     const pos = {
@@ -1227,10 +1288,12 @@ export default class Frame extends ComponentBase {
     dompack.setStyles(this.node, { left: this.left, top: this.top });
   }
 
-  onResizerMove(event) {
+  onResizerMove(event: movable.DompackMoveEvent) {
     event.stopPropagation();
+    if (this.draginfo?.type !== "resize")
+      throw new Error("draginfo should be type: resize");
 
-    const dir = event.detail.listener.dataset.resize;
+    const dir = (event.detail.listener as HTMLElement).dataset.resize!;
     //ADDME: Restrict resizing to the visible toddDesktop!
     if (dir.indexOf("n") >= 0)
       this.draginfo.outline.style.top = event.detail.movedY + 'px';
@@ -1242,14 +1305,16 @@ export default class Frame extends ComponentBase {
       this.draginfo.outline.style.left = event.detail.movedX + 'px';
   }
 
-  onWindowMoveEnd(event) {
+  onWindowMoveEnd(event: movable.DompackMoveEvent) {
     event.stopPropagation();
 
     this.node.classList.remove("moving");
   }
 
-  onResizerMoveEnd(event) {
+  onResizerMoveEnd(event: movable.DompackMoveEvent) {
     event.stopPropagation();
+    if (this.draginfo?.type !== "resize")
+      throw new Error("draginfo should be type: resize");
 
     // Resize window
     if (this.draginfo.dir.includes("n"))
@@ -1282,28 +1347,27 @@ export default class Frame extends ComponentBase {
       this.queueMessage("close", {}, true);
   }
 
-  onCancel(fromkeyboard, event) {
+  onCancel(fromkeyboard: boolean) {
     if (fromkeyboard && this.fullscreen)
       return; //esc not allowed on fullscreen dialogs
 
     this.requestClose();
   }
 
-  executeAction(actionname) {
+  executeAction(actionname: string) {
     const action = this.getComponent(actionname);
     if (action)
-      action.onExecute();
+      (action as ObjAction).onExecute();
   }
 
-  onDesktopResized(newdimensions) {
+  onDesktopResized = () => {
     this.width.dirty = true;
     this.height.dirty = true;
     this.recalculateDimensions();
     this.relayout();
-  }
+  };
 
-  processMessages(messages) //Update/create all components transferred in the call
-  {
+  processMessages(messages: TolliumMessage[]) { //Update/create all components transferred in the call
     this.debugLog("messages", "** Processing messages for " + this.screenname);
 
     if (Object.keys(this.pendingmessages).length || this.deliverablemessages.length)
@@ -1316,7 +1380,7 @@ export default class Frame extends ComponentBase {
     const currentfocuscomponent = currentfocus ? getToddOwner(currentfocus) : null;
     const currentlyactive = focuszones.getCurrentFocusZone() === this.node;
 
-    const deliverabletargets = [];
+    const deliverabletargets: string[] = [];
     messages.forEach(msg => {
       const component = this.objectmap[msg.target];
       if (!component) {
@@ -1358,7 +1422,7 @@ export default class Frame extends ComponentBase {
       } else {
         this.debugLog("messages", "Message for component " + msg.target, msg);
         if (component)
-          component.applyUpdate(msg);
+          component.applyUpdate(msg as unknown as ComponentBaseUpdate);
         else
           console.error("Got update for " + msg.target + ", failed due to missing component");
       }
@@ -1369,7 +1433,7 @@ export default class Frame extends ComponentBase {
     this._destroyLeftoverNodes();
 
     if (Object.keys(this.pendingmessages).length && !this.isdestroyed) {
-      const ids = [];
+      const ids: string[] = [];
       Object.keys(this.pendingmessages).forEach(key => ids.push("'" + key + "' (" + this.pendingmessages[key][0].type + ")"));
       //var ids = Object.keys(this.pendingmessages).map(function (name){ return "'" + name + "' (" + this.pendingmessages[name][0].type + ")"; });
       console.log("Some components were sent but not added: " + ids.join(", "));
@@ -1403,14 +1467,14 @@ export default class Frame extends ComponentBase {
   /* **********************************
       Frontend applications API
   */
-  setMessageHandler(component, msgtype, handler) {
+  setMessageHandler(component: string, msgtype: string, handler: FrontendMessageHandler) {
     if (handler)
       this.frontendevents[component + ' ' + msgtype] = handler;
     else
       delete this.frontendevents[component + ' ' + msgtype];
   }
-  tryProcessMessage(target, type, data, synchronous, originalcallback) {
-    const busylock = synchronous ? this.displayapp.getBusyLock() : dompack.flagUIBusy();
+  tryProcessMessage(target: string, type: string, data: unknown, synchronous: boolean, originalcallback: () => void) {
+    const busylock = synchronous ? this.displayapp!.getBusyLock() : dompack.flagUIBusy();
     const finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
 
     //yep, we have a local processor!
@@ -1418,7 +1482,7 @@ export default class Frame extends ComponentBase {
     if (func) {
       setTimeout(() => func(data, finalcallback), 0);
     } else {
-      this.hostapp.queueEventNoLock("componentmessage", {
+      (this.hostapp as BackendApplication).queueEventNoLock("componentmessage", {
         window: this.screenname,
         target: target,
         data: data,
@@ -1426,17 +1490,17 @@ export default class Frame extends ComponentBase {
       }, synchronous, finalcallback);
     }
   }
-  hasEventListener(componentname, eventname) {
+  hasEventListener(componentname: string, eventname: string) {
     return Boolean(this.frontendevents[componentname + ':' + eventname]);
   }
-  updateScreen(components) {
+  updateScreen(components: $todd.ComponentsForMessages) {
     const messages = $todd.componentsToMessages(components);
     this.processMessages(messages);
   }
   //pass a message to the 'onmessage' handler
   //synchronous: block the window's app until the message is delivered
   //only testmenus.es seems to use this
-  sendFrameMessage(msg, synchronous) {
+  sendFrameMessage(msg: { msg: "removecustomaction" }, synchronous: true) {
     this.queueMessage('message', msg, synchronous);
   }
 

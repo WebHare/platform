@@ -271,7 +271,7 @@ export default class ObjPanel extends ComponentBase {
   /****************************************************************************************************************************
   * Dimensions
   */
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     const children = [];
     for (const line of this.lines)
       if (line.titlecomp)
@@ -458,7 +458,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     this.paddingtop = !this.block && !this.options.removetopmargin ? $todd.gridlineTopMargin : 0;
     this.paddingbottom = !this.block && !this.options.removebottommargin ? $todd.gridlineBottomMargin : 0;
   }
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     return [this.titlecomp].filter(node => Boolean(node)).concat(this.getVisibleItems());
   }
   getVisibleItems() {

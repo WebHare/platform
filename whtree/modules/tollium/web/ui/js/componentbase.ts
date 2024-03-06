@@ -8,6 +8,8 @@ import { SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-toll
 import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
+import type { FlagSet, SelectionMatch } from './types';
+import type { BackendApplication } from './application';
 
 // Allow components to set propTodd as a backwards pointer to their code
 declare global {
@@ -203,7 +205,7 @@ export class ToddCompBase {
 
     // Unregister and rename to indicate destroyed components
     if (this.name) {
-      this.owner.unregisterComponent(this, true);
+      this.owner.unregisterComponent(this);
       if (this.name.substr(this.name.length - 11) !== " (replaced)")
         this.name += " (destroyed)";
     }
@@ -286,7 +288,7 @@ export class ToddCompBase {
       }
   }
 
-  applyDirtyListener(dirtylistener: DirtyListener) {
+  applyDirtyListener(dirtylistener: DirtyListener | null) {
     this.dirtylistener = dirtylistener;
   }
 
@@ -302,32 +304,30 @@ export class ToddCompBase {
   * Communications
   */
 
-  queueEvent() {
+  queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback: () => void) {
     console.warn("queueEvent is deprecated, switch to queueMessage");
-    return this.owner.hostapp.queueEvent.apply(this.owner.hostapp, arguments);
+    return (this.owner.hostapp as BackendApplication).queueEvent(actionname, param, synchronous, originalcallback);
   }
 
   //Transfer the current application state to the server
-  transferState(synchronous) {
+  transferState(synchronous: boolean) {
     //ADDME: In the future, we may want to short-circuit this to only transfer this component's state
-    return this.owner.hostapp.queueEvent("$nop", null, Boolean(synchronous));
+    return (this.owner.hostapp as BackendApplication).queueEvent("$nop", null, Boolean(synchronous));
   }
 
   //Queue an outgoing message
-  queueMessage(type, data, synchronous = false) {
+  queueMessage(type: string, data: unknown, synchronous = false) {
     this.asyncMessage(type, data, { modal: synchronous });
   }
 
   //Queue an outgoing message and return a promise
-  asyncMessage(type, data, options) {
+  asyncMessage(type: string, data: unknown, { modal = true } = {}) {
     if (!this.owner) //already disassociated
       return;
 
-    options = { modal: true, ...options };
-
     return new Promise<void>((resolve, reject) => {
       const callback = () => resolve();
-      this.owner.tryProcessMessage(this.name, type, data, options.modal, callback);
+      this.owner.tryProcessMessage(this.name, type, data, modal, callback);
     });
   }
 
@@ -349,7 +349,7 @@ export class ToddCompBase {
   }
 
   // Check enableon rules
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     this.debugLog("actionenabler", "does not support enabling actions");
     return false;
   }
@@ -375,10 +375,11 @@ export class ToddCompBase {
     console.error("Received update '" + data.type + "' for component '" + this.name + "' but not handled");
   }
 
-  processIncomingMessage(type: string, data: unknown) {
+  processIncomingMessage(type: string, data: unknown): void {
     const expectcallback = "onMsg" + type;
-    if (this[expectcallback])
-      return this[expectcallback].apply(this, [data]);
+    const selfAsApi = this as unknown as Record<string, (data: unknown) => void>;
+    if (selfAsApi[expectcallback])
+      return selfAsApi[expectcallback].apply(this, [data]);
 
     console.warn(`Missing handler '${expectcallback}' to process message of type '${type}'`, data);
   }
@@ -602,8 +603,7 @@ export class ToddCompBase {
   }
 
 
-  setNewWidth(newwidth) //FIXME rename to eg 'client_set' or 'user_set' ?
-  {
+  setNewWidth(newwidth) { //FIXME rename to eg 'client_set' or 'user_set' ?
     this.width.new_set = newwidth;
     this.width.dirty = true;
   }

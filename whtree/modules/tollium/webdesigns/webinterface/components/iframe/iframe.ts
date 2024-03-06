@@ -198,7 +198,7 @@ export default class ObjIFrame extends ComponentBase {
     return this.data;
   }
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checheckflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     return $todd.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
   }
 

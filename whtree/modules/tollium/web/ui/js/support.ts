@@ -2,6 +2,7 @@ import * as dompack from '@webhare/dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
 import { debugFlags } from '@webhare/env';
+import type { FlagSet, SelectionMatch, TolliumMessage } from './types';
 
 require("../common.lang.json");
 
@@ -372,10 +373,12 @@ export const desktop =
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- This API is hard to make meaningfully typesafe. We should reconsider the entire approach - why not let frontend apps directly instantiate the needed components ?
-export function componentsToMessages(components: Record<string, any>) {
+export type ComponentsForMessages = Record<string, any>;
+
+export function componentsToMessages(components: ComponentsForMessages): TolliumMessage[] {
   /* ADDME: updateScreen is currently an attempt at a 'prettier' API for screen management but we should probably merge with processMessages eventually (perhaps todd controller should change its format)
    */
-  const messages: unknown[] = [];
+  const messages: TolliumMessage[] = [];
   Object.keys(components).forEach(name => {
     const obj = components[name];
     if (!obj.messages || Object.keys(obj).length > 1) { //not only sending messages
@@ -480,7 +483,7 @@ export function fixupColor(color: string) {
     @param selectionmatch - ("all", "any")
     @returns whether the action should be enabled (all checkflags match each item in flags)
 */
-export function checkEnabledFlags(flags: Array<Record<string, boolean>>, checkflags: string[], min: number, max: number, selectionmatch: "all" | "any") { //FIXME rename and move out of Screen... compbase?
+export function checkEnabledFlags(flags: FlagSet, checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) { //FIXME rename and move out of Screen... compbase?
   // This code should be synchronized with checkEnabledFlags in tollium/include/internal/support.whlib
   DebugTypedLog("actionenabler", "- - Checking checkflags [" + checkflags.join(", ") + "], " + flags.length + " in [" + min + "," + (max >= 0 ? max + "]" : "->") + " (" + selectionmatch + ")");
 

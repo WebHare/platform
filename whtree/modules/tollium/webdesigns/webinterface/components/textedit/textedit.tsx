@@ -134,7 +134,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     if (data.buttons)
       data.buttons.forEach(button => {
         const comp = this.owner.addComponent(this, button);
-        this.buttons.push(comp);
+        if (comp)
+          this.buttons.push(comp as ObjButton);
       });
 
     // Build our DOM
@@ -205,8 +206,10 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       return console.error('Child ' + comp.name + ' not inside the textedit is trying to replace itself');
 
     const newcomp = this.owner.addComponent(this, comp.name);
-    this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp);
-    comp.getNode().replaceWith(newcomp.getNode());
+    if (newcomp) {
+      this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp as ObjButton);
+      comp.getNode().replaceWith(newcomp.getNode());
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -285,7 +288,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   // Dimensions
   //
 
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     return this.buttons;
   }
 

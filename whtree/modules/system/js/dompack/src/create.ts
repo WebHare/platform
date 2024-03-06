@@ -11,8 +11,13 @@ declare global {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CreateAttributes = Record<string, any>;
+type CreateAttributes = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+  on?: {
+    [key in keyof GlobalEventHandlersEventMap]?: (evt: GlobalEventHandlersEventMap[key]) => void;
+  };
+};
 
 type CreateElementFunction = (attributes: CreateAttributes, _1?: null, _2?: null) => HTMLElement;
 

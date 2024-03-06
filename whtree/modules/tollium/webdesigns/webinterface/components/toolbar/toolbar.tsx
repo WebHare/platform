@@ -4,6 +4,7 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import './toolbar.scss';
+import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
 
 const ButtonHeight = 68;
 const ToolbarHeight = ButtonHeight + 4;
@@ -95,7 +96,7 @@ export default class ObjToolbar extends ComponentBase {
     this.height.dirty = true;
   }
 
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     return this.items.filter(item => item.comp).map(item => item.comp);
   }
 

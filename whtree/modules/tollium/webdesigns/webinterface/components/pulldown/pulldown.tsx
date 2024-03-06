@@ -99,7 +99,7 @@ export default class ObjPulldown extends HTMLComponentBase {
     event.detail.submenu.prepend(<li onClick={() => this.queueMessage("inspectoptions", {}, true)}>Inspect options</li>);
   }
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     //    console.log(this.obj.getSelectedIndex());
     const flags = this.options[this.node.selectedIndex].flags;
     return $todd.checkEnabledFlags([flags], checkflags, min, max, selectionmatch);
