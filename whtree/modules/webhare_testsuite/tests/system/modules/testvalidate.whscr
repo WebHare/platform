@@ -766,7 +766,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
 
   res := ValidateSingleFile("mod::webhare_testsuite/tests/publisher/forms/data/testformcomponents.xsd");
-  TestEq([[line := 28, col := 0, attrname := "descriptiontid", tid := "webhare_testsuite:webtools.testsuitehandlerdesc" ]
+  TestEq([[line := 27, col := 0, attrname := "descriptiontid", tid := "webhare_testsuite:webtools.testsuitehandlerdesc" ]
          ], (SELECT *, DELETE resourcename FROM res.tids));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badplacementxsd ]);

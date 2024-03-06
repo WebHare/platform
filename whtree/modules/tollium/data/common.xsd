@@ -261,7 +261,7 @@
     <xs:attribute name="composition" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          Specify where to store the data in this instance, relative to the base object for this composition.<br />
+          Specify where to store the data in this instance, relative to the base object for this composition.
           This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
           recommended as it is incompatible with the history/versioning system.
         </xs:documentation>
@@ -361,18 +361,16 @@
       <xs:annotation>
         <xs:documentation>
             When a sortkeyname is given, the field specified will be used for sorting instead of the content of the column.
-            <b>Potential usecases:</b><br />
-            <ul>
-              <li>have a column of type="text" which display's money including currency symbol, but still have it sort correctly</li>
-            </ul>
 
-            <b>Examples of how to use it</b>:<br />
+            Potential usecases:
+            - have a column of type="text" which display's money including currency symbol, but still have it sort correctly
+
+            Examples of how to use it:
+
             If you want to have a column 'onlineusers' sort on both onlineusers and loginname, you can do the following:
-            <ul>
-              <li>have a field in the row called 'onlineandname'</li>
-              <li>when creating the rows: onlineandname := (isonline ? "0" : "1") || user.login</li>
-              <li>in the screen definition use something like: &lt;column name="onlineusers" sortkeyname="onlineandname" /&gt;</li>
-            </ul>
+            - have a field in the row called 'onlineandname'
+            - when creating the rows: onlineandname := (isonline ? "0" : "1") || user.login
+            = in the screen definition use something like: &lt;column name="onlineusers" sortkeyname="onlineandname" /&gt;
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

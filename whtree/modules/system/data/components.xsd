@@ -5,7 +5,6 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   targetNamespace="http://www.webhare.net/xmlns/system/components"
   elementFormDefault="qualified"
@@ -85,9 +84,7 @@
       <xs:attribute name="inputkind" default="wrd_id">
         <xs:annotation>
           <xs:documentation>
-            <html:p>
               Type of the input field we're using to look up the value, one of "WRD_ID", "AUTHOBJECT_ID" or "WRD_GUID"; defaults to "WRD_ID"
-            </html:p>
           </xs:documentation>
         </xs:annotation>
         <xs:simpleType>
@@ -104,9 +101,7 @@
       <xs:attribute name="displayfield" default="">
         <xs:annotation>
           <xs:documentation>
-            <html:p>
               Which field (from the WRD Entity) to display in the textedit; defaults to the output of AuthAPI->GetUserDisplayName when left empty.
-            </html:p>
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>

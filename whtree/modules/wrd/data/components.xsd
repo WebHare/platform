@@ -6,7 +6,6 @@
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/wrd/components"
   elementFormDefault="qualified"
   xml:lang="en">
@@ -607,9 +606,9 @@
           <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Handler to preprocess the array value before displaying it as list rows. Can be used to convert/add columns to the list, or to remove rows
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -617,9 +616,9 @@
     <xs:attribute name="openaction" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             The openaction will be fired when a list item is doubleclicked.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -630,9 +629,9 @@
           <tai:callbacksignature arguments="" />
         </xs:appinfo>
         <xs:documentation>
-          <html:p>
+
             Handler called when an entity is selected
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -656,12 +655,12 @@
     <xs:attribute name="icons" type="s:StringList">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             Contains a list of iconnames, separated by a space.
             Each iconname is written in this format: modulename:category/iconname.
             The icon itself must be a PNG picture with the path/filename: modulename/web/img/category/iconname.16x16.png.
             Icons can be used by using the 'iconname'-attribute in a list &lt;column&gt;.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -669,18 +668,18 @@
     <xs:attribute name="emptytid" type="sc:Tid">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When the list is empty, the text with the given tid will be shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="empty" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>
+
             When the list is empty, the text defined here will be shown.
-          </html:p>
+
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -688,7 +687,7 @@
     <xs:attribute name="sortable" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Is the input sortable for the user, options: TRUE, FALSE</html:p>
+          Is the input sortable for the user, options: TRUE, FALSE
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -696,7 +695,7 @@
     <xs:attribute name="sortascending" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Sort the input ascending, options: TRUE, FALSE</html:p>
+          Sort the input ascending, options: TRUE, FALSE
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -704,7 +703,7 @@
     <xs:attribute name="sortcolumn" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Column name which the input needs to be sorted</html:p>
+          Column name which the input needs to be sorted
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -712,7 +711,7 @@
     <xs:attribute name="orderable" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Is the input orderable for the user (with move up / move down buttons), options: TRUE, FALSE</html:p>
+          Is the input orderable for the user (with move up / move down buttons), options: TRUE, FALSE
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -733,7 +732,7 @@
     <xs:attribute name="flags" type="s:Flags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
+          Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -741,7 +740,7 @@
     <xs:attribute name="selectableflags" type="s:Flags">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The flags that will be checked to determine if a row is selectable.</html:p>
+          The flags that will be checked to determine if a row is selectable.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -778,9 +777,9 @@
         <xs:attribute name="entityeditscreen" type="tc:ScreenFragmentReference" default="">
           <xs:annotation>
             <xs:documentation>
-              <html:p>
+
                 Reference to the screen to use to edit an entity. Should extend from WRDEntityEditScreenBase (or implement the same interface)
-              </html:p>
+
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
@@ -791,9 +790,9 @@
               <tai:callbacksignature returntype="integer" arguments="object record integer" />
             </xs:appinfo>
             <xs:documentation>
-              <html:p>
+
                 Handler used for adding/editing rows. The handler receives the type, list's entitycontext and ID to edit (0 if new). By default, the roweditscreen is opened
-              </html:p>
+
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
@@ -916,9 +915,9 @@
       <xs:attribute name="field" type="xs:string">
         <xs:annotation>
           <xs:documentation>
-            <html:p>
+
               The TAG of the field to show
-            </html:p>
+
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -926,9 +925,9 @@
       <xs:attribute name="inputkind" default="wrd_id">
         <xs:annotation>
           <xs:documentation>
-            <html:p>
+
               Type of the input field we're use to look up the value
-            </html:p>
+
           </xs:documentation>
         </xs:annotation>
         <xs:simpleType>

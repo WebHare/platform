@@ -10,7 +10,6 @@
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
   elementFormDefault="qualified"

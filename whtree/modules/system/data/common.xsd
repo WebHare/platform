@@ -55,20 +55,18 @@
 <!--
     <xs:annotation>
       <xs:documentation>
-        <html:p>
-          Path to a image. module::path/image.<br />
-          <br />
+          Path to a image. module::path/image.
+
           Images in this tollium:colors/ namespace are automatically generated. Specify the color value
-          as the image name. Valid colors are all colors supported by GfxCreateColorFromCSS.<br />
-          <br />
-          Examples:<br />
-          <br />
-          tollium:colors/#ffffff        White<br />
-          tollium:colors/#ff0           Yellow<br />
-          tollium:colors/rgb(0,0,0)     Black<br />
-          tollium:colors/rgba(0,0,0,0)  Transparent<br />
-          tollium:colors/purple         Purple<br />
-        </html:p>
+          as the image name. Valid colors are all colors supported by GfxCreateColorFromCSS.
+
+          Examples:
+
+          tollium:colors/#ffffff        White
+          tollium:colors/#ff0           Yellow
+          tollium:colors/rgb(0,0,0)     Black
+          tollium:colors/rgba(0,0,0,0)  Transparent
+          tollium:colors/purple         Purple
       </xs:documentation>
     </xs:annotation>
 -->

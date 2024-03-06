@@ -2,8 +2,6 @@
 
 <!-- NOTE: this is xmlschema.xsd, but with all processContents= nodes set to strict
            to make sure all schemas are present
-
-           FIXME except for xs:documentation, for now, so we won't need to cleanup all <html:p> this round
 -->
 
 <!-- XML Schema schema for XML Schemas: Part 1: Structures -->
@@ -1278,7 +1276,7 @@ use</xs:documentation>
    </xs:annotation>
    <xs:complexType mixed="true">
     <xs:sequence minOccurs="0" maxOccurs="unbounded">
-     <xs:any processContents="lax"/>
+     <xs:any processContents="strict"/>
     </xs:sequence>
     <xs:attribute name="source" type="xs:anyURI"/>
     <xs:attribute ref="xml:lang"/>
