@@ -98,13 +98,13 @@ async function downloadApplication() {
   const manifestfetch = fetch(`${assetbasedir}apmanifest.json`);
   const baseassets = debugassetpacks
     ? [
-      "/.ap/tollium.polyfills/ap.js",
+      "/.ap/tollium.polyfills/ap.mjs",
       `${assetbasedir}ap.css`,
-      `${assetbasedir}ap.js`,
+      `${assetbasedir}ap.mjs`,
     ]
     : [
       `${assetbasedir}ap.css`,
-      `${assetbasedir}ap.js`
+      `${assetbasedir}ap.mjs`
     ];
 
   //make sure we get refresh versions, Safari seems to need this or it'll just reuse its browser cache

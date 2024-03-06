@@ -203,8 +203,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
   ///get the name of the current assetpack
   PUBLIC PROPERTY assetpack(__GetAssetPack, -);
-  ///inject the script bundle with async tags
-  PUBLIC BOOLEAN asyncbundle;
   ///set a timestamp or other prefix to trigger unique bundles
   PUBLIC STRING assetcachebuster;
   ///suppress ?c= timestamps
@@ -298,8 +296,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->designrooturl := GetModuleResourceURL(this->__config.designfolder || 'web/');
     IF(this->designrooturl = "")
       THROW NEW Exception("Misunderstood design folder - <webdesign designfolder=> must point to a mod::<module>/webdesigns/<design> path"); //so we can expose its web/ folder as /.publisher/sd/...
-
-    this->asyncbundle := this->__config.asyncbundle;
 
     IF(this->pvt_targetsite->cdnbaseurl != "")
     {

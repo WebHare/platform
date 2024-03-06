@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 /* global focusZones */
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 window.focusZones = require('@mod-tollium/web/ui/components/focuszones');
 
 function onZoneFocus(event) {
@@ -25,8 +25,12 @@ function pageinit() {
   //make sure these buttons don't steal focus themselves
 
   dompack.qSA("button").forEach(node => node.addEventListener("mousedown", function (event) { event.preventDefault(); console.log("prevent"); }));
+
+  // note that the actual test is racy and domready may fire either before or after the DOM got focus:
+  dompack.qR("#input2_2").focus(); //make sure the focus si where the test expects. we cannot trust autofocus with async script
 }
 
 window.addEventListener("wh:focuszone-focus", onZoneFocus);
 window.addEventListener("dompack:takefocus", evt => console.log("prefocus event", evt));
-document.addEventListener("DOMContentLoaded", pageinit);
+
+dompack.onDomReady(pageinit);

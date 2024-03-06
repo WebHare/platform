@@ -24,7 +24,6 @@ function forwardPublisherNavigation(event) {
   }
 }
 
-if (window !== window.top) //if we're in an iframe, we may be running in WebHare and need to forward navigation events
-{
+if (window !== window.top) { //if we're in an iframe, we may be running in WebHare and need to forward navigation events
   window.addEventListener("click", forwardPublisherNavigation);
 }

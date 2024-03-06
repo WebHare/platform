@@ -253,8 +253,8 @@ PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=
 //valid user-supplied debug tokens
 PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
 
-//default compatibility. safari14 avoids inset:
-PUBLIC CONSTANT STRING whconstant_default_compatibility := "es2016,safari14";
+//default compatibility
+PUBLIC CONSTANT STRING whconstant_default_compatibility := "es2022,safari16.2";
 
 //standard failed task reschedule time
 PUBLIC CONSTANT INTEGER whconstant_default_failreschedule := 15 * 60 * 1000;

@@ -19,7 +19,6 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , aftercompiletask := ""
                            , compatibility := whconstant_default_compatibility
                            , esbuildsettings := ""
-                           , module := FALSE
                            ];
 
 PUBLIC STRING FUNCTION GetBundleOutputPath(STRING outputtag)
@@ -141,14 +140,12 @@ STATIC OBJECTTYPE Resolver
   STRING ARRAY addedrequires;
   RECORD requestedbundle;
   STRING assetpack;
-  BOOLEAN module;
 
-  MACRO NEW(STRING assetpack, STRING basedependency, STRING ARRAY languages, BOOLEAN module)
+  MACRO NEW(STRING assetpack, STRING basedependency, STRING ARRAY languages)
   {
     BOOLEAN adhoc := assetpack NOT LIKE "*:*"; //adhocs are just a 128bit id
 
     this->assetpack := assetpack;
-    this->module := module;
     IF(assetpack = "" AND basedependency != "")
     {
       this->requestedbundle := MakeEmptyBundle();
@@ -184,10 +181,8 @@ STATIC OBJECTTYPE Resolver
   {
     this->EnsurePackingInfo();
     Print(GetAssetpackIntegrationCode(this->assetpack, CELL
-      [ asyncbundle := ObjectExists(webdesign) ? webdesign->asyncbundle : FALSE
-      , designroot := usedesignroot
+      [ designroot := usedesignroot
       , cachebuster
-      , module := this->module
       ]));
 
     IF(NOT ObjectExists(webdesign) OR webdesign->wittyencoding NOT LIKE "*-NI")
@@ -200,7 +195,7 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigni
   IF(webdesigninfo.designfolder="")
     THROW NEW Exception("No module design folder specified");
 
-  OBJECT res := NEW Resolver(webdesigninfo.assetpack, "", webdesigninfo.supportedlanguages, webdesigninfo.module);
+  OBJECT res := NEW Resolver(webdesigninfo.assetpack, "", webdesigninfo.supportedlanguages);
   RETURN res;
 }
 
@@ -208,10 +203,9 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForJSFile(STRING jspath, RECORD o
 {
   options := ValidateOptions(
       [ supportedlanguages := STRING[]
-      , module := FALSE
       ], options);
 
-  OBJECT res := NEW Resolver("", jspath, options.supportedlanguages, options.module);
+  OBJECT res := NEW Resolver("", jspath, options.supportedlanguages);
   RETURN res;
 }
 

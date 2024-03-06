@@ -12,7 +12,7 @@ export default (outdir: string) => ({
   setup: (build: esbuild.PluginBuild) => {
     //TODO for consistency compiletask.ts should provide the expected buildResult type
     build.onEnd((result: esbuild.BuildResult<{ write: false }>) => {
-      for (const file of result.outputFiles.filter(f => f.path.endsWith("/ap.js.map"))) {
+      for (const file of result.outputFiles.filter(f => f.path.endsWith("/ap.mjs.map"))) {
         const jsondata = JSON.parse(new TextDecoder("utf-8").decode(file.contents));
         for (let i = 0, e = jsondata.sources.length; i < e; ++i) {
           let fullpath = path.join(outdir, jsondata.sources[i]);

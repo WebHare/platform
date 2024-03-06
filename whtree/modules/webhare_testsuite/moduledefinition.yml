@@ -22,7 +22,6 @@ assetPacks:
   basetestjs:
     entryPoint: webdesigns/basetestjs/frontend/frontend
     supportedLanguages: [en, nl, ps]
-    module: true
 
 webFeatures:
   testfeature:

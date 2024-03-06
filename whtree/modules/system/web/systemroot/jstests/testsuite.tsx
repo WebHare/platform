@@ -31,7 +31,6 @@ function getTestRoots() {
 //Find best location to highlight, skipping internal files
 function findBestStackLocation(stacktrace) {
   const filtered = stacktrace.filter(({ filename }) =>
-    !filename.endsWith("/ap.js") &&
     !filename.endsWith("/ap.mjs") &&
     !filename.endsWith("/testframework.ts") &&
     !filename.endsWith("/testframework-rte.ts") &&
@@ -1085,7 +1084,7 @@ class TestFramework {
     const scripttags = wnd.document.getElementsByTagName("script");
 
     for (const tag of Array.from(scripttags)) {
-      const match = tag.src.match(/\/.ap\/([^/]*)\/ap.js$/);
+      const match = tag.src.match(/\/.ap\/([^/]*)\/ap.mjs$/);
       if (match) {
         test.assetpacks = (test.assetpacks) || [];
         test.assetpacks.push(match[1]);

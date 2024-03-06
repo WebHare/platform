@@ -35,8 +35,8 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
     if (!entrypoint.endsWith('.scss')) {
-      test.assert(manifest.assets.find(file => file.subpath === 'ap.js' && !file.compressed && !file.sourcemap));
-      test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.js.gz' && file.compressed && !file.sourcemap));
+      test.assert(manifest.assets.find(file => file.subpath === 'ap.mjs' && !file.compressed && !file.sourcemap));
+      test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.gz' && file.compressed && !file.sourcemap));
     }
 
     manifest.assets.forEach(file => {
@@ -259,9 +259,6 @@ async function testCompileerrors() {
     test.assert(css.match(/.test1a{.*padding-left:initial.*}/));
     // Check if numerical values are collapsed properly
     test.assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
-    // Avoid inset: collapse, safari v14 doesn't like this and we're in no rush to deprecate that one
-    test.eq(/.test1c{.*top:.*}/, css);
-    test.assert(!css.match(/.test1c{.*inset:.*}/));
 
     /* regression:
        font: 9pt/16px "Menlo", "Consolas", "DejaVu Sans Mono", "Courier New", "monospace";

@@ -163,7 +163,6 @@ export interface BundleConfig {
   //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
   esbuildsettings: string;
   extrarequires: string[];
-  module: boolean;
 }
 
 export interface Bundle {
@@ -248,9 +247,9 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     minify: !bundle.isdev,
     sourcemap: true,
     outdir,
-    format: bundle.bundleconfig.module ? 'esm' : 'iife',
-    outExtension: bundle.bundleconfig.module ? { ".js": ".mjs" } : {},
-    splitting: bundle.bundleconfig.module,
+    format: 'esm',
+    outExtension: { ".js": ".mjs" },
+    splitting: true,
     entryNames: "ap",
     jsxFactory: 'dompack.jsxcreate',
     jsxFragment: 'dompack.jsxfragment',
@@ -430,11 +429,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   //Now prepare the other files which will be in the result dir but not in the manifest
   finalpack.set("apmanifest.json", Buffer.from(JSON.stringify(assetoverview)));
-  if (bundle.bundleconfig.module) {
-    finalpack.set("ap.js", Buffer.from(`import("./ap.mjs");`));
-  } else {
-    finalpack.set("ap.mjs", Buffer.from(`import("./ap.js");`));
-  }
+  finalpack.set("ap.js", Buffer.from(`import("./ap.mjs");`)); //WH 5.5 forces 'mjs' but a lot of existing files will still refer to ap.js until republished
 
   //Write all files to disk in a temp location
   await fs.mkdir(esbuild_configuration.outdir, { recursive: true });
