@@ -121,11 +121,6 @@ export class ToddCompBase {
     // The component window's frame component
     // (This is what windowroot used to be)
     this.owner = parentcomp ? parentcomp.owner : this as unknown as Frame;
-
-    if (parentcomp === null)  //we are the toplevel screen/frame
-      // @ts-ignore // We need to do this because frame can't yet and it will crash registerComponent
-      this.objectmap = {};
-
     // If we're on a line, the line can tell us if we're in an inline element
     this.isinline = Boolean(parentcomp && parentcomp.holdsinlineitems);
 
@@ -155,7 +150,8 @@ export class ToddCompBase {
     this.hint = data.hint ? data.hint : '';
     this.shortcut = data.shortcut ? data.shortcut : '';
 
-    this.owner.registerComponent(this);
+    if (this.owner !== this)
+      this.owner.registerComponent(this);
     //      this.lineminheight = 0;
   }
   /** Transform component message for it goes into the handling phase

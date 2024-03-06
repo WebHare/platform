@@ -54,6 +54,8 @@ export default class Frame extends ComponentBase {
   screenname: string;
   hostapp: ApplicationBase;
 
+  objectmap: Record<string, ToddCompBase> = {};
+
   constructor(hostapp: ApplicationBase, data) {
     /* NOTE:
        initialize() will NEVER receive a true, original response when a window is constructed anymore (see createNewScreen)
@@ -78,6 +80,7 @@ export default class Frame extends ComponentBase {
     this.addedgrabbers = false;
     this.isdestroyed = false;
     this.headerheight = 0;
+    this.objectmap[this.name] = this;
 
     //the app hosting the screen (the one we will communicate with - we're on its screenmap)
     this.hostapp = hostapp;
