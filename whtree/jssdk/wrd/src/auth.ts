@@ -123,11 +123,35 @@ export interface OnOpenIdReturnParameters {
   /// ID of the WRD user that has authenticated
   user: number;
 }
+
+export interface onCreateJWTParameters {
+  /// ID of the client requesting the token. If null, we're creating a ID token for ourselves (WRDAuth login)
+  client: number | null;
+  /// ID of the WRD user that has authenticated
+  user: number;
+}
+
+export type JWTPayload = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- like JwtPayload did. At most we could pick a JSON-Serializable type?
+  [key: string]: any;
+  sub: string;
+  aud: string | string[];
+  exp: number;
+  nbf: number;
+  iat: number;
+
+  //Not allowed to touch these variables;
+  iss: never;
+  jti: never;
+};
+
 export interface WRDAuthCustomizer {
   /** Invoked to look up a login name */
   lookupUsername?: (params: LookupUsernameParameters) => Promise<number | null> | number | null;
   /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
   onOpenIdReturn?: (params: OnOpenIdReturnParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
+  /** Invoked when creating a JWT allowing a customizer to modify the payload */
+  onCreateJWT?: (params: onCreateJWTParameters, payload: JWTPayload) => Promise<void> | void;
 }
 
 export interface JWKS {
@@ -162,6 +186,8 @@ export interface VerifySessionResult {
   ///decoded scopes
   scopes: string[];
   audience: number | null;
+  ///expiration date
+  expires: Date | null;
 }
 
 export interface ClientConfig {
@@ -337,7 +363,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        password reset as a way to clear tokens)
   */
 
-  private async createAccessTokenJWT(subject: number, client: number | null, validuntil: Date, scopes: string[], closeSessionId: string | null) {
+  private async createAccessTokenJWT(subject: number, client: number | null, expires: WaitPeriod, scopes: string[], closeSessionId: string | null, customizer: WRDAuthCustomizer | null) {
     let clientInfo;
     if (client !== null) {
       clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
@@ -347,27 +373,36 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
     //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' tpye
-    const subjectguid = (await this.wrdschema.getFields("wrdPerson", subject, [subfield]))?.[subfield];
-    if (!subjectguid)
-      throw new Error(`Unable to find the wrdGuid for subject #${subject}`);
+    const subjectValue = (await this.wrdschema.getFields("wrdPerson", subject, [subfield]))?.[subfield] as string;
+    if (!subjectValue)
+      throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
-    //TODO Round creationdate and validuntil to whole seconds as JWTs cant store milliseconds
     const creationdate = new Date;
+    creationdate.setMilliseconds(0); //round down
+    const validuntil = convertWaitPeriodToDate(expires, { relativeTo: creationdate });
 
     /* Adding a jwtId ensures that each token is unique and that we have no way ourselves to regenerate a token once we've given it out and hashed it
        It is also a proof that we actually generated the token even without a signature - we wouldn't have stored a hashed token without a random jwtId (all the other fields in the JWT are guessable) */
     const jwtId = generateRandomId();
 
     let token;
+    const payload = preparePayload(subjectValue, creationdate, validuntil, { scopes, jwtId, audiences: clientInfo ? [compressUUID(clientInfo?.wrdGuid)] : [] });
+
+    //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
+    if (customizer?.onCreateJWT) //force-cast it to make clear which fields are already set and which youi shouldn't modify
+      await customizer.onCreateJWT({ user: subject, client }, payload as JWTPayload);
+
     if (clientInfo) {
       const config = await this.getKeyConfig();
       if (!config || !config.issuer || !config.signingKeys?.length)
         throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
+      payload.iss = config.issuer;
       const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-      token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, creationdate, validuntil, { scopes, audiences: [compressUUID(clientInfo.wrdGuid)], jwtId });
+      const signingkey = createPrivateKey({ key: bestsigningkey.privateKey, format: 'jwk' }); //TODO use async variant
+      token = jwt.sign(payload, signingkey, { keyid: bestsigningkey.keyId, algorithm: signingkey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" });
     } else { //this token is just for us and doesn't need a signature - its existence in our token table is the only proof we accept
-      token = createUnsignedJWT(subjectguid, creationdate, validuntil, { scopes, jwtId });
+      token = jwt.sign(payload, null, { algorithm: "none" });
     }
 
     const hash = hashSHA256(token);
@@ -375,8 +410,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     await beginWork();
     await db<PlatformDB>().insertInto("wrd.tokens").values({
       type: "id",
-      creationdate,
-      expirationdate: validuntil,
+      creationdate: new Date(payload.nbf! * 1000),
+      expirationdate: new Date(payload.exp! * 1000),
       entity: subject,
       audience: client,
       scopes: scopes.join(" "),
@@ -387,7 +422,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       await closeSession(closeSessionId);
 
     await commitWork();
-    return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000) };
+    return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000), validuntil };
   }
 
   /** Get userinfo for a token */
@@ -442,7 +477,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return {
       entity: matchToken.entity,
       scopes: matchToken.scopes.length ? matchToken.scopes.split(' ') : [],
-      audience: matchToken.audience
+      audience: matchToken.audience,
+      expires: matchToken.expirationdate
     };
   }
 
@@ -561,8 +597,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: "Invalid or expired code" };
 
     const expires = this.config.expires || "P1D";
-    const validuntil = convertWaitPeriodToDate(expires);
-    const tokens = await this.createAccessTokenJWT(returnInfo.user, returnInfo.clientid, validuntil, returnInfo.scopes, sessionid);
+    const tokens = await this.createAccessTokenJWT(returnInfo.user, returnInfo.clientid, expires, returnInfo.scopes, sessionid, customizer);
 
     return {
       error: null,
@@ -573,11 +608,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  async createLoginToken(userid: number) {
+  async createLoginToken(userid: number, customizer: WRDAuthCustomizer | null) {
     //FIXME adopt expiry settings from HS WRDAuth
-    const validuntil = convertWaitPeriodToDate("P1D");
-    const tokens = await this.createAccessTokenJWT(userid, null, validuntil, [], null);
-    return { idToken: tokens.access_token, expires: validuntil };
+    const tokens = await this.createAccessTokenJWT(userid, null, "P1D", [], null, customizer);
+    return { idToken: tokens.access_token, expires: tokens.validuntil };
   }
 
   async verifyLoginToken(token: string) {
@@ -630,7 +664,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
     }
 
-    const tokeninfo = await this.createLoginToken(userid);
+    const tokeninfo = await this.createLoginToken(userid, customizer);
     return { loggedIn: true, ...tokeninfo };
   }
 }

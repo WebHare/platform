@@ -3,7 +3,6 @@ import { HSVMObject, loadlib, makeObject } from "@webhare/harescript";
 import { toResourcePath } from "@webhare/services/src/resources";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
-import { openSite } from "@webhare/whfs";
 import { Issuer } from 'openid-client';
 import { launchPuppeteer, type PuppeteerBrowser } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
