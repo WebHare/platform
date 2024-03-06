@@ -422,7 +422,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       await closeSession(closeSessionId);
 
     await commitWork();
-    return { access_token: token, expires_in: Math.floor((validuntil.getTime() - Date.now()) / 1000), validuntil };
+    return { access_token: token, expires: payload.exp! };
   }
 
   /** Get userinfo for a token */
@@ -598,20 +598,19 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const expires = this.config.expires || "P1D";
     const tokens = await this.createAccessTokenJWT(returnInfo.user, returnInfo.clientid, expires, returnInfo.scopes, sessionid, customizer);
-
     return {
       error: null,
       body: {
         id_token: tokens.access_token,
-        expires_in: tokens.expires_in
+        expires_in: Math.floor(tokens.expires - (Date.now() / 1000)),
       }
     };
   }
 
-  async createLoginToken(userid: number, customizer: WRDAuthCustomizer | null) {
+  async createLoginToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ idToken: string; expires: Date }> {
     //FIXME adopt expiry settings from HS WRDAuth
     const tokens = await this.createAccessTokenJWT(userid, null, "P1D", [], null, customizer);
-    return { idToken: tokens.access_token, expires: tokens.validuntil };
+    return { idToken: tokens.access_token, expires: new Date(tokens.expires * 1000) };
   }
 
   async verifyLoginToken(token: string) {

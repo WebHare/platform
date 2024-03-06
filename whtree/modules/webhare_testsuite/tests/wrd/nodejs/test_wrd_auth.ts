@@ -170,6 +170,8 @@ async function testAuthAPI() {
     }
   };
   const claimResult = await mockAuthorizeFlow(provider, robotClient!, testuser, claimCustomizer);
+  test.assert(claimResult.idToken);
+  test.assert(claimResult.expiresIn * 1000 > (almostInfiniteTime.getTime() - Date.now()) - 60000); //60 second safety margin should be more tha enough
   test.eqPartial({ exp: almostInfiniteTime.getTime() / 1000, name: "Jon Show" }, await provider.validateToken(claimResult.idToken!));
   test.eqPartial({ expires: almostInfiniteTime }, await provider.verifyOwnToken(claimResult.idToken!, robotClient!.wrdId));
 
