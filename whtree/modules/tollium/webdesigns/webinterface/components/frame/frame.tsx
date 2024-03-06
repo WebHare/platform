@@ -101,13 +101,40 @@ export default class Frame extends ComponentBase {
     this.focusedcomponentnames = [];
 
 
+    this.nodes = {};
+    this.node = this.nodes.root =
+      dompack.create("form", {
+        className: "t-screen wh-focuszone",
+        tabIndex: -1,
+        childNodes:
+          [
+            this.nodes.windowheader = dompack.create("div", {
+              className: "windowheader",
+              childNodes:
+                [
+                  this.nodes.title = <span class="title" />,
+                  this.nodes.closewindow = <div class="closewindow" />
+                ]
+            }),
+            this.nodes.contentnode = dompack.create("div", { className: "contentnode" }),
+            dompack.create("div", { className: "modallayer" })
+          ]
+      });
 
     this.frameid = ++framecounter;
+    this.nodes.windowheader.addEventListener("dompack:movestart", evt => this.onWindowMoveStart(evt));
+    this.nodes.windowheader.addEventListener("dompack:move", evt => this.onWindowMove(evt));
+    this.nodes.windowheader.addEventListener("dompack:moveend", evt => this.onWindowMoveEnd(evt));
+    this.nodes.root.addEventListener("wh:focuszone-firstfocus", this.onFirstFocus.bind(this));
+    this.nodes.root.addEventListener("submit", dompack.stop); //prevent shift+enter from submitting the dialog, fixes #1010
 
     // Component relation initialization
+    this.nodes.title.textContent = this.title;
+    this.nodes.closewindow.addEventListener("click", this.onCancel.bind(this, false));
+    this.nodes.closewindow.addEventListener("mousedown", event => dompack.stop(event));
+    movable.enable(this.nodes.windowheader);
 
     this.screenname = data.window;
-    this.buildNode();
     // Create a keyboard manager and register it
     this.keyboard = new KeyboardHandler(this.node, {
       "Enter": this.onDefault.bind(this),
@@ -904,41 +931,7 @@ export default class Frame extends ComponentBase {
    * DOM
    */
 
-  buildNode() {
-    this.nodes = {};
-    this.node = this.nodes.root =
-      dompack.create("form", {
-        className: "t-screen wh-focuszone",
-        tabIndex: -1,
-        childNodes:
-          [
-            this.nodes.windowheader = dompack.create("div", {
-              className: "windowheader",
-              childNodes:
-                [
-                  this.nodes.title = <span class="title" />,
-                  this.nodes.closewindow = <div class="closewindow" />
-                ]
-            }),
-            this.nodes.contentnode = dompack.create("div", { className: "contentnode" }),
-            dompack.create("div", { className: "modallayer" })
-          ]
-      });
-
-    this.nodes.windowheader.addEventListener("dompack:movestart", evt => this.onWindowMoveStart(evt));
-    this.nodes.windowheader.addEventListener("dompack:move", evt => this.onWindowMove(evt));
-    this.nodes.windowheader.addEventListener("dompack:moveend", evt => this.onWindowMoveEnd(evt));
-    this.nodes.root.addEventListener("wh:focuszone-firstfocus", this.onFirstFocus.bind(this));
-    this.nodes.root.addEventListener("submit", dompack.stop); //prevent shift+enter from submitting the dialog, fixes #1010
-
-    this.nodes.title.textContent = this.title;
-    this.nodes.closewindow.addEventListener("click", this.onCancel.bind(this, false));
-    this.nodes.closewindow.addEventListener("mousedown", evt => dompack.stop(event));
-    movable.enable(this.nodes.windowheader);
-  }
-
-  onFirstFocus(evt) //prevent tabs from getting first focus
-  {
+  onFirstFocus(evt: Event) { //prevent tabs from getting first focus
     const focusable = domfocus.getFocusableComponents(this.node).filter(el => !el.classList.contains("nav")); //not a div.nav
     dompack.focus(focusable.length > 0 ? focusable[0] : this.node);
     evt.preventDefault();
