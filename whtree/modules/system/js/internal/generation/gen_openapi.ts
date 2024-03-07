@@ -125,7 +125,10 @@ function moveSharedSchemaObjects(parsed: OpenAPI3) {
   // Detect all shared schema objects
   const visited = new Set<object>;
   const shared = new Set<object>;
-  detectSharedSchemaObjectsIterate(parsed, parsed, visited, shared, "", undefined);
+  detectSharedSchemaObjectsIterate(parsed, parsed, visited, shared, "", undefined, "#");
+
+  if (!visited.size)
+    return;
 
   const defs: Record<string, object> = {};
   const remap = new Map<object, { $ref: string }>;
@@ -142,22 +145,24 @@ function moveSharedSchemaObjects(parsed: OpenAPI3) {
   Object.assign(parsed.$defs ??= {}, defs);
 }
 
-function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visited: Set<object>, shared: Set<object>, keyname: string, inPaths: boolean | undefined) {
+function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visited: Set<object>, shared: Set<object>, keyname: string, isSchema: boolean | undefined, path: string) {
   /* This function uses heuristics to detect SchemaObjects. Everything within an 'example' key is probably not a Schema
      object. An array is probably not a Schema object, and the value of a 'properties' key are also probably not Schema,
      but should be checked recursively
   */
   if (keyname === "example") // don't use $ref in examples
     return;
+  if (keyname === "schema" || keyname === "schemas" || keyname === "$defs")
+    isSchema = true;
 
   if (Array.isArray(node)) {
     for (const [key, item] of node.entries())
       if (typeof item === "object" && item)
-        detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key.toString(), inPaths);
+        detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key.toString(), isSchema, `${path}/${encodeJSONReferenceProperty(key.toString())}`);
     return;
   }
   if (keyname !== "properties") {
-    if (visited.has(node) && !inPaths) {
+    if (visited.has(node) && isSchema) {
       shared.add(node);
       return;
     }
@@ -165,8 +170,7 @@ function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visite
   }
   for (const [key, item] of Object.entries(node))
     if (typeof item === "object" && item) {
-      const subInPaths = inPaths === undefined ? key === "paths" : inPaths && key !== "schema";
-      detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key, subInPaths);
+      detectSharedSchemaObjectsIterate(parsed, item, visited, shared, key, isSchema, `${path}/${encodeJSONReferenceProperty(key.toString())}`);
     }
 }
 

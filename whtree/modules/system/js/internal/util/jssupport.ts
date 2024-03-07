@@ -1,5 +1,5 @@
 import { addBestMatch } from "@webhare/js-api-tools/src/levenshtein";
-import { BackendServiceConnection, toFSPath } from "@webhare/services";
+import { BackendServiceConnection, registerAsDynamicLoadingLibrary, toFSPath } from "@webhare/services";
 
 const libmap = new Map<string, Record<string, unknown>>;
 
@@ -68,3 +68,5 @@ class InvokeService extends BackendServiceConnection {
 export async function getInvokeService(servicename: string) {
   return new InvokeService;
 }
+
+registerAsDynamicLoadingLibrary(module);
