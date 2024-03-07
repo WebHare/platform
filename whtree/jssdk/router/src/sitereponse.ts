@@ -72,7 +72,7 @@ export class SiteResponse<T extends object = object> {
       site: {},
       obj: {},
       dtapStage: services.backendConfig.dtapstage,
-      locale: this.settings.lang, //why doesn't JS just get the html lang= ?
+      locale: this.settings.lang as never, //why doesn't JS just get the html lang= ?
       server: getVersionInteger() //TODO we intend to completely deprecate this. should never depend on server versions
     };
   }
