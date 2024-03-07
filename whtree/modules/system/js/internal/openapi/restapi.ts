@@ -57,6 +57,7 @@ interface WHOpenAPIPathItem extends OpenAPIV3.PathItemObject<WHOperationAddition
 
 interface WHOpenAPIDocument extends OpenAPIV3.Document<WHOperationAddition> {
   "x-webhare-authorization"?: string;
+  "x-webhare-default-error-mapper"?: string;
 }
 
 function filterXWebHare(def: unknown): unknown {
@@ -179,7 +180,7 @@ export class RestAPI {
 
     /* Per https://apitools.dev/swagger-parser/docs/swagger-parser.html#validateapi-options-callbac
        "This method calls dereference internally, so the returned Swagger object is fully dereferenced."
-       we shouldn't be seeing any more OpenAPIV3.ReferenceObject objects anymore. TypeScript does'nt know this
+       we shouldn't be seeing any more OpenAPIV3.ReferenceObject objects anymore. TypeScript doesn't know this
        so we need a few cast below to build the routes ...*/
     this.def = parsed as WHOpenAPIDocument;
     const toplevel_authorization = this.def["x-webhare-authorization"] ? resolveResource(specresourcepath, this.def["x-webhare-authorization"]) : null;
@@ -234,8 +235,11 @@ export class RestAPI {
     const res = await this.workerPool.runInWorker(async worker => {
       // Get the handler for this worker
       let workerHandler = this.handlers.get(worker);
-      if (!workerHandler)
-        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.routes, this.def?.components?.schemas?.defaulterror ?? null));
+      if (!workerHandler) {
+        const defaultErrorMapper = this.def?.["x-webhare-default-error-mapper"] ?? "";
+
+        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.routes, this.def?.components?.schemas?.defaulterror ?? null, defaultErrorMapper));
+      }
       const encodedTransfer = req.encodeForTransfer();
       return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
     });
@@ -278,10 +282,21 @@ export class WorkerRestAPIHandler {
   validators = new Map<object, ValidateFunction>;
   routes: Route[];
   defaultErrorSchema: SchemaObject | null;
+  defaultErrorMapper: string;
 
-  constructor(routes: Route[], defaultErrorSchema: SchemaObject | null) {
+  constructor(routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string) {
     this.routes = routes;
     this.defaultErrorSchema = defaultErrorSchema;
+    this.defaultErrorMapper = defaultErrorMapper;
+  }
+
+  /// Build error responses for errors other than operation result errors (method not found, validation failures, etc)
+  private async buildErrorResponse(status: HTTPErrorCode, error: string): Promise<WebResponse> {
+    if (this.defaultErrorMapper) {
+      const mapperFunction = await loadJSFunction<(data: { status: HTTPErrorCode; error: string }) => WebResponse>(this.defaultErrorMapper);
+      return mapperFunction({ status, error });
+    }
+    return createJSONResponse(status, { status, error });
   }
 
   private shouldValidate(mode: OpenAPIValidationMode | null, defaultMode: OpenAPIValidationMode) {
@@ -319,15 +334,15 @@ export class WorkerRestAPIHandler {
     // Find the route matching the request path
     const match = this.findRoute(relurl, req);
     if (!match)
-      return createErrorResponse(HTTPErrorCode.NotFound, { error: `No route for '${relurl}'` });
+      return await this.buildErrorResponse(HTTPErrorCode.NotFound, `No route for '${relurl}'`);
 
     logger.route = match.route.path.join("/");
 
     const endpoint = match.route.methods[req.method];
     if (!endpoint)
-      return createErrorResponse(HTTPErrorCode.MethodNotAllowed, { error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` });
+      return this.buildErrorResponse(HTTPErrorCode.MethodNotAllowed, `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'`);
     if (!endpoint.authorization) //TODO with 'etr' return more about 'why'
-      return createErrorResponse(HTTPErrorCode.Forbidden, { error: `Not authorized` });
+      return this.buildErrorResponse(HTTPErrorCode.Forbidden, `Not authorized`);
 
     const response = await this.handleEndpointRequest(req, relurl, match, endpoint, logger);
 
@@ -340,7 +355,8 @@ export class WorkerRestAPIHandler {
         let responseschema;
         if (response.status.toString() in endpoint.responses) {
           const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
-          responseschema = responsedef?.content?.["application/json"]?.schema;
+          const contentType = response.getHeader("content-type") || "application/json";
+          responseschema = responsedef?.content?.[contentType]?.schema;
         }
         // Fallback to 'defaulterror' for errors, if specified in components.schemas
         if (!responseschema && response.status in HTTPErrorCode && this.defaultErrorSchema) {
@@ -381,12 +397,12 @@ export class WorkerRestAPIHandler {
         } else if (param.in === "query") {
           paramValues = req.url.searchParams.getAll(param.name);
           if (!paramValues.length && param.required)
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required query parameter ${param.name}}` });
+            return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Missing required query parameter ${param.name}}`);
         } else if (param.in === "header") {
           if (req.headers.has(param.name))
             paramValues = [req.headers.get(param.name)!];
           else if (param.required)
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required header parameter ${param.name}` });
+            return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Missing required header parameter ${param.name}`);
         } else {
           throw new Error(`Unsupported parameter location '${param.in}'`);
         }
@@ -423,7 +439,7 @@ export class WorkerRestAPIHandler {
             logger.timings.validation += performance.now() - start;
 
             if (!success)
-              return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
+              return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}`);
           }
         }
 
@@ -436,12 +452,12 @@ export class WorkerRestAPIHandler {
       //We have something useful to proces
       const ctype = req.headers.get("content-type");
       if (ctype !== "application/json") //TODO what about endpoints supporting multiple types?
-        return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid content-type '${ctype}', expected application/json` });
+        return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Invalid content-type '${ctype}', expected application/json`);
 
       try {
         body = await req.json();
       } catch (e) { //parse error. There's no harm in 'leaking' a JSON parse error details
-        return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Failed to parse the body: ${(e as Error)?.message}` });
+        return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Failed to parse the body: ${(e as Error)?.message}`);
       }
 
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
@@ -451,7 +467,7 @@ export class WorkerRestAPIHandler {
       logger.timings.validation += performance.now() - start;
 
       if (!success) {
-        return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid request body: ${formatAjvError(validator.errors ?? [])}` });
+        return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Invalid request body: ${formatAjvError(validator.errors ?? [])}`);
       }
     }
 
@@ -478,7 +494,7 @@ export class WorkerRestAPIHandler {
           return authorizer(restreq);
         });
         if (!authresult.authorized)
-          return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
+          return authresult.response || await this.buildErrorResponse(HTTPErrorCode.Unauthorized, "Authorization is required for this endpoint");
         else if (authresult.loginfo)
           logger.authorized = authresult.loginfo;
       } finally {
@@ -489,7 +505,7 @@ export class WorkerRestAPIHandler {
     //FIXME merge autohrization info into loginfo
     restreq.authorization = authresult.authorization;
     if (!endpoint.handler)
-      return createErrorResponse(HTTPErrorCode.NotImplemented, { error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` });
+      return await this.buildErrorResponse(HTTPErrorCode.NotImplemented, `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented`);
 
     {
       const start = performance.now();
@@ -521,6 +537,6 @@ export class WorkerRestAPIHandler {
   }
 }
 
-export function getWorkerRestAPIHandler(routes: Route[], defaultErrorSchema: SchemaObject | null) {
-  return new WorkerRestAPIHandler(routes, defaultErrorSchema);
+export function getWorkerRestAPIHandler(routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string) {
+  return new WorkerRestAPIHandler(routes, defaultErrorSchema, defaultErrorMapper);
 }
