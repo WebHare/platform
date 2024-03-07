@@ -727,6 +727,7 @@ struct ConstantRecord: public Rvalue
 /// Contains a constant array
 struct ConstantArray: public Rvalue
 {
+        // Position, expression, isspread
         std::vector< std::tuple< LineColumn, Rvalue *, bool > > values;
         VariableTypes::Type type;
 
