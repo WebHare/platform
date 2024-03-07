@@ -8,7 +8,7 @@ import "./internal/form.lang.json";
 import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
-import { DeferredPromise, createDeferred } from '@webhare/std';
+import { DeferredPromise, createDeferred, generateRandomId } from '@webhare/std';
 import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getErrorForValidity, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 
@@ -259,7 +259,7 @@ export default class FormBase {
   readonly node: HTMLFormElement;
   /** @deprecated Use node.elements if you want a true HTMLFormControlsCollection, use getElementByName since WH5.4+ for properly typed elements */
   readonly elements: HTMLFormControlsCollection;
-  private _formsessionid = pxl.generateId();
+  private _formsessionid = generateRandomId();
   private _firstinteraction: number | undefined;
   protected _submitstart: number | undefined;
   private validationqueue = new Array<ValidationQueueElement>;

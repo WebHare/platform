@@ -3,8 +3,8 @@
 
 import * as dompack from "dompack";
 import * as storage from "dompack/extra/storage";
-import { generateId } from "@mod-consilio/js/pxl";
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
+import { generateRandomId } from "@webhare/std";
 
 let visitCount = 0;
 let beaconconsent, holdbeacons;
@@ -122,7 +122,7 @@ function initVisitCount() {
   if (!visitor) {
     // First visit
     visitCount = 1;
-    sessionId = generateId();
+    sessionId = generateRandomId();
     storage.setLocal("wh:visitor", { sessionId, count: visitCount });
     storage.setSession("wh:visitor", sessionId);
 
@@ -131,7 +131,7 @@ function initVisitCount() {
   } else if (!sessionId) {
     // New session for known visitor
     visitCount = visitor.count + 1;
-    sessionId = generateId();
+    sessionId = generateRandomId();
     storage.setLocal("wh:visitor", { ...visitor, count: visitCount });
     storage.setSession("wh:visitor", sessionId);
 

@@ -101,7 +101,7 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
     return pxlFailed(`Invalid data, expected object, got ${typeof data}`);
 
   if (!pagesession)
-    pagesession = generateId();
+    pagesession = generateRandomId();
 
   //not using URL object, simplifies support of relative URLs
   const url = new URL(baseurl, document.baseURI);
@@ -190,7 +190,7 @@ export function getPxlId(options?: Partial<PxlOptions>) {
       }
     }
 
-    id = generateId();
+    id = generateRandomId();
     expiration = new Date(expiration.getTime() + sessionExpireDays * 24 * 60 * 60 * 1000);
     localStorage.setItem("_wh.pi", id);
     localStorage.setItem("_wh.ti", expiration.toISOString());
@@ -200,7 +200,7 @@ export function getPxlId(options?: Partial<PxlOptions>) {
   } else {
     let id = dompack.getCookie("_wh.pi");
     if (!id) {
-      id = generateId();
+      id = generateRandomId();
       dompack.setCookie("_wh.pi", id, { duration: sessionExpireDays });
       if (options.debug)
         console.log(`[pxl] Storing user id ${id} in cookie`);
@@ -215,7 +215,7 @@ function getPxlSessionId(options?: Partial<PxlOptions>) {
 
   let id = dompack.getCookie("_wh.ps");
   if (!id) {
-    id = generateId();
+    id = generateRandomId();
     dompack.setCookie("_wh.ps", id);
     if (options.debug)
       console.log(`[pxl] Storing session id ${id} in cookie`);
@@ -294,10 +294,6 @@ function pingPxlEvent(evt: PxlEvent) {
       promise.catch(function () { }); //we don't really care about failed fetches, but don't turn them into unhandled rejections
     }
   }
-}
-
-export function generateId() {
-  return generateRandomId('hex', 8);
 }
 
 setPxlOptions(null);
