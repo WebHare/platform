@@ -23,9 +23,22 @@ IF(Length(errors) > 0)
     Print(`*** There are errors in the notice log. ${#err+1}/${Length(errors)}\n`);
     IF(CellExists(err,'type') AND err.type IN [ "script-error", "script-unhandledrejection" ])
     {
-      FOREVERY(RECORD error FROM err.errors)
-        Print(`${error.filename}:${error.line}:${error."column"}: ${error.message}\n`);
-      Print(FormatHarescriptStackTrace(SELECT filename, line, col := COLUMN "column", func := functionname FROM err.trace));
+      IF(CellExists(err,'errors'))
+      {
+        FOREVERY(RECORD error FROM err.errors)
+          Print(`${error.filename}:${error.line}:${error."column"}: ${error.message}\n`);
+      }
+      ELSE IF(CellExists(err,'message'))
+      {
+        Print(err.message||'\n');
+      }
+      ELSE IF(CellExists(err,'error')) //ReportJavascriptError creates these
+      {
+        Print(err.error||'\n');
+      }
+
+      IF(CellExists(err,'trace'))
+        Print(FormatHarescriptStackTrace(SELECT filename, line, col := COLUMN "column", func := functionname FROM err.trace));
     }
     ELSE
     {
