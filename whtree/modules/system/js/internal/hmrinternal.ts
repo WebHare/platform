@@ -49,7 +49,10 @@ function extractRealPathCache(): Map<string, string> {
 let realpathCache: Map<string, string> | undefined;
 
 /** Register as a module that does dynamic reloads. Dynamic imports done after
-    calling this function won't cause the loader itself to reload.
+    calling this function won't cause the loader itself to reload. Libraries
+    that offer utility functions to load other libraries (eg LoadJSFunction) need
+    to use this API so that they and their callers do not get reloaded
+
     Call with `registerAsDynamicLoadingLibrary(module)`
 */
 export function registerAsDynamicLoadingLibrary(mod: NodeModule) {
