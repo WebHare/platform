@@ -1,41 +1,36 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from "dompack";
-import * as storage from "dompack/extra/storage";
+import * as dompack from "@webhare/dompack";
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 import { generateRandomId } from "@webhare/std";
+import { debugFlags } from "@webhare/env/src/envbackend";
 
 let visitCount = 0;
-let beaconconsent, holdbeacons;
+let beaconconsent = '';
+let holdbeacons: Array<() => void> | undefined;
 
-export function isSet(tag, options) {
-  options =
-  {
-    since: null,
-    minCount: 1,
-    maxCount: 0,
-    ...options
-  };
-  if (options.since && options.since.getTime)
-    options.since = options.since.getTime();
+type BeaconStorage = Record<string, { timestamps: number[] }>;
 
-  const beacons = storage.getLocal("wh:beacons") || {};
+export function isSet(tag: string, options?: {
+  since?: Date | number;
+  minCount?: number;
+  maxCount?: number;
+}) {
+  const since = options?.since ? typeof options?.since === "number" ? options.since : options.since.getTime() : 0;
+  const beacons = dompack.getLocal<BeaconStorage>("wh:beacons") || {};
   if (!beacons[tag])
     return false;
-  if (options.since)
-    beacons[tag].timestamps = beacons[tag].timestamps.filter(_ => _ >= options.since);
-  return (beacons[tag].timestamps.length >= options.minCount && (!options.maxCount || beacons[tag].timestamps.length <= options.maxCount));
+  if (since)
+    beacons[tag].timestamps = beacons[tag].timestamps.filter(_ => _ >= since);
+  return beacons[tag].timestamps.length >= (options?.minCount ?? 1) && beacons[tag].timestamps.length <= (options?.maxCount ?? Number.MAX_SAFE_INTEGER);
 }
 
-export function trigger(tag, options) {
-  const instr = () => executeTrigger(tag, options);
+export function trigger(tag: string) {
+  const instr = () => executeTrigger(tag);
   if (holdbeacons)
     holdbeacons.push(instr);
   else
     instr();
 }
-export function clear(tag) {
+export function clear(tag: string | RegExp) {
   const instr = () => executeClear(tag);
   if (holdbeacons)
     holdbeacons.push(instr);
@@ -44,42 +39,34 @@ export function clear(tag) {
 }
 
 function runDelayedInit() {
-  holdbeacons.forEach(func => func());
-  holdbeacons = null;
+  holdbeacons?.forEach(func => func());
+  holdbeacons = undefined;
   initVisitCount();
 }
 
-function executeTrigger(tag, options) {
-  options =
-  {
-    when: Date.now(),
-    ...options
-  };
-  if (options.when.getTime)
-    options.when = options.when.getTime();
+function executeTrigger(tag: string) {
+  if (debugFlags.bac)
+    console.log("[bac] Trigger beacon", tag);
 
-  if (dompack.debugflags.bac)
-    console.log("[bac] Trigger beacon", tag, options);
-
-  const beacons = storage.getLocal("wh:beacons") || {};
+  const beacons = dompack.getLocal<BeaconStorage>("wh:beacons") || {};
   if (beacons[tag] && beacons[tag].timestamps)
-    beacons[tag].timestamps.push(options.when);
+    beacons[tag].timestamps.push(Date.now());
   else
-    beacons[tag] = { timestamps: [options.when] };
-  storage.setLocal("wh:beacons", beacons);
+    beacons[tag] = { timestamps: [Date.now()] };
+  dompack.setLocal("wh:beacons", beacons);
 
   if (window.dataLayer)
     window.dataLayer.push({ event: 'wh:trigger-user-beacon', whUserBeacon: tag });
 }
 
-function executeClear(tag) {
-  if (dompack.debugflags.bac)
+function executeClear(tag: string | RegExp) {
+  if (debugFlags.bac)
     console.log("[bac] Clearing beacons", tag);
 
-  const beacons = storage.getLocal("wh:beacons") || {};
+  const beacons = dompack.getLocal<BeaconStorage>("wh:beacons") || {};
   for (const key of Object.keys(beacons)) {
     if (key === tag || (tag instanceof RegExp && key.match(tag))) {
-      if (dompack.debugflags.bac)
+      if (debugFlags.bac)
         console.log("[bac] Clear beacon", key);
 
       delete beacons[key];
@@ -87,11 +74,11 @@ function executeClear(tag) {
         window.dataLayer.push({ event: 'wh:clear-user-beacon', whUserBeacon: tag });
     }
   }
-  storage.setLocal("wh:beacons", beacons);
+  dompack.setLocal("wh:beacons", beacons);
 }
 
 export function list() {
-  const beacons = storage.getLocal("wh:beacons") || {};
+  const beacons = dompack.getLocal<BeaconStorage>("wh:beacons") || {};
   return Object.keys(beacons).map(tag => ({
     name: tag,
     timestamps: beacons[tag].timestamps
@@ -102,8 +89,8 @@ function initVisitCount() {
   if (holdbeacons)
     return; //allow onConsentChange to invoke us
 
-  const visitor = storage.getLocal("wh:visitor");
-  let sessionId = storage.getSession("wh:visitor");
+  const visitor = dompack.getLocal<{ count: number }>("wh:visitor");
+  let sessionId = dompack.getSession("wh:visitor");
 
   /*
     - If visitor is null, this is a new visitor:
@@ -123,25 +110,25 @@ function initVisitCount() {
     // First visit
     visitCount = 1;
     sessionId = generateRandomId();
-    storage.setLocal("wh:visitor", { sessionId, count: visitCount });
-    storage.setSession("wh:visitor", sessionId);
+    dompack.setLocal("wh:visitor", { sessionId, count: visitCount });
+    dompack.setSession("wh:visitor", sessionId);
 
-    if (dompack.debugflags.bac)
+    if (debugFlags.bac)
       console.log("[bac] New visitor", sessionId, visitCount);
   } else if (!sessionId) {
     // New session for known visitor
     visitCount = visitor.count + 1;
     sessionId = generateRandomId();
-    storage.setLocal("wh:visitor", { ...visitor, count: visitCount });
-    storage.setSession("wh:visitor", sessionId);
+    dompack.setLocal("wh:visitor", { ...visitor, count: visitCount });
+    dompack.setSession("wh:visitor", sessionId);
 
-    if (dompack.debugflags.bac)
+    if (debugFlags.bac)
       console.log("[bac] New session", sessionId, visitCount);
   } else {
     // Same session (for new visitors, visitor.sessionId === sessionId and visitor.count === 1)
     visitCount = visitor.count;
 
-    if (dompack.debugflags.bac)
+    if (debugFlags.bac)
       console.log("[bac] Same session", sessionId, visitCount);
   }
 
@@ -153,24 +140,23 @@ export function getVisitCount() {
   return visitCount;
 }
 
-export function resetVisitCount(options) {
-  options = { sessiononly: false, ...options };
-
-  storage.setSession("wh:visitor", null);
-  if (!options.sessiononly) {
+export function resetVisitCount({ sessiononly = false } = {}) {
+  dompack.setSession("wh:visitor", null);
+  if (!sessiononly) {
     visitCount = 0;
-    storage.setLocal("wh:visitor", null);
+    dompack.setLocal("wh:visitor", null);
   }
 
-  if (dompack.debugflags.bac)
-    console.log("[bac] Visit count reset", options, visitCount);
+  if (debugFlags.bac)
+    console.log("[bac] Visit count reset", { sessiononly }, visitCount);
 }
 
 
-let autoTriggerTimeout;
+let autoTriggerTimeout: NodeJS.Timeout | null = null;
 
 function autoTriggerBeacons() {
-  clearTimeout(autoTriggerTimeout);
+  if (autoTriggerTimeout)
+    clearTimeout(autoTriggerTimeout);
   autoTriggerTimeout = null;
   dompack.dispatchCustomEvent(window, "wh:triggerbeacon", { cancelable: false, bubbles: true });
 }
@@ -183,41 +169,43 @@ export function triggerWidgetBeacons() {
 }
 
 class TriggerBeacon {
-  constructor(node) {
+  node;
+
+  constructor(node: HTMLElement) {
     this.node = node;
     // Define a handler for the trigger event, and save to remove it later
-    this.triggerHandler = event => this.handleTrigger(event);
     window.addEventListener("wh:triggerbeacon", this.triggerHandler);
     // Check if this beacon is part of a form page, so we can trigger the beacon if the page becomes visible
     const pageNode = this.node.closest(".wh-form__page");
     if (pageNode) {
-      if (dompack.debugflags.bac)
+      if (debugFlags.bac)
         console.log("[bac] Form page beacon", this.node.dataset.beacon);
       pageNode.addEventListener("wh:form-pagechange", this.triggerHandler);
     }
     triggerWidgetBeacons();
   }
 
-  handleTrigger(event) {
+  triggerHandler = () => {
     if (this.isVisible()) {
-      trigger(this.node.dataset.beacon);
+      if (this.node.dataset.beacon)
+        trigger(this.node.dataset.beacon);
       window.removeEventListener("wh:triggerbeacon", this.triggerHandler);
-    } else if (dompack.debugflags.bac)
+    } else if (debugFlags.bac)
       console.log("[bac] Not triggering invisible beacon", this.node.dataset.beacon);
-  }
+  };
 
   isVisible() {
-    let node = this.node;
+    let node: Element = this.node;
     while (node && node !== document.body) {
       if (getComputedStyle(node).display === "none")
         return false;
-      node = node.parentNode;
+      node = node.parentNode as Element;
     }
     return true;
   }
 }
 
-export function __setup(consent) {
+export function __setup(consent: string) {
   beaconconsent = consent;
   if (beaconconsent) {
     holdbeacons = [];
@@ -226,17 +214,17 @@ export function __setup(consent) {
         return; //already flushed any beacons
 
       if (beaconconsent === "*") {
-        if (consentsettings.consent.length) {
-          if (dompack.debugflags.bac)
+        if (consentsettings.consent?.length) {
+          if (debugFlags.bac)
             console.log(`[bac] Got any consent, allow beacons`);
           runDelayedInit();
         }
-      } else if (consentsettings.consent.includes(beaconconsent)) {
-        if (dompack.debugflags.bac)
+      } else if (consentsettings.consent?.includes(beaconconsent)) {
+        if (debugFlags.bac)
           console.log(`[bac] Got consent '${beaconconsent}', allow beacons`);
         runDelayedInit();
       } else {
-        if (dompack.debugflags.bac)
+        if (debugFlags.bac)
           console.log("[bac] No consent yet to allow beacons");
       }
     });

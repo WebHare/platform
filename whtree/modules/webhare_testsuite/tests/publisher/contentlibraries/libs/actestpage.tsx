@@ -1,27 +1,24 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as beacons from '@mod-publisher/js/contentlibraries/beacons';
 
 if (!window.dataLayer)
   window.dataLayer = [];
 
-function updateBeacons(nd) {
+function updateBeacons(nd: HTMLElement) {
   if (window.__testdcoptions && window.__testdcoptions.now)
     nd.textContent = `Override test date ${window.__testdcoptions.now.toISOString()}`;
   else
     nd.textContent = `Using current date ${new Date().toISOString()}`;
 
-  const cb = dompack.qS("#currentbeacons");
+  const cb = dompack.qR("#currentbeacons");
   cb.replaceChildren(...beacons.list().map(beacon =>
     <div data-beacon-name={beacon.name} data-beacon-when={beacon.timestamps[0]}>
       Beacon: {beacon.name} set at {new Date(beacon.timestamps[0]).toISOString()}
     </div>));
 
   const count = beacons.getVisitCount();
-  const vc = dompack.qS("#visitcount");
-  vc.dataset.visitCount = count;
+  const vc = dompack.qR("#visitcount");
+  vc.dataset.visitCount = String(count);
   vc.textContent = `${count} visit${count !== 1 ? "s" : ""}`;
 }
 

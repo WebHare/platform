@@ -35,6 +35,10 @@ declare global {
   interface Window {
     geoip_getCountryCode: typeof geoip.getCountryCode;
     geoip_getIPInfo: typeof geoip.getIPInfo;
+    __testdcoptions?: {
+      now?: Date;
+      beaconconsent?: string;
+    };
   }
 }
 
