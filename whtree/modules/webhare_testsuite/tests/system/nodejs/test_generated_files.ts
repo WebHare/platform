@@ -5,8 +5,7 @@ import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb"
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext, updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { createOpenAPITypeDocuments } from "@mod-system/js/internal/generation/gen_openapi";
-import { OpenAPIV3 } from "openapi-types";
+
 
 async function testWebHareConfig() {
   /* Tests whether the current WebHare builtin config is properly parsed
