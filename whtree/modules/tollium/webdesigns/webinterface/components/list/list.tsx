@@ -143,7 +143,6 @@ export default class ObjList extends ComponentBase {
       }
     });
 
-    console.log(data);
     if (data.colheaders.length) {
       for (let i = 0; i < data.colheaders.length; ++i)
         this.cols.push(
