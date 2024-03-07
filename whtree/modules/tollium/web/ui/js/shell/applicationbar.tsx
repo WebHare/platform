@@ -9,6 +9,8 @@ const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 const toddImages = require("@mod-tollium/js/icons");
 import { getTid } from "@mod-tollium/js/gettid";
 import { ToddImage } from "../components/jsx";
+import type IndyShell from '../shell';
+import type { ApplicationBase } from '../application';
 
 
 /****************************************************************************************************************************
@@ -20,6 +22,9 @@ import { ToddImage } from "../components/jsx";
 const appbarsymbol = Symbol();
 
 class ApplicationTab {
+  readonly _appbar: ApplicationBar;
+  app: ApplicationBase | null = null;
+
   constructor(appbar, app, fixed) {
     this._appbar = appbar;
 
@@ -63,7 +68,7 @@ class ApplicationTab {
       this.app.appnodes.root.addEventListener("tollium:updatescreen", this._onupdatescreen);
       this.app.appnodes.root.addEventListener("tollium:updateapp", this._onupdateapp);
       if (wasactive)
-        this.app.activateApp();
+        this._appbar.shell.appmgr.activate(this.app);
     }
   }
 
@@ -74,7 +79,7 @@ class ApplicationTab {
 
   _onActivateTab(event) {
     dompack.stop(event);
-    this.app.activateApp();
+    this._appbar.shell.appmgr.activate(this.app);
   }
 
   onUpdateScreen(event) {
@@ -106,7 +111,7 @@ class ApplicationTab {
   }
 
   onTabClick(event) {
-    this.app.activateApp();
+    this._appbar.shell.appmgr.activate(this.app);
     if (event.target.closest(".t-apptab__close")) //it's the closer being clicked
       this.app.requestClose();
   }
@@ -134,14 +139,15 @@ class ApplicationTab {
  */
 
 export default class ApplicationBar {
-  constructor(shell, appbar) {
-    this.node = null;
+  readonly shell: IndyShell;
+  readonly node: HTMLElement;
+
+  constructor(shell: IndyShell, appbar: HTMLElement) {
     this.fixed_node = null;
     this.dyn_node = null;
     this.nav_node = null;
     this.name = "(applicationbar)";
     this.apps = [];
-    this.shell = null;
     this.apptabmenu = null;
     this.appnavmenu = null;
     this.scrollstate = null;
@@ -252,10 +258,10 @@ export default class ApplicationBar {
         return;
 
       const gotoappidx = (appidx + this.apps.length + idx) % this.apps.length;
-      this.apps[gotoappidx].app.activateApp();
+      this.shell.appmgr.activate(this.apps[gotoappidx]);
     } else if (how === 'absolute') {
       if (idx < this.apps.length)
-        this.apps[idx].app.activateApp();
+        this.shell.appmgr.activate(this.apps[idx]);
     }
   }
 

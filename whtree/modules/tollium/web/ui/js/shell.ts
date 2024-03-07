@@ -35,6 +35,7 @@ import './debugging/magicmenu';
 const EventServerConnection = require('@mod-system/js/net/eventserver');
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
+import { AppMgr } from './shell/appmgr';
 
 import * as $todd from './support';
 import { ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
@@ -113,6 +114,8 @@ class IndyShell extends TolliumShell {
   frontendids = [];
   feedbackhandler: TolliumFeedbackAPI | null = null;
 
+  appmgr = new AppMgr;
+
   towl?: TowlNotifications;
 
   constructor(setup) {
@@ -174,7 +177,7 @@ class IndyShell extends TolliumShell {
       baseobject: appname
     });
     if (!options.inbackground && !parentapp)
-      application.activateApp();
+      this.appmgr.activate(application);
 
     return application;
   }
@@ -206,7 +209,7 @@ class IndyShell extends TolliumShell {
 
     application.launchApp();
     if (!options.inbackground && !parentapp)
-      application.activateApp();
+      this.appmgr.activate(application);
 
     return application;
   }
@@ -398,7 +401,7 @@ class IndyShell extends TolliumShell {
   onApplicationStackChange() {
     //if not app is open, open something. not sure about the best approach, we'll just try to activate the last app on the tab bar (The most recently opened one)
     if (!$todd.getActiveApplication() && this.applicationbar.apps.length > 0)
-      this.applicationbar.apps.at(-1).app.activateApp();
+      this.appmgr.activate(this.applicationbar.apps.at(-1));
   }
   onApplicationEnded(app) {
     if (this.isloggingoff) //do not interfere with the normal closing of apps
@@ -506,14 +509,13 @@ class IndyShell extends TolliumShell {
           if (reuse_instance === "always") {
             if (message)
               $todd.applications[i].queueEvent("$appmessage", { message: message, onlynonbusy: false }, false);
-            $todd.applications[i].activateApp();
-          } else // onlynonbusy
-          {
+            this.appmgr.activate($todd.applications[i]);
+          } else { // onlynonbusy
             $todd.applications[i].queueEventAsync("$appmessage", { message: message || null, onlynonbusy: true }).then(reply => {
               if (reply && reply.busy)
                 return this.startBackendApplication(app, null, { target: target, message: message, inbackground: inbackground, ...appoptions });
 
-              $todd.applications[i].activateApp();
+              this.appmgr.activate($todd.applications[i]);
             });
           }
           return $todd.applications[i];

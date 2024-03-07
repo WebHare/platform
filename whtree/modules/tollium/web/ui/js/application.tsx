@@ -960,7 +960,7 @@ export class BackendApplication extends ApplicationBase {
     this.applyReceivedReplies(pendingreplies);
 
     if (grabactivation)
-      this.activateApp();
+      this.shell.appmgr.activate(this);
 
     if (isappinit) {
       this._resolveAppLoad();
