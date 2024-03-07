@@ -114,7 +114,8 @@ class IndyShell extends TolliumShell {
   frontendids = [];
   feedbackhandler: TolliumFeedbackAPI | null = null;
 
-  appmgr = new AppMgr;
+  appmgr = new AppMgr(this);
+  applicationbar: ApplicationBar | null = null;
 
   towl?: TowlNotifications;
 
@@ -397,11 +398,6 @@ class IndyShell extends TolliumShell {
        to throw and our alert may then block the redirect. TODO: if we had a (tollium) dialogapi we could trigger that here, as that won't block
     alert("Portal startup failed");
     */
-  }
-  onApplicationStackChange() {
-    //if not app is open, open something. not sure about the best approach, we'll just try to activate the last app on the tab bar (The most recently opened one)
-    if (!$todd.getActiveApplication() && this.applicationbar.apps.length > 0)
-      this.appmgr.activate(this.applicationbar.apps.at(-1));
   }
   onApplicationEnded(app) {
     if (this.isloggingoff) //do not interfere with the normal closing of apps

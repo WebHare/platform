@@ -85,6 +85,9 @@ export class ApplicationBase {
     root: HTMLElement;
   };
 
+  /// If set, keep this app at the bottom of the application stack
+  onappstackbottom = false;
+
   constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?) {
     this.container = null;
     /// Name of  app
@@ -123,8 +126,6 @@ export class ApplicationBase {
 
     /// Busy lock for application initialization
     this.initbusylock = null;
-    /// Keep this app at the bottom of the application stack
-    this.onappstackbottom = false;
 
     this._apploaddeferred = dompack.createDeferred();
     this._apploadlock = dompack.flagUIBusy();
@@ -188,13 +189,15 @@ export class ApplicationBase {
     this._apploadlock = null;
   }
 
-  async resetApp() {
+  /** Destroys the app. We shuod */
+  private async resetApp(): Promise<void> {
     const shutdownlock = this.getBusyLock();
 
     if (this.appcomm) // Send a termination for the app. this flushes the contentsof any screens (ie dirty RTDs) to the server
       await this.queueEventAsync('$terminate', '');
 
-    Object.keys(this.screenmap).forEach(screenname => this.screenmap[screenname].terminateScreen());
+    while (this.screenstack.length) //terminate screens, toplevel first
+      this.screenstack.at(-1).terminateScreen();
 
     if (this.appcomm) {
       // Close busy locks for sync messages - FIXME dangerous, calls should be rejectable promises and that should clear the locks
@@ -342,14 +345,14 @@ export class ApplicationBase {
       if (this === $todd.applicationstack.at(-1)) //we're the currently selected app
       {
         if ($todd.applicationstack.length >= 2)
-          $todd.applicationstack[$todd.applicationstack.length - 2].activateApp();
+          this.shell.appmgr.activate($todd.applicationstack[$todd.applicationstack.length - 2]);
       }
 
       const apppos = $todd.applicationstack.indexOf(this);
       if (apppos >= 0)
         $todd.applicationstack.splice(apppos, 1);
 
-      this.shell.onApplicationStackChange();
+      this.shell.appmgr.onApplicationStackChange();
     }
   }
   setOnAppBar(onappbar, fixedonappbar) {
@@ -417,45 +420,20 @@ export class ApplicationBase {
   isActiveApplication() {
     return this === $todd.applicationstack.at(-1);
   }
-  activateApp() {
-    const curapp = $todd.applicationstack.at(-1);
 
-    if (curapp !== this) {
-      if (curapp) {
-        //deactivate current application
-        curapp.appnodes.root.classList.remove('appcanvas--visible');
-      }
+  setAppcanvasVisible(show: boolean) {
+    //named setAppcanvasVisible as setVisible is more about the app lifecycle and not tab switching
+    this.appnodes.root.classList.toggle('appcanvas--visible', show);
 
-      //move us to the end
-      const apppos = $todd.applicationstack.indexOf(this);
-      if (apppos >= 0)
-        $todd.applicationstack.splice(apppos, 1);
+    if (show) {
+      this.setAppTitle(this.title); //reapply same value to update document.title where needed
 
-      $todd.applicationstack.push(this);
-
-      //if the previous app desired to be on the top, move it there. this keeps the dashboard from activating when closing one of multiple open apps
-      if ($todd.applicationstack.length >= 3 && $todd.applicationstack[$todd.applicationstack.length - 2].onappstackbottom) {
-        $todd.applicationstack.unshift($todd.applicationstack[$todd.applicationstack.length - 2]);
-        $todd.applicationstack.splice($todd.applicationstack.length - 2, 1);
-      }
-
-      dompack.dispatchCustomEvent(this.appnodes.root, "tollium:activateapp",
-        {
-          bubbles: true,
-          cancelable: false
-        });
-
-      //activate
-      this.appnodes.root.classList.add('appcanvas--visible');
-
-      this.setAppTitle(this.title);
-      this.shell.onApplicationStackChange();
+      //restore focus
+      if (this.screenstack.at(-1))
+        this.screenstack.at(-1).focus();
+      else
+        focusZones.focusZone(this.appnodes.root);
     }
-
-    if (this.screenstack.at(-1))
-      this.screenstack.at(-1).focus();
-    else
-      focusZones.focusZone(this.appnodes.root);
   }
 
   //terminate an application, clearing all its screens (ADDME: what if we're hosting foreign screens?)

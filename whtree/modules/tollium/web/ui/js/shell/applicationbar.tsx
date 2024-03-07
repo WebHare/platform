@@ -141,13 +141,13 @@ class ApplicationTab {
 export default class ApplicationBar {
   readonly shell: IndyShell;
   readonly node: HTMLElement;
+  apps: ApplicationBase[] = [];
 
   constructor(shell: IndyShell, appbar: HTMLElement) {
     this.fixed_node = null;
     this.dyn_node = null;
     this.nav_node = null;
     this.name = "(applicationbar)";
-    this.apps = [];
     this.apptabmenu = null;
     this.appnavmenu = null;
     this.scrollstate = null;
@@ -157,7 +157,8 @@ export default class ApplicationBar {
     this.shell = shell;
     this.node = appbar;
 
-    window.addEventListener("tollium:activateapp", () => this.updateActiveApp());
+    this.shell.appmgr.addEventListener("activateapp", () => this.updateActiveApp());
+
     this.apptabmenu = dompack.create("ul");
     this.appnavmenu = dompack.create("ul");
 
