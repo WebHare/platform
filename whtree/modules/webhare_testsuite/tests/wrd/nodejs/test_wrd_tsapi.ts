@@ -477,10 +477,22 @@ async function testNewAPI() {
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
-  await schema.update("wrdPerson", newperson, { testFile: goldfish });
-  const goldfishrec: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select(["testFile"]).where("wrdId", "=", newperson).execute())[0].testFile!;
-  test.eq('image/png', goldfishrec.mediaType);
-  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishrec.hash);
+  const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
+  await schema.update("wrdPerson", newperson, { testFile: goldfish, testImage: goldfishImg });
+  const { testFile: goldfishAsFile, testImage: goldfishAsImage } = (await schema.selectFrom("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
+  test.eq('image/png', goldfishAsFile?.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsFile?.hash);
+  test.eq('image/png', goldfishAsImage?.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsImage?.hash);
+
+  const goldBlob = new ResourceDescriptor(goldfish.resource, { mediaType: "application/octet-stream" });
+  const goldBlobImg = new ResourceDescriptor(goldfish.resource, { mediaType: "image/png" });
+  await schema.update("wrdPerson", newperson, { testFile: goldBlob, testImage: goldBlobImg });
+  const { testFile: goldBlobAsFile, testImage: goldBlobAsImage } = (await schema.selectFrom("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
+  test.eq('image/png', goldBlobAsFile?.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldBlobAsFile?.hash);
+  test.eq('image/png', goldBlobAsImage?.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldBlobAsImage?.hash);
 
   // FIXME: rich documents are not yet supported in the JS engine
   if (!debugFlags["wrd:usejsengine"]) {

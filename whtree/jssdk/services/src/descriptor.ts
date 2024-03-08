@@ -295,8 +295,8 @@ export class ResourceDescriptor implements ResourceMetaData {
     this.metadata = metadata;
   }
 
-  static async from(str: string | Buffer, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
-    const blob = WebHareBlob.from(str);
+  static async from(str: string | Buffer | WebHareBlob, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    const blob = WebHareBlob.isWebHareBlob(str) ? str : WebHareBlob.from(str);
     return buildDescriptorFromResource(blob, options);
   }
 
