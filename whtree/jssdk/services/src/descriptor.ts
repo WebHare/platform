@@ -12,7 +12,7 @@ import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
-const outputFormats = ["image/png", "image/jpeg", "image/gif"] as const;
+const outputFormats = [null, "image/jpeg", "image/gif", "image/png"] as const;
 
 //TODO make ResizeMethod smarter - reject most props when "none" is set etc
 export type ResizeMethod = {
@@ -22,7 +22,7 @@ export type ResizeMethod = {
   quality?: number;
   hBlur?: number;
   vBlur?: number;
-  format?: typeof outputFormats[number];
+  format?: Exclude<typeof outputFormats[number], null>;
   fixOrientation?: boolean;
   bgColor?: number | "transparent";
   noForce?: boolean;
@@ -34,7 +34,7 @@ export type ResizeMethod = {
 export interface ResizeSpecs {
   outWidth: number;
   outHeight: number;
-  outType: typeof outputFormats[number];
+  outType: Exclude<typeof outputFormats[number], null>;
   renderX: number;
   renderY: number;
   renderWidth: number;
@@ -303,15 +303,42 @@ export function decodeScanData(scandata: string): ResourceMetaData {
   };
 }
 
+function validateResizeMethod(resizemethod: ResizeMethod) {
+  const method = packMethods.indexOf(resizemethod.method);
+  if (method < 0)
+    throw new Error(`Unrecognized method '${resizemethod.method}'`);
+
+  if (!resizemethod.setWidth && ['stretch', 'stretch-x'].includes(resizemethod.method))
+    throw new Error("setWidth is required for stretch and stretch-x methods");
+  if (!resizemethod.setHeight && ['stretch', 'stretch-y'].includes(resizemethod.method))
+    throw new Error("setHeight is required for stretch and stretch-y methods");
+
+  const format = outputFormats.indexOf(resizemethod.format ?? null);
+  if (format < 0)
+    throw new Error(`Unrecognized format '${resizemethod.format}'`);
+
+  return {
+    bgColor: 0x00ffffff,
+    quality: 85,
+    fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
+    noForce: true,
+    hBlur: 0,
+    vBlur: 0,
+    setWidth: 0,
+    setHeight: 0,
+    ...resizemethod,
+    methodIdx: method,
+    formatIdx: format
+  };
+}
+
 export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod): ResizeSpecs {
   if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
     throw new Error("Width and height are required for bitmap images");
-  if (!method.setWidth && ['stretch', 'stretch-x'].includes(method.method))
-    throw new Error("setWidth is required for stretch and stretch-x methods");
-  if (!method.setHeight && ['stretch', 'stretch-y'].includes(method.method))
-    throw new Error("setHeight is required for stretch and stretch-y methods");
+
+  method = validateResizeMethod(method);
 
   const quality = method?.quality ?? 85;
   const hblur = method?.hBlur ?? 0;
@@ -321,7 +348,7 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
   let mirror;
   let issideways;
 
-  if (method.fixOrientation !== false) { //First figure out how to undo the rotation on the image, if any
+  if (!method.fixOrientation) { //First figure out how to undo the rotation on the image, if any
     if ([90, 180, 270].includes(resource.rotation!))
       rotate = 360 - resource.rotation!;
     mirror = resource.mirrored!;
@@ -484,6 +511,64 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
     instr.refPoint.y += instr.renderY;
   }
   return instr;
+}
+
+export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
+  const validatedMethod = validateResizeMethod(resizemethod);
+  let method = validatedMethod.methodIdx;
+  let format = validatedMethod.formatIdx;
+
+  if (validatedMethod.grayscale)
+    method += 0x10;
+
+  if (validatedMethod.fixOrientation) //this one goes into format, the rest of the bigflags go into method
+    format += 0x80;
+
+  const havequality = validatedMethod.quality !== 85;
+  if (havequality)
+    method += 0x20; //Set quality flag
+
+  const dropbgcolor = validatedMethod.bgColor === 0x00FFFFFF;
+  if (dropbgcolor)
+    method += 0x80; //Set 'no bgcolor flag'
+
+  if (validatedMethod.noForce !== false)
+    method += 0x40;
+
+  const buffer = new ArrayBuffer(32);
+  const view = new DataView(buffer);
+  let ptr = 0;
+  const blur = ((validatedMethod.hBlur & 0x7fff) << 15) | (validatedMethod.vBlur & 0x7fff);
+  if (blur) {
+    view.setUint8(ptr, 2); //the 'blur' header byte
+    view.setInt32(ptr + 1, blur, true);
+    ptr += 5;
+  }
+
+  //Build the image data packet. <01> <method> <setwidth:u16> <setheight:u16> <format:s8>
+  view.setUint8(ptr, 1);
+  view.setUint8(ptr + 1, method);
+  ptr += 2;
+  if (validatedMethod.method !== 'none') { //only write setWidth/height for methods other than none
+    view.setInt16(ptr, validatedMethod.setWidth, true);
+    view.setInt16(ptr + 2, validatedMethod.setHeight, true);
+    ptr += 4;
+  }
+
+  view.setUint8(ptr, format);
+  ptr += 1;
+
+  if (havequality) { //adds quality:8
+    view.setUint8(ptr, validatedMethod.quality);
+    ptr += 1;
+  }
+
+  if (!dropbgcolor) { //adds bgcolor:L
+    view.setInt32(ptr, validatedMethod.bgColor === "transparent" ? 0 : validatedMethod.bgColor, true);
+    ptr += 4;
+  }
+
+  return buffer.slice(0, ptr);
 }
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load

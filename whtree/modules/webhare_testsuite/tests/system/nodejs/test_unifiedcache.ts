@@ -1,6 +1,7 @@
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
+import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
-import { explainImageProcessing } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, packImageResizeMethod } from "@webhare/services/src/descriptor";
 import * as test from "@webhare/test";
 
 
@@ -285,10 +286,46 @@ async function testResizeMethods() {
     , explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 320, setHeight: 120, quality: 95 }));
 }
 
+async function testImgMethodPacking() {
+  let finalmethod;
+  const unpack = await loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
+  finalmethod = await unpack(packImageResizeMethod({ method: "stretch", setWidth: 320, setHeight: 320, quality: 95, grayscale: true }));
+  test.eq(95, finalmethod.quality);
+  test.eq(true, finalmethod.grayscale);
+  test.eq(true, finalmethod.fixorientation);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "stretch", setWidth: 320, setHeight: 320, quality: 95, grayscale: true, fixOrientation: false }));
+  test.eq(false, finalmethod.fixorientation);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", setWidth: 125, setHeight: 131, fixOrientation: true }));
+  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "", bgcolor: 0x00FFFFFF, noforce: true, quality: 85, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "none" }));
+  test.eq(false, finalmethod.fixorientation);
+  test.eq("", finalmethod.format);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", fixOrientation: true }));
+  test.eq(true, finalmethod.fixorientation);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/png" }));
+  test.eq(false, finalmethod.fixorientation);
+  test.eq("image/png", finalmethod.format);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/gif", fixOrientation: true }));
+  test.eq(true, finalmethod.fixorientation);
+  test.eq("image/gif", finalmethod.format);
+
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", hBlur: 12345, vBlur: 4321 }));
+  test.eq(12345, finalmethod.hblur);
+  test.eq(4321, finalmethod.vblur);
+
+}
+
 async function testImgCache() {
 }
 
 test.run([
   testResizeMethods,
+  testImgMethodPacking,
   testImgCache
 ]);

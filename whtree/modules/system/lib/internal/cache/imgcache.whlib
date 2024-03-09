@@ -334,7 +334,7 @@ PUBLIC STRING FUNCTION GetImageMimetype(STRING extension)
   THROW NEW Exception("Unexpected image extension '" || extension || "'");
 }
 
-RECORD FUNCTION DecodeUnifiedData(STRING imgtok)
+PUBLIC RECORD FUNCTION DecodeUnifiedData(STRING imgtok)
 {
   IF(Left(imgtok,1)="\x03")
   {
