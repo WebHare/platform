@@ -46,18 +46,8 @@ RECORD FUNCTION GetMimeType(STRING extension)
          ];
 }
 
-PUBLIC OBJECTTYPE UnifiedCacheHostBase
+PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
 <
-  /** The hash used by this cachehost. You should set this (and also pass it
-      to all Getcached... calls) if you want to make sure your cachehost can't
-      be avoided, eg by using the /.uc/ URLs. You want this if your cachehost
-      eg. watermarks images
-
-      Modifying the hosthash invalidates all previously created GetCached.. URLs
-      which used the wrong hash, so you can also use this to ensure no existing
-      image URLs are valid after changing your postprocessor. */
-  PUBLIC STRING hosthash;
-
   BOOLEAN force;
   BOOLEAN trace;
 
@@ -82,11 +72,6 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
   BLOB FUNCTION ProcessImage(RECORD imgrec, RECORD imginfo)
   {
     /* Verify and decode image information */
-    RECORD hostdata;
-    IF(CellExists(imginfo, 'hostdata'))
-      hostdata := imginfo.hostdata;
-
-    INSERT CELL postprocessor := this->GetImagePostProcessor(hostdata) INTO imginfo.resizemethod;
     RECORD res := GfxResizeWrappedImageWithMethod(imgrec, imginfo.resizemethod);
     IF(NOT RecordExists(res))
       THROW NEW Exception("GfxResizeImageBlobWithMethod failed");
@@ -191,12 +176,6 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
            ];
   }
 
-  /** The postprocessor to apply to the canvas.  */
-  PUBLIC MACRO PTR FUNCTION GetImagePostProcessor(RECORD hostdata)
-  {
-    RETURN DEFAULT MACRO PTR;
-  }
-
   MACRO FailRequest(STRING why, BOOLEAN badurl)
   {
     IF(this->trace)
@@ -226,7 +205,7 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
 
     TRY
     {
-      RECORD analyzed := AnalyzeUnifiedURLToken(token, this->hosthash);
+      RECORD analyzed := AnalyzeUnifiedURLToken(token);
       IF(NOT RecordExists(analyzed))
         this->FailRequest("Could not parse urltoken", TRUE);
 

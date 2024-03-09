@@ -340,7 +340,7 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
   INTEGER inputcanvas;
   IF((instructions.renderwidth = fileinfo.width AND instructions.renderheight = fileinfo.height) AND instructions.rotate = 0 AND instructions.mirror = FALSE) //change input?
   {
-    IF(exactcover AND instructions.noforce AND instructions.outtype = fileinfo.mimetype AND NOT instructions.grayscale AND instructions.postprocessor = DEFAULT MACRO PTR) //don't open at all
+    IF(exactcover AND instructions.noforce AND instructions.outtype = fileinfo.mimetype AND NOT instructions.grayscale) //don't open at all
       RETURN [ canvas := 0, outtype := fileinfo.mimetype, width := instructions.outwidth, height := instructions.outheight ];
 
     inputcanvas := __DRAWLIB_V2_CREATECANVASFROMFILE(fileinfo.data);
@@ -387,14 +387,6 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
   }
   IF(instructions.grayscale)
     __DRAWLIB_V2_GRAYSCALECANVAS(outputcanvas);
-  IF(instructions.postprocessor != DEFAULT MACRO PTR)
-  {
-    OBJECT canvas := MakeFunctionPtr("wh::graphics/canvas.whlib#__CREATECANVASWITHCANVASID", TypeID(OBJECT), [TypeID(INTEGER)])(outputcanvas);
-    instructions.postprocessor(canvas);
-    instructions.outheight := canvas->height;
-    instructions.outwidth := canvas->width;
-    outputcanvas := canvas->__ReleaseAndClean();
-  }
 
   IF (instructions.hblur > 0 OR instructions.vblur > 0)
     GfxBlurCanvas(outputcanvas, instructions.hblur, instructions.vblur);

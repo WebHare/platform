@@ -71,7 +71,7 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url)
   INTEGER uc := SearchSubstring(url, "/.uc/");
   IF(uc>=0)
   {
-    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5), "");
+    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5));
     IF(RecordExists(analyzed))
     {
       STRING mimetype;
@@ -115,11 +115,6 @@ PUBLIC RECORD FUNCTION WrapImageField(STRING field, RECORD method)
 BLOB FUNCTION __ProcessImage(RECORD imgrec, RECORD imginfo)
 {
   /* Verify and decode image information */
-  RECORD hostdata;
-  IF(CellExists(imginfo, "HOSTDATA"))
-    hostdata := imginfo.hostdata;
-
-  //INSERT CELL postprocessor := this->GetImagePostProcessor(hostdata) INTO imginfo.resizemethod;
   RECORD res := GfxResizeWrappedImageWithMethod(imgrec, imginfo.resizemethod);
   IF(NOT RecordExists(res))
     THROW NEW Exception("GfxResizeWrappedImageWithMethod failed");
@@ -197,8 +192,6 @@ PUBLIC STRING FUNCTION GetCachedImageLink(RECORD wrappedimage, RECORD processing
     @cell options.filename Filename to use in the URL
     @cell options.embed The returned URL should serve itself without a content-disposition: attachment
     @cell options.allowanyextension Do not strip unknown file extentions
-    @cell options.cachehost
-    @cell options.hosthash
     @return Link to the file. Empty string if a default record is passed
 */
 PUBLIC STRING FUNCTION GetCachedFileLink(RECORD wrappedfile, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -237,7 +230,7 @@ PUBLIC RECORD FUNCTION WrapCachedImage(RECORD wrappedimage, RECORD processingmet
     RETURN DEFAULT RECORD;
 
   RECORD cleanedmethod := processingmethod;
-  DELETE CELL baseurl, filename, cachehost, hostdata, hosthash FROM cleanedmethod;
+  DELETE CELL baseurl, filename FROM cleanedmethod;
 
   RECORD explained := ExplainImageProcessing(wrappedimage, cleanedmethod);
 

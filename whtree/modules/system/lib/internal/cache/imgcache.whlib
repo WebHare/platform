@@ -144,37 +144,18 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   IF(mimetype = "" AND sourcetype = 1)
     mimetype := ScanBlob((SELECT AS BLOB data FROM system.fs_objects WHERE id = sourceid), '').mimetype;
 
-  STRING cachehost;
-  RECORD hostdata;
-  STRING hosthash;
   STRING filename;
   BOOLEAN embed := datatype = 1 OR (CellExists(options,'embed') AND options.embed=TRUE);
 
-  IF(CellExists(options,'cachehost'))
-    cachehost := options.cachehost;
-
   IF(CellExists(options,'filename'))
     filename := options.filename;
-
-  IF(CellExists(options,'hosthash'))
-  {
-    IF(cachehost="")
-      THROW NEW Exception("A resize method may only contain a 'hosthash' if it also specifies a 'cachehost'");
-    hosthash := options.hosthash;
-  }
-  IF(CellExists(options,'hostdata'))
-  {
-    IF(cachehost="")
-      THROW NEW Exception("A resize method may only contain a 'hostdata' if it also specifies a 'cachehost'");
-    hostdata := options.hostdata;
-  }
 
   RECORD scalemethod;
   BOOLEAN allowanyextension := CellExists(options, 'allowanyextension') ? options.allowanyextension : FALSE;
   IF(datatype = 1)
   {
     scalemethod := options;
-    DELETE CELL cachehost, filename, hosthash, hostdata, allowanyextension FROM scalemethod;
+    DELETE CELL filename, allowanyextension FROM scalemethod;
     scalemethod := ValidateResizeMethod(scalemethod);
   }
 
@@ -247,14 +228,7 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   ELSE IF (Length(validextensions) > 0 AND NOT allowanyextension)
     useextension := validextensions[0];
 
-  IF(RecordExists(hostdata))
-  {
-    //Wrap the packet..
-    STRING data := EncodeHSON(hostdata);
-    packet := "\x03" || EncodePacket("datalen:S", [ datalen := Length(data) ]) || data || packet;
-  }
-
-  STRING hash := Left(GetHashForString(packet || hosthash || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
+  STRING hash := Left(GetHashForString(packet || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
   packet := ToLowercase(EncodeBase16(hash || packet));
 
   STRING suffix := datatype=1 ? "i" : embed ? "e" : "f";
@@ -262,13 +236,6 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
 
   filename := Left(filename, 80);
   suffix := suffix || "/" || EncodeURL( (filename ?? "data") || useextension);
-
-  IF(cachehost != "")
-  {
-    IF(cachehost NOT LIKE "*/")
-      cachehost := cachehost || "/";
-    RETURN cachehost || suffix;
-  }
 
   RETURN FixupReturnURL(baseurl, objinfo.fsobjectfolder, "/.uc/" || suffix);
 }
@@ -324,15 +291,6 @@ PUBLIC STRING FUNCTION GetImageMimetype(STRING extension)
 
 PUBLIC RECORD FUNCTION DecodeUnifiedData(STRING imgtok)
 {
-  IF(Left(imgtok,1)="\x03")
-  {
-    //this image token wraps a hostdata packet and the original imagetoken (ADDME smarter or compressed formats would be better?)
-    INTEGER hostdatalen := DecodePacket("datalen:S", Substring(imgtok,1,2)).datalen;
-    RECORD basedata := DecodeUnifiedData(Substring(imgtok,hostdatalen+3));
-    INSERT CELL hostdata := DecodeHSON(Substring(imgtok,3,hostdatalen)) INTO basedata;
-    RETURN basedata;
-  }
-
   IF(Left(imgtok,1) != "\x01")
     THROW NEW Exception("Image token version not recognized");
 
@@ -486,7 +444,7 @@ RECORD FUNCTION GetUnifiedURLTokenParts(STRING token)
 }
 
 
-PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
+PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token)
 {
   RECORD retval := [ datatype :=  0
                    , token :=     ""
@@ -510,7 +468,7 @@ PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
     retval.hash := Left(datatoken, 4);
     retval.tohash := Substring(datatoken, 4);
 
-    STRING expectedhash := Left(GetHashForString(retval.tohash || hosthash || retval.extension || GetClusterKeyBase("cachesecret"), "MD5"),4);
+    STRING expectedhash := Left(GetHashForString(retval.tohash || retval.extension || GetClusterKeyBase("cachesecret"), "MD5"),4);
     IF(expectedhash != retval.hash)
       RETURN DEFAULT RECORD;
 
@@ -533,7 +491,7 @@ PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
   INTEGER uc := SearchSubstring(url, "/.uc/");
   IF(uc>=0)
   {
-    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5), "");
+    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5));
     IF(RecordExists(analyzed))
     {
       RETURN [ type := analyzed.item.type
