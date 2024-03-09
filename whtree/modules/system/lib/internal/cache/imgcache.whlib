@@ -26,7 +26,6 @@ LOADLIB "mod::wrd/lib/database.whlib";
 //store last requested unified cache object as it's very common for the same image to be requested repeatedly with different dimensions
 RECORD lastobjinfo;
 
-DATETIME moddatecutoff;
 PUBLIC STRING imgcache_globalbaseurl; //set by eg webdesign to enforce CDN preferences
 CONSTANT STRING u1packet := "type:C,id:L,cc:L,md:L,ms:L,imgdatalen:C";
 
@@ -119,9 +118,6 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   IF(sourceid=0)
     RETURN "";
 
-  IF(moddatecutoff = DEFAULT DATETIME)
-    moddatecutoff := ReadRegistryKey("system.cache.moddatecutoff");
-
   RECORD objinfo;
   IF(RecordExists(lastobjinfo) AND lastobjinfo.sourcetype = sourcetype AND lastobjinfo.sourceid = sourceid)
     objinfo := lastobjinfo;
@@ -200,21 +196,13 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   }
 
   INTEGER md,ms;
-  IF(objinfo.modificationdate >= moddatecutoff AND filedata.hash != "")
-  {
-    STRING hash := DecodeBase64(filedata.hash);
-    IF(datatype =1 AND RecordExists(filedata.refpoint) AND IsImageRefpointRelevant(options))
-      hash := GetMD5Hash(filedata.hash || EncodeHSON(filedata.refpoint));
+  STRING contenthash := DecodeBase64(filedata.hash); //filedata.hash should have been set everywhere by now by the scandata migrations yaers ago
+  IF(datatype =1 AND RecordExists(filedata.refpoint) AND IsImageRefpointRelevant(options))
+    contenthash := GetMD5Hash(filedata.hash || EncodeHSON(filedata.refpoint));
 
-    STRING hashdata := EncodeBase16(hash);
-    md := ToInteger(Left(hashdata,8),0,16);
-    ms := ToInteger(Substring(hashdata,8,8),0,16);
-  }
-  ELSE
-  {
-    md := GetDayCount(objinfo.modificationdate);
-    ms := GetMsecondCount(objinfo.modificationdate);
-  }
+  STRING hashdata := EncodeBase16(contenthash);
+  md := ToInteger(Left(hashdata,8),0,16);
+  ms := ToInteger(Substring(hashdata,8,8),0,16);
 
   STRING packet := "\x01" || EncodePacket(u1packet,
     [ type := sourcetype
