@@ -25,6 +25,11 @@ OBJECT homer;
 
 MACRO ImgCacheTest()
 {
+  // Verify calculations
+  TestEqMembers(
+     [ item := [cc := 456 ]],
+     AnalyzeUnifiedURLToken(`i${GetUCSubUrl([ method := "scale", setwidth:=25, setheight:=25], [ hash := "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refpoint := default record ], 1, 1, 123, 456, '.png')}/image.png`), '*');
+
   // Insert a simple image into the publisher
 
   testfw->BeginWork();

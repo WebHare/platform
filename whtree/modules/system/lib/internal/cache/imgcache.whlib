@@ -101,6 +101,47 @@ RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER64 sourceid)
   }
 }
 
+PUBLIC STRING FUNCTION GetUCSubUrl(RECORD scalemethod, RECORD filedata, INTEGER datatype, INTEGER sourcetype, INTEGER64 sourceid, INTEGER cc, STRING useextension)
+{
+  /* Format of added imginfo fields
+     _t type (U8)
+     _i id (U32)
+     _c c^c (U32)
+     _md = (U32)
+     _ms = (U32) */
+
+  STRING imgdata;
+  IF(RecordExists(scalemethod))
+  {
+    imgdata := GfxPackImageResizeMethod(scalemethod);
+    IF(Length(imgdata)>255)
+      THROW NEW Exception("imgdata unexpectedly too long");
+    IF(Length(imgdata)=0)
+      THROW NEW Exception("imgdata could not be generated");
+  }
+
+  INTEGER md,ms;
+  STRING contenthash := DecodeUFS(filedata.hash); //filedata.hash should have been set everywhere by now by the scandata migrations yaers ago. also ScanBlob wrote it as UFS..
+  IF(datatype =1 AND RecordExists(filedata.refpoint) AND IsImageRefpointRelevant(scalemethod))
+    contenthash := GetMD5Hash(filedata.hash || EncodeHSON(filedata.refpoint));
+
+  STRING hashdata := EncodeBase16(contenthash);
+  md := ToInteger(Left(hashdata,8),0,16);
+  ms := ToInteger(Substring(hashdata,8,8),0,16);
+
+  STRING packet := "\x01" || EncodePacket(u1packet,
+    [ type := sourcetype
+    , id := sourceid
+    , cc := cc
+    , md := md
+    , ms := ms
+    , imgdatalen := Length(imgdata)
+    ]) || imgdata;
+  STRING hash := Left(GetHashForString(packet || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
+  packet := ToLowercase(EncodeBase16(hash || packet));
+  RETURN packet;
+}
+
 /** datatype: 1= img, 2 file, 3 embed
     sourcetype: 1 = system:whfs
           2 = system:whfssettings
@@ -159,40 +200,7 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
     scalemethod := ValidateResizeMethod(scalemethod);
   }
 
-  /* Format of added imginfo fields
-     _t type (U8)
-     _i id (U32)
-     _c c^c (U32)
-     _md = (U32)
-     _ms = (U32) */
-
-  STRING imgdata;
-  IF(RecordExists(scalemethod))
-  {
-    imgdata := GfxPackImageResizeMethod(scalemethod);
-    IF(Length(imgdata)>255)
-      THROW NEW Exception("imgdata unexpectedly too long");
-    IF(Length(imgdata)=0)
-      THROW NEW Exception("imgdata could not be generated");
-  }
-
-  INTEGER md,ms;
-  STRING contenthash := DecodeBase64(filedata.hash); //filedata.hash should have been set everywhere by now by the scandata migrations yaers ago
-  IF(datatype =1 AND RecordExists(filedata.refpoint) AND IsImageRefpointRelevant(options))
-    contenthash := GetMD5Hash(filedata.hash || EncodeHSON(filedata.refpoint));
-
-  STRING hashdata := EncodeBase16(contenthash);
-  md := ToInteger(Left(hashdata,8),0,16);
-  ms := ToInteger(Substring(hashdata,8,8),0,16);
-
-  STRING packet := "\x01" || EncodePacket(u1packet,
-    [ type := sourcetype
-    , id := sourceid
-    , cc := GetDayCount(objinfo.creationdate) BITXOR GetMsecondCount(objinfo.creationdate)
-    , md := md
-    , ms := ms
-    , imgdatalen := Length(imgdata)
-    ]) || imgdata;
+  INTEGER cc := GetDayCount(objinfo.creationdate) BITXOR GetMsecondCount(objinfo.creationdate);
 
   STRING ARRAY validextensions;
   IF(datatype=1)
@@ -228,8 +236,9 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   ELSE IF (Length(validextensions) > 0 AND NOT allowanyextension)
     useextension := validextensions[0];
 
-  STRING hash := Left(GetHashForString(packet || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
-  packet := ToLowercase(EncodeBase16(hash || packet));
+  STRING packet := GetUCSubUrl(scalemethod, filedata, datatype, sourcetype, sourceid, cc, useextension);
+  IF(packet = "")
+    RETURN "";
 
   STRING suffix := datatype=1 ? "i" : embed ? "e" : "f";
   suffix := suffix || packet;
