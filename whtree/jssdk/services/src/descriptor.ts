@@ -8,17 +8,20 @@ import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
 import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
 const outputFormats = [null, "image/jpeg", "image/gif", "image/png"] as const;
 
+type ResizeMethodName = typeof packMethods[number];
+
 //TODO make ResizeMethod smarter - reject most props when "none" is set etc
 export type ResizeMethod = {
   // method: "none";
-  // method: Exclude<typeof packMethods[number], "none">;
-  method: typeof packMethods[number];
+  // method: Exclude<ResizeMethodName, "none">;
+  method: ResizeMethodName;
   quality?: number;
   hBlur?: number;
   vBlur?: number;
@@ -569,6 +572,69 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   }
 
   return buffer.slice(0, ptr);
+}
+
+function isImageRefpointRelevant(method: ResizeMethod) {
+  return ["crop", "cropcanvas", "fill"].includes(method.method);
+}
+
+export function getUCSubUrl(scaleMethod: ResizeMethod, fileData: ResourceMetaData, dataType: number, sourceType: number, sourceId: number, cc: number, useExtension: string): string {
+  const key = getFullConfigFile().secrets.cache;
+  if (!key)
+    throw new Error("No cache secret configured");
+
+  /* Format of added imginfo fields
+   _t type (U8)
+   _i id (U32)
+   _c c^c (U32)
+   _md = (U32)
+   _ms = (U32) */
+
+  let imgdata: ArrayBuffer | null = null;
+  if (scaleMethod) {
+    imgdata = packImageResizeMethod(scaleMethod);
+    if (imgdata.byteLength > 255)
+      throw new Error("imgdata unexpectedly too long");
+    if (imgdata.byteLength === 0)
+      throw new Error("imgdata could not be generated");
+  }
+
+  if (!fileData.hash)
+    throw new Error("fileData.hash is required");
+
+  let contenthash;
+  if (dataType === 1 && fileData.refPoint && isImageRefpointRelevant(scaleMethod)) {
+    const contenthasher = crypto.createHash('md5');
+    contenthasher.update(fileData.hash);
+    contenthasher.update(encodeHSON(fileData.refPoint));
+    contenthash = contenthasher.digest();
+  } else {
+    contenthash = Buffer.from(fileData.hash, "base64url");
+  }
+
+  const hashdata = contenthash.toString("hex");
+  const md = parseInt(hashdata.substring(0, 8), 16);
+  const ms = parseInt(hashdata.substring(8, 16), 16);
+
+  // u1packet := <version = 1:8><type:8><id:32><cc:32><md:32><ms:32><imgdatalen:8>  1+1+4+4+4+4+1 = 19
+  const packet = new Uint8Array(19 + (imgdata?.byteLength ?? 0));
+  const view = new DataView(packet.buffer);
+  view.setUint8(0, 1);
+  view.setUint8(1, sourceType);
+  view.setUint32(2, sourceId, true);
+  view.setInt32(6, cc, true);
+  view.setInt32(10, md, true);
+  view.setInt32(14, ms, true);
+  view.setInt32(18, imgdata?.byteLength ?? 0, true);
+  if (imgdata)
+    packet.set(new Uint8Array(imgdata), 19);
+
+  const hash2 = crypto.createHash('md5');
+  hash2.update(packet);
+  hash2.update(useExtension, "utf8");
+  hash2.update(key, "utf8");
+
+  return hash2.digest("hex").substring(0, 8) + Buffer.from(packet).toString("hex");
 }
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
