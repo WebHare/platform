@@ -574,6 +574,11 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   return buffer.slice(0, ptr);
 }
 
+export function getUnifiedCC(date: Date) {
+  const parts = dateToParts(date);
+  return parts.days ^ parts.msecs;
+}
+
 function isImageRefpointRelevant(method: ResizeMethod) {
   return ["crop", "cropcanvas", "fill"].includes(method.method);
 }

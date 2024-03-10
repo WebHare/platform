@@ -1,7 +1,7 @@
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
-import { explainImageProcessing, getUCSubUrl, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
 import * as test from "@webhare/test";
 
 
@@ -330,6 +330,9 @@ async function testImgCacheTokens() {
   async function getHSUC(...args: unknown[]) {
     return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").GetUCSubUrl(...args);
   }
+  async function getHSCC(date: Date) {
+    return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").GetUnifiedCC(date);
+  }
 
   const pngJsTok = getUCSubUrl({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.png');
   const pngHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.png');
@@ -340,6 +343,9 @@ async function testImgCacheTokens() {
   const refPointHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, exampleRefPoint, 1, 1, 123, 456, '.png');
   test.assert(refPointJsTok !== pngJsTok, "A refpoint should affect the hash so the tokens cannot match");
   test.eq(refPointJsTok, refPointHsTok);
+
+  const testdate = new Date(2021, 1, 1, 12, 34, 56, 789);
+  test.eq(await getHSCC(testdate), getUnifiedCC(testdate));
 }
 
 async function testImgCache() {
