@@ -287,6 +287,7 @@ ERRORDEF(265, MisspelledMember,          "Member '%0' does not exist, did you me
 ERRORDEF(266, CannotConvertToIterator,   "Cannot convert this expression to an iterator.")
 ERRORDEF(267, CannotConvertFilledVariantArray, "Cannot automatically convert a filled VARIANT ARRAY to type '%0'")
 ERRORDEF(268, TooLateForWasmEngine,      "A (*WASMENGINE*) directive must appear on the first line of code")
+ERRORDEF(269, ExpectedClosingCurlyBraceInTemplateString, "Expected closing curly brace '}' after an expression in a template string.")
 
 
 { 0,0 }};

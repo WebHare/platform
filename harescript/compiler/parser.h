@@ -129,6 +129,8 @@ class Parser
         ConstantRecord* P_Record_Constant();
         ConstantArray* P_Array_Constant(VariableTypes::Type elttype);
 
+        std::optional< std::pair< std::vector< Rvalue* >, std::vector< Rvalue*> > > P_TemplateLiteral();
+        std::vector< Rvalue * > ConvertTemplateLiteralToParams(LineColumn pos, std::pair< std::vector< Rvalue* >, std::vector< Rvalue*> > const &parts);
         Rvalue* Try_P_TemplateString();
 
         // New advanced lvalue parser

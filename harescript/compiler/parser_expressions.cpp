@@ -326,6 +326,73 @@ Rvalue* Parser::Try_P_Constant()
         return retval;
 }
 
+std::optional< std::pair< std::vector< Rvalue * >, std::vector< Rvalue * > > > Parser::P_TemplateLiteral()
+{
+        // INV: TokenType()!=Lexer::TemplateString)
+        std::pair< std::vector< Rvalue * >, std::vector< Rvalue * > > retval;
+
+        LineColumn pos = lexer.GetPosition();
+
+        // <template-string> ::= <constant-string> [<template-placeholder-block> <template-string>]?
+
+        // The return value is the starting constant string
+        VarId var = context.stackm.NewHeapVariable();
+        context.stackm.SetSTLString(var, Blex::Lexer::ParseTokenString(lexer.GetTokenSTLString()));
+        retval.first.push_back(coder->ImConstant(pos, var));
+        NextToken(); //skip over template string constant
+
+        while (TokenType()==Lexer::TemplatePlaceholderBlock)
+        {
+                NextToken(); //skip over TemplatePlaceholderBlock
+
+                pos = lexer.GetPosition();
+                // There must be an expression
+                if (TokenType()==Lexer::CloseBlock)
+                {
+                        lexer.AddErrorAt(pos, Error::ExpectedTemplateExpression);
+                        return {};
+                }
+                // Read the placeholder expression
+                Rvalue* expr_placeholder = P_Expression(false);
+                if (expr_placeholder == NULL)
+                {
+                        lexer.AddErrorAt(pos, Error::ExpectedTemplateExpression);
+                        return {};
+                }
+                if (TokenType()!=Lexer::CloseBlock)
+                {
+                        lexer.AddErrorAt(lexer.GetPosition(), Error::ExpectedClosingCurlyBraceInTemplateString);
+                        return {};
+                }
+
+                retval.second.push_back(expr_placeholder);
+                NextToken(); //skip over CloseBlock
+                pos = lexer.GetPosition();
+                if (TokenType()!=Lexer::TemplateString)
+                {
+                        lexer.AddErrorAt(lexer.GetPosition(), Error::UnexpectedEndOfString);
+                        return {};
+                }
+
+                // Parse the rest of the template string
+                VarId varrest = context.stackm.NewHeapVariable();
+                context.stackm.SetSTLString(varrest, Blex::Lexer::ParseTokenString(lexer.GetTokenSTLString()));
+                retval.first.push_back(coder->ImConstant(pos, varrest));
+                NextToken(); //skip over template string constant
+        }
+
+        return retval;
+}
+
+std::vector< Rvalue * > Parser::ConvertTemplateLiteralToParams(LineColumn pos, std::pair< std::vector< Rvalue* >, std::vector< Rvalue*> > const &parts)
+{
+        std::vector< Rvalue * > params = parts.second;
+        auto strings = coder->ImConstantArray(pos, VariableTypes::StringArray);
+        for (auto rvalue: parts.first)
+                strings->values.push_back(std::make_tuple(rvalue->position, rvalue, false));
+        params.insert(params.begin(), strings);
+        return params;
+}
 
 Rvalue* Parser::Try_P_TemplateString()
 {
@@ -333,51 +400,25 @@ Rvalue* Parser::Try_P_TemplateString()
             return NULL;
 
         LineColumn pos = lexer.GetPosition();
-
-        VarId var = context.stackm.NewHeapVariable();
-
-        // <template-string> ::= <constant-string> [<template-placeholder-block> <template-string>]?
-
-        // The return value is the starting constant string
-        context.stackm.SetSTLString(var, Blex::Lexer::ParseTokenString(lexer.GetTokenSTLString()));
-        Rvalue* retval = coder->ImConstant(pos, var);
-        NextToken(); //skip over template string constant
-
-        if (TokenType()==Lexer::TemplatePlaceholderBlock)
+        auto parts = P_TemplateLiteral();
+        if (!parts)
         {
-                NextToken(); //skip over TemplatePlaceholderBlock
-                pos = lexer.GetPosition();
-                // There must be an expression
-                if (TokenType()==Lexer::CloseBlock)
-                {
-                        lexer.AddErrorAt(pos, Error::ExpectedTemplateExpression);
-                        return NULL;
-                }
-                // Read the placeholder expression
-                Rvalue* expr_placeholder = P_Expression(false);
-                if (expr_placeholder == NULL)
-                {
-                        lexer.AddErrorAt(pos, Error::ExpectedTemplateExpression);
-                        return NULL;
-                }
-                if (TokenType()!=Lexer::CloseBlock)
-                {
-                        lexer.AddErrorAt(lexer.GetPosition(), Error::ExpectedClosingCurlyBrace);
-                        return NULL;
-                }
-                // Merge the placeholder expression with the return value
-                retval = coder->ImBinaryOperator(pos, BinaryOperatorType::OpMerge, retval, expr_placeholder);
-                NextToken(); //skip over CloseBlock
-                pos = lexer.GetPosition();
-                // Read the rest of the template string
-                Rvalue *template_rest = Try_P_TemplateString();
-                if (!template_rest)
-                {
-                        lexer.AddErrorAt(lexer.GetPosition(), Error::UnexpectedEndOfString);
-                        return NULL;
-                }
-                // Merge the rest of the template string with the return value
-                retval = coder->ImBinaryOperator(pos, BinaryOperatorType::OpMerge, retval, template_rest);
+                // The error has already been emitted
+                return nullptr;
+        }
+
+        auto & [ constants, placeholders ] = *parts;
+        if (constants.size() != placeholders.size() + 1)
+        {
+                lexer.AddErrorAt(pos, Error::ExpectedTemplateExpression);
+                return nullptr;
+        }
+
+        Rvalue* retval = parts.value().first[0];
+        for (size_t i = 0, e = placeholders.size(); i < e; ++i)
+        {
+                retval = coder->ImBinaryOperator(placeholders[i]->position, BinaryOperatorType::OpMerge, retval, placeholders[i]);
+                retval = coder->ImBinaryOperator(constants[i+1]->position, BinaryOperatorType::OpMerge, retval, constants[i+1]);
         }
 
         return retval;
@@ -777,7 +818,19 @@ Rvalue* Parser::P_Postfix_Expression()
 
         while(true)
         {
-                if (TokenType()==Lexer::OpenSubscript) //( `[` Rvalue `]` )*
+                if (TokenType()==Lexer::TemplateString) // `template${"string"}`
+                {
+                        // is translated to expr([ "template", "" ], "string")
+                        LineColumn pos = lexer.GetPosition();
+
+                        auto parts = P_TemplateLiteral();
+                        if (!parts)
+                            return nullptr;
+
+                        auto params = ConvertTemplateLiteralToParams(pos, *parts);
+                        expr = coder->ImFunctionPtrCall(pos, expr, params);
+                }
+                else if (TokenType()==Lexer::OpenSubscript) //( `[` Rvalue `]` )*
                 {
                         LineColumn subscrpos = lexer.GetPosition();
                         NextToken(); //Eat '['
@@ -827,12 +880,23 @@ Rvalue* Parser::P_Postfix_Expression()
 
                         std::string colname = (ishat ? "^" : "") + P_Column_Name();
 
-                        if (!TryParse(Lexer::OpenParenthesis))
+                        if (TokenType() == Lexer::TemplateString)
                         {
-                                LineColumn nextpos = lexer.GetPosition();
-                                expr=coder->ImMemberOf(dotpos, expr, colname, via_this, nextpos);
+                                auto parts = P_TemplateLiteral();
+                                std::vector< Rvalue * > params;
+                                if (parts)
+                                        params = ConvertTemplateLiteralToParams(dotpos, *parts);
+
+                                std::vector<int32_t> passthrough_parameters;
+                                expr = coder->ImObjectMethodCall(dotpos,
+                                        expr,
+                                        colname,
+                                        via_this,
+                                        params,
+                                        false,
+                                        passthrough_parameters);
                         }
-                        else
+                        else if (TryParse(Lexer::OpenParenthesis))
                         {
                                 RvaluePtrs params;
                                 std::vector<int32_t> passthrough_parameters;
@@ -847,6 +911,11 @@ Rvalue* Parser::P_Postfix_Expression()
                                         params,
                                         any_passthrough,
                                         passthrough_parameters);
+                        }
+                        else
+                        {
+                                LineColumn nextpos = lexer.GetPosition();
+                                expr=coder->ImMemberOf(dotpos, expr, colname, via_this, nextpos);
                         }
                 }
                 else if (TokenType()==Lexer::OpenParenthesis)
@@ -1269,6 +1338,7 @@ Rvalue* Parser::P_Simple_Object()
                                         ptr->outside_ptr = true;
                                         return ptr;
                                 }
+                                Blex::ErrStream() << "ExpectedFunctionOpenParen #1";
                                 lexer.AddError(Error::ExpectedFunctionOpenParen, res.first->name);
                                 return coder->ImSafeErrorValueReturn(pos);
                         }
@@ -1422,7 +1492,7 @@ Rvalue* Parser::Try_P_Function_Call()
                         return 0;
                 }
         }
-        else if (TokenType() != Lexer::OpenParenthesis)
+        else if (TokenType() != Lexer::OpenParenthesis && TokenType() != Lexer::TemplateString)
         {
                 // No function call, return
                 lexer.RestoreState(&prefuncstate);
@@ -1453,6 +1523,18 @@ Rvalue* Parser::Try_P_Function_Call()
                 if (!TryParse(Lexer::CloseSubscript))
                     lexer.AddError(Error::ExpectedClosingSquareBracket);
                 inhibit_aggregate = true;
+        }
+
+        if (TokenType() == Lexer::TemplateString)
+        {
+                std::vector< Rvalue * > params;
+                auto parts = P_TemplateLiteral();
+                if (parts)
+                        params = ConvertTemplateLiteralToParams(pos, *parts);
+
+                AST::FunctionCall *call = coder->ImFunctionCallUser(namepos, symbol, params);
+                call->inhibit_aggregate = inhibit_aggregate;
+                return call;
         }
 
         if (symbol->functiondef)
@@ -1904,9 +1986,3 @@ AST::Rvalue* Parser::P_Closure()
 
 } // End of namespace Compiler
 } // End of namespace HareScript
-
-
-
-
-
-

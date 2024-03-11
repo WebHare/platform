@@ -320,17 +320,17 @@ MACRO TemplateTest()
   // check for errors
   errors := TestCompile('<?wh STRING s := `${`; ?>');
   MustContainError(47, errors, 10);
-  MustContainError(48, errors, 71);
+  MustContainError(48, errors, 269);
   errors := TestCompile('<?wh STRING s := `${; ?>');
-  MustContainError(49, errors, 71);
+  MustContainError(49, errors, 269);
   result := TestCompileAndRun("<?wh STRING s := `${ ?>");
-  MustContainError(50, errors, 71);
+  MustContainError(50, errors, 269);
   errors := TestCompile('<?wh STRING s := `${}; ?>');
   MustContainError(51, errors, 260);
   errors := TestCompile('<?wh STRING s := ` ?>');
   MustContainError(52, errors, 10);
   errors := TestCompile('<?wh STRING s := `${"x"} ${x');
-  MustContainError(53, errors, 10);
+  MustContainError(53, errors, 269);
   errors := TestCompile('<?wh STRING s := `${ }`; ?>');
   MustContainError(54, errors, 260);
 
@@ -352,6 +352,43 @@ MACRO TemplateTest()
   TestEq("xyaz", result.output);
 
   CloseTest("TestTypes: TemplateTest");
+}
+
+MACRO TaggedTemplateLiteralTest()
+{
+  STRING mergerfunc := `
+STRING FUNCTION test(STRING ARRAY strings, VARIANT ARRAY ...exprs)
+{
+  IF (LENGTH(strings) != LENGTH(exprs) + 1)
+    THROW NEW Exception("Invalid number of strings and expressions");
+  STRING retval := strings[0];
+  FOR (INTEGER i := 0, e := LENGTH(exprs); i < e; i := i + 1)
+    retval := retval || exprs[i] || strings[i+1];
+  RETURN retval;
+}`;
+  STRING mergerobjecttype := `${mergerfunc}
+  OBJECTTYPE ot
+  < PUBLIC STRING FUNCTION otest(STRING ARRAY strings, VARIANT ARRAY ...exprs)
+    {
+      RETURN CallFunctionPtrVA(PTR test, VARIANT[ strings, ...exprs ]);
+    }
+  >;
+`;
+
+  result := TestCompileAndRun(`<?wh ${mergerfunc} `||"PRINT(test`a${2}b`); ?>");
+  TestEqMembers([ errors := RECORD[], output := "a2b" ], result, "*");
+
+  errors := TestCompile(`<?wh ${mergerfunc} `||"PRINT((test)`a${2}b`); ?>");
+  MustContainError(0, errors, 152, 'TEST');
+
+  result := TestCompileAndRun(`<?wh ${mergerfunc} `||"PRINT((PTR test)`a${2}b`); ?>");
+  TestEqMembers([ errors := RECORD[], output := "a2b" ], result, "*");
+
+  result := TestCompileAndRun(`<?wh ${mergerfunc} `||"PRINT([PTR test][0]`a${2}b`); ?>");
+  TestEqMembers([ errors := RECORD[], output := "a2b" ], result, "*");
+
+  result := TestCompileAndRun(`<?wh ${mergerobjecttype} `||"PRINT((NEW ot)->otest`a${2}b`); ?>");
+  TestEqMembers([ errors := RECORD[], output := "a2b" ], result, "*");
 }
 
 /*** Boolean [17] ***/
@@ -844,6 +881,7 @@ MoneyTest();
 FloatTest();
 StringTest();
 TemplateTest();
+TaggedTemplateLiteralTest();
 BooleanTest();
 DateTimeTest();
 RecordTest();
