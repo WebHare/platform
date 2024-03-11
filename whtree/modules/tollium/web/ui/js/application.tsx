@@ -763,7 +763,7 @@ export class BackendApplication extends ApplicationBase {
    * Communications
    */
 
-  queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback?: () => void) { //for legacy queueEvent calls, too many sitll remaining
+  queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback?: () => void) { //for legacy queueEvent calls, too many still remaining
     const busylock = synchronous ? this.getBusyLock() : dompack.flagUIBusy();
     const finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
     this.queueEventNoLock(actionname, param, synchronous, finalcallback);
