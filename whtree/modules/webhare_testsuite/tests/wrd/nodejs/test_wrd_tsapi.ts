@@ -897,11 +897,15 @@ async function testComparisons() {
             othervalue = [othervalue];
           const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("__getfields").execute();
           const expect = cmp(value, comparetype, othervalue);
-          console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${JSON.stringify(othervalue)}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
-          test.eq(expect, select.length === 1, `Testing select ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
-          if (comparetype === "=") {
-            const searchRes = await schema.search("wrdPerson", attr as any, othervalue, { historyMode: { mode: "__getfields" } });
-            test.eq(expect, searchRes === newperson, `Testing search ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+          try {
+            test.eq(expect, select.length === 1, `Testing select ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+            if (comparetype === "=") {
+              const searchRes = await schema.search("wrdPerson", attr as any, othervalue, { historyMode: { mode: "__getfields" } });
+              test.eq(expect, searchRes === newperson, `Testing search ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+            }
+          } catch (e) {
+            console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${JSON.stringify(othervalue)}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
+            throw e;
           }
         }
     }
