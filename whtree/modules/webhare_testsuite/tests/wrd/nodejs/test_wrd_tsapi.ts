@@ -547,6 +547,14 @@ async function testNewAPI() {
     ], arrayselectres);
   }
 
+  //test other attribute types
+  const toset = {
+    testTime: 15 * 60 * 60_1000 + 24 * 60_000 + (34 * 1_000)
+  };
+  await schema.update("wrdPerson", newperson, toset);
+  const retval = await schema.getFields("wrdPerson", newperson, Object.keys(toset) as Array<keyof typeof toset>);
+  test.eq(toset, retval);
+
   const nottrue = false;
   if (nottrue) {
     // @ts-expect-error -- wrdLeftEntity and wrdRightEntity must be numbers

@@ -1778,6 +1778,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.StatusRecord]: WRDDBStatusRecordValue;
   [WRDAttributeType.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
   [WRDAttributeType.WHFSLink]: WRDDBWHFSLinkValue;
+  [WRDAttributeType.Time]: WRDDBIntegerValue;
 };
 
 /** Returns the accessor for a WRDAttr record
@@ -1822,7 +1823,9 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeType.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.URL: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Integer: return new WRDDBIntegerValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Integer:
+    case WRDAttributeType.Time:
+      return new WRDDBIntegerValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Domain: return new WRDDBDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
