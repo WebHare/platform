@@ -170,14 +170,6 @@ export class ApplicationBase {
       this.appnodes.appmodalitylayer.addEventListener('click', evt => this.showBusyFlags(evt));
   }
 
-  destroy() {
-    if (this.appnodes) {
-      this.appnodes.root.remove();
-      this.appnodes.appmodalitylayer.remove();
-    }
-    this._resolveAppLoad();
-  }
-
   getLoadPromise() {
     return this._apploaddeferred.promise;
   }
@@ -187,36 +179,6 @@ export class ApplicationBase {
     if (this._apploadlock)
       this._apploadlock.release();
     this._apploadlock = null;
-  }
-
-  /** Destroys the app. We shuod */
-  private async resetApp(): Promise<void> {
-    const shutdownlock = this.getBusyLock();
-
-    if (this.appcomm) // Send a termination for the app. this flushes the contentsof any screens (ie dirty RTDs) to the server
-      await this.queueEventAsync('$terminate', '');
-
-    while (this.screenstack.length) //terminate screens, toplevel first
-      this.screenstack.at(-1).terminateScreen();
-
-    if (this.appcomm) {
-      // Close busy locks for sync messages - FIXME dangerous, calls should be rejectable promises and that should clear the locks
-      this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
-      this.eventcallbacks = [];
-      this.queuedEvents = [];
-
-      if (this.appcomm)
-        this.appcomm.close();
-      this.appcomm = null;
-      this.whsid = null;
-    }
-
-    if (this.closebusylock) {
-      this.closebusylock.release();
-      this.closebusylock = null;
-    }
-
-    shutdownlock.release();
   }
 
   // ---------------------------------------------------------------------------
@@ -436,8 +398,10 @@ export class ApplicationBase {
     }
   }
 
-  //terminate an application, clearing all its screens (ADDME: what if we're hosting foreign screens?)
-  terminateApplication() {
+  /** Terminate an application, clearing all its screens (ADDME: what if we're hosting foreign screens?)
+   *
+  */
+  async terminateApplication(): Promise<void> {
     this.setOnAppBar(false); //first leave the appbar, so 'reopen last app' in setVisible doesn't target us
     this.setVisible(false); //also removes us from $todd.applications
 
@@ -445,10 +409,40 @@ export class ApplicationBase {
     if (apppos >= 0)
       $todd.applications.splice(apppos, 1);
 
-    return this.resetApp().finally(() => {
-      this.destroy(); //FIXME dispose comm channels etc?
-      this.shell.onApplicationEnded(this);
-    });
+    const shutdownlock = this.getBusyLock();
+
+    if (this.appcomm) // Send a termination for the app. this flushes the contentsof any screens (ie dirty RTDs) to the server
+      await this.queueEventAsync('$terminate', '');
+
+    while (this.screenstack.length) //terminate screens, toplevel first
+      this.screenstack.at(-1).terminateScreen();
+
+    if (this.appcomm) {
+      // Close busy locks for sync messages - FIXME dangerous, calls should be rejectable promises and that should clear the locks
+      this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
+      this.eventcallbacks = [];
+      this.queuedEvents = [];
+
+      if (this.appcomm)
+        this.appcomm.close();
+      this.appcomm = null;
+      this.whsid = null;
+    }
+
+    if (this.closebusylock) {
+      this.closebusylock.release();
+      this.closebusylock = null;
+    }
+
+    shutdownlock.release();
+
+    //FIXME dispose comm channels etc?
+    if (this.appnodes) {
+      this.appnodes.root.remove();
+      this.appnodes.appmodalitylayer.remove();
+    }
+    this._resolveAppLoad();
+    this.shell.onApplicationEnded(this);
   }
 
   getToplevelApp(): ApplicationBase {
