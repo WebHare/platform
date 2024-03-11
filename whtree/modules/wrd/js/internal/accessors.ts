@@ -110,8 +110,9 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param settings_start - Position where settings for this attribute start
    * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
    * @param links - Entity settings whfs links, sorted on id
+   * @param cc - Creationdate unified cache validator
    */
-  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Out;
+  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): Out;
 
   /** Given a list of entity settings, extract the return value for a field
    * @param entity_settings - List of entity settings
@@ -119,13 +120,14 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start
    * @param row - Entity record
    * @param links - Entity settings whfs links, sorted on id
+   * @param cc - Creationdate unified cache validator
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[]): Out {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Out {
     if (settings_limit <= settings_start)
       return this.getDefaultValue() as Out; // Cast is needed because for required fields, Out may not extend Default.
     else
-      return this.getFromRecord(entity_settings, settings_start, settings_limit, links);
+      return this.getFromRecord(entity_settings, settings_start, settings_limit, links, cc);
   }
 
   /** Check the contents of a value used to insert or update a value
@@ -1498,7 +1500,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members>> {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Array<ArraySelectable<Members>> {
     if (settings_limit <= settings_start)
       return this.getDefaultValue() as Array<ArraySelectable<Members>>; // Cast is needed because for required fields, Out may not extend Default.
     else {
@@ -1509,7 +1511,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
         for (const field of this.fields) {
           const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
           const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
-          rec[field.name] = field.accessor.getValue(entity_settings, lb.position, ub, row, links);
+          rec[field.name] = field.accessor.getValue(entity_settings, lb.position, ub, row, links, cc);
         }
         retval.push(rec);
       }
@@ -1648,12 +1650,18 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
     return null;
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): ResourceDescriptor | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor | null {
     const val = entity_settings[settings_start];
     const lpos = recordLowerBound(links, val, ["id"]);
     const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+    const meta = {
+      ...decodeScanData(val.rawdata),
+      sourceFile,
+      dbLoc: { source: 3, id: val.id, cc }
+    };
+
     return val.blobdata
-      ? new ResourceDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
+      ? new ResourceDescriptor(val.blobdata, meta)
       : null;
   }
 
