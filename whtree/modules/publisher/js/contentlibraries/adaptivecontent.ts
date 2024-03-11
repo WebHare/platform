@@ -4,8 +4,13 @@
 import * as dompack from 'dompack';
 import * as beacons from './beacons';
 
+export interface AdaptiveConcentSetup {
+  now?: Date;
+  beaconconsent?: string;
+}
+
 //@cell(Date) now: The reference date to use when matching conditions
-let dcoptions;
+let dcoptions: AdaptiveConcentSetup | undefined;
 
 function testWidget(widget) {
   if (widget.condition) {
@@ -141,8 +146,8 @@ async function handleAdaptiveContent(node) {
     window.dataLayer.push({ event: "wh:show-dynamic-content", whContentSlot: node.dataset.name, whContentSelected: selectedwidget.name });
 }
 
-export function setup(options) {
-  dcoptions = { ...options };
+export function setup(options?: AdaptiveConcentSetup) {
+  dcoptions = structuredClone(options);
   if (dcoptions.now && dompack.debugflags.bac)
     console.info("[bac] Using 'now' date", dcoptions.now);
 
