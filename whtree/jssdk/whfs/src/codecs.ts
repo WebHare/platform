@@ -34,7 +34,7 @@ export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValu
 
 interface TypeCodec {
   encoder(value: unknown): EncoderReturnValue;
-  decoder(settings: FSSettingsRow[]): unknown;
+  decoder(settings: FSSettingsRow[], cc: number): unknown;
 }
 
 function assertValidString(value: unknown) {
@@ -246,11 +246,15 @@ export const codecs: { [key: string]: TypeCodec } = {
         };
       })();
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[], cc: number) => {
       if (!settings.length)
         return null;
 
-      return new ResourceDescriptor(settings[0].blobdata, decodeScanData(settings[0].setting));
+      const meta = {
+        ...decodeScanData(settings[0].setting),
+        dbLoc: { source: 2, id: settings[0].id, cc }
+      };
+      return new ResourceDescriptor(settings[0].blobdata, meta);
     }
   },
   "richDocument": {

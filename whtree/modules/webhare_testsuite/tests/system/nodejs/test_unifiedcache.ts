@@ -3,6 +3,7 @@ import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
 import * as test from "@webhare/test";
+import { openType } from "@webhare/whfs";
 
 
 async function testResizeMethods() {
@@ -349,17 +350,24 @@ async function testImgCacheTokens() {
 }
 
 async function testImgCache() {
+  async function fetchUCLink(url: string, expectType: string) {
+    const fetchResult = await fetch(new URL(url, backendConfig.backendURL));
+    test.eq(200, fetchResult.status);
+    test.eq(expectType, fetchResult.headers.get("content-type"));
+    const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
+    return fetchData;
+  }
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
   test.throws(/Cannot use toResize/, () => fish.toResized({ method: "none" }));
 
   const testsitejs = await getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
+  await fetchUCLink(wrappedBeagle.link, "image/jpeg");
 
-  const fetchResult = await fetch(new URL(wrappedBeagle.link, backendConfig.backendURL));
-  test.eq(200, fetchResult.status);
-  test.eq("image/jpeg", fetchResult.headers.get("content-type"));
-  const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
+  const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
+  await fetchUCLink(kikkerdata.arraytest[0].blobcell.toResized({ method: "none" }).link, "image/jpeg");
+
 }
 
 test.run([
