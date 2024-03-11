@@ -1,6 +1,6 @@
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor } from "@webhare/services";
+import { backendConfig, ResourceDescriptor } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
 import * as test from "@webhare/test";
 
@@ -321,7 +321,7 @@ async function testImgMethodPacking() {
 }
 
 async function testImgCacheTokens() {
-  const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null } as ResourceMetaData;
+  const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetaData;
   const exampleRefPoint = { ...examplePng, refPoint: { x: 120, y: 180 } };
 
   async function analyze(suburl: string) {
@@ -334,12 +334,12 @@ async function testImgCacheTokens() {
     return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").GetUnifiedCC(date);
   }
 
-  const pngJsTok = getUCSubUrl({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.png');
+  const pngJsTok = getUCSubUrl({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, '.png');
   const pngHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.png');
   test.eq(pngJsTok, pngHsTok);
   test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25 } } }, await analyze(pngHsTok));
 
-  const refPointJsTok = getUCSubUrl({ method: "fill", setWidth: 25, setHeight: 25 }, exampleRefPoint, 1, 1, 123, 456, '.png');
+  const refPointJsTok = getUCSubUrl({ method: "fill", setWidth: 25, setHeight: 25 }, exampleRefPoint, 1, '.png');
   const refPointHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, exampleRefPoint, 1, 1, 123, 456, '.png');
   test.assert(refPointJsTok !== pngJsTok, "A refpoint should affect the hash so the tokens cannot match");
   test.eq(refPointJsTok, refPointHsTok);
@@ -349,6 +349,17 @@ async function testImgCacheTokens() {
 }
 
 async function testImgCache() {
+  const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
+  test.throws(/Cannot use toResize/, () => fish.toResized({ method: "none" }));
+
+  const testsitejs = await getTestSiteJS();
+  const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
+  const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
+
+  const fetchResult = await fetch(new URL(wrappedBeagle.link, backendConfig.backendURL));
+  test.eq(200, fetchResult.status);
+  test.eq("image/jpeg", fetchResult.headers.get("content-type"));
+  const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
 }
 
 test.run([

@@ -1,6 +1,6 @@
 import { db, sql, Selectable, Updateable, isWorkOpen } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
-import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { decodeScanData, getUnifiedCC, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
@@ -158,7 +158,11 @@ export class WHFSFile extends WHFSObject {
     return isPublish(this.dbrecord.published);
   }
   get data(): ResourceDescriptor {
-    return new ResourceDescriptor(this.dbrecord.data, decodeScanData(this.dbrecord.scandata));
+    const meta = {
+      ...decodeScanData(this.dbrecord.scandata),
+      dbLoc: { source: 1, id: this.id, cc: getUnifiedCC(this.dbrecord.creationdate) }
+    };
+    return new ResourceDescriptor(this.dbrecord.data, meta);
   }
   async update(metadata: UpdateFileMetadata) {
     this._doUpdate(metadata);

@@ -1,9 +1,9 @@
 import { ReadableStream } from "node:stream/web";
-import { encodeHSON, decodeHSON } from "@webhare/hscompat";
+import { encodeHSON, decodeHSON, dateToParts } from "@webhare/hscompat";
 import { pick } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
-import { basename } from "node:path";
+import { basename, extname } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
 import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -86,6 +86,15 @@ export interface ResourceMetaData {
   fileName: string | null;
   ///Original in image library
   sourceFile: number | null;
+  /**Database location support cahced URL generation */
+  dbLoc?: {
+    /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
+    source: number;
+    /** ID */
+    id: number;
+    /** Creation check. Type-specific identifier to protect against replays if an ID is reused */
+    cc: number;
+  };
 }
 
 export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
@@ -583,7 +592,10 @@ function isImageRefpointRelevant(method: ResizeMethod) {
   return ["crop", "cropcanvas", "fill"].includes(method.method);
 }
 
-export function getUCSubUrl(scaleMethod: ResizeMethod, fileData: ResourceMetaData, dataType: number, sourceType: number, sourceId: number, cc: number, useExtension: string): string {
+export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
+  if (!fileData.dbLoc)
+    throw new Error("Cannot use toResize on a resource not backed by a supported database location");
+
   const key = getFullConfigFile().secrets.cache;
   if (!key)
     throw new Error("No cache secret configured");
@@ -608,7 +620,7 @@ export function getUCSubUrl(scaleMethod: ResizeMethod, fileData: ResourceMetaDat
     throw new Error("fileData.hash is required");
 
   let contenthash;
-  if (dataType === 1 && fileData.refPoint && isImageRefpointRelevant(scaleMethod)) {
+  if (dataType === 1 && scaleMethod && fileData.refPoint && isImageRefpointRelevant(scaleMethod)) {
     const contenthasher = crypto.createHash('md5');
     contenthasher.update(fileData.hash);
     contenthasher.update(encodeHSON(fileData.refPoint));
@@ -625,9 +637,9 @@ export function getUCSubUrl(scaleMethod: ResizeMethod, fileData: ResourceMetaDat
   const packet = new Uint8Array(19 + (imgdata?.byteLength ?? 0));
   const view = new DataView(packet.buffer);
   view.setUint8(0, 1);
-  view.setUint8(1, sourceType);
-  view.setUint32(2, sourceId, true);
-  view.setInt32(6, cc, true);
+  view.setUint8(1, fileData.dbLoc.source);
+  view.setUint32(2, fileData.dbLoc.id, true);
+  view.setInt32(6, fileData.dbLoc.cc, true);
   view.setInt32(10, md, true);
   view.setInt32(14, ms, true);
   view.setInt32(18, imgdata?.byteLength ?? 0, true);
@@ -640,6 +652,60 @@ export function getUCSubUrl(scaleMethod: ResizeMethod, fileData: ResourceMetaDat
   hash2.update(key, "utf8");
 
   return hash2.digest("hex").substring(0, 8) + Buffer.from(packet).toString("hex");
+}
+
+type ResourceResizeOptions = ResizeMethod & {
+  allowAnyExtension?: boolean;
+  embed?: boolean;
+  fileName?: string;
+};
+
+export function getUnifiedCacheURL(baseurl: string, dataType: number, metaData: ResourceMetaData, options?: ResourceResizeOptions): string {
+  if (dataType === 1 && !options?.method)
+    throw new Error("A scalemethod is required for images");
+  if (dataType === 2 && !options?.method)
+    throw new Error("A cached file cannot have a scale method. Did you mean to use one of the image APIs ?");
+
+  const mimetype = (dataType === 1 ? options?.format : "") || metaData.mediaType;
+  const embed = dataType === 1 || options?.embed === true;
+  const allowanyextension = options?.allowAnyExtension === true;
+  const validextensions = [];
+  if (dataType === 1) {
+    if (mimetype === "image/jpeg")
+      validextensions.push("jpg");
+    else if (mimetype === "image/png" || mimetype === "image/x-bmp" || mimetype === "image/tiff")
+      validextensions.push("png");
+    else if (mimetype === "image/gif")
+      validextensions.push("gif");
+    else
+      throw new Error(`Unsupported mimetype for image: ${mimetype}`);
+    //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)
+  } else {
+    //TOOD HS allowed the extendable mimetype table to be used but that's getting too complex for here I think. should probably reconsider unifiedcache-file usage once we run into this
+    validextensions.push(`${getExtensionForMediaType(mimetype)}`);
+  }
+
+  let filename = options?.fileName;
+  let useextension = "";
+  if (filename?.includes(".")) {
+    const fileext = extname(filename).toLowerCase();
+    if (validextensions.length && !allowanyextension && !validextensions.includes(fileext))
+      useextension = validextensions[0];
+    else {
+      useextension = fileext;
+      filename = filename.substring(0, filename.length - fileext.length - 1);
+    }
+  } else if (validextensions.length && !allowanyextension) {
+    useextension = validextensions[0];
+  }
+
+  const packet = getUCSubUrl(options?.method ? options : null, metaData, dataType, useextension ? '.' + useextension : '');
+  let suffix = dataType === 1 ? "i" : embed ? "e" : "f";
+  suffix += packet;
+  suffix += '/' + encodeURIComponent(filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : '');
+
+  const url = `/.uc/` + suffix;
+  return baseurl ? new URL(url, baseurl).href : url;
 }
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
@@ -729,10 +795,17 @@ export class ResourceDescriptor implements ResourceMetaData {
   get sourceFile() {
     return this.metadata.sourceFile ?? null;
   }
+  get dbLoc() {
+    return this.metadata.dbLoc;
+  }
 
   //Gets a simple object containing *only* the metadata
   getMetaData(): ResourceMetaData {
     return pick(this, ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"]);
+  }
+
+  toResized(method: ResizeMethod) {
+    return { link: getUnifiedCacheURL('', 1, this, method) };
   }
 }
 
