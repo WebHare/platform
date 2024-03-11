@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import '@mod-system/js/wh/integration'; //make debugflags work
-
+import { debugFlags } from '@webhare/env/src/envbackend';
 
 /// Global queue manager object
 let queue_manager = null;
@@ -11,6 +11,24 @@ let queue_manager = null;
 let default_upload_chunk_size = 10000000; // 10 MB
 const moving_average_max_history = 20000; // average current speed over max 20000 ms of history
 const moving_average_min_history = 2000; // Need min 2000ms of history
+
+declare global {
+  interface Window {
+    //TODO: replace this with an cancellable event invoked by selectFiles so we can improve the encapsulation
+    wh_testapi_fakeupload?: (node: HTMLInputElement) => void;
+  }
+}
+
+interface UploadedFile {
+  name: string;
+  filetoken: string;
+  size: number;
+  fileinfo: unknown;
+  type: string;
+  url: string;
+  fullpath: string;
+  userdata: unknown;
+}
 
 
 export default class EventTarget {
@@ -155,7 +173,7 @@ class RawUploadItem extends EventTarget {
   }
 
   fireLoadStart() {
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] firing loadstart", this);
 
     this.pvt_start = (new Date).getTime();
@@ -163,7 +181,7 @@ class RawUploadItem extends EventTarget {
   }
 
   fireProgress() {
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] firing loadprogress", this);
 
     const size = this.getUploadSize();
@@ -174,7 +192,7 @@ class RawUploadItem extends EventTarget {
   }
 
   fireLoad() {
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] firing load", this);
 
     const size = this.getUploadSize();
@@ -193,7 +211,7 @@ class RawUploadItem extends EventTarget {
   }
 
   fireLoadEnd() {
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] firing loadend", this);
 
     if (!this.pvt_end)
@@ -234,6 +252,9 @@ class SchedulableRawUploadItem extends RawUploadItem {
     This is used to group the chunks of a single file upload, but also to group the files in a multifile upload
 */
 class UploaderAggregator extends RawUploadItem {
+  status = '';
+  pvt_subitems: Html5UploadItem[] = [];
+
   constructor() {
     super();
     this.pvt_subitems = [];
@@ -242,7 +263,7 @@ class UploaderAggregator extends RawUploadItem {
     this.pvt_sentloadend = false;
   }
 
-  setItems(subitems) {
+  setItems(subitems: Html5UploadItem[]) {
     this.status = '';
     this.pvt_subitems = subitems;
     this.pvt_aborting = false;
@@ -265,8 +286,7 @@ class UploaderAggregator extends RawUploadItem {
   schedule() {
     this.pvt_subitems.forEach(function (i, idx) { i.schedule(); });
 
-    if (!this.pvt_subitems.length) //simulate an upload
-    {
+    if (!this.pvt_subitems.length) { //simulate an upload
       this.gotLoadStart(null);
       this.gotLoad(null);
       this.gotLoadEnd(null);
@@ -298,10 +318,12 @@ class UploaderAggregator extends RawUploadItem {
     }
   }
 
-  getCompletedFiles() {
-    let result = [];
+  getCompletedFiles(): UploadedFile[] {
+    const result = [];
     if (this.status === 'loaded')
-      this.pvt_subitems.forEach(function (i) { result = result.concat(i.getCompletedFiles()); });
+      for (const sub of this.pvt_subitems)
+        result.push(...sub.getCompletedFiles());
+
     //sanitize the result, don't leak internal data
     return result.map(file => ({
       name: file.name,
@@ -364,38 +386,43 @@ class UploaderAggregator extends RawUploadItem {
 /** HTML 5 upload items, wraps a HTML5 file
 */
 export class Html5UploadItem extends UploaderAggregator {
-  constructor(host, html5file, options) {
+  /// Name of the file
+  name = '';
+
+  /// Size of the file
+  size = 0;
+
+  /// Default upload chunk size
+  upload_chunk_size = default_upload_chunk_size;
+
+  /// Content-type of the file
+  type = '';
+
+  /// File token (to retrieve the file on the server)
+  filetoken = '';
+
+  /// Detectfiletype info
+  fileinfo = null;
+
+  /// Original File object (if applicable)
+  file: File;
+
+  /// Parameters to send in request
+  params = {};
+
+  /// Base transfer url
+  transferbaseurl = '';
+
+  pvt_fileid = 0;
+
+  downloadurl = '';
+
+  constructor(host: string, html5file: File, options?) {
     super();
 
-    /// Name of the file
-    this.name = '';
-
-    /// Size of the file
-    this.size = 0;
-
     /// Default upload chunk size
-    this.upload_chunk_size = (options ? options.uploadchunksize : 0) || default_upload_chunk_size;
-
-    /// Content-type of the file
-    this.type = '';
-
-    /// File token (to retrieve the file on the server)
-    this.filetoken = '';
-
-    /// Detectfiletype info
-    this.fileinfo = null;
-
-    /// Original File object (if applicable)
-    this.file = null;
-
-    /// Parameters to send in request
-    this.params = {};
-
-    /// Base transfer url
-    this.transferbaseurl = '';
-
-    this.pvt_host = '';
-    this.pvt_fileid = 0;
+    if (options?.upload_chunk_size)
+      this.upload_chunk_size = options?.upload_chunk_size;
 
     this.pvt_host = host;
     this.name = html5file.name;
@@ -403,7 +430,7 @@ export class Html5UploadItem extends UploaderAggregator {
     this.type = html5file.type;
     this.fullpath = html5file.fullpath || '';
     this.file = html5file;
-    this.params = options && options.params ? { ...options.params } : {};
+    this.params = options?.params ? { ...options.params } : {};
     this.pvt_file = html5file;
   }
 
@@ -601,7 +628,7 @@ export class UploadItemGroup extends UploaderAggregator {
 }
 
 /// Generate a group of items from a file input element
-UploadItemGroup.fromFileList = function (uploadhost, filelist, options) {
+UploadItemGroup.fromFileList = function (uploadhost, filelist: FileList, options) {
   const items = [];
   for (let i = 0; i < filelist.length; ++i)
     items.push(new Html5UploadItem(uploadhost, filelist[i], options));
@@ -637,7 +664,7 @@ class UploadManager {
   }
 
   processQueue() {
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] process queue, running: " + this.running.length + " pending: " + this.pending.length, this);
 
     if (this.running.length < 1 && this.pending.length) {
@@ -674,10 +701,12 @@ const lastinputnode = null;
     @cell return.input Used input element
     @cell return.files List of selected files (only valid when 'load' event has fired)
 */
-export function selectFiles(options?): Promise<FileList> //TODO return our own objects, not a FileList, so we can provide userdata in the interface
-{
+export function selectFiles(options?: {
+  mimetypes?: string[];
+  multiple?: boolean;
+}): Promise<FileList> { //TODO return our own objects, not a FileList, so we can provide userdata in the interface
   options = { ...options };
-  const uploaddefer = dompack.createDeferred();
+  const uploaddefer = dompack.createDeferred<FileList>();
 
   const inputOptions = {
     type: "file",
@@ -689,7 +718,7 @@ export function selectFiles(options?): Promise<FileList> //TODO return our own o
   if (options.capture)
     inputOptions.capture = options.capture;
 
-  const input = dompack.create('input', inputOptions);
+  const input: HTMLInputElement = dompack.create('input', inputOptions);
 
   //let selectlock = dompack.flagUIBusy();
 
@@ -710,14 +739,13 @@ export function selectFiles(options?): Promise<FileList> //TODO return our own o
     uploaddefer.resolve(event.detail.files || []);
   });
 
-  let uploader = null;
   try {
-    uploader = window.top.wh_testapi_fakeupload;
+    const uploader = window.top?.wh_testapi_fakeupload;
     if (uploader) {
-      if (dompack.debugflags.upl)
+      window.top!.wh_testapi_fakeupload = undefined;
+      if (debugFlags.upl)
         console.log("[upl] Need to invoke callback to simulate upload");
 
-      window.top.wh_testapi_fakeupload = null;
       setTimeout(() => uploader(input), 0);
       return uploaddefer.promise;
     }
@@ -725,7 +753,7 @@ export function selectFiles(options?): Promise<FileList> //TODO return our own o
     //ignore fialure to grab the fake upload
   }
 
-  if (dompack.debugflags.upl)
+  if (debugFlags.upl)
     console.log("[upl] Invoking browser's sendfile");
   // On IE, this blocks. Delay starting the upload on IE giving the user a consistent interface - loadstart event signals start
   input.click();
@@ -736,7 +764,7 @@ export function selectFiles(options?): Promise<FileList> //TODO return our own o
 export class UploadSession extends EventTarget {
   constructor(files, options?) {
     super();
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] Create upload session", files, options);
 
     options = { ...options };
@@ -745,7 +773,7 @@ export class UploadSession extends EventTarget {
     this.anyerror = false;
 
     /* Note: we explicitly let an empty file list pass. for event resolution
-             purposes, we'll pretend it was an abort */
+             purposes, we'll pretend it was an abort (TODO probably a hack only used by tollium?) */
     if (files.length) {
       this.group = new UploadItemGroup(options);
       const items = Array.from(files).map(function (item) {
@@ -765,14 +793,14 @@ export class UploadSession extends EventTarget {
   }
 
   abort() {
-    if (dompack.debugflags.upl)
+    if (debugFlags.upl)
       console.log("[upl] Upload session abort invoked", this);
     this.gotabort = true;
     this.group.abort();
   }
 
-  upload(): Promise<FileList> {
-    const uploaddefer = dompack.createDeferred();
+  upload(): Promise<UploadedFile[]> {
+    const uploaddefer = dompack.createDeferred<UploadedFile[]>();
     this.started = true;
     if (!this.group) //empty file list - like an abort, but never send the events
     {
@@ -781,7 +809,7 @@ export class UploadSession extends EventTarget {
     }
 
     this.group.addEventListener("loadstart", evt => {
-      if (dompack.debugflags.upl)
+      if (debugFlags.upl)
         console.log("[upl] Upload session dispatching wh:upload-start", this);
       this.started = true;
       dompack.dispatchCustomEvent(this, "wh:upload-start", {
@@ -790,7 +818,7 @@ export class UploadSession extends EventTarget {
       });
     });
     this.group.addEventListener("progress", evt => {
-      if (dompack.debugflags.upl)
+      if (debugFlags.upl)
         console.log("[upl] Upload session dispatching wh:upload-progress");
       dompack.dispatchCustomEvent(this, "wh:upload-progress", {
         bubbles: false,
@@ -800,7 +828,7 @@ export class UploadSession extends EventTarget {
     this.group.addEventListener("error", event => this.anyerror = true);
     this.group.addEventListener("loadend", evt => {
       const result = this.gotabort || this.anyerror ? [] : this.group.getCompletedFiles();
-      if (dompack.debugflags.upl)
+      if (debugFlags.upl)
         console.log("[upl] Upload session dispatching wh:upload-end", this, result);
 
       dompack.dispatchCustomEvent(this, "wh:upload-end", {

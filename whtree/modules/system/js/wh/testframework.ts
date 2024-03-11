@@ -293,46 +293,51 @@ export async function asyncMouseClick(x, y, options) {
   return await testfw.sendDevtoolsRequest({ type: "mouseClick", x, y, options });
 }
 
+export interface MockUploadFile {
+  url: string;
+  filename: string;
+}
+
 class FakeUploadSession {
-  constructor(files, donecallback?) {
-    this.blobs = [];
+  files;
+  donecallback;
+  blobs: Array<Blob | null>;
+
+  constructor(files: MockUploadFile[], donecallback?: () => void) {
     this.files = files;
     this.donecallback = donecallback;
-    files.forEach(file => this.blobs.push(null));
+    this.blobs = files.map(() => null);
   }
-  runUpload(inputnode, callback) {
-    const self = this;
-    this.inputnode = inputnode;
-
-    this.files.forEach(function (file, idx) {
-      getFileFromURL(file.url, file.filename).then(blob => self.doneUpload(blob, idx));
+  runUpload(inputnode: HTMLElement) {
+    this.files.forEach((file, idx) => {
+      getFileFromURL(file.url, file.filename).then(blob => this.doneUpload(blob, idx, inputnode));
     });
   }
-  doneUpload(blob, idx) {
+  doneUpload(blob: Blob, idx: number, inputnode: HTMLElement) {
     if (this.blobs[idx])
       throw new Error("Duplicate upload completion for blob #" + idx);
     this.blobs[idx] = blob;
     if (this.blobs.filter(val => val).length < this.blobs.length) //we don't have all files yet
       return;
 
-    dompack.dispatchCustomEvent(this.inputnode, 'wh:upload-fake', { bubbles: false, cancelable: false, detail: { files: this.blobs } });
+    dompack.dispatchCustomEvent(inputnode, 'wh:upload-fake', { bubbles: false, cancelable: false, detail: { files: this.blobs } });
     if (this.donecallback)
-      setTimeout(() => this.donecallback(), 1);
+      setTimeout(this.donecallback, 1);
   }
 }
 
-export function prepareUploadTest(node, files, donecallback?) {
+export function prepareUploadTest(node: unknown, files: MockUploadFile[], donecallback?: () => void): void {
   if (window.top.wh_testapi_fakeupload)
     throw new Error("The window already has a pending upload");
 
   const uploadclass = new FakeUploadSession(files, donecallback);
-  window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
+  window.top.wh_testapi_fakeupload = (el: HTMLInputElement) => uploadclass.runUpload(el);
 }
 
-export async function prepareUpload(files) {
-  const deferred = dompack.createDeferred();
+export async function prepareUpload(files: MockUploadFile[]): Promise<void> {
+  const deferred = dompack.createDeferred<void>();
   const uploadclass = new FakeUploadSession(files, function () { deferred.resolve(); });
-  window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
+  window.top.wh_testapi_fakeupload = (el: HTMLInputElement) => uploadclass.runUpload(el);
   await deferred.promise;
 }
 
@@ -612,8 +617,8 @@ export function pasteHTML(content) {
   return dodefault;
 }
 
-export async function getFileFromURL(url, filename) {
-  const defer = dompack.createDeferred();
+export async function getFileFromURL(url: string, filename: string): Promise<Blob> {
+  const defer = dompack.createDeferred<Blob>();
   const xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
 
