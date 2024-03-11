@@ -66,13 +66,18 @@ MACRO SetupTestSite(OBJECT testsite)
   before_repo->EnsureFile([ name := "nonboosted" ]);
 
   //root index
-  testsite->rootobject->CreateFile(
+  OBJECT root := testsite->rootobject->CreateFile(
     [ name := "index.rtd"
     , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
     , publish := TRUE
-    ], [setindex := TRUE])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-                          [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Welcome to the testsite</p></body></html>') ]
-                          ]);
+    ], [setindex := TRUE]);
+
+  root->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+                        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Welcome to the testsite</p></body></html>') ]
+                        ]);
+
+  testsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test",
+                         [ arraytest := [[ blobcell := WrapBlob(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg"),"kikker.jpg") ]]]);
 
   //'legacy' tests
   FOREVERY(STRING basename FROM ["portal1","portal1-domainless"])

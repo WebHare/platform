@@ -17,7 +17,7 @@ LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-STRING link_grayscalehomer,link_testhostdata, link_kikker, link_fs_frogger, link_unused_kikker;
+STRING link_grayscalehomer, link_kikker, link_fs_frogger, link_unused_kikker;
 DATETIME after_kikker_hit;
 STRING default_imgcache := "public, max-age=31536000, immutable";
 STRING incorrect_imgcache := "public, max-age=86400"; //used when requesting incorrect urls
@@ -25,6 +25,11 @@ OBJECT homer;
 
 MACRO ImgCacheTest()
 {
+  // Verify calculations
+  TestEqMembers(
+     [ item := [cc := 456 ]],
+     AnalyzeUnifiedURLToken(`i${GetUCSubUrl([ method := "scale", setwidth:=25, setheight:=25], [ hash := "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refpoint := default record ], 1, 1, 123, 456, '.png')}/image.png`), '*');
+
   // Insert a simple image into the publisher
 
   testfw->BeginWork();
@@ -214,40 +219,6 @@ MACRO ImgCacheTest()
   //TestEq(FALSE, cacheddata.filename LIKE "*/*", `Filename ${cacheddata.filename} may not contain slashes`);
   TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
   testfw->CommitWork();
-
-  //Test alternative cache hosts. Specifying an alternative cachehash should prevent users moving these URLs to the 'plain' hosts
-  STRING alternativeacachehost := ResolveTOAbsoluteURL(baseurl, "/tollium_todd.res/webhare_testsuite/tests/imgcache/!/");
-  STRING customhomerlink1 := GetCachedFSImageURL(baseurl, homer->id, [ method := "fitcanvas", setwidth := 100, setheight := 100, cachehost := alternativeacachehost , hosthash := "bladiebla" ]);
-  TestEq(TRUE, testfw->browser->GotoWebPage(customhomerlink1), customhomerlink1);
-  TestEq("image/png", testfw->browser->contenttype);
-
-  /* Please note: a hosthash prevents you from taking a postprocessed image URL
-     you caught and requesting it from te plain /.uc/ image cache. You might
-     want to try this if the URL you receive would otherwise apply a watermark
-     where the plain /.uc/ URL does not
-
-     Because of the way the imagecache works, this protection is only enforced
-     when _generating_ the image. Eg, taking an already requested image URL and
-     then requesting it from /.uc/ may not fail (but doesn't give you the
-     un-watermarked version) */
-
-  STRING customhomerlink2 := GetCachedFSImageURL(baseurl, homer->id, [ method := "fitcanvas", setwidth := 90, setheight := 90, cachehost := alternativeacachehost, hosthash := "bladiebla" ]);
-  STRING customhomertoken := Tokenize(customhomerlink2,"/!/")[1];
-  STRING homeronoriginalurl := Tokenize(smallgrayhomerlink,"/.uc/")[0] || "/.uc/" || customhomertoken;
-  TestEq(FALSE, testfw->browser->GotoWebPage(homeronoriginalurl), homeronoriginalurl);
-
-  // Test hostdata
-  STRING customhomerlink3 := GetCachedFSImageURL(baseurl, homer->id, [ method := "fitcanvas", setwidth := 100, setheight := 100, cachehost := alternativeacachehost, hostdata := [ overlay := 0x2fFF0000 ], hosthash := "bladiebla" ]);
-  TestEq(TRUE, testfw->browser->GotoWebPage(customhomerlink3), customhomerlink3);
-  OBJECT referencecustomhomer := CreateCanvasFromBlob(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/customhomer3.png"));
-  TestEq(0f, referencecustomhomer->CompareWithCanvas(CreateCanvasFromBlob(testfw->browser->content)), customhomerlink3);
-
-  RECORD customhomer4 := WrapCachedImage(homer->GetWrapped(), [ method := "fitcanvas", setwidth := 100, setheight := 100, cachehost := alternativeacachehost, hostdata := [ overlay := 0x2fFF0000 ], hosthash := "bladiebla" ]);
-  TestEq(TRUE, RecordExists(customhomer4));
-  TestEq(TRUE, testfw->browser->GotoWebPage(customhomerlink3), customhomer4.link);
-  TestEq(0f, referencecustomhomer->CompareWithCanvas(CreateCanvasFromBlob(testfw->browser->content)), customhomer4.link);
-
-  link_testhostdata := customhomerlink3;
 }
 
 MACRO ImgCacheSourcesTest()
@@ -432,7 +403,6 @@ MACRO CleanupTests()
   STRING filename_kikker := GetCacheDiskPathFromLink(link_kikker);
   STRING filename_unused_kikker := GetCacheDiskPathFromLink(link_unused_kikker);
   STRING filename_grayscalehomer := GetCacheDiskPathFromLink(link_grayscalehomer);
-  STRING filename_testhostdata := GetCacheDiskPathFromLink(link_testhostdata);
   STRING filename_fs_frogger := GetCacheDiskPathFromLink(link_fs_frogger);
 
   currentcachecontents := SELECT *
@@ -440,11 +410,10 @@ MACRO CleanupTests()
                            WHERE fullpath IN [ filename_kikker
                                              , filename_unused_kikker
                                              , filename_grayscalehomer
-                                             , filename_testhostdata
                                              , filename_fs_frogger
                                              ];
 
-  TestEq(5, Length(currentcachecontents));
+  TestEq(4, Length(currentcachecontents));
 
   RECORD ARRAY cachecontents := SELECT * FROM FilterRecentHits(currentcachecontents, after_kikker_hit, tracestarttime);
 
@@ -453,7 +422,6 @@ MACRO CleanupTests()
   //but grayscale and testhost were seen 'after' kikker so should not be marked as expired
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_kikker);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
-  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_testhostdata, filename_testhostdata);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_fs_frogger, filename_fs_frogger);
 
   //forcibly delete the gray homer

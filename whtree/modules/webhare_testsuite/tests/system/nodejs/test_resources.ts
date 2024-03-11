@@ -194,6 +194,19 @@ async function testResourceDescriptors() {
       dominantColor: null
     }, landscape.getMetaData());
   }
+
+  {
+    //We can create a resource from a blob. But that gives us incomplete info:
+    const landscapeBlob = await WebHareBlob.fromDisk(services.toFSPath("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_7.jpg"));
+    const res = new services.ResourceDescriptor(landscapeBlob, { mediaType: "image/jpg" });
+    test.eq("image/jpg", res.mediaType);
+    test.eq(null, res.width);
+
+    //using ResourceDescriptor.from will give us the full info (as it has a chance to wait)
+    const res2 = await services.ResourceDescriptor.from(landscapeBlob, { getImageMetadata: true, fileName: "my.jpg" });
+    test.eq(600, res2.width);
+    test.eq("my.jpg", res2.fileName);
+  }
 }
 
 async function testGIFs() {

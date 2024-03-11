@@ -48,6 +48,17 @@ async function testVarMemory() {
   test.assert(scratchvar.getCell("a"));
   test.assert(scratchvar.getCell("b") === null);
 
+  scratchvar.setJSValue(Buffer.from("abc"));
+  test.eq(VariableType.String, scratchvar.getType());
+  test.eq("abc", scratchvar.getJSValue());
+
+  const abuffer = new ArrayBuffer(3);
+  const view = new Int8Array(abuffer);
+  view.set([65, 98, 99]);
+  scratchvar.setJSValue(abuffer);
+  test.eq(VariableType.String, scratchvar.getType());
+  test.eq("Abc", scratchvar.getJSValue());
+
   /* Test empty blobs. Currently I'm assuming we will be needing type retention so getBlob should always be returning an object.
      It might be a better API to only have get(Boxing)JSValue do such trickery and have getFloat/getBlob return 'proper' JS values (ie numbers and null) */
 

@@ -6,6 +6,7 @@ import { CSPContentType } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
 import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import { getUnifiedCC } from "@webhare/services/src/descriptor";
 
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -295,7 +296,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 
-  async recurseGet(cursettings: readonly FSSettingsRow[], members: ContentTypeMember[], arrayMember: ContentTypeMember | null, elementSettingId: number | null) {
+  async recurseGet(cursettings: readonly FSSettingsRow[], members: ContentTypeMember[], arrayMember: ContentTypeMember | null, elementSettingId: number | null, cc: number) {
     const retval: { [key: string]: unknown } = {};
 
     for (const member of members) {
@@ -306,12 +307,12 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
         if (member.type === "array") {
           setval = [];
           for (const row of settings)
-            setval.push(await this.recurseGet(cursettings, member.children!, member, row.id));
+            setval.push(await this.recurseGet(cursettings, member.children!, member, row.id, cc));
         } else if (!codecs[member.type]) {
           setval = { FIXME: member.type }; //FIXME just throw }
           // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
         } else {
-          setval = codecs[member.type].decoder(settings);
+          setval = codecs[member.type].decoder(settings, cc);
         }
       } catch (e) {
         if (e instanceof Error)
@@ -328,7 +329,10 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const descr = await describeContentType(this.ns);
     const instanceId = await this.getCurrentInstanceId(id, descr);
     const cursettings = instanceId ? await this.getCurrentSettings(instanceId) : [];
-    return await this.recurseGet(cursettings, descr.members, null, null) as ContentTypeStructure;
+    const objInfo = await db<PlatformDB>().selectFrom("system.fs_objects").select("creationdate").where("id", "=", id).executeTakeFirstOrThrow();
+    const cc = getUnifiedCC(objInfo.creationdate);
+
+    return await this.recurseGet(cursettings, descr.members, null, null, cc) as ContentTypeStructure;
   }
 
   async enrich<

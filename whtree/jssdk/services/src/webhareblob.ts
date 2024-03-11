@@ -14,6 +14,11 @@ export abstract class WebHareBlob {
     this._size = size;
   }
 
+  static isWebHareBlob(thingy: unknown): thingy is WebHareBlob {
+    //TODO cross-realm/HMR support
+    return thingy instanceof WebHareBlob;
+  }
+
   /** Create a in-memory WebHareBlob from a string */
   static from(str: string | Buffer): WebHareBlob {
     if (str instanceof Buffer)

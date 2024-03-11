@@ -140,7 +140,7 @@ export class HSVMVar {
     const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
     return Buffer.from(this.vm.wasmmodule.HEAP8.slice(begin, end));
   }
-  setString(value: string | Buffer) {
+  setString(value: string | Buffer | ArrayBuffer) {
     if (typeof value === "string") {
       const len = this.vm.wasmmodule.lengthBytesUTF8(value);
       const alloced = this.vm.wasmmodule._malloc(len + 1);
@@ -148,8 +148,8 @@ export class HSVMVar {
       this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
       this.vm.wasmmodule._free(alloced);
     } else {
-      const alloced = this.vm.wasmmodule._malloc(value.byteLength);
-      this.vm.wasmmodule.HEAP8.set(value, alloced);
+      const alloced = this.vm.wasmmodule._malloc("length" in value ? value.length : value.byteLength);
+      this.vm.wasmmodule.HEAP8.set("length" in value ? value : new Uint8Array(value), alloced);
       this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + value.byteLength);
       this.vm.wasmmodule._free(alloced);
     }
@@ -368,7 +368,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.String: {
-        this.setString(value as string | Buffer);
+        this.setString(value as string | Buffer | ArrayBuffer);
         return;
       } break;
       case VariableType.DateTime: {

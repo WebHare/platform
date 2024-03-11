@@ -572,7 +572,6 @@ PUBLIC MACRO ValidateFontID(INTEGER id)
     @cell(integer) method.quality Quality (0-100)
     @cell method.grayscale
     @cell method.fixorientation
-    @cell(function ptr) method.postprocessor Post processing function
     @cell(integer) method.hblur Horizontal blur (0-32767)
     @cell(integer) method.vblur Vertical blur (0-32767)
     @return Validated resize method, with missing cells added @includecelldef #ValidateResizeMethod.method
@@ -586,7 +585,7 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
     THROW NEW Exception("Unknown resize method '" || method.method || "'");
 
   FOREVERY(RECORD cellrec FROM UnpackRecord(method))
-    IF(cellrec.name NOT IN ["METHOD","SETWIDTH","SETHEIGHT","FORMAT","BGCOLOR","NOFORCE","QUALITY","GRAYSCALE","FIXORIENTATION","POSTPROCESSOR","HBLUR","VBLUR"])
+    IF(cellrec.name NOT IN ["METHOD","SETWIDTH","SETHEIGHT","FORMAT","BGCOLOR","NOFORCE","QUALITY","GRAYSCALE","FIXORIENTATION","HBLUR","VBLUR"])
       THROW NEW Exception("Invalid cell '" || cellrec.name || "' in resize method");
 
   IF(CellExists(method, "setwidth"))
@@ -627,8 +626,6 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
 
   IF(NOT CellExists(method,'noforce'))
     INSERT CELL noforce := TRUE INTO method;
-  IF(NOT CellExists(method,'postprocessor'))
-    INSERT CELL postprocessor := DEFAULT MACRO PTR INTO method;
   IF(NOT CellExists(method,'grayscale'))
     INSERT CELL grayscale := FALSE INTO method;
   IF(NOT CellExists(method,'fixorientation'))
@@ -717,7 +714,6 @@ PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
                   , hblur := hblur
                   , vblur := vblur
                   , refpoint := CellExists(scannedblob, "REFPOINT") ? scannedblob.refpoint : DEFAULT RECORD
-                  , postprocessor := method.postprocessor
                   ];
 
   instr := GetResizeInstruction(instr, method);

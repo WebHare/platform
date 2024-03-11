@@ -1475,9 +1475,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
         </node>
       </node>
       <node name="cache">
-        <datetime name="moddatecutoff"
-                  description="After this date, we use the image hash instead of modification date in URLs"
-                  initialval="now" />
+        <obsoletekey name="moddatecutoff" />
       </node>
       <node name="global">
         <string name="servertype" description="Type of the server: production, acceptance, test, development" />

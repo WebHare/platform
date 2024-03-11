@@ -1,15 +1,57 @@
 import { ReadableStream } from "node:stream/web";
-import { encodeHSON, decodeHSON } from "@webhare/hscompat";
+import { encodeHSON, decodeHSON, dateToParts } from "@webhare/hscompat";
 import { pick } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
-import { basename } from "node:path";
+import { basename, extname } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
 import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
+
+const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
+const outputFormats = [null, "image/jpeg", "image/gif", "image/png"] as const;
+
+type ResizeMethodName = typeof packMethods[number];
+
+//TODO make ResizeMethod smarter - reject most props when "none" is set etc
+export type ResizeMethod = {
+  // method: "none";
+  // method: Exclude<ResizeMethodName, "none">;
+  method: ResizeMethodName;
+  quality?: number;
+  hBlur?: number;
+  vBlur?: number;
+  format?: Exclude<typeof outputFormats[number], null>;
+  fixOrientation?: boolean;
+  bgColor?: number | "transparent";
+  noForce?: boolean;
+  grayscale?: boolean;
+  setWidth?: number;
+  setHeight?: number;
+};
+
+export interface ResizeSpecs {
+  outWidth: number;
+  outHeight: number;
+  outType: Exclude<typeof outputFormats[number], null>;
+  renderX: number;
+  renderY: number;
+  renderWidth: number;
+  renderHeight: number;
+  bgColor: number | "transparent";
+  noForce: boolean;
+  quality: number;
+  grayscale: boolean;
+  rotate: number;
+  mirror: boolean;
+  hBlur: number;
+  vBlur: number;
+  refPoint: { x: number; y: number } | null;
+}
 
 export interface ResourceScanOptions {
   mediaType?: string;
@@ -44,6 +86,15 @@ export interface ResourceMetaData {
   fileName: string | null;
   ///Original in image library
   sourceFile: number | null;
+  /**Database location support cached URL generation */
+  dbLoc?: {
+    /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
+    source: number;
+    /** ID */
+    id: number;
+    /** Creation check. Type-specific identifier to protect against replays if an ID is reused */
+    cc: number;
+  };
 }
 
 export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
@@ -264,6 +315,399 @@ export function decodeScanData(scandata: string): ResourceMetaData {
   };
 }
 
+function validateResizeMethod(resizemethod: ResizeMethod) {
+  const method = packMethods.indexOf(resizemethod.method);
+  if (method < 0)
+    throw new Error(`Unrecognized method '${resizemethod.method}'`);
+
+  if (!resizemethod.setWidth && ['stretch', 'stretch-x'].includes(resizemethod.method))
+    throw new Error("setWidth is required for stretch and stretch-x methods");
+  if (!resizemethod.setHeight && ['stretch', 'stretch-y'].includes(resizemethod.method))
+    throw new Error("setHeight is required for stretch and stretch-y methods");
+
+  const format = outputFormats.indexOf(resizemethod.format ?? null);
+  if (format < 0)
+    throw new Error(`Unrecognized format '${resizemethod.format}'`);
+
+  return {
+    bgColor: 0x00ffffff,
+    quality: 85,
+    fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
+    noForce: true,
+    hBlur: 0,
+    vBlur: 0,
+    setWidth: 0,
+    setHeight: 0,
+    ...resizemethod,
+    methodIdx: method,
+    formatIdx: format
+  };
+}
+
+export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod): ResizeSpecs {
+  if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
+    throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
+  if (!resource.width || !resource.height)
+    throw new Error("Width and height are required for bitmap images");
+
+  method = validateResizeMethod(method);
+
+  const quality = method?.quality ?? 85;
+  const hblur = method?.hBlur ?? 0;
+  const vblur = method?.vBlur ?? 0;
+  const outtype: ResizeSpecs["outType"] = method.format || resource.mediaType === "image/x-bmp" ? "image/png" : resource.mediaType === "image/tiff" ? "image/jpeg" : (resource.mediaType as ResizeSpecs["outType"]);
+  let rotate;
+  let mirror;
+  let issideways;
+
+  if (!method.fixOrientation) { //First figure out how to undo the rotation on the image, if any
+    if ([90, 180, 270].includes(resource.rotation!))
+      rotate = 360 - resource.rotation!;
+    mirror = resource.mirrored!;
+    issideways = [90, 270].includes(rotate!);
+  }
+
+  const width = issideways ? resource.height : resource.width;
+  const height = issideways ? resource.width : resource.height;
+  const instr: ResizeSpecs = {
+    outWidth: width,
+    outHeight: height,
+    outType: outtype,
+    renderX: 0,
+    renderY: 0,
+    renderWidth: width,
+    renderHeight: height,
+    bgColor: method.bgColor ?? 0xffffff,
+    noForce: method.noForce ?? true,
+    quality,
+    grayscale: method.grayscale ?? false,
+    rotate: rotate ?? 0,
+    mirror: mirror ?? false,
+    hBlur: hblur,
+    vBlur: vblur,
+    refPoint: structuredClone(resource.refPoint) //make sure we don't update the resource's original refpoint
+  };
+
+  return getResizeInstruction(instr, method);
+}
+
+function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeSpecs {
+  const width = instr.outWidth;
+  const height = instr.outHeight;
+
+  if (method.method === "none")
+    return instr;
+
+  let setwidth = method.setWidth ?? 0;
+  let setheight = method.setHeight ?? 0;
+
+  if (method.method === "stretch" && setwidth > 0 && setheight > 0) { //simple resize
+    if (instr.refPoint) {
+      instr.refPoint.x = Math.floor(instr.refPoint.x * setwidth / instr.renderWidth);
+      instr.refPoint.y = Math.floor(instr.refPoint.y * setheight / instr.renderHeight);
+    }
+    instr.outWidth = setwidth;
+    instr.outHeight = setheight;
+    instr.renderWidth = setwidth;
+    instr.renderHeight = setheight;
+    return instr;
+  }
+
+  if (method.method === "crop" || method.method === "cropcanvas") { // simple crop, no resizing
+    if (method.method === "crop") {
+      if (setwidth > width)
+        setwidth = width;
+      if (setheight > height)
+        setheight = height;
+    }
+
+    instr.outWidth = setwidth;
+    instr.outHeight = setheight;
+    instr.renderWidth = width;
+    instr.renderHeight = height;
+    instr.renderX = (setwidth - width) / 2;
+    instr.renderY = (setheight - height) / 2;
+
+    if (instr.refPoint) {
+      const hw = Math.ceil(width / 2);
+      const dx = Math.floor((instr.refPoint.x - hw) * instr.renderX / hw);
+      instr.renderX += dx;
+
+      const hh = Math.ceil(height / 2);
+      const dy = Math.floor((instr.refPoint.y - hh) * instr.renderY / hh);
+      instr.renderY += dy;
+
+      instr.refPoint.x += instr.renderX;
+      instr.refPoint.y += instr.renderY;
+    }
+    return instr;
+  }
+
+  /* dx = input image width / method setwidth    (dx < 1: input image is smaller than requested by method)
+     dy = input image height / method setheight
+
+     scale: make the image fit, scale up or down to cover at least one of the full width/height if needed
+            renderwidth /= max(dx,dy)  renderheight /= min(dx,dy)
+
+     fit: like scale, but do not grow the image
+          if(dx>1 || dy>1): scale
+          else: noop
+
+     fill: resize the image to its smallest size still covering the entire canvas
+            renderwidth /= min(dx,dy)   renderheight /= min(dx,dy)
+
+     stretch: resize exactly to the specified dimensions
+     stretch-x: resize x-axis, constrain y to setwidth
+     stretch-y: resize y-axis, constrain x to setwidth
+     */
+
+  const infx = setwidth === 0;
+  const infy = setheight === 0;
+  const dx = infx ? 0 : width / setwidth;
+  const dy = infy ? 0 : height / setheight;
+
+  let scale = 1;
+
+  if (method.method === "stretch-x") {
+    instr.renderWidth = Math.ceil(width / dx);
+    instr.renderHeight = Math.ceil(height / dx);
+    if (setheight !== 0 && instr.renderHeight > setheight)
+      instr.renderHeight = setheight;
+  } else if (method.method === "stretch-y") {
+    instr.renderWidth = Math.ceil(width / dy);
+    instr.renderHeight = Math.ceil(height / dy);
+    if (setwidth !== 0 && instr.renderWidth > setwidth)
+      instr.renderWidth = setwidth;
+  } else if ((method.method === "fit" || method.method === "fitcanvas") && dx <= 1 && dy <= 1) { //no-op, it already fits
+    instr.renderWidth = width;
+    instr.renderHeight = height;
+  } else {
+    if (setwidth === 0)
+      scale = dy;
+    else if (setheight === 0)
+      scale = dx;
+    else if (method.method === "fill")
+      scale = Math.min(dx, dy);
+    else
+      scale = Math.max(dx, dy);
+
+    instr.renderWidth = Math.ceil(width / scale);
+    instr.renderHeight = Math.ceil(height / scale);
+  }
+
+  if (method.method === "fitcanvas" || method.method === "scalecanvas" || method.method === "fill") { //output must be setwith/setheight
+    instr.outWidth = setwidth === 0 ? instr.renderWidth : setwidth;
+    instr.outHeight = setheight === 0 ? instr.renderHeight : setheight;
+    instr.renderX = setwidth === 0 ? 0 : Math.floor((setwidth - instr.renderWidth) / 2);
+    instr.renderY = setheight === 0 ? 0 : Math.floor((setheight - instr.renderHeight) / 2);
+  } else {
+    instr.outWidth = instr.renderWidth;
+    instr.outHeight = instr.renderHeight;
+  }
+
+  if (instr.refPoint) {
+    instr.refPoint.x = Math.ceil(instr.refPoint.x / scale);
+    if (instr.outWidth > instr.renderWidth)
+      instr.refPoint.x += (instr.outWidth - instr.renderWidth) / 2;
+    instr.refPoint.y = Math.ceil(instr.refPoint.y / scale);
+    if (instr.outHeight > instr.renderHeight)
+      instr.refPoint.y += (instr.outHeight - instr.renderHeight) / 2;
+  }
+
+  if (method.method === "fill" && instr.refPoint) {
+    instr.renderX = Math.floor(((instr.refPoint.x * instr.outWidth) / instr.renderWidth) - instr.refPoint.x);
+    instr.renderY = Math.floor(((instr.refPoint.y * instr.outHeight) / instr.renderHeight) - instr.refPoint.y);
+
+    // move the refpoint to within the cropped area
+    instr.refPoint.x += instr.renderX;
+    instr.refPoint.y += instr.renderY;
+  }
+  return instr;
+}
+
+export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
+  const validatedMethod = validateResizeMethod(resizemethod);
+  let method = validatedMethod.methodIdx;
+  let format = validatedMethod.formatIdx;
+
+  if (validatedMethod.grayscale)
+    method += 0x10;
+
+  if (validatedMethod.fixOrientation) //this one goes into format, the rest of the bigflags go into method
+    format += 0x80;
+
+  const havequality = validatedMethod.quality !== 85;
+  if (havequality)
+    method += 0x20; //Set quality flag
+
+  const dropbgcolor = validatedMethod.bgColor === 0x00FFFFFF;
+  if (dropbgcolor)
+    method += 0x80; //Set 'no bgcolor flag'
+
+  if (validatedMethod.noForce !== false)
+    method += 0x40;
+
+  const buffer = new ArrayBuffer(32);
+  const view = new DataView(buffer);
+  let ptr = 0;
+  const blur = ((validatedMethod.hBlur & 0x7fff) << 15) | (validatedMethod.vBlur & 0x7fff);
+  if (blur) {
+    view.setUint8(ptr, 2); //the 'blur' header byte
+    view.setInt32(ptr + 1, blur, true);
+    ptr += 5;
+  }
+
+  //Build the image data packet. <01> <method> <setwidth:u16> <setheight:u16> <format:s8>
+  view.setUint8(ptr, 1);
+  view.setUint8(ptr + 1, method);
+  ptr += 2;
+  if (validatedMethod.method !== 'none') { //only write setWidth/height for methods other than none
+    view.setInt16(ptr, validatedMethod.setWidth, true);
+    view.setInt16(ptr + 2, validatedMethod.setHeight, true);
+    ptr += 4;
+  }
+
+  view.setUint8(ptr, format);
+  ptr += 1;
+
+  if (havequality) { //adds quality:8
+    view.setUint8(ptr, validatedMethod.quality);
+    ptr += 1;
+  }
+
+  if (!dropbgcolor) { //adds bgcolor:L
+    view.setInt32(ptr, validatedMethod.bgColor === "transparent" ? 0 : validatedMethod.bgColor, true);
+    ptr += 4;
+  }
+
+  return buffer.slice(0, ptr);
+}
+
+export function getUnifiedCC(date: Date) {
+  const parts = dateToParts(date);
+  return parts.days ^ parts.msecs;
+}
+
+function isImageRefpointRelevant(method: ResizeMethod) {
+  return ["crop", "cropcanvas", "fill"].includes(method.method);
+}
+
+export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
+  if (!fileData.dbLoc)
+    throw new Error("Cannot use toResize on a resource not backed by a supported database location");
+
+  const key = getFullConfigFile().secrets.cache;
+  if (!key)
+    throw new Error("No cache secret configured");
+
+  /* Format of added imginfo fields
+   _t type (U8)
+   _i id (U32)
+   _c c^c (U32)
+   _md = (U32)
+   _ms = (U32) */
+
+  let imgdata: ArrayBuffer | null = null;
+  if (scaleMethod) {
+    imgdata = packImageResizeMethod(scaleMethod);
+    if (imgdata.byteLength > 255)
+      throw new Error("imgdata unexpectedly too long");
+    if (imgdata.byteLength === 0)
+      throw new Error("imgdata could not be generated");
+  }
+
+  if (!fileData.hash)
+    throw new Error("fileData.hash is required");
+
+  let contenthash;
+  if (dataType === 1 && scaleMethod && fileData.refPoint && isImageRefpointRelevant(scaleMethod)) {
+    const contenthasher = crypto.createHash('md5');
+    contenthasher.update(fileData.hash);
+    contenthasher.update(encodeHSON(fileData.refPoint));
+    contenthash = contenthasher.digest();
+  } else {
+    contenthash = Buffer.from(fileData.hash, "base64url");
+  }
+
+  const hashdata = contenthash.toString("hex");
+  const md = parseInt(hashdata.substring(0, 8), 16);
+  const ms = parseInt(hashdata.substring(8, 16), 16);
+
+  // u1packet := <version = 1:8><type:8><id:32><cc:32><md:32><ms:32><imgdatalen:8>  1+1+4+4+4+4+1 = 19
+  const packet = new Uint8Array(19 + (imgdata?.byteLength ?? 0));
+  const view = new DataView(packet.buffer);
+  view.setUint8(0, 1);
+  view.setUint8(1, fileData.dbLoc.source);
+  view.setUint32(2, fileData.dbLoc.id, true);
+  view.setInt32(6, fileData.dbLoc.cc, true);
+  view.setInt32(10, md, true);
+  view.setInt32(14, ms, true);
+  view.setInt32(18, imgdata?.byteLength ?? 0, true);
+  if (imgdata)
+    packet.set(new Uint8Array(imgdata), 19);
+
+  const hash2 = crypto.createHash('md5');
+  hash2.update(packet);
+  hash2.update(useExtension, "utf8");
+  hash2.update(key, "utf8");
+
+  return hash2.digest("hex").substring(0, 8) + Buffer.from(packet).toString("hex");
+}
+
+type ResourceResizeOptions = ResizeMethod & {
+  allowAnyExtension?: boolean;
+  embed?: boolean;
+  fileName?: string;
+};
+
+export function getUnifiedCacheURL(baseurl: string, dataType: number, metaData: ResourceMetaData, options?: ResourceResizeOptions): string {
+  if (dataType === 1 && !options?.method)
+    throw new Error("A scalemethod is required for images");
+  if (dataType === 2 && !options?.method)
+    throw new Error("A cached file cannot have a scale method. Did you mean to use one of the image APIs ?");
+
+  const mimetype = (dataType === 1 ? options?.format : "") || metaData.mediaType;
+  const embed = dataType === 1 || options?.embed === true;
+  const allowanyextension = options?.allowAnyExtension === true;
+  const validextensions = [];
+  if (dataType === 1) {
+    if (mimetype === "image/jpeg")
+      validextensions.push("jpg");
+    else if (mimetype === "image/png" || mimetype === "image/x-bmp" || mimetype === "image/tiff")
+      validextensions.push("png");
+    else if (mimetype === "image/gif")
+      validextensions.push("gif");
+    else
+      throw new Error(`Unsupported mimetype for image: ${mimetype}`);
+    //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)
+  } else {
+    //TOOD HS allowed the extendable mimetype table to be used but that's getting too complex for here I think. should probably reconsider unifiedcache-file usage once we run into this
+    validextensions.push(`${getExtensionForMediaType(mimetype)}`);
+  }
+
+  let filename = options?.fileName;
+  let useextension = "";
+  if (filename?.includes(".")) {
+    const fileext = extname(filename).toLowerCase();
+    if (validextensions.length && !allowanyextension && !validextensions.includes(fileext))
+      useextension = validextensions[0];
+    else {
+      useextension = fileext;
+      filename = filename.substring(0, filename.length - fileext.length - 1);
+    }
+  } else if (validextensions.length && !allowanyextension) {
+    useextension = validextensions[0];
+  }
+
+  const packet = getUCSubUrl(options?.method ? options : null, metaData, dataType, useextension ? '.' + useextension : '');
+  let suffix = dataType === 1 ? "i" : embed ? "e" : "f";
+  suffix += packet;
+  suffix += '/' + encodeURIComponent(filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : '');
+
+  const url = `/.uc/` + suffix;
+  return baseurl ? new URL(url, baseurl).href : url;
+}
+
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
   a metadata object into an existing class have getters ready in the class prototype rather than destructuring the scandata record */
 export class ResourceDescriptor implements ResourceMetaData {
@@ -295,8 +739,8 @@ export class ResourceDescriptor implements ResourceMetaData {
     this.metadata = metadata;
   }
 
-  static async from(str: string | Buffer, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
-    const blob = WebHareBlob.from(str);
+  static async from(str: string | Buffer | WebHareBlob, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    const blob = WebHareBlob.isWebHareBlob(str) ? str : WebHareBlob.from(str);
     return buildDescriptorFromResource(blob, options);
   }
 
@@ -351,10 +795,17 @@ export class ResourceDescriptor implements ResourceMetaData {
   get sourceFile() {
     return this.metadata.sourceFile ?? null;
   }
+  get dbLoc() {
+    return this.metadata.dbLoc;
+  }
 
   //Gets a simple object containing *only* the metadata
   getMetaData(): ResourceMetaData {
     return pick(this, ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"]);
+  }
+
+  toResized(method: ResizeMethod) {
+    return { link: getUnifiedCacheURL('', 1, this, method) };
   }
 }
 

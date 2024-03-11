@@ -26,7 +26,6 @@ LOADLIB "mod::wrd/lib/database.whlib";
 //store last requested unified cache object as it's very common for the same image to be requested repeatedly with different dimensions
 RECORD lastobjinfo;
 
-DATETIME moddatecutoff;
 PUBLIC STRING imgcache_globalbaseurl; //set by eg webdesign to enforce CDN preferences
 CONSTANT STRING u1packet := "type:C,id:L,cc:L,md:L,ms:L,imgdatalen:C";
 
@@ -102,6 +101,52 @@ RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER64 sourceid)
   }
 }
 
+PUBLIC STRING FUNCTION GetUCSubUrl(RECORD scalemethod, RECORD filedata, INTEGER datatype, INTEGER sourcetype, INTEGER64 sourceid, INTEGER cc, STRING useextension)
+{
+  /* Format of added imginfo fields
+     _t type (U8)
+     _i id (U32)
+     _c c^c (U32)
+     _md = (U32)
+     _ms = (U32) */
+
+  STRING imgdata;
+  IF(RecordExists(scalemethod))
+  {
+    imgdata := GfxPackImageResizeMethod(scalemethod);
+    IF(Length(imgdata)>255)
+      THROW NEW Exception("imgdata unexpectedly too long");
+    IF(Length(imgdata)=0)
+      THROW NEW Exception("imgdata could not be generated");
+  }
+
+  INTEGER md,ms;
+  STRING contenthash := DecodeUFS(filedata.hash); //filedata.hash should have been set everywhere by now by the scandata migrations yaers ago. also ScanBlob wrote it as UFS..
+  IF(datatype =1 AND RecordExists(filedata.refpoint) AND IsImageRefpointRelevant(scalemethod))
+    contenthash := GetMD5Hash(filedata.hash || EncodeHSON(filedata.refpoint));
+
+  STRING hashdata := EncodeBase16(contenthash);
+  md := ToInteger(Left(hashdata,8),0,16);
+  ms := ToInteger(Substring(hashdata,8,8),0,16);
+
+  STRING packet := "\x01" || EncodePacket(u1packet,
+    [ type := sourcetype
+    , id := sourceid
+    , cc := cc
+    , md := md
+    , ms := ms
+    , imgdatalen := Length(imgdata)
+    ]) || imgdata;
+  STRING hash := Left(GetHashForString(packet || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
+  packet := ToLowercase(EncodeBase16(hash || packet));
+  RETURN packet;
+}
+
+PUBLIC INTEGER FUNCTION GetUnifiedCC(DATETIME creationdate)
+{
+   RETURN GetDayCount(creationdate) BITXOR GetMsecondCount(creationdate);
+}
+
 /** datatype: 1= img, 2 file, 3 embed
     sourcetype: 1 = system:whfs
           2 = system:whfssettings
@@ -118,9 +163,6 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
 
   IF(sourceid=0)
     RETURN "";
-
-  IF(moddatecutoff = DEFAULT DATETIME)
-    moddatecutoff := ReadRegistryKey("system.cache.moddatecutoff");
 
   RECORD objinfo;
   IF(RecordExists(lastobjinfo) AND lastobjinfo.sourcetype = sourcetype AND lastobjinfo.sourceid = sourceid)
@@ -148,82 +190,22 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   IF(mimetype = "" AND sourcetype = 1)
     mimetype := ScanBlob((SELECT AS BLOB data FROM system.fs_objects WHERE id = sourceid), '').mimetype;
 
-  STRING cachehost;
-  RECORD hostdata;
-  STRING hosthash;
   STRING filename;
   BOOLEAN embed := datatype = 1 OR (CellExists(options,'embed') AND options.embed=TRUE);
 
-  IF(CellExists(options,'cachehost'))
-    cachehost := options.cachehost;
-
   IF(CellExists(options,'filename'))
     filename := options.filename;
-
-  IF(CellExists(options,'hosthash'))
-  {
-    IF(cachehost="")
-      THROW NEW Exception("A resize method may only contain a 'hosthash' if it also specifies a 'cachehost'");
-    hosthash := options.hosthash;
-  }
-  IF(CellExists(options,'hostdata'))
-  {
-    IF(cachehost="")
-      THROW NEW Exception("A resize method may only contain a 'hostdata' if it also specifies a 'cachehost'");
-    hostdata := options.hostdata;
-  }
 
   RECORD scalemethod;
   BOOLEAN allowanyextension := CellExists(options, 'allowanyextension') ? options.allowanyextension : FALSE;
   IF(datatype = 1)
   {
     scalemethod := options;
-    DELETE CELL cachehost, filename, hosthash, hostdata, allowanyextension FROM scalemethod;
+    DELETE CELL filename, allowanyextension FROM scalemethod;
     scalemethod := ValidateResizeMethod(scalemethod);
   }
 
-  /* Format of added imginfo fields
-     _t type (U8)
-     _i id (U32)
-     _c c^c (U32)
-     _md = (U32)
-     _ms = (U32) */
-
-  STRING imgdata;
-  IF(RecordExists(scalemethod))
-  {
-    imgdata := GfxPackImageResizeMethod(scalemethod);
-    IF(Length(imgdata)>255)
-      THROW NEW Exception("imgdata unexpectedly too long");
-    IF(Length(imgdata)=0)
-      THROW NEW Exception("imgdata could not be generated");
-  }
-
-  INTEGER md,ms;
-  IF(objinfo.modificationdate >= moddatecutoff AND filedata.hash != "")
-  {
-    STRING hash := DecodeBase64(filedata.hash);
-    IF(datatype =1 AND RecordExists(filedata.refpoint) AND IsImageRefpointRelevant(options))
-      hash := GetMD5Hash(filedata.hash || EncodeHSON(filedata.refpoint));
-
-    STRING hashdata := EncodeBase16(hash);
-    md := ToInteger(Left(hashdata,8),0,16);
-    ms := ToInteger(Substring(hashdata,8,8),0,16);
-  }
-  ELSE
-  {
-    md := GetDayCount(objinfo.modificationdate);
-    ms := GetMsecondCount(objinfo.modificationdate);
-  }
-
-  STRING packet := "\x01" || EncodePacket(u1packet,
-    [ type := sourcetype
-    , id := sourceid
-    , cc := GetDayCount(objinfo.creationdate) BITXOR GetMsecondCount(objinfo.creationdate)
-    , md := md
-    , ms := ms
-    , imgdatalen := Length(imgdata)
-    ]) || imgdata;
+  INTEGER cc := GetUnifiedCC(objinfo.creationdate);
 
   STRING ARRAY validextensions;
   IF(datatype=1)
@@ -259,28 +241,15 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   ELSE IF (Length(validextensions) > 0 AND NOT allowanyextension)
     useextension := validextensions[0];
 
-  IF(RecordExists(hostdata))
-  {
-    //Wrap the packet..
-    STRING data := EncodeHSON(hostdata);
-    packet := "\x03" || EncodePacket("datalen:S", [ datalen := Length(data) ]) || data || packet;
-  }
-
-  STRING hash := Left(GetHashForString(packet || hosthash || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
-  packet := ToLowercase(EncodeBase16(hash || packet));
+  STRING packet := GetUCSubUrl(scalemethod, filedata, datatype, sourcetype, sourceid, cc, useextension);
+  IF(packet = "")
+    RETURN "";
 
   STRING suffix := datatype=1 ? "i" : embed ? "e" : "f";
   suffix := suffix || packet;
 
   filename := Left(filename, 80);
   suffix := suffix || "/" || EncodeURL( (filename ?? "data") || useextension);
-
-  IF(cachehost != "")
-  {
-    IF(cachehost NOT LIKE "*/")
-      cachehost := cachehost || "/";
-    RETURN cachehost || suffix;
-  }
 
   RETURN FixupReturnURL(baseurl, objinfo.fsobjectfolder, "/.uc/" || suffix);
 }
@@ -334,17 +303,8 @@ PUBLIC STRING FUNCTION GetImageMimetype(STRING extension)
   THROW NEW Exception("Unexpected image extension '" || extension || "'");
 }
 
-RECORD FUNCTION DecodeUnifiedData(STRING imgtok)
+PUBLIC RECORD FUNCTION DecodeUnifiedData(STRING imgtok)
 {
-  IF(Left(imgtok,1)="\x03")
-  {
-    //this image token wraps a hostdata packet and the original imagetoken (ADDME smarter or compressed formats would be better?)
-    INTEGER hostdatalen := DecodePacket("datalen:S", Substring(imgtok,1,2)).datalen;
-    RECORD basedata := DecodeUnifiedData(Substring(imgtok,hostdatalen+3));
-    INSERT CELL hostdata := DecodeHSON(Substring(imgtok,3,hostdatalen)) INTO basedata;
-    RETURN basedata;
-  }
-
   IF(Left(imgtok,1) != "\x01")
     THROW NEW Exception("Image token version not recognized");
 
@@ -498,7 +458,7 @@ RECORD FUNCTION GetUnifiedURLTokenParts(STRING token)
 }
 
 
-PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
+PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token)
 {
   RECORD retval := [ datatype :=  0
                    , token :=     ""
@@ -522,7 +482,7 @@ PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
     retval.hash := Left(datatoken, 4);
     retval.tohash := Substring(datatoken, 4);
 
-    STRING expectedhash := Left(GetHashForString(retval.tohash || hosthash || retval.extension || GetClusterKeyBase("cachesecret"), "MD5"),4);
+    STRING expectedhash := Left(GetHashForString(retval.tohash || retval.extension || GetClusterKeyBase("cachesecret"), "MD5"),4);
     IF(expectedhash != retval.hash)
       RETURN DEFAULT RECORD;
 
@@ -545,7 +505,7 @@ PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
   INTEGER uc := SearchSubstring(url, "/.uc/");
   IF(uc>=0)
   {
-    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5), "");
+    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5));
     IF(RecordExists(analyzed))
     {
       RETURN [ type := analyzed.item.type

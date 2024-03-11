@@ -2054,8 +2054,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
+        IF(jsmode AND CellExists(val,'filename') AND TypeID(val.filename) = TypeID(RECORD) AND NOT RecordExists(val.filename))
+          val := CELL[...val, filename := ""]; //convert null to ""
+
         IF(RecordExists(val) AND val.mimetype NOT LIKE "image/*")
-          THROW NEW Exception("Received an invalid image");
+          THROW NEW Exception(`Received a file of type '${val.mimetype}', expected image/*`);
 
         IF(RecordExists(val))
         {
@@ -2222,6 +2225,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         //ADDME: Compensate missing fields
         IF (RecordExists(val))
         {
+          IF(jsmode AND CellExists(val,'filename') AND TypeID(val.filename) = TypeID(RECORD) AND NOT RecordExists(val.filename))
+            val := CELL[...val, filename := ""]; //convert null to ""
           IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer being transferred, which we supported in 5.3. Just blobify it
             val := CELL[ ...val, data := StringToBlob(val.data) ];
 
