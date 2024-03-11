@@ -1,8 +1,11 @@
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
+import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { debugFlags } from "@webhare/env/src/envbackend";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
 import * as test from "@webhare/test";
+import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 
 
@@ -349,14 +352,16 @@ async function testImgCacheTokens() {
   test.eq(await getHSCC(testdate), getUnifiedCC(testdate));
 }
 
+async function fetchUCLink(url: string, expectType: string) {
+  const finalurl = new URL(url, backendConfig.backendURL).href;
+  const fetchResult = await fetch(finalurl);
+  test.eq(200, fetchResult.status);
+  test.eq(expectType, fetchResult.headers.get("content-type"));
+  const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
+  return { resource: fetchData, finalurl };
+}
+
 async function testImgCache() {
-  async function fetchUCLink(url: string, expectType: string) {
-    const fetchResult = await fetch(new URL(url, backendConfig.backendURL));
-    test.eq(200, fetchResult.status);
-    test.eq(expectType, fetchResult.headers.get("content-type"));
-    const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
-    return fetchData;
-  }
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
   test.throws(/Cannot use toResize/, () => fish.toResized({ method: "none" }));
 
@@ -367,12 +372,30 @@ async function testImgCache() {
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
   await fetchUCLink(kikkerdata.arraytest[0].blobcell.toResized({ method: "none" }).link, "image/jpeg");
-
 }
+
+async function testWRDImgCache() {
+  debugFlags["wrd:usewasmvm"] = true;
+  debugFlags["wrd:usejsengine"] = true;
+
+  const schema = await createWRDTestSchema();
+  const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //FIXME WRD should auto-complete metadata itself
+  await beginWork();
+  const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
+  const personid = await schema.insert("wrdPerson", { testFile: fish, testImage: fish, whuserUnit: unit_id, wrdContactEmail: "goldfish@beta.webhare.net" });
+  await commitWork();
+
+  const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
+  test.assert(wrappedGoldfish);
+  console.log(await fetchUCLink(wrappedGoldfish.testImage!.toResized({ method: "none" }).link, "image/png"));
+}
+
 
 test.run([
   testResizeMethods,
   testImgMethodPacking,
   testImgCacheTokens,
-  testImgCache
+  testImgCache,
+  testWRDImgCache
+
 ]);

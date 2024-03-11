@@ -12,6 +12,7 @@ import { db, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
 import { maxDateTime } from "@webhare/hscompat/datetime";
+import { getUnifiedCC } from "@webhare/services/src/descriptor";
 
 
 export type ReturnMap<T> = Array<{
@@ -190,7 +191,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   }
 
   // Make sure id and type are selected too
-  let selectquery = query.select(["wrd.entities.id", "wrd.entities.type"]);
+  let selectquery = query.select(["wrd.entities.id", "wrd.entities.type", "wrd.entities.creationdate"]);
 
   // Select all needed base fields too (for select map and afterchecks). Process every atrtribute only once.
   const selectedAttrs = new Set<string>;
@@ -253,12 +254,13 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   for (const entity of entities) {
     // Slice the entity settings array for the attributes for this entity
     const entityattrs = recordRange(settings, { entity: entity.id }, ["entity"]);
+    const cc = getUnifiedCC(entity.creationdate);
 
     // Execute the afterchecks
     for (const aftercheck of afterchecks) {
       const lb = recordLowerBound(entityattrs, { attribute: aftercheck.accessor.attr.id }, ["attribute"]);
       const ub = recordUpperBound(entityattrs, { attribute: aftercheck.accessor.attr.id }, ["attribute"]);
-      const value = aftercheck.accessor.getValue(entityattrs, lb.position, ub, entity, links);
+      const value = aftercheck.accessor.getValue(entityattrs, lb.position, ub, entity, links, cc);
       if (!aftercheck.accessor.matchesValue(value, aftercheck as never)) {
         continue entityloop;
       }
@@ -269,7 +271,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     for (const acc of accessors) {
       const lb = recordLowerBound(entityattrs, { attribute: acc.accessor.attr.id }, ["attribute"]);
       const ub = recordUpperBound(entityattrs, { attribute: acc.accessor.attr.id }, ["attribute"]);
-      const value = acc.accessor.getValue(entityattrs, lb.position, ub, entity, links);
+      const value = acc.accessor.getValue(entityattrs, lb.position, ub, entity, links, cc);
       accvalues.push(value);
     }
 

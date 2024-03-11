@@ -3,14 +3,119 @@ import { loadlib } from "@webhare/harescript";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { WRDAttributeType, WRDMetaType } from "@mod-wrd/js/internal/types"; //FIXME shouldn't need an internal API for WRDMetaType
+import { WRDAttributeType, WRDMetaType, type Combine, type WRDAttr, type IsRequired, type WRDTypeBaseSettings, type WRDBaseAttributeType, type IsNonUpdatable } from "@mod-wrd/js/internal/types"; //FIXME shouldn't need an internal API for WRDMetaType
+import type { WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 
 export const testSchemaTag = "wrd:testschema";
 
-export function getWRDSchema() {
+export type CustomExtensions = {
+  wrdPerson: {
+    testSingleDomain: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
+    testSingleDomain2: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testSingleDomain3: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testFree: WRDAttributeType.Free;//", { title: "Free attribute" });
+    testAddress: WRDAttributeType.Address;//", { title: "Address attribute" });
+    testEmail: WRDAttributeType.Email;//", { title: "E-mail attribute" });
+    testPhone: WRDAttributeType.Telephone;//", { title: "Phone attribute" });
+    testDate: WRDAttributeType.Date;//", { title: "Date attribute" });
+    testPassword: WRDAttributeType.Password;//", { title: "Password attribute" });
+    testMultiple_domain: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultiple_domain2: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultiple_domain3: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testImage: WRDAttributeType.Image;//", { title: "Image attribute" });
+    testFile: WRDAttributeType.File;//", { title: "File attribute" });
+    testTime: WRDAttributeType.Time;//", { title: "Time attribute" });
+    testDatetime: WRDAttributeType.DateTime;//", { title: "Datetime attribute" });
+    testArray: WRDAttr<WRDAttributeType.Array, {
+      members: {
+        testInt: WRDAttributeType.Integer;
+        testFree: WRDAttributeType.Free;
+        testArray2: WRDAttr<WRDAttributeType.Array, {
+          members: {
+            testInt2: WRDAttributeType.Integer;
+          };
+        }>;
+        testSingle: WRDAttributeType.Domain;
+        testImage: WRDAttributeType.Image;
+        testSingleOther: WRDAttributeType.Domain;
+        testMultiple: WRDAttributeType.DomainArray;
+        testEmail: WRDAttributeType.Email;
+      };
+    }>;
+    testMoney: WRDAttributeType.Money;//", { title: "Money attribute" });
+    testInteger: WRDAttributeType.Integer;//", { title: "Integer attribute" });
+    testBoolean: WRDAttributeType.Boolean;//", { title: "Boolean attribute" });
+    testEnum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: "enum1" | "enum2" }>;//", { title: "Emum attribute", allowedvalues: ["enum1", "enum2"] });
+    testEnumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: "enumarray1" | "enumarray2" }>;//", { title: "Emum attribute", allowedvalues: ["enumarray1", "enumarray2"] });
+    testEmptyenum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testRecord: WRDAttributeType.Record;//", { title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testJson: WRDAttr<WRDAttributeType.JSON, { type: { mixedCase: Array<number | string> } }>;//", { title: "Json attribute" });
+    testStatusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
+    testFree_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
+    richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
+  } & WRDTypeBaseSettings;
+  testDomain_1: {
+    wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
+    wrdOrdering: WRDBaseAttributeType.Base_Integer;
+    wrdTitle: WRDAttributeType.Free;
+  } & WRDTypeBaseSettings;
+  testDomain_2: {
+    wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
+    wrdOrdering: WRDBaseAttributeType.Base_Integer;
+  } & WRDTypeBaseSettings;
+  personattachment: {
+    wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    attachfree: WRDAttributeType.Free;
+  } & WRDTypeBaseSettings;
+  personorglink: {
+    wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    wrdRightEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    text: WRDAttributeType.Free;
+  } & WRDTypeBaseSettings;
+  payprov: {
+    method: IsRequired<WRDAttributeType.PaymentProvider>;
+  } & WRDTypeBaseSettings;
+  paydata: {
+    data: WRDAttributeType.Payment;
+    log: WRDAttributeType.Record;
+  } & WRDTypeBaseSettings;
+  paydata2: {
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    data: WRDAttributeType.Payment;
+    log: WRDAttributeType.Record;
+  } & WRDTypeBaseSettings;
+
+  /* FIXME: extend array too
+
+  await persontype.createAttribute("TEST_ARRAY.TEST_INT", "INTEGER", { title: "Array integer attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_FREE", "FREE", { title: "Array free attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_ARRAY2", "ARRAY", { title: "Array array attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_ARRAY2.TEST_INT2", "INTEGER", { title: "Array array integer attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_SINGLE", "DOMAIN", { title: "Array domain attribute", domaintag: (await domain1_obj.get("tag")) as string });
+  await persontype.createAttribute("TEST_ARRAY.TEST_IMAGE", "IMAGE", { title: "Array image attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_SINGLE_OTHER", "DOMAIN", { title: "Array domain attribute", domaintag: (await domain1_obj.get("tag")) as string });
+  await persontype.createAttribute("TEST_ARRAY.TEST_MULTIPLE", "DOMAINARRAY", { title: "Array multiple domain attribute", domaintag: (await domain1_obj.get("tag")) as string });
+  await persontype.createAttribute("TEST_ARRAY.TEST_EMAIL", "EMAIL", { title: "Array email attribute" });
+*/
+};
+
+export async function getWRDSchema() {
   const wrdschema = new WRDSchema(testSchemaTag);
-  if (!wrdschema)
+  if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  return wrdschema;
+}
+
+export async function getExtendedWRDSchema() {
+  type Combined = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
+  const wrdschema = new WRDSchema<Combined>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
+  if (!await wrdschema.exists())
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  await whdb.beginWork();
+  if (!await wrdschema.hasType("testDomain_2"))
+    throw new Error(`${testSchemaTag} has not been extended. use setupTheWRDTestSchema`);
+  await whdb.commitWork();
   return wrdschema;
 }
 
@@ -18,7 +123,6 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will need options in the future
   options = { withRichDoc: true, deleteClosedAfter: 0, keepHistoryDays: 0, ...options };
   const persontype = schemaobj.getType("wrdPerson");
-  await persontype.updateAttribute("wrdContactEmail", { isRequired: false }); //for compatibility with all existing WRD tests
 
 
   // Initialize the schema, and test the attribute name function
@@ -280,4 +384,6 @@ export async function createWRDTestSchema(options?: {
     }
   */
   await whdb.commitWork();
+
+  return await getExtendedWRDSchema();
 }
