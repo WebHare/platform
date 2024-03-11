@@ -4,6 +4,7 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -76,7 +77,7 @@ export default class ObjCustomHTML extends ComponentBase {
     }
   }
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     return $todd.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
   }
 }

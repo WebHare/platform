@@ -247,8 +247,7 @@ export default class ObjTable extends ComponentBase {
   // Component management
   //
 
-  getVisibleChildren() //objTable
-  {
+  getVisibleChildren(): ToddCompBase[] { //objTable
     return this.rowgroups.concat(this.cols).concat(this.overlays).filter(node => Boolean(node));
   }
 
@@ -688,7 +687,7 @@ export default class ObjTable extends ComponentBase {
     this.updateSelection(newselection);
   }
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     if (this.selectmode !== "none") {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(',') + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
 
@@ -1170,8 +1169,7 @@ class ObjRowGroup extends ComponentBase {
   // Dimensions
   //
 
-  getVisibleChildren() //objRowGroup
-  {
+  getVisibleChildren(): ToddCompBase[] { //objRowGroup
     return this.rows;
   }
   calculateDimWidth() //todObjRowgroup calculateDimWidth
@@ -1312,8 +1310,7 @@ class ObjRow extends ComponentBase {
   //
   // Dimensions
   //
-  getVisibleChildren() //objRow
-  {
+  getVisibleChildren(): ToddCompBase[] { //objRow
     return this.cells.filter(node => Boolean(node));
   }
   calculateDimWidth() //toddObjRow calculateDimWidth
@@ -1519,8 +1516,7 @@ class ObjCell extends ComponentBase {
   //
   // Dimensions
   //
-  getVisibleChildren()  //objCell
-  {
+  getVisibleChildren(): ToddCompBase[] {//objCell
     return [this.comp].filter(node => Boolean(node));
   }
 
@@ -1773,8 +1769,7 @@ class ObjOverlay extends ComponentBase {
   // Dimensions
   //
 
-  getVisibleChildren()  //objOverlay
-  {
+  getVisibleChildren(): ToddCompBase[] {  //objOverlay
     return [this.comp].filter(node => Boolean(node));
   }
 

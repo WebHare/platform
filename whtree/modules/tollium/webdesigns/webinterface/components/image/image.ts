@@ -82,7 +82,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   // Overrides
   //
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     if (!this.overlaymanager)//too soon
       return false;
 

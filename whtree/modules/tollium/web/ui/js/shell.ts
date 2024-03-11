@@ -113,6 +113,8 @@ class IndyShell extends TolliumShell {
   frontendids = [];
   feedbackhandler: TolliumFeedbackAPI | null = null;
 
+  towl?: TowlNotifications;
+
   constructor(setup) {
     super(setup);
     if (indyshellinstance)
@@ -263,19 +265,14 @@ class IndyShell extends TolliumShell {
   }
 
   createComponent(type, parentcomp, data) {
-    if (todd_components[type])
-      return new todd_components[type](parentcomp, data);
-
-    console.error('Unrecognized component type \'' + type + '\'');
-    return null;
+    return new (this.getComponentType(type))(parentcomp, data);
   }
 
   getComponentType(type) {
     if (todd_components[type])
       return todd_components[type];
 
-    console.error('Unrecognized component type \'' + type + '\'');
-    return null;
+    throw new Error(`Unrecognized component type '${type}'`);
   }
 
   completeLogin(data, lock) {

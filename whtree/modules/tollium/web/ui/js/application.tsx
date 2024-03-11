@@ -75,6 +75,16 @@ export class ApplicationBase {
   /** The shell starting us */
   shell: IndyShell; //(as if there would be more than one in a JS instace?)
 
+  screenmap: Record<string, Frame> = {};
+
+  appnodes: {
+    loader: HTMLElement;
+    appmodalitylayer: HTMLElement;
+    docpanel: HTMLElement;
+    screens: HTMLElement;
+    root: HTMLElement;
+  };
+
   constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?) {
     this.container = null;
     /// Name of  app
@@ -753,8 +763,7 @@ export class BackendApplication extends ApplicationBase {
    * Communications
    */
 
-  queueEvent(actionname, param, synchronous, originalcallback) //for legacy queueEvent calls, too many sitll remaining
-  {
+  queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback?: () => void) { //for legacy queueEvent calls, too many still remaining
     const busylock = synchronous ? this.getBusyLock() : dompack.flagUIBusy();
     const finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
     this.queueEventNoLock(actionname, param, synchronous, finalcallback);

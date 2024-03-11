@@ -36,7 +36,7 @@ export default class ObjSplit extends ComponentBase {
   * Component management
   */
 
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     return this.parts;
   }
 

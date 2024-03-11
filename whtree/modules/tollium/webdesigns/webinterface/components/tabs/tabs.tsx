@@ -426,7 +426,7 @@ export default class ObjTabs extends ComponentBase {
   * Dimensions
   */
 
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     const comps = [];
     this.pages.forEach(function (page) {
       comps.push(page.titlecomp);

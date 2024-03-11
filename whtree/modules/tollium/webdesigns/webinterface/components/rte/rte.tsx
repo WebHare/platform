@@ -217,7 +217,7 @@ export default class ObjRTE extends ComponentBase {
   * Component state
   */
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     return $todd.checkEnabledFlags(this._selectionflags, checkflags, min, max, selectionmatch);
   }
 

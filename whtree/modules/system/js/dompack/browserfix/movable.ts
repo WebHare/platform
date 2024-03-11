@@ -1,5 +1,27 @@
 import { dispatchCustomEvent, stop } from '../src/events';
 
+export type DompackMoveEvent = CustomEvent<{
+  movedX: number;
+  movedY: number;
+  pageX: number;
+  pageY: number;
+  clientX: number;
+  clientY: number;
+  screenX: number;
+  screenY: number;
+  listener: EventTarget | null;
+  currentTarget: EventTarget | null;
+}>;
+
+
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "dompack:movestart": DompackMoveEvent;
+    "dompack:move": DompackMoveEvent;
+    "dompack:moveend": DompackMoveEvent;
+  }
+}
+
 const HAS_TOUCHEVENT = typeof TouchEvent !== "undefined"; // Desktop Safari doesn't have TouchEvent
 
 type EventCoordinates =
@@ -16,7 +38,7 @@ let moveeventdata: { target: EventTarget | null; startX: number; startY: number 
 let lastcoordinates: EventCoordinates | null = null;
 
 // Fire a move event and return the resulting event
-function fireMoveEvent(eventtype: string, listener: EventTarget | null, event: MouseEvent | TouchEvent, cancelable: boolean) {
+function fireMoveEvent(eventtype: "dompack:movestart" | "dompack:move" | "dompack:moveend", listener: EventTarget | null, event: MouseEvent | TouchEvent, cancelable: boolean) {
   //FIXME properly wait for 'last' touch when multitouchmoving ?
 
   listener = moveeventdata?.target ?? listener;

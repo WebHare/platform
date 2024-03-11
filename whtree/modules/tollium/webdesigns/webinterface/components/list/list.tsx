@@ -986,7 +986,7 @@ export default class ObjList extends ComponentBase {
     return null;
   }
 
-  doNoLoopCheck(targetrow, sourcecomp, rowkeys) {
+  doNoLoopCheck(targetrow, sourcecomp: ToddCompBase, rowkeys: string[]) {
     if (sourcecomp !== this)
       return true;
 
@@ -1191,7 +1191,7 @@ export default class ObjList extends ComponentBase {
     return false;
   }
 
-  enabledOn(checkflags, min, max, selectionmatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     if (this.selectmode !== "none") {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(",") + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
       return this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, 1);

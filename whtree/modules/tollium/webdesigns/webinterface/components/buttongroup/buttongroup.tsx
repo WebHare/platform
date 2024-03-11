@@ -85,7 +85,7 @@ export default class ObjButtonGroup extends ComponentBase {
   /****************************************************************************************************************************
   * Dimensions
   */
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     return this.buttons;
   }
 

@@ -57,7 +57,7 @@ export default class ObjAction extends ActionForwardBase {
     }
   }
 
-  onExecute(options) {
+  onExecute(options?) {
     options = { ignorebusy: false, ...(options || {}) };
     const hitrule = this.getHitRule();
 
