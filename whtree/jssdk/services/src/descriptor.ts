@@ -86,7 +86,7 @@ export interface ResourceMetaData {
   fileName: string | null;
   ///Original in image library
   sourceFile: number | null;
-  /**Database location support cahced URL generation */
+  /**Database location support cached URL generation */
   dbLoc?: {
     /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
     source: number;
