@@ -52,8 +52,11 @@ export class AppMgr extends TypedEventTarget<AppMgrEventMap> {
 
   onApplicationStackChange() {
     //if not app is open, open something. not sure about the best approach, we'll just try to activate the last app on the tab bar (The most recently opened one)
-    if (!this.getCurrent() && this.shell.applicationbar)
-      if (this.shell.applicationbar.apps.length > 0)
-        this.activate(this.shell.applicationbar.apps.at(-1)!);
+    if (!this.getCurrent() && this.shell.applicationbar) {
+      const lasttab = this.shell.applicationbar.apps.at(-1);
+      if (lasttab?.app)
+        this.activate(lasttab.app);
+    }
   }
+
 }

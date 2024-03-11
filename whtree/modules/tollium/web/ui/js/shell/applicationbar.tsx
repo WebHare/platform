@@ -24,6 +24,9 @@ const appbarsymbol = Symbol();
 class ApplicationTab {
   readonly _appbar: ApplicationBar;
   app: ApplicationBase | null = null;
+  fixed;
+  menuitem: HTMLLIElement;
+  root: HTMLDivElement;
 
   constructor(appbar, app, fixed) {
     this._appbar = appbar;
@@ -141,7 +144,8 @@ class ApplicationTab {
 export default class ApplicationBar {
   readonly shell: IndyShell;
   readonly node: HTMLElement;
-  apps: ApplicationBase[] = [];
+  apps: ApplicationTab[] = [];
+  readonly appnavmenu = document.createElement("ul");
 
   constructor(shell: IndyShell, appbar: HTMLElement) {
     this.fixed_node = null;
@@ -149,7 +153,6 @@ export default class ApplicationBar {
     this.nav_node = null;
     this.name = "(applicationbar)";
     this.apptabmenu = null;
-    this.appnavmenu = null;
     this.scrollstate = null;
     this.scrollstepscheduled = false;
     this.tabmodifier = '';
@@ -160,7 +163,6 @@ export default class ApplicationBar {
     this.shell.appmgr.addEventListener("activateapp", () => this.updateActiveApp());
 
     this.apptabmenu = dompack.create("ul");
-    this.appnavmenu = dompack.create("ul");
 
     this.fixed_node = this.node.querySelector(".t-apptabs__fixed");
     this.dyn_node = this.node.querySelector(".t-apptabs__dynamic");
@@ -246,8 +248,8 @@ export default class ApplicationBar {
     dompack.empty(this.appnavmenu);
 
     // Add all apps (first the fixed apps, then the unfixed ones)
-    this.apps.forEach(function (item) { if (item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
-    this.apps.forEach(function (item) { if (!item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
+    this.apps.forEach(item => { if (item.fixed) this.appnavmenu.appendChild(item.menuitem); });
+    this.apps.forEach(item => { if (!item.fixed) this.appnavmenu.appendChild(item.menuitem); });
 
     menu.openAt(this.appnavmenu, this.nav_node, { direction: 'down', align: 'right' });
   }
@@ -259,10 +261,10 @@ export default class ApplicationBar {
         return;
 
       const gotoappidx = (appidx + this.apps.length + idx) % this.apps.length;
-      this.shell.appmgr.activate(this.apps[gotoappidx]);
+      this.shell.appmgr.activate(this.apps[gotoappidx].app);
     } else if (how === 'absolute') {
       if (idx < this.apps.length)
-        this.shell.appmgr.activate(this.apps[idx]);
+        this.shell.appmgr.activate(this.apps[idx].app);
     }
   }
 
@@ -273,7 +275,7 @@ export default class ApplicationBar {
     fixed = fixed || false;
 
     if (show) {
-      let newtab;
+      let newtab: ApplicationTab;
       if (appidx < 0) {
         newtab = new ApplicationTab(this, app, fixed);
       } else {
