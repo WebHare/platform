@@ -9,6 +9,8 @@ const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 const toddImages = require("@mod-tollium/js/icons");
 import { getTid } from "@mod-tollium/js/gettid";
 import { ToddImage } from "../components/jsx";
+import type IndyShell from '../shell';
+import type { ApplicationBase } from '../application';
 
 
 /****************************************************************************************************************************
@@ -20,6 +22,12 @@ import { ToddImage } from "../components/jsx";
 const appbarsymbol = Symbol();
 
 class ApplicationTab {
+  readonly _appbar: ApplicationBar;
+  app: ApplicationBase | null = null;
+  fixed;
+  menuitem: HTMLLIElement;
+  root: HTMLDivElement;
+
   constructor(appbar, app, fixed) {
     this._appbar = appbar;
 
@@ -63,7 +71,7 @@ class ApplicationTab {
       this.app.appnodes.root.addEventListener("tollium:updatescreen", this._onupdatescreen);
       this.app.appnodes.root.addEventListener("tollium:updateapp", this._onupdateapp);
       if (wasactive)
-        this.app.activateApp();
+        this._appbar.shell.appmgr.activate(this.app);
     }
   }
 
@@ -74,7 +82,7 @@ class ApplicationTab {
 
   _onActivateTab(event) {
     dompack.stop(event);
-    this.app.activateApp();
+    this._appbar.shell.appmgr.activate(this.app);
   }
 
   onUpdateScreen(event) {
@@ -106,7 +114,7 @@ class ApplicationTab {
   }
 
   onTabClick(event) {
-    this.app.activateApp();
+    this._appbar.shell.appmgr.activate(this.app);
     if (event.target.closest(".t-apptab__close")) //it's the closer being clicked
       this.app.requestClose();
   }
@@ -134,16 +142,17 @@ class ApplicationTab {
  */
 
 export default class ApplicationBar {
-  constructor(shell, appbar) {
-    this.node = null;
+  readonly shell: IndyShell;
+  readonly node: HTMLElement;
+  apps: ApplicationTab[] = [];
+  readonly appnavmenu = document.createElement("ul");
+
+  constructor(shell: IndyShell, appbar: HTMLElement) {
     this.fixed_node = null;
     this.dyn_node = null;
     this.nav_node = null;
     this.name = "(applicationbar)";
-    this.apps = [];
-    this.shell = null;
     this.apptabmenu = null;
-    this.appnavmenu = null;
     this.scrollstate = null;
     this.scrollstepscheduled = false;
     this.tabmodifier = '';
@@ -151,9 +160,9 @@ export default class ApplicationBar {
     this.shell = shell;
     this.node = appbar;
 
-    window.addEventListener("tollium:activateapp", () => this.updateActiveApp());
+    this.shell.appmgr.addEventListener("activateapp", () => this.updateActiveApp());
+
     this.apptabmenu = dompack.create("ul");
-    this.appnavmenu = dompack.create("ul");
 
     this.fixed_node = this.node.querySelector(".t-apptabs__fixed");
     this.dyn_node = this.node.querySelector(".t-apptabs__dynamic");
@@ -239,8 +248,8 @@ export default class ApplicationBar {
     dompack.empty(this.appnavmenu);
 
     // Add all apps (first the fixed apps, then the unfixed ones)
-    this.apps.forEach(function (item) { if (item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
-    this.apps.forEach(function (item) { if (!item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
+    this.apps.forEach(item => { if (item.fixed) this.appnavmenu.appendChild(item.menuitem); });
+    this.apps.forEach(item => { if (!item.fixed) this.appnavmenu.appendChild(item.menuitem); });
 
     menu.openAt(this.appnavmenu, this.nav_node, { direction: 'down', align: 'right' });
   }
@@ -252,10 +261,10 @@ export default class ApplicationBar {
         return;
 
       const gotoappidx = (appidx + this.apps.length + idx) % this.apps.length;
-      this.apps[gotoappidx].app.activateApp();
+      this.shell.appmgr.activate(this.apps[gotoappidx].app);
     } else if (how === 'absolute') {
       if (idx < this.apps.length)
-        this.apps[idx].app.activateApp();
+        this.shell.appmgr.activate(this.apps[idx].app);
     }
   }
 
@@ -266,7 +275,7 @@ export default class ApplicationBar {
     fixed = fixed || false;
 
     if (show) {
-      let newtab;
+      let newtab: ApplicationTab;
       if (appidx < 0) {
         newtab = new ApplicationTab(this, app, fixed);
       } else {
