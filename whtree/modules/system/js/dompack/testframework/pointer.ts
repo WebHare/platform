@@ -16,7 +16,7 @@ const default_mousestate =
   downelrect: null,
   downbuttons: [],
   samplefreq: 50,
-  gesturequeue: [],
+  gesturequeue: [] as Gesture[],
   gesturetimeout: null,
   waitcallbacks: [],
   lastoverel: null,
@@ -29,6 +29,22 @@ const default_mousestate =
   dndcandidate: null,
   dndstate: null
 };
+
+interface PointOptions {
+  ctrl?: boolean;
+  meta?: boolean;
+  cmd?: boolean;
+}
+
+interface Gesture extends PointOptions {
+  doc: Document | null;
+  start: number; //Date.now when to start this gesture
+  transition?: (t: number) => number;
+}
+
+interface PointEventOptions extends PointOptions {
+  preventBubble: boolean;
+}
 
 export const toElement = Symbol("pointer.toElement");
 
@@ -336,8 +352,7 @@ function setMouseCursor(x, y) {
   mousestate.cursorel.style.top = y + 'px';
 }
 
-export function getValidatedElementFromPoint(doc, px, py, expectelement) {
-
+export function getValidatedElementFromPoint(doc: Document, px: number, py: number, expectelement: boolean): Element | null {
   const scroll = { x: 0, y: 0 }; // actually breaks the ui.menu test.... var scroll = safe_id(doc.body).getScroll();
   const lookupx = /*Math.floor*/(px - scroll.x);
   const lookupy = /*Math.floor*/(py - scroll.y);
@@ -586,8 +601,7 @@ function convertbndrec(elt) {
 function validateMouseDownTarget(part, elhere, position) {
   let wantedtotarget = part.el;
 
-  if (wantedtotarget && elhere !== wantedtotarget && typeof part.down === 'number') //we only need to validate on mousedown, mouseup is common to hit something different
-  {
+  if (wantedtotarget && elhere !== wantedtotarget && typeof part.down === 'number') { //we only need to validate on mousedown, mouseup is common to hit something different
     while (wantedtotarget && wantedtotarget.inert)
       wantedtotarget = wantedtotarget.parentNode; //if you're targeting an inert node, we should expect you to be targeting its first non-inert parent
 
@@ -848,7 +862,7 @@ function processGestureQueue() {
     const position = _processPartPositionTarget(part);
 
     // Determine in which document we are working
-    const currentdoc = (part.doc || (part.el ? part.el.ownerDocument : mousestate.lastdoc));
+    const currentdoc: Document | null = (part.doc || (part.el ? part.el.ownerDocument : mousestate.lastdoc));
     if (!currentdoc)
       throw new Error("Lost track of document");
     mousestate.lastdoc = currentdoc;
@@ -858,19 +872,19 @@ function processGestureQueue() {
     _updateUnloadEvents(win);
 
     //Make sure the point is visible, but only if we're going to click on it
-    let elhere = getValidatedElementFromPoint(currentdoc, position.x, position.y, true);
+    let elhere: Element | null = getValidatedElementFromPoint(currentdoc, position.x, position.y, true);
     if (!elhere) {
       elhere = currentdoc.documentElement;
       console.error("Unable to find element at location " + position.x + "," + position.y);
     } else
       validateMouseDownTarget(part, elhere, position);
 
-    const targetdoc = elhere === currentdoc ? elhere : elhere.ownerDocument;
+    const targetdoc = elhere.ownerDocument;
 
     //console.log("Get element@" + position.x + "," + position.y + " ",elhere.nodeName,elhere, " was ",part.el.nodeName,part.el, targetdoc&&targetdoc.defaultView?targetdoc.defaultView.getScroll().y:'-');
 
     const target = {
-      view: targetdoc.parentView,
+      view: targetdoc.defaultView,
       cx: position.x,
       cy: position.y,
       el: elhere
@@ -889,7 +903,7 @@ function processGestureQueue() {
       //console.log("requesting element at " + reqx + "," + reqy);
       elhere = getValidatedElementFromPoint(currentdoc, mousestate.cx, mousestate.cy, false);
       if (!elhere)
-        elhere = targetdoc;
+        elhere = targetdoc.documentElement;
 
       //console.log("progress " + progress + "  target: " + target.cx + "," + target.cy + " cur: " +mousestate.cx+ "," + mousestate.cy + " elhere=",elhere);
 
@@ -915,8 +929,7 @@ function processGestureQueue() {
         }
 
         if (mousestate.lastoverel !== elhere || elchanged) {
-          if (mousestate.lastoverel && mousestate.lastoverel.ownerDocument && mousestate.lastoverel.ownerDocument.defaultView) // don't fire events for nonexisting documents
-          {
+          if (mousestate.lastoverel && mousestate.lastoverel.ownerDocument && mousestate.lastoverel.ownerDocument.defaultView) { // don't fire events for nonexisting documents
             let canfire = true;
             // Edge causes permission denied throws when accessing a freed window
             try { mousestate.lastoverel.ownerDocument.defaultView.onerror; } catch (e) { canfire = false; }
@@ -969,8 +982,8 @@ function processGestureQueue() {
 
             if (!currentdoc.hasFocus() && lastfocus) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
             {
-              domevents.dispatchDomEvent(lastfocus, 'blur', { bubbles: false, cancelable: false, relatedTarget: tofocus });
-              domevents.dispatchDomEvent(lastfocus, 'focusout', { bubbles: true, cancelable: false, relatedTarget: tofocus });
+              domevents.dispatchDomEvent(lastfocus, 'blur', { bubbles: false, cancelable: false, relatedTarget: tofocus || undefined });
+              domevents.dispatchDomEvent(lastfocus, 'focusout', { bubbles: true, cancelable: false, relatedTarget: tofocus || undefined });
             }
 
             if (tofocus) {
@@ -1079,7 +1092,7 @@ function getParents(el) {
   return elparents;
 }
 
-function fireMouseEventsTree(eventtype, cx, cy, el, button, relatedtarget, options) {
+function fireMouseEventsTree(eventtype: string, cx: number, cy: number, el: Element, button: 0 | 1 | 2, relatedtarget: HTMLElement | null, options: PointEventOptions) {
   if (!isElementSafeToAccess(el))
     return;
 
@@ -1133,7 +1146,7 @@ export function checkedDispatchEvent(el, event) {
 }
 
 
-function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options) {
+function fireMouseEvent(eventtype: string, cx: number, cy: number, el: Element, button: 0 | 1 | 2, relatedtarget: HTMLElement | null, options: PointEventOptions) {
   if (!isElementSafeToAccess(el))
     return false;
 
