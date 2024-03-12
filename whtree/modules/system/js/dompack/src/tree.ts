@@ -33,14 +33,16 @@ function generateInsertList(nodes: Array<string | Node>) {
 export function isElement(node: unknown): node is Element {
   //TODO What is actually going on if defaultView is missing?
   if (!node || typeof node !== "object")
-    return false
+    return false;
+
   const proto = (node as Element).ownerDocument.defaultView?.Element;
   return Boolean(proto && node instanceof proto);
 }
 /** Test whether node is a HTMLElement, even if it's in a different iframe */
 export function isHTMLElement(node: unknown): node is HTMLElement {
   if (!node || typeof node !== "object")
-    return false
+    return false;
+
   const proto = (node as Element).ownerDocument.defaultView?.Element;
   return Boolean(proto && node instanceof proto);
 }
