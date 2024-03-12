@@ -27,8 +27,7 @@ export async function run(tests: TestList, options?: object) {
         const result = await test();
         if (typeof result !== "undefined") {
           // this may be accidentally passing a non test-function eg testing `() => myTest` instead of `() => myTest()`
-          console.error(`Unexpected return value from test #${idx} (function ${test.name}). Make sure tests never return anything`);
-          break;
+          throw new Error(`Unexpected return value from test #${idx} (function ${test.name}). Make sure tests never return anything`);
         }
       } catch (e) {
         console.error(`Unexpected exception from test #${idx} (function ${test.name}):`, e);
