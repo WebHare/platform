@@ -6,7 +6,9 @@ import Keyboard from 'dompack/extra/keyboard';
 import * as movable from 'dompack/browserfix/movable';
 
 export class OverlayManager {
-  constructor(container, classname, options) {
+  holder;
+
+  constructor(container: HTMLElement, classname: string, options) {
     if (!container)
       throw new Error("No container specified");
     if (!classname)
@@ -176,12 +178,11 @@ export class OverlayManager {
     return this.overlays.filter(overlay => overlay.selected);
   }
 
-  setSelection(selection, options) {
-    options = { useraction: false, ...options };
+  setSelection(selection, { uaeraction: useraction = false } = {}) {
     let anychange = false;
 
     this.overlays.forEach(overlay => {
-      const shouldbeselected = selection.includes(overlay);
+      const shouldbeselected: boolean = selection.includes(overlay);
       if (shouldbeselected === overlay.selected)
         return;
 
@@ -192,7 +193,7 @@ export class OverlayManager {
     });
 
     if (anychange)
-      dompack.dispatchCustomEvent(this.holder, "dompack:overlay-selectionchange", { bubbles: true, cancelable: false, detail: { useraction: options.useraction } });
+      dompack.dispatchCustomEvent(this.holder, "dompack:overlay-selectionchange", { bubbles: true, cancelable: false, detail: { useraction } });
   }
 }
 
@@ -202,9 +203,11 @@ FIXME: ignore right click
 FIXME: support for touch devices
 */
 
-class ResizeableOverlayRectangle //we may export these separately in the future, but not sure yet why
-{
-  constructor(overlaymgr, options) {
+class ResizeableOverlayRectangle { //we may export these separately in the future, but not sure yet why
+  selected = false;
+  overlaymgr;
+
+  constructor(overlaymgr: OverlayManager, options) {
     if (!overlaymgr)
       throw new Error("No container node specified");
 
@@ -216,7 +219,6 @@ class ResizeableOverlayRectangle //we may export these separately in the future,
     this.overlaymgr = overlaymgr;
     this.classname = overlaymgr.classname;
     this.deleted = false;
-    this.selected = false;
     this.options = {
       enabled: true,   // option not implemented yet
       top: 0,
@@ -297,8 +299,7 @@ class ResizeableOverlayRectangle //we may export these separately in the future,
 
   _addListeners() {
     //this.nodes.container.addEventListener("touchstart", this._doActivateSelectedMode.bind(this));
-    this.nodes.container.addEventListener("focus", this._onFocus.bind(this));
-    this.nodes.container.addEventListener("blur", this._onBlur.bind(this));
+    this.nodes.container.addEventListener("focusin", this.onFocusIn);
 
     this.nodes.container.addEventListener("dompack:movestart", this._onDragStart.bind(this));
     this.nodes.container.addEventListener("dompack:move", this._onDragMoveOverlay.bind(this));
@@ -485,14 +486,11 @@ class ResizeableOverlayRectangle //we may export these separately in the future,
     // NOTE: don't fire an change event here
   }
 
-  _onFocus(evt) {
+  private onFocusIn = (evt: FocusEvent) => {
     console.log("Overlay FOCUS", this.nodes.container);
-    this.overlaymgr.setSelection([this], { useraction: true });
-  }
-
-  _onBlur(evt) {
-    console.log("Overlay BLUR", this.nodes.container);
-  }
+    if (this.overlaymgr.holder.contains(evt.relatedTarget as Node)) //focus was already inside the overlaymgr, so this is a new selection
+      this.overlaymgr.setSelection([this], { useraction: true });
+  };
 
   _doActivateSelectedMode(evt) {
     this.overlaymgr.setSelection([this], { useraction: true });
