@@ -1218,9 +1218,8 @@ export default class Frame extends ToddCompBase {
     this.node.inert = !this.active || !this.displayapp?.isActiveApplication() || this.displayapp?.isBusy();
     if (this.node.inert)
       return;  //we're not in brwoser focus
-    if (this.node.contains(document.activeElement))
-      return; //we already have the focus
 
+    /* Note that we might already contain the focused element but it still might not be the right one if we received a focus update whilst inert */
     if (!this.innerFocus) {
       //Figure out which element should be focused
       const focusable = domfocus.getFocusableComponents(this.node).filter(el => !el.classList.contains("nav")); //not a div.nav
@@ -1247,9 +1246,11 @@ export default class Frame extends ToddCompBase {
       }
     }
 
+    if (this.innerFocus === document.activeElement)
+      return; //already focused
+
     if (debugFlags["tollium-focus"])
       console.log(`[tollium-focus] Setting focus to %o`, this.innerFocus);
-
     this.innerFocus.focus();
   }
 
