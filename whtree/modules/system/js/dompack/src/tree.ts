@@ -35,16 +35,15 @@ export function isElement(node: unknown): node is Element {
   if (!node || typeof node !== "object")
     return false;
 
+  /* Getting the proto doesn't always work:
   const proto = (node as Element).ownerDocument.defaultView?.Element;
-  return Boolean(proto && node instanceof proto);
+  (because our iframes derive off about? not sure) so until someone finds the real answer, we'll do a heuriostic
+  */
+  return Boolean("ownerDocument" in node && node.constructor.name.match(/Element$/));
 }
 /** Test whether node is a HTMLElement, even if it's in a different iframe */
 export function isHTMLElement(node: unknown): node is HTMLElement {
-  if (!node || typeof node !== "object")
-    return false;
-
-  const proto = (node as Element).ownerDocument.defaultView?.Element;
-  return Boolean(proto && node instanceof proto);
+  return isElement(node) && "accessKey" in node;
 }
 
 /** @deprecated Use node.matches() */
