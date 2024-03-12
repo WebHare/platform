@@ -14,7 +14,7 @@
     <debugsettings title="Tollium debugging">
       <option tag="rll" title="Render label lines" />
       <option tag="col" title="Crash on layout issues" />
-      <option tag="tollium-focus" title="Highlight focsued component" />
+      <option tag="tollium-focus" title="Highlight focused component" />
     </debugsettings>
   </filetype>
 

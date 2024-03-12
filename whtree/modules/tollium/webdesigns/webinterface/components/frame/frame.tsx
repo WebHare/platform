@@ -1217,7 +1217,7 @@ export default class Frame extends ToddCompBase {
   updateFocusable() { //ADDME 'inert' would make our lives easier once browsers start implementing it
     this.node.inert = !this.active || !this.displayapp?.isActiveApplication() || this.displayapp?.isBusy();
     if (this.node.inert)
-      return;  //we're not in brwoser focus
+      return;  //we're not in browser focus
 
     /* Note that we might already contain the focused element but it still might not be the right one if we received a focus update whilst inert */
     if (!this.innerFocus) {

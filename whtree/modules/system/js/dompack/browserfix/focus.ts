@@ -53,7 +53,7 @@ function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: 
   return subnodes;
 }
 
-/** Return  whether the node is reachable for focus by keyboard navigation
+/** Return whether the node is reachable for focus by keyboard navigation
    (because tabIndex === -1 will be seen a non(keyboard)focusable by this function)
 
     @param node - Node to test
