@@ -18,6 +18,12 @@
   display: inline-block;
   vertical-align: top;
 }
+
+html.dompack--debug-tollium-focus *:focus {
+  outline: 2px solid red !important;
+  outline-offset: -1px;
+}
+
 /****************************************************************************************************************************
  * Application windows
  */

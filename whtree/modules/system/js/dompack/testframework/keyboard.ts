@@ -484,6 +484,9 @@ function doTabKey(direction) {
   curpos %= allfocus.length;
 
   const tofocus = allfocus[curpos];
+  if (curfocus && curfocus.ownerDocument.defaultView !== tofocus.ownerDocument.defaultView)
+    tofocus.ownerDocument.defaultView?.focus(); //pull focus into our frame first
+
   try {
     tofocus.focus();
     if (tofocus.select)

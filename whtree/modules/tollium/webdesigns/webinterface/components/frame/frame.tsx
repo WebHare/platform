@@ -9,7 +9,6 @@ import KeyboardHandler from 'dompack/extra/keyboard';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as domfocus from 'dompack/browserfix/focus';
-import * as focuszones from '@mod-tollium/web/ui/components/focuszones';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import { ApplicationBase, type BackendApplication } from '@mod-tollium/web/ui/js/application';
@@ -21,7 +20,8 @@ import type ActionForwardBase from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
 import type ObjAction from '../action/action';
-
+import { debugFlags } from '@webhare/env';
+import "./frame.scss";
 
 // Give each frame a unique identifier
 let framecounter = 0;
@@ -29,7 +29,7 @@ let framecounter = 0;
 
 function getToddOwner(node: HTMLElement) {
   const namedcomponent = node.closest<HTMLElement>('*[data-name]');
-  return namedcomponent ? namedcomponent.dataset.name : null;
+  return namedcomponent ? namedcomponent.dataset.name! : null;
 }
 
 export type FrontendMessageHandler = (data: unknown, callback: () => void) => void;
@@ -97,8 +97,6 @@ export default class Frame extends ToddCompBase {
 
   menubarcomponent: ObjMenuItem | null = null;
   menubarhandler: menu.MenuBar | null = null;
-  // We can't start setting focus until we're in the DOM, so we need to save the element to focus during init
-  pendingsetfocus: string | null = null;
 
   // names of currently focused components with focusin/focusout handlers
   focusedcomponentnames: string[] = [];
@@ -133,9 +131,24 @@ export default class Frame extends ToddCompBase {
     outline: HTMLDivElement;
   } = null;
 
-  noFocusUpdate = false;
-
   flags: FlagSet = [];
+
+  private innerFocusNode: HTMLElement | null = null;
+  private innerFocusName: string | null = null;
+
+  get innerFocus() {
+    return this.innerFocusNode;
+  }
+  private set innerFocus(node: HTMLElement | null) {
+    this.innerFocusNode = node;
+    if (debugFlags["tollium-focus"]) {
+      this.node.querySelector(".frame--innerfocus")?.classList.remove("frame--innerfocus");
+      this.innerFocusNode?.classList.add("frame--innerfocus");
+    }
+    this.innerFocusName = node ? getToddOwner(node) : null;
+    this.actionEnabler(); //any change on focus requires a recheck (TODO debounce?)
+    this._updateDefaultButton(node || this.node); //ensures defaultbutton is processed
+  }
 
   constructor(hostapp: ApplicationBase, data: FrameAttributes) {
     /* NOTE:
@@ -158,7 +171,7 @@ export default class Frame extends ToddCompBase {
     this.nodes = {};
     this.node = this.nodes.root =
       dompack.create("form", {
-        className: "t-screen wh-focuszone",
+        className: "t-screen",
         tabIndex: -1,
         childNodes:
           [
@@ -178,7 +191,6 @@ export default class Frame extends ToddCompBase {
     this.nodes.windowheader.addEventListener("dompack:movestart", evt => this.onWindowMoveStart(evt));
     this.nodes.windowheader.addEventListener("dompack:move", evt => this.onWindowMove(evt));
     this.nodes.windowheader.addEventListener("dompack:moveend", evt => this.onWindowMoveEnd(evt));
-    this.nodes.root.addEventListener("wh:focuszone-firstfocus", this.onFirstFocus.bind(this));
     this.nodes.root.addEventListener("submit", dompack.stop); //prevent shift+enter from submitting the dialog, fixes #1010
 
     this.nodes.title.textContent = this.title;
@@ -199,12 +211,28 @@ export default class Frame extends ToddCompBase {
 
     window.addEventListener("resize", this.onDesktopResized);
 
-    this.node.addEventListener("focusin", evt => this._gotFocus(evt));
+    this.node.addEventListener("dompack:takefocus", evt => this.onTakeFocus(evt));
+    this.node.addEventListener("focusin", evt => this.onFocusIn(evt));
+    this.node.addEventListener("focusout", evt => this.onFocusOut(evt));
 
     this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
 
-  _gotFocus(evt: FocusEvent) {
+  private onTakeFocus(evt: dompack.TakeFocusEvent) {
+    if (!this.node.inert)
+      return;
+
+    evt.preventDefault();
+    this.innerFocus = evt.target as HTMLElement;
+    if (debugFlags["tollium-focus"])
+      console.log(`[tollium-focus] Intercepted dompack:takefocus for %o`, this.innerFocus);
+  }
+
+  private onFocusIn(evt: FocusEvent) {
+    if (evt.target instanceof HTMLElement) { //we're leaving this zone
+      this.innerFocus = evt.target;
+    }
+
     ///focusin event support: Enumerate current selected compomnents with focusin handlers.
     const new_focusedcomponentnames = Object.values(this.objectmap).filter(comp => comp.isEventUnmasked("focusin") && comp.hasfocus()).map(c => c.name);
     // If a component is added to the set, trigger their focusin handler
@@ -214,8 +242,18 @@ export default class Frame extends ToddCompBase {
         comp.queueMessage("focusin", {});
     }
     this.focusedcomponentnames = new_focusedcomponentnames;
+  }
 
-    this._updateDefaultButton(evt.target as HTMLElement);
+  private onFocusOut(evt: FocusEvent) {
+    if (!evt.relatedTarget && document.activeElement === document.body && evt.target) {
+      //this is the focus jumping to an iframe. prevent that
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] Preventing focus theft, returning it to %o`, evt.target);
+      (evt.target as HTMLElement)?.focus();
+    } else if (!evt.relatedTarget || !this.node.contains(evt.relatedTarget as Node)) {
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] Losing focus from %o to %o`, evt.target, evt.relatedTarget);
+    }
   }
 
   _updateDefaultButton(activenode: HTMLElement) {
@@ -405,15 +443,8 @@ export default class Frame extends ToddCompBase {
   /** Get the active (focused) component.
   */
   getActiveComponent() {
-    let node = focuszones.getFocusZoneActiveElement(this.node);
-    if (!node)
-      return null;
-    node = node.closest('*[data-name]');
-    if (!node)
-      return null;
-
-    const active_component_name = node.getAttribute('data-name');
-    return this.getComponent(active_component_name);
+    const activename = this.innerFocus?.closest<HTMLElement>('*[data-name]')?.dataset.name;
+    return activename ? this.getComponent(activename) : null;
   }
 
   readdComponent(comp: ToddCompBase) {
@@ -726,13 +757,11 @@ export default class Frame extends ToddCompBase {
    */
 
   getSubmitVariables() {
-    const focused = this.getActiveComponent();
-
-    const framevar = { focused: focused ? focused.name : "" } as {
+    const framevar: {
       focused: string;
       width?: number;
       height?: number;
-    };
+    } = { focused: this.innerFocus ? getToddOwner(this.innerFocus) || "" : "" };
 
     const allvars: Record<string, unknown> = {
       frame: framevar
@@ -762,12 +791,6 @@ export default class Frame extends ToddCompBase {
     return allvars;
   }
 
-  terminateScreen() {
-    this.hideScreen();
-    this.node.remove();
-    this.destroy();
-  }
-
   applyUpdate(data: any) {
     switch (data.type) {
       case "title":
@@ -784,7 +807,6 @@ export default class Frame extends ToddCompBase {
         break;
       case 'focus':
         this.setFocusTo(data.focused);
-        this.noFocusUpdate = false;
         break;
       default:
         super.applyUpdate(data);
@@ -792,16 +814,6 @@ export default class Frame extends ToddCompBase {
     }
   }
 
-  setFocusTo(compname: string) {
-    if (!this.active) {
-      this.pendingsetfocus = compname;
-      return;
-    }
-
-    const tofocus = this.getComponent(compname);
-    if (tofocus)
-      tofocus.focusComponent();
-  }
   processIncomingMessage(type: string, data: any) {
     switch (type) {
       case "completelogin":
@@ -937,7 +949,7 @@ export default class Frame extends ToddCompBase {
   }
 
   /****************************************************************************************************************************
-   * Property getters & setters
+   * Focus and activation
    */
 
   setActive(active: boolean) {
@@ -945,18 +957,21 @@ export default class Frame extends ToddCompBase {
       return;
 
     this.active = active;
-    this.setAllowFocus(active);
+    this.updateFocusable();
     this.node.classList.toggle("active", this.active);
     if (this.active) {
-      if (this.displayapp!.isActiveApplication()) //our subscreen may only take focus if we're actually the active tab
-        focuszones.focusZone(this.node);
-      this.actionEnabler();
-
+      if (this.displayapp!.isActiveApplication()) { //our subscreen may only take focus if we're actually the active tab
+        domfocus.getFocusableComponents(this.node)[0]?.focus();
+      }
       this._fireUpdateScreenEvent();
     }
 
     return this;
   }
+
+  /****************************************************************************************************************************
+   * Property getters & setters
+   */
 
   private setResizable(value: boolean) {
     value = Boolean(value);
@@ -983,12 +998,6 @@ export default class Frame extends ToddCompBase {
   /****************************************************************************************************************************
    * DOM
    */
-
-  onFirstFocus(evt: Event) { //prevent tabs from getting first focus
-    const focusable = domfocus.getFocusableComponents(this.node).filter(el => !el.classList.contains("nav")); //not a div.nav
-    dompack.focus(focusable.length > 0 ? focusable[0] : this.node);
-    evt.preventDefault();
-  }
 
   setParentWindow(parentwindow: Frame | null) {
     this.parentwindow = parentwindow;
@@ -1158,6 +1167,8 @@ export default class Frame extends ToddCompBase {
    * Component state
    */
 
+
+  /** shoewScreen is invoked by the ApplicationBase once after we're added to the DOM */
   showScreen(displayapp: ApplicationBase) {
     if (this.displayapp) {
       console.log("We're already visible in app", displayapp);
@@ -1167,13 +1178,11 @@ export default class Frame extends ToddCompBase {
     this.displayapp = displayapp;
     this.displayapp.appnodes.root.addEventListener("tollium:appcanvas-resize", this.onDesktopResized);
 
+    // Tell the topscreen to update its inert/focus state
     const parent = this.displayapp.screenstack.at(-1);
-    if (parent)
-      parent.setActive(false);
-
+    parent?.setActive(false);
     this.setParentWindow(parent || null);
     this.displayapp.screenstack.push(this);
-    this._updateDefaultButton(this.node); //ensures defaultbutton is processed
     this.setActive(true); // focuses a component, can update the default button
 
     if (!this.fullscreen) {
@@ -1186,18 +1195,13 @@ export default class Frame extends ToddCompBase {
 
     if (this.bodynode)
       this.bodynode.onShow();
-
-    this.node.style.visibility = "visible";
-
-    if (this.pendingsetfocus) {
-      this.setFocusTo(this.pendingsetfocus);
-      this.pendingsetfocus = null;
-    }
   }
 
-  hideScreen() {
+  /** Invoked when the screen should be closed */
+  terminateScreen() {
     if (!this.displayapp)
-      throw new Error(`hideScreen called but displayapp is not set`);
+      throw new Error(`terminateScreen called but displayapp is not set so we never appeared`);
+
     this.displayapp.screenstack = this.displayapp.screenstack.filter(screen => screen !== this); //erase
 
     const parent = this.displayapp.screenstack.at(-1);
@@ -1207,29 +1211,55 @@ export default class Frame extends ToddCompBase {
     this.displayapp.appnodes.root.removeEventListener("tollium:appcanvas-resize", this.onDesktopResized);
     this.displayapp = null;
     this.node.remove();
+    this.destroy();
   }
 
-  setAllowFocus(allowfocus: boolean) { //ADDME 'inert' would make our lives easier once browsers start implementing it
-    if (allowfocus) {
-      dompack.qSA(this.node, "*[todd-savedtabindex]").forEach(el => {
-        if (el.getAttribute("todd-savedtabindex") !== "none")
-          el.setAttribute("tabindex", el.getAttribute("todd-savedtabindex")!);
-        else
-          el.removeAttribute('tabindex');
+  updateFocusable() { //ADDME 'inert' would make our lives easier once browsers start implementing it
+    this.node.inert = !this.active || !this.displayapp?.isActiveApplication() || this.displayapp?.isBusy();
+    if (this.node.inert)
+      return;  //we're not in browser focus
 
-        el.removeAttribute('todd-savedtabindex');
-      });
-    } else {
-      domfocus.getFocusableComponents(this.node, false).forEach(function (el) {
-        el.setAttribute("todd-savedtabindex", el.hasAttribute("tabindex") ? el.getAttribute("tabindex")! : "none");
-        el.setAttribute("tabindex", "-1");
-      });
+    /* Note that we might already contain the focused element but it still might not be the right one if we received a focus update whilst inert */
+    if (!this.innerFocus) {
+      //Figure out which element should be focused
+      const focusable = domfocus.getFocusableComponents(this.node).filter(el => !el.classList.contains("nav")); //not a div.nav
+      this.innerFocus = focusable[0] ?? this.node;
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] ${this.innerFocus === this.node ? `No focusable compoonent, i` : "I"}nitialize innerFocus to %o`, this.innerFocus);
     }
+
+    if (!this.node.contains(this.innerFocus)) {
+      //The element is gone. Can we recover its name?
+      if (!this.innerFocusName) {
+        console.warn(`[tollium-focus] Wanted to focus %o but it's not in the frame anymore and we never got its name`, this.innerFocus);
+        this.innerFocus = null; //it's not coming back so prevent future lookups
+        return;
+      }
+
+      const retarget = this.getComponent(this.innerFocusName)?.getFocusTarget();
+      if (retarget) {
+        if (debugFlags["tollium-focus"])
+          console.warn(`[tollium-focus] Wanted to focus %o but it's not in the frame anymore, found alternative in %o`, this.innerFocus, retarget);
+        this.innerFocus = retarget;
+      } else {
+        console.warn(`[tollium-focus] Wanted to focus %o but it's not in the frame anymore and no new component named '%s' appeared`, this.innerFocus, this.innerFocusName);
+      }
+    }
+
+    if (this.innerFocus === document.activeElement)
+      return; //already focused
+
+    if (debugFlags["tollium-focus"])
+      console.log(`[tollium-focus] Setting focus to %o`, this.innerFocus);
+    this.innerFocus.focus();
   }
 
-  // Window focus is called for both initial focus (find something to focus) and later focus (onmousedown/takefocus calls from tollium)
-  focus() {
-    focuszones.focusZone(this.node);
+  setFocusTo(compname: string) {
+    this.innerFocus = this.getComponent(compname)?.getFocusTarget();
+    if (debugFlags["tollium-focus"])
+      console.log(`[tollium-focus] Server sets focus to %s: %o`, compname, this.innerFocus);
+    if (!this.node.inert && this.innerFocus)
+      dompack.focus(this.innerFocus);
   }
 
   /****************************************************************************************************************************
@@ -1376,10 +1406,6 @@ export default class Frame extends ToddCompBase {
     this.pendingmessages = {};
     this.deliverablemessages = [];
 
-    const currentfocus = focuszones.getFocusZoneActiveElement(this.node);
-    const currentfocuscomponent = currentfocus ? getToddOwner(currentfocus) : null;
-    const currentlyactive = focuszones.getCurrentFocusZone() === this.node;
-
     const deliverabletargets: string[] = [];
     messages.forEach(msg => {
       const component = this.objectmap[msg.target];
@@ -1401,7 +1427,6 @@ export default class Frame extends ToddCompBase {
     if (deliverabletargets.length)
       this.debugLog("messages", "** Direct deliverable msgs for: '" + deliverabletargets.join("', '") + "'");
 
-    this.noFocusUpdate = true;
     while (this.deliverablemessages.length && !this.isdestroyed) {
       const msg = this.deliverablemessages[0];
       this.deliverablemessages.splice(0, 1);
@@ -1452,16 +1477,6 @@ export default class Frame extends ToddCompBase {
     this.actionEnabler();
     this.relayout();
     this.scrollmonitor.fixupPositions(); //fix any scrollopsitions on newly appeared elements
-
-    if (this.noFocusUpdate) {
-      const nowfocus = focuszones.getFocusZoneActiveElement(this.node);
-      if (nowfocus !== currentfocus && currentfocuscomponent)
-        this.setFocusTo(currentfocuscomponent);
-    }
-    if (currentlyactive && focuszones.getCurrentFocusZone() !== this.node) {
-      //also need to restore focus to this zone, some dom manipulation made it go away
-      focuszones.focusZone(this.node);
-    }
   }
 
   /* **********************************

@@ -10,6 +10,10 @@ function filterDOM(node: Element) {
   // Nodes other than alements (e.g. text, comments) are always allowed
   if (node.nodeType !== Node.ELEMENT_NODE)
     return true;
+
+  if ((node as HTMLElement).matches?.('.appcanvas[hidden]'))
+    return false;
+
   // Don't include the trigger element in the screenshot
   return !node.classList.contains("wh-tollium__feedback")
     // Don't include invisible applications

@@ -8,7 +8,6 @@ import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { Lock, flagUIBusy } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
-import * as focusZones from '../components/focuszones';
 import { loadScript } from '@webhare/dompack';
 import * as utilerror from '@mod-system/js/wh/errorreporting';
 import * as whintegration from '@mod-system/js/wh/integration';
@@ -19,6 +18,8 @@ import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import IndyShell, { getIndyShell, handleApplicationErrors } from './shell';
+import { getFocusableComponents } from 'dompack/browserfix/focus';
+import { debugFlags } from '@webhare/env/src/envbackend';
 
 require("../common.lang.json");
 
@@ -88,6 +89,9 @@ export class ApplicationBase {
   /// If set, keep this app at the bottom of the application stack
   onappstackbottom = false;
 
+  //Application title
+  title = getTid("tollium:shell.loadingapp");
+
   constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?) {
     this.container = null;
     /// Name of  app
@@ -146,13 +150,12 @@ export class ApplicationBase {
 
     this.apptarget = apptarget;
     this.appnodes = {};
-    this.title = getTid("tollium:shell.loadingapp");
 
     this.appnodes.loader = <div class="appcanvas__loader" />;
     this.appnodes.appmodalitylayer = <div class="appcanvas__appmodalitylayer">{this.appnodes.loader}</div>;
     this.appnodes.docpanel = <div class="appcanvas__docpanel" />;
     this.appnodes.screens = <div class="appcanvas__screens">{this.appnodes.appmodalitylayer}</div>;
-    this.appnodes.root = <div class="appcanvas wh-focuszone">{this.appnodes.screens}{this.appnodes.docpanel}</div>;
+    this.appnodes.root = <div class="appcanvas">{this.appnodes.screens}{this.appnodes.docpanel}</div>;
 
     this.container.appendChild(this.appnodes.root);
 
@@ -215,6 +218,7 @@ export class ApplicationBase {
 
     // Remove the modality layer immediately
     this.appnodes.root.classList.remove('appcanvas--isbusy');
+    this.getTopScreen()?.updateFocusable();
   }
 
   showBusyFlags() {
@@ -242,6 +246,10 @@ export class ApplicationBase {
     return this.appnodes.root.classList.contains('appcanvas--isbusy');
   }
 
+  getTopScreen(): Frame | null {
+    return this.screenstack.at(-1) || null;
+  }
+
   /// Load the requested component types, invoke 'callback' when they are loaded
   requireComponentTypes(requiredtypes, callback) {
     const unloaded_components = this.shell.checkComponentsLoaded(requiredtypes, callback);
@@ -260,7 +268,7 @@ export class ApplicationBase {
   requestClose() {
     if (this.screenstack.length !== 1) //modal dialog open
       return;
-    this.screenstack[0].requestClose();
+    this.getTopScreen().requestClose();
   }
 
   // ---------------------------------------------------------------------------
@@ -280,6 +288,7 @@ export class ApplicationBase {
 
     // Apply the modality layer
     this.appnodes.root.classList.add('appcanvas--isbusy'); //initially this just applies a modality layer
+    this.getTopScreen()?.updateFocusable();
 
     // FIXME: calculate from real animation periods
     const animation_period_lcm = 6000;
@@ -385,16 +394,23 @@ export class ApplicationBase {
 
   setAppcanvasVisible(show: boolean) {
     //named setAppcanvasVisible as setVisible is more about the app lifecycle and not tab switching
+    this.appnodes.root.inert = !show;
+    this.appnodes.root.hidden = !show;
     this.appnodes.root.classList.toggle('appcanvas--visible', show);
 
     if (show) {
       this.setAppTitle(this.title); //reapply same value to update document.title where needed
 
       //restore focus
-      if (this.screenstack.at(-1))
-        this.screenstack.at(-1).focus();
-      else
-        focusZones.focusZone(this.appnodes.root);
+      const topScreen = this.getTopScreen();
+
+      if (debugFlags["tollium-focus"])
+        console.log("[tollium-focus] App focus to '%s', now focus %o", this.title, this.getTopScreen() ?? this.appnodes.root);
+
+      if (topScreen)
+        topScreen.updateFocusable();
+      else //no screens, but may just be a dashboard
+        getFocusableComponents(this.appnodes.root)[0]?.focus();
     }
   }
 
@@ -403,7 +419,7 @@ export class ApplicationBase {
   */
   async terminateApplication(): Promise<void> {
     this.setOnAppBar(false); //first leave the appbar, so 'reopen last app' in setVisible doesn't target us
-    this.setVisible(false); //also removes us from $todd.applications
+    this.setVisible(false); //also removes us from $todd.applications and informs the shell
 
     const apppos = $todd.applications.indexOf(this);
     if (apppos >= 0)
@@ -415,7 +431,7 @@ export class ApplicationBase {
       await this.queueEventAsync('$terminate', '');
 
     while (this.screenstack.length) //terminate screens, toplevel first
-      this.screenstack.at(-1).terminateScreen();
+      this.getTopScreen()!.terminateScreen();
 
     if (this.appcomm) {
       // Close busy locks for sync messages - FIXME dangerous, calls should be rejectable promises and that should clear the locks

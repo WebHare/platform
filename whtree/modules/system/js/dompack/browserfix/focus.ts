@@ -1,10 +1,5 @@
-export function getActiveElement(doc: Document | null): Element | null {
-  try {
-    //activeElement can reportedly throw on IE9 and _definately_ on IE11
-    return doc?.activeElement || null;
-  } catch (e) {
-    return null;
-  }
+export function getActiveElement(doc: Document | null): HTMLElement | null {
+  return doc?.activeElement as HTMLElement || null;
 }
 
 export function getToplevelWindow() {
@@ -24,7 +19,7 @@ export function asIframe(node: Element | null): HTMLIFrameElement | null {
     @param limitdoc - If set, only return compontents in the specified document (prevents editable iframes from returning subframes)
     @returns The element or null
  */
-export function getCurrentlyFocusedElement(limitdoc?: Document): Element | null {
+export function getCurrentlyFocusedElement(limitdoc?: Document): HTMLElement | null {
   try {
     let focused = getActiveElement(getToplevelWindow().document);
     for (; ;) {
@@ -44,7 +39,7 @@ export function getCurrentlyFocusedElement(limitdoc?: Document): Element | null 
 
 function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: boolean) {
   //ADDME force body into list?
-  let subnodes: Element[] = [];
+  let subnodes: HTMLElement[] = [];
   try {
     const body = currentnode.contentDocument?.body || currentnode.contentWindow?.document.body || null;
     if (body?.isContentEditable)
@@ -58,31 +53,26 @@ function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: 
   return subnodes;
 }
 
-// whether the node is reachable for focus by keyboard navigation
-// (because tabIndex === -1 will be seen a non(keyboard)focusable by this function)
-// TODO this function should probably be cleaner but you'll be breaking a lot of tests in subtle ways if you change it.
-//      well perhaps we don't need to check for "COMMAND" but I've lost any further appetite on cleanup attempts
-export function canFocusTo(node: Element) { //returns if a -visible- node is focusable (this function does not check for visibility itself)
-  try {
-    if ((node as HTMLElement).contentEditable === "true")
-      return true;
+/** Return whether the node is reachable for focus by keyboard navigation
+   (because tabIndex === -1 will be seen a non(keyboard)focusable by this function)
 
-    // http://dev.w3.org/html5/spec-preview/editing.html#focusable
-    if ((node as HTMLElement).tabIndex === -1) //explicitly disabled
-      return false;
+    @param node - Node to test
+    @param ignoreInert - Ignore the inert attribute
+*/
+export function canFocusTo(node: Element, { ignoreInertAttribute = false } = {}): node is HTMLElement { //returns if a -visible- node is focusable (this function does not check for visibility itself)
+  if (!node.closest) //callers are not necessarily calling us with HTMLElement, eg getClosestValidFocusTarget might supply a document
+    return false;
+  if (!ignoreInertAttribute && node.closest('[inert]'))
+    return false;
 
-    return (parseInt(node.getAttribute('tabIndex') || "") >= 0) //we cannot read the property tabIndex directly, as IE <= 8 will return '0' even if the tabIndex is missing
-      //even then: a[name] reports tabIndex 0 but has no getAttribute('tabIndex') so be prepared if you try to fix this..
-      || (["A", "LINK"].includes(node.nodeName) && (node as HTMLLinkElement).href)
-      || (!(node as HTMLInputElement).disabled && (["BUTTON", "SELECT", "TEXTAREA", "COMMAND"].includes(node.nodeName)
-        || (node.nodeName === "INPUT" && (node as HTMLInputElement).type !== "hidden")));
-  } catch (e) {
-    return false; //the code above may fail eg on IE11 if it's a Flash object that'ss still loading
-  }
+  if ((node as HTMLElement).contentEditable === "true")
+    return true;
+
+  return (node as HTMLElement).tabIndex >= 0 && !(node as HTMLInputElement).disabled && !(node.tagName === 'A' && !(node as HTMLAnchorElement).href);
 }
 
 export function getFocusableComponents(startnode: Element | null, recurseframes?: boolean) {
-  let focusable: Element[] = [];
+  let focusable: HTMLElement[] = [];
   if (!startnode)
     return focusable;
   for (const currentnode of startnode.children) {

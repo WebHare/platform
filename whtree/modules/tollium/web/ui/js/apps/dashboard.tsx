@@ -8,7 +8,6 @@ import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import * as $todd from '../support';
 const getTid = require("@mod-tollium/js/gettid").getTid;
-const focuszones = require('../../components/focuszones');
 const toddImages = require("@mod-tollium/js/icons");
 import KeyboardHandler from 'dompack/extra/keyboard';
 require("../../common.lang.json");
@@ -85,10 +84,6 @@ class DashboardApp {
       this.app.appmenu.push({ title: getTid("tollium:shell.dashboard.resetimagecache"), cmd: { type: "shell:resetimagecache" } });
 
     callback();
-  }
-
-  openDashboard() {
-    focuszones.focusZone(this.node);
   }
 
   _onFindAsYouTypeSearch(text) {

@@ -6,14 +6,11 @@
     <debugsettings title="Commonly used">
       <option tag="etr" title="Show error stacktraces" />
       <option tag="apr" title="Auto-profile dynamic pagines" />
-      <option tag="tol" title="Debug Tollium and apps" />
     </debugsettings>
     <debugsettings title="Tollium debugging">
       <option tag="ild" title="Image loading: debug SVG composition" />
       <option tag="isc" title="Image editor: Debug smartcrop" />
       <option tag="ixf" title="Image editor: Experimental functions" />
-      <option tag="rll" title="Render label lines" />
-      <option tag="col" title="Crash on layout issues" />
     </debugsettings>
     <debugsettings title="Site testing">
       <option tag="nsc" title="No spam checks (disable recaptchas etc)" />

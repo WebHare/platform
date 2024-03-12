@@ -129,6 +129,10 @@ export default class ObjImage extends ActionableBase { // ----------------------
   // DOM
   //
 
+  canBeFocusable() {
+    return this.clickable; //prevent componentbase from setting a tabindex
+  }
+
   // Build the DOM node(s) for this component
   buildNode() {
     this.node = dompack.create("div", {
