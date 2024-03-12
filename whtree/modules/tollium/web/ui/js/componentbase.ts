@@ -393,12 +393,9 @@ export class ToddCompBase {
     console.error('Child replacement not implemented by component ' + this.name + ' (' + this.componenttype + ')');
   }
 
-  focusComponent() {
-    const tofocus = domfocus.getFocusableComponents(this.node)[0];
-    if (tofocus)
-      dompack.focus(tofocus);
-    else if (domfocus.canFocusTo(this.node))
-      dompack.focus(this.node);
+  getFocusTarget(): HTMLElement | null {
+    //ignoreInertAttribute:: getFocusTarget needs to work on disabled screens to support server-side focus setting (The dialog might not be active then)
+    return domfocus.getFocusableComponents(this.node)[0] ?? (this.node && domfocus.canFocusTo(this.node, { ignoreInertAttribute: true }) ? this.node : null);
   }
 
   hasfocus() {

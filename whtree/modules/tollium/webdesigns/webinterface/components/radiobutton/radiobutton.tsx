@@ -4,6 +4,7 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import "./radiobutton.scss";
+import { generateRandomId } from "@webhare/std";
 
 let radionamecounter = 0;
 
@@ -74,6 +75,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
 
   // Build the DOM node(s) for this component
   buildNode() {
+    const id = `radio-${generateRandomId()}`
     this.node =
       <div className="wh-radiobutton-wrapper"
         data-name={this.name}
@@ -88,8 +90,9 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
             tabindex={this.enabled ? this.tabindex || "" : -1}
             name={this.radiogroup}
             propToddObj={this}
-            onChange={ev => this.gotSet(ev)} />}
-        <label className="wh-radiobutton-label" for={this.name} />
+            onChange={ev => this.gotSet(ev)}
+            id={id} />}
+        <label className="wh-radiobutton-label" for={id} />
       </div>;
   }
 
@@ -125,12 +128,14 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
   // Events and callbacks
   //
 
-  gotClick(ev) {
+  gotClick(ev: MouseEvent) {
+    dompack.stop(ev);
     if (this.enabled && !this.readonly) {
       for (const node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
         node.checked = node === this.radiobuttonnode;
-      this.gotSet();
+
       this.radiobuttonnode.focus();
+      this.gotSet();
     }
   }
 

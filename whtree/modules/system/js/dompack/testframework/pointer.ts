@@ -74,16 +74,8 @@ if (window.waitForGestures) {
 
 function isElementSafeToAccess(el) //is it safe to fire an event towards element 'el'? IE doesn't like you messing with unloaded (eg iframed) nodes
 {
-  if (!el)
-    return false;
-
-  try {
-    const doc = el.defaultView ? el : el.ownerDocument;
-    return Boolean(doc && doc.defaultView);
-  } catch (e)//catch permission denieds
-  {
-    return false;
-  }
+  //  return Boolean(el?.ownerDocument?.documentElement.contains(el));
+  return Boolean(el);
 }
 
 export class SimulatedDragDataStore {
@@ -538,6 +530,7 @@ export function _resolveToSingleElement(element: ValidElementTarget): HTMLElemen
 /* sending complex mouse gestures
    down/up: mouse button to press/depress. 0=standard (left), 1=middle, 2=context (right) .. */
 export function sendMouseGesture(gestureparts) {
+  const stack = new Error;
   //Calculate execution time for the gestures
   let at = Date.now();
   for (let i = 0; i < gestureparts.length; ++i) {
@@ -554,7 +547,7 @@ export function sendMouseGesture(gestureparts) {
     : resolve());
 
   //Queue up the gestures
-  mousestate.gesturequeue.push(...gestureparts);
+  mousestate.gesturequeue.push(...gestureparts.map(_ => ({ ..._, stack })));
   //Execute gestures now
   processGestureQueue();
 
@@ -1116,9 +1109,15 @@ function fireMouseEventsTree(eventtype: string, cx: number, cy: number, el: Elem
     eventlist = eventlist.reverse();
   }
 
-  eventlist.forEach(function (subel) {
-    fireMouseEvent(eventtype, cx, cy, subel, button, relatedtarget, options);
-  });
+  for (const subel of eventlist) {
+    try {
+      fireMouseEvent(eventtype, cx, cy, subel, button, relatedtarget, options);
+    } catch (e) {
+      console.log("Error while firing mouse event", e);
+      console.log(`${eventtype} on %o (${cx},${cy}) scheduled from %o`, el, options.stack);
+      throw e;
+    }
+  }
 }
 
 export function checkedDispatchEvent(el, event) {
@@ -1163,7 +1162,10 @@ function fireMouseEvent(eventtype: string, cx: number, cy: number, el: Element, 
   const evt = doc.createEvent("MouseEvent");
 
   //find a valid target for mouse events
-  while (el && (el.inert || (el.nodeType === 1 && getComputedStyle(el).pointerEvents === 'none')))
+  while (el.closest('inert'))
+    el = el.closest('inert'); //jump out of any inert parts
+
+  while (el && (el.nodeType === 1 && getComputedStyle(el).pointerEvents === 'none'))
     el = el.parentNode;
 
   //console.log(arguments,typeof doc, typeof el, typeOf(doc), typeOf(el));
