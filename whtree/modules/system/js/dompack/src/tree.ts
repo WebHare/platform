@@ -37,7 +37,7 @@ export function isElement(node: unknown): node is Element {
 
   /* Getting the proto doesn't always work:
   const proto = (node as Element).ownerDocument.defaultView?.Element;
-  (because our iframes derive off about? not sure) so until someone finds the real answer, we'll do a heuriostic
+  (because our iframes derive off about? not sure) so until someone finds the real answer, we'll do a heuristic
   */
   return Boolean("ownerDocument" in node && node.constructor.name.match(/Element$/));
 }
