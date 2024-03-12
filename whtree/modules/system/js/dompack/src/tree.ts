@@ -29,6 +29,23 @@ function generateInsertList(nodes: Array<string | Node>) {
   return frag;
 }
 
+/** Test whether node is an Element, even if it's in a different iframe */
+export function isElement(node: unknown): node is Element {
+  //TODO What is actually going on if defaultView is missing?
+  if (!node || typeof node !== "object")
+    return false;
+
+  /* Getting the proto doesn't always work:
+  const proto = (node as Element).ownerDocument.defaultView?.Element;
+  (because our iframes derive off about? not sure) so until someone finds the real answer, we'll do a heuristic
+  */
+  return Boolean("ownerDocument" in node && node.constructor.name.match(/Element$/));
+}
+/** Test whether node is a HTMLElement, even if it's in a different iframe */
+export function isHTMLElement(node: unknown): node is HTMLElement {
+  return isElement(node) && "accessKey" in node;
+}
+
 /** @deprecated Use node.matches() */
 export function matches(node: Element, selector: string): boolean {
   //only invoke 'matches' if it exists. it *should* but past versions of dompack.matches would check for it too (and thus not fail if you passed in a string instead of a Node)

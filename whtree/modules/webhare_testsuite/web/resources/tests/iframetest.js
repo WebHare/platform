@@ -21,9 +21,9 @@ function listener(event)
           console.log("missing func", funcname);
       } break;
     case 'data':
-      {
+      if(document.getElementById('data'))
         document.getElementById('data').value = event.data.data.text;
-      } break;
+      break;
   }
 
   if(event.data.answer)
@@ -41,15 +41,13 @@ function func1()
   $toddIFrame.sendCallback({ type: 'receivedcall', args: args });
 }
 
-
-function adda(event)
-{
+function adda(event) {
   document.getElementById('data').value += 'a';
   console.log("Add-A function invoked in iframe - posting with type=data to parent frame");
   window.parent.postMessage({ type: 'data', data: { text: document.getElementById('data').value } }, '*');
   event.stopPropagation();
   event.preventDefault();
 }
-window.addEventListener
-  ? document.getElementById('adda').addEventListener('click', adda)
-  : document.getElementById('adda').attachEvent('onclick', adda);
+
+if(document.getElementById('adda'))
+  document.getElementById('adda').addEventListener('click', adda);

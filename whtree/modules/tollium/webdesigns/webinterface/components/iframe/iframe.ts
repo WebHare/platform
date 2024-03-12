@@ -1,21 +1,88 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { createImage } from "@mod-tollium/js/icons";
 import "./iframe.scss";
+import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
+import type { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
+import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
+import ObjMenuItem from '../menuitem/menuitem';
+import { isElement } from 'dompack';
+
+interface IframeAttributes extends ComponentStandardAttributes {
+  sandbox: string;
+  viewport: {
+    width: number;
+    height: number;
+  } | null;
+  addcomps: string[];
+  data: unknown;
+  mainuri: string;
+  fragment: string;
+}
+
+type IframeUpdate = {
+  type: 'eventmask';
+  unmasked_events: string[];
+} | {
+  type: 'content';
+  mainuri: string;
+  fragment: string;
+} | {
+  type: 'addcomps';
+  addcomps: string[];
+} | {
+  type: 'data';
+  data: unknown;
+} | {
+  type: 'sandbox';
+  sandbox: string;
+} | {
+  type: 'viewport';
+  viewport: IframeAttributes["viewport"];
+} | ComponentBaseUpdate;
+
+type IframeMessage = {
+  type: "print";
+} | {
+  type: "postmessage";
+  data: {
+    message: unknown;
+    targetorigin: string;
+  };
+} | {
+  type: "calljs";
+  funcname: string;
+  args: unknown[];
+} | {
+  type: "resize";
+} | {
+  type: "createdimage"; //we generate these internally. is this the reason we fallback to postmessage?
+  id: number;
+  src: string;
+  width: number;
+  height: number;
+} | {
+  type: "callback";  //we generate these internally. is this the reason we fallback to postmessage?
+  data: unknown;
+};
 
 export default class ObjIFrame extends ComponentBase {
-  constructor(parentcomp, data) {
+  componenttype = "iframe";
+  addcomps: ToddCompBase[] = [];
+  loaded = false;
+  queuedmessages: IframeMessage[] = [];
+  /** Submit value */
+  data: unknown = null;
+  iframe;
+  viewport: IframeAttributes["viewport"];
+  selectionflags = [];
+  prevwidth = 0;
+  prevheight = 0;
+
+  constructor(parentcomp: ToddCompBase, data: IframeAttributes) {
     super(parentcomp, data);
-    this.componenttype = "iframe";
-    this.addcomps = [];
-    this.loaded = false;
-    this.queuedmessages = [];
-    this.data = null;
 
     this.node = dompack.create("t-iframe", { dataset: { name: this.name } });
     this.iframe = dompack.create("iframe", {
@@ -27,7 +94,8 @@ export default class ObjIFrame extends ComponentBase {
       }
     });
     if (data.sandbox !== "none")
-      this.iframe.sandbox = data.sandbox;
+      this.iframe.setAttribute("sandbox", data.sandbox);
+
     this.iframe.src = this.calcFrameSourceUri(data);
 
     this.node.appendChild(this.iframe);
@@ -38,7 +106,6 @@ export default class ObjIFrame extends ComponentBase {
       this.setAdditionalComponents(data.addcomps);
 
     this.data = data.data;
-    this.selectionflags = [];
   }
 
   // ---------------------------------------------------------------------------
@@ -46,21 +113,22 @@ export default class ObjIFrame extends ComponentBase {
   // Helper stuff
   //
 
-  setAdditionalComponents(componentnames) {
+  setAdditionalComponents(componentnames: string[]) {
     for (let i = 0; i < componentnames.length; ++i) {
       const comp = this.owner.addComponent(this, componentnames[i]);
-      this.addcomps.push(comp);
+      if (comp)
+        this.addcomps.push(comp);
     }
   }
 
-  calcFrameSourceUri(data) {
-    let uri = data.mainuri ? data.mainuri + (data.fragment ? '#' + data.fragment : '') : '';
+  calcFrameSourceUri({ mainuri = "", fragment = "" }) {
+    let uri = mainuri ? mainuri + (fragment ? '#' + fragment : '') : '';
     if (!uri)
       uri = 'about:blank';
     return uri;
   }
 
-  postQueuedMessages(resenddata) {
+  postQueuedMessages(resenddata: boolean) {
     if (!this.loaded)
       return;
 
@@ -77,7 +145,7 @@ export default class ObjIFrame extends ComponentBase {
     }
 
     while (this.queuedmessages.length) {
-      const msg = this.queuedmessages.shift();
+      const msg = this.queuedmessages.shift()!;
 
       if (msg.type === "print")
         this.iframe.contentWindow.setTimeout("window.print()", 10);
@@ -85,15 +153,16 @@ export default class ObjIFrame extends ComponentBase {
         //TODO ratelimit or block this origin until the server confirmed it actually wants to talk with this origin
         this.iframe.contentWindow.postMessage(msg.data.message, msg.data.targetorigin);
       } else if (msg.type === "calljs") {
-        const cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
         try {
-          this.iframe.contentWindow.eval(cmd);
+          (this.iframe.contentWindow as unknown as Record<string, (...args: unknown[]) => void>)[msg.funcname](...msg.args);
         } catch (e) {
           console.error("calljs failure", e);
           //and ignore. don't break the UI
         }
-      } else
+      } else {
+        console.error(`frame postmessage fallback path reached. type == ${msg.type}`); //TODO remove, why is the fallback needed?
         this.iframe.contentWindow.postMessage(msg, '*');
+      }
     }
   }
 
@@ -110,10 +179,8 @@ export default class ObjIFrame extends ComponentBase {
   }
 
   relayout() {
-    dompack.setStyles(this.node, {
-      "width": this.width.set,
-      "height": this.height.set
-    });
+    this.node!.style.width = this.width.set + 'px';
+    this.node!.style.height = this.height.set + 'px';
 
     if (this.viewport) {
       this.iframe.style.width = this.viewport.width + "px";
@@ -163,7 +230,7 @@ export default class ObjIFrame extends ComponentBase {
   // Callbacks & updates
   //
 
-  applyUpdate(data) {
+  applyUpdate(data: IframeUpdate) {
     switch (data.type) {
       case 'eventmask':
         this.unmasked_events = data.unmasked_events;
@@ -183,7 +250,7 @@ export default class ObjIFrame extends ComponentBase {
         if (data.sandbox === 'none')
           this.iframe.removeAttribute("sandbox");
         else
-          this.iframe.sandbox = data.sandbox;
+          this.iframe.setAttribute("sandbox", data.sandbox);
         return;
       case 'viewport':
         this.viewport = data.viewport;
@@ -198,22 +265,8 @@ export default class ObjIFrame extends ComponentBase {
     return this.data;
   }
 
-  enabledOn(checheckflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
+  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     return $todd.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
-  }
-
-  addIframeEvent(obj, type, fn) {
-    try {
-      if (obj.addEventListener) {
-        obj.addEventListener(type, fn, false);
-      } else {
-        //replace 'fn' with a wrapper that will invoke it with an event
-        fn = function () { return fn.apply(this, [window.event]); };
-        obj.attachEvent('on' + type, fn);
-      }
-    } catch (e) {
-
-    }
   }
 
   gotIFrameLoad() {
@@ -221,34 +274,35 @@ export default class ObjIFrame extends ComponentBase {
     this.postQueuedMessages(true);
 
     try {
-      const doc = this.iframe.contentWindow.document;
-      this.addIframeEvent(doc, "click", this.clickLink.bind(this));
+      const doc = this.iframe.contentWindow!.document;
+      doc.addEventListener("click", this.clickLink); //TODO we should offer a @webhare/tollium-frame library or soemthing like that and install click interception there
 
       //flag that we've configured the iframe, some tests need this
+      //@ts-ignore -- TODO clean this up. why do we need the flag anyway? make it the frame's problem to install a helper JS script
       this.iframe.contentWindow.whIframeAttached = true;
     } catch (e) {
       //its okay if it fails... we probably weren't intended to control the dialog (FIXME we should just ensure ALL iframes load todd-iframe.js or just wrap all iframes inside a local parent with which we can postmessage)
     }
   }
-  clickLink(e) {
-    let anchor = e.target;
-    while (anchor && anchor.nodeName && !['A'].includes(anchor.nodeName.toUpperCase()))
-      anchor = anchor.parentNode;
-    if (!anchor)
-      return true; //not a link, let it pass
-    //ADDME Let anchorlinks etc pass ?
 
+  clickLink = (e: MouseEvent) => {
+    if (!isElement(e.target))
+      return;
+
+    const anchor = e.target.closest<HTMLAnchorElement>('a[href]');
+    if (!anchor)
+      return; //not a link, let it pass
+
+    dompack.stop(e); //cancel it
+
+    //ADDME Let anchorlinks etc pass ?
     if (this.isEventUnmasked('clicklink'))
       this.queueMessage('clicklink', { href: anchor.href }, true);
     else
       window.open(anchor.href, '_blank');
+  };
 
-    if (e.preventDefault)
-      e.preventDefault();
-    return false; //cancel the event
-  }
-
-  handleWindowMessage(event) {
+  handleWindowMessage = (event: MessageEvent) => {
     const data = event.data;
     switch (data.type) {
       case 'callback':
@@ -263,14 +317,15 @@ export default class ObjIFrame extends ComponentBase {
           console.error('IFrame "' + this.name + '" sent non-object value:', data.data);
         break;
 
-      case 'contextmenu':
-        var menu = this.owner.getComponent(data.name);
-        if (!menu)
+      case 'contextmenu': {
+        const menu = this.owner.getComponent(data.name);
+        if (!(menu instanceof ObjMenuItem))
           return;
 
-        var iframepos = this.node.getBoundingClientRect();
+        const iframepos = this.node!.getBoundingClientRect();
         menu.openMenuAt({ pageX: iframepos.left + data.x, pageY: iframepos.top + data.y });
         break;
+      }
 
       case 'closeallmenus':
         menus.closeAll();
@@ -281,30 +336,37 @@ export default class ObjIFrame extends ComponentBase {
         this.owner.actionEnabler();
         break;
 
-      case 'createimage':
+      case 'createimage': {
         const img = createImage(data.imgname, data.width, data.height, data.color, null);
         img.addEventListener("load", () => {
           this.queuedmessages.push({ id: data.id, type: 'createdimage', src: img.src, width: data.width, height: data.height });
           this.postQueuedMessages(false);
         });
         break;
+      }
 
       //FIXME get rid of (most of) the handlers above... just go for free communication!
       default:
         this.queueMessage('postmessage', { data: event.data, origin: event.origin });
     }
-  }
+  };
 
-  onMsgPostMessage(data) {
+  onMsgPostMessage(data: {
+    message: unknown;
+    targetorigin: string;
+  }) {
     this.queuedmessages.push({ type: 'postmessage', data });
     this.postQueuedMessages(false);
   }
-  onMsgJS(data) {
+  onMsgJS(data: {
+    funcname: string;
+    args: unknown[];
+  }) {
     this.queuedmessages.push({ type: 'calljs', funcname: data.funcname, args: data.args });
     this.postQueuedMessages(false);
   }
 
-  onMsgCallback(data) {
+  onMsgCallback(data: unknown) {
     this.queuedmessages.push({ type: 'callback', data: data });
     this.postQueuedMessages(false);
   }
@@ -319,10 +381,12 @@ window.addEventListener('message', function (evt) {
   if (typeof evt.data !== "object")
     return; // Tollium expects a data RECORD
 
-  const matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow === event.source);
+  const matchingiframe = dompack.qSA<HTMLIFrameElement>('iframe').find(iframe => iframe.contentWindow === evt.source);
+  //@ts-ignore -- is there a reason we're not attaching this listener to the iframe instead ?
   if (!matchingiframe || !matchingiframe.parentNode || !matchingiframe.parentNode.propTodd)
     return;
 
   dompack.stop(evt);
+  //@ts-ignore -- we asserted propTodd above
   matchingiframe.parentNode.propTodd.handleWindowMessage(evt);
 });

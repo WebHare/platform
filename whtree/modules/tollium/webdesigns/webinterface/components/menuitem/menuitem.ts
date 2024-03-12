@@ -165,7 +165,7 @@ export default class ObjMenuItem extends ComponentBase {
       this.owner.executeAction(this.action);
   }
 
-  openMenuAt(evt, options) {
+  openMenuAt(evt, options?) {
     const submenu = dompack.create("ul", { className: { showshortcuts: options && options.ismenubutton } });
     submenu.append(...this.cloneItems(options && options.ascontextmenu));
     menu.openAt(submenu, evt, options);
