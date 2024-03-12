@@ -29,6 +29,18 @@ function generateInsertList(nodes: Array<string | Node>) {
   return frag;
 }
 
+/** Test whether node is an Element, even if it's in a different iframe */
+export function isElement(node: unknown): node is Element {
+  //TODO What is actually going on if defaultView is missing?
+  const proto = (node as Element).ownerDocument.defaultView?.Element;
+  return Boolean(proto && node instanceof proto);
+}
+/** Test whether node is a HTMLElement, even if it's in a different iframe */
+export function isHTMLElement(node: unknown): node is HTMLElement {
+  const proto = (node as Element).ownerDocument.defaultView?.HTMLElement;
+  return Boolean(proto && node instanceof proto);
+}
+
 /** @deprecated Use node.matches() */
 export function matches(node: Element, selector: string): boolean {
   //only invoke 'matches' if it exists. it *should* but past versions of dompack.matches would check for it too (and thus not fail if you passed in a string instead of a Node)

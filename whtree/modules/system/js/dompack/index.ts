@@ -13,7 +13,8 @@ export {
   before, after, replaceWith, remove, prepend, append,
   toggleClass, toggleClasses,
   setStyles,
-  getBaseURI, getRelativeBounds
+  getBaseURI, getRelativeBounds,
+  isElement, isHTMLElement
 } from './src/tree';
 export type { Rect } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
