@@ -171,22 +171,40 @@ PUBLIC RECORD ARRAY FUNCTION ApplyDBWantedAuthObjects(RECORD ARRAY allwantauthob
   RETURN dbobjects;
 }
 
-//Get the unit structure as desired
+//Get the unit structure as desired. limitunits empty means all units
 PUBLIC RECORD ARRAY FUNCTION GetSyncableUnits(OBJECT wrdunittype, INTEGER ARRAY limitunits)
 {
-  RECORD ARRAY wrd_units := wrdunittype->RunQuery([ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE" ]
-                                                  , historymode := "all"
-                                                  ]);
+  // We need to get the requested units, and all their parents recursively
+  RECORD ARRAY wantauthobjs;
+  INTEGER ARRAY allids;
+  BOOLEAN selectall := LENGTH(limitunits) = 0;
+  WHILE (LENGTH(limitunits) != 0 OR selectall)
+  {
+    RECORD ARRAY wrd_units := wrdunittype->RunQuery(
+          [ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE" ]
+          , historymode := "all"
+          , filters := selectall ? RECORD[] : [ [ field := "WRD_ID", value := limitunits ] ]
+          ]);
 
-  // Construct the system authobject records as we want them to be (only types 1, 2, 3)
-  RECORD ARRAY wantauthobjs :=
-      SELECT wrd_id
-           , parentwrdid :=   wrd_leftentity
-           , guid :=          wrd_guid
-           , name :=          wrd_title
-           , type :=          2
-           , deactivated :=   FALSE
-        FROM wrd_units;
+    wantauthobjs := wantauthobjs CONCAT
+        SELECT wrd_id
+             , parentwrdid :=   wrd_leftentity
+             , guid :=          wrd_guid
+             , name :=          wrd_title
+             , type :=          2
+             , deactivated :=   FALSE
+          FROM wrd_units;
+
+    IF (selectall)
+      BREAK;
+
+    allids := allids CONCAT SELECT AS INTEGER ARRAY wrd_id FROM wantauthobjs;
+    limitunits :=
+        SELECT AS INTEGER ARRAY wrd_leftentity
+          FROM wrd_units
+         WHERE wrd_leftentity NOT IN allids;
+    selectall := FALSE;
+  }
   RETURN wantauthobjs;
 }
 

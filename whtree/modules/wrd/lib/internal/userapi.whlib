@@ -820,9 +820,15 @@ STATIC OBJECTTYPE WHUserApi
         FOREVERY(INTEGER role FROM entityids_role)
           this->wrd_role->UpdateEntity(role, [ wrd_limitdate := now ]);
 
-        RECORD ARRAY tosync := GetSyncableRoles(this->wrd_role, entityids_role)
-                               CONCAT GetSyncableUnits(this->wrd_unit, entityids_unit)
-                               CONCAT GetSyncableUsers(this->wrdschema->accounttype, entityids_user);
+        // Also sync the parent units of the deleted users and roles
+        entityids_unit := entityids_unit CONCAT
+            this->wrdschema->accounttype->RunQuery([ outputcolumn := "whuser_unit", filters := [ [ field := "wrd_id", value := entityids_user ] ], historymode := "all" ]) CONCAT
+            this->wrd_role->RunQuery([ outputcolumn := "wrd_leftentity", filters := [ [ field := "wrd_id", value := entityids_role ] ], historymode := "all" ]);
+
+        RECORD ARRAY tosync := GetSyncableRoles(this->wrd_role, entityids_role ?? [0])
+                               CONCAT GetSyncableUnits(this->wrd_unit, entityids_unit ?? [0])
+                               CONCAT GetSyncableUsers(this->wrdschema->accounttype, entityids_user ?? [0]);
+
         ApplyDBWantedAuthObjects(tosync, FALSE);
       }
       FINALLY
