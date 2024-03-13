@@ -106,6 +106,20 @@ function testSupportAPI() {
     { testEmail: 'email1@example.net', testFree: '' },
     { testEmail: 'email2@example.net' }
   ]));
+
+  test.eq(true, wrdsupport.isValidWRDTag("JUST_A_TAG"));
+  test.eq(false, wrdsupport.isValidWRDTag("JUST-A-TAG"));
+  test.eq(false, wrdsupport.isValidWRDTag("JUST A TAG"));
+  test.eq(false, wrdsupport.isValidWRDTag("Just_a_tag"));
+  test.eq(false, wrdsupport.isValidWRDTag("_"));
+  test.eq(false, wrdsupport.isValidWRDTag("_ABC"));
+  test.eq(false, wrdsupport.isValidWRDTag("ABC_"));
+  test.eq(true, wrdsupport.isValidWRDTag("ABC1"));
+  test.eq(false, wrdsupport.isValidWRDTag(" JUST_A_TAG "));
+  test.eq(false, wrdsupport.isValidWRDTag("1"));
+  test.eq(false, wrdsupport.isValidWRDTag("1A"));
+  test.eq(true, wrdsupport.isValidWRDTag("A1"));
+  test.eq(true, wrdsupport.isValidWRDTag("A"));
 }
 
 interface TestRecordDataInterface {

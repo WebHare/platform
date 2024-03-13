@@ -49,6 +49,21 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                FROM date_fs_members, fs_maxdatetime_settings
                               WHERE fs_maxdatetime_settings.fs_member = date_fs_members.id;
 
+
+  RECORD ARRAY wrd_brokentags := SELECT type, tags := GroupedValues(tag)
+                                   FROM wrd.entities
+                                  WHERE tag != ""
+                                        AND NOT IsProperWRDTag(tag)
+                               GROUP BY type;
+  wrd_brokentags := SELECT typetag := ToLowercase(`${schemas.name}.${types.tag}`)
+                         , type
+                         , num := Length(tags)
+                         , tags
+                      FROM wrd_brokentags AS brokentag, wrd.schemas, wrd.types
+                     WHERE types.id IN (SELECT AS INTEGER ARRAY type FROM wrd_brokentags)
+                           AND types.id = brokentag.type
+                           AND types.wrd_schema = schemas.id;
+
   RECORD ARRAY emailmembers := SELECT attrs.id
                                  FROM wrd.attrs
                                 WHERE attributetype = wrd_attributetype_email;
@@ -105,11 +120,13 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
              , wrd_brokenpasswords
              , wrd_brokenaddresses
              , wrd_brokendates
+             , wrd_brokentags
              , numissues := Length(fs_maxdatetime_settings)
                             + Length(wrd_brokenemails)
                             + Length(wrd_brokenpasswords)
                             + Length(wrd_brokenaddresses)
                             + Length(wrd_brokendates)
+                            + Length(wrd_brokentags)
              ];
 }
 
@@ -146,4 +163,10 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
       Print(`* WRD Attribute #${wrd_brokenaddress.attribute} (${wrd_brokenaddress.attributetag}) contains ${wrd_brokenaddress.num} instance(s) of an old-style address. Run fixaddressfields?\n`);
   ELSE
     Print(`- Good! No old WRD Address attribute values\n`);
+
+  IF(Length(report.wrd_brokentags) > 0)
+    FOREVERY(RECORD wrd_brokentag FROM SELECT * FROM report.wrd_brokentags ORDER BY typetag)
+      Print(`* WRD Type #${wrd_brokentag.type} (${wrd_brokentag.typetag}) contains ${wrd_brokentag.num} unsupported wrdTags, eg: ${EncodeJSON(ArraySlice(wrd_brokentag.tags,0,5))}\n`);
+  ELSE
+    Print(`- Good! No unsupported wrdTag formats\n`);
 }
