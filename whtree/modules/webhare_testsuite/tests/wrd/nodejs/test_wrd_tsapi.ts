@@ -824,8 +824,8 @@ if (process.argv.includes("--usejsengine")) {
 
 test.run([
   testSupportAPI,
-  testTSTypes,
   async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
+  testTSTypes,
   testNewAPI,
   testBaseTypes,
   testOrgs,
