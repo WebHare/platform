@@ -1,6 +1,6 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDType } from "./schema";
-import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, wrdSettingsGuid } from "./types";
+import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells } from "./types";
 import { db, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
@@ -16,10 +16,11 @@ import { getStackTrace } from "@webhare/js-api-tools";
 import { WebHareBlob } from "@webhare/services";
 import { Changes, ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";
 import { wrdFinishHandler } from "./finishhandler";
+import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
-  errorcallback?: (error: { tag: string; code: string; setValue?: unknown }) => void;
+  errorcallback?: (error: { tag: string; code: string; setValue?: unknown }) => void; //FIXME I think we should just drop this, errorcallback was mostly there to support the V1 API
   whfsmapper?: never;
   changeset?: number;
 };
@@ -44,10 +45,7 @@ function doSplitEntityData<
   //const entityRec: kysely.Updateable<PlatformDB["wrd.entities"]> = {};
 
   //const isOrg = type.tag === "wrdOrganization";
-  //const isPerson = type.tag == "wrdPerson";
-
-  if (fieldsData.wrdTag)
-    fieldsData.wrdTag = fieldsData.wrdTag.replace(/ /g, "_");
+  //const isPerson = type.tag === "wrdPerson";
 
   //const parentAttrMap = schemadata.typeParentAttrMap.get(typeRec.id)!;
   //const rootAttrMap = schemadata.typeRootAttrMap.get(typeRec.id)!;
@@ -55,6 +53,7 @@ function doSplitEntityData<
   const entity: EntityPartialRec = {};
   const settings = new Array<EncodedSetting | EncodedSetting[]>;
 
+  ///Attribute IDs which we will be replacing (even if we don't generate settings, clean existing values)
   const relevantAttrIds = new Array<number | number[]>;
 
   //    if (fieldsData.wrdModificationDate === undefined)
@@ -165,15 +164,22 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
         const useItem = unused[upos++];
         useItem.used = true;
         item.id = useItem.id;
-        if (upos == unused.length)
+        if (upos === unused.length)
           break;
       }
     }
   }
   let noIdCount = 0;
-  for (const item of flattened)
+  for (const item of flattened) {
+    //check against potential internal issues
+    if (!item.attribute)
+      throw new Error(`Generated a setting without attribute: ${JSON.stringify(item)}`);
+    if (!item.rawdata && !item.blobdata && !item.setting)
+      throw new Error(`Generated a setting without real data: ${JSON.stringify(item)}`);
+
     if (!item.id)
       ++noIdCount;
+  }
   const newIds = await nextVals("wrd.entity_settings.id", noIdCount);
   let ipos = 0;
   for (const item of flattened) {
@@ -226,7 +232,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
   }
 
   if (newsets.length) {
-    db<PlatformDB>()
+    await db<PlatformDB>()
       .insertInto("wrd.entity_settings")
       .values(newsets)
       .onConflict((oc) => oc
@@ -241,7 +247,8 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
           ordering: sql`excluded.ordering`,
           attribute: sql`excluded.attribute`,
         })
-      );
+      )
+      .execute();
   }
 
   const updatedAttrs = [...new Set(current.map(rec => rec.attribute).concat(newsets.map(rec => rec.attribute)))].sort();
@@ -394,7 +401,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
   let isNew = entityId === 0;
   //let setGuid: Buffer;
   if (entityData.wrdId !== undefined) {
-    if (!isNew && entityId != entityData.wrdId) {
+    if (!isNew && entityId !== entityData.wrdId) {
       options.errorcallback?.({ tag: "WRD_ID", code: "NOUPDATE" });
     } else if (isNew) {
       if (await db<PlatformDB>().selectFrom("wrd.entities").where("id", "=", entityData.wrdId).executeTakeFirst())
@@ -422,17 +429,17 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       throw new Error(`The new WRD_GUID value '${entityData.wrdGuid}' is not unique in this schema, it conflicts with entity #${otherEntity}`);
   } // if (entityData.wrdGuid !== undefined)
 
-  if (entityData.wrdLimitDate !== undefined && type.tag !== "wrdSettings" && entityData.wrdLimitDate !== null) {
+  if (entityData.wrdLimitDate !== undefined && type.tag === "wrdSettings" && entityData.wrdLimitDate !== null) {
     //Protect WRD_SETTINGS from being closed using the API
     let targetGuid = entityData.wrdGuid;
     if (!targetGuid) {
       const rawGuid = await db<PlatformDB>().selectFrom("wrd.entities").select("guid").where("id", "=", entityId).executeTakeFirst();
       if (!rawGuid)
-        throw new Error(`Could not find entity to update`);
+        throw new Error(`Could not find entity #${entityId} to update`);
       targetGuid = encodeWRDGuid(rawGuid.guid);
     }
 
-    if (targetGuid == wrdSettingsGuid)
+    if (targetGuid === wrdSettingsGuid)
       throw new Error(`The primary WRD_SETTINGS entity may never be closed`);
   }
 
@@ -465,7 +472,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       .executeTakeFirst();
 
 
-  const is_temp = isNew ? Boolean(options.temp) : Boolean(entityBaseInfo && entityBaseInfo.creationdate.getTime() == maxDateTimeTotalMsecs);
+  const is_temp = isNew ? Boolean(options.temp) : Boolean(entityBaseInfo && entityBaseInfo.creationdate.getTime() === maxDateTimeTotalMsecs);
   const is_temp_coming_alive = is_temp && !isNew && splitData.entity.limitdate && splitData.entity.limitdate.getTime() < maxDateTimeTotalMsecs;
   let entity_limit = splitData.entity.limitdate;
   if (!entity_limit)
@@ -694,7 +701,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     const currentinfo: Pick<kysely.Selectable<PlatformDB["wrd.entities"]>, "type"> | undefined = orgentityrec ?? entityBaseInfo;
     if (!currentinfo)
       throw new Error(`Trying to update non-existing entity #${result.entityId}`);
-    else if (currentinfo.type != typeRec.id && !typeRec.childTypeIds.includes(currentinfo.type))
+    else if (currentinfo.type !== typeRec.id && !typeRec.childTypeIds.includes(currentinfo.type))
       throw new Error(`Trying to update entity #${result.entityId} of type #${currentinfo.type} but we are type #${typeRec.id}`);
 
     await db<PlatformDB>()

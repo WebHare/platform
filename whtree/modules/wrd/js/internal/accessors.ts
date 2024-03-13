@@ -11,6 +11,7 @@ import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableData, IPCMarshallableRecord, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { RichDocument } from "@webhare/services/src/richdocument";
 import * as kysely from "kysely";
+import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -137,14 +138,14 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
 
   /** Returns the list of attributes that need to be fetched */
   getAttrIds(): number | number[] {
-    return this.attr.id;
+    return this.attr.id || [];
   }
 
   getAttrBaseCells(): null | keyof EntityPartialRec | ReadonlyArray<keyof EntityPartialRec> {
     return null;
   }
 
-  abstract encodeValue(value: In): EncodedValue;
+  abstract encodeValue(value: In | null): EncodedValue; //explicitly add | null so derived classes have to handle it
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -419,10 +420,10 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
   }
 
   encodeValue(value: string): EncodedValue {
-    if (this.attr.tag === "wrdTag" && /[a-z ]/.exec(value))
-      throw new Error(`Spaces and lowercase letters are not allowed in wrdTag fields`);
+    if (this.attr.tag === "wrdTag" && !isValidWRDTag(value))
+      throw new Error(`Invalid wrdTag '${value}' - must start with A-Z, may only contain A-Z, 0-9 and _, but must not end with a _. Maximum length is 64 characters`);
     const key = this.getAttrBaseCells();
-    return { settings: { [key]: value, attribute: this.attr.id } };
+    return { entity: { [key]: value } };
   }
 }
 
@@ -547,7 +548,7 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
     throw new Error(`Unable to updated generated field ${JSON.stringify(this.attr.tag)}`);
   }
 
-  encodeValue(value: string): EncodedValue {
+  encodeValue(value: string | null): EncodedValue {
     throw new Error(`Unable to updated generated field ${JSON.stringify(this.attr.tag)}`);
   }
 }
@@ -770,6 +771,11 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   }
 
   encodeValue(value: number): EncodedValue {
+    if (value === null)
+      return {};
+    if (value === 0)
+      throw new Error("Value may not be the number 0 - use `null` to encode an empty domain value");
+
     return { settings: { setting: value, attribute: this.attr.id } };
   }
 }
@@ -1086,7 +1092,7 @@ class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedvalues: WRDGender
     const mapped = [null, WRDGender.Male, WRDGender.Female, WRDGender.Other].indexOf(value);
     if (mapped === -1)
       throw new Error(`Unknown gender value '${value}'`);
-    return { entity: { [this.getAttrBaseCells()]: value } };
+    return { entity: { [this.getAttrBaseCells()]: mapped } };
   }
 }
 

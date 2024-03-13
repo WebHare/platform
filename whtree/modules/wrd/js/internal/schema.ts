@@ -15,6 +15,7 @@ import { isTruthy, omit, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
+import { __internalUpdEntity } from "./updates";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -392,6 +393,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async createEntity(value: Insertable<S[T]>): Promise<number> {
+    if (debugFlags["wrd:writejsengine"]) {
+      const res = await __internalUpdEntity(this, value, 0, {});
+      return res.entityId;
+    }
+
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
