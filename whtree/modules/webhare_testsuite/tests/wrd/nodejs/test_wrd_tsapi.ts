@@ -766,7 +766,7 @@ async function testComparisons() {
   ], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate", "wrdDateOfBirth", "wrdDateOfDeath"]).where("wrdId", "=", newperson).historyMode("__getfields").execute());
 
   const tests = {
-    wrdCreationDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrdCreationDate: { values: [null, new Date(1), new Date(0), new Date(-1)] }, //we need to end with creationdate at -1 otherwise one of the tests will set limit < creation
     wrdLimitDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
     wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
     testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
