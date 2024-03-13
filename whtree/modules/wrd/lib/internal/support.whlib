@@ -1177,3 +1177,9 @@ PUBLIC STRING FUNCTION UUIdToWRDGuid(STRING inuuid)
 
   RETURN `wrd:${ToUppercase(Substitute(inuuid, "-", ""))}`;
 }
+
+/** Matches isValidWRDTag in TtypeScript (but harescript is still more tolerant of these tags) */
+PUBLIC BOOLEAN FUNCTION IsProperWRDTag(STRING intag)
+{
+  RETURN intag="" OR (NEW Regex("^[A-Z][A-Z0-9_]{0,63}$")->Test(intag) AND intag NOT LIKE "*_");
+}

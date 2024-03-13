@@ -12,7 +12,7 @@ async function testDeleteClosedAfter() {
 
   // Add an entity
   await whdb.beginWork();
-  let person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname" });
+  let person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "testdelete@beta.webhare.net" });
   await whdb.commitWork();
   // Cleanup, the entity should still be there (not closed)
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
@@ -52,7 +52,7 @@ async function testDeleteClosedAfter() {
   // Update the schema to not delete closed entities and re-add the entity with a limitdate and modification date in the past
   await whdb.beginWork();
   await schema.getType("wrdPerson").updateMetadata({ deleteClosedAfter: 0 });
-  person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdLimitDate: limitDate, wrdModificationDate: limitDate });
+  person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdLimitDate: limitDate, wrdModificationDate: limitDate, wrdContactEmail: "testdelete2@beta.webhare.net" });
   await whdb.commitWork();
   // Cleanup, the entity should still be there
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
@@ -70,6 +70,6 @@ async function testDeleteClosedAfter() {
 }
 
 test.run([
-  () => createWRDTestSchema({ deleteClosedAfter }),
+  async () => { await createWRDTestSchema({ deleteClosedAfter }); },
   testDeleteClosedAfter
 ]);

@@ -9,7 +9,7 @@ async function testCommitAndRollback() { //test the Co-HSVM
 
   await whdb.beginWork();
   test.eq(null, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTHSVMtest"), "shouldn't exist yet");
-  const personid = await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest" });
+  const personid = await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest", wrdContactEmail: "covmtest@beta.webhare.net" });
   test.assert(personid);
   await whdb.rollbackWork();
 
@@ -17,7 +17,7 @@ async function testCommitAndRollback() { //test the Co-HSVM
   test.eq(null, await wrdschema.getFields("wrdPerson", personid, { ln: "wrdLastName" }));
 
   await whdb.beginWork();
-  const personid2 = (await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest" }));
+  const personid2 = (await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest", wrdContactEmail: "covmtest@beta.webhare.net" }));
   await whdb.commitWork();
 
   test.eq(personid2, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTtest"), "should exist!");
@@ -51,7 +51,7 @@ async function testWRDUntypedApi() { //  tests
 
 
   await whdb.beginWork();
-  const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest" }));
+  const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest", wrdContactEmail: "querytest@beta.webhare.net" }));
   test.assert(personid);
 
   await wrdschema.update("wrdPerson", personid, { wrdContactEmail: "Test123@example.com" });
@@ -282,7 +282,7 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
 }
 
 test.run([
-  createWRDTestSchema,
+  async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
   testCommitAndRollback,
   testWRDUntypedApi
 ], { wrdauth: false });

@@ -224,3 +224,7 @@ export function repairResultSet(resultset: Array<Record<string, unknown>>, mappi
   const preparedmapping = prepareRepair(mapping);
   return resultset.map(row => repairResultSetInternal(row, preparedmapping));
 }
+
+export function isValidWRDTag(tag: string): boolean {
+  return Boolean(tag.match(/^[A-Z][A-Z0-9_]{0,63}$/) && !tag.endsWith('_'));
+}
