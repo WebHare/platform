@@ -354,6 +354,7 @@ MACRO Run(STRING ARRAY loadlibs)
 RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type := "stringlist" ]
                                                      , [ name := "showmode", type := "stringopt" ]
                                                      , [ name := "json", type := "switch" ]
+                                                     , [ name := "tree", type := "switch" ]
                                                      , [ name := "j", type := "switch" ]
                                                      , [ name := "t", type := "switch" ]
                                                      , [ name := "r", type := "switch" ]
@@ -368,7 +369,7 @@ IF(NOT RecordExists(call))
 
 IF(call.showmode != "")
   showmode := call.showmode;
-ELSE IF(call.t)
+ELSE IF(call.t OR call.tree)
   showmode := "tree";
 ELSE IF(call.r)
   showmode := "raw";
