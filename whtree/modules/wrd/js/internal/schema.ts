@@ -408,6 +408,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
+    if (debugFlags["wrd:writejsengine"]) {
+      //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
+      if ("wrdId" in value)
+        throw new Error(`An entity update may not set wrdId`);
+      await __internalUpdEntity(this, value as Insertable<S[T]>, wrd_id, {});
+      return;
+    }
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)

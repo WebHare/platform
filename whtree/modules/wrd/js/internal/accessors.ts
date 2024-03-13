@@ -5,13 +5,14 @@ import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
-import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableData, IPCMarshallableRecord, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { RichDocument } from "@webhare/services/src/richdocument";
 import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
+import { uploadBlob } from "@webhare/whdb/src/whdb";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -32,10 +33,19 @@ export type EncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]
   sub?: EncodedSetting[];
 };
 
+export type AwaitableEncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]> & {
+  id?: number;
+  attribute: number;
+  sub?: Array<AwaitableEncodedSetting | Promise<EncodedSetting[]>>;
+};
 /// All values needed for an field update
 export type EncodedValue = {
   entity?: EntityPartialRec;
   settings?: EncodedSetting | EncodedSetting[];
+};
+export type AwaitableEncodedValue = {
+  entity?: EntityPartialRec;
+  settings?: AwaitableEncodedSetting | AwaitableEncodedSetting[] | Promise<EncodedSetting[]>;
 };
 
 export function encodeWRDGuid(guid: Buffer) {
@@ -145,7 +155,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
     return null;
   }
 
-  abstract encodeValue(value: In | null): EncodedValue; //explicitly add | null so derived classes have to handle it
+  abstract encodeValue(value: In | null): AwaitableEncodedValue; //explicitly add | null so derived classes have to handle it
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -632,7 +642,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
   }
 
   encodeValue(value: number): EncodedValue {
-    return value ? { settings: { rawdata: "1", attribute: this.attr.id } } : {};
+    return value ? { settings: { rawdata: String(value), attribute: this.attr.id } } : {};
   }
 }
 
@@ -1255,7 +1265,7 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
   }
 
   encodeValue(value: Date | null): EncodedValue {
-    return { entity: { [this.getAttrBaseCells()]: value } };
+    return { entity: { [this.getAttrBaseCells()]: value || defaultDateTime } };
   }
 }
 
@@ -1550,21 +1560,22 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     return retval;
   }
 
-  encodeValue(value: Array<Insertable<Members>>): EncodedValue {
+  encodeValue(value: Array<Insertable<Members>>): AwaitableEncodedValue {
     return {
-      settings: value.map((row, idx): EncodedSetting => {
-        const retval: EncodedSetting = { attribute: this.attr.id, ordering: idx + 1 };
-        const subs: Array<EncodedSetting | EncodedSetting[]> = [];
+      settings: value.map((row, idx): AwaitableEncodedSetting => {
+        const retval = { attribute: this.attr.id, ordering: idx + 1 };
+        const subs: NonNullable<AwaitableEncodedSetting["sub"]> = [];
         for (const field of this.fields) {
           if (field.name in row) {
             const subSettings = field.accessor.encodeValue(row[field.name as keyof typeof row]);
             if (subSettings.settings)
-              subs.push(subSettings.settings);
+              if (Array.isArray(subSettings.settings))
+                subs.push(...subSettings.settings);
+              else
+                subs.push(subSettings.settings);
           }
         }
-        if (subs.length)
-          retval.sub = subs.flat();
-        return retval;
+        return { ...retval, sub: subs };
       })
     };
   }
@@ -1675,8 +1686,35 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
     /* always valid */
   }
 
-  encodeValue(value: ResourceDescriptor | null | { data: Buffer }): EncodedValue {
-    throw new Error(`FIXME: writing blob values is not supported yet`);
+  encodeValue(value: ResourceDescriptor | null | { data: Buffer }): AwaitableEncodedValue {
+    if (!value)
+      return {};
+
+    return {
+      settings: (async (): Promise<EncodedSetting[]> => {
+        if ("data" in value)
+          value = await ResourceDescriptor.from(value.data);
+        const rawdata = await addMissingScanData(value);
+        if (value.resource.size)
+          await uploadBlob(value.resource);
+        /* FIXME if the file was associated with a fsobject:
+                , rawdata := (newinfo.fs_object = 0 ? "" : "WHFS:") || newinfo.rawdata
+                , whfsdata := newinfo.fs_object
+                , linktype := 2
+
+                which later triggers
+
+                          links[#link] := CELL
+                [ link.id
+                , link.linktype
+                , data :=     whfs_mapper->MapWHFSRef(link.fsobject)
+                ];
+
+                presumably to properly link images  to their source fsobject
+                */
+        return [{ rawdata, blobdata: value.resource, attribute: this.attr.id }];
+      })()
+    };
   }
 }
 

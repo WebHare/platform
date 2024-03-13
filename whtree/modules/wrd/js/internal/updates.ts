@@ -5,7 +5,7 @@ import { db, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
-import { EncodedSetting, encodeWRDGuid, getAccessor } from "./accessors";
+import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec } from "./db";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { generateRandomId, omit } from "@webhare/std";
@@ -25,7 +25,7 @@ type __InternalUpdEntityOptions = {
   changeset?: number;
 };
 
-function doSplitEntityData<
+async function doSplitEntityData<
   S extends SchemaTypeDefinition,
   T extends keyof S & string
 >(
@@ -34,11 +34,11 @@ function doSplitEntityData<
   typeRec: TypeRec,
   fieldsData: Insertable<S[T]> & Insertable<WRDTypeBaseSettings>,
   options: object
-): {
+): Promise<{
   entity: EntityPartialRec;
   settings: EncodedSetting[];
   relevantAttrIds: number[];
-} {
+}> {
 
   //ADDME: Beter samenwerken met de __final_attrs array, daar staat veel info waardoor we special cases weg kunnen halen
   //FIXME: Controleer bij een nieuw object ook isrequired op base attributes, ook als ze niet in fieldsdata zitten
@@ -68,14 +68,19 @@ function doSplitEntityData<
 
       const accessor = getAccessor(attr, typeRec.parentAttrMap);
       accessor.validateInput(toSet);
-      const encoded = accessor.encodeValue(toSet);
+      //TODO TS is confused here and doesn't recognize encodeValue's proper returnvalue. without the explicit type it won't expect a promise
+      const encoded: AwaitableEncodedValue = accessor.encodeValue(toSet);
 
       relevantAttrIds.push(accessor.getAttrIds());
 
       if (encoded.entity)
         Object.assign(entity, encoded.entity);
-      if (encoded.settings)
-        settings.push(encoded.settings);
+      if (encoded.settings) { //we're avoiding await overhead where possible when building settings (only blob containing settings require await)
+        if ("then" in encoded.settings)
+          settings.push(...(await encoded.settings));
+        else
+          settings.push(encoded.settings as EncodedSetting);
+      }
     }
   }
 
@@ -133,25 +138,23 @@ function recurseReuseSettings(encodedSettings: EncodedSetting[], current: Array<
   }
 }
 
-function flattenSettings(encodedSettings: EncodedSetting[], parent: Omit<EncodedSetting, "sub"> | null, parentMap: Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>): Array<Omit<EncodedSetting, "sub">> {
-  const retval = new Array<EncodedSetting | EncodedSetting[]>;
+function flattenSettings(encodedSettings: EncodedSetting[], parent: EncodedSetting | null, parentMap: Map<EncodedSetting, EncodedSetting>): EncodedSetting[] {
+  const retval = new Array<EncodedSetting>;
   for (const item of encodedSettings) {
-    if ("sub" in item) {
-      const newItem = omit(item, ["sub"]);
-      if (parent)
-        parentMap.set(newItem, parent);
-      retval.push(newItem);
-      if (item.sub)
-        retval.push(flattenSettings(item.sub, newItem, parentMap));
-    } else
-      retval.push(item);
+    if (parent)
+      parentMap.set(item, parent);
+
+    retval.push(item);
+    if (item.sub?.length)
+      retval.push(...flattenSettings(item.sub, item, parentMap));
+
   }
-  return retval.flat();
+  return retval;
 }
 
 async function generateNewSettingList(entityId: number, encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>): Promise<{
   newIds: number[];
-  newSets: Array<EntitySettingsRec & { unique_rawdata: string }>;
+  newSets: Array<EntitySettingsRec & { unique_rawdata: string; sub?: unknown }>;
 }> {
   recurseReuseSettings(encodedSettings, current, currentIdMap, null);
   const parentMap = new Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>;
@@ -174,8 +177,6 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     //check against potential internal issues
     if (!item.attribute)
       throw new Error(`Generated a setting without attribute: ${JSON.stringify(item)}`);
-    if (!item.rawdata && !item.blobdata && !item.setting)
-      throw new Error(`Generated a setting without real data: ${JSON.stringify(item)}`);
 
     if (!item.id)
       ++noIdCount;
@@ -206,9 +207,9 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
   };
 }
 
-async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: boolean }>, newsets: Array<EntitySettingsRec & { unique_rawdata: string }>, linkCheckAttrs: Set<number>, whfslinkattrs: Set<number>, whfsmapper?: never) {
-  // Sort current settings on id for quick lookup, set used to false
-  const currentIdMap = new Map(current.map(item => { item.used = false; return [item.id, item]; }));
+async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: boolean }>, newsets: Array<Omit<EntitySettingsRec & { unique_rawdata: string }, 'sub'>>, linkCheckAttrs: Set<number>, whfslinkattrs: Set<number>, whfsmapper?: never) {
+  // Sort current settings on id for quick lookup
+  const currentIdMap = new Map(current.map(item => [item.id, item]));
 
   for (const rec of newsets) {
     if ("whfsdata" in rec) {
@@ -412,7 +413,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     delete entityData.wrdId;
   }
 
-  const splitData = doSplitEntityData(type, schemadata, typeRec, entityData, {});
+  const splitData = await doSplitEntityData(type, schemadata, typeRec, entityData, {});
   if (splitData?.entity.guid) {
     // Find other entity with the same GUID (in the same schema)
     const otherEntity = await db<PlatformDB>()
@@ -708,6 +709,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       .updateTable("wrd.entities")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .set(splitData.entity as any)
+      .where("id", "=", result.entityId)
       .execute();
   }
 
@@ -723,7 +725,8 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         item.unique_rawdata = item.rawdata;
     });
 
-  const updateres = await handleSettingsUpdates(cursettings, newSets.newSets, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, options.whfsmapper);
+  const setsWithoutSub = omit(newSets.newSets, ['sub']);
+  const updateres = await handleSettingsUpdates(cursettings, setsWithoutSub, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, options.whfsmapper);
 
   //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
   //    checklinks_settingids:= updateres.linkchecksettings;
@@ -743,7 +746,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       .updateTable("wrd.entity_settings")
       .set({ unique_rawdata: sql`rawdata` })
       .where("id", "=", sql`any(${updateres?.updatedSettings})`)
-      .where("attribute", "=", sql`any(${typeRec.uniqueAttrs})`) // FIXME: keep these per-type
+      .where("attribute", "=", sql`any(${[...typeRec.uniqueAttrs]})`) // FIXME: keep these per-type
       .execute();
   }
 
