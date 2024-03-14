@@ -185,6 +185,9 @@ function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
 }
 
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
+  if (image.size >= MaxImageScanSize)
+    return {}; //too large to scan
+
   const data = await image.arrayBuffer();
 
   /* FIXME The actual dominant colors picked by sharp are not impressive compared to what Drawlib currently finds. See also
@@ -277,14 +280,19 @@ export async function hashStream(r: ReadableStream<Uint8Array>) {
   return hasher.digest("base64url");
 }
 
+/** Add missing data before storing into the database. Eg detect filetypes if still octestreams, get image info... */
 export async function addMissingScanData(meta: ResourceDescriptor) { //TODO cache missing metadata with the resource to prevent recalculation when inserted multiple times
-  const newmeta: EncodableResourceMetaData = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+  let newmeta: EncodableResourceMetaData = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
 
   if (!newmeta.hash)
     newmeta.hash = await hashStream(await meta.resource.getStream());
 
   if (!newmeta.mediaType)
     throw new Error("mediaType is required");
+
+  if (newmeta.mediaType === "application/octet-stream" || (newmeta.mediaType.startsWith("image/") && (!newmeta.width || !newmeta.dominantColor))) {
+    newmeta = { ...newmeta, ...await analyzeImage(meta.resource, true) };
+  }
 
   return encodeScanData(newmeta);
 }
@@ -818,7 +826,7 @@ async function buildDescriptorFromResource(blob: WebHareBlob, options?: Resource
     hash: options?.getHash ? await hashStream(await blob.getStream()) : null
   };
 
-  if ((options?.getImageMetadata || options?.getDominantColor) && blob.size < MaxImageScanSize)
+  if ((options?.getImageMetadata || options?.getDominantColor))
     metadata = { ...metadata, ...await analyzeImage(blob, options?.getDominantColor || false) };
 
   return new ResourceDescriptor(blob, metadata);
