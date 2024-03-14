@@ -385,14 +385,11 @@ async function testNewAPI() {
   test.eq('image/png', goldBlobAsImage?.mediaType);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldBlobAsImage?.hash);
 
-  // FIXME: rich documents are not yet supported in the JS engine
-  if (!debugFlags["wrd:usejsengine"]) {
-    // Set the 'richie' rich document document
-    const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
-    await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
-    const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
-    test.eq(testHTML, await richrec!.__getRawHTML());
-  }
+  // Set the 'richie' rich document document
+  const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
+  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
+  const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
+  test.eq(testHTML, await richrec!.__getRawHTML());
 
   // test array & nested record selectors
   {
