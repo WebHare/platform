@@ -256,7 +256,10 @@ void HS_Event_Broadcast(VirtualMachine *vm)
         bool local = HSVM_BooleanGet(*vm, HSVM_Arg(2));
 
         if (evt->payload.size() >= 511*1024 && !local)
-            HSVM_ThrowException(*vm, (std::string("The payload of the event is too big (total ") + Blex::AnyToString(evt->payload.size()) + " bytes)").c_str());
+        {
+                HSVM_ThrowException(*vm, (std::string("The payload of the event is too big (total ") + Blex::AnyToString(evt->payload.size()) + " bytes)").c_str());
+                return;
+        }
 
         Blex::NotificationEventManager &eventmgr = vm->environment.GetNotificationEventMgr();
         if (local)
