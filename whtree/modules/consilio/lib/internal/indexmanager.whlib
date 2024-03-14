@@ -381,19 +381,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       IF(IsDebugTagEnabled("consilio:searches"))
         LogDebug("consilio:searches", "OpenSearch search", CELL[ ...searchstart, searchquery := finalquery ]);
 
-      BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
-                                                   , uuid := queryuuid
-                                                   , searchquery := finalquery
-                                                   , options.restrict_to
-                                                   , options.first
-                                                   , options.count
-                                                   , summary_length := options.summary
-                                                   , sess := RecordExists(options.session) ? options.session.sessid : ""
-                                                   , options.highlightfields
-                                                   , fields := searchquery._source
-                                                   , now := querystart
-                                                   , catalog
-                                                   ]);
 
       IF(options.debug)
         Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
@@ -504,14 +491,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
       IF (RecordExists(result.session))
         LogToJSONLog("consilio:queries", CELL[ catalogid := indexid, query, options.restrict_to, result := CELL[ ...result, results := Length(result.results) ], uuid := queryuuid ]);
-
-      BroadcastEvent("consilio:executedquery", [ isstart := FALSE
-                                               , uuid := queryuuid
-                                               , status := response.status
-                                               , code := CellExists(response, "code") ? response.code : 0
-                                               , numresults := CellExists(response, "results") ? Length(result.results) : 0
-                                               , now := GetCurrentDateTime()
-                                               ]);
     }
 
     IF(IsDebugTagEnabled("consilio:searches"))
