@@ -15,7 +15,7 @@
     <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="right">
+          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="right" empty="Live queries are temporarily unavailable">
             <column name="when" type="datetime" storeutc="true" width="15x" />
             <column name="catalog" type="text" width="20x" />
             <column name="query" type="text" width="1pr" />
