@@ -834,6 +834,11 @@ debugFlags["wrd:usewasmvm"] = true;
 if (process.argv.includes("--usejsengine")) {
   console.log(`using WRD js engine`);
   debugFlags["wrd:usejsengine"] = true;
+
+  if (process.argv.includes("--writejsengine")) {
+    console.log(`using WRD js engine for writes too`);
+    debugFlags["wrd:writejsengine"] = true;
+  }
 }
 
 test.run([

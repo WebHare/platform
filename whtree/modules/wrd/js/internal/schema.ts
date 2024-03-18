@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db } from "@webhare/whdb";
+import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender } from "./types";
 export type { SchemaTypeDefinition } from "./types";
@@ -15,6 +15,7 @@ import { isTruthy, omit, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
+import { __internalUpdEntity } from "./updates";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -392,6 +393,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async createEntity(value: Insertable<S[T]>): Promise<number> {
+    if (debugFlags["wrd:writejsengine"]) {
+      const res = await __internalUpdEntity(this, value, 0, {});
+      return res.entityId;
+    }
+
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
@@ -402,6 +408,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
+    if (debugFlags["wrd:writejsengine"]) {
+      //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
+      if ("wrdId" in value)
+        throw new Error(`An entity update may not set wrdId`);
+      await __internalUpdEntity(this, value as Insertable<S[T]>, wrd_id, {});
+      return;
+    }
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
@@ -541,6 +554,40 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return repairResultSet(resultrows, outputmap) as unknown as RetVal;
   }
 
+  async isReferenced(id: number): Promise<boolean> {
+    if (!id)
+      return false;
+
+    if (await db<PlatformDB>().selectFrom("wrd.entities").select("id").where("leftentity", "=", id).where("id", "!=", id).executeTakeFirst())
+      return true;
+    if (await db<PlatformDB>().selectFrom("wrd.entities").select("id").where("rightentity", "=", id).where("id", "!=", id).executeTakeFirst())
+      return true;
+    if (await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("setting", "=", id).where("entity", "!=", id).executeTakeFirst())
+      return true;
+
+    return false;
+  }
+
+  private async __closeEntities(ids: number[], closeAt: Date): Promise<void> {
+    for (const id of ids) {
+      //@ts-ignore WRD doesn't recgonize wrdLimitDate as existing everywhere
+      await this.updateEntity(id, { wrdLimitDate: closeAt });
+    }
+  }
+
+  private async __deleteEntities(ids: number[]): Promise<void> {
+    if (debugFlags["wrd:writejsengine"]) {
+      await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "=", sql`any(${ids})`).execute();
+      return;
+    }
+
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
+
+    const type = await this._getType();
+    await type.deleteEntities(ids);
+  }
+
   async close(ids: number | number[], options?: EntityCloseOptions): Promise<void> {
     const closeMode = options?.mode ?? "close";
     validateCloseMode(closeMode);
@@ -548,43 +595,41 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     ids = Array.isArray(ids) ? ids : [ids];
     if (!ids.length)
       return;
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
 
-    const type = await this._getType();
+    if (closeMode === "delete")
+      return this.__deleteEntities(ids);
+    if (closeMode === "close")
+      return this.__closeEntities(ids, new Date);
 
-    if (closeMode === 'delete') {
-      await type.deleteEntities(ids);
-      return;
-    }
-    if (closeMode === 'close') {
-      for (const id of ids)
-        await type.closeEntity(id);
-      return;
-    }
+    const toclose: number[] = [], todelete: number[] = [];
 
     for (const id of ids) {
-      //this is unlikely to be fast, but imports are usually background tasks and we can solve this after TS migrations
-      const isreferred = await type.IsReferenced(id);
+      const isreferred = await this.isReferenced(id); //TODO add bulk checker
       switch (closeMode) {
         case "close-denyreferred":
           if (isreferred)
             throw new Error(`Entity ${id} cannot be closed, it is still being referred`);
-          await type.closeEntity(id);
+
+          toclose.push(id);
           break;
+
         case "delete-closereferred":
-          if (isreferred)
-            await type.closeEntity(id);
-          else
-            await type.deleteEntity(id);
+          (isreferred ? toclose : todelete).push(id);
           break;
+
         case "delete-denyreferred":
           if (isreferred)
             throw new Error(`Entity ${id} cannot be deleted, it is still being referred`);
-          await type.deleteEntity(id);
+
+          todelete.push(id);
           break;
       }
     }
+
+    if (todelete.length)
+      await this.__deleteEntities(ids);
+    if (toclose.length)
+      await this.__closeEntities(ids, new Date);
   }
 
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
