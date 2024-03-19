@@ -52,6 +52,8 @@ async function testBasics() {
 
   test.eq({ creationdate: new Date(0), name: "mymodule" }, parseModuleFolderName("mymodule"));
   test.eq({ creationdate: new Date("2020-09-07T17:41:14.123Z"), name: "mymodule" }, parseModuleFolderName("mymodule.20200907T174114.123Z"));
+  test.eq({ creationdate: new Date("2020-09-07T17:41:14Z"), name: "mymodule" }, parseModuleFolderName("mymodule.20200907T174114.000Z"));
+  test.eq({ creationdate: new Date("2020-09-07T17:41:14Z"), name: "mymodule" }, parseModuleFolderName("mymodule.20200907T174114Z"));
 }
 
 async function testModule() {
