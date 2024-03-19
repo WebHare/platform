@@ -176,6 +176,25 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
   return finalconfig;
 }
 
+export function parseModuleFolderName(name: string) {
+  const dotpos = name.indexOf('.');
+  if (dotpos !== -1) {
+    const dateparts = name.match(/\.(20\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(\.\d\d\d)?Z$/);
+    if (!dateparts) {
+      return null;
+    }
+    const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7]}Z`;
+    const isofulldate_msecs = Date.parse(isofulldate);
+    if (!isofulldate_msecs) {
+      // Invalid ISO date, ignore module
+      return null;
+    }
+    return { creationdate: new Date(isofulldate_msecs), name: name.substring(0, dotpos) };
+  }
+
+  return { creationdate: new Date(Date.parse("1970-01-01T00:00:00Z")), name };
+}
+
 function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {
   let entries: fs.Dirent[];
   try {
@@ -190,7 +209,6 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
       continue;
 
     const modpath = folder + entry.name + "/";
-    let creationdate = new Date(Date.parse("1970-01-01T00:00:00Z"));
     if (!fs.statSync(modpath + "moduledefinition.xml", { throwIfNoEntry: false })) {
       if (rootfolder)
         scanModuleFolder(modulemap, modpath, false, always_overwrites);
@@ -199,34 +217,22 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
       }
       continue;
     }
-    let name = entry.name;
-    const dotpos = name.indexOf('.');
-    if (dotpos !== -1) {
-      const dateparts = name.match(/\.(20\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(\.\d\d\d)?Z$/);
-      if (!dateparts) {
-        continue;
-      }
-      const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7]}Z`;
-      const isofulldate_msecs = Date.parse(isofulldate);
-      if (!isofulldate_msecs) {
-        // Invalid ISO date, ignore module
-        continue;
-      }
-      creationdate = new Date(isofulldate_msecs);
-      name = name.substring(0, dotpos);
-    }
 
-    const mdata = { creationdate, root: modpath };
+    const nameinfo = parseModuleFolderName(entry.name);
+    if (!nameinfo)
+      continue;
 
-    const current = modulemap[name];
+    const mdata = { creationdate: nameinfo.creationdate, root: modpath };
+
+    const current = modulemap[nameinfo.name];
     if (current) {
-      if (!always_overwrites && current.creationdate >= creationdate) {
+      if (!always_overwrites && current.creationdate >= nameinfo.creationdate) {
         //console.log(`Older module version found at ${modpath}`);
         continue;
       }
       //console.log(`New module version found at ${modpath}`);
     }
-    modulemap[name] = mdata;
+    modulemap[nameinfo.name] = mdata;
   }
 }
 
