@@ -101,6 +101,7 @@
       <json tag="metadata" description="Additional metadata to identify unique instances of this check" />
       <free tag="message_text" description="Message text" required="true" />
       <json tag="message_tid" description="Translatable message text (of the form: {tid,params})" />
+      <boolean tag="is_critical" />
       <json tag="jump_to" description="Jump instruction to application which can provide more information" />
       <datetime tag="snoozed_until" description="Time until we start actively reporting this error again" />
       <enumarray tag="scopes" description="Special scopes for some checks" allowedvalues="gdpr policy" />

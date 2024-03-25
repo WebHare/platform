@@ -333,9 +333,10 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
   BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
 }
 
-PUBLIC BOOLEAN FUNCTION PrintIssueOverview()
+PUBLIC INTEGER FUNCTION PrintIssueOverview()
 {
-  RECORD ARRAY messages := GetCurrentCheckIssues();
+  RECORD ARRAY messages := SELECT * FROM GetCurrentCheckIssues() ORDER BY is_critical DESC;
+  UPDATE messages SET message_text := "CRITICAL: " || message_text WHERE is_critical;
 
   INTEGER num_snoozed := LENGTH(SELECT FROM messages WHERE snoozed);
   DELETE FROM messages WHERE snoozed;
@@ -366,5 +367,5 @@ PUBLIC BOOLEAN FUNCTION PrintIssueOverview()
     ELSE
       PRINT("\n");
   }
-  RETURN Length(messages) = 0;
+  RETURN RecordExists(SELECT FROM messages WHERE is_critical) ? 2 /* Critical */: Length(messages) > 0 ? 1 /*warning*/ : 0 /*ok*/;
 }

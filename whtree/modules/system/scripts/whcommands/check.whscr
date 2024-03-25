@@ -15,5 +15,4 @@ CATCH(OBJECT e)
   RETURN;
 }
 
-IF(NOT PrintIssueOverview())
-  SetConsoleExitCode(1);
+SetConsoleExitCode(PrintIssueOverview());

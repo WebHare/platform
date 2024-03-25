@@ -19,6 +19,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
   RECORD ARRAY issues;
   CONSTANT RECORD baseissue :=
     [ ismanageable := FALSE
+    , iscritical := FALSE
     , message_tid := DEFAULT RECORD
     , snoozed := FALSE
     , scopes := STRING[]
@@ -33,6 +34,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
     INSERT CELL[ ...baseissue
                , message_text := "The WebHare database is in readonly mode!"
                , rowkey := -1
+               , is_critical := TRUE
                ] INTO issues AT END;
   }
 
@@ -41,14 +43,16 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
   {
     INSERT CELL[ ...baseissue
                , message_text := "The periodic status checks are not running - not all checks are available"
-               , rowkey := -1
+               , rowkey := -2
+               , is_critical := TRUE
                ] INTO issues AT END;
   }
   ELSE IF(lastintervalrun.error != "")
   {
     INSERT CELL[ ...baseissue
                , message_text := `The periodic status checks are failing: ${NormalizeWhitespace(lastintervalrun.error)}`
-               , rowkey := -1
+               , rowkey := -2
+               , is_critical := TRUE
                ] INTO issues AT END;
   }
   ELSE
@@ -59,16 +63,18 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
       INSERT CELL[ ...baseissue
                  , message_text := `The periodic status checks have not been executed for more than ${lastrun / 60000} minutes`
                  , rowkey := -2
+                 , is_critical := TRUE
                  ] INTO issues AT END;
 
     }
   }
 
   RECORD ARRAY dbissues;
-  IF(ObjectExists(OpenWRDSchema("system:config")->GetType('server_check')))
+  OBJECT serverchecktype := OpenWRDSchema("system:config")->GetType('server_check');
+  IF(ObjectExists(serverchecktype) AND serverchecktype->HasAttribute("is_critical"))
   {
-    dbissues := OpenWRDSchema("system:config")->^server_check->RunQuery(
-        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", since := "wrd_creationdate", "scopes", stopped := "wrd_limitdate" ]
+    dbissues := serverchecktype->RunQuery(
+        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", since := "wrd_creationdate", "scopes", stopped := "wrd_limitdate", "is_critical" ]
         , historymode := options.withhistory ? "all" : "now"
         ]);
 
@@ -81,6 +87,14 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
                      , stopped := stopped = MAX_DATETIME ? DEFAULT DATETIME : stopped
                  FROM dbissues;
   }
+  ELSE
+  {
+    INSERT CELL[ ...baseissue
+                , message_text := `The periodic status check tables are unavailable`
+                , rowkey := -2
+                , is_critical := TRUE
+                ] INTO issues AT END;
+  }
 
   issues := RECORD[ ...issues, ...dbissues ];
   RETURN issues;
@@ -92,12 +106,12 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
   OBJECT wrdschema := OpenWRDSchema("system:config");
   GetPrimary()->BeginLockedWork("system:updatechecks." || task);
 
-  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := [ tid := "", params := STRING[] ], jump_to := DEFAULT RECORD, scopes := STRING[] ]], checks);
+  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := [ tid := "", params := STRING[] ], jump_to := DEFAULT RECORD, scopes := STRING[], is_critical := FALSE ]], checks);
   UPDATE checks SET message_text := CallFunctionPtrVA(PTR GetTidForLanguage, VARIANT["en", message_tid.tid, ...message_tid.params]) WHERE message_text = "" AND RecordExists(message_tid);
 
   DATETIME now := GetCurrentDatetime();
   RECORD ARRAY current := wrdschema->^server_check->RunQuery(
-    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","wrd_limitdate"]
+    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","wrd_limitdate","is_critical"]
          , filters := [[ field := "check_task", value := task ]]
          , historymode := "all"
          ]);
@@ -121,6 +135,7 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
           , wrd_limitdate := MAX_DATETIME
           , check.jump_to
           , check.scopes
+          , check.is_critical
           ];
 
     IF(match = -1) //it's new
@@ -140,7 +155,7 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
     }
 
     //We assume something like jumpto won't change without the message changing
-    IF(current[match].message_text != check.message_text OR current[match].wrd_limitdate != MAX_DATETIME) //update it!
+    IF(current[match].message_text != check.message_text OR current[match].wrd_limitdate != MAX_DATETIME OR current[match].is_critical != check.is_critical) //update it!
     {
       wrdschema->^server_check->UpdateEntity(current[match].wrd_id, baserecord);
       wrdschema->^server_check_history->CreateEntity(
