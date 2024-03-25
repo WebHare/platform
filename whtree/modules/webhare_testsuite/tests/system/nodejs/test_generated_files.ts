@@ -5,6 +5,7 @@ import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb"
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext, updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config";
 
 async function testWebHareConfig() {
   /* Tests whether the current WebHare builtin config is properly parsed
@@ -47,6 +48,9 @@ async function testBasics() {
   const context = await buildGeneratorContext(["system"], false);
   const result = generateKyselyDefs(context, "platform");
   test.eq(/fullpath: IsGenerated<string>/, result, "fullpath & co must be marked as IsGenerated as you can't insert them");
+
+  test.eq({ creationdate: new Date(0), name: "mymodule" }, parseModuleFolderName("mymodule"));
+  test.eq({ creationdate: new Date("2020-09-07T17:41:14.123Z"), name: "mymodule" }, parseModuleFolderName("mymodule.20200907T174114.123Z"));
 }
 
 async function testModule() {
