@@ -14,7 +14,6 @@ export {
   toggleClass, toggleClasses,
   setStyles,
   getBaseURI, getRelativeBounds,
-  isElement, isHTMLElement
 } from './src/tree';
 export type { Rect } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
