@@ -9,7 +9,7 @@ import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare
 import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableData, IPCMarshallableRecord, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { RichDocument } from "@webhare/services/src/richdocument";
+import { RichDocument, __RichDocumentInternal } from "@webhare/services/src/richdocument";
 import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb/src/whdb";
@@ -1722,6 +1722,31 @@ class WRDDBFileValue extends WHDBResourceAttributeBase { }
 
 class WRDDBImageValue extends WHDBResourceAttributeBase { }
 
+class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichDocument | null, RichDocument | null, RichDocument | null> {
+  getDefaultValue(): RichDocument | null {
+    return null;
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): RichDocument | null {
+    const val = entity_settings[settings_start];
+    if (!val.blobdata)
+      return null;
+
+    return new __RichDocumentInternal(val.blobdata);
+  }
+
+  validateInput(value: RichDocument | null): void {
+    /* always valid */
+  }
+
+  encodeValue(value: RichDocument | null): AwaitableEncodedValue {
+    if (!value)
+      return {};
+
+    throw new Error(`Writing RTDs not implemented in the JS API yet`);
+  }
+}
+
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
     throw new Error(`Unimplemented accessor for type ${WRDAttributeType[this.attr.attributetype] ?? WRDBaseAttributeType[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
@@ -1782,7 +1807,6 @@ class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unkn
 class WRDDBPasswordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | { data: Buffer } | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
-//class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
@@ -1791,7 +1815,6 @@ class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unkn
 class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBAuthenticationSettingsValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichDocument | null, RichDocument | null, RichDocument | null> { }
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
