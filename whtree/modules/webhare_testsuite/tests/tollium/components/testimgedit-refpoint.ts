@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import { prepareUpload } from '@webhare/test-frontend';
 
 test.registerTests(
   [
@@ -18,16 +19,8 @@ test.registerTests(
 
     "upload image",
     async function () {
-      const uploadpromise = test.prepareUpload(
-        [
-          {
-            url: "/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg",
-            filename: "imgeditfile.jpeg"
-          }
-        ]);
-
+      prepareUpload(["/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg"]);
       test.click(test.compByName("fragment1!uploadbutton"));
-      await uploadpromise;
       await test.wait("ui");
 
       //editor will auto open

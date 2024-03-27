@@ -4,6 +4,7 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import { encodeString } from "@webhare/std";
+import { prepareUpload } from '@webhare/test-frontend';
 
 let instanceref; // instance ref at the frontend side
 let instanceid; // instance id at the backend site
@@ -312,17 +313,10 @@ test.registerTests(
             endOffset: 10
           });
 
-        const uploadpromise = test.prepareUpload(
-          [
-            {
-              url: '/tollium_todd.res/webhare_testsuite/tollium/logo.png',
-              filename: 'logo.png'
-            }
-          ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/logo.png']);
 
         //        test.prepareNextUpload(win, 'logo.png', new $wh.URL(location.href).resolveToAbsoluteURL('/tollium_todd.res/webhare_testsuite/tollium/logo.png'));
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=img]'));
-        await uploadpromise;
       },
       waits: ['ui']
     },

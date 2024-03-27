@@ -3,6 +3,7 @@
 
 import * as test from "@mod-system/js/wh/testframework";
 import FormBase from "@mod-publisher/js/forms/formbase";
+import { prepareUpload } from '@webhare/test-frontend';
 
 
 test.registerTests(
@@ -69,15 +70,9 @@ test.registerTests(
       const row = test.qSA(".wh-form__arrayrow")[1];
       test.fill(test.qS(row, "input[type=text]"), "another name");
 
-      const uploadpromise = test.prepareUpload(
-        [
-          {
-            url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg",
-            filename: "portrait_8.jpg"
-          }
-        ]);
+      prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
       test.qS(row, ".wh-form__uploadfield button").click();
-      await uploadpromise;
+      await test.wait('ui');
 
       // Check the resulting result
       result = await formhandler.getFormValue();
@@ -267,15 +262,9 @@ test.registerTests(
         const row = test.qSA(".wh-form__arrayrow")[1];
         test.fill(test.qS(row, "input[type=text]"), "not prefilled");
 
-        const uploadpromise = test.prepareUpload(
-          [
-            {
-              url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg",
-              filename: "portrait_8.jpg"
-            }
-          ]);
+        prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
         test.qS(row, ".wh-form__uploadfield button").click();
-        await uploadpromise;
+        await test.wait('ui');
 
         // Delete the first row
         test.click(test.qS(".wh-form__arraydelete"));

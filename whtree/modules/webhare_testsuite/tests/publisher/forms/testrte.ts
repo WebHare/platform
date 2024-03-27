@@ -3,6 +3,7 @@
 
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetestapi from '@mod-tollium/js/testframework-rte';
+import { prepareUpload } from '@webhare/test-frontend';
 
 const videobuttonselector = '[data-wh-form-name="rtd"] [data-button="object-video"]';
 const tablebuttonselector = '[data-wh-form-name="rtd"] [data-button="table"]';
@@ -122,15 +123,8 @@ test.registerTests(
       name: 'Insert image!',
       test: async function () {
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een afbeelding"</p>');
-        const uploadpromise = test.prepareUpload(
-          [
-            {
-              url: '/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg',
-              filename: 'portrait_8.jpg'
-            }
-          ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.qS('[data-wh-form-name="rtd"] [data-button="img"]').click();
-        await uploadpromise;
       },
       waits: ['ui']
     },
@@ -181,15 +175,9 @@ test.registerTests(
         test.assert(rtdgroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"(*0*)"<br data-wh-rte="bogus"/></p>');
-        const uploadpromise = test.prepareUpload(
-          [
-            {
-              url: '/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg',
-              filename: 'portrait_8.jpg'
-            }
-          ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.qS('[data-wh-form-name="rtd"] [data-button="img"]').click();
-        await uploadpromise;
+        await test.wait('ui');
 
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');

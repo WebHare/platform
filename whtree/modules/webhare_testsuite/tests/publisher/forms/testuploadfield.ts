@@ -1,6 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+import { prepareUpload } from '@webhare/test-frontend';
 import * as test from '@mod-system/js/wh/testframework';
 
 function getUploadField() //get the replament field, not the original input
@@ -16,12 +17,7 @@ test.registerTests(
     },
     'Reset file',
     async function () {
-      test.prepareUpload([
-        {
-          url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
-          filename: 'mytestfile.txt'
-        }
-      ]);
+      prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.assert(!test.qS('[data-wh-form-group-for=file]').classList.contains("wh-form--uploading"));
       test.click('[data-wh-form-group-for=file] .wh-form__uploadfieldselect');
 
@@ -79,12 +75,7 @@ test.registerTests(
     "test limited allowed types",
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg');
-      test.prepareUpload([
-        {
-          url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
-          filename: 'mytestfile.txt'
-        }
-      ]);
+      prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click('[data-wh-form-group-for=file] .wh-form__uploadfieldselect');
       await test.wait('ui');
 
@@ -93,12 +84,7 @@ test.registerTests(
       test.eq("Dit bestandstype is niet toegestaan", filegroup.querySelector(".wh-form__error").textContent);
 
       //uploading proper file should fix it
-      test.prepareUpload([
-        {
-          url: '/tests/flipped_and_180.jpg',
-          filename: 'flipped_and_180.jpg'
-        }
-      ]);
+      prepareUpload(['/tests/flipped_and_180.jpg']);
 
       test.click('[data-wh-form-group-for=file] .wh-form__uploadfieldselect');
       await test.wait('ui');
@@ -109,12 +95,7 @@ test.registerTests(
     "test limited allowed types with custom error",
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg&accepterror=snap+ik+niet');
-      test.prepareUpload([
-        {
-          url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
-          filename: 'mytestfile.txt'
-        }
-      ]);
+      prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click('[data-wh-form-group-for=file] .wh-form__uploadfieldselect');
       await test.wait('ui');
 
@@ -133,13 +114,7 @@ test.registerTests(
         const filegroup = test.qS('#rtdtest-file').closest('.wh-form__fieldgroup');
         test.assert(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
-        //upload an image
-        test.prepareUpload([
-          {
-            url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
-            filename: 'mytestfile.txt'
-          }
-        ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
 
         test.qS('#rtdtest-file').click();
         await test.wait('ui');
@@ -158,12 +133,7 @@ test.registerTests(
         test.assert(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         //upload an image
-        test.prepareUpload([
-          {
-            url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
-            filename: 'mytestfile.txt'
-          }
-        ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
 
         test.qS('#rtdtest-file').click();
         await test.wait('ui');
@@ -202,12 +172,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1' },
     async function () {
       test.click(test.qS('#rtdtest-showfile2'));
-      test.prepareUpload([
-        {
-          url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
-          filename: 'mytestfile2.txt'
-        }
-      ]);
+      prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click(test.qS('[data-wh-form-group-for="file2"] button'));
       await test.wait('ui');
 
@@ -216,7 +181,7 @@ test.registerTests(
 
       const serverreponse = JSON.parse(test.qS('#rtdformresponse').textContent);
       test.eq('text/plain', serverreponse.file2.mimetype);
-      test.eq('mytestfile2.txt', serverreponse.file2.filename);
+      test.eq('mytestfile.txt', serverreponse.file2.filename);
     },
 
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1' },
