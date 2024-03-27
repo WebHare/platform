@@ -127,12 +127,36 @@ async function testResourceDescriptors() {
   {
     const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
     test.eq(75125, fish.resource.size);
-    test.eqProps({
+    test.eqPartial({
       mediaType: "application/octet-stream",
       hash: null,
       width: null,
       height: null
     }, fish.getMetaData());
+
+    const clone1 = await fish.clone();
+    test.eqPartial({
+      mediaType: "application/octet-stream",
+      hash: null,
+      width: null,
+      height: null
+    }, clone1.getMetaData());
+
+    const clone2 = await clone1.clone({ getImageMetadata: true });
+    test.eqPartial({
+      mediaType: "image/png",
+      hash: null,
+      width: 385,
+      height: 236
+    }, clone2.getMetaData());
+
+    const clone3 = await clone2.clone({ getHash: true });
+    test.eqPartial({
+      mediaType: "image/png",
+      hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+      width: 385,
+      height: 236
+    }, clone3.getMetaData());
   }
 
   {
@@ -198,14 +222,23 @@ async function testResourceDescriptors() {
   {
     //We can create a resource from a blob. But that gives us incomplete info:
     const landscapeBlob = await WebHareBlob.fromDisk(services.toFSPath("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_7.jpg"));
-    const res = new services.ResourceDescriptor(landscapeBlob, { mediaType: "image/jpg" });
-    test.eq("image/jpg", res.mediaType);
+    const res = new services.ResourceDescriptor(landscapeBlob, { mediaType: "image/jpeg" });
+    test.eq("image/jpeg", res.mediaType);
     test.eq(null, res.width);
+    test.eq(null, res.sourceFile);
 
     //using ResourceDescriptor.from will give us the full info (as it has a chance to wait)
-    const res2 = await services.ResourceDescriptor.from(landscapeBlob, { getImageMetadata: true, fileName: "my.jpg" });
+    const res2 = await services.ResourceDescriptor.from(landscapeBlob, { getImageMetadata: true, fileName: "my.jpg", sourceFile: 123 });
     test.eq(600, res2.width);
     test.eq("my.jpg", res2.fileName);
+    test.eq(123, res2.sourceFile);
+
+    const clone = await res2.clone({ sourceFile: 456 });
+    test.eq(123, res2.sourceFile);
+    test.eq(456, clone.sourceFile);
+    test.eq("my.jpg", clone.fileName);
+    test.eq("image/jpeg", clone.mediaType);
+    test.eq(600, clone.width);
   }
 }
 

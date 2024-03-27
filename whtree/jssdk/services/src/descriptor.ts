@@ -59,6 +59,7 @@ export interface ResourceScanOptions {
   getHash?: boolean;
   getImageMetadata?: boolean;
   getDominantColor?: boolean;
+  sourceFile?: number;
 }
 
 export type Rotation = 0 | 90 | 180 | 270;
@@ -720,7 +721,7 @@ export function getUnifiedCacheURL(baseurl: string, dataType: number, metaData: 
   a metadata object into an existing class have getters ready in the class prototype rather than destructuring the scandata record */
 export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
-  private readonly _resource; // The resource itself
+  private readonly _resource: WebHareBlob; // The resource itself
   [Marshaller] = {
     type: VariableType.Record,
     setValue: function (this: ResourceDescriptor, value: HSVMVar) {
@@ -747,14 +748,38 @@ export class ResourceDescriptor implements ResourceMetaData {
     this.metadata = metadata;
   }
 
+  private async applyScanOptions(options: ResourceScanOptions) {
+    if ("sourceFile" in options)
+      this.metadata.sourceFile = options.sourceFile;
+
+    if ((options?.getImageMetadata || options?.getDominantColor)) //FIXME don't rerun if we already have this data (how to verify?)
+      Object.assign(this.metadata, await analyzeImage(this._resource, options?.getDominantColor || false));
+
+    if (options?.getHash && !this.metadata.hash)
+      this.metadata.hash = await hashStream(await this._resource.getStream());
+  }
+
+  async clone(options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    const newdescr = new ResourceDescriptor(this._resource, this.getMetaData());
+    if (options)
+      await newdescr.applyScanOptions(options);
+    return newdescr;
+  }
+
   static async from(str: string | Buffer | WebHareBlob, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
     const blob = WebHareBlob.isWebHareBlob(str) ? str : WebHareBlob.from(str);
-    return buildDescriptorFromResource(blob, options);
+    const res = await buildDescriptorFromResource(blob, options);
+    if (options)
+      await res.applyScanOptions(options);
+    return res;
   }
 
   static async fromDisk(path: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
     const blob = await WebHareBlob.fromDisk(path);
-    return buildDescriptorFromResource(blob, { fileName: basename(path), ...options });
+    const res = await buildDescriptorFromResource(blob, { fileName: basename(path), ...options });
+    if (options)
+      await res.applyScanOptions(options);
+    return res;
   }
 
   static async fromResource(resource: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
@@ -817,17 +842,14 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
 }
 
-async function buildDescriptorFromResource(blob: WebHareBlob, options?: ResourceScanOptions) {
+function buildDescriptorFromResource(blob: WebHareBlob, options?: ResourceScanOptions) {
   const mediaType = options?.mediaType ?? "application/octet-stream";
-  let metadata = {
+  const metadata = {
     mediaType,
     fileName: options?.fileName || null,
     extension: getExtensionForMediaType(mediaType),
-    hash: options?.getHash ? await hashStream(await blob.getStream()) : null
+    hash: null
   };
-
-  if ((options?.getImageMetadata || options?.getDominantColor))
-    metadata = { ...metadata, ...await analyzeImage(blob, options?.getDominantColor || false) };
 
   return new ResourceDescriptor(blob, metadata);
 }
