@@ -70,6 +70,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
     this->IgnoreImportTable("wrd.registrynodes");
     this->IgnoreImportTable("wrd.registrykeys");
     this->IgnoreImportTable("wrd.storedqueries");
+    this->RemoveTableCascade("wrd.tokens");
 
     IF(ObjectExists(wrdschema)) //is export
     {
