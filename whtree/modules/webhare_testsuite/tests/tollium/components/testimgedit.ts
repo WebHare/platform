@@ -1,22 +1,19 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 
 const gesture_time = 25;
 
-let testimg;
+let testimg: HTMLImageElement | null = null;
 
-function testBackground(doc, win) {
+function testBackground() {
   // Check the background image dimensions by loading the background image url into an img element
   const preview = test.compByName("fragment1!preview");
   test.assert(preview);
   const backgrounds = getComputedStyle(preview).backgroundImage.split("url(");
   test.eq(3, backgrounds.length); // empty, uploaded image, checkered background
-  testimg = doc.createElement("img");
+  testimg = test.getDoc().createElement("img");
   const p = new Promise((resolve, reject) => {
-    testimg.addEventListener("load", resolve);
-    testimg.addEventListener("error", e => reject(new Error("load error, " + e)));
+    testimg!.addEventListener("load", resolve);
+    testimg!.addEventListener("error", e => reject(new Error("load error, " + e)));
   });
   // In Chrome, the url is enclosed in quotes, in Safari it's not
   let src = backgrounds[1];
@@ -32,10 +29,9 @@ const TestImageEditor =
   [
     {
       name: "image editor",
-      test: function (doc, win) {
+      test: function () {
         // Test if the image editor screen is now opened
-        const editor = test.qS("t-custom[data-name='imageeditor']");
-        test.assert(editor);
+        const editor = test.qR("t-custom[data-name='imageeditor']");
         const toolbar = editor.querySelector(".wh-toolbar");
         test.assert(toolbar);
         const surface = editor.querySelector(".wh-image-surface");
@@ -45,11 +41,9 @@ const TestImageEditor =
 
     {
       name: "activate image cropping",
-      test: function (doc, win) {
-        const editor = test.qS("t-custom[data-name='imageeditor']");
-        const toolbar = editor.querySelector(".wh-toolbar");
-        const cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
-        test.click(cropbutton);
+      test: async function () {
+        const editor = test.qR("t-custom[data-name='imageeditor']");
+        test.click(await test.waitForElement([editor, ".wh-toolbar-button", /Crop/]));
 
         // Resize the cropbox
         const cropbox = editor.querySelector(".wh-cropbox");
@@ -57,7 +51,7 @@ const TestImageEditor =
 
         const coords = cropbox.getBoundingClientRect();
         test.sendMouseGesture([
-          { doc: doc, down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
+          { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
@@ -65,13 +59,12 @@ const TestImageEditor =
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         // Resize the cropbox some more
-        const editor = test.qS("t-custom[data-name='imageeditor']");
-        const cropbox = editor.querySelector(".wh-cropbox");
+        const cropbox = test.qR("t-custom[data-name='imageeditor'] .wh-cropbox");
         const coords = cropbox.getBoundingClientRect();
         test.sendMouseGesture([
-          { doc: doc, down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
+          { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
@@ -84,7 +77,7 @@ const TestImageEditor =
 
     {
       name: "image crop cancelled",
-      test: function (doc, win) {
+      test: function () {
         // Check if the image size hasn't changed (it's set by the tollium backend based on the uploaded blob)
         const dimensions = test.compByName('fragment1!dimensions');
         test.assert(dimensions);
@@ -97,19 +90,18 @@ const TestImageEditor =
 
     {
       name: "activate image cropping again",
-      test: function (doc, win) {
-        const editor = test.qS("t-custom[data-name='imageeditor']");
-        const toolbar = editor.querySelector(".wh-toolbar");
-        const cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
+      test: function () {
+        const toolbar = test.qR("t-custom[data-name='imageeditor'] .wh-toolbar");
+        const cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent?.includes('Crop'))[0];
         test.click(cropbutton);
 
         // Resize the cropbox
-        const cropbox = editor.querySelector(".wh-cropbox");
+        const cropbox = test.qR("t-custom[data-name='imageeditor'] .wh-cropbox");
         test.assert(cropbox);
 
         const coords = cropbox.getBoundingClientRect();
         test.sendMouseGesture([
-          { doc: doc, down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
+          { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
@@ -117,13 +109,12 @@ const TestImageEditor =
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         // Resize the cropbox some more
-        const editor = test.qS("t-custom[data-name='imageeditor']");
-        const cropbox = editor.querySelector(".wh-cropbox");
+        const cropbox = test.qR("t-custom[data-name='imageeditor'] .wh-cropbox");
         const coords = cropbox.getBoundingClientRect();
         test.sendMouseGesture([
-          { doc: doc, down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
+          { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
@@ -136,7 +127,7 @@ const TestImageEditor =
 
     {
       name: "image saved",
-      test: function (doc, win) {
+      test: function () {
         // Check if the image size is set correctly (it's set by the tollium backend based on the uploaded blob)
         const dimensions = test.compByName('fragment1!dimensions');
         test.assert(dimensions);
@@ -151,9 +142,9 @@ const TestImageEditor =
     { test: testBackground },
 
     {
-      test: function (doc, win) {
-        test.eq(367, testimg.width);
-        test.eq(241, testimg.height);
+      test: function () {
+        test.eq(367, testimg?.width);
+        test.eq(241, testimg?.height);
         testimg = null;
 
         test.click(test.compByName("fragment1!editbutton"));
@@ -163,9 +154,9 @@ const TestImageEditor =
 
     {
       name: "edit image",
-      test: function (doc, win) {
+      test: function () {
         // Test if the image editor screen is now opened
-        const editor = test.qS("t-custom[data-name='imageeditor']");
+        const editor = test.qR("t-custom[data-name='imageeditor']");
         test.assert(editor);
         const toolbar = editor.querySelector(".wh-toolbar");
         test.assert(toolbar);
@@ -176,11 +167,11 @@ const TestImageEditor =
 
     "Apply filters",
     async function () {
-      const filterbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Apply Filters'))[0];
+      const filterbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent?.includes('Apply Filters'))[0];
       test.assert(filterbutton);
       test.click(filterbutton);
 
-      const invertbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Invert'))[0];
+      const invertbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent?.includes('Invert'))[0];
       test.assert(invertbutton);
       test.click(invertbutton);
       await test.wait('ui');
@@ -202,14 +193,14 @@ test.registerTests(
         return test.getCompTestPage("imgedit", {
           width: "250px",
           height: "250px"
-        }, "sut");
+        });
       },
       waits: ["ui"]
     },
 
     {
       name: "button status",
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.compByName("fragment1!uploadbutton"));
         test.assert(test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -220,7 +211,7 @@ test.registerTests(
 
     {
       name: "upload image",
-      test: async function (doc, win) {
+      test: async function () {
         const uploadpromise = test.prepareUpload(
           [
             {
@@ -236,8 +227,7 @@ test.registerTests(
     },
     //note: the editor is skipped, because the image is already proper and then we won't auto-open
     {
-      test: function (doc, win) {
-        console.log(doc.querySelectorAll("t-button"));
+      test: function () {
         test.assert(test.compByName("fragment1!editbutton"));
         test.click(test.compByName("fragment1!editbutton"));
       },
@@ -252,14 +242,14 @@ test.registerTests(
       test.assert(!test.compByName("fragment1!publisherbutton"));
       test.assert(test.compByName("fragment1!editbutton"));
       test.click(test.compByName("fragment1!otherbutton"));
-      test.assert(test.canClick(test.getOpenMenuItem('Replace by upload')));
-      test.assert(test.canClick(test.getOpenMenuItem('Download')));
-      test.assert(test.canClick(test.getOpenMenuItem('Properties')));
+      test.assert(test.canClick(test.getOpenMenuItem('Replace by upload')!));
+      test.assert(test.canClick(test.getOpenMenuItem('Download')!));
+      test.assert(test.canClick(test.getOpenMenuItem('Properties')!));
     },
 
     "Set properties",
     async function () {
-      test.click(test.getOpenMenuItem('Properties'));
+      test.click(test.getOpenMenuItem('Properties')!);
       await test.wait('ui');
       test.eq("imgeditfile.jpg", test.compByName("filename").querySelector("input").value);
       test.compByName("filename").querySelector("input").value = "img2.jpg";
@@ -274,7 +264,7 @@ test.registerTests(
 
     {
       name: "visibility",
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
       },
@@ -282,7 +272,7 @@ test.registerTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
       },
@@ -292,16 +282,16 @@ test.registerTests(
     { test: testBackground },
 
     {
-      test: function (doc, win) {
-        test.eq(367, testimg.width);
-        test.eq(241, testimg.height);
+      test: function () {
+        test.eq(367, testimg?.width);
+        test.eq(241, testimg?.height);
         testimg = null;
       }
     },
 
     {
       name: "button status",
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.compByName("fragment1!uploadbutton"));
         test.assert(!test.compByName("fragment1!publisherbutton"));
         test.assert(test.compByName("fragment1!editbutton"));
@@ -314,7 +304,7 @@ test.registerTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.compByName("fragment1!uploadbutton"));
         test.assert(!test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -328,7 +318,7 @@ test.registerTests(
 
     {
       name: "clear image",
-      test: function (doc, win) {
+      test: function () {
         test.click(test.compByName("fragment1!clearbutton"));
       },
       waits: ["ui"]
@@ -338,7 +328,7 @@ test.registerTests(
 
     {
       name: "imgedit status",
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.compByName("fragment1!uploadbutton"));
         test.assert(test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -355,7 +345,7 @@ test.registerTests(
 
     {
       name: "open browse for object",
-      test: function (doc, win) {
+      test: function () {
         test.click(test.compByName("fragment1!publisherbutton"));
       },
       waits: ["ui"]
@@ -365,7 +355,7 @@ test.registerTests(
 
     {
       name: "select image",
-      test: async function (doc, win) {
+      test: async function () {
         const testpagerow = test.getCurrentScreen().getListRow('folders!thelist', 'TestPages');
         test.assert(testpagerow);
         test.click(testpagerow);
