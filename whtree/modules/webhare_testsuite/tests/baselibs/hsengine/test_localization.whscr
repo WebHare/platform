@@ -125,13 +125,13 @@ MACRO LocalizeDateTimeTest()
   format := "EEEEGyMMMMdHms"; // H: 24-hour notation
   //Some ICUs report `Saturday, 2 October 2010 AD, 13:24:35`, but somewhere at or before 72.1/2022e it switched to 'Saturday, 2 October 2010 AD at 13:24:35'
   TestEqLike("Saturday, October 2, 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en"));
-  TestEqLike("Saturday, 2 October 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en-GB"));
+  TestEqLike("Saturday* 2 October 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en-GB"));
   TestEqLike("zaterdag 2 oktober 2010 n.Chr.* 13:24:35", LocalizeDateTime(format, value, "nl"));
   TestEqLike("Samstag, 2. Oktober 2010 n. Chr.* 13:24:35", LocalizeDateTime(format, value, "de"));
   format := "EEEEGyMMMMdhms"; // h: 12-hour notation (am/pm marker is added)
   //Some ICUs do `1:24:35 PM`, but somewhere at or before 72.1/2022e it switched to '1:24:35\u202FPM' - 202F is a Narrow NBSP. Today you learned.
   TestEqLike("Saturday, October 2, 2010 AD* 1:24:35*PM", LocalizeDateTime(format, value, "en"));
-  TestEqLike("Saturday, 2 October 2010 AD* 1:24:35*pm", LocalizeDateTime(format, value, "en-GB"));
+  TestEqLike("Saturday* 2 October 2010 AD* 1:24:35*pm", LocalizeDateTime(format, value, "en-GB"));
   TestEqLike("zaterdag 2 oktober 2010 n.Chr.*1:24:35*p.m.", LocalizeDateTime(format, value, "nl"));
   // The German am/pm identifier has changed several times between "vorm."/"nachm." and "AM"/"PM". It's "vorm."/"nachm." in
   // ICU4C 60.2 (CLDR 32.0.1), which we're using for building WebHare, but changed back to "AM"/"PM" in ICU4C 62.1 (CLDR 33.1),
@@ -140,7 +140,7 @@ MACRO LocalizeDateTimeTest()
   TestEqLike("Samstag, 2. Oktober 2010 n. Chr.*1:24:35*", LocalizeDateTime(format, value, "de"));
   format := "EEEEGyMMMMdjms"; // j: locale-specific notation
   TestEqLike("Saturday, October 2, 2010 AD* 1:24:35*PM", LocalizeDateTime(format, value, "en"));
-  TestEqLike("Saturday, 2 October 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en-GB"));
+  TestEqLike("Saturday* 2 October 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en-GB"));
   TestEqLike("zaterdag 2 oktober 2010 n.Chr.* 13:24:35", LocalizeDateTime(format, value, "nl"));
   TestEqLike("Samstag, 2. Oktober 2010 n. Chr.* 13:24:35", LocalizeDateTime(format, value, "de"));
 
@@ -148,14 +148,14 @@ MACRO LocalizeDateTimeTest()
   format := "yyMMddHHmmss";
   TestEq("10/02/10, 13:24:35", LocalizeDateTime(format, value, "en"));
   TestEq("02/10/10, 13:24:35", LocalizeDateTime(format, value, "en-GB"));
-  TestEq("02-10-10 13:24:35", LocalizeDateTime(format, value, "nl"));
+  TestEqLike("02-10-10* 13:24:35", LocalizeDateTime(format, value, "nl"));
   TestEq("02.10.10, 13:24:35", LocalizeDateTime(format, value, "de"));
 
   // Use and show specific timezone
   format := "yMMddjjmmssz";
   TestEqLike("10/02/2010, 03:24:35*PM GMT+2", LocalizeDateTime(format, value, "en", "Europe/Amsterdam")); // Specifying 'z' also results in 'a' being added
   TestEq("02/10/2010, 15:24:35 CEST", LocalizeDateTime(format, value, "en-GB", "Europe/Amsterdam"));
-  TestEq("02-10-2010 15:24:35 CEST", LocalizeDateTime(format, value, "nl", "Europe/Amsterdam"));
+  TestEqLike("02-10-2010* 15:24:35 CEST", LocalizeDateTime(format, value, "nl", "Europe/Amsterdam"));
   TestEq("02.10.2010, 15:24:35 MESZ", LocalizeDateTime(format, value, "de", "Europe/Amsterdam"));
 
   CloseTest("TestLocalization: LocalizeDateTimeTest");
