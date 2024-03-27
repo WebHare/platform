@@ -3,7 +3,7 @@
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 
@@ -20,6 +20,15 @@ export async function waitForUI(): Promise<void> {
 export async function waitForLoad(): Promise<void> {
   await oldWait("load");
 }
+
+/** Prepare files for the next \@webhare/frontend upload request */
+export function prepareUpload(list: File[]) {
+  getWin().addEventListener("wh:requestfiles", e => {
+    e.detail.resolve(list);
+    e.preventDefault();
+  }, { once: true });
+}
+
 
 /** Expose an API for use by tests through importExposed */
 export function expose<T>(name: string, api: T): T {

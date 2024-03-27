@@ -1,14 +1,7 @@
 import * as test from '@webhare/test-frontend';
 
-function interceptNextUpload(list: File[]) {
-  test.getWin().addEventListener("wh:requestfiles", e => {
-    e.detail.resolve(list);
-    e.preventDefault();
-  }, { once: true });
-}
-
 async function runUploadTest(button: "#upload", files: File[]) {
-  interceptNextUpload(files);
+  test.prepareUpload(files);
   test.click("#upload");
   return JSON.parse(await test.wait(() => test.qR("#files").textContent));
 }
