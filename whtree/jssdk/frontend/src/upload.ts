@@ -15,7 +15,6 @@ declare global {
 }
 
 interface UploadRequestOptions {
-  multiple?: boolean;
 }
 
 interface UploadProgressStatus {
@@ -27,7 +26,12 @@ interface UploadProgressOptions {
   onProgress?: (progress: UploadProgressStatus) => void;
 }
 
-class UploadResult { }
+interface UploadResult {
+  name: string;
+  size: number;
+  type: string;
+  token: string;
+}
 
 export interface UploadManifest {
   files: Array<{
@@ -38,21 +42,62 @@ export interface UploadManifest {
 }
 
 export interface UploadInstructions {
-  justupload: UploadManifest;
+  baseUrl: string;
+  sessionId: string;
 }
 
 class Uploader {
+  private files: File[];
   readonly manifest: UploadManifest;
 
   constructor(files: FileListLike) {
-    this.manifest = { files: [...files].map(_ => ({ name: _.name, size: _.size, type: _.type })) };
+    if (!files.length)
+      throw new Error("No files to upload");
+
+    this.files = [...files];
+    this.manifest = { files: this.files.map(_ => ({ name: _.name, size: _.size, type: _.type })) };
   }
+
   async upload(instructions: UploadInstructions, options?: UploadProgressOptions): Promise<UploadResult[]> {
-    return [];
+    const outfiles = [];
+    for (const [idx, file] of this.files.entries()) {
+      const chunksize = 5 * 1024 * 1024; //TODO receiver should dictate chunk size
+      for (let offset = 0; offset < file.size; offset += chunksize) {
+        const data = file.slice(offset, offset + chunksize);
+        const uploadurl = `${instructions.baseUrl}&offset=${offset}&file=${idx}`;
+
+        const uploadresult = await fetch(uploadurl, {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: data
+        });
+
+        if (!uploadresult.ok) //TODO retry
+          throw new Error(`Upload failed`);
+      }
+      outfiles.push({ name: file.name, size: file.size, type: file.type, token: instructions.sessionId + '#' + idx });
+    }
+    return outfiles;
   }
 }
 
-async function getFilelistFromUser(): Promise<FileListLike> {
+class SingleFileUploader {
+  uploader;
+
+  get manifest() {
+    return this.uploader.manifest;
+  }
+
+  constructor(file: File) {
+    this.uploader = new Uploader([file]);
+  }
+
+  async upload(instructions: UploadInstructions, options?: UploadProgressOptions): Promise<UploadResult> {
+    return (await this.uploader.upload(instructions, options))[0];
+  }
+}
+
+async function getFilelistFromUser(multiple: boolean): Promise<FileListLike> {
   const defer = createDeferred<FileListLike>();
   if (dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve } })) {
     const input = dompack.create('input', { type: "file" });
@@ -65,11 +110,20 @@ async function getFilelistFromUser(): Promise<FileListLike> {
 }
 
 export async function requestFiles(options?: UploadRequestOptions): Promise<Uploader | null> {
-  const files = await getFilelistFromUser();
+  const files = await getFilelistFromUser(true);
   if (!files.length)
     return null;
 
-  console.error({ files });
   const uploader = new Uploader(files);
+  return uploader;
+}
+
+// We're adding a separate interface for single-file uploads as it's quite annoying to have to deal with interfaces generalized for multiple files if you really, really know you only ever wanted one file anyway
+export async function requestFile(options?: UploadRequestOptions): Promise<SingleFileUploader | null> {
+  const files = await getFilelistFromUser(false);
+  if (files.length !== 1)
+    return null;
+
+  const uploader = new SingleFileUploader(files[0]);
   return uploader;
 }

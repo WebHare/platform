@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
 import { backendConfig } from "./config";
+import type { UploadManifest } from "@webhare/frontend/src/upload";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
@@ -22,7 +23,7 @@ export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
 export { applyConfiguration, createAppliedPromise } from "./applyconfig";
-export { createSession, getSession, closeSession, updateSession } from "./sessions";
+export { createSession, getSession, closeSession, updateSession, createUploadSession, getUploadedFile } from "./sessions";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
@@ -36,6 +37,11 @@ export interface ServerEncryptionScopes {
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface SessionScopes {
   [key: string]: Record<string, unknown>;
+
+  "platform:uploadsession": {
+    manifest: UploadManifest;
+    chunkSize: number;
+  };
 }
 
 export async function isWebHareRunning() {

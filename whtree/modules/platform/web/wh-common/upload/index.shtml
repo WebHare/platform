@@ -1,0 +1,35 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+/* We receive uploads for /.wh/common/upload/
+*/
+
+OpenPrimary();
+STRING sessionid := GetWebVariable("session");
+RECORD sess := GetWebSessionData(sessionid, "platform:uploadsession");
+IF(NOT RecordExists(sess))
+  AbortWithHTTPError(410);
+
+INTEGER64 offset_ := ToInteger64(GetWebVariable("offset"),0);
+INTEGER file := ToInteger(GetWebVariable("file"),0);
+INTEGER64 chunksize := sess.chunksize;
+BLOB body := GetRequestBody();
+
+IF(offset_ < 0 OR offset_ % chunksize != 0)
+  THROW NEW Exception(`Invalid offset`);
+IF(file < 0 OR file >= Length(sess.manifest.files))
+  THROW NEW Exception(`Invalid file`);
+
+INTEGER64 expectsize := MIN[]([chunksize, sess.manifest.files[file].size - offset_]);
+IF(Length(body) > expectsize)
+  THROW NEW Exception(`Invalid chunk size`);
+
+STRING targetdir := GetModuleStorageRoot("platform") || "uploads/" || sessionid || "/";
+CreateDiskDirectoryRecursive(targetdir, FALSE);
+StoreDiskFile(targetdir || "file-" || file || "-" || offset_ || ".dat", body, [ overwrite := TRUE]);
