@@ -135,16 +135,16 @@ test.registerTests(
     async function () {
       test.getWin().document.body.replaceChildren(<div id="div1">A div</div>, <iframe srcdoc="<div id='div2'>a second div</div>"></iframe>);
       await test.wait(() => test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")); //wait for the iframe
-      test.assert(!dompack.isElement(null));
-      test.assert(!dompack.isElement(undefined));
-      test.assert(dompack.isElement(test.qR("#div1")));
-      test.assert(dompack.isElement(test.qR("iframe")));
-      test.assert(dompack.isElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")));
+      test.assert(!webhare_dompack.isElement(null));
+      test.assert(!webhare_dompack.isElement(undefined));
+      test.assert(webhare_dompack.isElement(test.qR("#div1")));
+      test.assert(webhare_dompack.isElement(test.qR("iframe")));
+      test.assert(webhare_dompack.isElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")));
 
-      test.assert(!dompack.isHTMLElement(null));
-      test.assert(!dompack.isHTMLElement(undefined));
-      test.assert(dompack.isHTMLElement(test.qR("#div1")));
-      test.assert(dompack.isHTMLElement(test.qR("iframe")));
-      test.assert(dompack.isHTMLElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")));
+      test.assert(!webhare_dompack.isHTMLElement(null));
+      test.assert(!webhare_dompack.isHTMLElement(undefined));
+      test.assert(webhare_dompack.isHTMLElement(test.qR("#div1")));
+      test.assert(webhare_dompack.isHTMLElement(test.qR("iframe")));
+      test.assert(webhare_dompack.isHTMLElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")));
     }
   ]);

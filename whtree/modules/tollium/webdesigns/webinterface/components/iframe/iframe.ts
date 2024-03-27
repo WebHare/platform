@@ -8,7 +8,6 @@ import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
 import type { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import ObjMenuItem from '../menuitem/menuitem';
-import { isElement } from 'dompack';
 
 interface IframeAttributes extends ComponentStandardAttributes {
   sandbox: string;
@@ -286,7 +285,7 @@ export default class ObjIFrame extends ComponentBase {
   }
 
   clickLink = (e: MouseEvent) => {
-    if (!isElement(e.target))
+    if (!dompack.isElement(e.target))
       return;
 
     const anchor = e.target.closest<HTMLAnchorElement>('a[href]');

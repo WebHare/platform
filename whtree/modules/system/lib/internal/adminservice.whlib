@@ -135,32 +135,6 @@ PUBLIC RECORD FUNCTION RPC_UploadModule(STRING modulename, BLOB moduledata)
       ];
 }
 
-RECORD ARRAY FUNCTION ScanModuleDirectory(STRING path, STRING localpath)
-{
-  RECORD ARRAY entries := ReadDiskDirectory(path, "*");
-
-  entries :=
-      SELECT *
-           , path :=        localpath
-           , fullpath :=    MergePath(localpath, name)
-        FROM entries;
-
-  FOREVERY (RECORD entry FROM entries)
-    IF (entry.type = 1)
-      entries := entries CONCAT ScanModuleDirectory(MergePath(path, entry.name), entry.fullpath);
-
-  RETURN entries;
-}
-
-BOOLEAN FUNCTION HaveDateChangedFromZip(DATETIME zipdate, DATETIME currentdate)
-{
-  IF (GetDayCount(zipdate) != GetDayCount(currentdate))
-    RETURN TRUE;
-
-  // Zip file has 2sec granularity
-  RETURN (GetMsecondCount(zipdate) / 2000) != (GetMsecondCount(currentdate) / 2000);
-}
-
 
 /** Get the list of changed module files. If any files have changed, the original data can be retrieved
     from source.zip in the history folder of the module.
