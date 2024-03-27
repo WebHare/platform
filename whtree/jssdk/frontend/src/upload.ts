@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-interface UploadRequestOptions {
+export interface UploadRequestOptions {
 }
 
 interface UploadProgressStatus {
@@ -44,6 +44,7 @@ export interface UploadManifest {
 export interface UploadInstructions {
   baseUrl: string;
   sessionId: string;
+  chunkSize: number;
 }
 
 class Uploader {
@@ -61,9 +62,8 @@ class Uploader {
   async upload(instructions: UploadInstructions, options?: UploadProgressOptions): Promise<UploadResult[]> {
     const outfiles = [];
     for (const [idx, file] of this.files.entries()) {
-      const chunksize = 5 * 1024 * 1024; //TODO receiver should dictate chunk size
-      for (let offset = 0; offset < file.size; offset += chunksize) {
-        const data = file.slice(offset, offset + chunksize);
+      for (let offset = 0; offset < file.size; offset += instructions.chunkSize) {
+        const data = file.slice(offset, offset + instructions.chunkSize);
         const uploadurl = `${instructions.baseUrl}&offset=${offset}&file=${idx}`;
 
         const uploadresult = await fetch(uploadurl, {

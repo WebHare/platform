@@ -1,4 +1,12 @@
 <p>
+  Chunk size: <select id="chunksize">
+    <option value="">default</option>
+    <option value="256">256 bytes</option>
+    <option value="32768">32K</option>
+  </select>
+</p>
+
+<p>
   <button id="upload" type="button">Test upload</button>
 </p>
 

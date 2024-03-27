@@ -7,6 +7,9 @@ import type { UploadInstructions, UploadManifest } from "@webhare/frontend/src/u
 import * as fs from "node:fs/promises";
 import { ReadableStream, ReadableByteStreamController } from "node:stream/web";
 
+const DefaultChunkSize = 5 * 1024 * 1024;
+const DefaultUploadExpiry = "P1D";
+
 async function prepareSessionData(indata: NonNullable<object>): Promise<{ data: string; datablob: WebHareBlob | null }> {
   const text = stringify(indata, { typed: true });
   if (text.length <= 4096)
@@ -98,10 +101,23 @@ export async function closeSession(sessionId: string) {
   await db<PlatformDB>().deleteFrom("system.sessions").where("sessionid", "=", sessionId).execute();
 }
 
-/** Create an upload session */
-export async function createUploadSession(manifest: UploadManifest): Promise<UploadInstructions> {
-  const sessid = await createSession("platform:uploadsession", { manifest, chunkSize: 5 * 1024 * 1024 }, { expires: "P1D" });
-  return { baseUrl: "/.wh/common/upload/?session=" + sessid, sessionId: sessid };
+export interface UploadSessionOptions {
+  chunkSize?: number;
+  expires?: WaitPeriod;
+}
+
+/** Create an upload session
+ * @param manifest - Manifest of files to upload as prepared by requestFile(s)
+ * @param chunkSize - Chunk size for the upload. This should generally be in the megabyte range
+ * @param expires - Upload session expiry
+*/
+export async function createUploadSession(manifest: UploadManifest, { chunkSize = DefaultChunkSize, expires = DefaultUploadExpiry }: UploadSessionOptions = {}): Promise<UploadInstructions> {
+  const sessid = await createSession("platform:uploadsession", { manifest, chunkSize }, { expires });
+  return {
+    baseUrl: "/.wh/common/upload/?session=" + sessid,
+    sessionId: sessid,
+    chunkSize
+  };
 }
 
 function getUploadedStream(sessionId: string, fileIndex: number, size: number, chunkSize: number): ReadableStream {
@@ -119,7 +135,7 @@ function getUploadedStream(sessionId: string, fileIndex: number, size: number, c
          */
       while (curChunk < numChunks) {
         if (!curFile)
-          curFile = await fs.open(basePath + curChunk + '.dat');
+          curFile = await fs.open(basePath + (curChunk * chunkSize) + '.dat');
 
         const block = await curFile!.read({ length: 16384 });
         if (block.bytesRead !== 0) {

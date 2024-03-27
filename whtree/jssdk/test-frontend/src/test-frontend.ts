@@ -21,11 +21,29 @@ export async function waitForLoad(): Promise<void> {
   await oldWait("load");
 }
 
-/** Prepare files for the next \@webhare/frontend upload request */
-export function prepareUpload(list: File[]) {
-  getWin().addEventListener("wh:requestfiles", e => {
-    e.detail.resolve(list);
+/** Prepare files for the next \@webhare/frontend upload request
+ * @param list - List of files to prepare. If a string is passed, it will be fetched and turned into a File
+*/
+export function prepareUpload(list: Array<File | string>) {
+  getWin().addEventListener("wh:requestfiles", async e => {
     e.preventDefault();
+
+    const outlist: File[] = [];
+    for (const item of list) {
+      if (typeof item === "string") {
+        const fetchresult = await fetch(item);
+        if (!fetchresult.ok)
+          throw new Error(`Failed to fetch ${item}: ${fetchresult.statusText}`);
+
+        outlist.push(new File([await fetchresult.blob()],
+          item.split("/").pop() || "file.dat",
+          { type: fetchresult.headers.get("Content-Type") || "application/octet-stream" })
+        );
+      } else {
+        outlist.push(item);
+      }
+    }
+    e.detail.resolve(outlist);
   }, { once: true });
 }
 

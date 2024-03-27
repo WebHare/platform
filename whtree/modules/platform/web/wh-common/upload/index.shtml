@@ -28,7 +28,7 @@ IF(file < 0 OR file >= Length(sess.manifest.files))
 
 INTEGER64 expectsize := MIN[]([chunksize, sess.manifest.files[file].size - offset_]);
 IF(Length(body) > expectsize)
-  THROW NEW Exception(`Invalid chunk size`);
+  THROW NEW Exception(`Invalid chunk size, got ${Length(body)}, expected ${expectsize} bytes`);
 
 STRING targetdir := GetModuleStorageRoot("platform") || "uploads/" || sessionid || "/";
 CreateDiskDirectoryRecursive(targetdir, FALSE);
