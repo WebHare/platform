@@ -366,13 +366,14 @@ async function testLocalizeDate() {
   format = "EEEEGyMMMMdHms"; // H: 24-hour notation
   //Some ICUs report `Saturday, 2 October 2010 AD, 13:24:35`, but somewhere at or before 72.1/2022e it switched to 'Saturday, 2 October 2010 AD at 13:24:35'
   test.eq(/Saturday, October 2, 2010 AD.* 13:24:35/, localizeDate(format, value, "en"));
-  test.eq(/Saturday, 2 October 2010 AD.* 13:24:35/, localizeDate(format, value, "en-GB"));
+  //as of 27 march 2024, the ',' doesnt appear
+  test.eq(/Saturday,? 2 October 2010 AD.* 13:24:35/, localizeDate(format, value, "en-GB"));
   test.eq(/zaterdag 2 oktober 2010 n.Chr..* 13:24:35/, localizeDate(format, value, "nl"));
   test.eq(/Samstag, 2. Oktober 2010 n. Chr..* 13:24:35/, localizeDate(format, value, "de"));
   format = "EEEEGyMMMMdhms"; // h: 12-hour notation (am/pm marker is added)
   //Some ICUs do `1:24:35 PM`, but somewhere at or before 72.1/2022e it switched to '1:24:35\u202FPM' - 202F is a Narrow NBSP. Today you learned.
   test.eq(/Saturday, October 2, 2010 AD.* 1:24:35.*PM/, localizeDate(format, value, "en"));
-  test.eq(/Saturday, 2 October 2010 AD.* 1:24:35.*pm/, localizeDate(format, value, "en-GB"));
+  test.eq(/Saturday,? 2 October 2010 AD.* 1:24:35.*pm/, localizeDate(format, value, "en-GB"));
   test.eq(/zaterdag 2 oktober 2010 n.Chr..*1:24:35.*p.m./, localizeDate(format, value, "nl"));
   // The German am/pm identifier has changed several times between "vorm."/"nachm." and "AM"/"PM". It's "vorm."/"nachm." in
   // ICU4C 60.2 (CLDR 32.0.1), which we're using for building WebHare, but changed back to "AM"/"PM" in ICU4C 62.1 (CLDR 33.1),
@@ -381,7 +382,7 @@ async function testLocalizeDate() {
   test.eq(/Samstag, 2. Oktober 2010 n. Chr..*1:24:35.*/, localizeDate(format, value, "de"));
   format = "EEEEGyMMMMdjms"; // j: locale-specific notation
   test.eq(/Saturday, October 2, 2010 AD.* 1:24:35.*PM/, localizeDate(format, value, "en"));
-  test.eq(/Saturday, 2 October 2010 AD.* 13:24:35/, localizeDate(format, value, "en-GB"));
+  test.eq(/Saturday,? 2 October 2010 AD.* 13:24:35/, localizeDate(format, value, "en-GB"));
   test.eq(/zaterdag 2 oktober 2010 n.Chr..* 13:24:35/, localizeDate(format, value, "nl"));
   test.eq(/Samstag, 2. Oktober 2010 n. Chr..* 13:24:35/, localizeDate(format, value, "de"));
 
@@ -389,21 +390,21 @@ async function testLocalizeDate() {
   format = "yyMMddHHmmss";
   test.eq("10/02/10, 13:24:35", localizeDate(format, value, "en"));
   test.eq("02/10/10, 13:24:35", localizeDate(format, value, "en-GB"));
-  test.eq("02-10-10 13:24:35", localizeDate(format, value, "nl"));
+  test.eq(/^02-10-10,? 13:24:35$/, localizeDate(format, value, "nl"));
   test.eq("02.10.10, 13:24:35", localizeDate(format, value, "de"));
 
   // Use and show specific timezone
   format = "yMMddjjmmssz";
   test.eq(/10\/02\/2010, 03:24:35.*PM GMT\+2/, localizeDate(format, value, "en", "Europe/Amsterdam")); // Specifying 'z' also results in 'a' being added
   test.eq("02/10/2010, 15:24:35 CEST", localizeDate(format, value, "en-GB", "Europe/Amsterdam"));
-  test.eq("02-10-2010 15:24:35 CEST", localizeDate(format, value, "nl", "Europe/Amsterdam"));
+  test.eq(/^02-10-2010,? 15:24:35 CEST$/, localizeDate(format, value, "nl", "Europe/Amsterdam"));
   test.eq("02.10.2010, 15:24:35 MESZ", localizeDate(format, value, "de", "Europe/Amsterdam"));
 
   // Text other than symbols is ignored, format string is interpreted by locale
   format = "d EEEE 'at' j:mm";
   test.eq("2 Saturday, 1:24 PM", localizeDate(format, value, "en"));
   test.eq("Saturday 2, 13:24", localizeDate(format, value, "en-GB"));
-  test.eq("zaterdag 2 13:24", localizeDate(format, value, "nl"));
+  test.eq(/^zaterdag 2,? 13:24$/, localizeDate(format, value, "nl"));
   test.eq("Samstag, 2., 13:24", localizeDate(format, value, "de"));
 }
 
