@@ -15,6 +15,7 @@ import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType, WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { isChange } from "@mod-wrd/js/internal/schema";
+import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 
 
 
@@ -375,6 +376,19 @@ async function testNewAPI() {
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsFile?.hash);
   test.eq('image/png', goldfishAsImage?.mediaType);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsImage?.hash);
+
+  {
+    const snowbeagle = await (await getTestSiteJS()).openFile("photoalbum/snowbeagle.jpg");
+    const snowbeagleImage = await snowbeagle.data.clone({ sourceFile: snowbeagle.id });
+    await schema.update("wrdPerson", newperson, { testFile: snowbeagle.data, testImage: snowbeagleImage });
+    const { testFile: asFile, testImage: asImage } = (await schema.selectFrom("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
+    test.eq('image/jpeg', asFile?.mediaType);
+    test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', asFile?.hash);
+    test.eq(null, asFile?.sourceFile);
+    test.eq('image/jpeg', asImage?.mediaType);
+    test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', asImage?.hash);
+    test.eq(snowbeagle.id, asImage?.sourceFile);
+  }
 
   const goldBlob = new ResourceDescriptor(goldfish.resource, { mediaType: "application/octet-stream" });
   const goldBlobImg = new ResourceDescriptor(goldfish.resource, { mediaType: "image/png" });

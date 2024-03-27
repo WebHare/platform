@@ -734,11 +734,11 @@ export class ResourceDescriptor implements ResourceMetaData {
         height: this.height || 0,
         rotation: this.rotation || 0,
         mirrored: this.mirrored || false,
-        refPoint: this.refPoint || null,
-        dominantColor: this.dominantColor || 'transparent',
-        fileName: this.fileName,
+        refpoint: this.refPoint || null,
+        dominantcolor: this.dominantColor || 'transparent',
+        filename: this.fileName,
         data: this.resource,
-        // sourceFile: this.sourceFile
+        source_fsobject: this.sourceFile || 0
       });
     }
   };
@@ -826,7 +826,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     return this.metadata.fileName ?? null;
   }
   get sourceFile() {
-    return this.metadata.sourceFile ?? null;
+    return this.metadata.sourceFile || null;
   }
   get dbLoc() {
     return this.metadata.dbLoc;
