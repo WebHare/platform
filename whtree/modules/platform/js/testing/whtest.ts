@@ -5,6 +5,7 @@
 
 import { dispatchCustomEvent } from "@webhare/dompack";
 import { createClient } from "@webhare/jsonrpc-client";
+import { parseTyped, stringify } from "@webhare/std";
 
 //By definition we re-export all of @webhare/test
 export * from "@webhare/test";
@@ -94,7 +95,10 @@ export async function invoke(libfunc: string, ...params: unknown[]): Promise<any
     throw new Error(`Invalid function name '${libfunc}' - must be <library><function>`);
 
   // console.log(`test.invoke ${libfunc}`, params);
-  const result = await jstestsrpc.invoke(libfunc, params);
+  const isjs = libfunc.includes('.ts#') || libfunc.includes('.js#');
+  const result = await jstestsrpc.invoke(libfunc, isjs ? [stringify(params, { typed: true })] : params);
+  if (isjs)
+    return parseTyped(result as string);
 
   if (typeof result === "object" && result && (result as { __outputtoolsdata: unknown }).__outputtoolsdata) {
     if (typeof window !== 'undefined')
