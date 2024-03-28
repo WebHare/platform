@@ -112,6 +112,7 @@ async function testCalls() {
   //verify makeObject
   const exc = await makeObject("wh::system.whlib#Exception", "This is a test exception", null); //TODO honor default parameters? but apparently MakeObject doesn't do it either
   test.eq("This is a test exception", await exc.$get("what"));
+  test.eq(true, await loadlib("wh::system.whlib").ObjectExists(exc));
 
   //test whether we can keep values boxed
   const rawvm = vm._getHSVM();

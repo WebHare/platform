@@ -3,7 +3,7 @@ import * as vm from 'node:vm';
 import { readFileSync } from "node:fs";
 import * as services from '@webhare/services';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { callExportNowrap, describe } from "@mod-system/js/internal/util/jssupport";
+import { callExportNowrap, describe, load } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HareScriptVM } from "./wasm-hsvm";
 import { StashedWork, isWorkOpen, stashWork } from "@webhare/whdb";
@@ -122,8 +122,14 @@ export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: strin
 export function importDescribe(hsvm: HareScriptVM, { name }: { name: string }) {
   return describe(name);
 }
+
 export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
   return callExportNowrap(lib, name, args);
+}
+
+export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
+  await load(lib);
+  return await callExportNowrap(lib, name, args);
 }
 
 const stashes = new Array<StashedWork | null>;

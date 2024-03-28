@@ -1,6 +1,7 @@
+import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HSVM_HSVMSource } from "./machinewrapper";
 import { HareScriptVM } from "./wasm-hsvm";
-import { HSVMHeapVar } from "./wasm-hsvmvar";
+import { HSVMHeapVar, type HSVMVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
 export interface HSVMCallsProxy {
@@ -37,6 +38,13 @@ export class HSVMObjectWrapper {
     this.$obj = vm.allocateVariable();
     vm.wasmmodule._HSVM_CopyFrom(vm.hsvm, this.$obj.id, objid);
   }
+
+  [Marshaller] = {
+    type: VariableType.Object,
+    setValue: function (this: HSVMObjectWrapper, value: HSVMVar) {
+      value.copyFrom(this.$obj);
+    }
+  };
 
   async $get<T = unknown>(prop: string): Promise<T> {
     const retvalholder = await this.$obj.getMember(prop);
