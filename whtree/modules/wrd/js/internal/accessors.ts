@@ -31,6 +31,9 @@ export type EncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]
   id?: number;
   attribute: number;
   sub?: EncodedSetting[];
+  ///If we also need to encode a link in the WHFS/WRD link table
+  linktype?: number;
+  link?: number;
 };
 
 export type AwaitableEncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]> & {
@@ -1671,8 +1674,10 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
     const val = entity_settings[settings_start];
     const lpos = recordLowerBound(links, val, ["id"]);
     const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+    //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
+    const hasSourceFile = val.rawdata.startsWith("WHFS:");
     const meta = {
-      ...decodeScanData(val.rawdata),
+      ...decodeScanData(val.rawdata.substring(hasSourceFile ? 5 : 0)),
       sourceFile,
       dbLoc: { source: 3, id: val.id, cc }
     };
@@ -1694,25 +1699,15 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
       settings: (async (): Promise<EncodedSetting[]> => {
         if ("data" in value)
           value = await ResourceDescriptor.from(value.data);
-        const rawdata = await addMissingScanData(value);
+        const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
         if (value.resource.size)
           await uploadBlob(value.resource);
-        /* FIXME if the file was associated with a fsobject:
-                , rawdata := (newinfo.fs_object = 0 ? "" : "WHFS:") || newinfo.rawdata
-                , whfsdata := newinfo.fs_object
-                , linktype := 2
-
-                which later triggers
-
-                          links[#link] := CELL
-                [ link.id
-                , link.linktype
-                , data :=     whfs_mapper->MapWHFSRef(link.fsobject)
-                ];
-
-                presumably to properly link images  to their source fsobject
-                */
-        return [{ rawdata, blobdata: value.resource, attribute: this.attr.id }];
+        const setting: EncodedSetting = { rawdata, blobdata: value.resource, attribute: this.attr.id };
+        if (value.sourceFile) {
+          setting.linktype = 2;
+          setting.link = value.sourceFile;
+        }
+        return [setting];
       })()
     };
   }

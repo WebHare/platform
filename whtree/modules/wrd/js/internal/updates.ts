@@ -6,7 +6,7 @@ import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
 import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedValue } from "./accessors";
-import type { EntityPartialRec, EntitySettingsRec } from "./db";
+import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { generateRandomId, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
@@ -155,6 +155,7 @@ function flattenSettings(encodedSettings: EncodedSetting[], parent: EncodedSetti
 async function generateNewSettingList(entityId: number, encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>): Promise<{
   newIds: number[];
   newSets: Array<EntitySettingsRec & { unique_rawdata: string; sub?: unknown }>;
+  newLinks: EntitySettingsWHFSLinkRec[];
 }> {
   recurseReuseSettings(encodedSettings, current, currentIdMap, null);
   const parentMap = new Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>;
@@ -193,31 +194,30 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
 
   return {
     newIds,
+    newLinks: flattened.filter(item => item.link).map(item => ({
+      id: item.id!,
+      linktype: item.linktype || 0,
+      fsobject: item.link!
+    })),
     newSets: flattened.map(item => ({
       id: item.id!,
       entity: entityId,
-      parentsetting: null,
-      rawdata: "",
-      unique_rawdata: "",
-      blobdata: null,
-      setting: null,
-      ordering: 0,
-      ...item
+      parentsetting: item.parentsetting || null,
+      rawdata: item.rawdata || "",
+      unique_rawdata: item.unique_rawdata || "",
+      blobdata: item.blobdata || null,
+      setting: item.setting || null,
+      ordering: item.ordering || 0,
+      attribute: item.attribute,
     }))
   };
 }
 
-async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: boolean }>, newsets: Array<Omit<EntitySettingsRec & { unique_rawdata: string }, 'sub'>>, linkCheckAttrs: Set<number>, whfslinkattrs: Set<number>, whfsmapper?: never) {
+async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: boolean }>, newsets: Array<Omit<EntitySettingsRec & { unique_rawdata: string }, 'sub'>>, linkCheckAttrs: Set<number>, whfslinkattrs: Set<number>, newLinks: EntitySettingsWHFSLinkRec[], whfsmapper?: never) {
   // Sort current settings on id for quick lookup
   const currentIdMap = new Map(current.map(item => [item.id, item]));
 
   for (const rec of newsets) {
-    if ("whfsdata" in rec) {
-      /*
-      IF (NOT IsDefaultValue(rec.whfsdata))
-        INSERT CELL[ rec.id, rec.whfsdata, rec.linktype, rec.attribute ] INTO linksets AT END;
-      DELETE CELL whfsdata, linktype FROM rec;*/
-    }
     if (Buffer.byteLength(rec.rawdata) > 4096)
       throw new Error(`Attempting to insert ${rec.rawdata.length} bytes of data into rawdata`);
 
@@ -263,31 +263,16 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
       .execute();
   }
 
-  const linkChecks = current.filter(item => linkCheckAttrs.has(item.attribute) || item.rawdata === "WHFS" || item.rawdata.startsWith("WHFS:")).map(item => item.attribute);
-  if (linkChecks.length) {
-    /*
-    RECORD ARRAY linkupdates;
+  const linkChecks = new Set<number>(current.filter(item => item.used && (linkCheckAttrs.has(item.attribute) || item.rawdata === "WHFS" || item.rawdata.startsWith("WHFS:"))).map(item => item.attribute).concat(newLinks.map(item => item.id)));
+  if (linkChecks.size) {
+    const currlinks = (await db<PlatformDB>().selectFrom("wrd.entity_settings_whfslink").select(["fsobject", "id", "linktype"]).where("id", "=", sql`any(${[...linkChecks]})`).execute()).map(_ => ({ ..._, used: false }));
+    for (const link of newLinks) {
+      const matchCurrentLink = currlinks.find(item => item.id === link.id);
+      if (matchCurrentLink) {
+        matchCurrentLink.used = true;
 
-    RECORD ARRAY currlinks:=
-    SELECT *
-             , used :=    FALSE
-          FROM wrd.entity_settings_whfslink
-         WHERE id IN linkchecks
-      ORDER BY id;
-
-  FOREVERY(RECORD rec FROM linksets)
-  {
-      RECORD pos:= RecordLowerBound(currlinks, rec, ["ID"]);
-    IF(pos.found)
-    {
-      currlinks[pos.position].used := TRUE;
-        RECORD currlink:= currlinks[pos.position];
-
-        BOOLEAN isequal:= currlink.linktype = rec.linktype;
-      IF(isequal)
-      {
-        SWITCH(rec.linktype)
-        {
+        const isequal = matchCurrentLink.linktype === link.linktype && matchCurrentLink.linktype === 2 && matchCurrentLink.fsobject === link.fsobject;
+        /* TODO support linktype 0 and 1
             CASE 0
           {
             isequal:= IsRTDEqualToRTDInWHFS(currlink.fsobject, rec.whfsdata, whfsmapper);
@@ -296,56 +281,42 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
           {
             isequal:= IsInstanceEqualToInstanceInWHFS(currlink.fsobject, rec.whfsdata, whfsmapper);
           }
-            CASE 2  { isequal:= currlink.fsobject = rec.whfsdata; }
+        */
+        if (!isequal) {
+          //INTEGER fsobject:= BuildLinkFSObject(wrdschema, rec, whfsmapper); - will we be remapping though?
+          await db<PlatformDB>().updateTable("wrd.entity_settings_whfslink").set({
+            fsobject: link.fsobject,
+            linktype: link.linktype
+          }).where("id", "=", link.id).execute();
+          // INSERT rec INTO linkupdates AT END;
         }
-      }
+      } else { //no existing link to update
+        // INTEGER fsobject:= BuildLinkFSObject(wrdschema, rec, whfsmapper);
+        await db<PlatformDB>().insertInto("wrd.entity_settings_whfslink").values(link).execute();
+        // INSERT rec INTO linkupdates AT END;
 
-      IF(NOT isequal)
-      {
-          INTEGER fsobject:= BuildLinkFSObject(wrdschema, rec, whfsmapper);
-
-          UPDATE wrd.entity_settings_whfslink
-             SET fsobject:= VAR fsobject
-          , linktype := rec.linktype
-           WHERE id = rec.id;
-          INSERT rec INTO linkupdates AT END;
       }
     }
-    ELSE
-    {
-        INTEGER fsobject:= BuildLinkFSObject(wrdschema, rec, whfsmapper);
 
-        INSERT CELL[ ...rec, fsobject, DELETE attribute, DELETE whfsdata ] INTO wrd.entity_settings_whfslink;
-        INSERT rec INTO linkupdates AT END;
-    }
-  }
-
-    INTEGER64 ARRAY deletelinks:=
-    SELECT AS INTEGER64 ARRAY id
-          FROM currlinks
-         WHERE NOT used;
-
-  IF(LENGTH(deletelinks) != 0)
-  {
-    // Need to get from current because we need the attribute of the corresponding setting
+    const deletelinks = currlinks.filter(item => !item.used).map(item => item.id);
+    /*     // Need to get from current because we need the attribute of the corresponding setting
     FOREVERY(INTEGER64 id FROM deletelinks)
         INSERT current[RecordLowerBound(current, CELL[id], ["ID"]).position] INTO linkupdates AT END;
 
-      DELETE FROM wrd.entity_settings_whfslink WHERE id IN deletelinks;
+        */
+    await db<PlatformDB>().deleteFrom("wrd.entity_settings_whfslink").where("id", "=", sql`any(${deletelinks})`).execute();
   }
 
-  FOREVERY(RECORD rec FROM linkupdates)
-  {
-      INSERT rec.id INTO updatedsettings AT END;
-      INSERT rec.attribute INTO updatedattrs AT END;
-    IF(rec.attribute IN linkcheckattrs)
-        INSERT rec.id INTO linkchecksettings AT END;
-  }
-
-  updatedsettings:= GetSortedSet(updatedsettings);
-  linkchecksettings:= GetSortedSet(linkchecksettings);
+  /*
+    FOREVERY(RECORD rec FROM linkupdates)
+    {
+        INSERT rec.id INTO updatedsettings AT END;
+        INSERT rec.attribute INTO updatedattrs AT END;
+      IF(rec.attribute IN linkcheckattrs)
+          INSERT rec.id INTO linkchecksettings AT END;
+    }
   */
-  }
+
   return {
     updatedSettings,
     deletedSettings,
@@ -726,7 +697,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     });
 
   const setsWithoutSub = omit(newSets.newSets, ['sub']);
-  const updateres = await handleSettingsUpdates(cursettings, setsWithoutSub, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, options.whfsmapper);
+  const updateres = await handleSettingsUpdates(cursettings, setsWithoutSub, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, newSets.newLinks, options.whfsmapper);
 
   //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
   //    checklinks_settingids:= updateres.linkchecksettings;
