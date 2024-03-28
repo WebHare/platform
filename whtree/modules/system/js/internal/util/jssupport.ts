@@ -3,7 +3,7 @@ import { BackendServiceConnection, registerAsDynamicLoadingLibrary, toFSPath } f
 
 const libmap = new Map<string, Record<string, unknown>>;
 
-async function load(lib: string) {
+export async function load(lib: string) {
   if (lib.startsWith('mod::'))
     lib = toFSPath(lib);
 

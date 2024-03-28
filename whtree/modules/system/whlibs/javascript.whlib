@@ -155,10 +155,7 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
 
   IF(IsWasm())
   {
-    VARIANT callresult := EM_Syscall("importCall", CELL[ lib, name, args ]);;
-    IF(TYPEID(callresult) = TYPEID(OBJECT) AND ObjectExists(callresult) AND MemberExists(callresult,'then'))
-      callresult := WaitForPromise(callresult); //TODO or would we need a synchronous (don't let any harescript async code run) version for maximum compatibility?
-    RETURN callresult;
+    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args ]));  //TODO or would we need a synchronous (don't let any harescript async code run) version for maximum compatibility?
   }
 
   IF(NOT ObjectExists(invokeservice))

@@ -24,6 +24,9 @@ TestEq(42, WaitForPromise(promise42));
 
 TestEq(42, CallJS("./data/calls.ts#testAsync42"));
 TestEq(43, CallJS("./data/calls.ts#testSync43"));
+//We need specifically test with a TS that was *not* loaded by ImportJS yet:
+TestEq(52, CallJS("./data/calls2.ts#testAsync52"));
+TestEq(53, CallJS("./data/calls2.ts#testSync53"));
 
 STRING randomonce := imp->getOnceRandom();
 STRING randomtwice := imp->getOnceRandom();
