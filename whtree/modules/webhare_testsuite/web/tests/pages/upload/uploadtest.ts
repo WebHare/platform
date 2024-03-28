@@ -21,11 +21,10 @@ async function runUpload() { //upload button is clicked
   }
 }
 
-async function runUploadMultiple() { //upload button is clicked
-  const opts: UploadRequestOptions = {};
+async function runUploadMultiple(options?: UploadRequestOptions) { //upload button is clicked
   const chunkSize = parseInt(dompack.qR<HTMLInputElement>("#chunksize").value) || 0;
 
-  const uploader = await frontend.requestFiles(opts); //show dialog to user
+  const uploader = await frontend.requestFiles(options); //show dialog to user
   if (uploader) { //not cancelled
     //RPC call to ask server if its happy to receive the files. it will invoke a servside
     const uploadinstructions = await test.invoke("@mod-webhare_testsuite/tests/wh/jscomponents/compat/testupload2-lib.ts#offerFiles", uploader.manifest, { chunkSize });
@@ -40,4 +39,5 @@ async function runUploadMultiple() { //upload button is clicked
 }
 
 dompack.register("#upload", _ => _.addEventListener("click", runUpload));
-dompack.register("#uploadmultiple", _ => _.addEventListener("click", runUploadMultiple));
+dompack.register("#uploadmultiple", _ => _.addEventListener("click", () => runUploadMultiple()));
+dompack.register("#uploadimages", _ => _.addEventListener("click", () => runUploadMultiple({ accept: ["image/*"] })));

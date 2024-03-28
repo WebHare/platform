@@ -15,6 +15,7 @@ declare global {
 }
 
 export interface UploadRequestOptions {
+  accept?: string[];
 }
 
 interface UploadProgressStatus {
@@ -97,10 +98,15 @@ class SingleFileUploader {
   }
 }
 
-async function getFilelistFromUser(multiple: boolean): Promise<FileListLike> {
+async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise<FileListLike> {
   const defer = createDeferred<FileListLike>();
   if (dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve } })) {
-    const input = dompack.create('input', { type: "file" });
+    const input = document.createElement('input');
+    input.type = "file";
+    input.multiple = multiple;
+
+    if (accept.length)
+      input.accept = accept.join(",");
     input.addEventListener("change", () => defer.resolve(input.files || []));
     input.addEventListener("cancel", () => defer.resolve([]));
     input.showPicker();
@@ -110,7 +116,7 @@ async function getFilelistFromUser(multiple: boolean): Promise<FileListLike> {
 }
 
 export async function requestFiles(options?: UploadRequestOptions): Promise<Uploader | null> {
-  const files = await getFilelistFromUser(true);
+  const files = await getFilelistFromUser(true, options?.accept || []);
   if (!files.length)
     return null;
 
@@ -120,7 +126,7 @@ export async function requestFiles(options?: UploadRequestOptions): Promise<Uplo
 
 // We're adding a separate interface for single-file uploads as it's quite annoying to have to deal with interfaces generalized for multiple files if you really, really know you only ever wanted one file anyway
 export async function requestFile(options?: UploadRequestOptions): Promise<SingleFileUploader | null> {
-  const files = await getFilelistFromUser(false);
+  const files = await getFilelistFromUser(false, options?.accept || []);
   if (files.length !== 1)
     return null;
 

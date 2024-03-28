@@ -9,6 +9,7 @@
 <p>
   <button id="upload" type="button">Test upload</button><br>
   <button id="uploadmultiple" type="button">Test multi upload</button><br>
+  <button id="uploadimages" type="button">Test images upload</button><br>
 </p>
 
 <p>
