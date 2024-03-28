@@ -341,6 +341,10 @@ export class HSVMVar {
         throw new Error(`Cannot use a ${VariableType[type]} here, a ${VariableType[forcetype]} is required`);
       type = forcetype;
     }
+    if (typeof value === "object" && value?.[Marshaller]?.setValue) {
+      value?.[Marshaller]?.setValue.apply(value, [this]);
+      return;
+    }
 
     switch (type) {
       case VariableType.VariantArray: break;
@@ -388,11 +392,6 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Record: {
-        if (typeof value === "object" && value?.[Marshaller]?.setValue) {
-          value?.[Marshaller]?.setValue.apply(value, [this]);
-          return;
-        }
-
         const recval = value as IPCMarshallableRecord;
         if (!recval)
           this.setDefault(VariableType.Record);
