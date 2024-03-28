@@ -1,17 +1,25 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from "dompack";
-import * as cookie from "dompack/extra/cookie";
-
+import { createDeferred } from "@webhare/std";
+import * as dompack from "@webhare/dompack";
 
 class DownloadManager {
-  constructor(url) {
-    this.cookieinterval = null;
+  url;
+  downloadid;
+  cookiename;
+  cookieinterval?: number;
+  dlframe?: HTMLIFrameElement;
+  defer;
+  destroyed = false;
 
+  static dlid = 0;
+
+  constructor(url: string) {
     this.url = url;
     this.downloadid = (Math.random().toString().substr(2)) + (++DownloadManager.dlid);
     this.cookiename = "wh-download-" + this.downloadid;
+    this.defer = createDeferred<{
+      started: boolean;
+      errorinfo: null | unknown;
+    }>();
   }
 
   destroy() {
@@ -20,7 +28,7 @@ class DownloadManager {
 
     if (this.cookieinterval) {
       window.clearInterval(this.cookieinterval);
-      this.cookieinterval = null;
+      this.cookieinterval = undefined;
     }
 
     if (this.defer)
@@ -28,13 +36,13 @@ class DownloadManager {
   }
 
   _cookieCheck() {
-    const data = cookie.read(this.cookiename);
+    const data = dompack.getCookie(this.cookiename);
     if (!data)
       return;
 
-    cookie.remove(this.cookiename);
+    dompack.deleteCookie(this.cookiename);
     window.clearInterval(this.cookieinterval);
-    this.cookieinterval = null;
+    this.cookieinterval = undefined;
 
     if (this.destroyed)
       return;
@@ -42,9 +50,9 @@ class DownloadManager {
     this.defer.resolve({ started: true, errorinfo: null });
   }
 
-  _onDownloadFailure(errorinfo) {
+  _onDownloadFailure(errorinfo: unknown) {
     window.clearInterval(this.cookieinterval);
-    this.cookieinterval = null;
+    this.cookieinterval = undefined;
 
     if (this.destroyed)
       return;
@@ -53,8 +61,7 @@ class DownloadManager {
   }
 
   startDownload() {
-    if (!this.defer) {
-      this.defer = dompack.createDeferred();
+    if (!this.dlframe) {
       const dlurl = this.url + (this.url.indexOf('?') === -1 ? '?' : '&') + 'wh-download=' + this.downloadid;
 
       this.dlframe = dompack.create("iframe",
@@ -63,6 +70,7 @@ class DownloadManager {
           src: dlurl
         });
 
+      //@ts-ignore cleanup this expando hack
       this.dlframe.__whDownloadManagerFailureCallback = (data) => this._onDownloadFailure(data);
       document.body.appendChild(this.dlframe);
       this.cookieinterval = window.setInterval(() => this._cookieCheck(), 100);
@@ -71,8 +79,9 @@ class DownloadManager {
   }
 }
 
-DownloadManager.dlid = 0;
-window.__wh_downloadfailurecallback = function (iframe, data) {
+//@ts-ignore cleanup this expando hack
+window.__wh_downloadfailurecallback = function (iframe: HTMLIFrameElement, data: unknown) {
+  //@ts-ignore cleanup this expando hack
   iframe.__whDownloadManagerFailureCallback(data);
 };
 
