@@ -7,6 +7,7 @@ export type EnableOnRule = {
   min: number;
   max: number;
   selectionmatch: SelectionMatch;
+  customaction?: string;
 };
 
 export type FlagSet = Array<Record<string, boolean>>;
