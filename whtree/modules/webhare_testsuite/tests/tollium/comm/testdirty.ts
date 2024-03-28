@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import { prepareUpload } from '@webhare/test-frontend';
 ///@ts-ignore -- not yet ported (and currently being refactored externally)
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
@@ -261,15 +262,8 @@ test.registerTests(
       await clearState();
 
       // Test imgedit upload
-      const uploadpromise = test.prepareUpload(
-        [
-          {
-            url: "/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg",
-            filename: "imgeditfile.jpeg"
-          }
-        ]);
+      prepareUpload(["/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg"]);
       test.click(test.compByName("imgedit!uploadbutton"));
-      await uploadpromise;
       await test.wait("ui");
       test.eq("YES", status_comp.value);
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));

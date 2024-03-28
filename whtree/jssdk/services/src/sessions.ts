@@ -1,8 +1,14 @@
 import { generateRandomId } from "@webhare/std/platformbased";
-import { SessionScopes, WebHareBlob } from "./services";
+import { SessionScopes, WebHareBlob, toFSPath } from "./services";
 import { convertWaitPeriodToDate, parseTyped, stringify, type WaitPeriod } from "@webhare/std";
 import { db, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { UploadInstructions, UploadManifest } from "@webhare/frontend/src/upload";
+import * as fs from "node:fs/promises";
+import { ReadableStream, ReadableByteStreamController } from "node:stream/web";
+
+const DefaultChunkSize = 5 * 1024 * 1024;
+const DefaultUploadExpiry = "P1D";
 
 async function prepareSessionData(indata: NonNullable<object>): Promise<{ data: string; datablob: WebHareBlob | null }> {
   const text = stringify(indata, { typed: true });
@@ -93,4 +99,79 @@ export async function closeSession(sessionId: string) {
   if (!isWorkOpen())
     throw new Error(`Can only manage sessions inside open work`);
   await db<PlatformDB>().deleteFrom("system.sessions").where("sessionid", "=", sessionId).execute();
+}
+
+export interface UploadSessionOptions {
+  chunkSize?: number;
+  expires?: WaitPeriod;
+}
+
+/** Create an upload session
+ * @param manifest - Manifest of files to upload as prepared by requestFile(s)
+ * @param chunkSize - Chunk size for the upload. This should generally be in the megabyte range
+ * @param expires - Upload session expiry
+*/
+export async function createUploadSession(manifest: UploadManifest, { chunkSize = DefaultChunkSize, expires = DefaultUploadExpiry }: UploadSessionOptions = {}): Promise<UploadInstructions> {
+  const sessid = await createSession("platform:uploadsession", { manifest, chunkSize }, { expires });
+  return {
+    baseUrl: "/.wh/common/upload/?session=" + sessid,
+    sessionId: sessid,
+    chunkSize
+  };
+}
+
+function getUploadedStream(sessionId: string, fileIndex: number, size: number, chunkSize: number): ReadableStream {
+  const numChunks = Math.ceil(size / chunkSize);
+  const basePath = toFSPath(`storage::platform/uploads/${sessionId}/file-${fileIndex}-`);
+
+  let curChunk = 0;
+  let curFile: fs.FileHandle | null = null;
+
+  return new ReadableStream({
+    type: "bytes",
+    pull: async (controller: ReadableByteStreamController) => {
+      /* TODO fill byobRequest for zero-copy transfers. see also https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_byte_streams#underlying_pull_source_with_byte_reader
+              tried that but rean into issues with curfile.read expecting a NodeJS.ArrayBufferView which is incompatible with ArrayBufferView  controller.byobRequest?.view
+         */
+      while (curChunk < numChunks) {
+        if (!curFile)
+          curFile = await fs.open(basePath + (curChunk * chunkSize) + '.dat');
+
+        const block = await curFile!.read({ length: 16384 });
+        if (block.bytesRead !== 0) {
+          controller.enqueue(block.bytesRead === 16384 ? block.buffer : block.buffer.subarray(0, block.bytesRead));
+          return;
+        }
+
+        //end of file
+        curFile!.close();
+        curFile = null;
+        ++curChunk;
+      }
+      controller.close();
+    },
+    cancel: async () => {
+      curFile?.close();
+      curFile = null;
+    }
+  });
+}
+
+/** Retrieve an uploaded file by its token */
+export async function getUploadedFile(token: string): Promise<{
+  fileName: string;
+  size: number;
+  mediaType: string;
+  stream: ReadableStream<Uint8Array> | null;
+}> {
+  const [sessionId, fileIndexStr] = token.split("#");
+  const fileIndex = parseInt(fileIndexStr);
+  const matchsession = await getSession("platform:uploadsession", sessionId);
+  const matchfile = matchsession?.manifest.files[fileIndex];
+  if (!matchfile)
+    throw new Error("File not found: " + token);
+
+  const stream = matchfile.size ? getUploadedStream(sessionId, fileIndex, matchfile.size, matchsession.chunkSize) : null;
+
+  return { fileName: matchfile.name, size: matchfile.size, mediaType: matchfile.type, stream };
 }

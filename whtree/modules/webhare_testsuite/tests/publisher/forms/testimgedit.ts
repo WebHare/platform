@@ -1,6 +1,7 @@
 import * as test from '@mod-system/js/wh/testframework';
 import { loadImage } from '@webhare/dompack';
 import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';
+import { prepareUpload } from '@webhare/test-frontend';
 
 test.registerTests(
   [
@@ -10,12 +11,7 @@ test.registerTests(
     },
     'Reset image',
     async function () {
-      test.prepareUpload([
-        {
-          url: '/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg',
-          filename: 'portrait_8.jpg'
-        }
-      ]);
+      prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
       test.assert(!test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
       test.click('#rtdtest-img');
 
@@ -76,7 +72,7 @@ test.registerTests(
         test.assert(img, 'no image present #3');
         test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');
 
-        test.click(test.qS('#rtdtest-enablefields'));
+        test.click('#rtdtest-enablefields');
         test.assert(!test.qR('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
         test.click('#rtdtest-img .wh-form__imgeditdelete');
@@ -84,7 +80,7 @@ test.registerTests(
         img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'image should still be present');
 
-        test.click(test.qS('#rtdtest-enablefields'));
+        test.click('#rtdtest-enablefields');
         test.assert(test.qR('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
         test.click('#rtdtest-img .wh-form__imgeditdelete');
 
@@ -110,12 +106,7 @@ test.registerTests(
         test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         //upload an image
-        test.prepareUpload([
-          {
-            url: '/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg',
-            filename: 'portrait_8.jpg'
-          }
-        ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.click('#rtdtest-img');
         await test.wait('ui');
 

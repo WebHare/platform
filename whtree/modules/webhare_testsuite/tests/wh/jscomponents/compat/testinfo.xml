@@ -1,3 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="testupload2-lib.ts">
   <jstest file="testupload.ts" />
+  <jstest file="testupload2.ts" />
 </group>

@@ -3,7 +3,7 @@
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 
@@ -20,6 +20,33 @@ export async function waitForUI(): Promise<void> {
 export async function waitForLoad(): Promise<void> {
   await oldWait("load");
 }
+
+/** Prepare files for the next \@webhare/frontend upload request
+ * @param list - List of files to prepare. If a string is passed, it will be fetched and turned into a File
+*/
+export function prepareUpload(list: Array<File | string>) {
+  getWin().addEventListener("wh:requestfiles", async e => {
+    e.preventDefault();
+
+    const outlist: File[] = [];
+    for (const item of list) {
+      if (typeof item === "string") {
+        const fetchresult = await fetch(item);
+        if (!fetchresult.ok)
+          throw new Error(`Failed to fetch ${item}: ${fetchresult.statusText}`);
+
+        outlist.push(new File([await fetchresult.blob()],
+          item.split("/").pop() || "file.dat",
+          { type: fetchresult.headers.get("Content-Type") || "application/octet-stream" })
+        );
+      } else {
+        outlist.push(item);
+      }
+    }
+    e.detail.resolve(outlist);
+  }, { once: true });
+}
+
 
 /** Expose an API for use by tests through importExposed */
 export function expose<T>(name: string, api: T): T {

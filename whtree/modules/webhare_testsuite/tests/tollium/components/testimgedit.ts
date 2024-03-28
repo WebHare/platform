@@ -1,4 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
+import { prepareUpload } from '@webhare/test-frontend';
 
 const gesture_time = 25;
 
@@ -135,7 +136,7 @@ const TestImageEditor =
 
         const filename = test.compByName('fragment1!filename');
         test.assert(filename);
-        test.eq("imgeditfile.jpg", filename.textContent); // The ".jpeg" extension will be rewritten to ".jpg"
+        test.assert(["rangetestfile.jpg", "imgeditfile.jpg"].includes(filename.textContent)); // The ".jpeg" extension will be rewritten to ".jpg"
       }
     },
 
@@ -212,16 +213,9 @@ test.registerTests(
     {
       name: "upload image",
       test: async function () {
-        const uploadpromise = test.prepareUpload(
-          [
-            {
-              url: "/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg",
-              filename: "imgeditfile.jpeg"
-            }
-          ]);
-
+        prepareUpload(["/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg"]);
         test.click(test.compByName("fragment1!uploadbutton"));
-        await uploadpromise;
+        await test.wait(() => test.compByName("fragment1!editbutton"));
       },
       waits: ["ui"]
     },
@@ -251,7 +245,7 @@ test.registerTests(
     async function () {
       test.click(test.getOpenMenuItem('Properties')!);
       await test.wait('ui');
-      test.eq("imgeditfile.jpg", test.compByName("filename").querySelector("input").value);
+      test.eq("rangetestfile.jpg", test.compByName("filename").querySelector("input").value);
       test.compByName("filename").querySelector("input").value = "img2.jpg";
       //TODO test the color picker, refpoint eiditng...
       test.clickTolliumButton("OK");

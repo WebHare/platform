@@ -739,6 +739,13 @@ export function selectFiles(options?: {
     uploaddefer.resolve(event.detail.files || []);
   });
 
+  type FileListLike = FileList | File[];
+  const defer = dompack.createDeferred<FileListLike>();
+  if (!dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve } })) {
+    // upload intercepted
+    return defer.promise;
+  }
+
   try {
     const uploader = window.top?.wh_testapi_fakeupload;
     if (uploader) {

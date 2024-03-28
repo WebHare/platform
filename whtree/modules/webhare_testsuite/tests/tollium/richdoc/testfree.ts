@@ -3,6 +3,7 @@
 
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
+import { prepareUpload } from '@webhare/test-frontend';
 
 test.registerTests(
   [
@@ -24,17 +25,10 @@ test.registerTests(
             endOffset: 10
           });
 
-        const uploadpromise = test.prepareUpload(
-          [
-            {
-              url: '/tollium_todd.res/webhare_testsuite/tollium/logo.png',
-              filename: 'logo.png'
-            }
-          ]);
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/logo.png']);
 
         //        test.prepareNextUpload(win, 'logo.png', new $wh.URL(location.href).resolveToAbsoluteURL('/tollium_todd.res/webhare_testsuite/tollium/logo.png'));
         test.click(test.compByName('editor').querySelector('.wh-rtd-button[data-button=img]'));
-        await uploadpromise;
       },
       waits: ['ui']
     },

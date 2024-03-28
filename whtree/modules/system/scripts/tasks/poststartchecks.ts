@@ -10,6 +10,7 @@ import { backendConfig, toFSPath } from "@webhare/services";
 // Ensure cache dirs are tagged
 for (const cachefolder of [
   toFSPath("storage::system/output/uc"),
+  toFSPath("storage::platform/uploads"),
   join(backendConfig.dataroot, "ephemeral")
 ]) {
   mkdirSync(cachefolder, { recursive: true });
