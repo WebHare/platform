@@ -4,6 +4,7 @@ async function runUploadTest(button: "#upload" | "#uploadmultiple", files: Array
   test.qR("#files").textContent = "";
   test.prepareUpload(files);
   test.click(button);
+
   return JSON.parse(await test.wait(() => test.qR("#files").textContent));
 }
 
@@ -40,13 +41,12 @@ async function testBasicUpload() {
 
   //upload an image, slowly
   test.qR("#chunksize").value = "256";
-  test.eqPartial({
-    "fileName": "portrait_8.jpg",
-    "size": 132543,
-    "mediaType": "image/jpeg",
-    "hash": "JpFmbGS2jVY_UCJsLfkhye3ugnq_QC6SK-S-LpkvsGE"
-  }, await runUploadTest("#upload", ['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']));
+  test.qR("#bytesprogresstext").textContent = "";
+  const uploader = runUploadTest("#upload", ['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
+  await test.waitForElement(["#bytesprogresstext", /^[1-9]/]); //wait for bytesprogresstext to be set and not start with 0 / ...
+  test.click("#abort");
 
+  test.eqPartial({ message: "Aborted" }, await uploader);
 }
 
 test.run([ //

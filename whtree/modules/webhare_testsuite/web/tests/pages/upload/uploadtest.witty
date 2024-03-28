@@ -10,13 +10,12 @@
   <button id="upload" type="button">Test upload</button><br>
   <button id="uploadmultiple" type="button">Test multi upload</button><br>
   <button id="uploadimages" type="button">Test images upload</button><br>
+  <button id="abort" type="button">ABORT</button><br>
 </p>
 
 <p>
-  <a id="doabort" href="#">abort</a><br>
-</p>
-
-<p>
+  File progress: <progress id="fileprogress"></progress><span id="fileprogresstext"></span><br>
+  Bytes progress: <progress id="bytesprogress"></progress><span id="bytesprogresstext"></span><br>
   Files:
   <pre id="files"></pre>
 </p>

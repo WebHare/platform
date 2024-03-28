@@ -18,13 +18,18 @@ export interface UploadRequestOptions {
   accept?: string[];
 }
 
-interface UploadProgressStatus {
+export interface UploadProgressStatus {
+  uploadedBytes: number;
+  totalBytes: number;
   uploadedFiles: number;
   totalFiles: number;
+  //Upload speed in KB/sec.
+  uploadSpeedKB: number;
 }
 
-interface UploadProgressOptions {
+interface UploadOptions {
   onProgress?: (progress: UploadProgressStatus) => void;
+  signal?: AbortSignal;
 }
 
 interface UploadResult {
@@ -46,13 +51,13 @@ export interface UploadInstructions {
   baseUrl: string;
   sessionId: string;
   chunkSize: number;
+  signal?: AbortSignal;
 }
-
-class Uploader {
+class MultiFileUploader {
   private files: File[];
   readonly manifest: UploadManifest;
 
-  constructor(files: FileListLike) {
+  constructor(files: FileListLike, signal?: AbortSignal) {
     if (!files.length)
       throw new Error("No files to upload");
 
@@ -60,24 +65,84 @@ class Uploader {
     this.manifest = { files: this.files.map(_ => ({ name: _.name, size: _.size, type: _.type })) };
   }
 
-  async upload(instructions: UploadInstructions, options?: UploadProgressOptions): Promise<UploadResult[]> {
+  async upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult[]> {
     const outfiles = [];
+    let uploadedBytes = 0, uploadedFiles = 0;
+    const totalBytes = this.files.reduce((acc, file) => acc + file.size, 0);
+    const totalFiles = this.files.length;
+    const start = Date.now();
+
+    function fireProgressEvent(partialbytes: number) {
+      const curUploaded = uploadedBytes + partialbytes;
+      const timeElaspsed = Date.now() - start;
+      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeedKB: timeElaspsed ? curUploaded / timeElaspsed : 0 });
+    }
+
+    fireProgressEvent(0);
+
     for (const [idx, file] of this.files.entries()) {
       for (let offset = 0; offset < file.size; offset += instructions.chunkSize) {
         const data = file.slice(offset, offset + instructions.chunkSize);
         const uploadurl = `${instructions.baseUrl}&offset=${offset}&file=${idx}`;
 
+
+        /* we can't use fetch as we can't do progress tracking there!
+           there's https://stackoverflow.com/questions/35711724/upload-progress-indicators-for-fetch but it requires duplex: half which requires QUIC/H2
+
+           https://fetch.spec.whatwg.org/#fetch-api says
+           The fetch() method is relatively low-level API for fetching resources. It covers slightly more ground than XMLHttpRequest, although it is currently lacking when it comes to request progression (not response progression).
+
+        let bytesUploaded = 0;
+        const progressTrackingStream = new TransformStream<Uint8Array, Uint8Array>({
+          transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
+            controller.enqueue(chunk);
+            bytesUploaded += chunk.byteLength;
+            console.log("upload progress:", bytesUploaded / data.size);
+            // uploadProgress.value = bytesUploaded / totalBytes;
+          },
+          flush(controller: TransformStreamDefaultController<Uint8Array>) {
+            console.log("completed stream");
+          },
+        });
+
         const uploadresult = await fetch(uploadurl, {
           method: "POST",
           headers: { "Content-Type": "application/octet-stream" },
-          body: data
+          body: data.stream().pipeThrough(progressTrackingStream)
         });
 
         if (!uploadresult.ok) //TODO retry
           throw new Error(`Upload failed`);
+           */
+        if (options?.signal?.aborted)
+          throw new Error("Upload has been aborted");
+
+        // eslint-disable-next-line no-inner-declarations
+        const defer = createDeferred<void>();
+        const xmlhttp = new XMLHttpRequest;
+        xmlhttp.overrideMimeType("application/octet-stream");
+        xmlhttp.upload.addEventListener('progress', ev => fireProgressEvent(ev.loaded));
+        xmlhttp.addEventListener('abort', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Aborted")));
+        xmlhttp.addEventListener('error', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Error")));
+        xmlhttp.addEventListener('load', () => defer.resolve()); //invoked on success
+        xmlhttp.addEventListener('loadend', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => { //invoked after either abort/error/load
+        });
+        xmlhttp.open("POST", uploadurl, true);
+        xmlhttp.send(data);
+
+        const doAbort = () => xmlhttp.abort();
+        options?.signal?.addEventListener("abort", doAbort);
+        await defer.promise;
+        options?.signal?.removeEventListener("abort", doAbort);
+
+        uploadedBytes += data.size;
       }
+
       outfiles.push({ name: file.name, size: file.size, type: file.type, token: instructions.sessionId + '#' + idx });
+      ++uploadedFiles;
+      fireProgressEvent(0);
     }
+
     return outfiles;
   }
 }
@@ -90,10 +155,10 @@ class SingleFileUploader {
   }
 
   constructor(file: File) {
-    this.uploader = new Uploader([file]);
+    this.uploader = new MultiFileUploader([file]);
   }
 
-  async upload(instructions: UploadInstructions, options?: UploadProgressOptions): Promise<UploadResult> {
+  async upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult> {
     return (await this.uploader.upload(instructions, options))[0];
   }
 }
@@ -115,12 +180,12 @@ async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise
   return defer.promise;
 }
 
-export async function requestFiles(options?: UploadRequestOptions): Promise<Uploader | null> {
+export async function requestFiles(options?: UploadRequestOptions): Promise<MultiFileUploader | null> {
   const files = await getFilelistFromUser(true, options?.accept || []);
   if (!files.length)
     return null;
 
-  const uploader = new Uploader(files);
+  const uploader = new MultiFileUploader(files);
   return uploader;
 }
 
