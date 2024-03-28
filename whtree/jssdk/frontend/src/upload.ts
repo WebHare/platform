@@ -23,8 +23,8 @@ export interface UploadProgressStatus {
   totalBytes: number;
   uploadedFiles: number;
   totalFiles: number;
-  //Upload speed in KB/sec.
-  uploadSpeedKB: number;
+  //Upload speed in bytes/sec.
+  uploadSpeed: number;
 }
 
 interface UploadOptions {
@@ -81,7 +81,7 @@ export class MultiFileUploader implements UploaderBase {
     function fireProgressEvent(partialbytes: number) {
       const curUploaded = uploadedBytes + partialbytes;
       const timeElapsed = Date.now() - start;
-      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeedKB: timeElapsed ? curUploaded / timeElapsed : 0 });
+      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeed: timeElapsed ? curUploaded / (timeElapsed / 1000) : 0 });
     }
 
     fireProgressEvent(0);

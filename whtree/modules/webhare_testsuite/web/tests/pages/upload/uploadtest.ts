@@ -16,7 +16,7 @@ function onProgress(progress: frontend.UploadProgressStatus) {
   bytesprogress.max = progress.totalBytes;
   bytesprogress.value = progress.uploadedBytes;
 
-  dompack.qR("#bytesprogresstext").textContent = `${progress.uploadedBytes} / ${progress.totalBytes} (${progress.uploadSpeedKB.toFixed(1)} KB/sec) )`;
+  dompack.qR("#bytesprogresstext").textContent = `${progress.uploadedBytes} / ${progress.totalBytes} (${(progress.uploadSpeed / 1024).toFixed(1)} KB/sec) )`;
 
 }
 
