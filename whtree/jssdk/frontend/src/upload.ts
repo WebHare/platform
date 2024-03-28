@@ -74,8 +74,8 @@ class MultiFileUploader {
 
     function fireProgressEvent(partialbytes: number) {
       const curUploaded = uploadedBytes + partialbytes;
-      const timeElaspsed = Date.now() - start;
-      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeedKB: timeElaspsed ? curUploaded / timeElaspsed : 0 });
+      const timeElapsed = Date.now() - start;
+      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeedKB: timeElapsed ? curUploaded / timeElapsed : 0 });
     }
 
     fireProgressEvent(0);
