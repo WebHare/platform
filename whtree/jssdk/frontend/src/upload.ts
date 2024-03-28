@@ -53,7 +53,13 @@ export interface UploadInstructions {
   chunkSize: number;
   signal?: AbortSignal;
 }
-class MultiFileUploader {
+
+export interface UploaderBase {
+  readonly manifest: UploadManifest;
+  upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult | UploadResult[]>;
+}
+
+export class MultiFileUploader implements UploaderBase {
   private files: File[];
   readonly manifest: UploadManifest;
 
@@ -147,7 +153,7 @@ class MultiFileUploader {
   }
 }
 
-class SingleFileUploader {
+export class SingleFileUploader implements UploaderBase {
   uploader;
 
   get manifest() {
