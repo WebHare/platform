@@ -1,16 +1,14 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 /* import ImgEditField from '@mod-publisher/js/forms/fields/imgedit';
 */
 import * as dompack from 'dompack';
-import { loadImage } from '@webhare/dompack';
+import { isHTMLElement, loadImage } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import FileEditBase from './fileeditbase';
 import './imgedit.css';
+import type { UploadedFile } from '@mod-system/js/compat/upload';
 
 // also used in testimgedit.es
-export function readBackgroundUrl(imgnode) {
+export function readBackgroundUrl(imgnode: HTMLElement | null) {
   if (!imgnode)
     return "";
   const prop = getComputedStyle(imgnode).backgroundImage;
@@ -24,8 +22,10 @@ export function readBackgroundUrl(imgnode) {
 }
 
 export default class ImgEditField extends FileEditBase {
-  constructor(node, options?) {
-    super(node, options);
+  deletebutton?: HTMLElement;
+
+  constructor(node: HTMLElement) {
+    super(node);
     this.node.addEventListener('click', evt => this.selectFile(evt));
     this.node.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
@@ -38,12 +38,12 @@ export default class ImgEditField extends FileEditBase {
     this._afterConstruction();
   }
 
-  checkForUploadOrClear(evt) {
+  checkForUploadOrClear(evt: KeyboardEvent) {
     // We're only interested when the enter or space key was pressed
     if (evt.keyCode !== 13 && evt.keyCode !== 32)
       return;
 
-    const deletebutton = evt.target.closest(".wh-form__imgeditdelete");
+    const deletebutton = isHTMLElement(evt.target) && evt.target.closest(".wh-form__imgeditdelete");
     if (deletebutton) {
       dompack.stop(evt);
       this.doDelete(evt);
@@ -54,7 +54,7 @@ export default class ImgEditField extends FileEditBase {
     this.selectFile(evt);
   }
 
-  _updateEnabledStatus(nowenabled) {
+  _updateEnabledStatus(nowenabled: boolean) {
     this.node.tabIndex = nowenabled ? 0 : -1;
 
     if (this.deletebutton) // it is created the first time it's needed
@@ -66,12 +66,11 @@ export default class ImgEditField extends FileEditBase {
       this.node.setAttribute("data-wh-form-disabled", "");
   }
   getFieldValueLink() {
-    const imgnode = this.node.querySelector('.wh-form__imgeditimg');
+    const imgnode = dompack.qS<HTMLImageElement>(this.node, '.wh-form__imgeditimg');
     return readBackgroundUrl(imgnode);
   }
   setupComponent() {
-    if (!this.node.querySelector('.wh-form__imgeditimg')) //we don't have an image to edit
-    {
+    if (!this.node.querySelector('.wh-form__imgeditimg')) { //we don't have an image to edit
       if (this.deletebutton && this.node.contains(this.deletebutton))
         this.deletebutton.remove();
 
@@ -97,24 +96,25 @@ export default class ImgEditField extends FileEditBase {
 
     this.deletebutton =
       <div class="wh-form__imgeditdelete"
-        on={{ click: evt => this.doDelete(evt) }}
+        on={{ click: (evt: Event) => this.doDelete(evt) }}
         aria-label={getTid("publisher:site.forms.imgedit-remove")}
         tabindex="0"
         role="button"
       >
       </div>;
 
-    this.node.appendChild(this.deletebutton);
+    this.node.appendChild(this.deletebutton!);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
   }
-  doDrop(evt) {
+  doDrop(evt: DragEvent) {
     evt.preventDefault();
 
     const lock = dompack.flagUIBusy();
-    const files = evt.dataTransfer.files;
-    this.uploadFile(files, lock);
+    const files = evt.dataTransfer?.files;
+    if (files)
+      this.uploadFile(files, lock);
   }
-  doDelete(evt) {
+  doDelete(evt: Event) {
     dompack.stop(evt);
     if (!this._getEnabled())
       return;
@@ -129,7 +129,7 @@ export default class ImgEditField extends FileEditBase {
     if (changed)
       dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }
-  async handleUploadedFile(result) {
+  async handleUploadedFile(result: UploadedFile) {
     //ADDME maxsize? files[0].size....
 
     /* We MUST work through the server to get proper JPEG rotation fixes. So we
@@ -142,8 +142,6 @@ export default class ImgEditField extends FileEditBase {
     const imgpreload = await loadImage(result.url);
     if (!imgpreload.naturalWidth || !imgpreload.naturalHeight)
       return;
-
-    this.uploadurl = result.url;
 
     const holder = this.node.querySelector('.wh-form__imgeditholder');
     if (!holder)

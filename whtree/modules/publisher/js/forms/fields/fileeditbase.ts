@@ -1,14 +1,14 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import * as upload from '@mod-system/js/compat/upload';
+//@ts-ignore rpc.json should be fully replaced
 import * as formservice from '../internal/form.rpc.json';
 import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
 import { setFieldError } from '@mod-publisher/js/forms';
+import type { DeferredPromise } from '@webhare/std';
+import { isFormControl, type UIBusyLock } from '@webhare/dompack/dompack';
 
-function isAcceptableType(fileType, masks) {
+function isAcceptableType(fileType: string, masks: string[]) {
   if (masks.includes(fileType))
     return true;
 
@@ -20,27 +20,25 @@ function isAcceptableType(fileType, masks) {
 }
 
 
-export default class FileEditBase {
-  constructor(node, options?) {
-    const formnode = node.closest('form');
-    if (formnode && !formnode.dataset.whFormId & !formnode.dataset.whFormTarget) //doesn't look like a RPC form
-      return; //then don't replace it!
+export default abstract class FileEditBase {
+  readonly node: HTMLElement;
+  isrequired: boolean;
+  busy = false;
+  deferredvalues = new Array<DeferredPromise<unknown>>();
 
+  constructor(node: HTMLElement) {
     this.node = node;
-    //FIXME properly cooperate with required... but parsley will insist on validating if required is set (TODO so might not be relevant anymore)
-    this.isrequired = node.required || node.hasAttribute("data-wh-form-required");
+    this.isrequired = (isFormControl(node) && node.required) || node.hasAttribute("data-wh-form-required");
+    //@ts-ignore does forms even pick up on this?
     node.required = false;
     this.node.whFormsApiChecker = () => this._check();
     this.node.whUseFormGetValue = true;
     this.node.addEventListener('wh:form-getvalue', evt => this.getValue(evt));
-    this.busy = false;
-    this.deferredvalues = [];
 
     this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
     this.node.addEventListener('wh:form-require', evt => this._handleRequire(evt));
   }
-  _afterConstruction() //all derived classes must invoke this at the end of their constructor
-  {
+  _afterConstruction() { //all derived classes must invoke this at the end of their constructor
     this._updateEnabledStatus(this._getEnabled()); //set current status, might already be disabled
   }
   _check() {
@@ -49,20 +47,20 @@ export default class FileEditBase {
     else
       setFieldError(this.node, "", { reportimmediately: false });
   }
-  _handleEnable(evt) {
+  _handleEnable(evt: CustomEvent<{ enabled: boolean }>) {
     dompack.stop(evt);
     this._updateEnabledStatus(evt.detail.enabled);
   }
-  _handleRequire(evt) {
+  _handleRequire(evt: CustomEvent<{ required: boolean }>) {
     dompack.stop(evt);
     this.isrequired = evt.detail.required;
   }
   _getEnabled() {
-    return !this.node.disabled && !this.node.hasAttribute("data-wh-form-disabled");
+    return !(isFormControl(this.node) && this.node.disabled) && !this.node.hasAttribute("data-wh-form-disabled");
   }
-  _updateEnabledStatus(nowenabled) {
+  _updateEnabledStatus(nowenabled: boolean) {
   }
-  getValue(evt) {
+  getValue(evt: CustomEvent<{ deferred: DeferredPromise<unknown> }>) {
     evt.preventDefault();
     evt.stopPropagation();
 
@@ -80,10 +78,11 @@ export default class FileEditBase {
     this.deferredvalues = [];
     toresolve.forEach(deferred => deferred.resolve(value));
   }
-  getFieldValueLink() {
-    throw new Error("Derived classes must implement getFieldValueLink");
-  }
-  async selectFile(evt) {
+
+  abstract getFieldValueLink(): string | null;
+  abstract handleUploadedFile(result: upload.UploadedFile): Promise<void>;
+
+  async selectFile(evt: Event) {
     if (!this._getEnabled())
       return;
 
@@ -92,11 +91,11 @@ export default class FileEditBase {
     const files = await upload.selectFiles();
     this.uploadFile(files, lock);
   }
-  _isAcceptableType(mimetype) {
+  _isAcceptableType(mimetype: string) {
     return !this.node.dataset.whAccept
       || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
   }
-  async uploadFile(files, lock) {
+  async uploadFile(files: FileList, lock: UIBusyLock) {
     if (files.length === 0) {
       lock.release();
       return;

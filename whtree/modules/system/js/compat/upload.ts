@@ -19,7 +19,7 @@ declare global {
   }
 }
 
-interface UploadedFile {
+export interface UploadedFile {
   name: string;
   filetoken: string;
   size: number;
