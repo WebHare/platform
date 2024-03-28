@@ -9,7 +9,7 @@
       <action name="edit" onexecute="editimage" title="" />
       <downloadaction name="download" ondownload="downloadimage" tid="~download" />
       <action name="clear" onexecute="clearimage" title="" />
-      <imageaction name="editaction" imageactiontype="edit" onresend="resetimage" onupload="onuploadimage" title="" />
+      <imageaction name="editaction" imageactiontype="edit" onupload="onuploadimage" title="" />
       <action name="closeinfopanel" onexecute="dohideinfopanel" title="" />
     </actions>
     <menus>

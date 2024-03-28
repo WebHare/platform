@@ -49,7 +49,6 @@ class ImgeditDialogController {
     {
       imgsize: null,
       action: 'upload',
-      resetImage: null,
       ...options
     };
 
@@ -261,12 +260,6 @@ class ImgeditDialogController {
       setModalLayerOpacity: this._setModalLayerOpacity.bind(this),
       editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
     };
-
-    if (this.options.action === "edit") {
-      if (this.options.resetImage)
-        options.resetImage = this.options.resetImage;
-      //ADDME: Drag-n-drop file upload in image editor?
-    }
 
     this.editor = new ImageEditor(container, options);
     container.addEventListener("tollium-imageeditor:load", () => this._onEditorReady());

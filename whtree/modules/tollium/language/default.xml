@@ -564,7 +564,6 @@
       <textgroup gid="messages">   <!-- components.imgedit.messages -->
         <text tid="confirmdiscardchanges">There are unsaved changes.<br/><br/>Do you want to apply the changes before closing the editor?</text>
         <text tid="confirmdiscardtool">The tool is not yet applied.<br/><br/>Are you sure you want to close the editor without applying the tool?</text>
-        <text tid="confirmreset">This will discard all current changes and reset the image to its original.<br/><br/>Are you sure you want to reset the image?</text>
         <text tid="corruptimage">This image cannot be loaded, it is corrupt or has an unsupported format.</text>
         <text tid="maxsizewarning">The image is downscaled because of browser limitations</text>
         <text tid="minsizewarning">The image will be upscaled to meet the requested size requirement</text>

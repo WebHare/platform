@@ -232,26 +232,6 @@ export default class ObjAction extends ActionForwardBase {
     this.target = data.target;
   }
 
-  handleImageReset() {
-    return new Promise(function (resolve) {
-      $todd.createMessageBox(this.owner.displayapp,
-        {
-          title: getTid("tollium:components.imgedit.editor.title"),
-          text: getTid("tollium:components.imgedit.messages.confirmreset"),
-          icon: "question",
-          buttons: [
-            { name: "yes", title: getTid("~yes") },
-            { name: "no", title: getTid("~no") }
-          ],
-          onclose: function (result) {
-            if (result === "yes")
-              this.queueMessage("resend", {}, true);
-            resolve(result);
-          }.bind(this)
-        });
-    }.bind(this));
-  }
-
   async handleImageUploaded(data, file) {
     if (!file || !ImgeditDialogController.checkTypeAllowed(this.owner, file.type))
       return;
@@ -259,8 +239,7 @@ export default class ObjAction extends ActionForwardBase {
     const options = {
       mimetype: file.type,
       imgsize: this.imgsize,
-      action: this.actiontype,
-      resetImage: file.source_fsobject ? this.handleImageReset.bind(this) : null
+      action: this.actiontype
     };
 
     const imageeditdialog = new ImgeditDialogController(this.owner, options);

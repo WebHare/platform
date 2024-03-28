@@ -884,8 +884,6 @@ PUBLIC OBJECTTYPE TolliumImageAction EXTEND TolliumUploadAction
 
   PUBLIC PROPERTY imgsize(pvt_imgsize, SetImgSize);
 
-  PUBLIC FUNCTION PTR onresend;
-
   MACRO NEW()
   {
     this->mimetypes := [ "image/*" ];
@@ -898,7 +896,6 @@ PUBLIC OBJECTTYPE TolliumImageAction EXTEND TolliumUploadAction
     this->pvt_multiple := FALSE;
     this->type := definition.imageactiontype;
     this->imgsize := definition.imgsize;
-    this->onresend := definition.onresend;
   }
 
   UPDATE RECORD FUNCTION GetExtraWebRenderFields()
@@ -959,24 +956,6 @@ PUBLIC OBJECTTYPE TolliumImageAction EXTEND TolliumUploadAction
         this->pvt_editimage := [ image := image ];
     }
   }
-
-  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
-  {
-    SWITCH(type)
-    {
-      CASE "resend"
-      {
-        IF (this->onresend != DEFAULT FUNCTION PTR)
-          this->owner->__ExecuteCallback(this->onresend);
-      }
-
-      DEFAULT
-      {
-        TolliumUploadAction::ProcessInboundMessage(type, msgdata);
-      }
-    }
-  }
-
   MACRO SetType(STRING type)
   {
     IF (type NOT IN [ "upload", "edit" ])
