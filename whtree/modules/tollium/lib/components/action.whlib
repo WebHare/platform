@@ -238,11 +238,14 @@ PUBLIC STATIC OBJECTTYPE TolliumForward EXTEND TolliumActionForwardBase
 
   UPDATE PUBLIC MACRO TolliumWebRender()
   {
-    RECORD compinfo := [ action := GetComponentName(this->action)
-                       , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
-                       ];
+    IF (this->dirtyflags.fully)
+    {
+      RECORD compinfo := [ action := GetComponentName(this->action)
+                         , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
+                         ];
 
-    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
     TolliumComponentBase::TolliumWebRender();
   }
 
@@ -538,32 +541,35 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
 
   UPDATE PUBLIC MACRO TolliumWebRender()
   {
-    STRING ARRAY unmasked_events;
-    IF(this->handlername IN ["copytoclipboard"]) //hack to implement some client-side actions for which we don't actually want a callbcak
-      unmasked_events := STRING[this->handlername];
-    ELSE IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR OR (RecordExists(SELECT FROM this->enableon WHERE GetCell(enableon, this->handlername) != DEFAULT FUNCTION PTR)) OR this->__fallbackhandler != DEFAULT FUNCTION PTR)
-      INSERT Substring(this->handlername, 2) INTO unmasked_events AT END; //ADDME now if all this handlername handling isn't a hack :P
+    IF (this->dirtyflags.fully)
+    {
+      STRING ARRAY unmasked_events;
+      IF(this->handlername IN ["copytoclipboard"]) //hack to implement some client-side actions for which we don't actually want a callbcak
+        unmasked_events := STRING[this->handlername];
+      ELSE IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR OR (RecordExists(SELECT FROM this->enableon WHERE GetCell(enableon, this->handlername) != DEFAULT FUNCTION PTR)) OR this->__fallbackhandler != DEFAULT FUNCTION PTR)
+        INSERT Substring(this->handlername, 2) INTO unmasked_events AT END; //ADDME now if all this handlername handling isn't a hack :P
 
-    IF(NOT ObjectExists(this->owner))
-      THROW NEW Exception(this->name || " (" || this->title || ") has no owner");
+      IF(NOT ObjectExists(this->owner))
+        THROW NEW Exception(this->name || " (" || this->title || ") has no owner");
 
-    BOOLEAN alwaysrequirefocus := this->ShouldAlwaysRequireFocus();
-    RECORD compinfo := [ unmasked_events := unmasked_events
-                       , frameflags := this->owner->frame->GetFlagNames(this->frameflags)
-                       , enableons := (SELECT source := GetComponentName(source->GetEnableOnComponent())
-                                            , checkflags := enableon.checkflags
-                                            , frameflags := this->owner->frame->GetFlagNames(enableon.frameflags)
-                                            , requirefocus := requirefocus OR alwaysrequirefocus
-                                            , requirevisible
-                                            , COLUMN min
-                                            , COLUMN max
-                                            , selectionmatch
-                                         FROM this->enableon)
-                       , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
-                       , ...this->GetExtraWebRenderFields()
-                       ];
+      BOOLEAN alwaysrequirefocus := this->ShouldAlwaysRequireFocus();
+      RECORD compinfo := [ unmasked_events := unmasked_events
+                        , frameflags := this->owner->frame->GetFlagNames(this->frameflags)
+                        , enableons := (SELECT source := GetComponentName(source->GetEnableOnComponent())
+                                              , checkflags := enableon.checkflags
+                                              , frameflags := this->owner->frame->GetFlagNames(enableon.frameflags)
+                                              , requirefocus := requirefocus OR alwaysrequirefocus
+                                              , requirevisible
+                                              , COLUMN min
+                                              , COLUMN max
+                                              , selectionmatch
+                                          FROM this->enableon)
+                        , shortcut := RecordExists(this->pvt_shortcut) ? CellInsert(this->pvt_shortcut, "titlekeystr", this->GetShortcutString()) : DEFAULT RECORD
+                        , ...this->GetExtraWebRenderFields()
+                        ];
 
-    this->owner->tolliumcontroller->SendComponent(this, compinfo);
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
     TolliumComponentBase::TolliumWebRender();
   }
 
