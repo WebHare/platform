@@ -686,7 +686,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
       //FIXME WRD TS needs to provide a password validation API that understands the attribute. perhaps even wrap the whole verification into the IdentityProvider class to ensure central ratelimits/auditing
       //@ts-ignore see above why we can't get this value typed
-      const hash = userinfo?.password?.passwords?.[0].passwordhash || userinfo?.password;
+      const hash = userinfo?.password?.passwords?.at(-1)?.passwordhash || userinfo?.password;
       if (hash?.startsWith("WHBF:") || hash?.startsWith("LCR:")) {
         if (!await loadlib("wh::crypto.whlib").verifyWebHarePasswordHash(password, hash))
           userid = 0;
