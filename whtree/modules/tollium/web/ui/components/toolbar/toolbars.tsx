@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from "dompack";
 
 import "./toolbars.css";
@@ -20,9 +17,13 @@ export class ToolbarButton {
   toolbar: Toolbar;
   options: ToolbarButtonOptions;
 
-  constructor(toolbar: Toolbar, options: ToolbarButtonOptions = { enabled: true, pressed: false }) {
+  constructor(toolbar: Toolbar, options?: ToolbarButtonOptions) {
     this.toolbar = toolbar;
-    this.options = options;
+    this.options = {
+      enabled: true,
+      pressed: false,
+      ...options
+    };
 
     this.node = <div class={["wh-toolbar-button", ...(this.options.classNames || [])].join(" ")} title={this.options.hint}></div>;
     this.node.addEventListener("click", () => this.executeAction());

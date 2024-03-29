@@ -10,7 +10,7 @@ import { addImageCropButton } from "./crop";
 import { addFiltersButton } from "./filters";
 import { addRefPointButton } from "./refpoint";
 import { addImageRotateButton } from "./scaling";
-import { ImageSurface } from "./surface";
+import { ImageSurface, type ImageSurfaceOptions } from "./surface";
 
 import "./imageeditor.css";
 import "./imageeditor.lang.json";
@@ -29,13 +29,41 @@ Supported debug flags:
 
 export type SetStatusCallback = (width: number, height: number, orgwidth: number, orgheight: number) => void;
 
+export interface ImageEditorOptions extends ImageSurfaceOptions {
+  width?: number;
+  height?: number;
+  toolbarheight?: number;
+  imgsize?: null;
+  resourcebase?: string;
+  setStatus?: null;
+  createScreen?: null;
+  setModalLayerOpacity?: null;
+}
+
 export class ImageEditor {
-  constructor(el, options = {}) {
-    this.el = null;
-    this.toolbar = null;
-    this.surface = null;
-    this.cropper = null;
-    this.rotator = null;
+  readonly el: HTMLElement;
+  readonly toolbar: Toolbar;
+  readonly surface: ImageSurface;
+  undobutton;
+  redobutton;
+  cropper;
+  rotator;
+  filters;
+  pointer;
+  mimetype: string;
+  filename: string;
+  orgblob: null;
+  cropsize: null;
+  cropratio: null;
+  fixorientation: boolean;
+  allowedactions: never[];
+  allowedfilters: never[];
+  previewing: boolean;
+  dirty: boolean;
+  options: Required<ImageEditorOptions>;
+
+  constructor(el: HTMLElement, options: ImageEditorOptions = {}) {
+    this.el = el;
     this.mimetype = "";
     this.filename = "";
     this.orgblob = null;
@@ -57,18 +85,18 @@ export class ImageEditor {
       createScreen: null,
       setModalLayerOpacity: null,
       editorBackground: "",
-      ...options,
       maxLength: MAX_IMAGE_LENGTH,
-      maxArea: MAX_IMAGE_AREA
+      maxArea: MAX_IMAGE_AREA,
+      ...options
     };
 
     this.el = el;
 
     this.toolbar = new Toolbar({
-      applyicon: toddImages.createImage("tollium:actions/apply", 24, 24, "b"),
-      applylabel: getTid("~apply"),
-      closeicon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b"),
-      closelabel: getTid("~cancel")
+      applyIcon: toddImages.createImage("tollium:actions/apply", 24, 24, "b"),
+      applyLabel: getTid("~apply"),
+      closeIcon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b"),
+      closeLabel: getTid("~cancel")
     });
     this.surface = new ImageSurface(this.el, this.toolbar, options);
     this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt));
@@ -148,7 +176,7 @@ export class ImageEditor {
     };
     if (this.options.imgsize) {
       // If the image didn't actually change, we can return the original blob directly
-      if (!this.surface.isModified() && !ImageEditor.resizeMethodApplied(this.options.imgsize, canvas.width, canvas.height, mimetype)) {
+      if (!this.surface.isModified() && !resizeMethodApplied(this.options.imgsize, canvas.width, canvas.height, mimetype)) {
         // Call callback after a delay; maybe the caller doesn't expect the callback to be called directly
         const blob = this.orgblob;
         setTimeout(function () {
@@ -385,7 +413,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
 }
 
 // Check if the given resize method is applied for an image with given widht, height and MIME type
-ImageEditor.resizeMethodApplied = function (imgsize, width, height, mimetype) {
+export function resizeMethodApplied(imgsize, width, height, mimetype) {
   // If preserveifunchanged is not set (unless resize method is "none"), the method is applied
   if (!imgsize.noforce && imgsize.method !== "none")
     return true;

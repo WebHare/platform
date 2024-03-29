@@ -4,18 +4,21 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { ToolbarButton, ToolbarPanel, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { ToolbarButton, ToolbarPanel, ToolbarSeparator, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import { SurfaceTool } from "./surfacetool";
 import "./imageeditor.lang.json";
+import type { ImageSurface } from "./surface";
 
 class PhotoRotate extends SurfaceTool {
-  constructor(surface, options) {
-    super(surface, options);
+  options;
+  angle = 0;
+  scale = { x: 1, y: 1 };
+  active = false;
+  canvasscale = 1;
+  scalepanel;
 
-    this.angle = 0;
-    this.scale = { x: 1, y: 1 };
-    this.active = false;
-    this.canvasscale = 1;
+  constructor(surface: ImageSurface, options?) {
+    super(surface);
 
     this.options = {
       setStatus: null,
@@ -55,7 +58,7 @@ class PhotoRotate extends SurfaceTool {
       }));
   }
 
-  startScaling(toolbar) {
+  startScaling(toolbar: Toolbar) {
     toolbar.activateModalPanel(this.scalepanel);
     this.surface.hidePreviewCanvas();
     this.start();
@@ -68,13 +71,13 @@ class PhotoRotate extends SurfaceTool {
     this.scale = { x: 1, y: 1 };
 
     //what scale to use to fit image on canvas in current position
-    const canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
-    const canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
+    const canvasscalex = this.surface.canvas.width / this.surface.viewPort.x;
+    const canvasscaley = this.surface.canvas.height / this.surface.viewPort.y;
     this.canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
 
     //what scale if rotated 90deg.:
-    const canvasscalexr = this.surface.canvas.width / this.surface.viewport.y;
-    const canvasscaleyr = this.surface.canvas.height / this.surface.viewport.x;
+    const canvasscalexr = this.surface.canvas.width / this.surface.viewPort.y;
+    const canvasscaleyr = this.surface.canvas.height / this.surface.viewPort.x;
     this.canvasscale = canvasscalexr > this.canvasscale ? canvasscalexr : this.canvasscale;
     this.canvasscale = canvasscaleyr > this.canvasscale ? canvasscaleyr : this.canvasscale;
     if (this.canvasscale < 1)
@@ -86,14 +89,14 @@ class PhotoRotate extends SurfaceTool {
     //resize canvas so it fits if rotated
     const cssw = Math.round(this.surface.canvas.width / this.canvasscale);
     const cssh = Math.round(this.surface.canvas.height / this.canvasscale);
-    this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
-    this.surface.canvasdata.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
+    this.surface.canvasData.cssSize = { 'x': cssw, 'y': cssh };
+    this.surface.canvasData.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px',
-      'height': this.surface.canvasdata.csssize.y + 'px',
-      'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px',
-      'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasData.cssSize.x + 'px',
+      'height': this.surface.canvasData.cssSize.y + 'px',
+      'margin-left': Math.ceil(this.surface.canvasData.cssSize.x * -0.5) + 'px',
+      'margin-top': Math.ceil(this.surface.canvasData.cssSize.y * -0.5) + 'px'
     });
     this.surface.updateMaskCanvas();
 
@@ -108,8 +111,8 @@ class PhotoRotate extends SurfaceTool {
     this.rotate(0);
 
     //what scale to use to fit image on canvas in current position
-    const canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
-    const canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
+    const canvasscalex = this.surface.canvas.width / this.surface.viewPort.x;
+    const canvasscaley = this.surface.canvas.height / this.surface.viewPort.y;
     this.canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
     if (this.canvasscale < 1)
       this.canvasscale = 1;//don't scale up
@@ -119,14 +122,14 @@ class PhotoRotate extends SurfaceTool {
 
     const cssw = Math.round(this.surface.canvas.width / this.canvasscale);
     const cssh = Math.round(this.surface.canvas.height / this.canvasscale);
-    this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
-    this.surface.canvasdata.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
+    this.surface.canvasData.cssSize = { 'x': cssw, 'y': cssh };
+    this.surface.canvasData.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px',
-      'height': this.surface.canvasdata.csssize.y + 'px',
-      'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px',
-      'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasData.cssSize.x + 'px',
+      'height': this.surface.canvasData.cssSize.y + 'px',
+      'margin-left': Math.ceil(this.surface.canvasData.cssSize.x * -0.5) + 'px',
+      'margin-top': Math.ceil(this.surface.canvasData.cssSize.y * -0.5) + 'px'
     });
     this.surface.updateMaskCanvas();
     this.refreshSurface();
@@ -158,13 +161,13 @@ class PhotoRotate extends SurfaceTool {
       newh = this.surface.canvas.width;
 
       //switch scalefactors
-      const scalex = this.surface.imgdata.scale.x;
-      this.surface.imgdata.scale.x = this.surface.imgdata.scale.y;
-      this.surface.imgdata.scale.y = scalex;
+      const scalex = this.surface.imgData.scale.x;
+      this.surface.imgData.scale.x = this.surface.imgData.scale.y;
+      this.surface.imgData.scale.y = scalex;
 
-      const rx = this.surface.canvasdata.realsize.x;
-      this.surface.canvasdata.realsize.x = this.surface.canvasdata.realsize.y;
-      this.surface.canvasdata.realsize.y = rx;
+      const rx = this.surface.canvasData.realSize.x;
+      this.surface.canvasData.realSize.x = this.surface.canvasData.realSize.y;
+      this.surface.canvasData.realSize.y = rx;
     } else if (Math.round(Math.sin(props.angle * Math.PI / 180) * 100) === 0) {//rotated 0 or 360 deg.
       //no change in dimensions
     } else {//arbitrary angle
@@ -187,7 +190,7 @@ class PhotoRotate extends SurfaceTool {
       this.surface.canvas.height = max;
       this.surface.ctx.putImageData(idata, Math.floor(0.5 * (max - prevw)), Math.floor(0.5 * (max - prevh)), 0, 0, prevw, prevh);
 
-      copy = this.surface.cloneCanvas({ clearoriginal: true });
+      copy = this.surface.cloneCanvas({ clearOriginal: true });
 
       //Rotate and or flip canvas
       this.surface.ctx.save();
@@ -210,7 +213,7 @@ class PhotoRotate extends SurfaceTool {
       this.surface.canvas.height = newh;
       this.surface.ctx.putImageData(idata, 0, 0);
     } else {
-      copy = this.surface.cloneCanvas({ clearoriginal: true });
+      copy = this.surface.cloneCanvas({ clearOriginal: true });
 
       this.surface.ctx.save();
       this.surface.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -224,26 +227,26 @@ class PhotoRotate extends SurfaceTool {
 
     if (!this.active) {//used if direct call from history
       //what scale to use to fit image on canvas in current position
-      const canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
-      const canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
+      const canvasscalex = this.surface.canvas.width / this.surface.viewPort.x;
+      const canvasscaley = this.surface.canvas.height / this.surface.viewPort.y;
       this.canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
       if (this.canvasscale < 1)
         this.canvasscale = 1;//don't scale up
     }
-    this.surface.canvasscale = 1 / this.canvasscale;
+    this.surface.canvasScale = 1 / this.canvasscale;
 
     //correct css position/dimensions
     const cssw = Math.round(this.surface.canvas.width / this.canvasscale);
     const cssh = Math.round(this.surface.canvas.height / this.canvasscale);
 
-    this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
-    this.surface.canvasdata.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
+    this.surface.canvasData.cssSize = { 'x': cssw, 'y': cssh };
+    this.surface.canvasData.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px',
-      'height': this.surface.canvasdata.csssize.y + 'px',
-      'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px',
-      'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasData.cssSize.x + 'px',
+      'height': this.surface.canvasData.cssSize.y + 'px',
+      'margin-left': Math.ceil(this.surface.canvasData.cssSize.x * -0.5) + 'px',
+      'margin-top': Math.ceil(this.surface.canvasData.cssSize.y * -0.5) + 'px'
     });
     this.surface.updateMaskCanvas();
     this.surface.showScale();
@@ -260,7 +263,7 @@ class PhotoRotate extends SurfaceTool {
     this.rotate(0);
   }
 
-  rotate(degrees) {
+  rotate(degrees: number) {
     this.angle += degrees;
     this.angle -= Math.floor(this.angle / 360) * 360;//keep range between 0 and 360
 
@@ -278,10 +281,10 @@ class PhotoRotate extends SurfaceTool {
       neww = this.surface.canvas.height;
       newh = this.surface.canvas.width;
       this.surface.updateMaskCanvas({
-        left: Math.floor((this.surface.maskcanvas.width - this.surface.canvasdata.csssize.y) / 2),
-        top: Math.floor((this.surface.maskcanvas.height - this.surface.canvasdata.csssize.x) / 2),
-        width: this.surface.canvasdata.csssize.y,
-        height: this.surface.canvasdata.csssize.x
+        left: Math.floor((this.surface.maskCanvas.width - this.surface.canvasData.cssSize.y) / 2),
+        top: Math.floor((this.surface.maskCanvas.height - this.surface.canvasData.cssSize.x) / 2),
+        width: this.surface.canvasData.cssSize.y,
+        height: this.surface.canvasData.cssSize.x
       });
     } else
       this.surface.updateMaskCanvas();
@@ -292,7 +295,7 @@ class PhotoRotate extends SurfaceTool {
 
 export type { PhotoRotate };
 
-export function addImageRotateButton(toolbar, surface, options) {
+export function addImageRotateButton(toolbar: Toolbar, surface: ImageSurface, options?) {
   const rotator = new PhotoRotate(surface, options);
 
   const button = new ToolbarButton(toolbar,

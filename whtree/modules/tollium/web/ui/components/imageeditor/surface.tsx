@@ -1,7 +1,7 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { ApplicationBusyLock } from "@mod-tollium/web/ui/js/application";
+import { type ApplicationBusyLock } from "@mod-tollium/web/ui/js/application";
 import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import { PhotoCrop } from "./crop";
 import { PhotoRotate } from "./scaling";
@@ -10,8 +10,8 @@ import { PhotoPoint } from "./refpoint";
 
 require("./imageeditor.lang.json");
 
-type ImageSurfaceOptions = {
-  getBusyLock?: () => ApplicationBusyLock;
+export type ImageSurfaceOptions = {
+  getBusyLock?: (() => ApplicationBusyLock) | null;
   editorBackground?: string;
   maxLength?: number;
   maxArea?: number;
@@ -98,6 +98,12 @@ export class ImageSurface {
 
   constructor(imgEditorNode: HTMLElement, toolbar: Toolbar, options?: ImageSurfaceOptions) {
     this.imgEditorNode = imgEditorNode;
+    this.options = {
+      editorBackground: "",
+      maxLength: 0,
+      maxArea: 0,
+      ...options
+    };
 
     this.node = <div class="wh-image-surface" tabindex="0">
       {this.canvas = <canvas />}
@@ -105,6 +111,7 @@ export class ImageSurface {
     </div>;
     if (this.options.editorBackground)
       this.node.style.background = this.options.editorBackground;
+
   }
 
   fireEvent(name: string, detail?: unknown) {
@@ -152,7 +159,7 @@ export class ImageSurface {
   // Are there image data modifying changes?
   isModified() {
     // Returns true if there is at least one image modifying state on the undo stack
-    return this.undoStack.findIndex(function(state) {
+    return this.undoStack.findIndex(function (state) {
       return !state.meta;
     }) >= 0;
   }
@@ -395,7 +402,7 @@ export class ImageSurface {
 
   }
 
-  pushUndo(state: EditStep, replace_same_action: boolean) {
+  pushUndo(state: EditStep, replace_same_action?: boolean) {
     // If pushing the same action, replace the previous state if the redo stack is empty
     if (replace_same_action
       && this.undoStack.length
