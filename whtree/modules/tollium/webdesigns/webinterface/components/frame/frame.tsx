@@ -22,6 +22,8 @@ import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } 
 import type ObjAction from '../action/action';
 import { debugFlags } from '@webhare/env';
 import "./frame.scss";
+import type { DeferredPromise } from '@webhare/std';
+import { toCamelCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
 
 // Give each frame a unique identifier
 let framecounter = 0;
@@ -135,6 +137,9 @@ export default class Frame extends ToddCompBase {
 
   private innerFocusNode: HTMLElement | null = null;
   private innerFocusName: string | null = null;
+
+  /** asyncRequests. we keep them at the frame level as components might be recreated and the new one can't deal with the response (and thus can't clear locks) */
+  pendingRequests = new Map<string, DeferredPromise<unknown>>;
 
   get innerFocus() {
     return this.innerFocusNode;
@@ -319,6 +324,9 @@ export default class Frame extends ToddCompBase {
       if (obj && obj !== this) //don't self destruct, we're already running destroy
         obj.destroy();
     }
+
+    for (const leftover of this.pendingRequests.values())
+      leftover.reject(new Error("Screen is unloading"));
 
     delete this.hostapp.screenmap[this.screenname];
 
@@ -755,6 +763,19 @@ export default class Frame extends ToddCompBase {
   /****************************************************************************************************************************
    * Communications
    */
+  onMsgAsyncResponse(response: { promiseid: string; resolve?: unknown; reject?: string }) {
+    const deferred = this.pendingRequests.get(response.promiseid);
+    if (!deferred) {
+      console.error(`Received response for unknown promiseid '${response.promiseid}'`);
+      return;
+    }
+    this.pendingRequests.delete(response.promiseid);
+
+    if ("resolve" in response)
+      deferred.resolve(toCamelCase(response.resolve));
+    else
+      deferred.reject(new Error(response.reject));
+  }
 
   getSubmitVariables() {
     const framevar: {

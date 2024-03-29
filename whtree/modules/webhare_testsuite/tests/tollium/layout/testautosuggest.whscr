@@ -8,7 +8,7 @@ ASYNC MACRO TestAutoSuggest()
   AWAIT ExpectScreenChange(+1, PTR TTCLick("openautosuggest"));
 
   //Note: we are NOT testing the static combobox version, as that one's only implemented client-side for speed
-  RECORD ARRAY results := AWAIT TT("combodynamic")->LookupForAutosuggest("Text");
+  RECORD ARRAY results := AWAIT TT("combodynamic")->OnRequestLookup("Text");
   TestEq(11, Length(results));
   TestEq("Text1", results[0].value);
   TestEq("", results[0].append);
@@ -16,7 +16,7 @@ ASYNC MACRO TestAutoSuggest()
   TestEq("(2)", results[1].append);
 
   //Test whether user context was carried over succesfully
-  results := AWAIT TT("combodynamic")->LookupForAutosuggest("user:");
+  results := AWAIT TT("combodynamic")->OnRequestLookup("user:");
   TestEq("user:sysop@beta.webhare.net", results[0].value);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

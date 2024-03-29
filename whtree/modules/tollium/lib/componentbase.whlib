@@ -1388,6 +1388,24 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     this->owner->tolliumscreenmanager->QueueEvent(this, "inboundmessage", [ type := type, data := msgdata ]);
   }
 
+  ASYNC MACRO ProcessInboundAsyncRequest(RECORD msgdata)
+  {
+    STRING handler := "OnRequest" || msgdata.type;
+
+    TRY
+    {
+      IF(NOT MemberExists(this,handler))
+        THROW NEW TolliumException(this, `Missing handler '${handler}'`);
+
+      VARIANT result := AWAIT GetObjectMethodPtr(this, handler)(msgdata.data);
+      this->owner->frame->QueueOutboundMessage("AsyncResponse", CELL [msgdata.promiseid, resolve := result ]);
+    }
+    CATCH(OBJECT e)
+    {
+      this->owner->frame->QueueOutboundMessage("AsyncResponse", CELL [msgdata.promiseid, reject := e->what ]);
+    }
+  }
+
   PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
   {
     SWITCH (type)
@@ -1396,10 +1414,16 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       {
         IF (this->pvt_onfocusin != DEFAULT FUNCTION PTR)
           this->pvt_onfocusin();
-        RETURN;
+      }
+      CASE "asyncRequest"
+      {
+        this->ProcessInboundAsyncRequest(msgdata);
+      }
+      DEFAULT
+      {
+        THROW NEW TolliumException(this, `Unhandled inbound message of type '${type}'${IsDTAPLive() ? "" : ` (component type: ${Detokenize(GetObjectExtendNames(this), ", ")})`}`);
       }
     }
-    THROW NEW TolliumException(this, `Unhandled inbound message of type '${type}'${IsDTAPLive() ? "" : ` (component type: ${Detokenize(GetObjectExtendNames(this), ", ")})`}`);
   }
 
   PUBLIC MACRO QueueOutboundMessage(STRING type, RECORD msgdata)
