@@ -1108,20 +1108,11 @@ OBJECT ASYNC FUNCTION PublisherActions()
 
   TT("filelist")->value := [ INTEGER(testfile->id) ];
 
-  STRING ARRAY uploadtokens := TT("replace")->PrepareUpload(
+  AWAIT ExpectNoScreenChange(PTR TT("replace")->ExecuteUpload([
       [ data :=     GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
       , filename := "replace.doc"
       , mimetype := "application/msword"
-      ]);
-
-  AWAIT ExpectNoScreenChange(PTR TT("replace")->ProcessInboundMessage("upload",
-      [ rule := 0 // rule 1: file tree
-      , items :=
-            [ [ type := "file"
-              , token := uploadtokens[0]
-              ]
-            ]
-      ]));
+      ]]));
 
   testfile->Refresh();
   TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), testfile->data);
@@ -1145,20 +1136,11 @@ OBJECT ASYNC FUNCTION PublisherActions()
   testfile->UpdateMetadata([ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
   testfw->CommitWork();
 
-  uploadtokens := TT("replace")->PrepareUpload(
+  AWAIT ExpectNoScreenChange(PTR TT("replace")->ExecuteUpload([
       [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
       , filename := "replace.doc"
       , mimetype := "application/msword"
-      ]);
-
-  AWAIT ExpectNoScreenChange(PTR TT("replace")->ProcessInboundMessage("upload",
-      [ rule := 0 // rule 1: file tree
-      , items :=
-            [ [ type := "file"
-              , token := uploadtokens[0]
-              ]
-            ]
-      ]));
+      ]]));
 
   // No draft, file data is replaced in live version
   TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished_versioned.doc doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
@@ -1184,21 +1166,12 @@ OBJECT ASYNC FUNCTION PublisherActions()
   testfile->UpdateMetadata([ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
   testfw->CommitWork();
 
-  uploadtokens := TT("replace")->PrepareUpload(
+  // Get a approval dialog
+  AWAIT ExpectNoScreenChange(PTR TT("replace")->ExecuteUpload([
       [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
       , filename := "replace.doc"
       , mimetype := "application/msword"
-      ]);
-
-  // Get a approval dialog
-  AWAIT ExpectNoScreenChange(PTR TT("replace")->ProcessInboundMessage("upload",
-      [ rule := 0 // rule 1: file tree
-      , items :=
-            [ [ type := "file"
-              , token := uploadtokens[0]
-              ]
-            ]
-      ]));
+      ]]));
 
   testfiledraft := GetPublicDraft(testfile->id);
   TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx"), testfile->data);
@@ -1227,20 +1200,11 @@ OBJECT ASYNC FUNCTION PublisherActions()
   SubmitApprovalRequestForDraft(CreateDraftFromFile(testfile), [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test disallow blob replace" ]);
   testfw->CommitWork();
 
-  uploadtokens := TT("replace")->PrepareUpload(
+  executemsg := PTR TT("replace")->ExecuteUpload([
       [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
       , filename := "replace.doc"
       , mimetype := "application/msword"
-      ]);
-
-  executemsg := PTR TT("replace")->ProcessInboundMessage("upload",
-      [ rule := 0 // rule 1: file tree
-      , items :=
-            [ [ type := "file"
-              , token := uploadtokens[0]
-              ]
-            ]
-      ]);
+      ]]);
 
   // Got a work error dialog with error message, ok it
   AWAIT ExpectAndAnswerMessageBox("ok", executemsg);
@@ -2168,21 +2132,11 @@ OBJECT ASYNC FUNCTION PublisherUpload()
 
   // ------
   // Test: uploaded file should not be published
-
-  STRING ARRAY uploadtokens := TT("upload")->PrepareUpload(
+  AWAIT ExpectNoScreenChange(PTR TT("upload")->ExecuteUpload([
       [ data :=     GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx")
       , filename := "new-upload.doc"
       , mimetype := "application/msword"
-      ]);
-
-  AWAIT ExpectNoScreenChange(PTR TT("upload")->ProcessInboundMessage("upload",
-      [ rule := 0 // rule 1: file tree
-      , items :=
-            [ [ type := "file"
-              , token := uploadtokens[0]
-              ]
-            ]
-      ]));
+      ]]));
 
   OBJECT root := testfw->GetTestSite()->rootobject;
 
