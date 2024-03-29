@@ -38,13 +38,16 @@ const jsappconstructors: Record<string, JSAppConstructor> = {};
 
 /** Busy lock (while taken, the tollium app is busy
 */
-class ApplicationBusyLock {
+class ApplicationBusyLock implements Disposable {
   private readonly lock: Lock;
   private readonly app: ApplicationBase;
 
   constructor(app: ApplicationBase) {
     this.lock = flagUIBusy();
     this.app = app;
+  }
+  [Symbol.dispose]() {
+    this.release();
   }
   release() {
     this.lock.release();
@@ -279,7 +282,7 @@ export class ApplicationBase {
   /** Acquires a busy lock, returns the lock object. Can be closed with .close(). The application
       is busy until all busy locks are closed
   */
-  getBusyLock() {
+  getBusyLock(): ApplicationBusyLock {
     const lock = new ApplicationBusyLock(this);
     this.busylocks.push(lock);
 
