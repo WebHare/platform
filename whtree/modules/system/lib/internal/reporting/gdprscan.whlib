@@ -35,15 +35,7 @@ PUBLIC MACRO PrintGDPRScanReport(RECORD report)
   IF(Length(dbschemas) > 0)
     Print("Visit https://my.webhare.dev/?app=system:dba to manage database schemas\n\n");
 
-  //Delete schemas that are empty or only contain testpersons. (TODO but we should also count other sensitive types, not just persons)
-  RECORD ARRAY checkschemas := SELECT *
-                                 FROM report.wrdschemas
-                                WHERE RecordExists(personstats)
-                                      AND (personstats.numactive + personstats.inactive) >= 10
-                                      AND (personstats.testpersons != personstats.numactive + personstats.inactive
-                                           OR personstats.testpersons >= 50);
-
-  FOREVERY(RECORD wrdschema FROM checkschemas)
+  FOREVERY(RECORD wrdschema FROM FilterRelevantWRDSchemas(report.wrdschemas))
   {
     Print("WRD Schema: " || wrdschema.name || (wrdschema.title != "" ? " (" || wrdschema.title || ")" : "") || "\n");
     Print("   created: " || FormatDatetime("%Y-%m-%d", wrdschema.creationdate) || "\n");
@@ -65,6 +57,18 @@ PUBLIC MACRO PrintGDPRScanReport(RECORD report)
       Print((CellExists(msg,'message_text') ? msg.message_text : GetTid(msg.msg)) || "\n");
     Print("\n");
   }
+}
+
+PUBLIC RECORD ARRAY FUNCTION FilterRelevantWRDSchemas(RECORD ARRAY wrdschemas)
+{
+  //Delete schemas that are empty or only contain testpersons. (TODO but we should also count other sensitive types, not just persons)
+  RETURN
+      SELECT *
+        FROM wrdschemas
+       WHERE RecordExists(personstats)
+             AND (personstats.numactive + personstats.inactive) >= 10
+             AND (personstats.testpersons != personstats.numactive + personstats.inactive
+                  OR personstats.testpersons >= 50);
 }
 
 PUBLIC RECORD FUNCTION GetGDPRScanReport()
