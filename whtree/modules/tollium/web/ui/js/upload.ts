@@ -1,203 +1,186 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import UploadDialogController from './dialogs/uploadcontroller';
-import ImgeditDialogController from './dialogs/imgeditcontroller';
-import * as compatupload from '@mod-system/js/compat/upload';
-import { flagUIBusy } from 'dompack';
+import ImgeditDialogController, { type ImageSettings, type RefPoint } from './dialogs/imgeditcontroller';
+import * as frontend from '@webhare/frontend';
+import type { ToddCompBase } from './componentbase';
+import { MultiFileUploader, type UploadRequestOptions } from '@webhare/frontend/src/upload';
+import type { CurrentDragData } from './dragdrop';
+import { isTruthy } from '@webhare/std/collections';
+import { flagUIBusy } from '@webhare/dompack';
 
 require("../common.lang.json");
 
 
-function getUploadTolliumData(component) {
-  return JSON.stringify(
-    {
-      l: component.owner.hostapp.whsid,
-      w: component.owner.screenname,
-      n: component.name
-    });
-}
+export type TolliumUploadedCallback = (files: Array<{
+  type: "file";
+  filename: string;
+  filetoken: string;
+}>, closecallback: () => void) => void;
 
 /** Presents a HTML5 file selection dialog, uploads selected files to a component (with progress dialog). On success,
     calls processing callback that must close the progress dialog by callback.
-    @param component Component
-    @param uploadcallback Signature: function (files, dialogclosecallback)
-    @param options
-    @cell options.mimetypes Array of mime types of files that are accepted (can also contain "image/*", "audio/*" or "video/*")
-    @cell options.multiple
 */
-export async function uploadFiles(component, uploadedcallback, options) {
-  //Note: this works because selectAndUploadFile will always yield at some point, allowing us to receive the value of group, and allowing onLoadstart to use it
-  options = { ...options };
+export async function uploadFiles(component: ToddCompBase, uploadedcallback: TolliumUploadedCallback, options?: UploadRequestOptions) {
+  const uploader = await frontend.requestFiles(options);
 
-  const files = await compatupload.selectFiles({
-    mimetype: options.mimetypes,
-    multiple: options.multiple
-  });
+  if (!uploader) {
+    uploadedcallback([], () => { });
+    return;
+  }
 
-  uploadBlobs(component, files, uploadedcallback);
+  runUpload(component, uploader, uploadedcallback);
 }
 
-/** Presents a HTML5 file selection dialog, receive selected files. On success, calls processing callback.
-    @param component Component
-    @param uploadcallback Signature: function (files)
-    @param options
-    @cell options.mimetypes Array of mime types of files that are accepted (can also contain "image/*", "audio/*" or "video/*")
-    @cell options.multiple
-*/
-export async function receiveFiles(component, options) {
-  options = options || {};
-  return compatupload.selectFiles({
-    mimetype: options.mimetypes,
-    multiple: options.multiple
-  });
+async function uploadBlobs(component: ToddCompBase, blobs: Blob[], uploadedcallback: TolliumUploadedCallback) {
+  const uploader = new MultiFileUploader(blobs.map(blob => new File([blob], "blob", { type: blob.type })));
+  runUpload(component, uploader, uploadedcallback);
 }
 
-export async function uploadBlobs(component, blobs, uploadedcallback) {
-  const uploader = new compatupload.UploadSession(blobs, { params: { tolliumdata: getUploadTolliumData(component) } });
-  const uploadcontroller = new UploadDialogController(component.owner, uploader);
-  const result = await uploader.upload();
+async function uploadFilesWithPath(component: ToddCompBase, files: ItemWithFullpath[], uploadedcallback: TolliumUploadedCallback) {
+  const uploader = new MultiFileUploader(files.map(item => item.file));
+  runUpload(component, uploader, uploadedcallback);
+}
+
+async function runUpload(component: ToddCompBase, uploader: MultiFileUploader, uploadedcallback: TolliumUploadedCallback) {
+  const response = await component.asyncRequest<frontend.UploadInstructions>("canUpload", uploader.manifest);
+  const aborter = new AbortController;
+  const uploadcontroller = new UploadDialogController(component.owner, aborter);
 
   try {
-    uploadedcallback(result, () => uploadcontroller.close());
+    const result = await uploader.upload(response, { onProgress: uploadcontroller.onProgress, signal: aborter.signal });
+    uploadcontroller.gotEnd({ success: true }); //disables cancel button until we have a chance to fully dismiss th edialog
+    uploadedcallback(result.map(i => ({ type: "file", filename: i.name, filetoken: i.token })), () => uploadcontroller.close());
   } catch (e) {
     console.error("upload exception", e);
+    //TODO uploadcontroller.gotEnd({ success: false });  - and give the user a chance to see it? how to trigger?
+
     uploadedcallback([], () => uploadcontroller.close());
   }
 }
 
-async function gatherUploadFiles(items) {
-  let files = [];
+type ItemWithFullpath = { file: File; fullpath: string };
+
+async function gatherUploadFiles(items: FileSystemEntry[]): Promise<ItemWithFullpath[]> {
+  const files: ItemWithFullpath[] = [];
 
   for (let i = 0; i < items.length; ++i) {
     if (items[i].isDirectory) {
-      const contents = await new Promise((resolve, reject) => {
-        const reader = items[i].createReader();
+      const contents = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+        const reader = (items[i] as FileSystemDirectoryEntry).createReader();
         reader.readEntries(resolve);
       });
-      files = files.concat(await gatherUploadFiles(contents));
+      files.push(...await gatherUploadFiles(contents));
     } else {
-      files.push(await new Promise((resolve, reject) => {
-        items[i].file(blob => {
-          blob.fullpath = items[i].fullPath;
-          resolve(blob);
-        });
-      }));
+      const file: File = await new Promise<File>(resolve => (items[i] as FileSystemFileEntry).file(resolve));
+      files.push({ file, fullpath: items[i].fullPath });
     }
   }
   return files;
 }
 
+export type ImageUploadCallbackData = {
+  name: string;
+  token: string;
+  extradata: { imageeditor: { refpoint: RefPoint | null } };
+};
+export type ImageUploadCallback = (data: ImageUploadCallbackData) => Promise<void>;
 
+export async function handleImageUpload(component: ToddCompBase, file: File | { type: string; url?: string; name: string; source_fsobject: number; refpoint?: RefPoint }, imgcallback: ImageUploadCallback, options: {
+  mimetype: string;
+  imgsize: unknown;
+  action: string;
+}) {
+  const imageeditdialog = new ImgeditDialogController(component.owner, options);
+  const settings: ImageSettings = {
+    refpoint: "refpoint" in file && file.refpoint ? file.refpoint : null,
+    filename: file.name
+  };
+
+  if ("lastModified" in file) //ugly way to dfiferentiate a real 'uploaded' File from EditImage.file
+    imageeditdialog.loadImageBlob(file, settings);
+  else
+    imageeditdialog.loadImageSrc(file.url, settings);
+
+  const done = await imageeditdialog.defer.promise;
+  // Note: settings is null when the image wasn't edited after upload
+  if (done.blob) {
+    uploadBlobs(component, [done.blob], async (files, uploadcallback) => {
+      // Only called when a file is actually uploaded
+      const extradata = {
+        imageeditor: {
+          // source_fsobject: parseInt(file.source_fsobject) || 0, //FIXME where to preserve this? what is the source? why do we even have this number on the client side?
+          refpoint: done.settings && done.settings.refpoint
+        }
+      };
+      await imgcallback({ name: file.name, token: files[0].filetoken, extradata });
+      uploadcallback();
+      done.editcallback();
+    });
+  } else {
+    // Nothing to upload, we're done
+    done.editcallback();
+  }
+}
 
 /** Given an accepted drop, upload files to a component (with progress dialog), call callback when done (successfully)
     Marks tollium as busy until callback is called.
-    @param component
-    @param dragdata Dragdata (return value of $todd.checkDropTarget)
-    @param callback Callback to call when done uploading. Signature: function (draginfo, dialogclosecallback)
-    @cell draginfo.source Source: 'local'/'files'/'external'
-    @cell draginfo.sourcecomp Source component name (only if source === 'local')
-    @cell items List of items (for type='file', with cells 'token' and 'name')
-    @cell dialogclosecallback Callback to close the progress dialog after drop has finished)
+    @param component - Component
+    @param dragdata - Dragdata (return value of $todd.checkDropTarget)
+    @param callback - Callback to call when done uploading. Signature: function (draginfo, dialogclosecallback)
 */
-export async function uploadFilesForDrop(component: ToddCompBase, dragdata: CurrentDragData, callback) {
+export async function uploadFilesForDrop(component: ToddCompBase, dragdata: CurrentDragData, callback: (msg: unknown, resolve: () => void) => void) {
   const draginfo = dragdata.getData();
-  let files = dragdata.getFiles();
 
-  const islocal = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner === component.owner;
-  const gotfiles = files && files.length;
+  const islocal: boolean = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner === component.owner;
+  const firstFile: File | null = dragdata.getFiles()[0] ?? null;
 
-  const msg =
-  {
-    source: islocal ? 'local' : gotfiles ? 'files' : 'external',
+  const msg = {
+    source: islocal ? 'local' : firstFile ? 'files' : 'external',
     sourcecomp: islocal ? draginfo.source.name : '',
     items: draginfo ? draginfo.items : [],
     dropeffect: dragdata.getDropEffect()
   };
 
-  if (!gotfiles) {
+  if (!firstFile) {
     // No files? Just a busy lock is good enough
-    const busylock = component.owner.displayapp.getBusyLock();
+    const busylock = component.owner.displayapp!.getBusyLock();
     callback(msg, busylock.release.bind(busylock));
     return;
   }
 
   // If this is a drop through an <acceptfile type="edit" > accept rule, open the image editor before uploading
-  if (files.length === 1 && dragdata.acceptrule && dragdata.acceptrule.imageaction === "edit") {
-    const file = files[0];
-    if (!ImgeditDialogController.checkTypeAllowed(component.owner, file.type))
-      return;
+  if (dragdata.acceptrule && dragdata.acceptrule.imageaction === "edit") {
+    handleImageUpload(component, firstFile, async (imgdata: ImageUploadCallbackData) => {
+      msg.items.push({ type: 'file', ...imgdata, extradata: null });
+      return new Promise(resolve => callback(msg, resolve));
+    },
+      { mimetype: firstFile.type, imgsize: dragdata.acceptrule.imgsize, action: "" });
 
-    const options = {
-      imgsize: dragdata.acceptrule.imgsize
-    };
-    const dialog = new ImgeditDialogController(component.owner, options);
-    dialog.loadImageBlob(file, { filename: file.name });
-
-    const done = await dialog.defer.promise;
-
-    if (done.blob) {
-      // Start upload of the file
-      uploadBlobs(component, [done.blob],
-        function (files, closedialogcallback) {
-          if (!files.length) {
-            // got an error uploading the file
-            closedialogcallback();
-            done.editcallback();
-            return;
-          }
-
-          // There is only 1 file uploaded
-          const filename = ensureExtension(files[0].name, files[0].fileinfo.extension);
-
-          msg.items.push({ type: 'file', token: files[0].filetoken, name: filename, extradata: null, fullpath: file.fullpath });
-
-          callback(msg, function () {
-            closedialogcallback();
-            done.editcallback();
-          });
-        });
-    } else {
-      // Nothing to upload, we're done
-      done.editcallback();
-    }
-  } else {
-    const items = dragdata.getItems();
-    if (items.length && items[0].webkitGetAsEntry) {
-      //we'll build a new filelist. setup a quick lock for compatibility with existing tests which don't necesarily expect this await
-      using lock = flagUIBusy();
-      void lock;
-      files = await gatherUploadFiles(items.map(item => item.webkitGetAsEntry()));
-    }
-
-    // Start upload of the file
-    uploadBlobs(component, files,
-      function (files, closedialogcallback) {
-        // got an error uploading the file?
-        if (!files.length)
-          return void closedialogcallback();
-
-        // Files are uploaded, add them to the items list
-        files.forEach(file => {
-          msg.items.push({ type: 'file', token: file.filetoken, name: file.name, fullpath: file.fullpath });
-        });
-
-        callback(msg, closedialogcallback);
-      });
+    return;
   }
-}
 
-export function ensureExtension(filename, extension) {
-  if (!filename || !extension)
-    return filename;
-  if (extension.indexOf(".") !== 0)
-    extension = "." + extension;
+  // Not a drop on an imgedit, just upload the files
+  const items = dragdata.getItems();
 
-  // Check for the right extension (png vs jpg, depending on lossless)
-  const extdot = filename.lastIndexOf(".");
-  if (extdot < 0)
-    filename += extension;
-  else if (filename.substr(extdot) !== extension)
-    filename = filename.substr(0, extdot) + extension;
-  return filename;
+  let files: ItemWithFullpath[];
+  { //we'll build a new filelist. setup a quick lock for compatibility with existing tests which don't necesarily expect this await
+    //TODO make this cleaner but we need more control over the upload dialog then .. we need to keep the lock *until* the subdialog is visible
+    using lock = flagUIBusy();
+    void lock;
+    files = await gatherUploadFiles(items.map(item => item.webkitGetAsEntry()).filter(isTruthy));
+  }
+
+  // Start upload of the file
+  uploadFilesWithPath(component, files,
+    function (receivedFiles, closedialogcallback) {
+      // got an error uploading the file?
+      if (!receivedFiles.length)
+        return void closedialogcallback();
+
+      // Files are uploaded, add them to the items list
+      receivedFiles.forEach((file, idx) => {
+        msg.items.push({ type: 'file', token: file.filetoken, name: file.filename, fullpath: files[idx].fullpath });
+      });
+
+      callback(msg, closedialogcallback);
+    });
 }

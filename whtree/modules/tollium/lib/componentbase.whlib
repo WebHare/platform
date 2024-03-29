@@ -1359,14 +1359,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN this->owner->tolliumcontroller->GetComponentFileTransferUrl(PRIVATE this, type, data, options);
   }
 
-  PUBLIC STRING ARRAY FUNCTION PrepareUpload(RECORD incoming)
-  {
-    THROW NEW Exception("Unexpected PrepareUpload call");
-  }
-
   RECORD FUNCTION ProcessUpload(RECORD msgdata)
   {
-    RETURN msgdata;
+    THROW NEW Exception("Unexpected ProcessUpload call - components implementing drop/upload need to derive from TolliumFileDropAccepter");
   }
 
   // ---------------------------------------------------------------------------

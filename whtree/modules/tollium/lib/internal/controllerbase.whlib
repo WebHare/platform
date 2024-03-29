@@ -2706,11 +2706,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
           DELETE FROM this->current_links AT #link;
           this->linkdispatcher->RegisterLink(link, rec.msg);
         }
-        CASE "upload"
-        {
-          RECORD resp := this->ExecuteUploadRequest(rec.msg);
-          link->SendReply(resp, rec.msgid);
-        }
         CASE "download"
         {
           RECORD resp := this->ExecuteDownloadRequest(rec.msg);
@@ -2756,16 +2751,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     IF(debug_logcontroller)
       LogDebug("tollium:controller", "Unable to find target window");
     RETURN DEFAULT OBJECT;
-  }
-
-  RECORD FUNCTION ExecuteUploadRequest(RECORD request)
-  {
-    OBJECT comp := this->LookupFileTransferComponent(request);
-    IF (NOT ObjectExists(comp))
-      RETURN DEFAULT RECORD;
-
-    STRING ARRAY tokens := comp->PrepareUpload(request.incoming);
-    RETURN [ tokens := tokens ];
   }
 
   RECORD FUNCTION ExecuteDownloadRequest(RECORD request)

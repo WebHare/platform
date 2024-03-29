@@ -1,58 +1,61 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import "../../common.lang.json";
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
+import type { UploadProgressStatus } from "@webhare/frontend";
+import type Frame from "@mod-tollium/webdesigns/webinterface/components/frame/frame";
+import type ObjProgress from "@mod-tollium/webdesigns/webinterface/components/progress/progress";
 
 
-/** Uploads a wh.net.upload UploadItem / UploadItemGroup, while displaying a progress dialog.
-    On finish, a load (or error) event is fired. If no items are present, the load event is
-    fired immediately.
-    @param screen Owner screen
-    @param group Group to upload (upload starts immediately)
+/** Displaying a progress dialog during a \@webhare/frontend uploader
+    @param screen - Owner screen
 */
-class UploadDialogController {
-  constructor(screen, uploadsession) {
-    this.screen = null;
-    this.dialog = null;
-    //this.group = null;
-    this.done = false;
-    this.busylock = null;
+export default class UploadDialogController {
+  started = false;
+  lastProgress?: UploadProgressStatus;
+  aborter;
+  screen: Frame;
+  dialog?: Frame;
+  done = false;
+  busylock?;
 
-    this.uploadsession = uploadsession;
+  constructor(screen: Frame, aborter: AbortController) {
+    this.aborter = aborter;
     this.screen = screen;
-
-    if (this.uploadsession.isStarted())
-      throw new Error("UploadDialogController must be set up before starting the uploadsession");
 
     // Mark the ui busy for testing purposes
     this.busylock = dompack.flagUIBusy();
-
-    this.uploadsession.addEventListener("wh:upload-start", evt => this.gotStart());
-    this.uploadsession.addEventListener("wh:upload-progress", evt => this.gotProgress());
-    this.uploadsession.addEventListener("wh:upload-end", evt => this.gotEnd(evt.detail));
   }
+
+  onProgress = (progress: UploadProgressStatus) => {
+    this.lastProgress = progress;
+    if (!this.started) {
+      this.started = true;
+      this.gotStart();
+    }
+    this.gotProgress();
+  };
 
   /** Compute division factor, postfix and presentation values for a list of byte-sites
       Uses the max value to compute the best presentation
   */
-  computePresentationSizes(values) {
-    const max = Math.max.apply(null, values);
+  computePresentationSizes(values: number[]) {
+    const max = Math.max(...values);
     let divider = 1024, postfix = 'KB';
-    if (max > 1250 * 1024)
-      divider = 1024 * 1024, postfix = 'MB';
+    if (max > 1250 * 1024) {
+      divider = 1024 * 1024;
+      postfix = 'MB';
+    }
 
     return {
       divider: divider,
       postfix: postfix,
-      values: values.map(function (i) { return { txt: (i / divider).toFixed(1) }; })
+      values: values.map(i => ({ txt: (i / divider).toFixed(1) }))
     };
   }
 
   /// Calculate the progress texts to show
   computeTexts() {
-    const state = this.uploadsession.getStatus();
+    const state = { uploaded: this.lastProgress?.uploadedBytes || 0, size: this.lastProgress?.totalBytes || 0, speed: this.lastProgress?.uploadSpeed || 0 };
     const size_stuff = this.computePresentationSizes([state.uploaded, state.size]);
     const speed_stuff = this.computePresentationSizes([state.speed]);
 
@@ -67,7 +70,7 @@ class UploadDialogController {
 
   gotStart() {
     const texts = this.computeTexts();
-    this.dialog = this.screen.displayapp.createScreen(
+    this.dialog = this.screen.displayapp!.createScreen(
       {
         frame: {
           bodynode: 'root',
@@ -104,7 +107,7 @@ class UploadDialogController {
         cancelbutton: { type: 'button', title: getTid('~cancel'), action: 'cancelaction' }
       });
 
-    this.dialog.getComponent('progress').onMsgSetValMax({ max: 100, value: texts.progress });
+    (this.dialog.getComponent('progress') as ObjProgress).onMsgSetValMax({ max: 100, value: texts.progress });
     this.dialog.setMessageHandler("cancelaction", "execute", this.wantAbort.bind(this));
     this.dialog.setMessageHandler("frame", "close", this.wantAbort.bind(this));
   }
@@ -112,13 +115,13 @@ class UploadDialogController {
   gotProgress() {
     if (this.dialog) {
       const texts = this.computeTexts();
-      this.dialog.getComponent('progress').onMsgSetValMax({ max: 100, value: texts.progress });
-      this.dialog.getComponent('sizestxt').setValue(texts.sizes, false);
-      this.dialog.getComponent('speedtxt').setValue(texts.speed, false);
+      (this.dialog.getComponent('progress') as ObjProgress).onMsgSetValMax({ max: 100, value: texts.progress });
+      this.dialog.getComponent('sizestxt').setValue(texts.sizes);
+      this.dialog.getComponent('speedtxt').setValue(texts.speed);
     }
   }
 
-  gotEnd(detail) {
+  gotEnd(detail: { success: boolean }) {
     if (this.dialog) {
       // Disable cancel for visual feedback
       this.dialog.getComponent('cancelbutton').setEnabled(false);
@@ -128,7 +131,7 @@ class UploadDialogController {
       //TODO can't we use simplescreen.es here?
       this.done = true;
 
-      const errormessagedialog = this.screen.displayapp.createScreen(
+      const errormessagedialog = this.screen.displayapp!.createScreen(
         {
           frame: { bodynode: 'root', specials: ['closeaction'], title: getTid('tollium:shell.upload.messages.errortitle') },
           root: {
@@ -159,7 +162,7 @@ class UploadDialogController {
     }
   }
 
-  gotErrorDialogClose(errordialog, data, callback) {
+  gotErrorDialogClose(errordialog: Frame, data: unknown, callback: () => void) {
     // Unbusy for this handler
     callback();
 
@@ -168,7 +171,7 @@ class UploadDialogController {
     this.close();
   }
 
-  wantAbort(data, callback) {
+  wantAbort(data: unknown, callback: () => void) {
     // Unbusy for this handler
     callback();
 
@@ -178,24 +181,19 @@ class UploadDialogController {
       return;
 
     // Abort upload & close dialog
-    this.uploadsession.abort();
+    this.aborter.abort();
     //this.close();
   }
 
   close() {
-    // Abort group (noop if already done with loading)
-    //this.group.abort();
-
     // Close progress dialog if still present
     if (this.dialog)
       this.dialog.terminateScreen();
-    this.dialog = null;
+    this.dialog = undefined;
 
     // Close busylock if still present
     if (this.busylock)
       this.busylock.release();
-    this.busylock = null;
+    this.busylock = undefined;
   }
 }
-
-export default UploadDialogController;

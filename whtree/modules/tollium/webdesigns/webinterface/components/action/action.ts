@@ -1,12 +1,11 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
 import DownloadManager from '@mod-system/js/compat/download';
+import * as frontend from '@webhare/frontend';
 
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
-import ImgeditDialogController from '@mod-tollium/web/ui/js/dialogs/imgeditcontroller';
+import ImgeditDialogController, { type RefPoint } from '@mod-tollium/web/ui/js/dialogs/imgeditcontroller';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { EnableOnRule } from '@mod-tollium/web/ui/js/types';
@@ -205,12 +204,9 @@ export default class ObjAction extends ActionForwardBase {
           using busylock = dompack.flagUIBusy();
           void busylock;
 
-          const files = await toddupload.receiveFiles(this, {
-            mimetypes: this.mimetypes,
-            multiple: this.multiple
-          });
-          if (files.length)
-            this.handleImageUploaded(data, files[0]);
+          const uploader = await frontend.requestFile({ accept: this.mimetypes });
+          if (uploader?.file)
+            this.handleImageUploaded(data, uploader.file);
 
           return;
         }
@@ -227,16 +223,17 @@ export default class ObjAction extends ActionForwardBase {
       }
     } else {
       const busylock = dompack.flagUIBusy();
-      toddupload.uploadFiles(this, (files, callback) => {
+      toddupload.uploadFiles(this, async (files, callback) => {
         busylock.release();
-        if (!files.length) {
-          callback();
-          return;
-        }
-        data.items = files.map(i => ({ type: "file", filename: i.filename, token: i.filetoken }));
-        this.asyncMessage("upload", data).then(callback);
+        if (files.length)
+          await this.asyncRequest("upload", {
+            rule: data.rule,
+            items: files.map(i => ({ type: "file", filename: i.filename, token: i.filetoken }))
+          });
+
+        callback();
       }, {
-        mimetypes: this.mimetypes,
+        accept: this.mimetypes || undefined,
         multiple: this.multiple
       });
     }
@@ -289,51 +286,21 @@ export default class ObjAction extends ActionForwardBase {
     this.target = data.target;
   }
 
-  async handleImageUploaded(data: { rule: number }, file) {
+  //We're invoked after upload *OR* with the image record prepared by imgedit.whlib editaction.
+  async handleImageUploaded(data: { rule: number }, file: File | { type: string; url?: string; name: string; source_fsobject: number; refpoint?: RefPoint }) {
     if (!file || !ImgeditDialogController.checkTypeAllowed(this.owner, file.type))
       return;
 
-    const options = {
+    toddupload.handleImageUpload(this, file, async (imgdata: toddupload.ImageUploadCallbackData) => {
+      await this.asyncRequest("Upload", {
+        rule: data.rule,
+        items: [{ type: "file", ...imgdata }]
+      });
+    }, {
       mimetype: file.type,
       imgsize: this.imgsize,
-      action: this.actiontype
-    };
-
-    const imageeditdialog = new ImgeditDialogController(this.owner, options);
-    const settings = {
-      refpoint: file.refpoint,
-      filename: file.name
-    };
-
-    if (file.url)
-      imageeditdialog.loadImageSrc(file.url, settings);
-    else
-      imageeditdialog.loadImageBlob(file, settings);
-
-    const done = await imageeditdialog.defer.promise;
-
-    // Note: settings is null when the image wasn't edited after upload
-    if (done.blob) {
-      toddupload.uploadBlobs(this, [done.blob], (files, uploadcallback) => {
-        // Only called when a file is actually uploaded
-        const filename = toddupload.ensureExtension(file.name, files[0].fileinfo.extension);
-
-        const extradata = {
-          imageeditor: {
-            source_fsobject: parseInt(file.source_fsobject) || 0,
-            refpoint: done.settings && done.settings.refpoint
-          }
-        };
-        data.items = [{ type: "file", name: filename, token: files[0].filetoken, extradata: extradata }];
-        this.asyncMessage("upload", data).then(() => {
-          uploadcallback();
-          done.editcallback();
-        });
-      });
-    } else {
-      // Nothing to upload, we're done
-      done.editcallback();
-    }
+      action: this.actiontype || ''
+    });
   }
 
   /****************************************************************************************************************************

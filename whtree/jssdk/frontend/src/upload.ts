@@ -15,7 +15,10 @@ declare global {
 }
 
 export interface UploadRequestOptions {
+  ///List of mimetypes to accept, supports wildcards (eg `image/*`)
   accept?: string[];
+  ///Allow multiple files to be selected. By default determined by whether you use requestFiles or requestFile, but can be set to false to force requestFiles to only accept one file
+  multiple?: boolean;
 }
 
 export interface UploadProgressStatus {
@@ -60,7 +63,7 @@ export interface UploaderBase {
 }
 
 export class MultiFileUploader implements UploaderBase {
-  private files: File[];
+  readonly files: File[];
   readonly manifest: UploadManifest;
 
   constructor(files: FileListLike, signal?: AbortSignal) {
@@ -162,6 +165,10 @@ export class SingleFileUploader implements UploaderBase {
     return this.uploader.manifest;
   }
 
+  get file() {
+    return this.uploader.files[0];
+  }
+
   constructor(file: File) {
     this.uploader = new MultiFileUploader([file]);
   }
@@ -189,7 +196,7 @@ async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise
 }
 
 export async function requestFiles(options?: UploadRequestOptions): Promise<MultiFileUploader | null> {
-  const files = await getFilelistFromUser(true, options?.accept || []);
+  const files = await getFilelistFromUser(options?.multiple === false, options?.accept || []);
   if (!files.length)
     return null;
 
