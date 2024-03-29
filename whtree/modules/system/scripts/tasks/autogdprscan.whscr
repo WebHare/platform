@@ -1,0 +1,25 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/checks.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/reporting/gdprscan.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD report := GetGDPRScanReport();
+RECORD ARRAY issues;
+
+FOREVERY(RECORD wrdschema FROM FilterRelevantWRDSchemas(report.wrdschemas))
+{
+  RECORD personstats := wrdschema.personstats;
+  IF (personstats.testpersons != personstats.numactive + personstats.inactive)
+    INSERT
+        [ type := "system:gdprwrdschema"
+        , metadata := CELL[ wrdschema.name ]
+        , message_text := `WRD schema ${wrdschema.name || (wrdschema.title != "" ? " (" || wrdschema.title || ")" : "")} contains ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive, ${personstats.testpersons} test), from ${FormatDatetime("%Y-%m-%d", personstats.oldest)} to ${FormatDatetime("%Y-%m-%d", personstats.newest)}`
+        , jump_to := CELL[ app := "wrd:browser", target := CELL[ schemaid := wrdschema.id ]]
+        ] INTO issues AT END;
+}
+
+UpdateCheckStatus("system:autogdprscan", issues);
