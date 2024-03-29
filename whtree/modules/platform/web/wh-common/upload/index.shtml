@@ -26,7 +26,7 @@ IF(offset_ < 0 OR offset_ % chunksize != 0)
 IF(file < 0 OR file >= Length(sess.manifest.files))
   THROW NEW Exception(`Invalid file`);
 
-INTEGER64 expectsize := MIN[]([chunksize, sess.manifest.files[file].size - offset_]);
+INTEGER64 expectsize := MIN[]([chunksize, INTEGER64(sess.manifest.files[file].size) - offset_]);
 IF(Length(body) > expectsize)
   THROW NEW Exception(`Invalid chunk size, got ${Length(body)}, expected ${expectsize} bytes`);
 
