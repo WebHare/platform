@@ -28,6 +28,11 @@ OBJECTTYPE CheckerObject
   {
     IF(category = "hint" AND this->options.hidehints)
       RETURN;
+    IF(category = "warning" AND NOT CellExists(issue,'source'))
+    {
+      dumpvalue(issue);
+      THROW NEW Exception(`Warning is missing a source`);
+    }
 
     IF(this->validateconfig.futuremodule AND category = "error")
       category := "warning";

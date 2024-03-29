@@ -582,6 +582,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
             , col :=          1
             , message :=      `File hasn't been formatted correctly - fixable using wh dev:autoformat`
             , category :=     "warning"
+            , source :=       "tsfmt"
             ] INTO retval.issues AT END;
       }
     }
