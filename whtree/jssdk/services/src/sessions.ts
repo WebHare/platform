@@ -120,9 +120,8 @@ export async function createUploadSession(manifest: UploadManifest, { chunkSize 
   };
 }
 
-function getUploadedStream(sessionId: string, fileIndex: number, size: number, chunkSize: number): ReadableStream {
+function getUploadedStream(basePath: string, size: number, chunkSize: number): ReadableStream {
   const numChunks = Math.ceil(size / chunkSize);
-  const basePath = toFSPath(`storage::platform/uploads/${sessionId}/file-${fileIndex}-`);
 
   let curChunk = 0;
   let curFile: fs.FileHandle | null = null;
@@ -157,6 +156,24 @@ function getUploadedStream(sessionId: string, fileIndex: number, size: number, c
   });
 }
 
+// Get uploaded file disk details - shared with the HS implementation
+export async function getUploadedFileDetails(token: string) {
+  const [sessionId, fileIndexStr] = token.split("#");
+  const fileIndex = parseInt(fileIndexStr);
+  const matchsession = await getSession("platform:uploadsession", sessionId);
+  const matchfile = matchsession?.manifest.files[fileIndex];
+  if (!matchfile)
+    return null;
+
+  return {
+    fileName: matchfile.name,
+    size: matchfile.size,
+    mediaType: matchfile.type,
+    basePath: toFSPath(`storage::platform/uploads/${sessionId}/file-${fileIndex}-`),
+    chunkSize: matchsession.chunkSize
+  };
+}
+
 /** Retrieve an uploaded file by its token */
 export async function getUploadedFile(token: string): Promise<{
   fileName: string;
@@ -164,14 +181,15 @@ export async function getUploadedFile(token: string): Promise<{
   mediaType: string;
   stream: ReadableStream<Uint8Array> | null;
 }> {
-  const [sessionId, fileIndexStr] = token.split("#");
-  const fileIndex = parseInt(fileIndexStr);
-  const matchsession = await getSession("platform:uploadsession", sessionId);
-  const matchfile = matchsession?.manifest.files[fileIndex];
-  if (!matchfile)
+  const details = await getUploadedFileDetails(token);
+  if (!details)
     throw new Error("File not found: " + token);
 
-  const stream = matchfile.size ? getUploadedStream(sessionId, fileIndex, matchfile.size, matchsession.chunkSize) : null;
-
-  return { fileName: matchfile.name, size: matchfile.size, mediaType: matchfile.type, stream };
+  const stream = details.size ? getUploadedStream(details.basePath, details.size, details.chunkSize) : null;
+  return {
+    fileName: details.fileName,
+    size: details.size,
+    mediaType: details.mediaType,
+    stream
+  };
 }

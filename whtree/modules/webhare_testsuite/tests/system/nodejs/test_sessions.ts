@@ -6,6 +6,9 @@ import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { generateRandomId } from "@webhare/std/platformbased";
+import { SingleFileUploader, type UploadInstructions } from "@webhare/frontend/src/upload";
+import { createUploadSession, getUploadedFile } from "@webhare/services";
+import { buffer } from "node:stream/consumers";
 
 
 declare module "@webhare/services" {
@@ -77,10 +80,34 @@ async function testSessionStorage() {
   await runInWork(() => services.closeSession(sessidscoped));
   test.eq(null, await services.getSession("webhare_testsuite:testscope", sessidscoped));
   test.eq(null, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidscoped, "webhare_testsuite:testscope"));
+}
 
+async function testUpload() {
+  const uploadText = "This is a test!".repeat(4096);
+  const uploader = new SingleFileUploader(new File([uploadText], "text.txt", { type: "text/plain" }));
+
+  await beginWork();
+  const howToUpload = await createUploadSession(uploader.manifest, { chunkSize: 555 }) satisfies UploadInstructions;
+  await commitWork();
+
+  //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install
+  howToUpload.baseUrl = new URL(howToUpload.baseUrl, services.backendConfig.backendURL).href;
+  const uploadResult = await uploader.upload(howToUpload);
+
+  //Retrieve the file using JS
+  const fileInJS = await getUploadedFile(uploadResult.token);
+  test.eqPartial({ fileName: "text.txt", size: uploadText.length, mediaType: "text/plain" }, fileInJS);
+  test.assert(fileInJS.stream, "File has a stream");
+  test.eq(uploadText, (await buffer(fileInJS.stream)).toString());
+
+  //Retrieve the file using HS
+  const fileInHS = await loadlib("mod::system/lib/webserver.whlib").GetUploadedFile(uploadResult.token);
+  test.eqPartial({ filename: "text.txt", mimetype: "text/plain" }, fileInHS);
+  test.eq(uploadText, (await loadlib("wh::files.whlib").BlobToString(fileInHS.data)).toString());
 }
 
 test.run(
-  [ //basic tests
+  [
     testSessionStorage,
+    testUpload
   ]);

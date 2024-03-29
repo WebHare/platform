@@ -9,6 +9,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
@@ -835,4 +836,21 @@ PUBLIC MACRO LogCurrentRequestToRPCLog(STRING source)
 PUBLIC MACRO FlushWebserverLogfiles()
 {
   __WHS_FLUSHLOGFILES();
+}
+
+/** Retrieve an uploaded file by its token */
+PUBLIC RECORD FUNCTION GetUploadedFile(STRING token)
+{
+  RECORD details := CallJS("@webhare/services/src/sessions.ts#getUploadedFileDetails", token);
+  IF(NOT RecordExists(details))
+    THROW NEW Exception(`No file found for token: ${token}`);
+
+  BLOB ARRAY parts;
+  FOR(INTEGER64 off := 0; off < details.size; off := off + details.chunksize)
+    INSERT GetDiskResource(`${details.basepath}${off}.dat`) INTO parts AT END;
+
+  RETURN CELL[ mimetype := details.mediatype
+             , data := MakeComposedBlob(ToRecordArray(parts,'data'))
+             , filename := details.filename
+             ];
 }
