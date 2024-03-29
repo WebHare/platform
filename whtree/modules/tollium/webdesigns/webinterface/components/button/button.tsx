@@ -178,7 +178,7 @@ export default class ObjButton extends ActionableBase {
   * Component state
   */
 
-  setDefault(isdefault) {
+  setDefault(isdefault: boolean) {
     this.node.classList.toggle("default", isdefault);
   }
 
