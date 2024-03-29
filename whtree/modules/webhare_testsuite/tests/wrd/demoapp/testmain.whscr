@@ -102,7 +102,7 @@ OBJECT ASYNC FUNCTION TestMainApp()
   TestEq(4, Length(TT("testdom1_select")->options));
 
   //Test tag edit
-  RECORD ARRAY lookupresults := AWAIT TT("dom_multi3")->tagedit->LookupForAutosuggest("Dom");
+  RECORD ARRAY lookupresults := AWAIT TT("dom_multi3")->tagedit->OnRequestLookup("Dom");
   TestEq(3, Length(lookupresults));
   TestEq("Domain value 2.2", lookupresults[1].value);
 

@@ -22,7 +22,6 @@ interface AutoSuggestableAttributes extends ComponentStandardAttributes {
 
 export class ObjAutoSuggestableBase extends ComponentBase {
   _autosuggest: AutoSuggestableAttributes['autosuggest'];
-  _resolveresult?: (vals: string[]) => void;
 
   constructor(parentcomp: ToddCompBase | null, data: AutoSuggestableAttributes) {
     super(parentcomp, data);
@@ -47,14 +46,7 @@ export class ObjAutoSuggestableBase extends ComponentBase {
       return toplist.concat(bottomlist);
     }
 
-    const lookupdefer = dompack.createDeferred();
-    this.asyncMessage('lookup', { word }, { modal: false });
-    this._resolveresult = lookupdefer.resolve;
-    return lookupdefer.promise;
-  }
-
-  onMsgLookupResult(result: { vals: string[] }) {
-    this._resolveresult!(result.vals);
+    return this.asyncRequest('lookup', word, { modal: false });
   }
 
   setupAutosuggest(node: HTMLInputElement) {

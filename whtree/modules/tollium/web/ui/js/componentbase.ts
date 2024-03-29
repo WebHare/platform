@@ -4,12 +4,15 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import { createDeferred, type DeferredPromise } from '@webhare/std';
 import { SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-tollium/web/ui/js/support";
 import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
-import type { FlagSet, SelectionMatch } from './types';
+import type { SelectionMatch } from './types';
 import type { BackendApplication } from './application';
+import { generateRandomId } from '@webhare/std/platformbased';
+import { toSnakeCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
 
 // Allow components to set propTodd as a backwards pointer to their code
 declare global {
@@ -320,6 +323,22 @@ export class ToddCompBase {
     this.asyncMessage(type, data, { modal: synchronous });
   }
 
+  //Send a request to the server-side component
+  async asyncRequest<ReturnType = unknown>(type: string, data: unknown, { modal = true } = {}): Promise<ReturnType> {
+    if (!this.owner) //already disassociated
+      throw new Error(`Already disconnected, no answer to request possible`);
+
+    using busylock = modal ? this.owner.displayapp!.getBusyLock() : dompack.flagUIBusy();
+    void busylock;
+
+    //TODO register our pending promise somewhere and autocancel if the app/screen is killed. is there any impl to share as this I/O pattern is extremely common
+    const promiseid = generateRandomId();
+    const defer = createDeferred<ReturnType>();
+    this.owner.pendingRequests.set(promiseid, defer as DeferredPromise<unknown>);
+    this.asyncMessage("asyncRequest", { type, data: toSnakeCase(data), promiseid });
+    return await defer.promise;
+  }
+
   //Queue an outgoing message and return a promise
   asyncMessage(type: string, data: unknown, { modal = true } = {}) {
     if (!this.owner) //already disassociated
@@ -376,6 +395,7 @@ export class ToddCompBase {
   }
 
   processIncomingMessage(type: string, data: unknown): void {
+    //TODO are we sure this was a bright idea? It's not really helping us yet to trace or validate the incoming messages or find their handlers
     const expectcallback = "onMsg" + type;
     const selfAsApi = this as unknown as Record<string, (data: unknown) => void>;
     if (selfAsApi[expectcallback])

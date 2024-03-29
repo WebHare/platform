@@ -103,12 +103,7 @@ PUBLIC OBJECTTYPE __TolliumAutoSuggestableBase EXTEND TolliumComponentBase
     this->__SetOptions(DEFAULT RECORD ARRAY);
   }
 
-  MACRO ReturnLookupResult(RECORD ARRAY vals)
-  {
-    this->QueueOutboundMessage("LookupResult", CELL[ vals ]);
-  }
-
-  PUBLIC ASYNC FUNCTION LookupForAutosuggest(STRING text)
+  PUBLIC ASYNC FUNCTION OnRequestLookup(STRING text)
   {
     IF(Length(this->pvt_options) = 1 AND ObjectExists(this->pvt_options[0].__autosuggestcomp))
     {
