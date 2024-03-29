@@ -38,7 +38,7 @@ const jsappconstructors: Record<string, JSAppConstructor> = {};
 
 /** Busy lock (while taken, the tollium app is busy
 */
-class ApplicationBusyLock implements Disposable {
+export class ApplicationBusyLock implements Disposable {
   private readonly lock: Lock;
   private readonly app: ApplicationBase;
 

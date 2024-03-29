@@ -67,7 +67,7 @@ export default class ObjAction extends ActionForwardBase {
   actiontype;
   mimetypes: string[];
   lastenabled: null | boolean = null;
-  pendingdownloads = [];
+  pendingdownloads: DownloadManager[] = [];
   customaction?: string;
   target: string;
   frameflags;
@@ -132,7 +132,7 @@ export default class ObjAction extends ActionForwardBase {
     else if (this.isEventUnmasked('windowopen'))
       this.executeWindowOpenAction({ rule: hitrule });
     else if (this.isEventUnmasked('copytoclipboard'))
-      this.executeCopyToClipboard({ rule: hitrule });
+      this.executeCopyToClipboard();
     else if (this.isEventUnmasked('execute'))
       this.queueMessage("execute", { rule: hitrule }, true);
     else if (this._onexecute) {
@@ -257,17 +257,19 @@ export default class ObjAction extends ActionForwardBase {
     this.queueMessage('download', { rule: data.rule, ftid: fturl.id }, true);
   }
 
-  executeWindowOpenAction(data) {
+  executeWindowOpenAction(data: { rule: number }) {
     const fturl = this.getFileTransferURL('asyncwindowopen');
 
     // If "noopener" is supplied as the third argument, a new window is always opened in Safari instead of a new tab
     // (Setting opener afterwards is functionally equivalent to supplying the "noopener" window feature; the new location is
     // only loaded in the next tick)
-    window.open(fturl.url, this.target || "_blank").opener = null;
+    const newwindow = window.open(fturl.url, this.target || "_blank");
+    if (newwindow)
+      newwindow.opener = null;
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
   }
 
-  executeCopyToClipboard(data) {
+  executeCopyToClipboard() {
     const comp = this.owner.getComponent(this.source);
     if (comp)
       comp.doCopyToClipboard();

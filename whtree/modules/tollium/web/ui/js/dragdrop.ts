@@ -177,7 +177,7 @@ function initWebhareDragEvent(event, data) {
   currentdrag.typehash = getEventItemsTypeHash(event);
 }
 
-class CurrentDragData {
+export class CurrentDragData {
   acceptrule?: AcceptType;
   event: DragEvent;
   dataTransfer: DataTransfer | null;
