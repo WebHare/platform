@@ -1,12 +1,12 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const Toolbar = require('../toolbar/toolbars');
-const getTid = require("@mod-tollium/js/gettid").getTid;
-require("./imageeditor.lang.json");
-const toddImages = require("@mod-tollium/js/icons");
-import { SurfaceTool } from './surfacetool';
-import * as dompack from 'dompack';
+import * as dompack from "dompack";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { ToolbarButton, ToolbarPanel, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { SurfaceTool } from "./surfacetool";
+import "./imageeditor.lang.json";
 
 class PhotoRotate extends SurfaceTool {
   constructor(surface, options) {
@@ -22,32 +22,32 @@ class PhotoRotate extends SurfaceTool {
       ...options
     };
 
-    this.scalepanel = new Toolbar.Panel(
+    this.scalepanel = new ToolbarPanel(
       {
         onClose: this.stop.bind(this),
         onApply: this.apply.bind(this)
       });
     this.scalepanel._imgedittool = "rotate";
-    this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
+    this.scalepanel.addButton(new ToolbarButton(this.scalepanel,
       {
         label: getTid("tollium:components.imgedit.editor.rotateleft"),
         icon: toddImages.createImage("tollium:actions/rotateleft", 24, 24, "b"),
         onExecute: this.rotate.bind(this, -90)
       }));
-    this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
+    this.scalepanel.addButton(new ToolbarButton(this.scalepanel,
       {
         label: getTid("tollium:components.imgedit.editor.rotateright"),
         icon: toddImages.createImage("tollium:actions/rotateright", 24, 24, "b"),
         onExecute: this.rotate.bind(this, 90)
       }));
-    this.scalepanel.addButton(new Toolbar.Separator(this.scalepanel));
-    this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
+    this.scalepanel.addButton(new ToolbarSeparator(this.scalepanel));
+    this.scalepanel.addButton(new ToolbarButton(this.scalepanel,
       {
         label: getTid("tollium:components.imgedit.editor.fliphorizontal"),
         icon: toddImages.createImage("tollium:actions/fliphorizontal", 24, 24, "b"),
         onExecute: this.fliphorizontal.bind(this)
       }));
-    this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
+    this.scalepanel.addButton(new ToolbarButton(this.scalepanel,
       {
         label: getTid("tollium:components.imgedit.editor.flipvertical"),
         icon: toddImages.createImage("tollium:actions/flipvertical", 24, 24, "b"),
@@ -290,10 +290,12 @@ class PhotoRotate extends SurfaceTool {
   }
 }
 
-function addImageRotateButton(toolbar, surface, options) {
+export type { PhotoRotate };
+
+export function addImageRotateButton(toolbar, surface, options) {
   const rotator = new PhotoRotate(surface, options);
 
-  const button = new Toolbar.Button(toolbar,
+  const button = new ToolbarButton(toolbar,
     {
       label: getTid("tollium:components.imgedit.editor.rotate"),
       icon: toddImages.createImage("tollium:actions/rotate", 24, 24, "b"),
@@ -303,5 +305,3 @@ function addImageRotateButton(toolbar, surface, options) {
 
   return { button: button, comp: rotator };
 }
-
-exports.addImageRotateButton = addImageRotateButton;

@@ -1,59 +1,120 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import * as dompack from "dompack";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { ApplicationBusyLock } from "@mod-tollium/web/ui/js/application";
+import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { PhotoCrop } from "./crop";
+import { PhotoRotate } from "./scaling";
+import { PhotoFilters } from "./filters";
+import { PhotoPoint } from "./refpoint";
 
-import * as dompack from 'dompack';
-const Toolbar = require('../toolbar/toolbars');
-const getTid = require("@mod-tollium/js/gettid").getTid;
 require("./imageeditor.lang.json");
-const toddImages = require("@mod-tollium/js/icons");
+
+type ImageSurfaceOptions = {
+  getBusyLock?: () => ApplicationBusyLock;
+  editorBackground?: string;
+  maxLength?: number;
+  maxArea?: number;
+};
+
+type Size = { x: number; y: number };
+
+type Rect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type OffsetRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  offsetx: number;
+  offsety: number;
+};
+
+type EditStep = {
+  action: "crop";
+  comp: PhotoCrop;
+  props: { crop: number[] };
+  width: number;
+  height: number;
+  meta: boolean;
+} | {
+  action: "rotate";
+  props: { angle: number; scale: number };
+  comp: PhotoRotate;
+  meta: boolean;
+} | {
+  action: "filters";
+  props: { data: unknown };
+  comp: PhotoFilters;
+  meta: boolean;
+} | {
+  action: "refpoint";
+  props: { refpoint: Size };
+  comp: PhotoPoint;
+  meta: boolean;
+};
 
 //image canvas
-class ImageSurface {
-  constructor(imgeditornode, toolbar, options) {
-    this.imgeditornode = imgeditornode;
-    this.container = null;
-    this.img = null;
-    this.imgdata = {};
-    this.viewport = null;
-    this.canvasdata = {};
-    this.canvas = null;
-    this.previewcanvas = null;
-    this.canvasscale = 1;
-    this.previewscale = 1;
-    this.imagelimited = false;
-    this.ctx = null;
-    this.refpoint = null; // { x= 0, y= 0 }
-    this.orgrefpoint = null; // initial reference point, used to reset refpoint on undo
-    this.undostack = []; //contains all steps done
-    this.redostack = []; //contains all steps undone
-    this.undobutton = null;
-    this.redobutton = null;
-    this.busylock = null;
-    this.options = {
-      getBusyLock: null,
-      editorBackground: "",
-      maxLength: 0,
-      maxArea: 0,
-      ...options
-    };
+export class ImageSurface {
+  imgEditorNode: HTMLElement;
+  node: HTMLElement;
+  img: HTMLImageElement | null = null;
+  imgData: {
+    size: Size;
+    scale: Size;
+    orgSize: Size;
+    aspect: number;
+    orientation: number;
+  } | null = null;
+  viewPort: Size | null = null;
+  canvas: HTMLCanvasElement | null = null;
+  canvasData: {
+    cssSize: Size;
+    scale: Size;
+    realSize: Size;
+  } | null = null;
+  previewCanvas: HTMLCanvasElement | null = null;
+  canvasScale = 1;
+  previewScale = 1;
+  previewRect: OffsetRect | null = null;
+  previewMask: Rect | null = null;
+  maskCanvas: HTMLCanvasElement | null = null;
+  imageLimited = false;
+  ctx: CanvasRenderingContext2D | null = null;
+  refPoint: Size | null = null;
+  orgRefPoint: Size | null = null; // initial reference point, used to reset refpoint on undo
+  undoStack: EditStep[] = []; //contains all steps done
+  redoStack: EditStep[] = []; //contains all steps undone
+  undoButton: ToolbarButton | null = null;
+  redoButton: ToolbarButton | null = null;
+  busyLock: ApplicationBusyLock | null = null;
+  scaleTimeout?: NodeJS.Timeout;
+  options: ImageSurfaceOptions = {};
 
-    this.container = <div class="wh-image-surface" tabindex="0">
+  constructor(imgEditorNode: HTMLElement, toolbar: Toolbar, options?: ImageSurfaceOptions) {
+    this.imgEditorNode = imgEditorNode;
+
+    this.node = <div class="wh-image-surface" tabindex="0">
       {this.canvas = <canvas />}
-      {this.maskcanvas = <canvas style="position:absolute;left:0;top:0;pointer-events:none" />}
+      {this.maskCanvas = <canvas style="position: absolute; left: 0; top: 0; pointer-events: none;" />}
     </div>;
     if (this.options.editorBackground)
-      this.container.style.background = this.options.editorBackground;
+      this.node.style.background = this.options.editorBackground;
   }
-  fireEvent(name, detail) {
-    dompack.dispatchCustomEvent(this.imgeditornode, 'tollium-imageeditor:' + name, { bubbles: true, cancelable: false, detail });
+
+  fireEvent(name: string, detail?: unknown) {
+    dompack.dispatchCustomEvent(this.imgEditorNode, 'tollium-imageeditor:' + name, { bubbles: true, cancelable: false, detail });
   }
-  toElement() {
-    return this.container;
-  }
-  setSize(w, h) {
-    dompack.setStyles(this.container, { width: w, height: h });
+
+  setSize(w: number, h: number) {
+    dompack.setStyles(this.node, { width: w, height: h });
     if (this.ctx) {
-      this.viewport = { x: w, y: h };
+      this.viewPort = { x: w, y: h };
       this.setupCanvas();
       this.fireEvent("resized", {
         width: w,
@@ -61,52 +122,54 @@ class ImageSurface {
       });
     }
   }
-  setImg(img, settings) {
-    this.orgrefpoint = settings.refpoint;
 
-    this.undostack = [];
-    this.redostack = [];
-    if (this.undobutton)
-      this.undobutton.setEnabled(false);
-    if (this.redobutton)
-      this.redobutton.setEnabled(false);
+  setImg(img: HTMLImageElement, settings: { refPoint: Size; orientation: number }) {
+    this.orgRefPoint = settings.refPoint;
 
-    const containersize = this.container.getBoundingClientRect();
-    this.viewport = { x: containersize.width, y: containersize.height };
+    this.undoStack = [];
+    this.redoStack = [];
+    if (this.undoButton)
+      this.undoButton.setEnabled(false);
+    if (this.redoButton)
+      this.redoButton.setEnabled(false);
+
+    const containersize = this.node.getBoundingClientRect();
+    this.viewPort = { x: containersize.width, y: containersize.height };
     this.setupFromImage(img, settings.orientation);
 
-    this.ctx = this.canvas.getContext("2d");
+    // After setupFromImage, this.canvas is not null
+    this.ctx = this.canvas!.getContext("2d");
 
     this.setupCanvas();
-    this.fireEvent('ready', this.imgdata);
+    this.fireEvent('ready', this.imgData);
   }
 
   // Are there changes?
   isDirty() {
-    return this.undostack.length > 0;
+    return this.undoStack.length > 0;
   }
 
   // Are there image data modifying changes?
   isModified() {
     // Returns true if there is at least one image modifying state on the undo stack
-    return this.undostack.findIndex(function (state) {
+    return this.undoStack.findIndex(function(state) {
       return !state.meta;
     }) >= 0;
   }
 
-  setBusy(busy) {
+  setBusy(busy: boolean) {
     if (!this.options.getBusyLock)
       return true; // No busy lock available
-    // If busylock exists, don't accept 'true' as it's already busy, and vice versa
-    if ((this.busylock !== null) === busy)
+    // If busyLock exists, don't accept 'true' as it's already busy, and vice versa
+    if ((this.busyLock !== null) === busy)
       return false; // Already busy
 
     if (busy) {
-      this.busylock = this.options.getBusyLock();
+      this.busyLock = this.options.getBusyLock();
     } else {
-      if (this.busylock)
-        this.busylock.release();
-      this.busylock = null;
+      if (this.busyLock)
+        this.busyLock.release();
+      this.busyLock = null;
     }
     return true;
   }
@@ -114,322 +177,256 @@ class ImageSurface {
   stop() {
   }
 
-  reduceActions(cursteps) {
-    //ADDME: more reduction if possible
-
-    const steps = [];
-
-    /*
-    Merge:
-    -Same sequentially actions to one step
-    -Orientation if no cropping in between
-    -Scale if no cropping in between
-    */
-    let stepindex = -1;
-    let stepaction = "";
-    for (let c = 0; c < cursteps.length; c++) {
-      if (stepaction !== cursteps[c].action) {
-        stepindex = -1;
-        stepaction = cursteps[c].action;
-      }
-      if (cursteps[c].action === 'crop') {
-        if (stepindex > -1) {
-          const w = steps[stepindex].props.crop[1] - steps[stepindex].props.crop[3];
-          const h = steps[stepindex].props.crop[2] - steps[stepindex].props.crop[0];
-
-          steps[stepindex].props.crop[0] += h * cursteps[c].props.crop[0]; //top
-          steps[stepindex].props.crop[1] *= cursteps[c].props.crop[1];   //right
-          steps[stepindex].props.crop[2] *= cursteps[c].props.crop[2];   //bottom
-          steps[stepindex].props.crop[3] += w * cursteps[c].props.crop[3]; //left
-        } else {
-          stepindex = steps.length;
-          steps.push(cursteps[c]);
-        }
-      } else if (cursteps[c].action === 'scale') {
-        if (stepindex > -1) {
-          steps[stepindex].props.scale.x *= cursteps[c].props.scale.x;
-          steps[stepindex].props.scale.y *= cursteps[c].props.scale.y;
-        } else {
-          stepindex = steps.length;
-          steps.push(cursteps[c]);
-        }
-      } else if (cursteps[c].action === 'rotate') {
-        if (stepindex > -1) {
-          steps[stepindex].props.angle += cursteps[c].props.angle;
-          steps[stepindex].props.angle -= Math.floor(steps[stepindex].props.angle / 360) * 360;//keep range between 0 and 360
-          steps[stepindex].props.scale.x *= cursteps[c].props.scale.x;
-          steps[stepindex].props.scale.y *= cursteps[c].props.scale.y;
-        } else {
-          stepindex = steps.length;
-          steps.push(cursteps[c]);
-        }
-      } else if (cursteps[c].action === 'filters') {
-        if (stepindex > -1) {
-          steps[stepindex].props.data = cursteps[c].props.data;
-        } else {
-          stepindex = steps.length;
-          steps.push(cursteps[c]);
-        }
-      } else if (cursteps[c].action === 'refpoint') {
-        if (stepindex > -1) {
-          steps[stepindex].props.refpoint = cursteps[c].props.refpoint;
-        } else {
-          stepindex = steps.length;
-          steps.push(cursteps[c]);
-        }
-      }
-    }
-
-    return steps;
-  }
-
-  setupFromImage(img, orientation) {
+  setupFromImage(img: HTMLImageElement, orientation: number) {
     let width = img.width;
     let height = img.height;
 
     // Restrict image width and height
-    if (this.options.maxLength > 0 && (width > this.options.maxLength || height > this.options.maxLength)) {
+    if (this.options.maxLength && this.options.maxLength > 0 && (width > this.options.maxLength || height > this.options.maxLength)) {
       const s = this.options.maxLength / Math.max(width, height);
       width = Math.floor(width * s);
       height = Math.floor(height * s);
-      this.imagelimited = true;
+      this.imageLimited = true;
     }
     // Restrict image area
     if (this.options.maxArea && width * height > this.options.maxArea) {
       const s = Math.sqrt(this.options.maxArea / (width * height));
       width = Math.floor(width * s);
       height = Math.floor(height * s);
-      this.imagelimited = true;
+      this.imageLimited = true;
     }
-    if (this.imagelimited)
+    if (this.imageLimited)
       console.warn("Restricting image dimensions from " + img.width + "x" + img.height + " to " + width + "x" + height);
 
     orientation = orientation || 0;
     const rotated = [5, 6, 7, 8].includes(orientation);
-    const scale = { 'x': 1, 'y': 1 };//use separate scale x/y for error reduction rounding
-    const orgsize = { 'x': rotated ? height : width, 'y': rotated ? width : height };
+    const scale = { x: 1, y: 1 };//use separate scale x/y for error reduction rounding
+    const orgSize = { x: rotated ? height : width, y: rotated ? width : height };
 
     this.img = img;
-    this.imgdata = {
-      'size': { 'x': rotated ? height : width, 'y': rotated ? width : height },
-      'scale': scale,
-      'orgsize': orgsize,
-      'aspect': (orgsize.x / orgsize.y),
-      'orientation': orientation
+    this.imgData = {
+      size: { x: rotated ? height : width, y: rotated ? width : height },
+      scale: scale,
+      orgSize: orgSize,
+      aspect: (orgSize.x / orgSize.y),
+      orientation: orientation
     };
   }
 
   setupCanvas() {
-    this.refpoint = this.orgrefpoint;
-    this.canvas.width = this.imgdata.size.x;
-    this.canvas.height = this.imgdata.size.y;
-    this.maskcanvas.width = this.viewport.x;
-    this.maskcanvas.height = this.viewport.y;
+    this.refPoint = this.orgRefPoint;
+    this.canvas!.width = this.imgData!.size.x;
+    this.canvas!.height = this.imgData!.size.y;
+    this.maskCanvas!.width = this.viewPort!.x;
+    this.maskCanvas!.height = this.viewPort!.y;
 
     //what scale to use to fit image on canvas in current position
-    const canvasscalex = this.canvas.width / this.viewport.x;
-    const canvasscaley = this.canvas.height / this.viewport.y;
-    let canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
-    if (canvasscale < 1)
-      canvasscale = 1;//don't scale up
-    this.canvasscale = 1 / canvasscale;
+    const canvasScaleX = this.canvas!.width / this.viewPort!.x;
+    const canvasScaleY = this.canvas!.height / this.viewPort!.y;
+    let canvasScale = canvasScaleX > canvasScaleY ? canvasScaleX : canvasScaleY;
+    if (canvasScale < 1)
+      canvasScale = 1;//don't scale up
+    this.canvasScale = 1 / canvasScale;
 
-    const cssw = Math.round(this.canvas.width / canvasscale);
-    const cssh = Math.round(this.canvas.height / canvasscale);
-    this.canvasdata = {
-      'csssize': { 'x': cssw, 'y': cssh },
-      'scale': { 'x': (this.canvas.width / cssw), 'y': (this.canvas.height / cssh) },
-      'realsize': { 'x': this.imgdata.orgsize.x, 'y': this.imgdata.orgsize.y }
+    const cssw = Math.round(this.canvas!.width / canvasScale);
+    const cssh = Math.round(this.canvas!.height / canvasScale);
+    this.canvasData = {
+      cssSize: { x: cssw, y: cssh },
+      scale: { x: (this.canvas!.width / cssw), y: (this.canvas!.height / cssh) },
+      realSize: { x: this.imgData!.orgSize.x, y: this.imgData!.orgSize.y }
     };
 
-    dompack.setStyles(this.canvas, {
-      'position': 'absolute',
-      'top': '50%',
-      'left': '50%',
-      'width': this.canvasdata.csssize.x + 'px',
-      'height': this.canvasdata.csssize.y + 'px',
-      'margin-left': Math.ceil(this.canvasdata.csssize.x * -0.5) + 'px',
-      'margin-top': Math.ceil(this.canvasdata.csssize.y * -0.5) + 'px'
-    });
+    this.canvas!.style.position = "absolute";
+    this.canvas!.style.top = '50%';
+    this.canvas!.style.left = '50%';
+    this.canvas!.style.width = this.canvasData.cssSize!.x + 'px';
+    this.canvas!.style.height = this.canvasData.cssSize!.y + 'px';
+    this.canvas!.style.marginLeft = Math.ceil(this.canvasData.cssSize!.x * -0.5) + 'px';
+    this.canvas!.style.marginTop = Math.ceil(this.canvasData.cssSize!.y * -0.5) + 'px';
 
-    let drawwidth = this.imgdata.size.x;
-    let drawheight = this.imgdata.size.y;
-    if ([5, 6, 7, 8].includes(this.imgdata.orientation)) {
-      const tmp = drawwidth;
-      drawwidth = drawheight;
-      drawheight = tmp;
+    let drawWidth = this.imgData!.size.x;
+    let drawHeight = this.imgData!.size.y;
+    if ([5, 6, 7, 8].includes(this.imgData!.orientation)) {
+      const tmp = drawWidth;
+      drawWidth = drawHeight;
+      drawHeight = tmp;
     }
     // See: http://stackoverflow.com/a/6010475
-    switch (this.imgdata.orientation) {
+    switch (this.imgData!.orientation) {
       case 1: // rotated 0°, not mirrored
         break;
       case 2: // rotated 0°, mirrored
-        this.ctx.scale(-1, 1);
-        this.ctx.translate(-drawwidth, 0);
+        this.ctx!.scale(-1, 1);
+        this.ctx!.translate(-drawWidth, 0);
         break;
       case 3: // rotated 180°, not mirrored
-        this.ctx.translate(drawwidth, drawheight);
-        this.ctx.rotate(Math.PI);
+        this.ctx!.translate(drawWidth, drawHeight);
+        this.ctx!.rotate(Math.PI);
         break;
       case 4: // rotated 180°, mirrored
-        this.ctx.scale(1, -1);
-        this.ctx.translate(0, -drawheight);
+        this.ctx!.scale(1, -1);
+        this.ctx!.translate(0, -drawHeight);
         break;
       case 5: // rotated 270°, mirrored
-        this.ctx.rotate(-Math.PI / 2);
-        this.ctx.scale(-1, 1);
+        this.ctx!.rotate(-Math.PI / 2);
+        this.ctx!.scale(-1, 1);
         break;
       case 6: // rotated 270°, not mirrored
-        this.ctx.translate(drawheight, 0);
-        this.ctx.rotate(Math.PI / 2);
+        this.ctx!.translate(drawHeight, 0);
+        this.ctx!.rotate(Math.PI / 2);
         break;
       case 7: // rotated 90°, mirrored
-        this.ctx.scale(-1, 1);
-        this.ctx.translate(-drawheight, drawwidth);
-        this.ctx.rotate(3 * Math.PI / 2);
+        this.ctx!.scale(-1, 1);
+        this.ctx!.translate(-drawHeight, drawWidth);
+        this.ctx!.rotate(3 * Math.PI / 2);
         break;
       case 8: // rotated 90°, not mirrored
-        this.ctx.translate(0, drawwidth);
-        this.ctx.rotate(3 * Math.PI / 2);
+        this.ctx!.translate(0, drawWidth);
+        this.ctx!.rotate(3 * Math.PI / 2);
         break;
     }
-    this.ctx.drawImage(this.img, 0, 0, drawwidth, drawheight);
+    this.ctx!.drawImage(this.img!, 0, 0, drawWidth, drawHeight);
     this.showScale();
     this.fireEvent('reset');
   }
 
-  setPreviewCanvas(canvas, contentRect) {
-    const oldcanvas = this.previewcanvas;
-    if (this.previewcanvas) {
+  setPreviewCanvas(canvas: HTMLCanvasElement, contentRect?: OffsetRect) {
+    const oldcanvas = this.previewCanvas;
+    if (this.previewCanvas) {
       this.hidePreviewCanvas();
-      this.previewcanvas.remove();
-      this.previewcanvas = null;
-      this.previewscale = 1;
+      this.previewCanvas.remove();
+      this.previewCanvas = null;
+      this.previewScale = 1;
     }
     if (canvas) {
-      this.previewcanvas = canvas;
-      this.previewrect = contentRect || {
+      this.previewCanvas = canvas;
+      this.previewRect = contentRect || {
         left: 0,
         top: 0,
-        width: this.previewcanvas.width,
-        height: this.previewcanvas.height,
+        width: this.previewCanvas.width,
+        height: this.previewCanvas.height,
         offsetx: 0,
         offsety: 0
       };
-      if (this.previewrect.width > this.viewport.x || this.previewrect.height > this.viewport.y) {
-        this.previewscale = Math.min(this.viewport.x / this.previewrect.width, this.viewport.y / this.previewrect.height);
-        this.previewcanvas.style.transform = "scale(" + this.previewscale + ")";
+      if (this.previewRect.width > this.viewPort!.x || this.previewRect.height > this.viewPort!.y) {
+        this.previewScale = Math.min(this.viewPort!.x / this.previewRect.width, this.viewPort!.y / this.previewRect.height);
+        this.previewCanvas.style.transform = "scale(" + this.previewScale + ")";
       } else {
-        this.previewscale = 1;
-        this.previewcanvas.style.transform = "";
+        this.previewScale = 1;
+        this.previewCanvas.style.transform = "";
       }
 
-      const left = Math.floor((this.viewport.x - this.previewcanvas.width) / 2) - Math.floor(this.previewscale * this.previewrect.offsetx);
-      const top = Math.floor((this.viewport.y - this.previewcanvas.height) / 2) - Math.floor(this.previewscale * this.previewrect.offsety);
-      this.previewcanvas.style.marginLeft = left + "px";
-      this.previewcanvas.style.marginTop = top + "px";
+      const left = Math.floor((this.viewPort!.x - this.previewCanvas.width) / 2) - Math.floor(this.previewScale * this.previewRect.offsetx);
+      const top = Math.floor((this.viewPort!.y - this.previewCanvas.height) / 2) - Math.floor(this.previewScale * this.previewRect.offsety);
+      this.previewCanvas.style.marginLeft = left + "px";
+      this.previewCanvas.style.marginTop = top + "px";
 
-      this.previewmask = {
-        left: left + Math.floor(this.previewrect.left * this.previewscale) + Math.floor((this.previewcanvas.width - this.previewscale * this.previewcanvas.width) / 2),
-        top: top + Math.floor(this.previewrect.top * this.previewscale) + Math.floor((this.previewcanvas.height - this.previewscale * this.previewcanvas.height) / 2),
-        width: Math.round(this.previewrect.width * this.previewscale),
-        height: Math.round(this.previewrect.height * this.previewscale)
+      this.previewMask = {
+        left: left + Math.floor(this.previewRect.left * this.previewScale) + Math.floor((this.previewCanvas.width - this.previewScale * this.previewCanvas.width) / 2),
+        top: top + Math.floor(this.previewRect.top * this.previewScale) + Math.floor((this.previewCanvas.height - this.previewScale * this.previewCanvas.height) / 2),
+        width: Math.round(this.previewRect.width * this.previewScale),
+        height: Math.round(this.previewRect.height * this.previewScale)
       };
       this.fireEvent("updatepreview", { oldcanvas: oldcanvas });
       this.showPreviewCanvas();
     }
   }
-  updateMaskCanvas(contentRect) {
+
+  updateMaskCanvas(contentRect?: Rect) {
     contentRect = contentRect || {
-      left: Math.floor((this.maskcanvas.width - this.canvasdata.csssize.x) / 2),
-      top: Math.floor((this.maskcanvas.height - this.canvasdata.csssize.y) / 2),
-      width: Math.round(this.canvasdata.csssize.x),
-      height: Math.round(this.canvasdata.csssize.y)
+      left: Math.floor((this.maskCanvas!.width - this.canvasData!.cssSize.x) / 2),
+      top: Math.floor((this.maskCanvas!.height - this.canvasData!.cssSize.y) / 2),
+      width: Math.round(this.canvasData!.cssSize.x),
+      height: Math.round(this.canvasData!.cssSize.y)
     };
-    const ctx = this.maskcanvas.getContext("2d");
+    const ctx = this.maskCanvas!.getContext("2d");
+    if (!ctx)
+      return;
     // Clear the mask
-    ctx.clearRect(0, 0, this.maskcanvas.width, this.maskcanvas.height);
+    ctx.clearRect(0, 0, this.maskCanvas!.width, this.maskCanvas!.height);
     // Fill with transparent black
     ctx.fillStyle = "rgba(0, 0, 0, .6)";
-    ctx.fillRect(0, 0, this.maskcanvas.width, this.maskcanvas.height);
+    ctx.fillRect(0, 0, this.maskCanvas!.width, this.maskCanvas!.height);
     // Cut out the image rect, compensate for scaling
     ctx.clearRect(contentRect.left, contentRect.top, contentRect.width, contentRect.height);
   }
+
   showPreviewCanvas() {
-    if (this.previewcanvas) {
-      if (this.canvas.parentNode)
-        this.container.removeChild(this.canvas);
-      this.container.insertBefore(this.previewcanvas, this.container.firstChild);
-      if (!this.maskcanvas.parentNode)
-        this.container.appendChild(this.maskcanvas);
-      else
-        this.updateMaskCanvas(this.previewmask);
+    if (this.previewCanvas) {
+      if (this.canvas?.parentNode)
+        this.node.removeChild(this.canvas);
+      this.node.insertBefore(this.previewCanvas, this.node.firstChild);
+      if (this.maskCanvas && !this.maskCanvas.parentNode)
+        this.node.appendChild(this.maskCanvas);
+      else if (this.previewMask)
+        this.updateMaskCanvas(this.previewMask);
       this.fireEvent("showpreview");
     }
     this.showScale();
   }
-  hidePreviewCanvas(hidemask) {
-    if (this.previewcanvas) {
+
+  hidePreviewCanvas(hidemask = false) {
+    if (this.previewCanvas) {
       this.fireEvent("hidepreview");
-      this.container.removeChild(this.previewcanvas);
-      this.container.insertBefore(this.canvas, this.container.firstChild);
+      this.node.removeChild(this.previewCanvas);
+      this.node.insertBefore(this.canvas!, this.node.firstChild);
       if (hidemask)
-        this.container.removeChild(this.maskcanvas);
+        this.node.removeChild(this.maskCanvas!);
       else
         this.updateMaskCanvas();
-      this.showScale(this.canvasscale);
+      this.showScale(this.canvasScale);
     }
   }
 
-  showScale(scale) {
+  showScale(scale?: number) {
     this.hideScale();
     if (!scale)
-      scale = this.previewcanvas ? this.previewscale : this.canvasscale;
-    this.container.appendChild(<span class="wh-imageeditor-scale">{Math.round(100 * scale) + "%"}</span>);
-    this.scaletimeout = setTimeout(() => this.hideScale(), 2500);
+      scale = this.previewCanvas ? this.previewScale : this.canvasScale;
+    this.node.appendChild(<span class="wh-imageeditor-scale">{Math.round(100 * scale) + "%"}</span>);
+    this.scaleTimeout = setTimeout(() => this.hideScale(), 2500);
   }
 
   hideScale() {
-    clearTimeout(this.scaletimeout);
-    dompack.qSA(this.container, ".wh-imageeditor-scale").forEach(node => node.remove());
+    clearTimeout(this.scaleTimeout);
+    dompack.qSA(this.node, ".wh-imageeditor-scale").forEach(node => node.remove());
   }
 
   apply() {
 
   }
 
-  pushUndo(state, replace_same_action) {
+  pushUndo(state: EditStep, replace_same_action: boolean) {
     // If pushing the same action, replace the previous state if the redo stack is empty
     if (replace_same_action
-      && this.undostack.length
-      && !this.redostack.length
-      && this.undostack[this.undostack.length - 1].action === state.action)
-      this.undostack[this.undostack.length - 1] = state;
+      && this.undoStack.length
+      && !this.redoStack.length
+      && this.undoStack[this.undoStack.length - 1].action === state.action)
+      this.undoStack[this.undoStack.length - 1] = state;
     else
-      this.undostack.push(state);
-    this.redostack = [];
-    if (this.undobutton)
-      this.undobutton.setEnabled(true);
-    if (this.redobutton)
-      this.redobutton.setEnabled(false);
+      this.undoStack.push(state);
+    this.redoStack = [];
+    if (this.undoButton)
+      this.undoButton.setEnabled(true);
+    if (this.redoButton)
+      this.redoButton.setEnabled(false);
   }
 
   popUndo() {
-    if (this.undostack.length === 0)
+    if (this.undoStack.length === 0)
       return;
 
     // Remove last action from undo stack and push it to redo stack
-    this.redostack.push(this.undostack.pop());
-    if (this.undobutton)
-      this.undobutton.setEnabled(this.undostack.length > 0);
-    if (this.redobutton)
-      this.redobutton.setEnabled(true);
+    this.redoStack.push(this.undoStack.pop()!);
+    if (this.undoButton)
+      this.undoButton.setEnabled(this.undoStack.length > 0);
+    if (this.redoButton)
+      this.redoButton.setEnabled(true);
 
     // Restore original
     this.setupCanvas();
 
     // Reconstruct previous actions with minimum steps
-    this.reduceActions(this.undostack).forEach(step => {
+    this.undoStack.forEach(step => {
       step.comp.applyCanvas(step.props);
     });
 
@@ -437,69 +434,67 @@ class ImageSurface {
   }
 
   popRedo() {
-    if (this.redostack.length === 0)
+    if (this.redoStack.length === 0)
       return;
 
     // Remove last action from redo stack and push it to undo stack
-    this.undostack.push(this.redostack.pop());
-    if (this.redobutton)
-      this.redobutton.setEnabled(this.redostack.length > 0);
-    if (this.undobutton)
-      this.undobutton.setEnabled(true);
+    this.undoStack.push(this.redoStack.pop()!);
+    if (this.redoButton)
+      this.redoButton.setEnabled(this.redoStack.length > 0);
+    if (this.undoButton)
+      this.undoButton.setEnabled(true);
 
     // Restore original
     this.setupCanvas();
 
     // Reconstruct previous actions with minimum steps
-    this.reduceActions(this.undostack).forEach(step => {
+    this.undoStack.forEach(step => {
       step.comp.applyCanvas(step.props);
     });
 
     this.fireEvent("redo");
   }
 
-  cloneCanvas(options) {
-    console.log('Copying canvas');
+  cloneCanvas(options?: { clearOriginal: boolean }) {
     const copy = document.createElement("canvas");
-    copy.width = this.canvas.width;
-    copy.height = this.canvas.height;
+    copy.width = this.canvas!.width;
+    copy.height = this.canvas!.height;
 
     const ctx = copy.getContext('2d');
-    ctx.drawImage(this.canvas, 0, 0);
+    if (!ctx)
+      return;
+    ctx.drawImage(this.canvas!, 0, 0);
 
-    if (options && options.clearoriginal) {
-      console.log('Clearing original');
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    if (options?.clearOriginal) {
+      this.ctx!.clearRect(0, 0, this.canvas!.width, this.canvas!.height);
     }
 
-    return { canvas: copy, ctx: ctx };
+    return { canvas: copy, ctx };
+  }
+
+  static addUndoButton(toolbar: Toolbar, surface: ImageSurface) {
+    const button = new ToolbarButton(toolbar,
+      {
+        label: getTid("~undo"),
+        icon: toddImages.createImage("tollium:actions/undo", 24, 24, "b"),
+        onExecute: surface.popUndo.bind(surface),
+        enabled: false
+      });
+    toolbar.addButton(button);
+    surface.undoButton = button;
+    return { button: button };
+  }
+
+  static addRedoButton(toolbar: Toolbar, surface: ImageSurface) {
+    const button = new ToolbarButton(toolbar,
+      {
+        label: getTid("~redo"),
+        icon: toddImages.createImage("tollium:actions/redo", 24, 24, "b"),
+        onExecute: surface.popRedo.bind(surface),
+        enabled: false
+      });
+    toolbar.addButton(button);
+    surface.redoButton = button;
+    return { button: button };
   }
 }
-
-ImageSurface.addUndoButton = function (toolbar, surface, options) {
-  const button = new Toolbar.Button(toolbar,
-    {
-      label: getTid("~undo"),
-      icon: toddImages.createImage("tollium:actions/undo", 24, 24, "b"),
-      onExecute: surface.popUndo.bind(surface),
-      enabled: false
-    });
-  toolbar.addButton(button);
-  surface.undobutton = button;
-  return { button: button };
-};
-
-ImageSurface.addRedoButton = function (toolbar, surface, options) {
-  const button = new Toolbar.Button(toolbar,
-    {
-      label: getTid("~redo"),
-      icon: toddImages.createImage("tollium:actions/redo", 24, 24, "b"),
-      onExecute: surface.popRedo.bind(surface),
-      enabled: false
-    });
-  toolbar.addButton(button);
-  surface.redobutton = button;
-  return { button: button };
-};
-
-module.exports = ImageSurface;

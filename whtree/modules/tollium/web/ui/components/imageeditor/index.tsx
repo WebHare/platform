@@ -1,18 +1,20 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const Toolbar = require('../toolbar/toolbars');
-require('./imageeditor.css');
-const ImageSurface = require('./surface');
-const Crop = require('./crop');
-const Scaling = require('./scaling');
-const Refpoint = require('./refpoint');
-const Filters = require('./filters');
-const getTid = require("@mod-tollium/js/gettid").getTid;
+import * as dompack from "dompack";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { Toolbar, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+
+import { addImageCropButton } from "./crop";
+import { addFiltersButton } from "./filters";
+import { addRefPointButton } from "./refpoint";
+import { addImageRotateButton } from "./scaling";
+import { ImageSurface } from "./surface";
+
+import "./imageeditor.css";
 import "./imageeditor.lang.json";
 import "../../common.lang.json";
-const toddImages = require("@mod-tollium/js/icons");
-import * as dompack from 'dompack';
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
@@ -23,10 +25,12 @@ const MAX_IMAGE_AREA = 15000000; // Max number of pixels
 Supported debug flags:
   isc Set SmartCrop debug flag
   ixf Enable experimental filters
-*/
+  */
+
+export type SetStatusCallback = (width: number, height: number, orgwidth: number, orgheight: number) => void;
 
 export class ImageEditor {
-  constructor(el, options) {
+  constructor(el, options = {}) {
     this.el = null;
     this.toolbar = null;
     this.surface = null;
@@ -73,26 +77,26 @@ export class ImageEditor {
     this.el.addEventListener("tollium-imageeditor:redo", evt => this.previewImgSize(evt));
 
     dompack.empty(this.el);
-    this.el.appendChild(this.toolbar.toElement());
-    this.el.appendChild(this.surface.toElement());
+    this.el.appendChild(this.toolbar.node);
+    this.el.appendChild(this.surface.node);
     this.setSize(this.options.width, this.options.height);
 
     // Add toolbar buttons
     this.undobutton = ImageSurface.addUndoButton(this.toolbar, this.surface).button;
     this.redobutton = ImageSurface.addRedoButton(this.toolbar, this.surface).button;
-    this.toolbar.addButton(new Toolbar.Separator(this.toolbar));
+    this.toolbar.addButton(new ToolbarSeparator(this.toolbar));
 
-    this.cropper = Crop.addImageCropButton(this.toolbar, this.surface,
+    this.cropper = addImageCropButton(this.toolbar, this.surface,
       {
         fixedsize: this.cropsize,
         ratiosize: this.cropratio,
         setStatus: this.setStatus.bind(this)
       });
-    this.rotator = Scaling.addImageRotateButton(this.toolbar, this.surface,
+    this.rotator = addImageRotateButton(this.toolbar, this.surface,
       {
         setStatus: this.setStatus.bind(this)
       });
-    this.filters = Filters.addFiltersButton(this.toolbar, this.surface,
+    this.filters = addFiltersButton(this.toolbar, this.surface,
       {
         resourcebase: this.options.resourcebase,
         setStatus: this.setStatus.bind(this),
@@ -101,7 +105,7 @@ export class ImageEditor {
         getAllowedFilters: this.getAllowedFilters.bind(this),
         setModalLayerOpacity: this.options.setModalLayerOpacity
       });
-    this.pointer = Refpoint.addRefPointButton(this.toolbar, this.surface,
+    this.pointer = addRefPointButton(this.toolbar, this.surface,
       {
         setStatus: this.setStatus.bind(this)
       });

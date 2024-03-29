@@ -1,20 +1,28 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
-import * as movable from 'dompack/browserfix/movable';
+import * as dompack from "dompack";
+import * as movable from "dompack/browserfix/movable";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { Toolbar, ToolbarButton, ToolbarPanel } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+
+import { SetStatusCallback } from ".";
+import { ImageSurface } from "./surface";
+import { SurfaceTool } from "./surfacetool";
+import { SmartCrop } from "./smartcrop";
 
 import "./imageeditor.lang.json";
-import { getTid } from "@mod-tollium/js/gettid";
-import { SurfaceTool } from './surfacetool';
 
-const Toolbar = require('../toolbar/toolbars');
-const SmartCrop = require('./smartcrop.js');
-const toddImages = require("@mod-tollium/js/icons");
+type PhotoCropOptions = {
+  fixedsize?: { width: number; height: number };
+  ratiosize?: { width: number; height: number };
+  setStatus?: SetStatusCallback;
+}
 
 class PhotoCrop extends SurfaceTool {
-  constructor(surface, options) {
-    super(surface, options);
+  constructor(surface: ImageSurface, options?: PhotoCropOptions) {
+    super(surface);
 
     this.crop = null;
     this.aspect = 0;
@@ -33,13 +41,13 @@ class PhotoCrop extends SurfaceTool {
       ...options
     };
 
-    this.croppanel = new Toolbar.Panel(
+    this.croppanel = new ToolbarPanel(
       {
         onClose: this.stop.bind(this),
         onApply: this.apply.bind(this)
       });
     this.croppanel._imgedittool = "crop";
-    this.autobutton = new Toolbar.Button(this.croppanel,
+    this.autobutton = new ToolbarButton(this.croppanel,
       {
         label: getTid("tollium:components.imgedit.editor.smartcrop"),
         icon: toddImages.createImage("tollium:actions/resetcrop", 24, 24, "b"),
@@ -61,7 +69,7 @@ class PhotoCrop extends SurfaceTool {
     const styles = this.surface.canvas.style.cssText;
 
     this.cropbox = <div class="wh-cropbox" style={styles} />;
-    this.surface.container.append(this.cropbox);
+    this.surface.node.append(this.cropbox);
 
     const canvaspos = this.surface.canvas.getBoundingClientRect();
     this.reference = { x: canvaspos.left, y: canvaspos.top };
@@ -80,7 +88,7 @@ class PhotoCrop extends SurfaceTool {
       , <div class="hline1" />
       , <div class="hline2" />);
 
-    this.masksize = this.surface.container.getBoundingClientRect();
+    this.masksize = this.surface.node.getBoundingClientRect();
 
     //set draggers:
     this.draggers = [];
@@ -114,7 +122,7 @@ class PhotoCrop extends SurfaceTool {
     //initial crop values
     this.crop = [0, 1, 1, 0];
 
-    this.setAspectratio(this.options.ratiosize, function () {
+    this.setAspectratio(this.options.ratiosize, function() {
       this.active = true;
     }.bind(this));
   }
@@ -392,7 +400,7 @@ class PhotoCrop extends SurfaceTool {
       height: h || this.surface.canvasdata.realsize.y,
       debug: dompack.debugflags.isc
     };
-    SmartCrop.crop(this.surface.canvas, options, function (result) {
+    SmartCrop.crop(this.surface.canvas, options, function(result) {
       //ADDME:      if (options.debug && result.debugCanvas)
       //        this.tmpcanvas.getContext("2d").drawImage(result.debugCanvas, 0, 0, this.tmpcanvas.width, this.tmpcanvas.height);
       this.setClipValues(result.topCrop.x, result.topCrop.y, result.topCrop.y + result.topCrop.height, result.topCrop.x + result.topCrop.width);
@@ -614,18 +622,17 @@ class PhotoCrop extends SurfaceTool {
   }
 }
 
-function addImageCropButton(toolbar, surface, options) {
+export type { PhotoCrop };
+
+export function addImageCropButton(toolbar: Toolbar, surface: ImageSurface, options?: PhotoCropOptions) {
   const cropper = new PhotoCrop(surface, options);
 
-  const button = new Toolbar.Button(toolbar,
-    {
-      label: getTid("tollium:components.imgedit.editor.crop"),
-      icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b"),
-      onExecute: cropper.startCropping.bind(cropper, toolbar)
-    });
+  const button = new ToolbarButton(toolbar, {
+    label: getTid("tollium:components.imgedit.editor.crop"),
+    icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b"),
+    onExecute: cropper.startCropping.bind(cropper, toolbar)
+  });
   toolbar.addButton(button);
 
   return { button: button, comp: cropper };
 }
-
-exports.addImageCropButton = addImageCropButton;

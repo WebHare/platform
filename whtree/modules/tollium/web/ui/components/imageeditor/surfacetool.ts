@@ -1,8 +1,9 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import { ImageSurface } from "./surface";
 
 export class SurfaceTool {
-  constructor(surface) {
+  surface: ImageSurface;
+
+  constructor(surface: ImageSurface) {
     this.surface = surface;
   }
 

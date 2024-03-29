@@ -1,12 +1,12 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
-const Toolbar = require('../toolbar/toolbars');
-const getTid = require("@mod-tollium/js/gettid").getTid;
-require("./imageeditor.lang.json");
-const toddImages = require("@mod-tollium/js/icons");
-import { SurfaceTool } from './surfacetool';
+import * as dompack from "dompack";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { ToolbarButton, ToolbarPanel, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { SurfaceTool } from "./surfacetool";
+import "./imageeditor.lang.json";
 
 let CCV, faceCascade;
 //ADDME: Uncomment these to activate face recognition filter
@@ -31,55 +31,55 @@ class PhotoFilters extends SurfaceTool {
     };
 
 
-    this.filterpanel = new Toolbar.Panel(
+    this.filterpanel = new ToolbarPanel(
       {
         onClose: this.stop.bind(this),
         onApply: this.apply.bind(this)
       });
     this.filterpanel._imgedittool = "filters";
-    this.grayscalebutton = new Toolbar.Button(this.filterpanel,
+    this.grayscalebutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.grayscale"),
         icon: toddImages.createImage("tollium:actions/grayscale", 24, 24, "b"),
         onExecute: this.grayscale.bind(this)
       });
     this.filterpanel.addButton(this.grayscalebutton);
-    this.invertbutton = new Toolbar.Button(this.filterpanel,
+    this.invertbutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.invert"),
         icon: toddImages.createImage("tollium:actions/invert", 24, 24, "b"),
         onExecute: this.invert.bind(this)
       });
     this.filterpanel.addButton(this.invertbutton);
-    this.sharpenbutton = new Toolbar.Button(this.filterpanel,
+    this.sharpenbutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.sharpen"),
         icon: toddImages.createImage("tollium:actions/sharpen", 24, 24, "b"),
         onExecute: this.sharpen.bind(this)
       });
     this.filterpanel.addButton(this.sharpenbutton);
-    this.blurbutton = new Toolbar.Button(this.filterpanel,
+    this.blurbutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.blur"),
         icon: toddImages.createImage("tollium:actions/blur", 24, 24, "b"),
         onExecute: this.blur.bind(this)
       });
     this.filterpanel.addButton(this.blurbutton);
-    this.brightnesscontrastbutton = new Toolbar.Button(this.filterpanel,
+    this.brightnesscontrastbutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.brightnesscontrast"),
         icon: toddImages.createImage("tollium:actions/brightnesscontrast", 24, 24, "b"),
         onExecute: this.brightnessContrast.bind(this)
       });
     this.filterpanel.addButton(this.brightnesscontrastbutton);
-    this.autocontrastbutton = new Toolbar.Button(this.filterpanel,
+    this.autocontrastbutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.autocontrast"),
         icon: toddImages.createImage("tollium:actions/autocontrast", 24, 24, "b"),
         onExecute: this.autocontrast.bind(this)
       });
     this.filterpanel.addButton(this.autocontrastbutton);
-    this.coloradjustbutton = new Toolbar.Button(this.filterpanel,
+    this.coloradjustbutton = new ToolbarButton(this.filterpanel,
       {
         label: getTid("tollium:components.imgedit.editor.coloradjust"),
         icon: toddImages.createImage("tollium:actions/colors", 24, 24, "b"),
@@ -87,21 +87,21 @@ class PhotoFilters extends SurfaceTool {
       });
     this.filterpanel.addButton(this.coloradjustbutton);
     if (dompack.debugflags.ixf) {
-      this.filterpanel.addButton(new Toolbar.Separator(this.filterpanel));
-      this.filterpanel.addButton(new Toolbar.Button(this.filterpanel,
+      this.filterpanel.addButton(new ToolbarSeparator(this.filterpanel));
+      this.filterpanel.addButton(new ToolbarButton(this.filterpanel,
         {
           label: getTid("tollium:components.imgedit.editor.sepia"),
           icon: toddImages.createImage("tollium:actions/sepia", 24, 24, "b"),
           onExecute: this.sepia.bind(this)
         }));
-      this.filterpanel.addButton(new Toolbar.Button(this.filterpanel,
+      this.filterpanel.addButton(new ToolbarButton(this.filterpanel,
         {
           label: getTid("tollium:components.imgedit.editor.posterize"),
           icon: toddImages.createImage("tollium:actions/posterize", 24, 24, "b"),
           onExecute: this.posterize.bind(this)
         }));
       if (typeof CCV === "object") {
-        this.filterpanel.addButton(new Toolbar.Button(this.filterpanel,
+        this.filterpanel.addButton(new ToolbarButton(this.filterpanel,
           {
             label: getTid("tollium:components.imgedit.editor.findfaces"),
             icon: toddImages.createImage("tollium:actions/findfaces", 24, 24, "b"),
@@ -136,7 +136,7 @@ class PhotoFilters extends SurfaceTool {
 
   start() {
     this.filterbox = <div class="wh-filterbox" style={this.surface.canvas.style.cssText} />;
-    this.surface.container.append(this.filterbox);
+    this.surface.node.append(this.filterbox);
 
     this.tmpcanvas = <canvas class="wh-filterbox-img" width={this.surface.canvas.width} height={this.surface.canvas.height} />;
     this.filterbox.append(this.tmpcanvas);
@@ -370,7 +370,7 @@ class PhotoFilters extends SurfaceTool {
               this.progress = null;
             }
 
-            requestAnimationFrame(function () {
+            requestAnimationFrame(function() {
               this.filterdata = data.result.data;
               this.setPixels(this.tmpcanvas, data.result);
 
@@ -444,6 +444,8 @@ class PhotoFilters extends SurfaceTool {
     this.options.setModalLayerOpacity(0);
   }
 }
+
+export type { PhotoFilters };
 
 class FilterDialogController {
   constructor(options) {
@@ -556,10 +558,10 @@ class FilterDialogController {
   }
 }
 
-function addFiltersButton(toolbar, surface, options) {
+export function addFiltersButton(toolbar, surface, options) {
   const filters = new PhotoFilters(surface, options);
 
-  const button = new Toolbar.Button(toolbar,
+  const button = new ToolbarButton(toolbar,
     {
       label: getTid("tollium:components.imgedit.editor.filters"),
       icon: toddImages.createImage("tollium:misc/levers", 24, 24, "b"),
@@ -569,5 +571,3 @@ function addFiltersButton(toolbar, surface, options) {
 
   return { button: button, comp: filters };
 }
-
-exports.addFiltersButton = addFiltersButton;

@@ -275,8 +275,8 @@ class ImgeditDialogController {
 
     this.editor = new ImageEditor(container, options);
     container.addEventListener("tollium-imageeditor:load", () => this._onEditorReady());
-    this.editor.toolbar.toElement().addEventListener("modal-opened", this._onEditorOpenTool.bind(this));
-    this.editor.toolbar.toElement().addEventListener("modal-closed", this._onEditorCloseTool.bind(this));
+    this.editor.toolbar.node.addEventListener("modal-opened", this._onEditorOpenTool.bind(this));
+    this.editor.toolbar.node.addEventListener("modal-closed", this._onEditorCloseTool.bind(this));
   }
 
   _relayoutDialog() {
