@@ -1397,7 +1397,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       IF(NOT MemberExists(this,handler))
         THROW NEW TolliumException(this, `Missing handler '${handler}'`);
 
-      VARIANT result := AWAIT GetObjectMethodPtr(This,handler)(msgdata.data);
+      VARIANT result := AWAIT GetObjectMethodPtr(this, handler)(msgdata.data);
       this->owner->frame->QueueOutboundMessage("AsyncResponse", CELL [msgdata.promiseid, resolve := result ]);
     }
     CATCH(OBJECT e)
