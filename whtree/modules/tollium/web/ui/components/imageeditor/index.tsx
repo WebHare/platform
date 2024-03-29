@@ -80,14 +80,6 @@ class ImageEditor {
     // Add toolbar buttons
     this.undobutton = ImageSurface.addUndoButton(this.toolbar, this.surface).button;
     this.redobutton = ImageSurface.addRedoButton(this.toolbar, this.surface).button;
-    if (this.options.resetImage) {
-      this.toolbar.addButton(new Toolbar.Button(this.toolbar,
-        {
-          label: getTid("~reset"),
-          icon: toddImages.createImage("tollium:actions/reset", 24, 24, "b"),
-          onExecute: this.resetImage.bind(this)
-        }));
-    }
     this.toolbar.addButton(new Toolbar.Separator(this.toolbar));
 
     this.cropper = Crop.addImageCropButton(this.toolbar, this.surface,
@@ -252,11 +244,6 @@ class ImageEditor {
   }
   getAllowedFilters() {
     return this.allowedfilters;
-  }
-  resetImage() {
-    this.options.resetImage().then(function (result) {
-      this.dirty = this.dirty || result === "yes";
-    }.bind(this));
   }
 }
 

@@ -732,7 +732,7 @@ export class ToddCompBase {
   /** @param type - Type of message
       @param data - Data to send
   */
-  getFileTransferURL(type, data, options) {
+  getFileTransferURL(type, data?, options?) {
     const ftid = 'FT:c' + ++urlgencounter;
     let url = this.getFileTransferBaseURL(options);
     url += '&t=' + encodeURIComponent(type);

@@ -1389,13 +1389,6 @@ To change a <xs:attribute /> for adding descriptions
         <xs:element name="enableon" type="EnableOnWithOnUpload" minOccurs="0" maxOccurs="unbounded" />
       </xs:sequence>
       <xs:attributeGroup ref="ActionBaseAttributes" />
-      <xs:attribute name="onresend" type="tc:Handler">
-        <xs:annotation>
-          <xs:appinfo>
-            <tai:callbacksignature arguments="" />
-          </xs:appinfo>
-        </xs:annotation>
-      </xs:attribute>
       <xs:attributeGroup ref="OnUploadGroup" />
       <xs:attributeGroup ref="UploadTypes" />
       <xs:attributeGroup ref="sc:ImageEditSettings" />

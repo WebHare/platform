@@ -564,7 +564,6 @@
       <textgroup gid="messages">   <!-- components.imgedit.messages -->
         <text tid="confirmdiscardchanges">Er zijn nog niet-opgeslagen wijzigingen.<br/><br/>Wilt u de bewerkingen toepassen voor u de editor sluit?</text>
         <text tid="confirmdiscardtool">De bewerking is nog niet toegepast.<br/><br/>Weet u zeker dat u de editor wilt sluiten zonder de bewerking toe te passen?</text>
-        <text tid="confirmreset">De afbeelding wordt hersteld naar het origineel. Alle huidige wijzigingen gaan hierbij verloren.<br/><br/>Weet u zeker dat u de afbeelding wilt herstellen?</text>
         <text tid="corruptimage">De afbeelding kan niet ingeladen worden, het is corrupt of heeft een niet-ondersteund formaat.</text>
         <text tid="maxsizewarning">De afbeelding is verkleind vanwege browserbeperkingen</text>
         <text tid="minsizewarning">De afbeelding wordt vergroot om te voldoen aan de gewenste grootte</text>

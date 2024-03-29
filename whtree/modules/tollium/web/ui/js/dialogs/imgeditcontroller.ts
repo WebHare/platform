@@ -37,6 +37,8 @@ function dataURItoBlob(dataURI) {
 
 
 class ImgeditDialogController {
+  defer = dompack.createDeferred();
+
   constructor(screen, options) {
     this.screen = null;
     this.dialog = null;
@@ -49,11 +51,9 @@ class ImgeditDialogController {
     {
       imgsize: null,
       action: 'upload',
-      resetImage: null,
       ...options
     };
 
-    this.defer = dompack.createDeferred();
     this.screen = screen;
 
     const desktopsize = screen.displayapp.container.getBoundingClientRect();
@@ -262,12 +262,6 @@ class ImgeditDialogController {
       editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
     };
 
-    if (this.options.action === "edit") {
-      if (this.options.resetImage)
-        options.resetImage = this.options.resetImage;
-      //ADDME: Drag-n-drop file upload in image editor?
-    }
-
     this.editor = new ImageEditor(container, options);
     container.addEventListener("tollium-imageeditor:load", () => this._onEditorReady());
     this.editor.toolbar.toElement().addEventListener("modal-opened", this._onEditorOpenTool.bind(this));
@@ -322,7 +316,9 @@ class ImgeditDialogController {
       this.busylock = this.screen.displayapp.getBusyLock();
       this.editor.getImageAsBlob((blob, settings) => {
         this.defer.resolve({
-          blob: blob, settings: settings, editcallback: () => {
+          blob: blob,
+          settings: settings,
+          editcallback: () => {
             if (callback)
               callback();
             this._closeDialog();
@@ -332,7 +328,9 @@ class ImgeditDialogController {
     } else {
       // Upload the given blob and close the dialog
       this.defer.resolve({
-        blob: sendblob, settings: null, editcallback: () => {
+        blob: sendblob,
+        settings: null,
+        editcallback: () => {
           if (callback)
             callback();
           this._closeDialog();
@@ -430,21 +428,21 @@ class ImgeditDialogController {
       this._closeImageEditor(null, callback);
     }
   }
-}
 
-ImgeditDialogController.checkTypeAllowed = function (screen, type) {
-  const allowed_mimetypes = ["image/jpeg", "image/png", "image/gif"];
-  if (!allowed_mimetypes.includes(type)) {
-    runSimpleScreen(screen.displayapp,
-      {
-        title: getTid("tollium:components.imgedit.editor.title"),
-        text: getTid("tollium:components.imgedit.messages.unsupportedtype"),
-        icon: "warning",
-        buttons: [{ name: "close", title: getTid("~close") }]
-      });
-    return false;
+  static checkTypeAllowed(screen, type) {
+    const allowed_mimetypes = ["image/jpeg", "image/png", "image/gif"];
+    if (!allowed_mimetypes.includes(type)) {
+      runSimpleScreen(screen.displayapp,
+        {
+          title: getTid("tollium:components.imgedit.editor.title"),
+          text: getTid("tollium:components.imgedit.messages.unsupportedtype"),
+          icon: "warning",
+          buttons: [{ name: "close", title: getTid("~close") }]
+        });
+      return false;
+    }
+    return true;
   }
-  return true;
 };
 
 export default ImgeditDialogController;

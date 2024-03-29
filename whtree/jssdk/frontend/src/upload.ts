@@ -23,8 +23,8 @@ export interface UploadProgressStatus {
   totalBytes: number;
   uploadedFiles: number;
   totalFiles: number;
-  //Upload speed in KB/sec.
-  uploadSpeedKB: number;
+  //Upload speed in bytes/sec.
+  uploadSpeed: number;
 }
 
 interface UploadOptions {
@@ -53,7 +53,13 @@ export interface UploadInstructions {
   chunkSize: number;
   signal?: AbortSignal;
 }
-class MultiFileUploader {
+
+export interface UploaderBase {
+  readonly manifest: UploadManifest;
+  upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult | UploadResult[]>;
+}
+
+export class MultiFileUploader implements UploaderBase {
   private files: File[];
   readonly manifest: UploadManifest;
 
@@ -75,7 +81,7 @@ class MultiFileUploader {
     function fireProgressEvent(partialbytes: number) {
       const curUploaded = uploadedBytes + partialbytes;
       const timeElapsed = Date.now() - start;
-      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeedKB: timeElapsed ? curUploaded / timeElapsed : 0 });
+      options?.onProgress?.({ uploadedBytes: curUploaded, totalBytes, uploadedFiles, totalFiles, uploadSpeed: timeElapsed ? curUploaded / (timeElapsed / 1000) : 0 });
     }
 
     fireProgressEvent(0);
@@ -147,7 +153,7 @@ class MultiFileUploader {
   }
 }
 
-class SingleFileUploader {
+export class SingleFileUploader implements UploaderBase {
   uploader;
 
   get manifest() {

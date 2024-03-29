@@ -52,7 +52,7 @@ export async function receiveFiles(component, options) {
   });
 }
 
-export async function uploadBlobs(component, blobs, uploadedcallback, options) {
+export async function uploadBlobs(component, blobs, uploadedcallback) {
   const uploader = new compatupload.UploadSession(blobs, { params: { tolliumdata: getUploadTolliumData(component) } });
   const uploadcontroller = new UploadDialogController(component.owner, uploader);
   const result = await uploader.upload();

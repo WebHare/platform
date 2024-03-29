@@ -3,15 +3,58 @@
 
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
-
-import { getTid } from "@mod-tollium/js/gettid";
 import DownloadManager from '@mod-system/js/compat/download';
 
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
 import ImgeditDialogController from '@mod-tollium/web/ui/js/dialogs/imgeditcontroller';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type { EnableOnRule } from '@mod-tollium/web/ui/js/types';
 require("@mod-tollium/web/ui/common.lang.json");
 require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
+
+type EditImage = {
+  url: string;
+  name: string;
+  type: string;
+  source_fsobject: number;
+  refpoint?: {
+    x: number;
+    y: number;
+  };
+};
+
+interface ActionAttributes extends ComponentStandardAttributes {
+  customaction?: string;
+  targetname: string;
+  frameflags: string[];
+  enableons: EnableOnRule[];
+  mimetypes: string[];
+  multiple: boolean;
+  imageaction?: true;
+  actiontype?: string;
+  imgsize?: ImageSize | null;
+  onexecute?: (comp: ObjAction, data: { rule: number }, callback: () => void) => void; //NOTE this is not passed to us by HareScript, only through clientside component building
+  source?: string;
+  editimage?: { image: EditImage };
+}
+
+type ActionUpdate = {
+  type: "execute";
+  image: EditImage;
+} | ComponentBaseUpdate;
+
+interface ImageSize {
+  method: string;
+  setwidth: number;
+  setheight: number;
+  format: string;
+  bgcolor: string;
+  noforce: boolean;
+  fixorientation: boolean;
+  allowedactions: string[];
+  allowedfilters: string[];
+}
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -20,11 +63,24 @@ require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
  ****************************************************************************************************************************/
 
 export default class ObjAction extends ActionForwardBase {
-  constructor(parentcomp, data) {
+  imageaction: boolean;
+  actiontype;
+  mimetypes: string[];
+  lastenabled: null | boolean = null;
+  pendingdownloads = [];
+  customaction?: string;
+  target: string;
+  frameflags;
+  enableons;
+  imgsize;
+  multiple: boolean;
+  _onexecute: ActionAttributes["onexecute"];
+  source;
+  editimage?: EditImage;
+
+  constructor(parentcomp: ToddCompBase | null, data: ActionAttributes) {
     super(parentcomp, data);
     this.componenttype = "action";
-    this.lastenabled = null;
-    this.pendingdownloads = [];
 
     this.customaction = data.customaction;
     this.target = data.targetname;
@@ -32,12 +88,12 @@ export default class ObjAction extends ActionForwardBase {
     this.frameflags = data.frameflags || [];
     this.enableons = data.enableons || [];
     this.mimetypes = data.mimetypes || [];
-    this.multiple = !("multiple" in data) || data.multiple;
+    this.multiple = Boolean(!("multiple" in data) || data.multiple);
     this.imageaction = Boolean(data.imageaction);
     this.actiontype = data.actiontype;
     this.imgsize = data.imgsize;
     this._onexecute = data.onexecute;
-    this.source = data.source; //for copy action
+    this.source = data.source || ""; //for copy action
 
     /*
     if (this.shortcut)
@@ -57,16 +113,14 @@ export default class ObjAction extends ActionForwardBase {
     }
   }
 
-  onExecute(options?) {
-    options = { ignorebusy: false, ...(options || {}) };
+  onExecute({ ignorebusy = false } = {}) {
     const hitrule = this.getHitRule();
 
     // application already busy?
-    if (this.owner.isBusy() && !options.ignorebusy)
+    if (this.owner.isBusy() && !ignorebusy)
       return false;
 
-    if (hitrule === -1) //we are not enabled
-    {
+    if (hitrule === -1) {//we are not enabled
       this.debugLog("actionenabler", "- Action is explicitly disabled by client");
       return false;
     }
@@ -82,7 +136,7 @@ export default class ObjAction extends ActionForwardBase {
     else if (this.isEventUnmasked('execute'))
       this.queueMessage("execute", { rule: hitrule }, true);
     else if (this._onexecute) {
-      const block = this.owner.displayapp.getBusyLock('action');
+      const block = this.owner.displayapp!.getBusyLock();
       this._onexecute(this, { rule: hitrule }, block.release.bind(block));
     }
 
@@ -144,21 +198,22 @@ export default class ObjAction extends ActionForwardBase {
     }
   }
 
-  executeUploadAction(data) {
+  private async executeUploadAction(data: { rule: number }): Promise<void> {
     if (this.imageaction) {
       switch (this.actiontype) {
-        case "upload":
-          {
-            const busylock = dompack.flagUIBusy();
-            toddupload.receiveFiles(this, {
-              mimetypes: this.mimetypes,
-              multiple: this.multiple
-            }).then(files => {
-              if (files.length)
-                this.handleImageUploaded(data, files[0]);
-            }).finally(() => busylock.release());
-            return;
-          }
+        case "upload": {
+          using busylock = dompack.flagUIBusy();
+          void busylock;
+
+          const files = await toddupload.receiveFiles(this, {
+            mimetypes: this.mimetypes,
+            multiple: this.multiple
+          });
+          if (files.length)
+            this.handleImageUploaded(data, files[0]);
+
+          return;
+        }
         case "edit":
           {
             if (!this.editimage) {
@@ -172,25 +227,25 @@ export default class ObjAction extends ActionForwardBase {
       }
     } else {
       const busylock = dompack.flagUIBusy();
-      toddupload.uploadFiles(this, function (files, callback) {
+      toddupload.uploadFiles(this, (files, callback) => {
         busylock.release();
         if (!files.length) {
           callback();
           return;
         }
-        data.items = files.map(function (i) { return { type: "file", filename: i.filename, token: i.filetoken }; });
+        data.items = files.map(i => ({ type: "file", filename: i.filename, token: i.filetoken }));
         this.asyncMessage("upload", data).then(callback);
-      }.bind(this), {
+      }, {
         mimetypes: this.mimetypes,
         multiple: this.multiple
       });
     }
   }
 
-  executeDownloadAction(data) {
+  executeDownloadAction(data: { rule: number }) {
     const fturl = this.getFileTransferURL('asyncdownload');
 
-    const dl = new DownloadManager(fturl.url, {});
+    const dl = new DownloadManager(fturl.url);
     dl.startDownload().then(result => {
       if (result.started)
         this.onDownloadStarted(dl, fturl.id);
@@ -218,49 +273,28 @@ export default class ObjAction extends ActionForwardBase {
       comp.doCopyToClipboard();
   }
 
-  onDownloadStarted(dl, id) {
+  onDownloadStarted(dl: DownloadManager, id: string) {
     this.pendingdownloads = this.pendingdownloads.filter(item => item !== dl); //erase
     this.queueMessage("download-started", { ftid: id }, true);
   }
 
-  onDownloadFailed(dl, id) {
+  onDownloadFailed(dl: DownloadManager, id: string) {
     this.pendingdownloads = this.pendingdownloads.filter(item => item !== dl); //erase
     this.queueMessage("download-failed", { ftid: id }, true);
   }
 
-  onMsgTarget(data) {
+  onMsgTarget(data: { target: string }) {
     this.target = data.target;
   }
 
-  handleImageReset() {
-    return new Promise(function (resolve) {
-      $todd.createMessageBox(this.owner.displayapp,
-        {
-          title: getTid("tollium:components.imgedit.editor.title"),
-          text: getTid("tollium:components.imgedit.messages.confirmreset"),
-          icon: "question",
-          buttons: [
-            { name: "yes", title: getTid("~yes") },
-            { name: "no", title: getTid("~no") }
-          ],
-          onclose: function (result) {
-            if (result === "yes")
-              this.queueMessage("resend", {}, true);
-            resolve(result);
-          }.bind(this)
-        });
-    }.bind(this));
-  }
-
-  async handleImageUploaded(data, file) {
+  async handleImageUploaded(data: { rule: number }, file) {
     if (!file || !ImgeditDialogController.checkTypeAllowed(this.owner, file.type))
       return;
 
     const options = {
       mimetype: file.type,
       imgsize: this.imgsize,
-      action: this.actiontype,
-      resetImage: file.source_fsobject ? this.handleImageReset.bind(this) : null
+      action: this.actiontype
     };
 
     const imageeditdialog = new ImgeditDialogController(this.owner, options);
@@ -304,7 +338,7 @@ export default class ObjAction extends ActionForwardBase {
   * Events
   */
 
-  applyUpdate(data) {
+  applyUpdate(data: ActionUpdate) {
     switch (data.type) {
       case "execute":
         {

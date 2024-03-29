@@ -3,6 +3,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
 import { debugFlags } from '@webhare/env';
 import type { FlagSet, SelectionMatch, TolliumMessage } from './types';
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 require("../common.lang.json");
 
@@ -76,7 +77,7 @@ export const settings =
 export const applicationstack: ApplicationBase[] = [];
 export const applications: ApplicationBase[] = [];
 export const resourcebase = new URL(whintegration.config.obj.toddroot as string, location.href).toString();
-export const customactions = {};
+export const customactions: Record<string, (data: { action: string; screen: Frame }) => void> = {};
 
 export function getActiveApplication() {
   return applicationstack.at(-1);
