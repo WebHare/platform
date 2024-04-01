@@ -47,25 +47,6 @@
       <impliedby right="system:supervisor" />
     </right>
 
-    <objecttype name="feedbackroles"
-                describer="lib/internal/support.whlib#feedbackrolesdescriber"
-                rightsgroup="system:default"
-                table="wrd.entities"
-                tid="rights.feedbackroles" />
-
-    <right name="managefeedback"
-           descriptiontid="rights.managefeedback-descr"
-           rightsgroup="system:default"
-           tid="rights.managefeedback">
-      <impliedby right="system:supervisor" />
-    </right>
-    <right name="managefeedbackrole"
-           descriptiontid="rights.managefeedbackrole-descr"
-           objecttype="feedbackroles"
-           tid="rights.managefeedbackrole">
-      <impliedby right="managefeedback" />
-    </right>
-
     <objecttype name="shorturldomains"
                 describer="lib/internal/shorturl/support.whlib#ShortURLDomainsDescriber"
                 table="system.fs_objects"
@@ -118,13 +99,10 @@
       </accesscheck>
     </application>
     <application name="feedback"
-                 group="system:setup"
                  icon="tollium:actions/checklist"
-                 screen="tolliumapps/feedback/main.xml#main"
-                 tid="tolliumapps.feedback.apptitle">
-      <accesscheck combine="or">
-        <requireright right="managefeedback" />  <!-- Add this right explicitly, so supervisors can access the app if there are no roles defined (yet) -->
-        <requireright right="managefeedbackrole" />
+                 screen="tolliumapps/feedback/main.xml#main">
+      <accesscheck>
+        <requireright right="system:sysop" />
       </accesscheck>
     </application>
     <application name="shorturl"
@@ -852,9 +830,5 @@
                  validator="lib/internal/forms/validation.whlib#FormdefValidator" />
     <debugflag name="localfs" description="Filesystem actions on the webserver output" />
   </development>
-
-  <wrdschemas>
-    <schema tag="feedback" definitionfile="mod::publisher/data/wrdschemas/feedback.wrdschema.xml" title="Feedback storage schema" />
-  </wrdschemas>
 
 </module>
