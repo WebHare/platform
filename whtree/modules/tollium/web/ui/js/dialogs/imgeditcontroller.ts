@@ -6,14 +6,22 @@ require("../../common.lang.json");
 require("../../components/imageeditor/imageeditor.lang.json");
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-
-import * as dompack from 'dompack';
+import { createDeferred } from '@webhare/std';
 import ExifParser from "exif-parser";
 
 const getTid = require("@mod-tollium/js/gettid").getTid;
 
+export type RefPoint = { x: number, y: number };
+
+export interface ImageSettings {
+  filename: string;
+  refpoint: RefPoint | null;
+};
+
 import * as $todd from "@mod-tollium/web/ui/js/support";
-const ImageEditor = require("../../components/imageeditor");
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ApplicationBusyLock } from '../application';
+import { ImageEditor } from "../../components/imageeditor";
 
 // http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html
 function dataURItoBlob(dataURI) {
@@ -37,13 +45,18 @@ function dataURItoBlob(dataURI) {
 
 
 class ImgeditDialogController {
-  defer = dompack.createDeferred();
+  defer = createDeferred<{
+    blob: Blob | null;
+    settings: { refpoint: RefPoint } | null;
+    editcallback: () => void;
+  }>();
+  screen: Frame;
+  busylock: ApplicationBusyLock | null = null;
+  editor: ImageEditorType | null = null;
 
-  constructor(screen, options) {
-    this.screen = null;
+  constructor(screen: Frame, options?) {
+    this.screen = screen;
     this.dialog = null;
-    this.editor = null;
-    this.busylock = null;
     this.imageurl = null;
     this.editorsize = null;
     this.activetool = null;
@@ -54,8 +67,6 @@ class ImgeditDialogController {
       ...options
     };
 
-    this.screen = screen;
-
     const desktopsize = screen.displayapp.container.getBoundingClientRect();
     this.editorsize = {
       x: parseInt(0.7 * desktopsize.width),
@@ -63,12 +74,12 @@ class ImgeditDialogController {
     };
   }
 
-  loadImageBlob(blob, settings) {
+  loadImageBlob(blob: File, settings: ImageSettings) {
     if (this.busylock)
       return;
 
     // Take a busy lock during loading
-    this.busylock = this.screen.displayapp.getBusyLock();
+    this.busylock = this.screen.displayapp!.getBusyLock();
 
     this._readImageFile(blob, settings);
   }
@@ -78,7 +89,7 @@ class ImgeditDialogController {
       return;
 
     // Take a busy lock during loading
-    this.busylock = this.screen.displayapp.getBusyLock();
+    this.busylock = this.screen.displayapp!.getBusyLock();
 
     if (src.indexOf("data:") === 0) {
       //console.log("Convert image data from data URL to blob");
@@ -99,7 +110,7 @@ class ImgeditDialogController {
     }
   }
 
-  _readImageFile(file, settings) {
+  _readImageFile(file: Blob, settings: ImageSettings) {
     const reader = new FileReader();
     const fixorientation = this.editor ? this.editor.fixorientation : this.options.imgsize ? this.options.imgsize.fixorientation : true;
 
@@ -314,7 +325,7 @@ class ImgeditDialogController {
     if (sendblob === true) {
       // Retrieve the image from the editor and close the dialog
       this.busylock = this.screen.displayapp.getBusyLock();
-      this.editor.getImageAsBlob((blob, settings) => {
+      this.editor.getImageAsBlob((blob: Blob | null, settings?: { refpoint?: RefPoint }) => {
         this.defer.resolve({
           blob: blob,
           settings: settings,

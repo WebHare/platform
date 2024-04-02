@@ -99,7 +99,7 @@ async function gatherUploadFiles(items) {
     @cell items List of items (for type='file', with cells 'token' and 'name')
     @cell dialogclosecallback Callback to close the progress dialog after drop has finished)
 */
-export async function uploadFilesForDrop(component, dragdata, callback) {
+export async function uploadFilesForDrop(component: ToddCompBase, dragdata: CurrentDragData, callback) {
   const draginfo = dragdata.getData();
   let files = dragdata.getFiles();
 

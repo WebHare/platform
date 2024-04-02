@@ -151,15 +151,8 @@ ASYNC MACRO TestImportExport()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Manage schemas"));
 
   // Upload the file, the import options dialog will show
-  STRING ARRAY uploadtokens := TT("importschema")->PrepareUpload(exportfile);
-  AWAIT ExpectScreenChange(+1, PTR TT("importschema")->ProcessInboundMessage("upload",
-      [ rule := 0
-      , items :=
-          [ [ type := "file"
-            , token := uploadtokens[0]
-            ]
-          ]
-      ]));
+
+  AWAIT ExpectScreenChange(+1, PTR TT("importschema")->ExecuteUpload([exportfile]));
   // Upload progress window
   AWAIT ExpectOptionalProgressWindow(PTR TTClick(":OK"));
   // 'The old schema has been renamed' message

@@ -25,7 +25,7 @@ Supported debug flags:
   ixf Enable experimental filters
 */
 
-class ImageEditor {
+export class ImageEditor {
   constructor(el, options) {
     this.el = null;
     this.toolbar = null;
@@ -421,5 +421,3 @@ ImageEditor.resizeMethodApplied = function (imgsize, width, height, mimetype) {
   // Don't know, assume it's applied
   return true;
 };
-
-module.exports = ImageEditor;

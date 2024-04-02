@@ -110,36 +110,38 @@ export class MultiFileUploader implements UploaderBase {
             console.log("completed stream");
           },
         });
-
-        const uploadresult = await fetch(uploadurl, {
-          method: "POST",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: data.stream().pipeThrough(progressTrackingStream)
-        });
-
-        if (!uploadresult.ok) //TODO retry
-          throw new Error(`Upload failed`);
            */
         if (options?.signal?.aborted)
           throw new Error("Upload has been aborted");
 
         // eslint-disable-next-line no-inner-declarations
-        const defer = createDeferred<void>();
-        const xmlhttp = new XMLHttpRequest;
-        xmlhttp.overrideMimeType("application/octet-stream");
-        xmlhttp.upload.addEventListener('progress', ev => fireProgressEvent(ev.loaded));
-        xmlhttp.addEventListener('abort', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Aborted")));
-        xmlhttp.addEventListener('error', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Error")));
-        xmlhttp.addEventListener('load', () => defer.resolve()); //invoked on success
-        xmlhttp.addEventListener('loadend', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => { //invoked after either abort/error/load
-        });
-        xmlhttp.open("POST", uploadurl, true);
-        xmlhttp.send(data);
+        if (globalThis.XMLHttpRequest) { //let's hope by the time browsers drop XMLHttpRequest, fetch finally has proper progress
+          const defer = createDeferred<void>();
+          const xmlhttp = new globalThis.XMLHttpRequest;
+          xmlhttp.overrideMimeType("application/octet-stream");
+          xmlhttp.upload.addEventListener('progress', ev => fireProgressEvent(ev.loaded));
+          xmlhttp.addEventListener('abort', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Aborted")));
+          xmlhttp.addEventListener('error', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Error")));
+          xmlhttp.addEventListener('load', () => defer.resolve()); //invoked on success
+          xmlhttp.addEventListener('loadend', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => { //invoked after either abort/error/load
+          });
+          xmlhttp.open("POST", uploadurl, true);
+          xmlhttp.send(data);
 
-        const doAbort = () => xmlhttp.abort();
-        options?.signal?.addEventListener("abort", doAbort);
-        await defer.promise;
-        options?.signal?.removeEventListener("abort", doAbort);
+          const doAbort = () => xmlhttp.abort();
+          options?.signal?.addEventListener("abort", doAbort);
+          await defer.promise;
+          options?.signal?.removeEventListener("abort", doAbort);
+        } else { //fallback to fetch(). needed on Node, but it'll break progress reporting
+          const uploadresult = await fetch(uploadurl, {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: data // At some point... .stream().pipeThrough(progressTrackingStream) - but see above why it won't work yet
+          });
+
+          if (!uploadresult.ok)
+            throw new Error(`Upload failed`);
+        }
 
         uploadedBytes += data.size;
       }
