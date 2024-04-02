@@ -1,14 +1,16 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
-import * as movable from 'dompack/browserfix/movable';
-const Toolbar = require('../toolbar/toolbars');
-const getTid = require("@mod-tollium/js/gettid").getTid;
-require("./imageeditor.lang.json");
-const toddImages = require("@mod-tollium/js/icons");
-import Keyboard from 'dompack/extra/keyboard';
-import { SurfaceTool } from './surfacetool';
+import * as dompack from "dompack";
+import * as movable from "dompack/browserfix/movable";
+import Keyboard from "dompack/extra/keyboard";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { ToolbarButton, ToolbarPanel, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { SurfaceTool } from "./surfacetool";
+import "./imageeditor.lang.json";
+import type { RefPoint } from "../../js/dialogs/imgeditcontroller";
+import type { ImageSurface } from "./surface";
 
 // Set to true to activate 'inline' mode, without the modal toolbar
 const tool_inline = false;
@@ -16,15 +18,28 @@ const tool_inline = false;
 let buttonicon;
 
 class PhotoPoint extends SurfaceTool {
-  constructor(surface, options) {
-    super(surface, options);
+  refpoint: RefPoint | null = null;
+  reference: {
+    abspos: { x: number; y: number };
+    relpos: { x: number; y: number };
+    imgsize: { x: number; y: number };
+    canvasscale: number;
+  } | null = null;
+  isactive = false;
+  activated = false;
+  refpointpanel;
+  options;
+  delbutton;
+  keyboard;
+  _setPoint;
+  refpointer: HTMLDivElement | null = null;
 
-    this.refpoint = null;// { x: 0, y: 0 }
-    this.isactive = false;
-    this.activated = false;
+  constructor(surface: ImageSurface, options?) {
+    super(surface);
+
     this.options = { ...options };
 
-    this.refpointpanel = new Toolbar.Panel(
+    this.refpointpanel = new ToolbarPanel(
       {
         onClose: this.stop.bind(this),
         onApply: this.apply.bind(this),
@@ -32,7 +47,7 @@ class PhotoPoint extends SurfaceTool {
       });
     this.refpointpanel._imgedittool = "refpoint";
 
-    this.delbutton = new Toolbar.Button(this.refpointpanel,
+    this.delbutton = new ToolbarButton(this.refpointpanel,
       {
         label: getTid("tollium:components.imgedit.editor.delrefpoint"),
         icon: toddImages.createImage("tollium:actions/delete", 24, 24, "b"),
@@ -41,13 +56,13 @@ class PhotoPoint extends SurfaceTool {
     this.refpointpanel.addButton(this.delbutton);
 
     this._setPoint = this.setPoint.bind(this);
-    this.keyboard = new Keyboard(this.surface.container, { Delete: this.clearPoint.bind(this) });
+    this.keyboard = new Keyboard(this.surface.node, { Delete: this.clearPoint.bind(this) });
     if (tool_inline) {
-      this.surface.imgeditornode.addEventListener("tollium-imageeditor:reset", () => this.resetPoint());
-      this.surface.imgeditornode.addEventListener("tollium-imageeditor:showpreview", () => this.activate(true));
-      this.surface.imgeditornode.addEventListener("tollium-imageeditor:hidepreview", () => this.activate(false));
+      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:reset", () => this.resetPoint());
+      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:showpreview", () => this.activate(true));
+      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:hidepreview", () => this.activate(false));
     } else {
-      this.surface.imgeditornode.addEventListener("tollium-imageeditor:updatepreview", evt => this.previewCanvasChanged(evt));
+      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:updatepreview", evt => this.previewCanvasChanged(evt));
     }
   }
 
@@ -65,7 +80,7 @@ class PhotoPoint extends SurfaceTool {
   start(toolbar) {
     if (!tool_inline)
       toolbar.activateModalPanel(this.refpointpanel);
-    this.refpoint = this.surface.refpoint;
+    this.refpoint = this.surface.refPoint;
     this.isactive = true;
 
     this.updateRefs();
@@ -81,7 +96,7 @@ class PhotoPoint extends SurfaceTool {
 
   cancel() {
     // Reset surface refpoint when cancelling
-    this.surface.refpoint = this.surface.orgrefpoint;
+    this.surface.refPoint = this.surface.orgrefpoint;
   }
 
   stop() {
@@ -102,7 +117,7 @@ class PhotoPoint extends SurfaceTool {
 
   applyCanvas(props) {
     this.refpoint = props.refpoint;
-    this.surface.refpoint = this.refpoint;
+    this.surface.refPoint = this.refpoint;
     this.refreshSurface();
     this.updatePoint();
   }
@@ -113,15 +128,15 @@ class PhotoPoint extends SurfaceTool {
 
     active = Boolean(active);
     if (active !== this.activated) {
-      const canvas = this.surface.previewcanvas || this.surface.canvas;
+      const canvas = this.surface.previewCanvas || this.surface.canvas;
       this.activated = active;
       if (active) {
         canvas.addEventListener("click", this._setPoint);
-        this.surface.container.classList.add("wh-refbox");
+        this.surface.node.classList.add("wh-refbox");
         this.updatePoint();
       } else {
         canvas.removeEventListener("click", this._setPoint);
-        this.surface.container.classList.remove("wh-refbox");
+        this.surface.node.classList.remove("wh-refbox");
         this.updatePoint(true);
       }
     }
@@ -130,12 +145,12 @@ class PhotoPoint extends SurfaceTool {
   previewCanvasChanged(event) {
     if (this.activated && event.detail.oldcanvas) {
       event.detail.oldcanvas.removeEventListener("click", this._setPoint);
-      const canvas = this.surface.previewcanvas || this.surface.canvas;
+      const canvas = this.surface.previewCanvas || this.surface.canvas;
       canvas.addEventListener("click", this._setPoint);
     }
   }
 
-  moveStart(event) {
+  moveStart(even: Event) {
     event.stopPropagation();
     this.updateRefs();
   }
@@ -157,18 +172,19 @@ class PhotoPoint extends SurfaceTool {
   }
 
   updateRefs() {
-    const canvas = this.surface.previewcanvas || this.surface.canvas;
+    const canvas = this.surface.previewCanvas || this.surface.canvas;
     const canvaspos = canvas.getBoundingClientRect();
-    const surfacepos = this.surface.container.getBoundingClientRect();
+    const surfacepos = this.surface.node.getBoundingClientRect();
     this.reference = {
       abspos: { x: canvaspos.left, y: canvaspos.top },
       relpos: { x: canvaspos.left - surfacepos.left, y: canvaspos.top - surfacepos.top },
-      imgsize: { x: canvaspos.width, y: canvaspos.height }
+      imgsize: { x: canvaspos.width, y: canvaspos.height },
+      canvasscale: 1
     };
-    this.reference.canvasscale = this.reference.imgsize.x / this.surface.canvasdata.realsize.x;
+    this.reference.canvasscale = this.reference.imgsize.x / this.surface.canvasData.realSize.x;
   }
 
-  updatePoint(hide) {
+  updatePoint(hide?: boolean) {
     if (!this.refpointer)
       return;
     this.updateRefs();
@@ -177,13 +193,13 @@ class PhotoPoint extends SurfaceTool {
         left: Math.round(this.refpoint.x * this.reference.canvasscale + this.reference.relpos.x),
         top: Math.round(this.refpoint.y * this.reference.canvasscale + this.reference.relpos.y)
       });
-      this.surface.container.append(this.refpointer);
+      this.surface.node.append(this.refpointer);
     } else {
       this.refpointer.remove();
     }
   }
 
-  setPoint(event) {
+  setPoint(event: MouseEvent) {
     this.refpoint = {
       x: (event.clientX - this.reference.abspos.x) / this.reference.canvasscale,
       y: (event.clientY - this.reference.abspos.y) / this.reference.canvasscale
@@ -199,29 +215,29 @@ class PhotoPoint extends SurfaceTool {
   }
 
   resetPoint() {
-    this.refpoint = this.surface.refpoint;
+    this.refpoint = this.surface.refPoint;
     if (this.isactive)
       this.updatePoint();
   }
 }
 
-function addRefPointButton(toolbar, surface, options) {
+export type { PhotoPoint };
+
+export function addRefPointButton(toolbar: Toolbar, surface: ImageSurface, options?) {
   const pointer = new PhotoPoint(surface, options);
 
   buttonicon = toddImages.createImage("tollium:actions/reference", 24, 24, "b");
-  const button = new Toolbar.Button(toolbar,
+  const button = new ToolbarButton(toolbar,
     {
       label: getTid("tollium:components.imgedit.editor.refpoint"),
       icon: buttonicon
     });
 
   if (tool_inline)
-    button.toElement().addEventListener("execute", pointer.togglePointing.bind(pointer, button));
+    button.node.addEventListener("execute", pointer.togglePointing.bind(pointer, button));
   else
-    button.toElement().addEventListener("execute", pointer.start.bind(pointer, toolbar));
+    button.node.addEventListener("execute", pointer.start.bind(pointer, toolbar));
   toolbar.addButton(button);
 
   return { button: button, comp: pointer };
 }
-
-exports.addRefPointButton = addRefPointButton;

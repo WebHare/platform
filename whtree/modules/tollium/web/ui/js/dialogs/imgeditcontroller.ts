@@ -21,7 +21,8 @@ export interface ImageSettings {
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import type { ApplicationBusyLock } from '../application';
-import { ImageEditor } from "../../components/imageeditor";
+
+import { ImageEditor, resizeMethodApplied } from "../../components/imageeditor";
 
 // http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html
 function dataURItoBlob(dataURI) {
@@ -187,7 +188,7 @@ class ImgeditDialogController {
     if (this.options.action === "edit")
       return false;
 
-    return !ImageEditor.resizeMethodApplied(this.options.imgsize, width, height, mimetype);
+    return !resizeMethodApplied(this.options.imgsize, width, height, mimetype);
   }
 
   _createDialog() {
@@ -275,8 +276,8 @@ class ImgeditDialogController {
 
     this.editor = new ImageEditor(container, options);
     container.addEventListener("tollium-imageeditor:load", () => this._onEditorReady());
-    this.editor.toolbar.toElement().addEventListener("modal-opened", this._onEditorOpenTool.bind(this));
-    this.editor.toolbar.toElement().addEventListener("modal-closed", this._onEditorCloseTool.bind(this));
+    this.editor.toolbar.node.addEventListener("modal-opened", this._onEditorOpenTool.bind(this));
+    this.editor.toolbar.node.addEventListener("modal-closed", this._onEditorCloseTool.bind(this));
   }
 
   _relayoutDialog() {

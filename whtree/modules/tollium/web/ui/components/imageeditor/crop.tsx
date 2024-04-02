@@ -1,31 +1,47 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
-import * as movable from 'dompack/browserfix/movable';
+import * as dompack from "dompack";
+import * as movable from "dompack/browserfix/movable";
+import { getTid } from "@mod-tollium/js/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
+import { Toolbar, ToolbarButton, ToolbarPanel } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+
+import { SetStatusCallback } from ".";
+import { ImageSurface } from "./surface";
+import { SurfaceTool } from "./surfacetool";
+
+//@ts-ignore we only have this one as a .js
+import SmartCrop from "./smartcrop";
 
 import "./imageeditor.lang.json";
-import { getTid } from "@mod-tollium/js/gettid";
-import { SurfaceTool } from './surfacetool';
 
-const Toolbar = require('../toolbar/toolbars');
-const SmartCrop = require('./smartcrop.js');
-const toddImages = require("@mod-tollium/js/icons");
+type PhotoCropOptions = {
+  fixedsize?: { width: number; height: number };
+  ratiosize?: { width: number; height: number };
+  setStatus?: SetStatusCallback;
+};
 
 class PhotoCrop extends SurfaceTool {
-  constructor(surface, options) {
-    super(surface, options);
+  crop = null;
+  aspect = 0;
+  draggers: HTMLDivElement[] = [];
+  masks: HTMLDivElement[] = [];
+  masksize: DOMRect | null = null;
+  reference = null;
+  cropbox: HTMLDivElement | null = null;
+  gridholder = null;
+  gridanchor = null;
+  active = false;
+  fx = null;
 
-    this.crop = null;
-    this.aspect = 0;
-    this.draggers = [];
-    this.masks = [];
-    this.reference = null;
-    this.cropbox = null;
-    this.gridholder = null;
-    this.gridanchor = null;
-    this.active = false;
-    this.fx = null;
+  options;
+  croppanel;
+  autobutton;
+
+  constructor(surface: ImageSurface, options?: PhotoCropOptions) {
+    super(surface);
+
     this.options = {
       fixedsize: null, // { width: 0, height: 0 }
       ratiosize: null, // { width: 0, height: 0 }
@@ -33,13 +49,13 @@ class PhotoCrop extends SurfaceTool {
       ...options
     };
 
-    this.croppanel = new Toolbar.Panel(
+    this.croppanel = new ToolbarPanel(
       {
         onClose: this.stop.bind(this),
         onApply: this.apply.bind(this)
       });
     this.croppanel._imgedittool = "crop";
-    this.autobutton = new Toolbar.Button(this.croppanel,
+    this.autobutton = new ToolbarButton(this.croppanel,
       {
         label: getTid("tollium:components.imgedit.editor.smartcrop"),
         icon: toddImages.createImage("tollium:actions/resetcrop", 24, 24, "b"),
@@ -48,7 +64,7 @@ class PhotoCrop extends SurfaceTool {
     this.croppanel.addButton(this.autobutton);
   }
 
-  startCropping(toolbar) {
+  startCropping(toolbar: Toolbar) {
     toolbar.activateModalPanel(this.croppanel);
     this.surface.hidePreviewCanvas(true);
     this.start();
@@ -61,7 +77,7 @@ class PhotoCrop extends SurfaceTool {
     const styles = this.surface.canvas.style.cssText;
 
     this.cropbox = <div class="wh-cropbox" style={styles} />;
-    this.surface.container.append(this.cropbox);
+    this.surface.node.append(this.cropbox);
 
     const canvaspos = this.surface.canvas.getBoundingClientRect();
     this.reference = { x: canvaspos.left, y: canvaspos.top };
@@ -80,7 +96,7 @@ class PhotoCrop extends SurfaceTool {
       , <div class="hline1" />
       , <div class="hline2" />);
 
-    this.masksize = this.surface.container.getBoundingClientRect();
+    this.masksize = this.surface.node.getBoundingClientRect();
 
     //set draggers:
     this.draggers = [];
@@ -93,11 +109,11 @@ class PhotoCrop extends SurfaceTool {
 
       let pos = { x: 0, y: 0 };
       if (c === 1)
-        pos = { x: 0, y: this.surface.canvasdata.csssize.y };
+        pos = { x: 0, y: this.surface.canvasData.cssSize.y };
       else if (c === 2)
-        pos = { x: this.surface.canvasdata.csssize.x, y: 0 };
+        pos = { x: this.surface.canvasData.cssSize.x, y: 0 };
       else if (c === 3)
-        pos = { x: this.surface.canvasdata.csssize.x, y: this.surface.canvasdata.csssize.y };
+        pos = { x: this.surface.canvasData.cssSize.x, y: this.surface.canvasData.cssSize.y };
 
       this.draggers[c].wh_pos = pos;
       dompack.setStyles(this.draggers[c], { 'top': pos.y + 'px', 'left': pos.x + 'px' });
@@ -143,8 +159,8 @@ class PhotoCrop extends SurfaceTool {
     }
 
     //css w/h canvas
-    let w = this.crop[1] * this.surface.canvasdata.csssize.x - this.crop[3] * this.surface.canvasdata.csssize.x;
-    let h = this.crop[2] * this.surface.canvasdata.csssize.y - this.crop[0] * this.surface.canvasdata.csssize.y;
+    let w = this.crop[1] * this.surface.canvasData.cssSize.x - this.crop[3] * this.surface.canvasData.cssSize.x;
+    let h = this.crop[2] * this.surface.canvasData.cssSize.y - this.crop[0] * this.surface.canvasData.cssSize.y;
 
     //mouse position relative to upperleft viewport
     let dx = ev.detail.pageX - this.reference.x;
@@ -158,13 +174,13 @@ class PhotoCrop extends SurfaceTool {
     //some bounds checks:
     if (dx < 0)
       dx = 0;
-    else if (dx > this.surface.canvasdata.csssize.x)
-      dx = this.surface.canvasdata.csssize.x;
+    else if (dx > this.surface.canvasData.cssSize.x)
+      dx = this.surface.canvasData.cssSize.x;
 
     if (dy < 0)
       dy = 0;
-    else if (dy > this.surface.canvasdata.csssize.y)
-      dy = this.surface.canvasdata.csssize.y;
+    else if (dy > this.surface.canvasData.cssSize.y)
+      dy = this.surface.canvasData.cssSize.y;
 
     //sortout dragnodes in respect to current dragnode
     let hpairednode = null;
@@ -213,8 +229,8 @@ class PhotoCrop extends SurfaceTool {
 
         if (dy < 0)
           dy = 0;
-        else if (dy > this.surface.canvasdata.csssize.y)
-          dy = this.surface.canvasdata.csssize.y;
+        else if (dy > this.surface.canvasData.cssSize.y)
+          dy = this.surface.canvasData.cssSize.y;
       } else {
         h = Math.abs(dy - vpairednode.wh_pos.y);
         w = h * this.aspect;
@@ -226,8 +242,8 @@ class PhotoCrop extends SurfaceTool {
 
         if (dx < 0)
           dx = 0;
-        else if (dx > this.surface.canvasdata.csssize.x)
-          dx = this.surface.canvasdata.csssize.x;
+        else if (dx > this.surface.canvasData.cssSize.x)
+          dx = this.surface.canvasData.cssSize.x;
       }
     }
 
@@ -252,7 +268,7 @@ class PhotoCrop extends SurfaceTool {
       }
 
       if (fixedw > 0) {
-        w = fixedw / (this.surface.canvasdata.scale.x * this.surface.imgdata.scale.x);
+        w = fixedw / (this.surface.canvasData.scale.x * this.surface.imgData.scale.x);
 
         if (hpairednode.wh_pos.x < dragnode.wh_pos.x) {
           //check bounds
@@ -268,7 +284,7 @@ class PhotoCrop extends SurfaceTool {
       }
 
       if (fixedh > 0) {
-        h = fixedh / (this.surface.canvasdata.scale.y * this.surface.imgdata.scale.y);
+        h = fixedh / (this.surface.canvasData.scale.y * this.surface.imgData.scale.y);
         if (vpairednode.wh_pos.y < dragnode.wh_pos.y) {
           //check bounds
           if (dragnode.wh_pos.y - h < 0) {
@@ -306,16 +322,16 @@ class PhotoCrop extends SurfaceTool {
 
     let d;
     //check if grid is within bounds else correct positions
-    if (rightpx > this.surface.canvasdata.csssize.x) {
-      d = this.surface.canvasdata.csssize.x - rightpx;
+    if (rightpx > this.surface.canvasData.cssSize.x) {
+      d = this.surface.canvasData.cssSize.x - rightpx;
       rightpx += d;
       leftpx += d;
 
       for (c = 0; c < this.draggers.length; c++)
         this.draggers[c].wh_pos.x += d;
     }
-    if (bottompx > this.surface.canvasdata.csssize.y) {
-      d = this.surface.canvasdata.csssize.y - bottompx;
+    if (bottompx > this.surface.canvasData.cssSize.y) {
+      d = this.surface.canvasData.cssSize.y - bottompx;
       bottompx += d;
       toppx += d;
 
@@ -323,40 +339,40 @@ class PhotoCrop extends SurfaceTool {
         this.draggers[c].wh_pos.y += d;
     }
 
-    if (rightpx > this.surface.canvasdata.csssize.x)
-      rightpx = this.surface.canvasdata.csssize.x;
+    if (rightpx > this.surface.canvasData.cssSize.x)
+      rightpx = this.surface.canvasData.cssSize.x;
     if (leftpx < 0)
       leftpx = 0;
 
-    if (bottompx > this.surface.canvasdata.csssize.y)
-      bottompx = this.surface.canvasdata.csssize.y;
+    if (bottompx > this.surface.canvasData.cssSize.y)
+      bottompx = this.surface.canvasData.cssSize.y;
     if (toppx < 0)
       toppx = 0;
 
-    this.crop[0] = toppx / this.surface.canvasdata.csssize.y;
-    this.crop[1] = rightpx / this.surface.canvasdata.csssize.x;
-    this.crop[2] = bottompx / this.surface.canvasdata.csssize.y;
-    this.crop[3] = leftpx / this.surface.canvasdata.csssize.x;
+    this.crop[0] = toppx / this.surface.canvasData.cssSize.y;
+    this.crop[1] = rightpx / this.surface.canvasData.cssSize.x;
+    this.crop[2] = bottompx / this.surface.canvasData.cssSize.y;
+    this.crop[3] = leftpx / this.surface.canvasData.cssSize.x;
 
     //reduce rounding errors of crop size:
     if (this.fixedsize.width > 0)
-      this.crop[1] = this.crop[3] + (this.fixedsize.width / this.surface.canvasdata.realsize.x);
+      this.crop[1] = this.crop[3] + (this.fixedsize.width / this.surface.canvasData.realSize.x);
     if (this.fixedsize.height > 0)
-      this.crop[2] = this.crop[0] + (this.fixedsize.height / this.surface.canvasdata.realsize.y);
+      this.crop[2] = this.crop[0] + (this.fixedsize.height / this.surface.canvasData.realSize.y);
     if (movegrid) {//moving whole grid
       this.crop[1] = this.crop[3] + this.gridanchor.width;
       this.crop[2] = this.crop[0] + this.gridanchor.height;
     } else if (this.aspect > 0) {
       if (this.fixedsize.width === 0) {
-        this.crop[1] = this.crop[3] + ((bottompx - toppx) * this.aspect) / this.surface.canvasdata.csssize.x;
+        this.crop[1] = this.crop[3] + ((bottompx - toppx) * this.aspect) / this.surface.canvasData.cssSize.x;
       } else
-        this.crop[2] = this.crop[0] + (rightpx - leftpx) / (this.aspect * this.surface.canvasdata.csssize.y);
+        this.crop[2] = this.crop[0] + (rightpx - leftpx) / (this.aspect * this.surface.canvasData.cssSize.y);
     }
 
     this.showCrop();
   }
 
-  setAspectratio(aspect, callback) {
+  setAspectratio(aspect, callback?) {
     let crop = null;
     if (typeof aspect === "object") {
       crop = aspect;
@@ -368,8 +384,8 @@ class PhotoCrop extends SurfaceTool {
 
     this.aspect = aspect > 0 ? aspect : 0;
 
-    const maxw = this.fixedsize.width > 0 ? this.fixedsize.width : crop ? crop.width : this.surface.canvasdata.realsize.x;
-    const maxh = this.fixedsize.height > 0 ? this.fixedsize.height : crop ? crop.height : this.surface.canvasdata.realsize.y;
+    const maxw = this.fixedsize.width > 0 ? this.fixedsize.width : crop ? crop.width : this.surface.canvasData.realSize.x;
+    const maxh = this.fixedsize.height > 0 ? this.fixedsize.height : crop ? crop.height : this.surface.canvasData.realSize.y;
     let w = maxw;
     let h = maxh;
 
@@ -388,8 +404,8 @@ class PhotoCrop extends SurfaceTool {
       return;
 
     const options = {
-      width: w || this.surface.canvasdata.realsize.x,
-      height: h || this.surface.canvasdata.realsize.y,
+      width: w || this.surface.canvasData.realSize.x,
+      height: h || this.surface.canvasData.realSize.y,
       debug: dompack.debugflags.isc
     };
     SmartCrop.crop(this.surface.canvas, options, function (result) {
@@ -403,21 +419,21 @@ class PhotoCrop extends SurfaceTool {
     }.bind(this));
   }
 
-  smartCrop(callback) {
+  smartCrop(callback?) {
     this.setAspectratio(this.options.ratiosize, callback);
   }
 
   setClipValues(leftpx, toppx, bottompx, rightpx) {
-    this.crop[0] = toppx / this.surface.canvasdata.realsize.y;
-    this.crop[1] = rightpx / this.surface.canvasdata.realsize.x;
-    this.crop[2] = bottompx / this.surface.canvasdata.realsize.y;
-    this.crop[3] = leftpx / this.surface.canvasdata.realsize.x;
+    this.crop[0] = toppx / this.surface.canvasData.realSize.y;
+    this.crop[1] = rightpx / this.surface.canvasData.realSize.x;
+    this.crop[2] = bottompx / this.surface.canvasData.realSize.y;
+    this.crop[3] = leftpx / this.surface.canvasData.realSize.x;
 
     //covert to css positions current canvas
-    toppx = Math.round(toppx / (this.surface.imgdata.scale.y * this.surface.canvasdata.scale.y));
-    rightpx = Math.round(rightpx / (this.surface.imgdata.scale.x * this.surface.canvasdata.scale.x));
-    bottompx = Math.round(bottompx / (this.surface.imgdata.scale.y * this.surface.canvasdata.scale.y));
-    leftpx = Math.round(leftpx / (this.surface.imgdata.scale.x * this.surface.canvasdata.scale.x));
+    toppx = Math.round(toppx / (this.surface.imgData.scale.y * this.surface.canvasData.scale.y));
+    rightpx = Math.round(rightpx / (this.surface.imgData.scale.x * this.surface.canvasData.scale.x));
+    bottompx = Math.round(bottompx / (this.surface.imgData.scale.y * this.surface.canvasData.scale.y));
+    leftpx = Math.round(leftpx / (this.surface.imgData.scale.x * this.surface.canvasData.scale.x));
 
     this.draggers[0].wh_pos = { x: leftpx, y: toppx };
     this.draggers[1].wh_pos = { x: leftpx, y: bottompx };
@@ -426,8 +442,8 @@ class PhotoCrop extends SurfaceTool {
   }
 
   setClipCenterValues(w, h) {
-    const leftpx = 0.5 * (this.surface.canvasdata.realsize.x - w);
-    const toppx = 0.5 * (this.surface.canvasdata.realsize.y - h);
+    const leftpx = 0.5 * (this.surface.canvasData.realSize.x - w);
+    const toppx = 0.5 * (this.surface.canvasData.realSize.y - h);
     const bottompx = toppx + h;
     const rightpx = leftpx + w;
     this.setClipValues(leftpx, toppx, bottompx, rightpx);
@@ -436,16 +452,16 @@ class PhotoCrop extends SurfaceTool {
   setWidth(w, fixed) {
     const inputwidth = Math.round(w);
 
-    if (w > this.surface.canvasdata.realsize.x)
-      w = this.surface.canvasdata.realsize.x;
-    let h = Math.round(this.crop[2] * this.surface.canvasdata.realsize.y - this.crop[0] * this.surface.canvasdata.realsize.y);
+    if (w > this.surface.canvasData.realSize.x)
+      w = this.surface.canvasData.realSize.x;
+    let h = Math.round(this.crop[2] * this.surface.canvasData.realSize.y - this.crop[0] * this.surface.canvasData.realSize.y);
 
     if (this.aspect > 0 && w > 0) {
       //calc maximal width by given aspectratio
-      let aw = this.surface.canvasdata.realsize.x;
+      let aw = this.surface.canvasData.realSize.x;
       let ah = aw / this.aspect;
-      if (ah > this.surface.canvasdata.realsize.y) {
-        ah = this.surface.canvasdata.realsize.y;
+      if (ah > this.surface.canvasData.realSize.y) {
+        ah = this.surface.canvasData.realSize.y;
         aw = ah * this.aspect;
       }
       if (w > aw)
@@ -480,16 +496,16 @@ class PhotoCrop extends SurfaceTool {
   setHeight(h, fixed) {
     const inputheight = Math.round(h);
 
-    if (h > this.surface.canvasdata.realsize.y)
-      h = this.surface.canvasdata.realsize.y;
-    let w = Math.round(this.crop[1] * this.surface.canvasdata.realsize.x - this.crop[3] * this.surface.canvasdata.realsize.x);
+    if (h > this.surface.canvasData.realSize.y)
+      h = this.surface.canvasData.realSize.y;
+    let w = Math.round(this.crop[1] * this.surface.canvasData.realSize.x - this.crop[3] * this.surface.canvasData.realSize.x);
 
     if (this.aspect > 0 && h > 0) {
       //calc maximal height by given aspectratio
-      let aw = this.surface.canvasdata.realsize.x;
+      let aw = this.surface.canvasData.realSize.x;
       let ah = aw / this.aspect;
-      if (ah > this.surface.canvasdata.realsize.y) {
-        ah = this.surface.canvasdata.realsize.y;
+      if (ah > this.surface.canvasData.realSize.y) {
+        ah = this.surface.canvasData.realSize.y;
         aw = ah * this.aspect;
       }
       if (h > ah)
@@ -507,7 +523,7 @@ class PhotoCrop extends SurfaceTool {
     const isvalid = inputheight === h;
     if (isvalid) {
       if (fixed) {
-        if (this.fixedsize.width > 0 && this.surface.canvasdata.realsize.x !== w)
+        if (this.fixedsize.width > 0 && this.surface.canvasData.realSize.x !== w)
           this.fixedsize.width = w;
         this.fixedsize.height = h;
       }
@@ -551,8 +567,8 @@ class PhotoCrop extends SurfaceTool {
       'height': (y2 - y1) + 'px'
     });
 
-    const canvasscale = Math.max(0, this.surface.canvasdata.realsize.x / this.surface.viewport.x, this.surface.canvasdata.realsize.y / this.surface.viewport.y);
-    this.options.setStatus(Math.round((x2 - x1) * canvasscale), Math.round((y2 - y1) * canvasscale), this.surface.canvasdata.realsize.x, this.surface.canvasdata.realsize.y);
+    const canvasscale = Math.max(0, this.surface.canvasData.realSize.x / this.surface.viewPort.x, this.surface.canvasData.realSize.y / this.surface.viewPort.y);
+    this.options.setStatus(Math.round((x2 - x1) * canvasscale), Math.round((y2 - y1) * canvasscale), this.surface.canvasData.realSize.x, this.surface.canvasData.realSize.y);
 
     this.masks[0].style.top = (y2 - this.masksize.height) + "px";
     this.masks[0].style.left = (x1 - this.masksize.width) + "px";
@@ -591,41 +607,40 @@ class PhotoCrop extends SurfaceTool {
     this.surface.ctx.putImageData(idata, 0, 0);
 
     //correct css styling:
-    const canvasscalex = newwidth / this.surface.viewport.x;
-    const canvasscaley = newheight / this.surface.viewport.y;
+    const canvasscalex = newwidth / this.surface.viewPort.x;
+    const canvasscaley = newheight / this.surface.viewPort.y;
     let canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
     if (canvasscale < 1)
       canvasscale = 1;//don't scale up
-    this.surface.canvasscale = 1 / canvasscale;
+    this.surface.canvasScale = 1 / canvasscale;
 
     const cssw = Math.round(newwidth / canvasscale);
     const cssh = Math.round(newheight / canvasscale);
-    this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
-    this.surface.canvasdata.scale = { 'x': (newwidth / cssw), 'y': (newheight / cssh) };
-    //this.surface.canvasdata.realsize = {'x' : Math.round(props.crop[1]*imgedit.canvasdata.realsize.x - props.crop[3]*imgedit.canvasdata.realsize.x), 'y' : Math.round(props.crop[2]*imgedit.canvasdata.realsize.y - props.crop[0]*imgedit.canvasdata.realsize.y)};
+    this.surface.canvasData.cssSize = { 'x': cssw, 'y': cssh };
+    this.surface.canvasData.scale = { 'x': (newwidth / cssw), 'y': (newheight / cssh) };
+    //this.surface.canvasData.realSize = {'x' : Math.round(props.crop[1]*imgedit.canvasdata.realSize.x - props.crop[3]*imgedit.canvasdata.realSize.x), 'y' : Math.round(props.crop[2]*imgedit.canvasdata.realSize.y - props.crop[0]*imgedit.canvasdata.realSize.y)};
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px',
-      'height': this.surface.canvasdata.csssize.y + 'px',
-      'margin-left': Math.floor(this.surface.canvasdata.csssize.x * -0.5) + 'px',
-      'margin-top': Math.floor(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasData.cssSize.x + 'px',
+      'height': this.surface.canvasData.cssSize.y + 'px',
+      'margin-left': Math.floor(this.surface.canvasData.cssSize.x * -0.5) + 'px',
+      'margin-top': Math.floor(this.surface.canvasData.cssSize.y * -0.5) + 'px'
     });
     this.surface.showScale();
   }
 }
 
-function addImageCropButton(toolbar, surface, options) {
+export type { PhotoCrop };
+
+export function addImageCropButton(toolbar: Toolbar, surface: ImageSurface, options?: PhotoCropOptions) {
   const cropper = new PhotoCrop(surface, options);
 
-  const button = new Toolbar.Button(toolbar,
-    {
-      label: getTid("tollium:components.imgedit.editor.crop"),
-      icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b"),
-      onExecute: cropper.startCropping.bind(cropper, toolbar)
-    });
+  const button = new ToolbarButton(toolbar, {
+    label: getTid("tollium:components.imgedit.editor.crop"),
+    icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b"),
+    onExecute: cropper.startCropping.bind(cropper, toolbar)
+  });
   toolbar.addButton(button);
 
   return { button: button, comp: cropper };
 }
-
-exports.addImageCropButton = addImageCropButton;

@@ -55,6 +55,8 @@ export class ApplicationBusyLock implements Disposable {
   }
 }
 
+export type { ApplicationBusyLock };
+
 //ADDME: Move these to SessionManager? A SessionManager would manage one user's session in a browser; the CommHandler
 //       would manage one or more SessionManagers.
 

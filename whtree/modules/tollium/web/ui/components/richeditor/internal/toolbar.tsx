@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 
-import Toolbar from '@mod-tollium/web/ui/components/toolbar/toolbars';
+import { ToolbarButton as GenericToolbarButton } from '@mod-tollium/web/ui/components/toolbar/toolbars';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -11,7 +11,7 @@ import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 //  Standard RTE ButtonBar
 //
 
-class ToolbarButtonBase extends Toolbar.Button {
+class ToolbarButtonBase extends GenericToolbarButton {
   constructor(toolbar, options) {
     super(toolbar, options);
 
