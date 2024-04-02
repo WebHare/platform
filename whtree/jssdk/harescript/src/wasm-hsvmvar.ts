@@ -311,6 +311,18 @@ export class HSVMVar {
     return new HSVMHeapVar(this.vm, temp);
   }
 
+  async setMember(name: string, value: unknown): Promise<void> {
+    if (!this.memberExists(name))
+      throw new Error(`No such member or property '${name}' on HareScript object`);
+
+    const columnid = this.vm.getColumnId(name);
+    using temp = this.vm.allocateVariable();
+    temp.setJSValue(value);
+
+    if (await this.vm.wasmmodule._HSVM_ObjectMemberSet(this.vm.hsvm, this.id, columnid, temp.id, /*skipaccess=*/1) !== 1)
+      this.vm.throwIfFailed();
+  }
+
   /** Get a primitive object member. Will fail if the property requires a callback. Returns a reference that may be invalidated on future VM calls */
   getMemberRef(name: string, options?: { allowMissing: false }): HSVMVar;
   getMemberRef(name: string, options?: { allowMissing: boolean }): HSVMVar | undefined;

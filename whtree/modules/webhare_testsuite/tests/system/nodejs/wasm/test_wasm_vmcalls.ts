@@ -113,6 +113,23 @@ async function testCalls() {
   const exc = await makeObject("wh::system.whlib#Exception", "This is a test exception", null); //TODO honor default parameters? but apparently MakeObject doesn't do it either
   test.eq("This is a test exception", await exc.$get("what"));
   test.eq(true, await loadlib("wh::system.whlib").ObjectExists(exc));
+  await exc.$set("what", "Change the exception");
+  test.eq("Change the exception", await exc.$get("what"));
+
+  const testobjVM = await createVM();
+  const testobj = await testobjVM.makeObject("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#testobj");
+  await testobj.$set("prop", "ok");
+  test.eq("ok", await testobj.$get("prop"));
+
+  //TODO test that HS exception trace is stitched into the JS stacktrace
+  await test.throws(/Throwing/, () => testobj.$set("prop", "throw"));
+
+  //Try to run normal code
+  await testobj.$set("prop", "ok2");
+  test.eq("ok2", await testobj.$get("prop"));
+
+  await test.throws(/Unexpected value 'boem'/, () => testobj.$set("prop", "boem"));
+  await test.throws(/Unexpected value 'boem'/, testobjVM.done);
 
   //test whether we can keep values boxed
   const rawvm = vm._getHSVM();

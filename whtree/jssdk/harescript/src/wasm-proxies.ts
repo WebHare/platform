@@ -53,6 +53,10 @@ export class HSVMObjectWrapper {
     return retval as T;
   }
 
+  async $set(prop: string, newValue: unknown): Promise<void> {
+    await this.$obj.setMember(prop, newValue);
+  }
+
   async $invoke(name: string, args: unknown[]) {
     const funcargs = argsToHSVMVar(this.$obj.vm, args);
     try {
