@@ -114,7 +114,7 @@ async function testWHFS() {
   test.eq(false, imgfile.data.mirrored);
   test.eq(null, imgfile.data.refPoint);
   test.eq("#EFF0EB", imgfile.data.dominantColor);
-  test.eq(null, imgfile.data.fileName); //TODO not set? should perhaps match the original upload name?
+  test.eq("imgeditfile.jpeg", imgfile.data.fileName);
 
   // Get the sha256 of the file
   const hashSum = crypto.createHash('sha256');
@@ -133,8 +133,11 @@ async function testWHFS() {
   const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);
   test.eq("This is a test", await openNewFile2.data.resource.text());
+  test.eq("testfile2.txt", openNewFile2.data.fileName);
+
   await openNewFile2.update({ data: await ResourceDescriptor.from("Updated text") });
   test.eq("Updated text", await openNewFile2.data.resource.text());
+  test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("Updated text", await (await openFile(newFile2.id)).data.resource.text());
 
   //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor
