@@ -147,7 +147,7 @@ export class WHFSObject {
 
     await db<PlatformDB>()
       .updateTable("system.fs_objects")
-      .where("parent", "=", this.id)
+      .where("id", "=", this.id)
       .set(storedata)
       .executeTakeFirstOrThrow();
   }
@@ -165,7 +165,7 @@ export class WHFSFile extends WHFSObject {
     return new ResourceDescriptor(this.dbrecord.data, meta);
   }
   async update(metadata: UpdateFileMetadata) {
-    this._doUpdate(metadata);
+    await this._doUpdate(metadata);
   }
 }
 
@@ -241,7 +241,7 @@ export class WHFSFolder extends WHFSObject {
   }
 
   async update(metadata: UpdateFolderMetadata) {
-    this._doUpdate(metadata);
+    await this._doUpdate(metadata);
   }
 
   private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
