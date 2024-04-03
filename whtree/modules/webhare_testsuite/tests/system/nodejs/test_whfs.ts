@@ -3,7 +3,8 @@ import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
 import { getTestSiteHS, getTestSiteJS, getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
-import { openFileOrFolder } from "@webhare/whfs";
+import { openFile, openFileOrFolder } from "@webhare/whfs";
+import { ResourceDescriptor } from "@webhare/services";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -123,14 +124,25 @@ async function testWHFS() {
   const tmpfolder = await testsite.openFolder("tmp");
 
   await whdb.beginWork();
-  const newfile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File" });
-  const newfile2 = await tmpfolder.openFile("testfile");
-  test.eq(newfile.id, newfile2.id);
-  test.eq("testfile", newfile.name);
-  test.eq("My MD File", newfile.title);
+  const newFile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File", data: null });
+  const openNewFile = await tmpfolder.openFile("testfile");
+  test.eq(newFile.id, openNewFile.id);
+  test.eq("testfile", newFile.name);
+  test.eq("My MD File", newFile.title);
 
-  await newfile.delete();
+  const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
+  const openNewFile2 = await openFile(newFile2.id);
+  test.eq("This is a test", await openNewFile2.data.resource.text());
+  await openNewFile2.update({ data: await ResourceDescriptor.from("Updated text") });
+  test.eq("Updated text", await openNewFile2.data.resource.text());
+  test.eq("Updated text", await (await openFile(newFile2.id)).data.resource.text());
+
+  //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor
+
+  await newFile.delete();
+  await newFile2.delete();
   test.eq(null, await tmpfolder.openFile("testfile", { allowMissing: true }));
+
 
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);

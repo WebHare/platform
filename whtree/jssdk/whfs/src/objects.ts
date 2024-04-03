@@ -1,4 +1,4 @@
-import { db, sql, Selectable, Updateable, isWorkOpen } from "@webhare/whdb";
+import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { decodeScanData, getUnifiedCC, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
@@ -7,6 +7,7 @@ import { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
 import { excludeKeys, formatPathOrId, isPublish, isValidName } from "./support";
 import * as std from "@webhare/std";
+import type { WebHareBlob } from "@webhare/services";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -92,6 +93,7 @@ export interface CreateFSObjectMetadata {
 
 export interface CreateFileMetadata extends CreateFSObjectMetadata {
   keywords?: string;
+  data?: ResourceDescriptor | null;
 }
 
 export type CreateFolderMetadata = CreateFSObjectMetadata;
@@ -131,15 +133,18 @@ export class WHFSObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    let storedata: Updateable<PlatformDB, "system.fs_objects">;
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data"]); //we need to upcast to be able to remove 'data'
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
       if (!type)
         throw new Error(`No such type: ${metadata.type}`);
 
-      storedata = { ...metadata, type: type.id || null } as Updateable<PlatformDB, "system.fs_objects">; //#0 can't be stored so convert to null
-    } else {
-      storedata = metadata as Updateable<PlatformDB, "system.fs_objects">;
+      storedata.type = type.id || null; //#0 can't be stored so convert to null
+    }
+    if ((metadata as UpdateFileMetadata).data && this.isFile) {
+      storedata.data = (metadata as CreateFileMetadata)?.data?.resource || null;
+      if (storedata.data)
+        await uploadBlob(storedata.data);
     }
 
     if (!Object.keys(storedata).length)
@@ -147,9 +152,11 @@ export class WHFSObject {
 
     await db<PlatformDB>()
       .updateTable("system.fs_objects")
-      .where("parent", "=", this.id)
+      .where("id", "=", this.id)
       .set(storedata)
       .executeTakeFirstOrThrow();
+
+    Object.assign(this.dbrecord, storedata);
   }
 }
 
@@ -165,7 +172,7 @@ export class WHFSFile extends WHFSObject {
     return new ResourceDescriptor(this.dbrecord.data, meta);
   }
   async update(metadata: UpdateFileMetadata) {
-    this._doUpdate(metadata);
+    await this._doUpdate(metadata);
   }
 }
 
@@ -241,11 +248,17 @@ export class WHFSFolder extends WHFSObject {
   }
 
   async update(metadata: UpdateFolderMetadata) {
-    this._doUpdate(metadata);
+    await this._doUpdate(metadata);
   }
 
   private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
     const creationdate = new Date();
+    let data: WebHareBlob | null = null;
+    if (!type.foldertype)
+      data = (metadata as CreateFileMetadata)?.data?.resource || null;
+    if (data)
+      await uploadBlob(data);
+
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
@@ -267,7 +280,8 @@ export class WHFSFolder extends WHFSObject {
         ordering: 0,
         published: 0,
         type: type.id || null, //#0 can't be stored so convert to null
-        ispinned: metadata?.isPinned || false
+        ispinned: metadata?.isPinned || false,
+        data: data
       }).returning(['id']).executeTakeFirstOrThrow();
 
     return retval.id;
