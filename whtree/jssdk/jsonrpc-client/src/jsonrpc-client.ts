@@ -1,5 +1,5 @@
 import { debugFlags, backendBase } from "@webhare/env";
-import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
+import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
@@ -237,7 +237,8 @@ class RPCClient {
 
   //calculate the final URL. delayed here so services can be created on import (getDefaultRPCBase may require waiting for service.ready)
   private getURL() {
-    const url = this.whservicematch ? `wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}` : this.url;
+    //wh_services are always in the root (and soon inside /.wh)
+    const url = this.whservicematch ? `/wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}` : this.url;
     if (url.match(/^https?:\/\//))
       return url;
 
