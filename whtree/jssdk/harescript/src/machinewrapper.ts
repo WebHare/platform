@@ -1,7 +1,7 @@
 import { debugFlags } from "@webhare/env";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { HareScriptVM, StartupOptions, allocateHSVM } from "./wasm-hsvm";
-import { HSVMCallsProxy, HSVMLibraryProxy } from "./wasm-proxies";
+import { HSVMCallsProxy, HSVMLibraryProxy, type HSVMObject } from "./wasm-proxies";
 
 const vmfinalizer = new FinalizationRegistry<HareScriptVM>(shutdownHSVM);
 
@@ -20,12 +20,14 @@ export interface HSVM_HSVMSource {
    initfunction has completed) */
 export class HSVMWrapper implements HSVM_HSVMSource {
   vm: WeakRef<HareScriptVM> | null;
+  done: Promise<void>;
 
-  constructor(vm: HareScriptVM) {
+  constructor(vm: HareScriptVM, script: string) {
     this.vm = new WeakRef(vm);
     if (debugFlags.vmlifecycle)
       console.log(`[${vm.currentgroup}] HSVMWrapper created`);
     vmfinalizer.register(this, vm, this);
+    this.done = vm.run(script);
   }
 
   _getHSVM() {
@@ -42,12 +44,6 @@ export class HSVMWrapper implements HSVM_HSVMSource {
     this.vm = null;
   }
 
-  [Symbol.dispose]() {
-    this.dispose();
-  }
-}
-
-export class CallableVM extends HSVMWrapper {
   loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
   loadlib(name: string): HSVMCallsProxy;
 
@@ -55,26 +51,24 @@ export class CallableVM extends HSVMWrapper {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSVMCallsProxy;
     return proxy;
   }
-}
 
-export class RunScriptVM extends HSVMWrapper {
-  done: Promise<void>;
+  makeObject(name: string, ...params: unknown[]): Promise<HSVMObject> {
+    return this.loadlib("wh::system.whlib").MakeObject(name, ...params);
+  }
 
-  constructor(script: string, vm: HareScriptVM) {
-    super(vm);
-    this.done = vm.run(script);
+  [Symbol.dispose]() {
+    this.dispose();
   }
 }
 
 export async function runScript(script: string, options?: StartupOptions) {
   const vm = await allocateHSVM(options || {});
-  return new RunScriptVM(script, vm);
+  return new HSVMWrapper(vm, script);
 }
 
 export async function createVM(options?: StartupOptions) {
   const vm = await allocateHSVM(options || {});
-  vm.run("mod::system/scripts/internal/eventloop.whscr");
-  return new CallableVM(vm);
+  return new HSVMWrapper(vm, "mod::system/scripts/internal/eventloop.whscr");
 }
 
 function shutdownHSVM(vm: HareScriptVM) {

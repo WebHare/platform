@@ -1,7 +1,7 @@
 import { WebResponse, createWebResponse } from "./response";
 import { InsertPoints, SiteResponse, SiteResponseSettings } from "./sitereponse";
 import type { SiteRequest } from "./siterequest";
-import { createVM, type CallableVM, type HSVMObject } from "@webhare/harescript";
+import { createVM, type HSVMWrapper, type HSVMObject } from "@webhare/harescript";
 import { generateRandomId } from "@webhare/std";
 
 /* The HSWebdesignDriver:
@@ -9,10 +9,10 @@ import { generateRandomId } from "@webhare/std";
    - invokes the JS page
    - replaces the placeholders in the HS output with the JS output */
 class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
-  hsvm: CallableVM;
+  hsvm: HSVMWrapper;
   webDesign: HSVMObject;
 
-  constructor(hsvm: CallableVM, webDesign: HSVMObject, pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
+  constructor(hsvm: HSVMWrapper, webDesign: HSVMObject, pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
     super(pageConfig, siteRequest, settings);
     this.hsvm = hsvm;
     this.webDesign = webDesign;

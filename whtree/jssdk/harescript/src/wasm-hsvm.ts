@@ -284,6 +284,27 @@ export class HareScriptVM implements HSVM_HSVMSource {
     process.stderr.write(data);
   }
 
+  /** Throw if the current VM has a pending exception or error. Needed to ensure errors are handled on the current stack (and not on the eventloop) */
+  throwIfFailed(): void {
+    if (!this._wasmmodule?._HSVM_TestMustAbort(this.hsvm))
+      return; //nothing's up
+
+    if (this._wasmmodule?._HSVM_IsUnwinding(this.hsvm)) {
+      const throwvarid: HSVM_VariableId = this._wasmmodule._HSVM_GetThrowVar(this.hsvm);
+      if (throwvarid) {
+        const throwvar = new HSVMVar(this, throwvarid);
+        const whatcolumn = this.getColumnId("WHAT");
+
+        if (throwvar.objectExists() && this._wasmmodule._HSVM_ObjectMemberExists(this.hsvm, throwvarid, whatcolumn)) {
+          const what = String(this.quickParseVariable(this._wasmmodule._HSVM_ObjectMemberRef(this.hsvm, throwvarid, whatcolumn, 1))) || "HareScript exception";
+          this._wasmmodule._HSVM_CleanupException(this.hsvm);
+          throw new Error(what);
+        }
+      }
+    }
+    this.throwVMErrors();
+  }
+
   async run(script: string): Promise<void> {
     if (debugFlags.vmlifecycle) {
       console.log(`[${this.currentgroup}] Load script: ${script}`);
@@ -603,7 +624,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.wasmmodule._HSVM_SetDefault(this.hsvm, errorlist, VariableType.RecordArray as HSVM_VariableType);
     this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
     const parsederrors = this.quickParseVariable(errorlist) as MessageList;
-    console.error(parsederrors);
     const trace = parsederrors.filter(e => e.istrace).map(e =>
       `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
     throw new Error((parsederrors[0].message ?? "Unknown error") + trace);

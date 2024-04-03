@@ -56,3 +56,35 @@ PUBLIC MACRO RunWASMEventTestHandler()
 
   PRINT(`${id}: final events: ${gotevents}\n`);
 }
+
+PUBLIC OBJECTTYPE TestObj
+<
+  STRING data;
+
+  PUBLIC PROPERTY prop(GetProp, SetProp);
+
+  STRING FUNCTION GetProp()
+  {
+    RETURN this->data;
+  }
+
+  MACRO SetProp(STRING x)
+  {
+    SWITCH(x)
+    {
+      CASE "ok", "ok2"
+      {
+        this->data := x;
+        RETURN;
+      }
+      CASE "throw"
+      {
+        THROW NEW Exception("Throwing");
+      }
+      DEFAULT
+      {
+        ABORT(`Unexpected value '${x}'`);
+      }
+    }
+  }
+>;
