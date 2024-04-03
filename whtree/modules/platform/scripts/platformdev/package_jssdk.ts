@@ -109,6 +109,29 @@ async function main() {
     if (verbose)
       console.log(`--- Processing ${pkgname}`);
 
+    packagejson.version = versionfinal;
+
+    //Update README.md
+    const sourcelink = `https://gitlab.com/webhare/platform/-/tree/master/whtree/jssdk/${pkgname}`;
+    const readme = `${(await readFile(join(pkgroot, "README.md"), "utf8")).trim()}\n\n## Publication source\nThe [source code for @webhare/${pkgname}](${sourcelink}) is part of the WebHare Platform\n`;
+    await writeFile(join(pkgroot, "README.md"), readme, "utf8");
+
+    //Install it. Must be done before running TSC so external dependencies are added
+    //Write a package json without external dependencies so as not to confuse npm install
+    const depfree = structuredClone(packagejson);
+    if (depfree.dependencies)
+      for (const [key] of Object.entries(depfree.dependencies))
+        if (key.startsWith("@webhare/")) {
+          delete depfree.dependencies[key]; //remove for the next npm install
+          packagejson.dependencies[key] = versionfinal; //link to exact version for the final publish
+        }
+
+    await writeFile(join(pkgroot, "package.json"), JSON.stringify(depfree, null, 2) + '\n', "utf8");
+    const installResult = spawnSync("npm", ["install", "--omit=dev"], { cwd: pkgroot, stdio });
+    if (installResult.status)
+      throw new Error(`Failed to pack ${pkgname} (use--verbose for more info)`);
+
+    //If TS, compile it and update the src
     const src = packagejson.main;
     if (src?.endsWith(".ts") || src?.endsWith(".tsx")) {
       //Do not extend from whtree/tsconfig.json - we'll pick up all the paths and not properly keep dependencies external
@@ -134,18 +157,8 @@ async function main() {
       packagejson.main = "dist/" + pkgname + ".js";
     }
 
-    packagejson.version = versionfinal;
+    //Write the final package.json
     await writeFile(join(pkgroot, "package.json"), JSON.stringify(packagejson, null, 2) + '\n', "utf8");
-
-    //Update README.md
-    const sourcelink = `https://gitlab.com/webhare/platform/-/tree/master/whtree/jssdk/${pkgname}`;
-    const readme = `${(await readFile(join(pkgroot, "README.md"), "utf8")).trim()}\n\n## Publication source\nThe [source code for @webhare/${pkgname}](${sourcelink}) is part of the WebHare Platform\n`;
-    await writeFile(join(pkgroot, "README.md"), readme, "utf8");
-
-    //Install it
-    const installResult = spawnSync("npm", ["install", "--omit=dev"], { cwd: pkgroot, stdio });
-    if (installResult.status)
-      throw new Error(`Failed to pack ${pkgname} (use--verbose for more info)`);
   }
 
   let accesstoken = '';
