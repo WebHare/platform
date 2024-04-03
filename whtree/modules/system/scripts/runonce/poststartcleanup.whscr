@@ -8,6 +8,8 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 
 // Reset for 5.0 as 4.35 is a required update, but I'm sure there will be new poststart cleanup updates so we'll keep this script
 OpenPrimary();
@@ -86,4 +88,20 @@ IF(ObjectExists(oldsiteprofiles))
   GetPrimary()->BeginWork();
   oldsiteprofiles->DeleteSelf();
   GetPrimary()->CommitWork();
+}
+
+//5.5 Drop publisher feedback schema unless not empty
+OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
+IF(ObjectExists(feedbackschema))
+{
+  RECORD ARRAY issues := feedbackschema->^feedback->RunQuery(
+    [ outputcolumns := CELL[ "wrd_id" ]
+    ]
+  );
+  IF(Length(issues) = 0)
+  {
+    GetPrimary()->BeginWork();
+    feedbackschema->DeleteSelf();
+    GetPrimary()->CommitWork();
+  }
 }

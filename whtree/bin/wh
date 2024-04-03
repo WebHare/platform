@@ -459,7 +459,7 @@ case $INSTR in
     ;;
 
   "dirs")
-    if [ ! -z "$WEBHARE_CHECKEDOUT_TO" ]; then
+    if [ -d "${WEBHARE_CHECKEDOUT_TO}/.git" ]; then
       echo "git checkout:  $WEBHARE_CHECKEDOUT_TO"
     fi
     setup_for_console
