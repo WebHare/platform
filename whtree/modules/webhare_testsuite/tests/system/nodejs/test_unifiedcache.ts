@@ -1,4 +1,4 @@
-import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
+import { getTestSiteJS, getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { loadlib } from "@webhare/harescript";
@@ -372,6 +372,55 @@ async function testImgCache() {
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
   await fetchUCLink(kikkerdata.arraytest[0].blobcell.toResized({ method: "none" }).link, "image/jpeg");
+
+}
+
+async function testFileCache() {
+  await beginWork();
+  const testsite = await getTestSiteJS();
+  const tmpfolder = await getTestSiteTemp();
+  const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
+  const extensionless = await tmpfolder.createFile("extensionless", { data: await ResourceDescriptor.from(Buffer.from("\x00\x01\x02\x03")) });
+  const oddity = await tmpfolder.createFile("Bowie Space!.oddity", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
+  const oddity2 = await tmpfolder.createFile("Bowie Space!.oddity 2!", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
+
+  await commitWork();
+
+  const docxjelink = docxje.data.toLink({ fileName: "empty.docx" });
+  test.eq(/\/empty.docx$/, docxjelink);
+  const docxjelink_fetched = await fetch(new URL(docxjelink, backendConfig.backendURL));
+  test.eq(200, docxjelink_fetched.status);
+  test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxjelink_fetched.headers.get("content-type"));
+
+  let odditylink = oddity.data.toLink({ baseURL: backendConfig.backendURL });
+  test.eq(/\/bowie-space.oddity.bin$/, odditylink);
+  let odditylink_fetched = await fetch(odditylink);
+  test.eq(200, odditylink_fetched.status);
+  test.eq("application/octet-stream", odditylink_fetched.headers.get("content-type"));
+
+  odditylink = oddity.data.toLink({ allowAnyExtension: true, baseURL: testsite.webRoot });
+  test.eq(/\/bowie-space.oddity$/, odditylink);
+  odditylink_fetched = await fetch(odditylink);
+  test.eq(200, odditylink_fetched.status);
+  test.eq("application/octet-stream", odditylink_fetched.headers.get("content-type"));
+
+  let oddity2link = oddity2.data.toLink();
+  test.eq(/\/bowie-space.oddity-2.bin$/, oddity2link);
+  let oddity2link_fetched = await fetch(new URL(oddity2link, backendConfig.backendURL));
+  test.eq(200, oddity2link_fetched.status);
+  test.eq("application/octet-stream", oddity2link_fetched.headers.get("content-type"));
+
+  oddity2link = oddity2.data.toLink({ allowAnyExtension: true });
+  test.eq(/\/bowie-space.oddity-2$/, oddity2link);
+  oddity2link_fetched = await fetch(new URL(oddity2link, backendConfig.backendURL));
+  test.eq(200, oddity2link_fetched.status);
+  test.eq("application/octet-stream", oddity2link_fetched.headers.get("content-type"));
+
+  const extensionlesslink = extensionless.data.toLink({ allowAnyExtension: true, baseURL: backendConfig.backendURL });
+  test.eq(/\/extensionless$/, extensionlesslink);
+  const extensionlesslink_fetched = await fetch(extensionlesslink);
+  test.eq(200, extensionlesslink_fetched.status);
+  test.eq("application/octet-stream", extensionlesslink_fetched.headers.get("content-type"));
 }
 
 async function testWRDImgCache() {
@@ -387,15 +436,18 @@ async function testWRDImgCache() {
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
   test.assert(wrappedGoldfish);
-  console.log(await fetchUCLink(wrappedGoldfish.testImage!.toResized({ method: "none" }).link, "image/png"));
+  const fetchedGoldFish = await fetchUCLink(wrappedGoldfish.testImage!.toResized({ method: "none" }).link, "image/png");
+  const fetchedGoldFishDirect = await fetchUCLink(wrappedGoldfish.testImage!.toLink(), "image/png");
+  test.eq(fetchedGoldFish.resource.hash, fetchedGoldFishDirect.resource.hash);
 }
 
 
 test.run([
+  testSuiteCleanup,
   testResizeMethods,
   testImgMethodPacking,
   testImgCacheTokens,
   testImgCache,
+  testFileCache,
   testWRDImgCache
-
 ]);

@@ -114,7 +114,7 @@ async function testWHFS() {
   test.eq(false, imgfile.data.mirrored);
   test.eq(null, imgfile.data.refPoint);
   test.eq("#EFF0EB", imgfile.data.dominantColor);
-  test.eq(null, imgfile.data.fileName); //TODO not set? should perhaps match the original upload name?
+  test.eq("imgeditfile.jpeg", imgfile.data.fileName);
 
   // Get the sha256 of the file
   const hashSum = crypto.createHash('sha256');
@@ -130,19 +130,39 @@ async function testWHFS() {
   test.eq("testfile", newFile.name);
   test.eq("My MD File", newFile.title);
 
+  const goldFish = await tmpfolder.createFile("goldfish.png", { data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png") });
+  test.eq("image/png", goldFish.data.mediaType);
+  test.eq(385, goldFish.data.width);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldFish.data.hash);
+  test.eq("goldfish.png", goldFish.data.fileName);
+
+  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg") });
+  const openedGoldFish = await openFile(goldFish.id);
+  test.eq("image/jpeg", openedGoldFish.data.mediaType);
+  test.eq(428, openedGoldFish.data.width);
+  test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', openedGoldFish.data.hash);
+  test.eq("goldfish.png", openedGoldFish.data.fileName, "a file's resource name is fixed to its fsobject");
+
   const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);
   test.eq("This is a test", await openNewFile2.data.resource.text());
+  test.eq("testfile2.txt", openNewFile2.data.fileName);
+  test.eq("text/plain", openNewFile2.data.mediaType);
+
   await openNewFile2.update({ data: await ResourceDescriptor.from("Updated text") });
   test.eq("Updated text", await openNewFile2.data.resource.text());
+  test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("Updated text", await (await openFile(newFile2.id)).data.resource.text());
+  test.eq("text/plain", await (await openFile(newFile2.id)).data.mediaType);
 
-  //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor
+  //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor. eg if given we should also copy/preserve refpoints
 
   await newFile.delete();
   await newFile2.delete();
   test.eq(null, await tmpfolder.openFile("testfile", { allowMissing: true }));
 
+  const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
+  test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data.mediaType);
 
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);

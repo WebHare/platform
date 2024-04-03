@@ -1,6 +1,6 @@
 import { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, dateToParts } from "@webhare/hscompat";
-import { pick } from "@webhare/std";
+import { pick, slugify } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
@@ -16,6 +16,13 @@ const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stret
 const outputFormats = [null, "image/jpeg", "image/gif", "image/png"] as const;
 
 type ResizeMethodName = typeof packMethods[number];
+
+export type LinkMethod = {
+  allowAnyExtension?: boolean;
+  embed?: boolean;
+  fileName?: string;
+  baseURL?: string;
+};
 
 //TODO make ResizeMethod smarter - reject most props when "none" is set etc
 export type ResizeMethod = {
@@ -34,6 +41,7 @@ export type ResizeMethod = {
   setHeight?: number;
 };
 
+type ResourceResizeOptions = Partial<ResizeMethod> & LinkMethod;
 export interface ResizeSpecs {
   outWidth: number;
   outHeight: number;
@@ -102,62 +110,76 @@ export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMeta
 
 // export type ResourceDescriptor = WebHareBlob & ResourceMetaData;
 
+const mimeToExt: Record<string, string> = {
+  "image/tiff": ".tif",
+  "image/x-bmp": ".bmp",
+  "image/gif": ".gif",
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/svgx+xml": ".svg",
+
+  "application/zip": ".zip",
+
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+
+  "application/vnd.android.package-archive": ".apk",
+  "application/x-silverlight-app": ".xap",
+
+  "application/msword": ".doc",
+  "application/vnd.ms-excel": ".xls",
+  "application/vnd.ms-powerpoint": ".ppt",
+  "application/x-webhare-conversionprofile": ".prl",
+
+  "application/x-webhare-template": ".tpl",
+  "application/x-webhare-library": ".whlib",
+  "application/x-webhare-shtmlfile": ".shtml",
+  "application/x-webhare-harescriptfile": ".whscr",
+
+  "text/xml": ".xml",
+
+  "application/x-javascript": ".js",
+  "application/javascript": ".js",
+  "audio/amr": ".amr",
+  "text/css": ".css",
+  "text/csv": ".csv",
+  "audio/x-wav": ".wav",
+  "audio/mpeg": ".mp3",
+  "video/mpeg": ".mpg",
+  "video/x-msvideo": ".avi",
+  "video/quicktime": ".mov",
+  "video/mp4": ".mp4",
+  "image/vnd.microsoft.icon": ".ico",
+  "application/x-rar-compressed": ".rar",
+  "text/html": ".html",
+  "application/x-gzip": ".gz",
+  "text/plain": ".txt",
+  "application/pdf": ".pdf",
+  "message/rfc822": ".eml",
+  "text/x-vcard": ".vcf",
+  "video/x-flv": ".flv",
+  "text/calendar": ".ics"
+};
+
 /** Get the proper or usual extension for the file's mimetype
     @param mediaType - Mimetype
-    @returns Extension (incliding the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
+    @returns Extension (including the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
 */
-export function getExtensionForMediaType(mediaType: string): string | null {
-  return {
-    "image/tiff": ".tif",
-    "image/x-bmp": ".bmp",
-    "image/gif": ".gif",
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/svgx+xml": ".svg",
+function getExtensionForMediaType(mediaType: string): string | null {
+  return mimeToExt[mediaType] ?? null;
+}
 
-    "application/zip": ".zip",
-
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-
-    "application/vnd.android.package-archive": ".apk",
-    "application/x-silverlight-app": ".xap",
-
-    "application/msword": ".doc",
-    "application/vnd.ms-excel": ".xls",
-    "application/vnd.ms-powerpoint": ".ppt",
-    "application/x-webhare-conversionprofile": ".prl",
-
-    "application/x-webhare-template": ".tpl",
-    "application/x-webhare-library": ".whlib",
-    "application/x-webhare-shtmlfile": ".shtml",
-    "application/x-webhare-harescriptfile": ".whscr",
-
-    "text/xml": ".xml",
-
-    "application/x-javascript": ".js",
-    "application/javascript": ".js",
-    "audio/amr": ".amr",
-    "text/css": ".css",
-    "text/csv": ".csv",
-    "audio/x-wav": ".wav",
-    "audio/mpeg": ".mp3",
-    "video/mpeg": ".mpg",
-    "video/x-msvideo": ".avi",
-    "video/quicktime": ".mov",
-    "video/mp4": ".mp4",
-    "image/vnd.microsoft.icon": ".ico",
-    "application/x-rar-compressed": ".rar",
-    "text/html": ".html",
-    "application/x-gzip": ".gz",
-    "text/plain": ".txt",
-    "application/pdf": ".pdf",
-    "message/rfc822": ".eml",
-    "text/x-vcard": ".vcf",
-    "video/x-flv": ".flv",
-    "text/calendar": ".ics"
-  }[mediaType] ?? null;
+/** Get the mime type by extension
+    @param ext - Extension including initial dot
+    @returns Mime type or null
+*/
+function getMimeTypeForExtension(ext: string): string | null {
+  for (const [mime, ext2] of Object.entries(mimeToExt)) {
+    if (ext2 === ext)
+      return mime;
+  }
+  return null;
 }
 
 type SerializedScanData = {
@@ -281,9 +303,16 @@ export async function hashStream(r: ReadableStream<Uint8Array>) {
   return hasher.digest("base64url");
 }
 
-/** Add missing data before storing into the database. Eg detect filetypes if still octestreams, get image info... */
-export async function addMissingScanData(meta: ResourceDescriptor) { //TODO cache missing metadata with the resource to prevent recalculation when inserted multiple times
+/** Add missing data before storing into the database. Eg detect filetypes if still octestreams, get image info...
+ * @param meta - Resource descriptor to encode
+ * @param options - Options - allows to override the fileName to use
+*/
+export async function addMissingScanData(meta: ResourceDescriptor, options?: {
+  fileName?: string;
+}) { //TODO cache missing metadata with the resource to prevent recalculation when inserted multiple times
   let newmeta: EncodableResourceMetaData = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+  if (options?.fileName !== undefined)
+    newmeta.fileName = options.fileName;
 
   if (!newmeta.hash)
     newmeta.hash = await hashStream(await meta.resource.getStream());
@@ -293,6 +322,13 @@ export async function addMissingScanData(meta: ResourceDescriptor) { //TODO cach
 
   if (newmeta.mediaType === "application/octet-stream" || (newmeta.mediaType.startsWith("image/") && (!newmeta.width || !newmeta.dominantColor))) {
     newmeta = { ...newmeta, ...await analyzeImage(meta.resource, true) };
+  }
+
+  if (newmeta.mediaType === "application/octet-stream" && newmeta.fileName) {
+    //TODO do we want to re-add some of WebHare's file content based magic?
+    const mediatype = getMimeTypeForExtension(extname(newmeta.fileName));
+    if (mediatype && !mediatype.startsWith("image/"))
+      newmeta.mediaType = mediatype;
   }
 
   return encodeScanData(newmeta);
@@ -651,7 +687,7 @@ export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: Resource
   view.setInt32(6, fileData.dbLoc.cc, true);
   view.setInt32(10, md, true);
   view.setInt32(14, ms, true);
-  view.setInt32(18, imgdata?.byteLength ?? 0, true);
+  view.setUint8(18, imgdata?.byteLength ?? 0);
   if (imgdata)
     packet.set(new Uint8Array(imgdata), 19);
 
@@ -663,16 +699,10 @@ export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: Resource
   return hash2.digest("hex").substring(0, 8) + Buffer.from(packet).toString("hex");
 }
 
-type ResourceResizeOptions = ResizeMethod & {
-  allowAnyExtension?: boolean;
-  embed?: boolean;
-  fileName?: string;
-};
-
-export function getUnifiedCacheURL(baseurl: string, dataType: number, metaData: ResourceMetaData, options?: ResourceResizeOptions): string {
+function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, options?: ResourceResizeOptions): string {
   if (dataType === 1 && !options?.method)
     throw new Error("A scalemethod is required for images");
-  if (dataType === 2 && !options?.method)
+  if (dataType === 2 && options?.method)
     throw new Error("A cached file cannot have a scale method. Did you mean to use one of the image APIs ?");
 
   const mimetype = (dataType === 1 ? options?.format : "") || metaData.mediaType;
@@ -691,13 +721,14 @@ export function getUnifiedCacheURL(baseurl: string, dataType: number, metaData: 
     //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)
   } else {
     //TOOD HS allowed the extendable mimetype table to be used but that's getting too complex for here I think. should probably reconsider unifiedcache-file usage once we run into this
-    validextensions.push(`${getExtensionForMediaType(mimetype)}`);
+    const ext = getExtensionForMediaType(mimetype);
+    validextensions.push(ext ? ext.substring(1) : "bin");  //'bin' was the fallback application/octet-stream extension in WebHare. as long as we do extension-base mimetypeing on imgcache downloads, we *must* attach an extension for safety
   }
 
-  let filename = options?.fileName;
+  let filename: string = options?.fileName ?? (metaData?.fileName ? slugify(metaData.fileName) ?? "" : "");
   let useextension = "";
-  if (filename?.includes(".")) {
-    const fileext = extname(filename).toLowerCase();
+  if (filename.includes(".")) {
+    const fileext = extname(filename).substring(1).toLowerCase();
     if (validextensions.length && !allowanyextension && !validextensions.includes(fileext))
       useextension = validextensions[0];
     else {
@@ -708,13 +739,13 @@ export function getUnifiedCacheURL(baseurl: string, dataType: number, metaData: 
     useextension = validextensions[0];
   }
 
-  const packet = getUCSubUrl(options?.method ? options : null, metaData, dataType, useextension ? '.' + useextension : '');
+  const packet = getUCSubUrl(options?.method ? options as ResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
   let suffix = dataType === 1 ? "i" : embed ? "e" : "f";
   suffix += packet;
   suffix += '/' + encodeURIComponent(filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : '');
 
   const url = `/.uc/` + suffix;
-  return baseurl ? new URL(url, baseurl).href : url;
+  return options?.baseURL ? new URL(url, options?.baseURL).href : url;
 }
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
@@ -837,8 +868,12 @@ export class ResourceDescriptor implements ResourceMetaData {
     return pick(this, ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"]);
   }
 
+  toLink(method?: LinkMethod): string {
+    return getUnifiedCacheURL(2, this, method);
+  }
+
   toResized(method: ResizeMethod) {
-    return { link: getUnifiedCacheURL('', 1, this, method) };
+    return { link: getUnifiedCacheURL(1, this, method) };
   }
 }
 

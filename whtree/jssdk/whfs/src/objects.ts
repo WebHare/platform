@@ -1,6 +1,6 @@
 import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
-import { decodeScanData, getUnifiedCC, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
 import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
@@ -142,7 +142,15 @@ export class WHFSObject {
       storedata.type = type.id || null; //#0 can't be stored so convert to null
     }
     if ((metadata as UpdateFileMetadata).data && this.isFile) {
-      storedata.data = (metadata as CreateFileMetadata)?.data?.resource || null;
+      const resdescr = (metadata as UpdateFileMetadata)?.data;
+      if (resdescr) {
+        storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
+        storedata.data = resdescr?.resource || null;
+      } else {
+        storedata.scandata = '';
+      }
+
+      storedata.data = resdescr?.resource || null;
       if (storedata.data)
         await uploadBlob(storedata.data);
     }
@@ -165,9 +173,10 @@ export class WHFSFile extends WHFSObject {
     return isPublish(this.dbrecord.published);
   }
   get data(): ResourceDescriptor {
-    const meta = {
+    const meta: ResourceMetaDataInit = {
       ...decodeScanData(this.dbrecord.scandata),
-      dbLoc: { source: 1, id: this.id, cc: getUnifiedCC(this.dbrecord.creationdate) }
+      dbLoc: { source: 1, id: this.id, cc: getUnifiedCC(this.dbrecord.creationdate) },
+      fileName: this.dbrecord.name
     };
     return new ResourceDescriptor(this.dbrecord.data, meta);
   }
@@ -253,11 +262,16 @@ export class WHFSFolder extends WHFSObject {
 
   private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
     const creationdate = new Date();
-    let data: WebHareBlob | null = null;
-    if (!type.foldertype)
-      data = (metadata as CreateFileMetadata)?.data?.resource || null;
-    if (data)
-      await uploadBlob(data);
+    let data: WebHareBlob | null = null, scandata = '';
+    if (!type.foldertype) {
+      const resdescr = (metadata as CreateFileMetadata)?.data;
+      if (resdescr) {
+        scandata = await addMissingScanData(resdescr, { fileName: name });
+        data = resdescr?.resource || null;
+        if (data)
+          await uploadBlob(data);
+      }
+    }
 
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
@@ -276,7 +290,7 @@ export class WHFSFolder extends WHFSObject {
         lastpublishdate: defaultDateTime,
         lastpublishsize: 0,
         lastpublishtime: 0,
-        scandata: "",
+        scandata,
         ordering: 0,
         published: 0,
         type: type.id || null, //#0 can't be stored so convert to null
