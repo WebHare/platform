@@ -102,62 +102,76 @@ export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMeta
 
 // export type ResourceDescriptor = WebHareBlob & ResourceMetaData;
 
+const mimeToExt: Record<string, string> = {
+  "image/tiff": ".tif",
+  "image/x-bmp": ".bmp",
+  "image/gif": ".gif",
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/svgx+xml": ".svg",
+
+  "application/zip": ".zip",
+
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+
+  "application/vnd.android.package-archive": ".apk",
+  "application/x-silverlight-app": ".xap",
+
+  "application/msword": ".doc",
+  "application/vnd.ms-excel": ".xls",
+  "application/vnd.ms-powerpoint": ".ppt",
+  "application/x-webhare-conversionprofile": ".prl",
+
+  "application/x-webhare-template": ".tpl",
+  "application/x-webhare-library": ".whlib",
+  "application/x-webhare-shtmlfile": ".shtml",
+  "application/x-webhare-harescriptfile": ".whscr",
+
+  "text/xml": ".xml",
+
+  "application/x-javascript": ".js",
+  "application/javascript": ".js",
+  "audio/amr": ".amr",
+  "text/css": ".css",
+  "text/csv": ".csv",
+  "audio/x-wav": ".wav",
+  "audio/mpeg": ".mp3",
+  "video/mpeg": ".mpg",
+  "video/x-msvideo": ".avi",
+  "video/quicktime": ".mov",
+  "video/mp4": ".mp4",
+  "image/vnd.microsoft.icon": ".ico",
+  "application/x-rar-compressed": ".rar",
+  "text/html": ".html",
+  "application/x-gzip": ".gz",
+  "text/plain": ".txt",
+  "application/pdf": ".pdf",
+  "message/rfc822": ".eml",
+  "text/x-vcard": ".vcf",
+  "video/x-flv": ".flv",
+  "text/calendar": ".ics"
+};
+
 /** Get the proper or usual extension for the file's mimetype
     @param mediaType - Mimetype
-    @returns Extension (incliding the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
+    @returns Extension (including the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
 */
-export function getExtensionForMediaType(mediaType: string): string | null {
-  return {
-    "image/tiff": ".tif",
-    "image/x-bmp": ".bmp",
-    "image/gif": ".gif",
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/svgx+xml": ".svg",
+function getExtensionForMediaType(mediaType: string): string | null {
+  return mimeToExt[mediaType] ?? null;
+}
 
-    "application/zip": ".zip",
-
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-
-    "application/vnd.android.package-archive": ".apk",
-    "application/x-silverlight-app": ".xap",
-
-    "application/msword": ".doc",
-    "application/vnd.ms-excel": ".xls",
-    "application/vnd.ms-powerpoint": ".ppt",
-    "application/x-webhare-conversionprofile": ".prl",
-
-    "application/x-webhare-template": ".tpl",
-    "application/x-webhare-library": ".whlib",
-    "application/x-webhare-shtmlfile": ".shtml",
-    "application/x-webhare-harescriptfile": ".whscr",
-
-    "text/xml": ".xml",
-
-    "application/x-javascript": ".js",
-    "application/javascript": ".js",
-    "audio/amr": ".amr",
-    "text/css": ".css",
-    "text/csv": ".csv",
-    "audio/x-wav": ".wav",
-    "audio/mpeg": ".mp3",
-    "video/mpeg": ".mpg",
-    "video/x-msvideo": ".avi",
-    "video/quicktime": ".mov",
-    "video/mp4": ".mp4",
-    "image/vnd.microsoft.icon": ".ico",
-    "application/x-rar-compressed": ".rar",
-    "text/html": ".html",
-    "application/x-gzip": ".gz",
-    "text/plain": ".txt",
-    "application/pdf": ".pdf",
-    "message/rfc822": ".eml",
-    "text/x-vcard": ".vcf",
-    "video/x-flv": ".flv",
-    "text/calendar": ".ics"
-  }[mediaType] ?? null;
+/** Get the mime type by extension
+    @param ext - Extension including initial dot
+    @returns Mime type or null
+*/
+function getMimeTypeForExtension(ext: string): string | null {
+  for (const [mime, ext2] of Object.entries(mimeToExt)) {
+    if (ext2 === ext)
+      return mime;
+  }
+  return null;
 }
 
 type SerializedScanData = {
@@ -293,6 +307,13 @@ export async function addMissingScanData(meta: ResourceDescriptor) { //TODO cach
 
   if (newmeta.mediaType === "application/octet-stream" || (newmeta.mediaType.startsWith("image/") && (!newmeta.width || !newmeta.dominantColor))) {
     newmeta = { ...newmeta, ...await analyzeImage(meta.resource, true) };
+  }
+
+  if (newmeta.mediaType === "application/octet-stream" && newmeta.fileName) {
+    //TODO do we want to re-add some of WebHare's file content based magic?
+    const mediatype = getMimeTypeForExtension(extname(newmeta.fileName));
+    if (mediatype && !mediatype.startsWith("image/"))
+      newmeta.mediaType = mediatype;
   }
 
   return encodeScanData(newmeta);
