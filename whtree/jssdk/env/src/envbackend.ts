@@ -98,7 +98,7 @@ function formatForConsoleLogs() {
 */
 export function updateDebugConfig(settings: DebugConfig | null) {
   const oldenabledflags = Object.keys(globalDebugFlags).sort();
-  const newenabledflags = settings?.tags ? [...settings.tags].toSorted() : [];
+  const newenabledflags = settings?.tags ? [...settings.tags].sort() : [];
 
   if (oldenabledflags.join(",") !== newenabledflags.join(",")) {
     for (const flag of newenabledflags)
