@@ -3,6 +3,14 @@ import './menu.css';
 
 const MenuController = Symbol("wh-tollium-menucontroller");
 
+export type CustomMenuEvent = CustomEvent<{ menu: HTMLElement; depth: number }>;
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "wh:menu-open": CustomMenuEvent;
+    "wh:menu-close": CustomMenuEvent;
+  }
+}
+
 type PreferredDirection = '' | 'right' | 'left' | 'up' | 'down';
 type ExitDirection = '' | 'left' | 'top';
 // type Position = "first" | "last" | "previous" | "next";
