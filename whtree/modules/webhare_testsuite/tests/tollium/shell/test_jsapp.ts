@@ -56,14 +56,14 @@ test.registerTests(
       test: function (doc, win) {
         test.eq(4, test.qSA(".t-screen").length);
         test.assert(!test.getMenu(['M01', 'A02']) !== null);
-        test.click(test.getCurrentScreen().qS('t-button'));
+        test.click(test.getCurrentScreen().qS('button'));
       },
       waits: ['ui']
     },
     {
       test: function (doc, win) {
         test.eq(3, test.qSA(".t-screen").length);
-        test.click(test.getCurrentScreen().qS('t-button'));
+        test.click(test.getCurrentScreen().qS('button'));
       },
       waits: ['ui']
     },

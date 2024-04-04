@@ -5,7 +5,14 @@
    e.g. the OK, CANCEL, UP and DOWN buttons
 */
 
-t-button
+:where(button) //reset useragent css
+{
+  appearance: none;
+  background: transparent;
+  font: inherit;
+}
+
+button
 {
   height: 23px;
   line-height: 23px;
@@ -19,7 +26,7 @@ t-button
   border-radius: 2px;
 }
 
-t-button > span
+button > span
 {
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -28,40 +35,40 @@ t-button > span
   text-align: center !important;
   pointer-events: none;
 }
-  t-button.button--active > span
-/*, t-button:active > span*/
+  button.button--active > span
+/*, button:active > span*/
 {
   position:relative;
   top:1px;
   left:1px;
 }
-  t-button.todd--disabled.button--active > span
-, t-button.todd--disabled:active > span
+  button.todd--disabled.button--active > span
+, button.todd--disabled:active > span
 {
   left: 0;
   top: 0;
 }
-t-button.showmenu > span:after
+button.showmenu > span:after
 {
   @include tollium-downarrow;
   padding-left: 5px;
 }
-t-button .button__img
+button .button__img
 {
   margin-top: 3px;
   margin-left: 4px;
   float: left; /* to have titles with ellipsis working without having to calculate the size of the text container */
   pointer-events: none;
 }
-t-toolbar-buttongroup t-button .button__img
+t-toolbar-buttongroup button .button__img
 {
   float: none;
 }
 
 /* disabled by vlaai */
-/*t-button.pressed img,*/
-  t-button.button--active .button__img
-/*, t-button:active img*/
+/*button.pressed img,*/
+  button.button--active .button__img
+/*, button:active img*/
 {
   left: 1px;
   top: 1px;
@@ -69,23 +76,23 @@ t-toolbar-buttongroup t-button .button__img
 }
 
 /**/
-t-button.todd--disabled
+button.todd--disabled
 {
   cursor: default;
 }
 
-t-button.todd--disabled.pressed span,
-t-button.todd--disabled.button--active span
+button.todd--disabled.pressed span,
+button.todd--disabled.button--active span
 {
   left: 0;
   top: 0;
 }
 
-t-button.icon
+button.icon
 {
   padding: 0;
 }
-t-button.icon .button__img
+button.icon .button__img
 {
   position: relative;
 }
@@ -96,7 +103,7 @@ t-button.icon .button__img
    e.g. "OK", "CANCEL", "UP" and "DOWN"
 */
 
-t-button
+button
 {
   border:1px solid #b3b3b3;
   color: #000000;
@@ -104,15 +111,15 @@ t-button
 
   box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.17);
 }
-:not(t-toolbar-buttongroup):not(t-buttongroup):not(t-textedit) > t-button:hover:not(.pressed):not(.todd--disabled)
+:not(t-toolbar-buttongroup):not(buttongroup):not(t-textedit) > button:hover:not(.pressed):not(.todd--disabled)
 {
   background-image: linear-gradient(to bottom, #EBEBEB 0%, #FFFFFF 83%);
 }
-t-button.pressed
+button.pressed
 {
   background-color: #308fe2;
 }
-t-button.todd--disabled
+button.todd--disabled
 {
   border:1px solid #c9c9c9;
   color: #c9c9c9;
@@ -122,30 +129,28 @@ t-button.todd--disabled
 
   box-shadow: none;
 }
-t-button.todd--disabled img
+button.todd--disabled img
 {
   opacity: .45;
 }
-:not(t-textedit) > t-button.default:not(.todd--disabled)
+:not(t-textedit) > button.default:not(.todd--disabled)
 {
   @include tollium-defaultbutton;
 }
 
-:not(t-toolbar-buttongroup):not(t-buttongroup):not(t-textedit) > t-button.default:not(.todd--disabled):hover
+:not(t-toolbar-buttongroup):not(buttongroup):not(t-textedit) > button.default:not(.todd--disabled):hover
 {
   background-color: #007dc3;
   background-image: linear-gradient(to top, #0098EE 0%, #0285CF 100%);
 }
 
-:not(t-textedit) > t-button.default:not(.todd--disabled).button--active
+:not(t-textedit) > button.default:not(.todd--disabled).button--active
 {
   background-image: none;
   background-color: #007ec4;
 }
 
-t-button:focus
+button:focus
 {
   border-color: #52aefe;
 }
-
-

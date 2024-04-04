@@ -55,7 +55,7 @@ export default class ObjButton extends ActionableBase {
     this.ismenubutton = data.ismenubutton;
 
     // Build the DOM node(s) for this component
-    this.node = dompack.create("t-button", {
+    this.node = dompack.create("button", {
       on: {
         click: evt => this.onClick(),
         mousedown: evt => this.onMouseDown(evt),
@@ -65,7 +65,7 @@ export default class ObjButton extends ActionableBase {
       dataset: { name: this.name, toddDefaultButton: "" },
       title: this.hint || '',
       className: { ismenubutton: this.ismenubutton },
-      tabIndex: 0
+      type: "button"
     });
     this.node.addEventListener("wh:menu-open", evt => this.onMenuState(true, evt));
     this.node.addEventListener("wh:menu-close", evt => this.onMenuState(false, evt));
@@ -93,6 +93,7 @@ export default class ObjButton extends ActionableBase {
 
     this.setMenu(data.menu);
 
+    //TODO In principle this can go away now we are a native button ... BUT then we lose the Enter key users may now be used to. how to dael with that?
     new Keyboard(this.node, {
       " ": evt => this.onClick(),
       "Enter": evt => this.onClick()

@@ -93,7 +93,7 @@ test.registerTests(
     async function enable2FA() {
       test.click(test.qS("#dashboard-user-name"));
       await test.wait('ui');
-      test.click(test.qSA("t-button").filter(e => e.textContent === "Change")[1]);
+      test.click(test.qSA("button").filter(e => e.textContent === "Change")[1]);
       await test.wait('ui');
 
       // setup one-time access code
@@ -112,7 +112,7 @@ test.registerTests(
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: -61 });
 
       test.setTodd('entercode', totpdata.code);
-      test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
+      test.click(test.qSA("button").filter(e => e.textContent.startsWith("Next"))[0]);
       await test.wait('ui');
 
       test.eq(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode().textContent);
@@ -120,7 +120,7 @@ test.registerTests(
       await test.wait('ui');
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.setTodd('entercode', totpdata.code);
-      test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
+      test.click(test.qSA("button").filter(e => e.textContent.startsWith("Next"))[0]);
       await test.wait('ui');
 
       totpbackupcodes = test.getCurrentScreen().getValue("backupcodes_text").split("\n").filter(_ => _);

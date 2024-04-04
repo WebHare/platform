@@ -327,15 +327,15 @@ div.tabs-space
  /* background-color: #f0f0f0; */
 }
 
-div.tabs-space t-button
+div.tabs-space button
 {
   position:relative;
 }
-div.tabs-space t-button.pressed
+div.tabs-space button.pressed
 {
   background-image: linear-gradient(to bottom, #DDDDDD 0%, #F0F0F0 100%);
 }
-div.tabs-space t-button.pressed:before
+div.tabs-space button.pressed:before
 {
   content:"";
   position:absolute;
@@ -347,7 +347,7 @@ div.tabs-space t-button.pressed:before
   border-top:1px solid #95cdfe;
 
 }
-div.tabs-space :not(t-textedit) t-button:hover
+div.tabs-space :not(t-textedit) button:hover
 {
   background-color: #95cdfe;
 }
