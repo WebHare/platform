@@ -129,7 +129,7 @@ async function main() {
     await writeFile(join(pkgroot, "package.json"), JSON.stringify(depfree, null, 2) + '\n', "utf8");
     const installResult = spawnSync("npm", ["install", "--omit=dev"], { cwd: pkgroot, stdio });
     if (installResult.status)
-      throw new Error(`Failed to pack ${pkgname} (use--verbose for more info)`);
+      throw new Error(`Failed to pack ${pkgname} (use --verbose for more info)`);
 
     //If TS, compile it and update the src
     const src = packagejson.main;
