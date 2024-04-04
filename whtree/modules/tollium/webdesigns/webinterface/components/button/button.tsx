@@ -89,7 +89,9 @@ export default class ObjButton extends ActionableBase {
         this.node.appendChild(this.textnode);
       }
     }
-    this.node.classList.toggle("pressed", this.pressed);
+
+    //TODO ideally 'false' if a button *can* be pressed and null (undefined) if the button will never be pressed, but tollium doesn't register 'pressable' yet
+    this.node.ariaPressed = this.pressed ? "true" : null;
 
     this.setMenu(data.menu);
 
@@ -205,7 +207,7 @@ export default class ObjButton extends ActionableBase {
         return;
       case 'pressed':
         this.pressed = data.pressed;
-        this.node.classList.toggle("pressed", this.pressed);
+        this.node.ariaPressed = this.pressed ? "true" : null;
         return;
     }
     super.applyUpdate(data);

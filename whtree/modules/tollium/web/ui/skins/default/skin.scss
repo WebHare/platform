@@ -331,21 +331,21 @@ div.tabs-space button
 {
   position:relative;
 }
-div.tabs-space button.pressed
+div.tabs-space button[aria-pressed=true]
 {
   background-image: linear-gradient(to bottom, #DDDDDD 0%, #F0F0F0 100%);
-}
-div.tabs-space button.pressed:before
-{
-  content:"";
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  height:1px;
-  background:#3498ed;
-  border-top:1px solid #95cdfe;
 
+  &:before
+  {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    height:1px;
+    background:#3498ed;
+    border-top:1px solid #95cdfe;
+  }
 }
 div.tabs-space :not(t-textedit) button:hover
 {

@@ -65,10 +65,7 @@ t-toolbar-buttongroup button .button__img
   float: none;
 }
 
-/* disabled by vlaai */
-/*button.pressed img,*/
-  button.button--active .button__img
-/*, button:active img*/
+button.button--active .button__img
 {
   left: 1px;
   top: 1px;
@@ -81,7 +78,7 @@ button.todd--disabled
   cursor: default;
 }
 
-button.todd--disabled.pressed span,
+button.todd--disabled[aria-pressed=true] span,
 button.todd--disabled.button--active span
 {
   left: 0;
@@ -111,11 +108,11 @@ button
 
   box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.17);
 }
-:not(t-toolbar-buttongroup):not(buttongroup):not(t-textedit) > button:hover:not(.pressed):not(.todd--disabled)
+:not(t-toolbar-buttongroup):not(buttongroup):not(t-textedit) > button:hover:not([aria-pressed=true]):not(.todd--disabled)
 {
   background-image: linear-gradient(to bottom, #EBEBEB 0%, #FFFFFF 83%);
 }
-button.pressed
+button[aria-pressed=true]
 {
   background-color: #308fe2;
 }
