@@ -55,8 +55,6 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
     this->AddImportRowFilter("wrd.schemas", PTR this->SchemasFilter);
     this->AddExportRowFilter("wrd.schemas", PTR this->ExportSchemasFilter);
     this->AddImportRowFilter("wrd.types", PTR this->typesfilter);
-    this->AddImportRowFilter("wrd.changesets", PTR this->ChangeSetFilter);
-    this->AddImportRowFilter("wrd.auditevents", PTR this->AuditEventsFilter);
     this->AddImportRowFilter("wrd.entity_settings", PTR this->EntitySettingsFilter);
 
     this->AddImportRowFilter("wrd.attrs", PTR this->attrsfilter);
@@ -70,7 +68,11 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
     this->IgnoreImportTable("wrd.registrynodes");
     this->IgnoreImportTable("wrd.registrykeys");
     this->IgnoreImportTable("wrd.storedqueries");
+
+    //Do not im/export things we wouldn't add to a sync either, especially as WRD ex/import needs to move to a more 'logical' approach (storing actual entities as typed-json, not raw db records) anyway
     this->RemoveTableCascade("wrd.tokens");
+    this->RemoveTableCascade("wrd.auditevents");
+    this->RemoveTableCascade("wrd.changesets");
 
     IF(ObjectExists(wrdschema)) //is export
     {
