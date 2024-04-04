@@ -4,6 +4,7 @@
 import UploadDialogController from './dialogs/uploadcontroller';
 import ImgeditDialogController from './dialogs/imgeditcontroller';
 import * as compatupload from '@mod-system/js/compat/upload';
+import { flagUIBusy } from 'dompack';
 
 require("../common.lang.json");
 
@@ -163,7 +164,9 @@ export async function uploadFilesForDrop(component: ToddCompBase, dragdata: Curr
   } else {
     const items = dragdata.getItems();
     if (items.length && items[0].webkitGetAsEntry) {
-      //we'll build a new filelist
+      //we'll build a new filelist. setup a quick lock for compatibility with existing tests which don't necesarily expect this await
+      using lock = flagUIBusy();
+      void lock;
       files = await gatherUploadFiles(items.map(item => item.webkitGetAsEntry()));
     }
 
