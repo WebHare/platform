@@ -79,7 +79,7 @@ function isElementSafeToAccess(el) //is it safe to fire an event towards element
 }
 
 export class SimulatedDragDataStore {
-  constructor(sourcenode, options) {
+  constructor(sourcenode, options?) {
     this._sourcenode = sourcenode;
     this._lasttarget = null;
     this._lasthandled = 0;
@@ -102,7 +102,7 @@ export class SimulatedDragDataStore {
     };
   }
 
-  addFile(file) {
+  addFile(file: File) {
     this.items.push({ kind: "File", type: file.type, data: file });
   }
 }
@@ -529,7 +529,7 @@ export function _resolveToSingleElement(element: ValidElementTarget): HTMLElemen
 
 /* sending complex mouse gestures
    down/up: mouse button to press/depress. 0=standard (left), 1=middle, 2=context (right) .. */
-export function sendMouseGesture(gestureparts) {
+export function sendMouseGesture(gestureparts: MouseGesture[]): Promise<void> {
   const stack = new Error;
   //Calculate execution time for the gestures
   let at = Date.now();
@@ -542,7 +542,7 @@ export function sendMouseGesture(gestureparts) {
   }
 
   // Resolve this promise when the last gesture has been processed
-  const retval = new Promise(resolve => gestureparts.length
+  const retval = new Promise<void>(resolve => gestureparts.length
     ? gestureparts[gestureparts.length - 1].onexecuted = resolve
     : resolve());
 
@@ -1176,19 +1176,35 @@ function fireMouseEvent(eventtype: string, cx: number, cy: number, el: Element, 
   return checkedDispatchEvent(el, evt);
 }
 
+export interface CastableToElement {
+  [toElement]: () => Element;
+};
 export type ValidElementTarget = Element | string;
 export type ElementTargetOptions = {
   /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full width. If not set, defaults to 50% */
   x?: number | string;
   /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full height. If not set, defaults to 50% */
   y?: number | string;
-}
+};
+export type MouseButton = 0 | 1 | 2;
 export type ElementClickOptions = ElementTargetOptions & {
-  button?: 0 | 1 | 2;
+  button?: MouseButton;
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
   meta?: boolean;
+}
+
+export type MouseGesture = ElementTargetOptions & {
+  el?: Element | CastableToElement;
+  down?: MouseButton;
+  up?: MouseButton;
+  cmd?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+  ctrl?: boolean;
+  meta?: boolean;
+  delay?: number;
 }
 
 export function click(element: ValidElementTarget, options?: ElementTargetOptions) {
@@ -1243,7 +1259,8 @@ export function canClick(element: ValidElementTarget, options?: ElementTargetOpt
   return element.contains(elhere);
 }
 
-export function startExternalFileDrag(file) {
+/** Simulate an incoming external file drag */
+export function startExternalFileDrag(file: File): void {
   mousestate.dndstate = new SimulatedDragDataStore(null);
 
   const files = [].concat(file); // convert to array

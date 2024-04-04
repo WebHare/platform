@@ -21,6 +21,16 @@ export async function waitForLoad(): Promise<void> {
   await oldWait("load");
 }
 
+export async function fetchAsFile(url: string): Promise<File> {
+  const fetchresult = await fetch(url);
+  if (!fetchresult.ok)
+    throw new Error(`Failed to fetch ${url}: ${fetchresult.statusText}`);
+
+  return new File([await fetchresult.blob()],
+    url.split("/").pop() || "file.dat",
+    { type: fetchresult.headers.get("Content-Type") || "application/octet-stream" });
+}
+
 /** Prepare files for the next \@webhare/frontend upload request
  * @param list - List of files to prepare. If a string is passed, it will be fetched and turned into a File
 */
@@ -31,14 +41,7 @@ export function prepareUpload(list: Array<File | string>) {
     const outlist: File[] = [];
     for (const item of list) {
       if (typeof item === "string") {
-        const fetchresult = await fetch(item);
-        if (!fetchresult.ok)
-          throw new Error(`Failed to fetch ${item}: ${fetchresult.statusText}`);
-
-        outlist.push(new File([await fetchresult.blob()],
-          item.split("/").pop() || "file.dat",
-          { type: fetchresult.headers.get("Content-Type") || "application/octet-stream" })
-        );
+        outlist.push(await fetchAsFile(item));
       } else {
         outlist.push(item);
       }
@@ -89,5 +92,7 @@ export {
   click,
   fill,
   getWin,
-  getDoc
+  getDoc,
+  startExternalFileDrag,
+  sendMouseGesture,
 } from "@mod-system/js/wh/testframework";

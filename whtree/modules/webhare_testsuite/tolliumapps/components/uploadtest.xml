@@ -1,0 +1,22 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="uploadtest.whlib">
+
+  <screen name="uploadtest">
+    <actions>
+      <uploadaction name="uploadsingle" title="Upload single" onupload="onupload"/>
+    </actions>
+
+    <body >
+      <line layout="left">
+        <button action="uploadsingle" />
+      </line>
+      <list name="uploadlist">
+        <acceptdrops ondrop="ondrop">
+          <acceptfile />
+        </acceptdrops>
+        <column name="item" tree="true" title="Test drag and drop" type="text" />
+      </list>
+      <textarea enabled="false" name="result" title="Result" width="1pr" minwidth="80x" minheight="4gr"/>
+    </body>
+  </screen>
+
+</screens>
