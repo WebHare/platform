@@ -95,7 +95,7 @@ export default class ObjButton extends ActionableBase {
 
     this.setMenu(data.menu);
 
-    //TODO In principle this can go away now we are a native button ... BUT then we lose the Enter key users may now be used to. how to dael with that?
+    //TODO In principle this can go away now we are a native button ... BUT then we lose the Enter key users may now be used to. how to deal with that?
     new Keyboard(this.node, {
       " ": evt => this.onClick(),
       "Enter": evt => this.onClick()
