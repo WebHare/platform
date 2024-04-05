@@ -307,7 +307,7 @@ export class ToddCompBase {
   * Communications
   */
 
-  queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback: () => void) {
+  queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback?: () => void) {
     console.warn("queueEvent is deprecated, switch to queueMessage");
     return (this.owner.hostapp as BackendApplication).queueEvent(actionname, param, synchronous, originalcallback);
   }

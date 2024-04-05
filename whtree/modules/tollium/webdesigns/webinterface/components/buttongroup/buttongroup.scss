@@ -48,7 +48,7 @@ t-buttongroup div.separator div:after
 }
 
 
-t-buttongroup t-button
+t-buttongroup button
 {
   height: 100%;
   padding: 4px;
@@ -72,11 +72,11 @@ t-buttongroup.horizontal div.separator div:after
   top: 0;
 }
 
-t-buttongroup.horizontal t-button:not(:last-child)
+t-buttongroup.horizontal button:not(:last-child)
 {
 }
 
-t-buttongroup.horizontal t-button:not(:first-child)
+t-buttongroup.horizontal button:not(:first-child)
 {
 }
 t-buttongroup.vertical div.separator
@@ -98,19 +98,19 @@ t-buttongroup.vertical div.separator div:after
   top: 0;
 }
 
-t-buttongroup.vertical t-button
+t-buttongroup.vertical button
 {
   background: none;
 }
 
-t-buttongroup.vertical t-button:not(:last-child)
+t-buttongroup.vertical button:not(:last-child)
 {
   border-bottom-width: 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-t-buttongroup.vertical t-button:not(:first-child)
+t-buttongroup.vertical button:not(:first-child)
 {
   border-top-width: 0;
   border-top-left-radius: 0;
@@ -122,7 +122,7 @@ t-buttongroup
 
 }
 
-t-buttongroup t-button.todd--disabled
+t-buttongroup button.todd--disabled
 {
   opacity: 0.26;
 }
@@ -132,4 +132,3 @@ t-buttongroup div.separator div
   background-color: #b8b8b8;
   height: 100%;
 }
-

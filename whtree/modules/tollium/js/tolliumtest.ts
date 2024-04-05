@@ -4,7 +4,7 @@
    (eg: compByName is going to require a lot of downstream changes if it would document it could
         return null (lots of !s) or start throwing if a component was not found */
 
-import { toElement } from "dompack/testframework/pointer";
+import { toElement, type CastableToElement } from "dompack/testframework/pointer";
 import { getCurrentScreen, getTestScreen } from "./testframework";
 
 import * as test from "@webhare/test-frontend";
@@ -12,19 +12,27 @@ import { qSA } from "@webhare/dompack";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
-class ComponentProxy {
+class ComponentProxy implements CastableToElement {
   readonly node: HTMLElement;
 
   constructor(node: HTMLElement) {
     this.node = node;
   }
 
-  [toElement]() {
+  [toElement](): HTMLElement {
     return this.node;
   }
 
   click() {
     this.node.click();
+  }
+
+  getTextValue() {
+    //obtain the text value for this component's form control
+    if (this.node.matches("t-textarea"))
+      return this.node.querySelector("textarea")!.value;
+
+    throw new Error(`Don't know how to getTextValue from node '${this.node.dataset.name}'`);
   }
 
   ////////////////////////////

@@ -21,7 +21,7 @@ test.registerTests(
       name: 'button large enough to show the text',
       test: function (doc, win) {
         const holder = test.compByName("componentpanel");
-        const button = holder.querySelector("t-button");
+        const button = holder.querySelector("button");
         const title = button.querySelector("span");
         test.eq("WWWWWWWWWW WWWWWWWWWW WWWWWWWWWWW", title.textContent, 'got the wrong button/span?');
         test.assert(title.getBoundingClientRect().right < button.getBoundingClientRect().right, 'title right is OUTSIDE button right - its clipped!');

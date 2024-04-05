@@ -18,7 +18,7 @@ test.registerTests(
         test.eq(2, test.qSA('#mainarea .t-screen').length);
 
         //Find the close button. There should be only one button in the window, so it should be easy to find..
-        const buttons = activewindow[0].querySelectorAll('t-button');
+        const buttons = activewindow[0].querySelectorAll('button');
         test.eq(1, buttons.length);
 
         //var menu = activewindow[0].getElement('.wh-menubar');
@@ -107,7 +107,7 @@ test.registerTests(
         test.assert(menu.textContent.includes("N01 Actions"));
 
         //Find the close button. There should be only one button in the window, so it should be easy to find..
-        const buttons = activewindow[0].querySelectorAll('t-button');
+        const buttons = activewindow[0].querySelectorAll('button');
         test.eq(1, buttons.length);
         test.click(buttons[0]);
       },
@@ -120,7 +120,7 @@ test.registerTests(
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
 
-        const buttons = activewindow[0].querySelectorAll('t-button');
+        const buttons = activewindow[0].querySelectorAll('button');
         test.eq(1, buttons.length);
         test.click(buttons[0]);
       },

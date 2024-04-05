@@ -279,7 +279,7 @@ test.registerTests(
       test.setTodd('entercode', totpdata.code);
 
       // complete the configuration, ignore the backup codes (for now!)
-      test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
+      test.click(test.qSA("button").filter(e => e.textContent.startsWith("Next"))[0]);
       await test.wait('ui');
       test.clickToddButton('Finish');
       await test.wait('ui');

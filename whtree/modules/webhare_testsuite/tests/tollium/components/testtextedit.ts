@@ -17,7 +17,7 @@ test.registerTests(
 
       // make sure the subbuttons are visible
       const ttextedit = textedit.closest("t-textedit");
-      const tbutton = ttextedit.querySelector("t-button");
+      const tbutton = ttextedit.querySelector("button");
       test.assert(tbutton);
     },
 

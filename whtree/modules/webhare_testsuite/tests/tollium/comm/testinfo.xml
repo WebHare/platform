@@ -7,6 +7,7 @@
     <arg value="jsonrpc" />
   </jstest>
   <jstest file="testappstart.ts" />
+  <jstest file="testupload.ts" />
   <jstest file="testeventserver.ts" />
   <test script="testsvg.whscr" />
   <jstest file="testdirty.ts" />

@@ -42,7 +42,7 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
   await page.waitForSelector('[name=username]');
   await page.type('[name=username]', sysoplogin);
   await page.type('[name=password]', sysoppassword);
-  await page.click('t-button[data-name=loginbutton]');
+  await page.click('button[data-name=loginbutton]');
 
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);

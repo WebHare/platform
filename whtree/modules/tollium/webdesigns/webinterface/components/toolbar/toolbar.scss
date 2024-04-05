@@ -24,7 +24,7 @@ t-toolbar-buttongroup
   flex: 0 0 auto;
   white-space: nowrap;
 }
-t-toolbar-buttongroup > t-button
+t-toolbar-buttongroup > button
 {
   flex: 1 0 auto;
   height: 72px;
@@ -36,34 +36,34 @@ t-toolbar-buttongroup > t-button
   margin: 0;
 }
 
-t-toolbar-buttongroup > t-button > img
+t-toolbar-buttongroup > button > img
 {
   height: 24px;
   width: 24px;
   margin: 0;
 }
-t-toolbar-buttongroup > t-button:not(.todd--disabled):hover > img
+t-toolbar-buttongroup > button:not(.todd--disabled):hover > img
 {
   opacity: 1;
 }
 /* line 454, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-t-toolbar-buttongroup > t-button.pressed > img,
-t-toolbar-buttongroup > t-button.button--active > img,
-t-toolbar-buttongroup > t-button:active > img
+t-toolbar-buttongroup > button[aria-pressed=true] > img,
+t-toolbar-buttongroup > button.button--active > img,
+t-toolbar-buttongroup > button:active > img
 {
   /*left: 1px;
   position: relative;
   top: 1px;*/
 }
-t-toolbar-buttongroup > t-button.todd--disabled.pressed > img,
-t-toolbar-buttongroup > t-button.todd--disabled:button--active > img,
-t-toolbar-buttongroup > t-button.todd--disabled.pressed:hover > img,
-t-toolbar-buttongroup > t-button.todd--disabled:active:hover > img
+t-toolbar-buttongroup > button.todd--disabled[aria-pressed=true] > img,
+t-toolbar-buttongroup > button.todd--disabled:button--active > img,
+t-toolbar-buttongroup > button.todd--disabled[aria-pressed=true]:hover > img,
+t-toolbar-buttongroup > button.todd--disabled:active:hover > img
 {
   left: 0;
   top: 0;
 }
-t-toolbar-buttongroup > t-button + t-button
+t-toolbar-buttongroup > button + button
 {
   margin-left: 4px;
 }
@@ -94,7 +94,7 @@ t-toolbar
 {
   background-color: #4a4a4a;
 }
-t-toolbar-buttongroup > t-button
+t-toolbar-buttongroup > button
 {
   color: #ffffff;
   background-image: none;
@@ -102,18 +102,18 @@ t-toolbar-buttongroup > t-button
   min-width: 64px;
 }
 
-t-toolbar-buttongroup > t-button:hover:not(.pressed)
-, t-toolbar-buttongroup > t-button.button--active:not(.pressed)
+t-toolbar-buttongroup > button:hover:not([aria-pressed=true])
+, t-toolbar-buttongroup > button.button--active:not([aria-pressed=true])
 {
   background-color: rgba(255,255,255,.11);
   background-image: none;
 }
-t-toolbar-buttongroup > t-button:hover.pressed
+t-toolbar-buttongroup > button:hover[aria-pressed=true]
 {
   background-color: #52aefe;
   background-image: none;
 }
-t-toolbar-buttongroup > t-button.todd--disabled
+t-toolbar-buttongroup > button.todd--disabled
 {
   opacity: .45;
   background-image: none;
@@ -122,9 +122,7 @@ t-toolbar-buttongroup > t-button.todd--disabled
   border: none;
 }
 
-t-toolbar-buttongroup > t-button.todd--disabled:hover
+t-toolbar-buttongroup > button.todd--disabled:hover
 {
   background-color: transparent;
 }
-
-

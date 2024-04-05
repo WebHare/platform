@@ -64,6 +64,9 @@
     <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
       <accesscheck />
     </application>
+    <application name="uploadtest" screen="/tolliumapps/components/uploadtest.xml">
+      <accesscheck />
+    </application>
     <application name="anycomponent" startmacro="lib/screens/tests/anycomponent.whlib#RunAnyComponent">
       <accesscheck />
     </application>

@@ -90,7 +90,7 @@ test.registerTests(
 
         test.assert(!textedit_comp.getEnabled());
 
-        const button_node = test.qSA("t-button")[0];
+        const button_node = test.qSA("button")[0];
         test.click(button_node);
       },
       waitforgestures: true,

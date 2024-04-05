@@ -26,7 +26,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(0, texts.length);
         // The uploadfield's icon buttons should not be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(0, buttons.length);
         // No checkboxes should be visible
         texts = holder.querySelectorAll(".t-checkbox");
@@ -55,7 +55,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
         // The uploadfield's icon buttons should be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(3, buttons.length);
         // The boxcheck's checkbox should be visible
         texts = holder.querySelectorAll(".t-checkbox");
@@ -83,7 +83,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(0, texts.length);
         // The uploadfield's icon buttons should not be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(0, buttons.length);
         // No checkboxes should be visible
         texts = holder.querySelectorAll(".t-checkbox");
@@ -111,7 +111,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
         // The uploadfield's icon buttons should be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(3, buttons.length);
         // The boxcheck's checkbox should be visible
         texts = holder.querySelectorAll(".t-checkbox");
@@ -139,7 +139,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
         // The uploadfield's icon buttons should be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(3, buttons.length);
         // The newbox's checkbox should be visible
         texts = holder.querySelectorAll(".t-checkbox");
@@ -167,7 +167,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(0, texts.length);
         // The uploadfield's icon buttons should not be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(0, buttons.length);
         // No checkboxes should be visible
         texts = holder.querySelectorAll(".t-checkbox");
@@ -195,7 +195,7 @@ test.registerTests(
         let texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
         // The uploadfield's icon buttons should be visible
-        const buttons = holder.querySelectorAll("t-button.icon");
+        const buttons = holder.querySelectorAll("button.icon");
         test.eq(3, buttons.length);
         // The boxcheck's checkbox should be visible
         texts = holder.querySelectorAll(".t-checkbox");

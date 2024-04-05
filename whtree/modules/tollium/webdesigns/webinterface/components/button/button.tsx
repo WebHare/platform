@@ -1,12 +1,12 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ActionableBase from '@mod-tollium/webdesigns/webinterface/components/base/actionable';
 import * as icons from '@mod-tollium/js/icons';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import './button.scss';
+import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type ObjMenuItem from '../menuitem/menuitem';
+import type { CustomMenuEvent } from '@mod-tollium/web/ui/components/basecontrols/menu';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -16,16 +16,38 @@ import './button.scss';
 
 const toolbarbutton = { width: 24, height: 24 };
 
+interface ButtonAttributes extends ComponentStandardAttributes {
+  title: string;
+  icon: string;
+  ispressed: boolean;
+  ismenubutton: boolean;
+  menu: string;
+}
+
+type ButtonUpdate = {
+  type: "title";
+  title: string;
+} | {
+  type: "pressed";
+  pressed: boolean;
+} | ComponentBaseUpdate;
+
 export default class ObjButton extends ActionableBase {
   node: HTMLElement;
+  componenttype = "button";
+  iconsize = 0;
+  menuopen = false;
+  ismenubutton = false;
+  isactive = false;
+  icon;
+  pressed: boolean;
+  iconnode;
+  textnode;
+  menuname = '';
+  menunode?: HTMLUListElement;
 
-  constructor(parentcomp: ToddCompBase, data) {
+  constructor(parentcomp: ToddCompBase, data: ButtonAttributes) {
     super(parentcomp, data);
-    this.componenttype = "button";
-    this.iconsize = 0;
-    this.menuopen = false;
-    this.ismenubutton = false;
-    this.isactive = false;
     this.setTitle(data.title);
 
     this.icon = data.icon;
@@ -33,20 +55,20 @@ export default class ObjButton extends ActionableBase {
     this.ismenubutton = data.ismenubutton;
 
     // Build the DOM node(s) for this component
-    this.node = dompack.create("t-button", {
+    this.node = dompack.create("button", {
       on: {
-        click: evt => this.onClick(evt),
+        click: evt => this.onClick(),
         mousedown: evt => this.onMouseDown(evt),
         mouseup: evt => this.cancelActiveState(evt),
         mouseleave: evt => this.cancelActiveState(evt),
-        "wh:menu-open": evt => this.onMenuState(true, evt),
-        "wh:menu-close": evt => this.onMenuState(false, evt)
       },
       dataset: { name: this.name, toddDefaultButton: "" },
       title: this.hint || '',
       className: { ismenubutton: this.ismenubutton },
-      tabIndex: 0
+      type: "button"
     });
+    this.node.addEventListener("wh:menu-open", evt => this.onMenuState(true, evt));
+    this.node.addEventListener("wh:menu-close", evt => this.onMenuState(false, evt));
     this.node.propTodd = this;
 
     if (this.isToolbarButton()) {
@@ -67,24 +89,27 @@ export default class ObjButton extends ActionableBase {
         this.node.appendChild(this.textnode);
       }
     }
-    this.node.classList.toggle("pressed", this.pressed);
+
+    //TODO ideally 'false' if a button *can* be pressed and null (undefined) if the button will never be pressed, but tollium doesn't register 'pressable' yet
+    this.node.ariaPressed = this.pressed ? "true" : null;
 
     this.setMenu(data.menu);
 
+    //TODO In principle this can go away now we are a native button ... BUT then we lose the Enter key users may now be used to. how to deal with that?
     new Keyboard(this.node, {
-      " ": evt => this.onClick(evt),
-      "Enter": evt => this.onClick(evt)
+      " ": evt => this.onClick(),
+      "Enter": evt => this.onClick()
     }, { stopmapped: true });
   }
-  setMenu(newmenu) {
+  setMenu(newmenu: string) {
     this.menuname = newmenu;
-    dompack.toggleClasses(this.node, { showmenu: this.isToolbarButton() && this.menuname });
+    this.node.classList.toggle("showmenu", this.isToolbarButton() && Boolean(this.menuname));
   }
   /****************************************************************************************************************************
    * Property getters & setters
    */
 
-  setTitle(value) {
+  setTitle(value: string) {
     if (value === this.title)
       return;
 
@@ -92,18 +117,6 @@ export default class ObjButton extends ActionableBase {
     if (this.textnode)
       this.textnode.textContent = this.title;
     this.width.dirty = true;
-  }
-
-  readdComponent(comp) {
-    // Replace the offending component
-    //if(!comp.parentsplititem)
-    if (comp.parentcomp !== this)
-      return console.error('Child ' + comp.name + ' not inside the textedit is trying to replace itself');
-
-    const newcomp = this.owner.addComponent(this, comp.name);
-    this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp);
-
-    comp.getNode().replaceWith(newcomp.getNode());
   }
 
 
@@ -117,8 +130,8 @@ export default class ObjButton extends ActionableBase {
   isTabsSpaceButton() {
     return Boolean(this.node.closest('div.tabs-space'));
   }
-  isToolbarButton() {
-    return this.parentcomp && this.parentcomp.componenttype === 'toolbar';
+  isToolbarButton(): boolean {
+    return Boolean(this.parentcomp && this.parentcomp.componenttype === 'toolbar');
   }
 
   /****************************************************************************************************************************
@@ -187,25 +200,25 @@ export default class ObjButton extends ActionableBase {
   * Events
   */
 
-  applyUpdate(data) {
+  applyUpdate(data: ButtonUpdate) {
     switch (data.type) {
       case "title":
         this.setTitle(data.title);
         return;
       case 'pressed':
         this.pressed = data.pressed;
-        this.node.classList.toggle("pressed", this.pressed);
+        this.node.ariaPressed = this.pressed ? "true" : null;
         return;
     }
     super.applyUpdate(data);
   }
 
-  onClick(event) {
-    if (!this.getEnabled() || event.button)
+  onClick() { //no need to check 'button', a click event is only fired for the LMB (well primary button)
+    if (!this.getEnabled())
       return;
 
     if (this.menuname) {
-      const menu = this.owner.getComponent(this.menuname);
+      const menu = this.owner.getComponent(this.menuname) as ObjMenuItem;
       if (menu) {
         this.menunode = menu.openMenuAt(this.node, {
           direction: 'bottom',
@@ -229,7 +242,7 @@ export default class ObjButton extends ActionableBase {
     }
   }
 
-  onMenuState(newstate, event) {
+  onMenuState(newstate: boolean, event: CustomMenuEvent) {
     if (event.detail.depth > 1)
       return;
 
@@ -237,9 +250,9 @@ export default class ObjButton extends ActionableBase {
     this.updateActiveState();
   }
 
-  onMouseDown(event) {
+  onMouseDown(event: MouseEvent) {
     event.preventDefault(); // Don't steal focus (FIXME: that not only stop's the default behaviour of getting focus, but also prevents :active from being applied)
-    if (!this.getEnabled() || event.rightClick)
+    if (!this.getEnabled() || event.button === 1)
       return;
 
     this.isactive = true;
@@ -249,7 +262,7 @@ export default class ObjButton extends ActionableBase {
     // NOTE: The :active pseudo-class won't work because we have used event.preventDefault() to prevent focus stealing
     this.node.classList.toggle("button--active", this.menuopen || this.isactive);
   }
-  cancelActiveState(event) {
+  cancelActiveState(event: MouseEvent) {
     this.isactive = false;
     this.updateActiveState();
     // FIXME: doesn't reactivate after leaving and reentering the button while keeping the mousebutton down

@@ -477,7 +477,7 @@ input[readonly] + .wh-slider-holder > .wh-slider > .wh-slider-knob > .value-wrap
   border-bottom: 1px solid #2c718b;
 }
 
-/* buttons */
+/* buttons TODO this may all just be dead code?
 input[type=button], button
 {
   display: inline-block;
@@ -543,6 +543,7 @@ input[type=button]:active, button:active
   background: linear-gradient(to bottom,  #258aaf 0%,#45a0c2 100%);
   color: #fff;
 }
+*/
 .button-group
 {
   border-radius: 3px;

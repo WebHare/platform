@@ -27,12 +27,12 @@ test.registerTests(
     {
       test: function (doc, win) {
         test.eq(1, test.qSA('t-toolbar').length);
-        test.click(test.getCurrentScreen().qS("t-button.ismenubutton"));
+        test.click(test.getCurrentScreen().qS("button.ismenubutton"));
         test.assert(test.isElementClickable(test.qSA('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu is already gone!");
 
         test.click(test.compByName('b04_submenubutton'));
         test.click(test.compByName('b04_submenubutton'));
-        test.click(test.getCurrentScreen().qS("t-button.ismenubutton"));
+        test.click(test.getCurrentScreen().qS("button.ismenubutton"));
         test.assert(test.isElementClickable(test.qSA('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu disappeared from the hamburger button after opening it from B04");
       }
     },
@@ -40,7 +40,7 @@ test.registerTests(
     {
       name: 'openburger',
       test: function (doc, win) {
-        const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
+        const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.click(burgerbutton);
         test.assert(burgerbutton.classList.contains("button--active"), "button should remain highlighted with open menu");
         test.assert(burgerbutton.classList.contains("ismenubutton"));
@@ -89,7 +89,7 @@ test.registerTests(
       name: 'test burger',
       test: function (doc, win) {
         console.error(test.getCurrentScreen());
-        const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
+        const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.assert(burgerbutton);
         test.assert(burgerbutton.classList.contains("ismenubutton"));
         test.assert(!test.getMenu(['X01', { autoclickhamburger: false }]));
@@ -105,7 +105,7 @@ test.registerTests(
       name: 'test menu back',
       test: function (doc, win) {
         test.assert(!test.getOpenMenu());
-        const lastbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
+        const lastbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.eq(null, lastbutton);
 
         test.assert(test.getMenu(['X01']), 'menubar did not come back');
@@ -122,7 +122,7 @@ test.registerTests(
       name: 'add menuitems',
       test: function (doc, win) {
         //check if the ismenubutton is back
-        const lastbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
+        const lastbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.assert(lastbutton.classList.contains("ismenubutton"));
         test.click(lastbutton);
         test.click(test.getOpenMenu().querySelector('li[data-menuitem$=":x01menu"]'));
@@ -133,7 +133,7 @@ test.registerTests(
     {
       name: 'check added menuitems',
       test: function (doc, win) {
-        const lastbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
+        const lastbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.click(lastbutton);
 
         const menu = test.getOpenMenu();
@@ -159,7 +159,7 @@ test.registerTests(
       name: "Check if menubar isn't visible in parent",
       test: function (doc, win) {
         const parentscreen = test.getCurrentScreen().getParent();
-        const lastbutton = parentscreen.qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
+        const lastbutton = parentscreen.qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.assert(lastbutton.classList.contains("ismenubutton"));
         test.assert(!parentscreen.qS("ul.wh-menubar"));
       }

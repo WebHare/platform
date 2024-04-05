@@ -22,7 +22,7 @@ window.addEventListener("message", function(event)
     var clientid = document.querySelector("t-text[data-name=clientid]");
     if(clientid)
     {
-      var grantbutton = document.querySelector("t-button[data-name=submitbutton]");
+      var grantbutton = document.querySelector("button[data-name=submitbutton]");
       if (grantbutton)
       {
         if(didconnectaction)

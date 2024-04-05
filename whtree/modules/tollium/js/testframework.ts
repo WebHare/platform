@@ -64,9 +64,9 @@ class ScreenProxy {
     let curitem = this.win.node.querySelector('.wh-menubar');
     if (!curitem && autoclickhamburger) {
       // test clicking the hamburger menu
-      const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right t-button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
+      const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
       if (hamburger_img) {
-        test.click(hamburger_img.closest(`t-button`));
+        test.click(hamburger_img.closest(`button`));
         curitem = this.win.node.ownerDocument.querySelectorAll('.wh-menulist.open')[0];
       }
     }
@@ -209,12 +209,12 @@ function compByName(toddname) {
   return getCurrentScreen().getToddElement(toddname);
 }
 export function compByTitle(title) {
-  const elts = getCurrentScreen().qSA('t-text.label,t-button').filter(label => (label.textContent === (title + ":") || label.textContent === title));
+  const elts = getCurrentScreen().qSA('t-text.label,button').filter(label => (label.textContent === (title + ":") || label.textContent === title));
   if (elts.length === 0)
     throw new Error(`No component with title '${title}'`);
   if (elts.length > 1)
     throw new Error(`Multiple components with title '${title}'`);
-  if (elts[0].nodeName.toLowerCase() === "t-button")
+  if (elts[0].nodeName.toLowerCase() === "button")
     return elts[0];
   return compByName(elts[0].dataset.labelfor || elts[0].for);
 }
@@ -227,7 +227,7 @@ function getCompTestPage(componentname, params?) {
   return baseurl;
 }
 function getTolliumButton(toddbuttontitle) {
-  return test.qSA("t-button").filter(button => button.textContent.includes(toddbuttontitle))[0];
+  return test.qSA("button").filter(button => button.textContent.includes(toddbuttontitle))[0];
 }
 function clickTolliumButton(toddbuttontitle) {
   const button = getTolliumButton(toddbuttontitle);
@@ -362,14 +362,14 @@ function setTodd(name, value) {
 }
 
 function clickToddButton(buttonlabel) {
-  const elt = getCurrentScreen().qSA('t-button').filter(button => button.textContent.includes(buttonlabel))[0];
+  const elt = getCurrentScreen().qSA('button').filter(button => button.textContent.includes(buttonlabel))[0];
   if (!elt)
     throw new Error("Cannot find button with text '" + buttonlabel + "'");
   test.click(elt);
 }
 
 function clickToddToolbarButton(buttonlabel, submenulabel?) {
-  let elt = getCurrentScreen().qSA('t-toolbar t-button').filter(button => button.textContent.includes(buttonlabel))[0];
+  let elt = getCurrentScreen().qSA('t-toolbar button').filter(button => button.textContent.includes(buttonlabel))[0];
   if (!elt)
     throw new Error("Cannot find toolbar button with text '" + buttonlabel + "'");
   test.click(elt);

@@ -24,14 +24,14 @@ $prefix_suffix_margin: 5px;  //Sync with textedit.es
 }
 
 //Buttons
-t-textedit t-button
+t-textedit button
 {
   height: 100%;
   padding: 4px;
   border-left: 1px solid transparent;
 }
 
-t-textedit t-button.todd--disabled
+t-textedit button.todd--disabled
 {
   border: none;
 }
@@ -80,7 +80,7 @@ t-textedit:not(.textedit--hiderequiredifdisabled) input[required][readonly]
   @include tollium-input-required-and-disabled;
 }
 
-t-textedit > input ~ t-button.icon
+t-textedit > input ~ button.icon
 {
   position: absolute;
   right: 0;
@@ -91,15 +91,15 @@ t-textedit > input ~ t-button.icon
   background: rgba(0,0,0,0);
   transition: background 0.1s;
 }
-t-textedit > input ~ t-button.icon:not(.todd--disabled):hover
+t-textedit > input ~ button.icon:not(.todd--disabled):hover
 {
   background: rgba(0,0,0,0.1);
 }
-t-textedit > input ~ t-button.icon.button--active
+t-textedit > input ~ button.icon.button--active
 {
   background: rgba(0,0,0,.2);
 }
-t-textedit > input ~ t-button.icon .button__img
+t-textedit > input ~ button.icon .button__img
 {
   top: 0;
   left: 0;
