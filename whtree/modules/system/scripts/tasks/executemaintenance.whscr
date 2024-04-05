@@ -136,14 +136,6 @@ MACRO CleanupSocialite()
   trans->CommitWork();
 }
 
-MACRO CleanupSessions()
-{
-  trans->BeginWork();
-  DATETIME now := GetCurrentDateTime();
-  DELETE FROM system_internal.sessions WHERE expires < now;
-  trans->CommitWork();
-}
-
 MACRO DeleteOldIssues()
 {
   //TODO should this be configurable?
@@ -173,7 +165,6 @@ MACRO RunExecuteMaintenance()
     CleanupUserRights();
     CleanupWebharePrivate();
     CleanupSocialite();
-    CleanupSessions();
     EnsureModuleStorageFolders(TRUE); //cleanup obsolete existing ones too
     DeleteOldIssues();
   }
