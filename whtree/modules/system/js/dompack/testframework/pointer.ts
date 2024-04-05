@@ -1187,32 +1187,34 @@ export type ElementTargetOptions = {
   y?: number | string;
 };
 export type MouseButton = 0 | 1 | 2;
-export type ElementClickOptions = ElementTargetOptions & {
-  button?: MouseButton;
+
+type ElementActionOptions = ElementTargetOptions & {
+  cmd?: boolean;
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
   meta?: boolean;
-}
+};
 
-export type MouseGesture = ElementTargetOptions & {
+export type ElementClickOptions = ElementTargetOptions & ElementActionOptions & {
+  button?: MouseButton;
+};
+
+export type MouseGesture = ElementTargetOptions & ElementActionOptions & {
   el?: Element | CastableToElement;
   down?: MouseButton;
   up?: MouseButton;
-  cmd?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  ctrl?: boolean;
-  meta?: boolean;
   delay?: number;
-}
+  relx?: number;
+  rely?: number;
+};
 
-export function click(element: ValidElementTarget, options?: ElementTargetOptions) {
+export function click(element: ValidElementTarget, options?: ElementClickOptions) {
   element = _resolveToSingleElement(element);
 
   const x = options && "x" in options ? options.x : "50%";
   const y = options && "y" in options ? options.y : "50%";
-  const button = options && "button" in options ? options.button : 0;
+  const button: MouseButton = options?.button ?? 0;
 
   sendMouseGesture([
     { el: element, down: button, cmd: options && options.cmd, shift: options && options.shift, alt: options && options.alt, ctrl: options && options.ctrl, meta: options && options.meta, x: x, y: y },
@@ -1220,8 +1222,7 @@ export function click(element: ValidElementTarget, options?: ElementTargetOption
   ]);
 }
 
-export function focus(target: ValidElementTarget) //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
-{
+export function focus(target: ValidElementTarget) { //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
   const element = _resolveToSingleElement(target);
   if (!canClick(element)) {
     console.error("Cannot focus nonclickable element", element);
