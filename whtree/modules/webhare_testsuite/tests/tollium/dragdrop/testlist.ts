@@ -1,4 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-tollium/js/tolliumtest";
 const gesture_time = 200;
 
 
@@ -11,27 +12,26 @@ test.registerTests(
 
     // ---------------------------------------------------------------------------
 
-    {
-      name: 'source.row1->target.row1_prepare',
-      test: function () {
-        test.compByName('log').querySelector('textarea').value = '';
-        const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
-        const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
+    'source.row1->target.row1_test',
+    async function () {
+      tt.comp('log').querySelector('textarea')!.value = '';
+      const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
+      const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
-        test.sendMouseGesture([
-          { el: srow, x: 10, down: 0 },
-          { el: trow, x: 10, up: 0, delay: gesture_time }
-        ]);
-      },
-      waits: ["pointer", "ui"]
-    },
+      //Start the drag ...
+      await test.sendMouseGesture([
+        { el: srow, x: 10, down: 0 },
+        { el: trow, x: 10, delay: gesture_time }
+      ]);
 
-    {
-      name: 'source.row1->target.row1_test',
-      test: function () {
-        const textarea = test.compByName('log').querySelector('textarea');
-        test.eq('1 T1 ontarget move', textarea.value);
-      }
+      test.assert(trow.classList.contains('droptarget--hover'));
+      await test.sendMouseGesture([{ up: 0 }]);
+
+      await test.wait("pointer");
+      await test.waitUIFree();
+
+      const textarea = test.compByName('log').querySelector('textarea');
+      test.eq('1 T1 ontarget move', textarea.value);
     },
 
     // ---------------------------------------------------------------------------
