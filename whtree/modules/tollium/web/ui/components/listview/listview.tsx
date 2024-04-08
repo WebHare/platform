@@ -121,7 +121,21 @@ export function getScrollbarWidth() {
   return scrollbarwidth;
 }
 
+type VisibleRow = {
+  cells: unknown[],
+  node: HTMLDivElement,
+  rownum: number,
+  options: unknown,
+  dragrow: boolean
+};
+
 export default class ListView {
+  // object so we can use the original rownumbers (if we use an array, setting visiblerows[8000]={}
+  // will create an array with 7999 'undefined' items)
+  visiblerows: Record<string, VisibleRow> = {};
+  listbodyholder: HTMLDivElement | null = null;
+  listinsertline: HTMLDivElement | null = null;
+
   constructor(node, datasource, options) {
     this.listcount = 0;
     this.vscroll_width = null; // null means it's not defined
@@ -134,10 +148,6 @@ export default class ListView {
     this.numrows = 0; // total amount of rows the datasource has
     this.firstvisiblerow = 0; // first row which is in view
     this.numvisiblerows = 0; // amount of rows which can be visible (with the rowheight we have, which is calculated using the lineheight * linesperrow)
-
-    // object so we can use the original rownumbers (if we use an array, setting visiblerows[8000]={}
-    // will create an array with 7999 'undefined' items)
-    this.visiblerows = {};
 
     // List of all footerrows
     this.footerrows = [];
@@ -195,8 +205,6 @@ export default class ListView {
     // nodes
     this.listheader = null;
     this.listbody = null;
-    this.listbodyholder = null;
-    this.listinsertline = null;
     this.listinsertpoint = null;
     this.headerfiller = null;
 
@@ -603,7 +611,7 @@ export default class ListView {
       + (rowoptions && rowoptions.classes ? rowoptions.classes.map(classname => ' rowclass-' + classname).join(' ') : '');
   }
 
-  updateRow(rownum, row, options) {
+  updateRow(rownum: number, row, options) {
     const existingrow = this.visiblerows[rownum];
 
     let rowel;
@@ -1145,13 +1153,13 @@ export default class ListView {
       @param rownr Rownr to select, -1 to select none
       @param clearinsertpoint If true, hide insertpoint
   */
-  _setRowDropTarget(rownr, clearinsertpoint) {
+  _setRowDropTarget(rownr: number | -1, clearinsertpoint: boolean): void {
     Object.keys(this.visiblerows).forEach(key => {
       const item = this.visiblerows[key];
       if (item.node)
-        dompack.toggleClasses(item.node, { "droptarget--hover": rownr === key });
+        item.node.classList.toggle("droptarget--hover", String(rownr) === key);
     });
-    dompack.toggleClasses(this.listbodyholder, { "droptarget--hover": rownr === -2 });
+    this.listbodyholder?.classList.toggle("droptarget--hover", rownr === -2);
 
     if (clearinsertpoint && this.listinsertline)
       this.listinsertline.style.display = "none";
@@ -1184,7 +1192,7 @@ export default class ListView {
     const cells = this.visiblerows[target_rownum] ? this.visiblerows[target_rownum].cells : null;
     const res = this.datasource.checkTargetDrop(event, target_rownum, cells, 'target');
 
-    this._setRowDropTarget(res ? (cells ? target_rownum : -2) : -1, true, res);
+    this._setRowDropTarget(res ? (cells ? target_rownum : -2) : -1, true);
 
     if (res)
       return res;

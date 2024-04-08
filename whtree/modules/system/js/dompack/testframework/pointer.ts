@@ -7,6 +7,7 @@ import * as domscroll from '../browserfix/scroll';
 import * as domfocus from "../browserfix/focus";
 import { getName, getPlatform } from "../extra/browser";
 import { qSA } from '@webhare/test-frontend';
+import { SimulatedFileSystemFileEntry, type RawDragItem } from './filesystem';
 
 const default_mousestate =
 {
@@ -27,7 +28,7 @@ const default_mousestate =
   previousclicktime: null,
   previousclickpos: null,
   dndcandidate: null,
-  dndstate: null
+  dndstate: null as null | SimulatedDragDataStore
 };
 
 interface PointOptions {
@@ -79,6 +80,8 @@ function isElementSafeToAccess(el) //is it safe to fire an event towards element
 }
 
 export class SimulatedDragDataStore {
+  items = new Array<RawDragItem>;
+
   constructor(sourcenode, options?) {
     this._sourcenode = sourcenode;
     this._lasttarget = null;
@@ -107,8 +110,12 @@ export class SimulatedDragDataStore {
   }
 }
 
-class SimulatedDataTransferItem {
-  constructor(dt, item) {
+
+class SimulatedDataTransferItem implements DataTransferItem {
+  _dt;
+  _item;
+
+  constructor(dt: SimulatedDataTransfer, item: RawDragItem) {
     this._dt = dt;
     this._item = item;
   }
@@ -119,21 +126,28 @@ class SimulatedDataTransferItem {
 
   get kind() { return this.valid() ? (this._item.kind === "Plain Unicode string" ? "string" : "file") : ""; }
   get type() { return this.valid() ? this._item.type : ""; }
-  getAsString(callback) {
+  getAsString(callback: (data: string) => void) {
     if (!this.valid || this._item.kind !== "Plain Unicode string")
       return;
     new Promise(resolve => resolve(this._item.data)).then(callback);
   }
-  getAsFile(callback) {
+  getAsFile() {
     if (!this.valid || this._item.kind !== "File")
       return null;
 
     return this._item.data;
   }
+  webkitGetAsEntry(): FileSystemEntry | null {
+    return this._item.kind === "File" ? new SimulatedFileSystemFileEntry(this._item) : null;
+  }
 }
 
 class SimulatedDataTransferItemList {
-  constructor(dt) {
+  _dt;
+  _length;
+  _map;
+
+  constructor(dt: SimulatedDataTransfer) {
     this._dt = dt;
     this._length = 0;
     this._map = new Map;
@@ -215,7 +229,12 @@ export class SimulatedFileList {
 const effectAllowedValues = ["none", "copy", "copyLink", "copyMove", "link", "linkMove", "move", "all", "uninitialized"];
 
 export class SimulatedDataTransfer {
-  constructor(dds, mode, dropEffect) {
+  _dds;
+  _mode;
+  _items;
+  _files;
+
+  constructor(dds: SimulatedDragDataStore, mode, dropEffect) {
     this._dds = dds;
     this._mode = mode;
     this._items = new SimulatedDataTransferItemList(this);
@@ -1187,32 +1206,34 @@ export type ElementTargetOptions = {
   y?: number | string;
 };
 export type MouseButton = 0 | 1 | 2;
-export type ElementClickOptions = ElementTargetOptions & {
-  button?: MouseButton;
+
+type ElementActionOptions = ElementTargetOptions & {
+  cmd?: boolean;
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
   meta?: boolean;
-}
+};
 
-export type MouseGesture = ElementTargetOptions & {
+export type ElementClickOptions = ElementTargetOptions & ElementActionOptions & {
+  button?: MouseButton;
+};
+
+export type MouseGesture = ElementTargetOptions & ElementActionOptions & {
   el?: Element | CastableToElement;
   down?: MouseButton;
   up?: MouseButton;
-  cmd?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  ctrl?: boolean;
-  meta?: boolean;
   delay?: number;
-}
+  relx?: number;
+  rely?: number;
+};
 
-export function click(element: ValidElementTarget, options?: ElementTargetOptions) {
+export function click(element: ValidElementTarget, options?: ElementClickOptions) {
   element = _resolveToSingleElement(element);
 
   const x = options && "x" in options ? options.x : "50%";
   const y = options && "y" in options ? options.y : "50%";
-  const button = options && "button" in options ? options.button : 0;
+  const button: MouseButton = options?.button ?? 0;
 
   sendMouseGesture([
     { el: element, down: button, cmd: options && options.cmd, shift: options && options.shift, alt: options && options.alt, ctrl: options && options.ctrl, meta: options && options.meta, x: x, y: y },
@@ -1220,8 +1241,7 @@ export function click(element: ValidElementTarget, options?: ElementTargetOption
   ]);
 }
 
-export function focus(target: ValidElementTarget) //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
-{
+export function focus(target: ValidElementTarget) { //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
   const element = _resolveToSingleElement(target);
   if (!canClick(element)) {
     console.error("Cannot focus nonclickable element", element);
