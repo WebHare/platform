@@ -74,6 +74,12 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
     this->RemoveTableCascade("wrd.auditevents");
     this->RemoveTableCascade("wrd.changesets");
 
+    //the above completely forgets about the table, now mark an explicit ignore because existing wrdschemas might still have data for the tables
+    this->IgnoreImportTable("wrd.auditevents");
+    this->IgnoreImportTable("wrd.changesets");
+    this->IgnoreImportTable("wrd.changes");
+    this->IgnoreImportTable("wrd.change_attachments");
+
     IF(ObjectExists(wrdschema)) //is export
     {
       this->AddExportConstraint("wrd.schemas", "id", "=", wrdschema->id);
