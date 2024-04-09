@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # System-wide .bashrc file for interactive bash(1) shells. Overwritten for WebHare
 
 # To enable the settings / commands in this file for login shells as well,
@@ -19,7 +20,8 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   TMOUT=900
 
   # Install 'wh' shortcuts and tab completions
-  eval `/opt/wh/whtree/bin/wh setupmyshell`
+  # shellcheck disable=SC2046 # disables word split warning
+  eval $(/opt/wh/whtree/bin/wh setupmyshell)
 fi
 
 # History configuration
@@ -37,6 +39,9 @@ export HISTCONTROL=
 export HISTTIMEFORMAT='%F %T '
 
 # Set prompt - we overwrote bashrc so it's our problem now
-export PS1="\u@\h:\w$WEBHARE_SHELL_PS1_POSTFIX\$ "
+# NOTE: only gnu understands `hostname --short``, Mac needs `-s`
+[ -n "$RUNKIT_TARGET_SLUG" ] || RUNKIT_TARGET_SLUG="$(hostname -s)"
+export PS1="$RUNKIT_TARGET_SLUG:\w\$ "
 # Go to home directory so docker exec /bin/bash ends up there
+# shellcheck disable=SC2164
 cd
