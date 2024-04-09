@@ -14,10 +14,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 RECORD FUNCTION LoadScreenDefs(STRING mod)
 {
-  IF(mod != "platform")
-    THROW NEW Exception(`Don't know where to find the builtinscreens.yml for module '${mod}'`); //We need to decide this. Eg a fixed mod::<mod>/(data/)?builtinscreens.yml location or a moduledef pointer
-
-  STRING resname := "mod::platform/data/builtinscreens.yml";
+  STRING resname := `mod::${mod}/modulescreens.yml`;
   RECORD data := DecodeYAML(BlobToString(GetWebHareResource(resname)));
   RETURN [ value := data, ttl := 30 * 60 * 1000, eventmasks := GetResourceEventMasks([resname]) ];
 }
