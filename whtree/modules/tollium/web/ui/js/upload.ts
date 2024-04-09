@@ -47,7 +47,7 @@ async function runUpload(component: ToddCompBase, uploader: MultiFileUploader, u
 
   try {
     const result = await uploader.upload(response, { onProgress: uploadcontroller.onProgress, signal: aborter.signal });
-    uploadcontroller.gotEnd({ success: true }); //disables cancel button until we have a chance to fully dismiss th edialog
+    uploadcontroller.gotEnd({ success: true }); //disables cancel button until we have a chance to fully dismiss the dialog
     uploadedcallback(result.map(i => ({ type: "file", filename: i.name, filetoken: i.token })), () => uploadcontroller.close());
   } catch (e) {
     console.error("upload exception", e);
