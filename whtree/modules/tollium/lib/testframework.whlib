@@ -4,6 +4,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
@@ -1084,14 +1085,9 @@ RECORD FUNCTION BuildDropMessage(OBJECT sourcecomp, VARIANT selection, OBJECT ta
 
     message.source := "files";
 
-    FOREVERY(RECORD infile FROM options.files)
+    FOREVERY(RECORD infile FROM CallJS("@mod-tollium/js/internal/tolliumcalls.ts#mockUpload", options.files))
     {
-      //PrepareUpload is normally invoked by the filetransfer.shtml (through an 'upload' message), and filetransfer will already have scanned the mimetype
-      STRING token := targetcomp->PrepareUpload([ data := infile.data
-                                                , mimetype := ScanBlob(infile.data, infile.filename).mimetype
-                                                , filename := infile.filename
-                                                ])[0];
-      RECORD item := CELL[ type := "file", token ];
+      RECORD item := CELL[ type := "file", infile.token ];
       IF(CellExists(infile,'fullpath'))
         INSERT CELL fullpath := infile.fullpath INTO item;
       INSERT item INTO message.items AT END;

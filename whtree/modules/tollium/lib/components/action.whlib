@@ -2,7 +2,7 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
-
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
@@ -820,59 +820,46 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
   //Simulate an upload
   PUBLIC MACRO ExecuteUpload(RECORD ARRAY files)
   {
+    files := SELECT *, mimetype := ScanBlob(data, filename).mimetype FROM files;
+    RECORD ARRAY items := CallJS("@mod-tollium/js/internal/tolliumcalls.ts#mockUpload", files);
+
     //ADDME how to select the rule properly?
-    this->ProcessInboundMessage("upload", [ rule := 0
-                                          , items := SELECT filename
-                                                          , data
-                                                          , type := "file"
-                                                          , mimetype := ScanBlob(data, filename).mimetype
-                                                       FROM files
-                                          ]);
+    this->OnRequestUpload(CELL[ rule := 0, items ]);
   }
 
-  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  ASYNC MACRO OnRequestUpload(RECORD msgdata)
   {
-    SWITCH(type)
+    MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
+    IF(handler = DEFAULT MACRO PTR)
+      RETURN;
+
+    RECORD ARRAY files := this->ProcessUpload(msgdata).items;
+    IF (LENGTH(this->pvt_mimetypes) != 0)
     {
-      CASE "upload"
+      RECORD ARRAY orgfiles := files;
+
+      DELETE
+        FROM files
+        WHERE NOT this->IsLikeMatch(mimetype, this->pvt_mimetypes);
+
+      STRING ARRAY correct := SELECT AS STRING ARRAY filename FROM files ORDER BY ToUppercase(filename);
+      STRING ARRAY incorrect := SELECT AS STRING ARRAY filename FROM orgfiles WHERE filename NOT IN correct ORDER BY ToUppercase(filename);
+
+      IF (LENGTH(files) = 0)
+        this->owner->RunMessageBox("tollium:commondialogs.wrong_file_type", Detokenize(incorrect, "', '"), ToString(LENGTH(incorrect)));
+      ELSE IF (LENGTH(files) != LENGTH(orgfiles))
       {
-        MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
-        IF(handler != DEFAULT MACRO PTR)
+        IF (this->owner->RunMessageBox("tollium:commondialogs.some_wrong_file_type",
+            "'" || Detokenize(incorrect, "', '") || "'",
+            "'" || Detokenize(correct, "', '") || "'") != "yes")
         {
-          RECORD ARRAY files := this->ProcessUpload(msgdata).items;
-          IF (LENGTH(this->pvt_mimetypes) != 0)
-          {
-            RECORD ARRAY orgfiles := files;
-
-            DELETE
-              FROM files
-             WHERE NOT this->IsLikeMatch(mimetype, this->pvt_mimetypes);
-
-            STRING ARRAY correct := SELECT AS STRING ARRAY filename FROM files ORDER BY ToUppercase(filename);
-            STRING ARRAY incorrect := SELECT AS STRING ARRAY filename FROM orgfiles WHERE filename NOT IN correct ORDER BY ToUppercase(filename);
-
-            IF (LENGTH(files) = 0)
-              this->owner->RunMessageBox("tollium:commondialogs.wrong_file_type", Detokenize(incorrect, "', '"), ToString(LENGTH(incorrect)));
-            ELSE IF (LENGTH(files) != LENGTH(orgfiles))
-            {
-              IF (this->owner->RunMessageBox("tollium:commondialogs.some_wrong_file_type",
-                  "'" || Detokenize(incorrect, "', '") || "'",
-                  "'" || Detokenize(correct, "', '") || "'") != "yes")
-              {
-                files := DEFAULT RECORD ARRAY;
-              }
-            }
-          }
-
-          IF (LENGTH(files) != 0)
-            this->owner->__ExecuteCallback(handler, files);
+          files := DEFAULT RECORD ARRAY;
         }
       }
-      DEFAULT
-      {
-        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
-      }
     }
+
+    IF (LENGTH(files) != 0)
+      this->owner->__ExecuteCallback(handler, files);
   }
 >;
 

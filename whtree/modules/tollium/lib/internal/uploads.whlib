@@ -1,12 +1,12 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/networking/antivirus.whlib";
-
 
 BOOLEAN FUNCTION DoAntiVirusCheck(OBJECT owner, RECORD item)
 {
@@ -49,35 +49,7 @@ BOOLEAN FUNCTION DoAntiVirusCheck(OBJECT owner, RECORD item)
 
 //We are only included into tollium components so it should be safe to access ->owner
 PUBLIC OBJECTTYPE TolliumFileDropAccepter
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  /// For accepting file uploads
-  RECORD ARRAY uploads;
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Uploads and downloads
-  //
-
-  UPDATE PUBLIC STRING ARRAY FUNCTION PrepareUpload(RECORD incoming)
-  {
-    STRING token := GenerateUFS128BitId();
-    RECORD rec :=
-        [ token :=  token
-        , data :=   [ data := incoming.data
-                    , mimetype := incoming.mimetype
-                    , filename := incoming.filename
-                    ]
-        ];
-
-    INSERT rec INTO this->uploads AT RecordLowerBound(this->uploads, rec, [ "TOKEN" ]).position;
-    RETURN [ token ];
-  }
-
+<
   UPDATE RECORD FUNCTION ProcessUpload(RECORD msgdata)
   {
     RECORD ARRAY resultitems;
@@ -89,24 +61,15 @@ PUBLIC OBJECTTYPE TolliumFileDropAccepter
         CONTINUE;
       }
 
-      RECORD uploaded := item;
-      RECORD pos := RecordLowerBound(this->uploads, item, [ "TOKEN" ]);
-      IF (pos.found)
-      {
-        //Enrich based on prepared data.
-        //Testframework uploads don't take this path, but I'm not sure if frontend uploads can skip it too or if testframework should have invoked PrepareUpload too
-        uploaded := this->uploads[pos.position].data;
+      RECORD uploaded := GetUploadedFile(item.token);
 
-        INSERT CELL type := "file" INTO uploaded;
-        IF (CellExists(item, "name"))
-          uploaded.filename := item.name;
+      INSERT CELL type := "file" INTO uploaded;
+      IF (CellExists(item, "name"))
+        uploaded.filename := item.name;
 
-        INSERT CELL extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD
-                  , fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
-               INTO uploaded;
-
-        DELETE FROM this->uploads AT pos.position;
-      }
+      INSERT CELL extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD
+                , fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
+              INTO uploaded;
 
       IF(NOT DoAntiVirusCheck(this->owner, uploaded))
         RETURN CELL[...msgdata, items := RECORD[] ]; //make it look like an empty upload to properly cancel it
@@ -118,5 +81,8 @@ PUBLIC OBJECTTYPE TolliumFileDropAccepter
     RETURN msgdata;
   }
 
+  RECORD FUNCTION OnRequestCanUpload(RECORD manifest)
+  {
+    RETURN CallJS("@mod-tollium/js/internal/tolliumcalls.ts#createUploadSession", manifest);
+  }
 >;
-

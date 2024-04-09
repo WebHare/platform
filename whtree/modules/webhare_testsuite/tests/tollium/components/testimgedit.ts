@@ -136,7 +136,7 @@ const TestImageEditor =
 
         const filename = test.compByName('fragment1!filename');
         test.assert(filename);
-        test.assert(["rangetestfile.jpg", "imgeditfile.jpg"].includes(filename.textContent)); // The ".jpeg" extension will be rewritten to ".jpg"
+        test.assert(["rangetestfile.jpg", "imgeditfile.jpeg"].includes(filename.textContent));
       }
     },
 
@@ -376,9 +376,6 @@ test.registerTests(
 
       // drop it
       await test.sendMouseGesture([{ el: droptarget, up: 0 }]);
-      await test.wait('ui');
-
-      // Check if the image arrived
-      test.eq("portrait_8.jpg", test.compByName('fragment1!filename').textContent);
+      await test.wait(() => test.compByName('fragment1!filename')?.textContent === "portrait_8.jpg");
     }
   ]);
