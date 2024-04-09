@@ -133,10 +133,29 @@ RECORD FUNCTION GetAllHooks()
          ];
 }
 
-RECORD ARRAY FUNCTION GetHooksFor(STRING screenname)
+BOOLEAN FUNCTION MatchWhen(STRING module, RECORD when, OBJECT contexts)
+{
+  IF(CellExists(when,'wrdschema'))
+  {
+    IF(NOT ObjectExists(contexts->wrdschema) OR TYPEID(when.wrdschema) != TYPEID(STRING))
+      RETURN FALSE;
+
+    STRING schemaname := when.wrdschema;
+    IF(schemaname NOT LIKE "*:*")
+      schemaname := module || ":" || when.wrdschema;
+    RETURN contexts->wrdschema->tag = schemaname;
+  }
+
+  RETURN TRUE;
+}
+
+RECORD ARRAY FUNCTION GetHooksFor(OBJECT contexts, STRING screenname)
 {
   RECORD ARRAY allhooks := GetAdhocCached(CELL["allhooks"], PTR GetAllHooks);
-  RETURN SELECT * FROM allhooks WHERE allhooks.screen = VAR screenname;
+  RETURN SELECT *
+           FROM allhooks
+          WHERE allhooks.screen = VAR screenname
+                AND (CellExists(allhooks, 'when') ? MatchWhen(allhooks.module, allhooks.when, contexts) : TRUE);
 }
 
 MACRO InvokeWithContext(OBJECT contexts, MACRO PTR toinvoke)
@@ -152,7 +171,7 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
 
   //Is anyone hooking this screen definition? Otherwise we don't have to set up anything
   //TODO but we should still do some static validation of hookdefs vs screedefs as not all hooks may be actually tested by the testsuite.
-  RECORD ARRAY hooks := GetHooksFor(options.screenname);
+  RECORD ARRAY hooks := GetHooksFor(screen->contexts, options.screenname);
   IF(Length(hooks) = 0)
     RETURN;
 

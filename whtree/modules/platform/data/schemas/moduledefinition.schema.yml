@@ -10,7 +10,7 @@ properties:
   backendHooks:
     $ref: "#/definitions/BackendHooks"
   connect:
-    description: Extends WRD Schemas for Connect
+    description: "Extends WRD Schemas for Connect"
     $ref: "#/definitions/Connect"
   managedServices:
     description: Additional services
@@ -81,6 +81,8 @@ definitions:
         properties:
           screen:
             type: string
+          when:
+            $ref: "#/definitions/ContextFilter"
           tabsExtension:
             type: string
           addActions:
@@ -135,7 +137,18 @@ definitions:
                 type: string
                 description: Tagset for task labels
               backendHooks:
+                description: "Connect schema specific backend hooks. Deprecated, will be moved into backendHooks"
                 $ref: "#/definitions/BackendHooks"
+
+  # Filter where backend hooks are applied
+  ContextFilter:
+    type: object
+    additionalProperties: false
+    properties:
+      wrdSchema:
+        type: string
+        # TODO? support masks in the future, but how to properly combine that with support for optionally module-scoped schemas?
+        description: "WRD schema to apply the hook to"
 
   # assetPacks configure the JS bundler
   AssetPacks:
