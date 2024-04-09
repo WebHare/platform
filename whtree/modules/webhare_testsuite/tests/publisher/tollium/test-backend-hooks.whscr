@@ -22,8 +22,14 @@ ASYNC MACRO TestCreateSiteDialog()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestFilteredHooks()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("{item}:WH testsuite: Add export"), [ messagemask := "AddExport()"]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
 RunTestframework([ PTR TestCreateSiteDialog
+                 , PTR TestFilteredHooks
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);
-

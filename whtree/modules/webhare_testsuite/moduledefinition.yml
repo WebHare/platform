@@ -8,6 +8,12 @@ backendHooks: # Where this extension hooks into the backend
   testsitehook:
     screen: "platform:siteproperties"
     tabsExtension: tests/publisher/tollium/data/backendhooks.xml#extrasitefields
+  adduserrights1:
+    screen: "platform:userrights"
+    addActions:
+      - title: "WH testsuite: Add export"
+        category: export
+        onexecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport
 
 backendServices:
   demoservice:

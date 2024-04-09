@@ -6,3 +6,9 @@ siteproperties:            # describes platform:siteproperties
     - extensionpoint
     extendcomponents:      # The extend components. I can see this becoming an object[] which also explains which interface to expect the components to implement (eg wrd:entity for which wrdtype?)
     - siteroot             # An fsobject representing the site root folder
+
+userrights:                # describes the system userrights app
+  actionCategories:        # if this exists, you can add actions
+    export:                # 'export' is a category here. each hookable screen would decide by itself which categories it supports
+      insertInto:          # where to insert this action in the menus
+      - export_insertion_point   # a component name

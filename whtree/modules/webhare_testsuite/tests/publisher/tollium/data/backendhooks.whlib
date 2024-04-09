@@ -1,0 +1,6 @@
+<?wh
+
+PUBLIC MACRO AddExport(OBJECT context)
+{
+  context->screen->RunSimpleScreen("info", "AddExport()");
+}

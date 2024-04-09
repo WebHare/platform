@@ -4,8 +4,12 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/yaml.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 RECORD FUNCTION LoadScreenDefs(STRING mod)
@@ -35,9 +39,22 @@ RECORD FUNCTION GetScreenDef(STRING screenname)
                       , insertpoints := STRING[]
                       , extendcomponents := STRING[]
                       ]
+      , actioncategories := DEFAULT RECORD
       ], screendef);
+
+    IF(RecordExists(screendef.actioncategories))
+      screendef.actioncategories := RepackRecord(SELECT COLUMN name, value := EnforceStructure(CELL[ insertmenus := STRING[] ], value) FROM UnpackRecord(screendef.actioncategories));
   }
   RETURN screendef;
+}
+
+RECORD ARRAY FUNCTION FixAddActions(STRING resourcename, RECORD ARRAY addactions)
+{
+  addactions := EnforceStructure([[ title := "", onexecute := "", category := "" ]], addactions);
+  UPDATE addactions
+         SET title := title != "" ? ":" || title : ""
+           , onexecute := MakeAbsoluteResourcePath(resourcename, onexecute);
+  RETURN addactions;
 }
 
 RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
@@ -63,6 +80,7 @@ RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
         [[ name := ""
          , value := [ screen := ""
                     , tabsextension := ""
+                    , addactions := RECORD[]
                     ]
          ]
         ], UnpackRecord(def.backendhooks));
@@ -70,6 +88,7 @@ RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
   FOREVERY(RECORD hook FROM thehooks)
   {
     thehooks[#hook].value.tabsextension := MakeAbsoluteResourcePath(resourcename, thehooks[#hook].value.tabsextension);
+    thehooks[#hook].value.addactions := FixAddActions(resourcename, thehooks[#hook].value.addactions);
     INSERT CELL module := GetModuleNameFromResourcePath(resourcename) INTO thehooks[#hook].value;
   }
 
@@ -120,6 +139,11 @@ RECORD ARRAY FUNCTION GetHooksFor(STRING screenname)
   RETURN SELECT * FROM allhooks WHERE allhooks.screen = VAR screenname;
 }
 
+MACRO InvokeWithContext(OBJECT contexts, MACRO PTR toinvoke)
+{
+  toinvoke(contexts);
+}
+
 PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
 {
   options := ValidateOptions(
@@ -131,6 +155,8 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
   RECORD ARRAY hooks := GetHooksFor(options.screenname);
   IF(Length(hooks) = 0)
     RETURN;
+
+  STRING ARRAY errors;
 
   RECORD screendef := GetScreenDef(options.screenname); //made an option, we might at some point just derive the screenname straight from builtinscreens
   IF(RecordExists(screendef.extendtabs) AND RecordExists(SELECT FROM hooks WHERE tabsextension != ""))
@@ -155,4 +181,60 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
       IF(hook.tabsextension != "")
         tabcomp->LoadTabsExtension(hook.tabsextension);
   }
+
+  IF(RecordExists(screendef.actioncategories) AND RecordExists(SELECT FROM hooks WHERE Length(addactions) > 0))
+  {
+    FOREVERY(RECORD category FROM UnpackRecord(screendef.actioncategories))
+    {
+      OBJECT ARRAY insertmenus;
+      FOREVERY(STRING insertmenu FROM category.value.insertinto)
+        INSERT GetMember(screen, "^" || insertmenu) INTO insertmenus AT END;
+
+      FOREVERY(RECORD hook FROM hooks)
+        FOREVERY(RECORD action FROM hook.addactions)
+        {
+          IF(action.category = ToLowercase(category.name))
+          {
+            OBJECT actioncomp := screen->CreateTolliumComponent("action");
+            FUNCTION PTR onexecute;
+            TRY
+            {
+              onexecute := MakeFunctionPtr(action.onexecute);
+            }
+            CATCH(OBJECT e)
+            {
+              //TODO it would be nice to signal sysops on production servers without bothering all users
+              LogHarescriptException(e);
+              INSERT `Unable to register hook ${hook.module}:${ToLowercase(hook.tag)}: ${e->what}` INTO errors AT END;
+              CONTINUE;
+            }
+            actioncomp->onexecute := PTR InvokeWithContext(screen->contexts, onexecute);
+
+            FOREVERY(OBJECT insertmenu FROM insertmenus)
+            {
+              //Find the menu owning the inserted items TODO tollium should just track it.  and why does it allow item multi-insertion anyway ?
+              OBJECT itemcomp := screen->CreateTolliumComponent("item");
+              itemcomp->title := GetTid(action.title);
+              itemcomp->action := actioncomp;
+
+              OBJECT intomenu;
+              FOREVERY(OBJECT item FROM screen->tolliumscreenmanager->GetSpecialComponents())
+                IF(item->componenttype = "menuitem" AND RecordExists(SELECT FROM item->items WHERE menuitem=insertmenu))
+                {
+                  intomenu := item;
+                  BREAK;
+                }
+
+              IF(NOT ObjectExists(intomenu))
+                THROW NEW TolliumException(insertmenu, `Cannot find menu owning this item`);
+
+              intomenu->InsertMenuItemBefore(itemcomp, insertmenu, FALSE);
+            }
+          }
+        }
+    }
+  }
+
+  IF(Length(errors) > 0 AND NOT IsDtapLive())
+    screen->RunSimpleScreen("error", Detokenize(errors,'\n'));
 }
