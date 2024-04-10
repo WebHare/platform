@@ -15,7 +15,7 @@ MACRO PublishFiles()
   OBJECT mdsimple := testloc->CreateFile([ name := "mdsimple", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE]);
   mdsimple->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
     [ data := [ type := "publisher:markdown"
-              , text := StringToBlob(`## Markdown file\nHello world!`)
+              , text := StringToBlob(`# Markdown file\nHello world!\n\n## I like to mark it mark it`)
               , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
                                   , contentid := "imagecid-81400"
                                   ]
@@ -28,7 +28,7 @@ MACRO PublishFiles()
 
   TestEq(TRUE, testfw->browser->GotoWebPage(mdempty->url));
   TestEq(TRUE, testfw->browser->GotoWebPage(mdsimple->url));
-  TestEqLike(`*<h2 class="heading2">Markdown file</h2>*<p class="normal">Hello world!</p>*`, BlobToString(testfw->browser->content));
+  TestEqLike(`*<h2 class="heading2">Markdown file</h2>*<p class="normal">Hello world!</p>*<h3 class="heading3">I like to mark it mark it</h3>*`, BlobToString(testfw->browser->content));
 }
 
 RunTestframework([ PTR PublishFiles

@@ -259,7 +259,7 @@ MACRO SetupTestSite(OBJECT testsite)
   markdownpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
     [ data := [ type := "publisher:markdown"
               , text := StringToBlob(`
-## Markdown file
+# Markdown file
 This is a \`commonmark\` marked down file with a [JS link](javascript:alert("HI")).
 | foo | bar |
 | --- | --- |
