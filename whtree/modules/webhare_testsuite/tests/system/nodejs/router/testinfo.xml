@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs" ignoremasks="hmrlibs invoke_hsmarshalling.ts">
   <test script="test_basicrouter.ts" />
+  <test script="test_markdown.ts" />
   <test script="test_webdesigns.ts" />
   <test script="test_jswebserver.ts" />
 </group>
