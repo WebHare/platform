@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
@@ -53,6 +54,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^objectstab->visible := this->frame->flags.anygrantablerights;
     ^grantbutton->visible := this->frame->flags.anygrantablerights;
 
+    SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:userrights" ]);
     this->RefreshApp();
 
     this->unittree->onselect := PTR this->OnUnitSelectHandler;

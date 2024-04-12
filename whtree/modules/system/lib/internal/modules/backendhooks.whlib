@@ -4,16 +4,17 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/yaml.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 RECORD FUNCTION LoadScreenDefs(STRING mod)
 {
-  IF(mod != "platform")
-    THROW NEW Exception(`Don't know where to find the builtinscreens.yml for module '${mod}'`); //We need to decide this. Eg a fixed mod::<mod>/(data/)?builtinscreens.yml location or a moduledef pointer
-
-  STRING resname := "mod::platform/data/builtinscreens.yml";
+  STRING resname := `mod::${mod}/modulescreens.yml`;
   RECORD data := DecodeYAML(BlobToString(GetWebHareResource(resname)));
   RETURN [ value := data, ttl := 30 * 60 * 1000, eventmasks := GetResourceEventMasks([resname]) ];
 }
@@ -35,9 +36,22 @@ RECORD FUNCTION GetScreenDef(STRING screenname)
                       , insertpoints := STRING[]
                       , extendcomponents := STRING[]
                       ]
+      , actioncategories := DEFAULT RECORD
       ], screendef);
+
+    IF(RecordExists(screendef.actioncategories))
+      screendef.actioncategories := RepackRecord(SELECT COLUMN name, value := EnforceStructure(CELL[ insertmenus := STRING[] ], value) FROM UnpackRecord(screendef.actioncategories));
   }
   RETURN screendef;
+}
+
+RECORD ARRAY FUNCTION FixAddActions(STRING resourcename, RECORD ARRAY addactions)
+{
+  addactions := EnforceStructure([[ title := "", onexecute := "", category := "" ]], addactions);
+  UPDATE addactions
+         SET title := title != "" ? ":" || title : ""
+           , onexecute := MakeAbsoluteResourcePath(resourcename, onexecute);
+  RETURN addactions;
 }
 
 RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
@@ -63,6 +77,7 @@ RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
         [[ name := ""
          , value := [ screen := ""
                     , tabsextension := ""
+                    , addactions := RECORD[]
                     ]
          ]
         ], UnpackRecord(def.backendhooks));
@@ -70,6 +85,7 @@ RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
   FOREVERY(RECORD hook FROM thehooks)
   {
     thehooks[#hook].value.tabsextension := MakeAbsoluteResourcePath(resourcename, thehooks[#hook].value.tabsextension);
+    thehooks[#hook].value.addactions := FixAddActions(resourcename, thehooks[#hook].value.addactions);
     INSERT CELL module := GetModuleNameFromResourcePath(resourcename) INTO thehooks[#hook].value;
   }
 
@@ -114,10 +130,34 @@ RECORD FUNCTION GetAllHooks()
          ];
 }
 
-RECORD ARRAY FUNCTION GetHooksFor(STRING screenname)
+BOOLEAN FUNCTION MatchWhen(STRING module, RECORD when, OBJECT contexts)
+{
+  IF(CellExists(when,'wrdschema'))
+  {
+    IF(NOT ObjectExists(contexts->wrdschema) OR TYPEID(when.wrdschema) != TYPEID(STRING))
+      RETURN FALSE;
+
+    STRING schemaname := when.wrdschema;
+    IF(schemaname NOT LIKE "*:*")
+      schemaname := module || ":" || when.wrdschema;
+    RETURN contexts->wrdschema->tag = schemaname;
+  }
+
+  RETURN TRUE;
+}
+
+RECORD ARRAY FUNCTION GetHooksFor(OBJECT contexts, STRING screenname)
 {
   RECORD ARRAY allhooks := GetAdhocCached(CELL["allhooks"], PTR GetAllHooks);
-  RETURN SELECT * FROM allhooks WHERE allhooks.screen = VAR screenname;
+  RETURN SELECT *
+           FROM allhooks
+          WHERE allhooks.screen = VAR screenname
+                AND (CellExists(allhooks, 'when') ? MatchWhen(allhooks.module, allhooks.when, contexts) : TRUE);
+}
+
+MACRO InvokeWithContext(OBJECT contexts, MACRO PTR toinvoke)
+{
+  toinvoke(contexts);
 }
 
 PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
@@ -128,9 +168,11 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
 
   //Is anyone hooking this screen definition? Otherwise we don't have to set up anything
   //TODO but we should still do some static validation of hookdefs vs screedefs as not all hooks may be actually tested by the testsuite.
-  RECORD ARRAY hooks := GetHooksFor(options.screenname);
+  RECORD ARRAY hooks := GetHooksFor(screen->contexts, options.screenname);
   IF(Length(hooks) = 0)
     RETURN;
+
+  STRING ARRAY errors;
 
   RECORD screendef := GetScreenDef(options.screenname); //made an option, we might at some point just derive the screenname straight from builtinscreens
   IF(RecordExists(screendef.extendtabs) AND RecordExists(SELECT FROM hooks WHERE tabsextension != ""))
@@ -155,4 +197,60 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
       IF(hook.tabsextension != "")
         tabcomp->LoadTabsExtension(hook.tabsextension);
   }
+
+  IF(RecordExists(screendef.actioncategories) AND RecordExists(SELECT FROM hooks WHERE Length(addactions) > 0))
+  {
+    FOREVERY(RECORD category FROM UnpackRecord(screendef.actioncategories))
+    {
+      OBJECT ARRAY insertmenus;
+      FOREVERY(STRING insertmenu FROM category.value.insertinto)
+        INSERT GetMember(screen, "^" || insertmenu) INTO insertmenus AT END;
+
+      FOREVERY(RECORD hook FROM hooks)
+        FOREVERY(RECORD action FROM hook.addactions)
+        {
+          IF(action.category = ToLowercase(category.name))
+          {
+            OBJECT actioncomp := screen->CreateTolliumComponent("action");
+            FUNCTION PTR onexecute;
+            TRY
+            {
+              onexecute := MakeFunctionPtr(action.onexecute);
+            }
+            CATCH(OBJECT e)
+            {
+              //TODO it would be nice to signal sysops on production servers without bothering all users
+              LogHarescriptException(e);
+              INSERT `Unable to register hook ${hook.module}:${ToLowercase(hook.tag)}: ${e->what}` INTO errors AT END;
+              CONTINUE;
+            }
+            actioncomp->onexecute := PTR InvokeWithContext(screen->contexts, onexecute);
+
+            FOREVERY(OBJECT insertmenu FROM insertmenus)
+            {
+              //Find the menu owning the inserted items TODO tollium should just track it.  and why does it allow item multi-insertion anyway ?
+              OBJECT itemcomp := screen->CreateTolliumComponent("item");
+              itemcomp->title := GetTid(action.title);
+              itemcomp->action := actioncomp;
+
+              OBJECT intomenu;
+              FOREVERY(OBJECT item FROM screen->tolliumscreenmanager->GetSpecialComponents())
+                IF(item->componenttype = "menuitem" AND RecordExists(SELECT FROM item->items WHERE menuitem=insertmenu))
+                {
+                  intomenu := item;
+                  BREAK;
+                }
+
+              IF(NOT ObjectExists(intomenu))
+                THROW NEW TolliumException(insertmenu, `Cannot find menu owning this item`);
+
+              intomenu->InsertMenuItemBefore(itemcomp, insertmenu, FALSE);
+            }
+          }
+        }
+    }
+  }
+
+  IF(Length(errors) > 0 AND NOT IsDtapLive())
+    screen->RunSimpleScreen("error", Detokenize(errors,'\n'));
 }

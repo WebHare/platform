@@ -80,6 +80,7 @@
           <item action="unittree->exportusersinunit" />
           <item action="objecttree->exportobjectrights" />
           <divider />
+          <item name="export_insertion_point" title="" visible="false" />
         </item>
         <divider />
         <item action="exit" />
