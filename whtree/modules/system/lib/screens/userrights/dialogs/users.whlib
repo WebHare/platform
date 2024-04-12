@@ -112,6 +112,9 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       ^password->visible := FALSE;
     }
 
+    IF(^whuser_disable_type->value != "inactive")
+      DELETE FROM ^whuser_disable_type->options WHERE rowkey = "inactive";
+
     RECORD unitinfo;
     BOOLEAN isnew := NOT ObjectExists(this->pvt_user);
     this->isself := isnew = FALSE AND ObjectExists(this->tolliumuser->entity) AND this->tolliumuser->entity->id = this->pvt_user->entityid;
