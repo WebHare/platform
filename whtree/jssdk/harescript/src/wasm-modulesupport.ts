@@ -271,7 +271,11 @@ export class WASMModule extends WASMModuleBase {
     this._free(alloced);
 
     const throwvar = new HSVMVar(vm, vm.wasmmodule._HSVM_GetThrowVar(vm.hsvm));
-    const trace = throwvar.getMemberRef("pvt_trace");
+    const trace = throwvar.getMemberRef("pvt_trace", { allowMissing: true });
+    if (!trace) {
+      console.error(`No pvt_trace member in thrown exception when trying to throw exception ${JSON.stringify(e instanceof Error ? e.message : e)}`);
+      throw new Error(`No pvt_trace member in thrown exception when trying to throw exception ${JSON.stringify(e instanceof Error ? e.message : e)}`);
+    }
     trace.setJSValue(getTypedArray(VariableType.RecordArray, stacktrace.map(elt => ({
       filename: elt.file || "unknown",
       line: elt.lineNumber || 1,
@@ -338,7 +342,7 @@ export class WASMModule extends WASMModuleBase {
     try {
       await reg.asyncmacro!(this.itf, ...params);
     } catch (e) {
-      this.throwReturnedException(this.itf!, e, "executeAsyncJSMacro");
+      await this.throwReturnedException(this.itf!, e, "executeAsyncJSMacro");
     } finally {
       transitionLock?.close();
     }
@@ -354,7 +358,7 @@ export class WASMModule extends WASMModuleBase {
     try {
       await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
     } catch (e) {
-      this.throwReturnedException(this.itf!, e, "executeAsyncJSFunction");
+      await this.throwReturnedException(this.itf!, e, "executeAsyncJSFunction");
     } finally {
       transitionLock?.close();
     }

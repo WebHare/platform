@@ -389,6 +389,7 @@ void LoopbackDBTransactionDriver::CloseCursor(CursorId id)
         HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "CLOSE"), true, true);
         HSVM_CloseFunctionCall(*vm);
 
+        HSVM_DeallocateVariable(*vm, obj);
         cursors.erase(id);
 }
 
