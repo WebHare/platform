@@ -22,7 +22,7 @@
             <passwordfield name="password" entercurrentpassword="false" />
             <authenticationsettings name="authenticationsettings" />
             <select name="language" type="pulldown" tid="userrights.edituser.prefslang" width="1pr" />
-            <select composition="userobj" cellname="whuser_disable_type" tid=".accountstatus" type="radio" name="whuser_disable_type">
+            <select composition="userobj" cellname="whuser_disable_type" gid="tolliumapps.userrights.common" tid=".accountstatus" type="radio" name="whuser_disable_type">
               <option rowkey="" tid=".accountstatus-active" />
               <option rowkey="inactive" />
               <option rowkey="manual" enablecomponents="whuser_disablereason" />
