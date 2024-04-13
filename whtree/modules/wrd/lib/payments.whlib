@@ -425,7 +425,7 @@ STATIC OBJECTTYPE PaymentAPI
       IF(psp->interactiontype = "external" OR psp->status != "pending")
       {
         IF(psp->status != "pending") //already completed (explicitly set)
-          handler->OnPaymentFinalized(currentpayment);
+          handler->OnPaymentFinalized(currentpayment); //TODO can we cause duplicate handling by adding external (failed?) payments to an existing payment?
         GetPrimary()->CommitWork();
 
         IF(options.returnurl != "")

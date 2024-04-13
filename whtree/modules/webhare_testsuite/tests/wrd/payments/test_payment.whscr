@@ -316,21 +316,28 @@ MACRO TestParallelPayments() //completing first payment
   TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
   TestEq(1, Length(pmulti->GetField("LOG").entries), 'log should not register the third payment attempt.');
 
+  STRING pay3url := StartWRDTestPayment(paymentapi, pmulti->id, 28.12m, paysettings);
+  STRING pay3ref := pmulti->GetField("DATA").paymentref;
+
   TestEq("pending", pmulti->GetField("DATA").status);
   CompleteWRDTestpayment(pay1url, "approved");
-  TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
+  TestEq(3, Length(paymentapi->GetPaymentData(pmulti->id).payments));
   TestEq("approved", pmulti->GetField("DATA").status);
   TestEq(pay1ref, pmulti->GetField("DATA").paymentref);
   TestEq(2, Length(pmulti->GetField("LOG").entries), 'log should have the completion added.');
   TestEq("approved", pmulti->GetField("LOG").entries[1].status);
+
+  RECORD payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq(['approved','pending','pending'], SELECT AS STRING ARRAY status FROM payment.payments);
 
   //Now fail the second pay attempt
   CompleteWRDTestpayment(pay2url, "failed");
   TestEq(2, Length(pmulti->GetField("LOG").entries), 'old transaction failing should not affect payment status.');
   TestEq("approved", pmulti->GetField("LOG").entries[1].status);
 
-  RECORD payment := paymentapi->GetPaymentData(pmulti->id);
-  TestEq(['approved','pending'], SELECT AS STRING ARRAY status FROM payment.payments);
+  payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq(['approved','failed','pending'], SELECT AS STRING ARRAY status FROM payment.payments);
+  TestEq("approved", pmulti->GetField("DATA").status);
 
   //force the payment record it to expire
   testfw->BeginWork();
@@ -339,7 +346,10 @@ MACRO TestParallelPayments() //completing first payment
   PollPaymentStatuses(TRUE, testfw->starttime);
 
   payment := paymentapi->GetPaymentData(pmulti->id);
-  TestEq(['approved','failed'], SELECT AS STRING ARRAY status FROM payment.payments);
+  TestEq(['approved','failed','failed'], SELECT AS STRING ARRAY status FROM payment.payments);
+  TestEq("approved", pmulti->GetField("DATA").status);
+
+  TestEq(2, Length(pmulti->GetField("LOG").entries), 'expiry of old transaction should not affect payment status.');
 }
 
 OBJECT pm3;
