@@ -45,6 +45,8 @@ PUBLIC RECORD paymentbaseoptions :=
   , billingaddress := DEFAULT RECORD
   , shippingaddress := DEFAULT RECORD
   , orderlines := RECORD[]
+
+  , extrapspdata := DEFAULT RECORD //extra settings that may mean something to specific payment providers
   ];
 
 PUBLIC STRING FUNCTION UpdateReturnURLWithPaymentInfo(STRING returnurl, INTEGER paymententity)

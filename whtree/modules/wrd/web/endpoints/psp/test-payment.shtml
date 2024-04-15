@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+
+PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
+<
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    webdesign->pagetitle := "Test provider payment page";
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    BOOLEAN issubmit := IsRequestPost() AND GetWebVariable("postpayment") = "";
+    STRING sessid := GetWebVariable("s");
+    RECORD data := GetWebSessionData(sessid,"wrd:testpayment");
+
+    IF (issubmit OR GetWebVariable("notified") = "") //don't sleep until PI is verified, light abuse check (we don't want users to generate thousands of sleeping jobs by hitting this endpoint)
+    {
+      INTEGER sleeptime := ToInteger(GetWebVariable("sleep"),1000);
+      IF(sleeptime > 0 AND sleeptime <= 60000)
+        Sleep(sleeptime); //sleep allows to simulate slower payment processors
+    }
+
+    STRING ARRAY paymentdetails;
+
+    IF (NOT issubmit)
+    {
+      IF (IsRequestPost() AND GetWebVariable("UcasE") != "1")
+        ABORT("Case of variable names is not preserved in form post");
+
+      PRINT(`<!DOCTYPE html><head><body>
+      <header>
+        <div class="navlevel">
+          <h1>Test provider payment page</h1>
+        </div>
+      </header>
+      <div style="margin:20px">
+        <p>
+          This is a test payment. No actual money will be charged, any outstanding balance will still have to be settled.<br><br>
+        </p>`);
+
+      IF (GetWebVariable("push") = "")
+      {
+        PRINT(`Approve payment of <b class="paymentamount">${FormatMoney(data.amount,2,'.','',FALSE)}</b> ref '${EncodeHTML(data.paymentid)}' orderid '${EncodeHTML(data.orderid)}'<br><br>`);
+        PRINT('<form method="POST" action="' || EncodeValue(GetClientRequestURL()) || '">');
+        PRINT('<input type="hidden" name="s" value="'||EncodeValue(GetWebVariable("s"))||'" />');
+
+        IF (GetWebVariable("approve") != "no")
+          PRINT('<button type="submit" name="approve" value="yes" id="approvepayment">Yes, approve</button>');
+        IF (GetWebVariable("approve") != "yes")
+          PRINT('<button type="submit" name="approve" value="no" id="rejectpayment">No, cancel payment</button>');
+        IF (GetWebVariable("approve") != "pending")
+          PRINT('<button type="submit" name="approve" value="pending" id="pendingpayment">Dunno, keep pending</button>');
+        PRINT('</form>');
+      }
+
+      PRINT(`<br><br>Send HTTP push for payment of ${FormatMoney(data.amount,2,'.','',FALSE)} ref ${data.paymentid}<br><br>`);
+
+      PRINT(`<form>`);
+      PRINT('<input type="hidden" name="s" value="'||EncodeValue(GetWebVariable("s"))||'" />');
+      PRINT(`<button type="button" name="notified" value="approved" id="notifyapprovepayment">Approved</button>`);
+      PRINT(`<button type="button" name="notified" value="rejected" id="notifyrejectpayment">Rejected</button>`);
+      PRINT(`<button type="button" name="notified" value="pending" id="notifypending">Pending</button>`);
+      PRINT('</form>');
+      PRINT(`<br>Notified: <input disabled id="notified" value="${EncodeValue(GetWebVariable("notified"))}"></input>`);
+      Print('<script src="test.js"></script>');
+    }
+    ELSE
+    {
+      BOOLEAN isnotify := GetWebVariable("isnotify") != "";
+      STRING result := GetWebVariable(isnotify ? "notified" : "approve");
+      IF(result="yes" AND ToUppercase(data.lastname) LIKE "*FRAUD*")
+        StoreWebSessionData(sessid,"wrd:testpayment", [...data, approval := "reject", why := "Not trusting users with '<b>fraud</b>' in their last name" ]);
+      ELSE
+        StoreWebSessionData(sessid,"wrd:testpayment", [...data, approval := result  ]);
+      Redirect(isnotify ? data.pushurl : data.returnurl);
+    }
+  }
+>;
+
+OpenPrimary();
+NEW PSPTestPage->RunPageForWHFSId(whconstant_whfsid_webharebackend);

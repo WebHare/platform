@@ -1,0 +1,23 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.payments.js" library="js.whlib">
+
+  <tabsextension name="configjs" implementation="lib">
+    <actions>
+      <action name="connect" onexecute="doconnect" tid="tolliumapps.payments.common.connect" />
+    </actions>
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" cellname="driver" required="true" width="1pr" />
+      <textarea composition="methodsettings" cellname="configuration" required="true" />
+      <button action="connect" />
+      <textedit name="methods" enabled="false" width="1pr" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo" title="">
+    <body>
+    </body>
+  </screen>
+
+</screens>

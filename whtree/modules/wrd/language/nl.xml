@@ -1090,6 +1090,11 @@
         <text tid="sha1_out">SHA-1-OUT signature</text>
         <text tid="status">Status</text>
       </textgroup>
+      <textgroup gid="js">   <!-- tolliumapps.payments.js -->
+        <text tid="configuration">Configuratie</text>
+        <text tid="driver">Driver</text>
+        <text tid="methods">Betaalmethoden</text>
+      </textgroup>
       <textgroup gid="mollie">   <!-- tolliumapps.payments.mollie -->
         <text tid="apikey">API Key</text>
         <text tid="connect">Test</text>

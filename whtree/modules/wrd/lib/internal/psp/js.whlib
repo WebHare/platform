@@ -1,0 +1,177 @@
+<?wh
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
+
+STRING FUNCTION MapField(STRING infield)
+{
+  SWITCH(infield)
+  {
+    CASE "wrdContactEmail"
+    {
+      RETURN "WRD_CONTACT_EMAIL";
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Field '${infield}' not supported`);
+    }
+  }
+}
+
+RECORD ARRAY FUNCTION MapErrors(RECORD ARRAY inerrors)
+{
+  RETURN SELECT field := MapField(field), error, description := comment FROM inerrors;
+}
+
+PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD methodsettings;
+  RECORD newtransdata; //data captured by __setupnewtransaction, most of it to be discarded
+  STRING paymeta;
+  STRING rejectreasonhtml;
+
+  MACRO NEW(RECORD settings) : WRDPaymentProviderBase("wrd:js", "redirect", settings)
+  {
+    this->methodsettings := settings;
+    this->needspaymentref := TRUE;
+  }
+
+  RECORD FUNCTION BuildTransData(MONEY amount_payable, RECORD paymentmethod)
+  {
+    RECORD selectedmethod := SELECT * FROM this->methodsettings.methods WHERE methods.rowkey = paymentmethod.paymentoptiontag;
+    IF(NOT RecordExists(selectedmethod))
+      THROW NEW Exception(`Method '${paymentmethod.paymentoptiontag}' not found`);
+
+    RECORD customerinfo := this->GetCustomerInfo(paymentmethod, [ requirements := selectedmethod.requirements ]);
+    RETURN CELL[ ...paymentmethod
+               , ...customerinfo
+               , wrdpersonentity := ObjectExists(paymentmethod.wrdpersonentity) ? paymentmethod.wrdpersonentity->id : 0
+               , cart := paymentmethod.orderlines
+               , amount_payable
+               , DELETE wrdpersonfields //they're merged into customerinfo
+               ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RECORD retval;
+    IF(this->rejectreasonhtml != "")
+      retval := CELL[...retval, this->rejectreasonhtml];
+    RETURN retval;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+    this->newtransdata := this->BuildTransData(amount_payable, paymentmethod);
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    RECORD opts := EnforceStructure([ rejectreasonhtml := "" ], payment.__paymentdata.m);
+    this->paymeta := CellExists(payment.__paymentdata.m,'paymeta') ? payment.__paymentdata.m.paymeta : "";
+    this->rejectreasonhtml := opts.rejectreasonhtml;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    IF(NOT RecordExists(this->methodsettings))
+      RETURN RECORD[];
+
+    RETURN SELECT paymentoptiontag := rowkey
+                , title
+                , issuers := RECORD[]
+                , islive := this->methodsettings.islive
+                , requirements
+             FROM this->methodsettings.methods;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION CheckPaymentRequest(MONEY amount_payable, RECORD paymentmethod)
+  {
+    RECORD transdata := this->BuildTransData(amount_payable, paymentmethod);
+    RECORD result := CallJS("@mod-wrd/js/internal/paymentbridge.ts#precheckPaymentRequest",
+        this->methodsettings.driver,
+        this->methodsettings.configuration,
+        transdata);
+    result.errors := MapErrors(result.errors);
+    RETURN result;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , complete := FALSE
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING pushurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ]);
+
+    RECORD paymentresult:= CallJS("@mod-wrd/js/internal/paymentbridge.ts#runPaymentRequest",
+        this->methodsettings.driver,
+        this->methodsettings.configuration,
+        CELL[ ...this->newtransdata
+            , paymentuuid := paymenttok
+            , returnurl
+            , pushurl
+            ]);
+
+    IF(paymentresult.paymentmetadata != "")
+    {
+      this->paymeta := paymentresult.paymentmetadata;
+      GetPrimary()->BeginWork();
+      UpdatePaymentMetadata(paymenttok, [ paymeta := paymentresult.paymentmetadata
+                                        ]);
+      GetPrimary()->CommitWork();
+
+    }
+
+    result.submitinstruction := paymentresult.navigateto;
+    result.errors := MapErrors(paymentresult.errors);
+
+    IF(CellExists(paymentresult,'rejectreasonhtml'))
+      this->rejectreasonhtml := paymentresult.rejectreasonhtml;
+    RETURN result;
+  }
+
+  MACRO ProcessPaymentResult(RECORD paymentresult)
+  {
+    IF(CellExists(paymentresult,'setstatus'))
+      this->pvt_status := paymentresult.setstatus;
+    IF(CellExists(paymentresult,'rejectreasonhtml'))
+      this->rejectreasonhtml := paymentresult.rejectreasonhtml;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    RECORD returnreq := EncodeWebRequestForJS();
+    RECORD paymentresult := CallJS("@mod-wrd/js/internal/paymentbridge.ts#processReturnURL",
+        this->methodsettings.driver,
+        this->methodsettings.configuration,
+        this->paymeta,
+        returnreq);
+
+    this->ProcessPaymentResult(paymentresult);
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    RECORD paymentresult := CallJS("@mod-wrd/js/internal/paymentbridge.ts#checkStatus",
+        this->methodsettings.driver,
+        this->methodsettings.configuration,
+        this->paymeta);
+    this->ProcessPaymentResult(paymentresult);
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetHTMLStatusForUser()
+  {
+    RETURN this->rejectreasonhtml;
+  }
+>;
