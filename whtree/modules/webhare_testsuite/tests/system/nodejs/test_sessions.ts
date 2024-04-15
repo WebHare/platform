@@ -9,6 +9,7 @@ import { generateRandomId } from "@webhare/std/platformbased";
 import { SingleFileUploader, type UploadInstructions } from "@webhare/frontend/src/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
 import { buffer } from "node:stream/consumers";
+import { Money } from "@webhare/std";
 
 
 declare module "@webhare/services" {
@@ -16,6 +17,7 @@ declare module "@webhare/services" {
     "webhare_testsuite:testscope": {
       test: number;
       longdata?: string;
+      amount?: Money;
     };
   }
 }
@@ -31,13 +33,13 @@ async function testSessionStorage() {
   test.eq({ test: 42 }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessid, "testscope"));
   await test.throws(/json:/, services.getSession("testscope", sessid), "Trying to not to have to include HSON encoders just for sessions");
 
-  test.eq(sessid, await loadlib("mod::system/lib/webserver.whlib").CreateWebSession("testscope", { test: 42 }, { sessionid: sessid, json: true }));
-  test.eq({ test: 42 }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessid, "testscope"));
-  test.eq({ test: 42 }, await services.getSession("testscope", sessid));
+  test.eq(sessid, await loadlib("mod::system/lib/webserver.whlib").CreateWebSession("testscope", { test: 42, amount: new Money("3.333") }, { sessionid: sessid, json: true }));
+  test.eq({ test: 42, amount: new Money("3.333") }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessid, "testscope"));
+  test.eq({ test: 42, amount: new Money("3.333") }, await services.getSession("testscope", sessid));
 
   await beginWork();
   const sessidany = await services.createSession("webhare_testsuite:undeclaredscope", { test: "Unchecked" });
-  const sessidscoped = await services.createSession("webhare_testsuite:testscope", { test: 43 });
+  const sessidscoped = await services.createSession("webhare_testsuite:testscope", { test: 43, amount: new Money("2.33") });
   const sessidexpired = await services.createSession("webhare_testsuite:testscope", { test: 43 }, { expires: 1 });
 
   test.eq(sessidany, await services.createSession("webhare_testsuite:undeclaredscope", { test: "Reused" }, { sessionId: sessidany }));
@@ -51,8 +53,8 @@ async function testSessionStorage() {
   await test.throws(/Incorrect scope/, services.getSession("webhare_testsuite:wrongscope", sessidany));
   test.eq({ test: "Reused" }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidany, "webhare_testsuite:undeclaredscope"));
 
-  test.eq({ test: 43 }, await services.getSession("webhare_testsuite:testscope", sessidscoped));
-  test.eq({ test: 43 }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidscoped, "webhare_testsuite:testscope"));
+  test.eq({ test: 43, amount: new Money("2.33") }, await services.getSession("webhare_testsuite:testscope", sessidscoped));
+  test.eq({ test: 43, amount: new Money("2.33") }, await loadlib("mod::system/lib/webserver.whlib").GetWebSessionData(sessidscoped, "webhare_testsuite:testscope"));
 
   await beginWork();
   await services.updateSession("webhare_testsuite:testscope", sessidscoped, { test: 44 });

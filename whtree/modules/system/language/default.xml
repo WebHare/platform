@@ -1661,7 +1661,10 @@
         <text tid="revokeright">Revoke right grant</text>
       </textgroup>
       <textgroup gid="common">   <!-- tolliumapps.userrights.common -->
-        <text tid="active">Account active</text>
+        <text tid="accountstatus">Account status</text>
+        <text tid="accountstatus-active">Active</text>
+        <text tid="accountstatus-inactive">Disabled for inactivity</text>
+        <text tid="accountstatus-manual">Manually locked</text>
         <text tid="comment">Explanation</text>
         <text tid="created">Created</text>
         <text tid="fullname">Full name</text>
@@ -2279,10 +2282,7 @@
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
-      <text tid="accountstatus">Account status</text>
       <text tid="accountstatus-active">Active</text>
-      <text tid="accountstatus-inactive">Disabled for inactivity</text>
-      <text tid="accountstatus-manual">Manually locked</text>
       <text tid="advanced">Advanced</text>
       <text tid="apostrophe">Apostrophe (')</text>
       <text tid="app">Application</text>

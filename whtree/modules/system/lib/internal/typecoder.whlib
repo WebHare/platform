@@ -14,7 +14,7 @@ PUBLIC RECORD FUNCTION PrepareAnyForDatabase(VARIANT data, RECORD options DEFAUL
   IF(TypeID(data) = TypeID(RECORD) AND NOT RecordExists(data))
     RETURN [ blobpart := DEFAULT BLOB, stringpart := ""];
 
-  STRING astext := options.format = "json" ? EncodeJSON(data) : EncodeHSON(data);
+  STRING astext := options.format = "json" ? EncodeJSON(data, DEFAULT RECORD, [typed := TRUE]) : EncodeHSON(data);
   IF(Length(astext) > 4096)
     RETURN [ blobpart := StringToBlob(astext), stringpart := options.format = "hson" ? "" : options.format ];
   ELSE
@@ -30,7 +30,7 @@ PUBLIC VARIANT FUNCTION ReadAnyFromDatabase(STRING stringpart, BLOB blobpart)
       RETURN DEFAULT RECORD;
     RETURN DecodeHSONBlob(blobpart);
   }
-  RETURN stringpart LIKE "hson:*" ? DecodeHSON(stringpart) : DecodeJSON(stringpart);
+  RETURN stringpart LIKE "hson:*" ? DecodeHSON(stringpart) : DecodeJSON(stringpart, DEFAULT RECORD, [typed := TRUE]);
 }
 
 /// Test whether two blobs have the same content, optimize by checking database blob ids if possible

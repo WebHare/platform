@@ -1474,7 +1474,10 @@
         <text tid="revokeright">Rechtentoekenning intrekken</text>
       </textgroup>
       <textgroup gid="common">   <!-- tolliumapps.userrights.common -->
-        <text tid="active">Account actief</text>
+        <text tid="accountstatus">Account status</text>
+        <text tid="accountstatus-active">Actief</text>
+        <text tid="accountstatus-inactive">Uitgeschakeld wegens geen activiteit</text>
+        <text tid="accountstatus-manual">Handmatig geblokkeerd</text>
         <text tid="comment">Toelichting</text>
         <text tid="created">Aangemaakt</text>
         <text tid="fullname">Gebruikersnaam</text>
@@ -2092,10 +2095,7 @@
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
-      <text tid="accountstatus">Account status</text>
       <text tid="accountstatus-active">Actief</text>
-      <text tid="accountstatus-inactive">Uitgeschakeld wegens geen activiteit</text>
-      <text tid="accountstatus-manual">Handmatig geblokkeerd</text>
       <text tid="advanced">Geavanceerd</text>
       <text tid="apostrophe">Apostrof (')</text>
       <text tid="app">Applicatie</text>

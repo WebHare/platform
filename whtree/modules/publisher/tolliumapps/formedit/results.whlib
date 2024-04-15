@@ -323,6 +323,8 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
           text->value := GetTid(celldata ? "tollium:tilde.yes" : "tollium:tilde.no");
         ELSE IF(col.type = "integer")
           text->value := ToString(celldata);
+        ELSE IF(col.type = "money")
+          text->value := this->contexts->user->FormatMoney(celldata, 0, FALSE);
         ELSE
           text->value := celldata;
 

@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
 
 
 /** Returns a tree of all units visible for a user
@@ -372,7 +373,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
                             , [ name := "unit",       title := GetTid("system:tolliumapps.userrights.common.unit"),       type := "text" ]
                             , [ name := "created",    title := GetTid("system:tolliumapps.userrights.common.created"),    type := "datetime", storeutc := TRUE ]
                             , [ name := "lastlogin",  title := GetTid("system:tolliumapps.userrights.common.lastlogin"),  type := "datetime", storeutc := TRUE ]
-                            , [ name := "active",     title := GetTid("system:tolliumapps.userrights.common.active"), type := "boolean" ]
+                            , [ name := "accountstatus", title := GetTid("system:tolliumapps.userrights.common.accountstatus"), type := "string" ]
                             ];
 
     columns := RECORD
@@ -393,7 +394,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
         SELECT *
              , twofactorenabled :=    RecordExists(password) AND RecordExists(password.totp) ? "TRUE" : "FALSE"
              , lastpasswordchange :=  RecordExists(password) AND RecordExists(password.passwords) ? password.passwords[END-1].validfrom : DEFAULT DATETIME
-             , active :=              whuser_disable_type = ""
+             , accountstatus :=       GetAccountStatusText(whuser_disable_type)
           FROM users
       ORDER BY username, wrd_id;
 

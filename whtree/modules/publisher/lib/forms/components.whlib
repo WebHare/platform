@@ -619,6 +619,8 @@ PUBLIC OBJECTTYPE FormFieldBase
       rettype := "boolean";
     ELSE IF(TYPEID(this->value) = TYPEID(INTEGER))
       rettype := "integer";
+    ELSE IF(TYPEID(this->value) = TYPEID(MONEY))
+      rettype := "money";
     ELSE
       rettype := "text";
 
@@ -798,5 +800,3 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
     this->selectfield->__SetInfoText(newtext);
   }
 >;
-
-

@@ -122,8 +122,8 @@ Set to 1 to enable the debugflag for the Chrome headless runner
 ### WEBHARE_ALLOWEPHEMERAL
 Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlayfs.
 
-### WEBHARE_SHELL_PS1_POSTFIX
-Text to append to the command prompt when using `wh shell`
+### RUNKIT_TARGET_SLUG
+Override the hostname in the PS1 prompt. Usually set by `runkit wh shell` with container information
 
 ### TESTFW_FORCECOLOR
 If set, enables ANSI color within tests (using the test framework) even if no console is available.

@@ -27,20 +27,28 @@ RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
   RETURN LookupRecord(allobjs, [ id := authobjectid ], ["ID"]);
 }
 
+PUBLIC STRING FUNCTION GetAccountStatusText(STRING status)
+{
+  IF(status="")
+    RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-active");
+  ELSE
+    RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-" || status);
+}
+
 PUBLIC RECORD ARRAY FUNCTION GetUserrightexportColumns()
 {
    RETURN [[ name := "type",            type := "text",     title := GetTid("system:tolliumapps.userrights.common.type") ]
           ,[ name := "login",           type := "text",     title := GetTid("~username") ]
           ,[ name := "fullname",        type := "text",     title := GetTid("~fullname") ]
           ,[ name := "email",           type := "text",     title := GetTid("~email") ]
-          ,[ name := "active",          type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.active") ]
+          ,[ name := "accountstatus",   type := "text",     title := GetTid("system:tolliumapps.userrights.common.accountstatus") ]
           ,[ name := "unitname",        type := "text",     title := GetTid("system:tolliumapps.userrights.common.unit") ]
           ,[ name := "unitpath",        type := "text",     title := GetTid("system:tolliumapps.userrights.common.unitpath") ]
           ,[ name := "rightname",       type := "text",     title := GetTid("system:tolliumapps.userrights.common.right") ]
           ,[ name := "righttitle",      type := "text",     title := GetTid("system:tolliumapps.userrights.common.righttitle") ]
           ,[ name := "objecttypename",  type := "text",     title := GetTid("system:tolliumapps.userrights.common.objecttypename") ]
           ,[ name := "objectpath",      type := "text",     title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
-         , [ name := "viarole",         type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
+         , [ name := "viarole",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.viarole") ]
           ,[ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
           ,[ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
           ,[ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
@@ -98,7 +106,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, OBJECT 
 
     INSERT CELL[ ...grant
                , login := (grantee.type = authobjecttype_role ? grantee.title : grantee.login) ?? grantee.guid
-               , active := grantee.type = authobjecttype_role OR grantee.whuser_disable_type = ""
+               , accountstatus := grantee.type = authobjecttype_role ? "" : GetAccountStatusText(grantee.whuser_disable_type)
                , fullname := grantee.type = authobjecttype_role ? "" : grantee.fullname
                , email := grantee.type = authobjecttype_role ? "" : grantee.email
                , grantee.authobjectparentid
