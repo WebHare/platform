@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+
+PUBLIC MACRO RunStandardPaymentMethodTests(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ ignorestatuscheckresult := FALSE ], options);
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(TRUE, Length(methods)>0, "There must be some payment methods configured");
+
+  FOREVERY(RECORD method FROM methods)
+  {
+    OBJECT psp := paymentapi->__InstantiatePSP(method.paymentprovider);
+    RECORD status := psp->GetPSPStatus();
+    TestEqStructure([ success := FALSE, unknown := FALSE, message := "" ], status);
+    IF(NOT options.ignorestatuscheckresult)
+      TestEq(TRUE, status.success OR status.unknown, "Status check failed: " || EncodeJSON(status));
+  }
+
+  //Test against crash when setting up payment but not configuring it (ie test MakePaymentMethod)
+  testfw->BeginWork();
+  FOREVERY(RECORD method FROM methods)
+  {
+    OBJECT entity := paymentapi->paymenttype->CreateEntity([ data := paymentapi->MakePaymentMethod([ paymentprovider := method.paymentprovider
+                                                                                                   , paymentoptiontag := method.paymentoptiontag
+                                                                                                   ])
+                                                           ]);
+    TestEq("pending", paymentapi->ExplainPayment(entity->GetField("DATA")).status);
+
+    //Try with issuer, if any
+    IF(Length(method.issuers) > 0)
+    {
+      entity :=
+        paymentapi->paymenttype->CreateEntity([ data := paymentapi->MakePaymentMethod([ paymentprovider := method.paymentprovider
+                                                                                      , paymentoptiontag := method.paymentoptiontag
+                                                                                      , issuer := method.issuers[Random(0, Length(method.issuers)-1)].rowkey
+                                                                                      ])
+                                              ]);
+      TestEq("pending", paymentapi->ExplainPayment(entity->GetField("DATA")).status);
+    }
+  }
+
+  testfw->CommitWork();
+}
+
+PUBLIC OBJECT FUNCTION GetWRDTestPaymentAPI(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ suppresspaymentfield := FALSE ], options);
+
+  RECORD apioptions := [ providerfield := "PAYPROV.METHOD"
+                       , firstchecktime := 1 //speed up the first time we can poll for status
+                       ];
+  IF(NOT options.suppresspaymentfield)
+    apioptions := CELL[...apioptions
+                      , paymentfield := "PAYDATA.DATA"
+                      , paymenthandler := "mod::webhare_testsuite/tests/wrd/payments/data/receiver.whlib#MyPaymentHandler"
+                      ];
+  RETURN GetPaymentAPI(OpenTestsuiteWRDSchema(), apioptions);
+}
+
+PUBLIC STRING FUNCTION GetWRDTestPaymentReturnURL(OBJECT paymentapi)
+{
+  RETURN UpdateURLVariables(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/paymentinfo.shtml")
+                                          , [ providerfield := paymentapi->providertype->tag || '.' || paymentapi->providerattribute
+                                            , paymentfield := paymentapi->paymenttype->tag || '.' || paymentapi->paymentattribute
+                                            , wrdschema := paymentapi->providertype->wrdschema->tag
+                                            ]);
+}
+
+PUBLIC MACRO AddPaymentToTestWRDSchema(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  GetPrimary()->PushWork();
+  options := ValidateOptions([ keephistorydays := 0
+                             ], options);
+
+  OBJECT schemaobj := OpenTestsuiteWRDSchema();
+
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  persontype->CreateAttribute("WRD_CONTACT_PHONE", "TELEPHONE", [ title := "Testphone" ]);
+
+  schemaobj->CreateDomain("PAYPROV", CELL[ options.keephistorydays ]);
+  schemaobj->^payprov->CreateAttribute("METHOD", "PAYMENTPROVIDER", [ isrequired := TRUE ]);
+
+  schemaobj->CreateType("PAYDATA");
+  schemaobj->^paydata->CreateAttribute("DATA", "PAYMENT", [ domain := schemaobj->^payprov->id ]);
+  schemaobj->^paydata->CreateAttribute("LOG", "RECORD");
+
+  GetPrimary()->PopWork();
+}
