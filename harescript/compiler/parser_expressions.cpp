@@ -1338,7 +1338,6 @@ Rvalue* Parser::P_Simple_Object()
                                         ptr->outside_ptr = true;
                                         return ptr;
                                 }
-                                Blex::ErrStream() << "ExpectedFunctionOpenParen #1";
                                 lexer.AddError(Error::ExpectedFunctionOpenParen, res.first->name);
                                 return coder->ImSafeErrorValueReturn(pos);
                         }

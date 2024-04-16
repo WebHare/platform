@@ -12,7 +12,9 @@ let richeditor;
 /** options.onInsertVideo: function (node) - should return a promise resolving to an instance if the insertion is successful, or resolve to null if cancelled. receives the html rteedit node on which we're invoked */
 
 export default class RTDField {
-  constructor(node, options?) {
+  readonly node;
+
+  constructor(node: HTMLElement, options?) {
     this.node = node;
     this.node.whRTDField = this;
     this.options = { ...options };
@@ -110,8 +112,8 @@ export default class RTDField {
     else
       this.node.setAttribute("data-wh-form-disabled", "");
   }
-}
 
-RTDField.getForNode = function (node) {
-  return node.whRTDField || null;
-};
+  static getForNode(node) {
+    return node.whRTDField || null;
+  };
+}

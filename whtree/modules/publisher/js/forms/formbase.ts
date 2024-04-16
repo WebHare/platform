@@ -69,15 +69,14 @@ type FormControlDescription = {
 
 export type FormResultValue = Record<string, unknown>;
 
-export interface FormSubmitEmbeddedResult {
-  //form webtool Submit result. can add anything and is mixed with our properties
-  [key: string]: unknown;
-  //webtool submit additions:
+/** The result returned to onSubmitSuccess */
+export type FormSubmitEmbeddedResult<UserResult = { [key: string]: unknown }> = UserResult & {
+  //webtool submit additions. TODO a future API shouldn't mix these at the same level but allow them in the FormSubmitResult
   submittype?: string;
   richvalues?: RichValues;
   resultsguid?: string;
   submitinstruction?: NavigateInstruction;
-}
+};
 
 export interface FormSubmitMessage {
   name: string;

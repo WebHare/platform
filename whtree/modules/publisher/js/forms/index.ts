@@ -1,10 +1,11 @@
 import * as dompack from '@webhare/dompack';
 import './internal/requiredstyles.css';
 import * as merge from './internal/merge';
-import FormBase from './formbase';
+import { setFieldError, setupValidator } from './internal/customvalidation';
+import FormBase, { type FormSubmitEmbeddedResult } from './formbase';
 import RPCFormBase from './rpc';
-export { FormBase, RPCFormBase };
-export { setFieldError, setupValidator } from './internal/customvalidation';
+
+export { FormBase, RPCFormBase, setFieldError, setupValidator, type FormSubmitEmbeddedResult };
 
 type FormHandlerFactory = (form: HTMLFormElement) => FormBase;
 

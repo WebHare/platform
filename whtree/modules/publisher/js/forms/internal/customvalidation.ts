@@ -30,7 +30,7 @@ function setupServerErrorClear(field: HTMLElement) {
     group.addEventListener("blur", field.propWhCleanupFunction, true);
 }
 
-
+/* TODO Are we sure we should expose this API? A form-level setupValidator might be better as we can then re-validate at the proper point in time */
 export function setFieldError(field: Element, error: string, options?: Partial<FieldErrorOptions>) {
   if (!(field instanceof HTMLElement)) {
     console.error(`Field is not a valid target for setting errors`, field);
@@ -78,7 +78,11 @@ export function setFieldError(field: Element, error: string, options?: Partial<F
   console.error(`Field is not a valid target for setting errors`, field);
 }
 
-export function setupValidator<NodeType extends HTMLElement>(node: NodeType, checker: (node: NodeType) => Promise<string> | string) {
+/** Set up a custom validator
+ * @param node - Form element to validate
+ * @param checker - Sync or async function that returns a string with an error message or undefined if the field is valid.
+*/
+export function setupValidator<NodeType extends HTMLElement>(node: NodeType, checker: (node: NodeType) => Promise<string | undefined> | string | undefined): void {
   const check = async () => {
     let error = checker(node);
 
@@ -88,7 +92,7 @@ export function setupValidator<NodeType extends HTMLElement>(node: NodeType, che
       console.log(`[fhv] Custom check ${error ? `setting error '${error}'` : 'clearing error'} for `, node);
 
     //FIXME shouldn't we set propWhValidationError instead ?
-    setFieldError(node, error, { reportimmediately: false });
+    setFieldError(node, error || '', { reportimmediately: false });
   };
   node.addEventListener("blur", check);
   node.addEventListener("input", check);

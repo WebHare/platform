@@ -11,9 +11,12 @@ export interface EmailValidationResult { /** If blocked, the suggested error mes
   suggestion?: string;
 }
 
-interface FormSubmitInfo {
+interface BaseFormSubmitInfo {
   url: string;
   target: string;
+}
+
+interface FormSubmitInfo extends BaseFormSubmitInfo {
   extrasubmit?: unknown;
   vals: Array<{
     name: string;
@@ -48,6 +51,8 @@ export interface PublisherFormService {
     messages: Array<{ field: string; prop: string; data: unknown }>;
     result: unknown;
   }>;
+
+  requestBuiltinForm(submitinfo: BaseFormSubmitInfo, filename: string, formname: string): Promise<{ html: string }>;
 }
 
 // const client = rpc.createClient<PublisherFormService>("publisher:forms");
