@@ -1,13 +1,8 @@
 <?wh
-/* Test buckaroo
-   WebHare.bv developers can obtain credentials using:
-   Q secrets/load-into-webhare pay_nl
-
-   Note that we currently don't have a test account offering iDEAL so we can't actually run this test at the moment.
+/* Test JS driver
 */
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 

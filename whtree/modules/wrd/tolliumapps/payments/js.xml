@@ -9,7 +9,7 @@
     </compositions>
     <insert position="providertab" where="atend">
       <textedit composition="methodsettings" cellname="driver" required="true" width="1pr" />
-      <textarea composition="methodsettings" cellname="configuration" required="true" />
+      <textarea composition="methodsettings" cellname="configuration" required="true" minheight="4gr" minwidth="50x" />
       <button action="connect" />
       <textedit name="methods" enabled="false" width="1pr" />
     </insert>
