@@ -111,7 +111,7 @@ export interface WebHarePaymentPrecheckResult {
   errors?: Array<{
     /// Affected field field
     field: "wrdContactEmail";
-    /// Error merssage for user
+    /// Error message for user
     error: string;
     /// Internal description
     comment: string;
