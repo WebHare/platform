@@ -130,6 +130,17 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , webhooks := TRUE
                                ]
           ]
+         ,[ tag := "wrd:js"
+          , title := ":JS plugin"
+          , objectname := "mod::wrd/lib/internal/psp/js.whlib#JSPaymentProvider"
+          , configextensions := "mod::wrd/tolliumapps/payments/js.xml#configjs"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/js.xml#payinfo"
+          , metadataoptions := [ driver := ""
+                               , configuration := ""
+                               , methods := DEFAULT RECORD ARRAY
+                               , islive := FALSE
+                               ]
+          ]
          ,[ tag := "wrd:buckaroo"
           , title := ":Buckaroo"
           , objectname := "mod::wrd/lib/internal/psp/buckaroo.whlib#BuckarooPaymentProvider"

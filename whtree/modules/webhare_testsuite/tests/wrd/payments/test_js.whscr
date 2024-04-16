@@ -1,4 +1,14 @@
 <?wh
+/* Test JS driver
+*/
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
@@ -23,9 +33,39 @@ OBJECT paymentapi;
 STRING pm2_guidprefix;
 OBJECT pm2;
 
+CONSTANT STRING jstestdriver := "@mod-webhare_testsuite/tests/wrd/payments/data/testdriver.ts#TestDriver";
+
 MACRO Prep()
 {
   paymentapi := GetWRDTestPaymentAPI();
+}
+
+ASYNC MACRO SetupPayJS()
+{
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  RECORD addcall := AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  TT("methods")->value := "wrd:js";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT(":Driver")->value := jstestdriver;
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*Invalid config*" ]);
+  TT(":Configuration")->value := EncodeJSON([ xyz := TRUE]);
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*Missing expected field*" ]);
+
+  TT(":Configuration")->value := EncodeJSON([ methods := 2 ]);
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TestEq("Method 1, Method 2", TT(":methods")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider")); //test persisting between dialogs
+  TestEq("Method 1, Method 2", TT(":methods")->value);
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TestEq("Method 1, Method 2", TT(":methods")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick(":Delete"));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 }
 
 MACRO TestPaymentFields()
@@ -152,27 +192,25 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 {
   testfw->BeginWork();
 
-  RECORD keypair := testfw->GenerateKeyPair("payments");
   pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
-    , method := MakePaymentProviderValue("wrd:test", [ keypair := keypair.id, requirekeypair := TRUE ])
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
     ]);
   pm2_guidprefix := "__" || ToUppercase(Substring(pm2->guid,4));
 
   //Ensure all mehods are properly tagged
-  TestEq([pm2_guidprefix || "__NOISSUER",pm2_guidprefix || "__WITHISSUER","INVOICE"], SELECT AS STRING ARRAY paymentmethodtag FROM paymentapi->ListAllPaymentOptions());
+  TestEq([pm2_guidprefix || "__M1",pm2_guidprefix || "__M2","INVOICE"], SELECT AS STRING ARRAY paymentmethodtag FROM paymentapi->ListAllPaymentOptions());
 
   //FIXME payments requiring serverconnection when getting issuers, should simply refresh it daily but store it inside the payment method
   RECORD ARRAY paymentoptions := paymentapi->ListPaymentOptions(pm2->id);
   TestEq(2,Length(paymentoptions)); //FIXME add more to test
-  TestEq(2,Length(paymentoptions[1].issuers));
   TestEqStructure([[rowkey := "", title := "" ]],paymentoptions[1].issuers);
 
   RECORD ARRAY allpaymentoptions := paymentapi->ListAllPaymentOptions( [ extrafields := [ wrd_title := "WRD_TITLE" ]]);
   TestEq(3,Length(allpaymentoptions));
-  TestEq("TestNoIssuer",   allpaymentoptions[0].title);
-  TestEq("TestWithIssuer", allpaymentoptions[1].title);
-  TestEq("NOISSUER",       allpaymentoptions[0].paymentoptiontag);
+  TestEq("Method 1",       allpaymentoptions[0].title);
+  TestEq("Method 2",       allpaymentoptions[1].title);
+  TestEq("M1",             allpaymentoptions[0].paymentoptiontag);
   TestEq("Pay by invoice", allpaymentoptions[2].title);
   TestEq("invoice"       , allpaymentoptions[2].extra.wrd_title);
   TestEq(pm2->id,          allpaymentoptions[1].paymentprovider);
@@ -195,13 +233,11 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 
   TestThrowsLike("*Invalid payment option*", PTR paymentapi->StartPayment(pd2b->id, 10.486m, [ paymentprovider := pm2->id ]));
   TestThrowsLike("*Invalid payment option*BLA*", PTR paymentapi->StartPayment(pd2b->id, 10.486m, [ paymentprovider := pm2->id, paymentoptiontag := "BLA" ]));
-  TestThrowsLike("*Incorrect type*", PTR paymentapi->StartPayment(pd2b->id, 10.486m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := 42 ]));
-  TestThrowsLike("*No such*BLABLA*", PTR paymentapi->StartPayment(pd2b->id, 10.486m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "BLABLA" ]));
 
   TestThrowsLike('*Invalid transaction amount*', PTR paymentapi->StartPayment(pd2b->id, 0m, [ paymentprovider := pm2->id ]));
   TestThrowsLike('*Invalid transaction amount*', PTR paymentapi->StartPayment(pd2b->id, -1m, [ paymentprovider := pm2->id ]));
 
-  STRING gotourl := StartWRDTestPayment(paymentapi, pd2b->id, 18.57m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER" ]);
+  STRING gotourl := StartWRDTestPayment(paymentapi, pd2b->id, 18.57m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", orderid := "ORDER1" ]);
   TestEq("pending", pd2b->GetField("DATA").status);
 
   //make sure the pending record is ready
@@ -224,7 +260,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   OBJECT pd2c := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2C"]);
   testfw->CommitWork();
 
-  paymentapi->StartPayment(pd2c->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", expires := AddTimeToDate(10,GetCurrentDatetime()), userdata := [ x := 42 ], returnurl := "https://www.example.net/" ]);
+  paymentapi->StartPayment(pd2c->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", extraPspData := [ expires := AddTimeToDate(10,GetCurrentDatetime()) ], userdata := [ x := 42 ], orderid := "ORDER-2", returnurl := "https://www.example.net/" ]);
 
   TestEq("pending", pd2c->GetField("DATA").status);
   TestEq([ x := 42 ], pd2c->GetField("DATA").userdata);
@@ -238,7 +274,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   OBJECT pd2c_twoweeks := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2C-2weeks"]);
   testfw->CommitWork();
 
-  paymentapi->StartPayment(pd2c_twoweeks->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", returnurl := "https://www.example.net/" ]);
+  paymentapi->StartPayment(pd2c_twoweeks->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", returnurl := "https://www.example.net/", orderid := "ORDER-3" ]);
   testfw->BeginWork();
   UPDATE wrd.pendingpayments SET creationdate := AddDaysToDate(-14, creationdate) WHERE paymententity = pd2c_twoweeks->id;
   testfw->CommitWork();
@@ -253,7 +289,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   testfw->BeginWork();
   OBJECT pd2d := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2D"]);
   testfw->CommitWork();
-  paymentapi->StartPayment(pd2d->id, 12.73m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", returnurl := "https://www.example.net/", userdata := [ x := 43 ]]);
+  paymentapi->StartPayment(pd2d->id, 12.73m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", returnurl := "https://www.example.net/", userdata := [ x := 43 ], orderid := "ORDER-4"]);
 
   TestEq("pending", pd2d->GetField("DATA").status);
   paymentapi->CancelPendingPayment(pd2d->id);
@@ -297,7 +333,7 @@ MACRO TestParallelPayments() //completing first payment
 
   TestEq(FALSE, RecordExists(pmulti->GetField("LOG")), 'log should still be empty');
 
-  RECORD paysettings := [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB" ];
+  RECORD paysettings := [ paymentprovider := pm2->id, paymentoptiontag := "M1", orderid := "PMULTI" ];
   STRING pay1url := StartWRDTestPayment(paymentapi, pmulti->id, 28.12m, paysettings);
   STRING pay1ref := pmulti->GetField("DATA").paymentref;
   Sleep(1);
@@ -383,7 +419,7 @@ MACRO TestParallelPayments2() //completing second payment, and the second one is
   OBJECT pmulti := paymentapi->paymenttype->CreateEntity([wrd_tag := "PMULTI2"]);
   testfw->CommitWork();
 
-  RECORD paysettings := [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB" ];
+  RECORD paysettings := [ paymentprovider := pm2->id, paymentoptiontag := "M1", orderid := "PMULTI2" ];
   STRING pay1url := StartWRDTestPayment(paymentapi, pmulti->id, 28.12m, paysettings);
   STRING pay1ref := pmulti->GetField("DATA").paymentref;
 
@@ -443,7 +479,7 @@ MACRO TestPaymentOverview()
 
   //these require clearing
   TestEq(22, Length(enrichedpayments[2].paymentref));
-  TestEq(pm2_guidprefix || "__NOISSUER", enrichedpayments[2].paymentmethodtag);
+  TestEq(pm2_guidprefix || "__M1", enrichedpayments[2].paymentmethodtag);
   TestEq(22, Length(enrichedpayments[3].paymentref));
   TestEq(TRUE, enrichedpayments[2].paymentref != enrichedpayments[3].paymentref);
 
@@ -484,11 +520,15 @@ MACRO TestPaymentPersonEntity()
   DATETIME started := GetCurrentDatetime();
 
   //Test preflighting
-  RECORD precheck := paymentapi->StartPayment(0, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "precheckfail@beta.webhare.net"] ]);
+  RECORD precheck := paymentapi->StartPayment(0, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "precheckfail@beta.webhare.net"], orderid := "PRECHECK1" ]);
   TestEq([[DESCRIPTION:= 'User with this email will fail in precheck'
          ,ERROR:= 'This emailaddres has been blocked'
          ,FIELD:= 'WRD_CONTACT_EMAIL'
          ]], precheck.errors);
+
+  //Only M1 prechecks, this verifies that the precheck actually receives the method
+  RECORD noprecheck := paymentapi->StartPayment(0, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "precheckfail@beta.webhare.net"], orderid := "PRECHECK2" ]);
+  TestEq(0, length(noprecheck.errors));
 
   //Even preflighting is forbidden with open work
   testfw->BeginWork();
@@ -496,7 +536,7 @@ MACRO TestPaymentPersonEntity()
   testfw->RollbackWork();
 
   //Test direct rejection
-  RECORD paymentinstruction := paymentapi->StartPayment(pde1->id, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson ]);
+  RECORD paymentinstruction := paymentapi->StartPayment(pde1->id, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", wrdpersonentity := testperson, orderid := "DIRECTFAIL1" ]);
   TestEq(FALSE, paymentinstruction.complete);
   TestEq(FALSE, RecordExists(paymentinstruction.submitinstruction));
   TestEq([[DESCRIPTION:= 'User with this email is not trusted'
@@ -511,7 +551,7 @@ MACRO TestPaymentPersonEntity()
   TestEq(RECORD[], SELECT * FROM wrd.pendingpayments WHERE creationdate >= started, "Payment should not be in the pending list");
 
   //Test 'throwing' - some tests need to test those paths too
-  TestThrowsLike("*triggers a throw*", PTR paymentapi->StartPayment(pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "throw@beta.webhare.net"] ]));
+  TestThrowsLike("*triggers a throw*", PTR paymentapi->StartPayment(pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "throw@beta.webhare.net"], orderid :="PDE1" ]));
 
   //This _does_ leave a mark though
   payment := paymentapi->GetPaymentData(pde1->id);
@@ -520,13 +560,17 @@ MACRO TestPaymentPersonEntity()
   TestEq(13.28m, payment.amountpayable);
 
   //Test a rejection
-  STRING gotourl := StartWRDTestPayment(paymentapi, pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ] ]);
+  STRING gotourl := StartWRDTestPayment(paymentapi, pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ], orderid := "PDE1"  ]);
   CompleteWRDTestpayment(gotourl, "approved");
   payment := paymentapi->GetPaymentData(pde1->id);
   TestEq("failed", payment.status);
 
   //Can the provider tell us more ?
   TestEqLike("Not trusting users with '<b>fraud</b>' in their last name", paymentapi->ExplainPayment(payment).htmlstatusforuser);
+
+  //different methohd, no error
+  RECORD paymentinstruction2 := paymentapi->StartPayment(pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", wrdpersonentity := testperson, orderid := "DIRECTFAIL2" ]);
+  TestEq(0, length(paymentinstruction2.errors));
 }
 
 STRING FUNCTION GenerateUncompressableText(INTEGER minbytes)
@@ -538,18 +582,17 @@ STRING FUNCTION GenerateUncompressableText(INTEGER minbytes)
   RETURN EncodeBase64(text);
 }
 
-MACRO TestPaymentOrderLines()
+MACRO TestPaymentBigData()
 {
   testfw->BeginWork();
 
   RECORD bigrequest := [ paymentprovider := pm2->id
-                       , paymentoptiontag := "NOISSUER"
+                       , paymentoptiontag := "M1"
                        , wrdpersonfields := [ wrd_contact_email := "bigorder@beta.webhare.net"
                                             ]
                        , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
-                       , orderlines := [[ title := "Product title", sku := "SKU 123", amount := 2, linetotal := 131.67 - 2m, vatpercentage := 21m ]
-                                       ,[ title := "Something else: " || GenerateUncompressableText(5000), sku := "", amount := 1, linetotal := 2m, vatpercentage := 21m ]
-                                       ]
+                       , orderid := "BIGORDER"
+                       , userdata := [ bigdata := GenerateUncompressableText(5000) ]
                        ];
   OBJECT pdf1 := paymentapi->paymenttype->CreateEntity( [ wrd_tag := "PDF1"]);
   testfw->CommitWork();
@@ -561,9 +604,10 @@ MACRO TestPaymentOrderLines()
   STRING gotourl := StartWRDTestPayment(paymentapi, pdf1->id, 13.28m, bigrequest);
   CompleteWRDTestpayment(gotourl, "approved");
   RECORD payment := paymentapi->GetPaymentData(pdf1->id);
+  dumpvalue(payment,'tree');
 
   TestEq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
-  TestEq(bigrequest.orderlines[1].title, payment.__bestpayment.__paymentdata.m.orderlines[1].title, "white-box inspection of stored orderlines failed");
+  TestEq(bigrequest.userdata.bigdata, payment.__bestpayment.userdata.bigdata, "white-box inspection of stored userdata failed");
   TestEq("approved", payment.status);
 }
 
@@ -593,8 +637,8 @@ ASYNC MACRO TestPaymentProvidersDialog()
   TestEqLike("#*", rows[0].title);
   TestEq("External", rows[1].type);
   TestEq("CASH PAYMENTS", rows[1].title);
-  TestEq("Pay by invoice", rows[2].title);
-  TestEq("TestNoIssuer, TestWithIssuer, Mandate", rows[3].title); //the config screen is allowed to show all payment options
+  TestEq("Method 1, Method 2", rows[2].title); //the config screen is allowed to show all payment options
+  TestEq("Pay by invoice", rows[3].title);
 
   //First delete the current TestNoIssuer, TestWithIssuer
   topscreen->providers->selection := rows[3];
@@ -719,9 +763,10 @@ MACRO TestPaymentOptions()
 
   //TestThrowsLike("*Invalid payment option*", PTR paymentapi->StartPayment(pd2b->id, 10.486m, [ paymentprovider := pm2->id ]));
   RECORD ARRAY opts := paymentapi->ListAllPaymentOptions();
-  TestEq(7, Length(opts));
+
+  TestEq(8, Length(opts));
   //they should all be distinct
-  TestEq(7, Length(SELECT DISTINCT paymentmethodtag FROM opts));
+  TestEq(8, Length(SELECT DISTINCT paymentmethodtag FROM opts));
 
   //Want to be able to specify the option using just the method tag. using second-to-last as this should be a NoIssuser option
   RECORD uselastpaymentoption := paymentapi->StartPayment(pd4->id, 16.61m, [ paymentmethodtag := opts[END-2].paymentmethodtag]);
@@ -801,6 +846,7 @@ ASYNC MACRO TestDashboard()
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR Prep
+                 , PTR SetupPayJS
                  , PTR TestPaymentFields
                  , PTR TestPaymentMethodTest
                  , PTR TestPaymentBrokenMethodTest
@@ -809,7 +855,7 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestParallelPayments2
                  , PTR TestPaymentOverview
                  , PTR TestPaymentPersonEntity
-                 , PTR TestPaymentOrderLines
+                 , PTR TestPaymentBigData
                  , PTR TestPendingPaymentsDialog
                  , PTR TestPaymentProvidersDialog
                  , PTR TestPaymentDetailsDialog

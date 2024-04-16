@@ -4,6 +4,7 @@
   <test script="test_payment_capture.whscr" />
   <test script="test_payment_forms.whscr" />
   <jstest file="test_payment_online.ts" tags="forms" />
+  <test script="test_js.whscr" />
   <test script="test_ideal.whscr" tags="external" ifenvironset="TESTSECRET_IDEAL_MERCHANTID" />
   <test script="test_ingenico.whscr" />
   <test script="test_mollie.whscr" tags="external"/>

@@ -6,6 +6,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::money.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -305,6 +306,14 @@ STATIC OBJECTTYPE PaymentAPI
 
     psp := this->__InstantiatePSP(paymentdata.paymentprovider);
 
+    RECORD ARRAY paymentoptions := psp->GetPaymentOptions();
+    IF(Length(paymentoptions) = 0)
+      THROW NEW Exception(`Payment GetPaymentOptions '${psp->psptype}' is not offering any payment options`);
+
+    RECORD paymentoption := SELECT * FROM paymentoptions WHERE paymentoptiontag = paymentdata.paymentoptiontag;
+    IF(NOT RecordExists(paymentoption))
+      THROW NEW Exception(`Invalid payment option '${paymentdata.paymentoptiontag}'`);
+
     RECORD transoptions := CELL[...paymentdata, DELETE paymentprovider, DELETE paymentref, DELETE isexternal, DELETE returnurl, DELETE setstatus, DELETE paymentmethodtag ];
     RECORD precheckresult := psp->CheckPaymentRequest(amount, transoptions);
     IF(Length(precheckresult.errors) > 0)
@@ -318,14 +327,6 @@ STATIC OBJECTTYPE PaymentAPI
     }
     psp->pvt_paymentref := paymentdata.paymentref;
     psp->userdata := paymentdata.userdata;
-
-    RECORD ARRAY paymentoptions := psp->GetPaymentOptions();
-    IF(Length(paymentoptions) = 0)
-      THROW NEW Exception(`Payment GetPaymentOptions '${psp->psptype}' is not offering any payment options`);
-
-    RECORD paymentoption := SELECT * FROM paymentoptions WHERE paymentoptiontag = paymentdata.paymentoptiontag;
-    IF(NOT RecordExists(paymentoption))
-      THROW NEW Exception(`Invalid payment option '${paymentdata.paymentoptiontag}'`);
 
     STRING issuer := CellExists(paymentdata,'issuer') ? paymentdata.issuer : '';
     IF(issuer != "")
@@ -425,7 +426,7 @@ STATIC OBJECTTYPE PaymentAPI
       IF(psp->interactiontype = "external" OR psp->status != "pending")
       {
         IF(psp->status != "pending") //already completed (explicitly set)
-          handler->OnPaymentFinalized(currentpayment);
+          handler->OnPaymentFinalized(currentpayment); //TODO can we cause duplicate handling by adding external (failed?) payments to an existing payment?
         GetPrimary()->CommitWork();
 
         IF(options.returnurl != "")
@@ -783,6 +784,24 @@ PUBLIC RECORD FUNCTION MakePaymentProviderValue(STRING type, RECORD metadata DEF
   RECORD pspinfo := GetPSPInfo(type);
   RECORD meta := ValidateOptions(pspinfo.metadataoptions, metadata);
   RETURN [ __paymentprovider := CELL[ type, meta ] ];
+}
+
+PUBLIC RECORD FUNCTION MakeJSPaymentProviderValue(STRING driver, STRING configuration, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ nothrow := FALSE ], options);
+  RECORD result := CallJS("@mod-wrd/js/internal/paymentbridge.ts#connectPSP", driver, configuration);
+  IF(result.error != "")
+    IF(options.nothrow)
+      RETURN CELL [ error := result.error ];
+    ELSE
+      THROW NEW Exception(result.error);
+
+  RETURN MakePaymentProviderValue("wrd:js", CELL[
+        methods := result.methods,
+        islive := result.islive,
+        driver,
+        configuration
+      ]);
 }
 
 /** @short Open the payment api

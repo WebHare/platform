@@ -99,9 +99,12 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
   RECORD currentstatus := paymententity->GetField(paymentattribute);
 
   IF(NOT nostatuscheck)
-  {
+  { /* This shouldn't matter anymore now that we only trigger OnPaymentFinalized based on the best payment
+       and disabling this path will make payment flows more consistent
+
     IF(currentstatus.status NOT IN [ "pending", "failed" ])
       RETURN FALSE; //no longer safe to update
+      */
   }
 
   RECORD setstatus := paymentobject->MakePaymentValue();
@@ -128,10 +131,12 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
 
   IF(setstatus.status != "pending")
   {
-    IF(paymenthandler != ""  AND setstatus.status != currentstatus.status)
+    IF(paymenthandler != "" AND setstatus.status != currentstatus.status)
     {
       OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
-      handler->OnPaymentFinalized(paymentobject->MakePaymentValue());
+      RECORD newpaymentvalue := paymententity->GetField(paymentattribute);
+      IF(newpaymentvalue.status != currentstatus.status) //really changed? setstatus is just about the current payment, not the best payment..
+        handler->OnPaymentFinalized(newpaymentvalue);
     }
 
     UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME WHERE uuid = paymentobject->paymentuuid AND COLUMN paymententity = VAR paymententity->id;

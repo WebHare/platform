@@ -241,13 +241,14 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     this->pvt_resultguid := resultsguid;
 
     RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this, allowpending := TRUE, allowcancelled := TRUE ]);
-    this->__FinalizeResult(resultsguid, formsubmittype);
+    IF(NOT this->__FinalizeResult(resultsguid, formsubmittype))
+      RETURN;
 
     //NOTE this GetSingleResult also fills our local fields
     this->__RunPostStorageHandlers(this->__GetActiveHandlers(), results.extradata);
   }
 
-  MACRO __FinalizeResult(STRING confirmguid, STRING formsubmittype)
+  BOOLEAN FUNCTION __FinalizeResult(STRING confirmguid, STRING formsubmittype)
   {
     IF(formsubmittype NOT IN ["cancel","confirm"])
       THROW NEW Exception(`Invalid formsubmittype '${formsubmittype}' for confirmation`);
@@ -261,7 +262,11 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF(NOT RecordExists(match))
       THROW NEW Exception(`Cannot find entry '${confirmguid}' to confirm`);
     IF(formsubmittype = "cancel" AND match.status != 5) //can only cancel something that was pending (5)
+    {
+      IF(match.status = 1) //going back from approved to failed? (eg. payment resubmission but now to 'failed')
+        RETURN FALSE; //TODO escalate to form owner or sysop that a payment has suddenly gone to failed. nothing we can really do
       THROW NEW Exception(`Entry #${match.id} ('${confirmguid}') is not pending but in status ${match.status}`);
+    }
     IF(formsubmittype = "confirm" AND match.status NOT IN [3,5]) //but we *do* allow you to confirm anyway even after cancelling first. eg payment flows can do that
       THROW NEW Exception(`Entry #${match.id} ('${confirmguid}') is not pending but in status ${match.status}`);
 
@@ -277,6 +282,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
                                      , status := 3
                                  WHERE id = match.id;
     }
+    RETURN TRUE;
   }
 
   RECORD ARRAY FUNCTION __GetActiveHandlers()
@@ -574,4 +580,3 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     RETURN richvalues;
   }
 >;
-

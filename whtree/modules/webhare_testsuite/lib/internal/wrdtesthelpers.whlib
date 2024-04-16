@@ -3,7 +3,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -17,6 +16,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/psptests.whlib" EXPORT GetWRDTestPaymentAPI, GetWRDTestPaymentReturnURL, RunStandardPaymentMethodTests;
 
 
 /* Add a RTD with embedded objects */
@@ -50,7 +50,6 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   persontype->CreateAttribute("WRD_CONTACT_PHONE_XX", "TELEPHONE", [ title := "Phone" ]);
   persontype->CreateAttribute("PERSONLINK", "DOMAIN", [ title := "Person", domaintag := "WRD_PERSON" ]);
   persontype->CreateAttribute("RELATIONLINK", "DOMAIN", [ title := "Relation", domaintag := "WRD_RELATION" ]);
-  persontype->CreateAttribute("WRD_CONTACT_PHONE", "TELEPHONE", [ title := "Testphone" ]);
   persontype->CreateAttribute("TESTINSTANCE", "WHFSINSTANCE", [ title := "Testinstance" ]);
   persontype->CreateAttribute("TESTINTEXTLINK", "WHFSINTEXTLINK", [ title := "Testintextlink" ]);
   persontype->CreateAttribute("TESTINTEXTLINK_NOCHECK", "WHFSINTEXTLINK", [ title := "Testintextlink with checklinks=false", checklinks := FALSE ]);
@@ -62,6 +61,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   TestEq(TRUE, persontype->GetAttribute("TESTINTEXTLINK").checklinks); //should default to 'true'
   TestEq(FALSE, persontype->GetAttribute("TESTINTEXTLINK_NOCHECK").checklinks); //explict false
 
+  AddPaymentToTestWRDSchema(PickCells(options, ["keephistorydays" ]));
 
   // Create a person with some testdata
   RECORD persondata := [ wrd_firstname     := "John"
@@ -183,13 +183,6 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   schemaobj->CreateType("PERSONORGLINK", CELL[ title := "Test person/org link", linkfrom := schemaobj->^wrd_person->id, linkto := schemaobj->^wrd_organization->id ]);
   schemaobj->^personorglink->CreateAttribute("TEXT","FREE");
   schemaobj->^personorglink->CreateEntity([ text := "Some text"],[temp := TRUE ]);
-
-  schemaobj->CreateDomain("PAYPROV", CELL[ options.keephistorydays ]);
-  schemaobj->^payprov->CreateAttribute("METHOD", "PAYMENTPROVIDER", [ isrequired := TRUE ]);
-
-  schemaobj->CreateType("PAYDATA");
-  schemaobj->^paydata->CreateAttribute("DATA", "PAYMENT", [ domain := schemaobj->^payprov->id ]);
-  schemaobj->^paydata->CreateAttribute("LOG", "RECORD");
 
   schemaobj->CreateType("PAYDATA2");
   schemaobj->^paydata2->CreateAttribute("DATA", "PAYMENT", [ domain := schemaobj->^payprov->id ]);
@@ -406,30 +399,6 @@ PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RE
   }
 }
 
-PUBLIC OBJECT FUNCTION GetWRDTestPaymentAPI(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions([ suppresspaymentfield := FALSE ], options);
-
-  RECORD apioptions := [ providerfield := "PAYPROV.METHOD"
-                       , firstchecktime := 1 //speed up the first time we can poll for status
-                       ];
-  IF(NOT options.suppresspaymentfield)
-    apioptions := CELL[...apioptions
-                      , paymentfield := "PAYDATA.DATA"
-                      , paymenthandler := "mod::webhare_testsuite/tests/wrd/payments/data/receiver.whlib#MyPaymentHandler"
-                      ];
-  RETURN GetPaymentAPI(OpenTestsuiteWRDSchema(), apioptions);
-
-}
-PUBLIC STRING FUNCTION GetWRDTestPaymentReturnURL(OBJECT paymentapi)
-{
-  RETURN UpdateURLVariables(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/paymentinfo.shtml")
-                                          , [ providerfield := paymentapi->providertype->tag || '.' || paymentapi->providerattribute
-                                            , paymentfield := paymentapi->paymenttype->tag || '.' || paymentapi->paymentattribute
-                                            , wrdschema := paymentapi->providertype->wrdschema->tag
-                                            ]);
-}
-
 PUBLIC STRING FUNCTION StartWRDTestPayment(OBJECT paymentapi, INTEGER paymentid, MONEY amount, RECORD options)
 {
   STRING returnurl := GetWRDTestPaymentReturnURL(paymentapi);
@@ -451,48 +420,6 @@ PUBLIC RECORD FUNCTION ExecuteWRDTestpayment(OBJECT paymentapi, INTEGER paymenti
   TestEQ(TRUE, RecordExists(status), `payment page ${testfw->browser->href} failed`);
   TestEq(approvetype, status.payinfo.status);
   RETURN status;
-}
-
-PUBLIC MACRO RunStandardPaymentMethodTests(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions([ ignorestatuscheckresult := FALSE ], options);
-  OBJECT paymentapi := GetWRDTestPaymentAPI();
-  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
-  TestEq(TRUE, Length(methods)>0, "There must be some payment methods configured");
-
-  FOREVERY(RECORD method FROM methods)
-  {
-    OBJECT psp := paymentapi->__InstantiatePSP(method.paymentprovider);
-    RECORD status := psp->GetPSPStatus();
-    TestEqStructure([ success := FALSE, unknown := FALSE, message := "" ], status);
-    IF(NOT options.ignorestatuscheckresult)
-      TestEq(TRUE, status.success OR status.unknown, "Status check failed: " || EncodeJSON(status));
-  }
-
-  //Test against crash when setting up payment but not configuring it (ie test MakePaymentMethod)
-  testfw->BeginWork();
-  FOREVERY(RECORD method FROM methods)
-  {
-    OBJECT entity := paymentapi->paymenttype->CreateEntity([ data := paymentapi->MakePaymentMethod([ paymentprovider := method.paymentprovider
-                                                                                                   , paymentoptiontag := method.paymentoptiontag
-                                                                                                   ])
-                                                           ]);
-    TestEq("pending", paymentapi->ExplainPayment(entity->GetField("DATA")).status);
-
-    //Try with issuer, if any
-    IF(Length(method.issuers) > 0)
-    {
-      entity :=
-        paymentapi->paymenttype->CreateEntity([ data := paymentapi->MakePaymentMethod([ paymentprovider := method.paymentprovider
-                                                                                      , paymentoptiontag := method.paymentoptiontag
-                                                                                      , issuer := method.issuers[Random(0, Length(method.issuers)-1)].rowkey
-                                                                                      ])
-                                              ]);
-      TestEq("pending", paymentapi->ExplainPayment(entity->GetField("DATA")).status);
-    }
-  }
-
-  testfw->CommitWork();
 }
 
 PUBLIC ASYNC FUNCTION WaitForChromeElement(OBJECT conn, OBJECT pageobj, STRING query)

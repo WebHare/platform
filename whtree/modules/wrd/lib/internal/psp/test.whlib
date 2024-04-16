@@ -146,9 +146,6 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
   {
-    IF(this->status NOT IN [ "pending", "failed" ])
-      RETURN FALSE;
-
     STRING approve := GetVariableFromUrl(returnurl, "test_approve");
     IF(approve="")
       RETURN FALSE; //nothing interesting in the URL
@@ -201,4 +198,3 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
     RETURN this->rejectreason;
   }
 >;
-
