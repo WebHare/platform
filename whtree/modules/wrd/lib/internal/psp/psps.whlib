@@ -83,16 +83,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , testmode := "test"
                                ]
           ]
-         ,[ tag := "wrd:stripe"
-          , title := ":stripe"
-          , objectname := "mod::wrd/lib/internal/psp/stripe.whlib#stripePaymentProvider"
-          , payinfoscreen := "mod::wrd/tolliumapps/payments/stripe.xml#payinfo"
-          , configextensions := "mod::wrd/tolliumapps/payments/stripe.xml#configstripe"
-          , metadataoptions := [ publickey := ""
-                               , secretkey := ""
-                               , methods := DEFAULT STRING ARRAY
-                               ]
-          ]
          ,[ tag := "wrd:afterpay"
           , title := ":Riverty"
           , objectname := "mod::wrd/lib/internal/psp/afterpay.whlib#AfterpayPaymentProvider"
@@ -104,17 +94,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , portfolioid := 0
                                , testmode := FALSE
                                , afterpaytype := ""
-                               ]
-          ]
-         ,[ tag := "wrd:spraypay"
-          , title := ":spraypay"
-          , objectname := "mod::wrd/lib/internal/psp/spraypay.whlib#SpraypayPaymentProvider"
-          , payinfoscreen := "mod::wrd/tolliumapps/payments/spraypay.xml#payinfo"
-          , configextensions := "mod::wrd/tolliumapps/payments/spraypay.xml#configspraypay"
-          , metadataoptions := [ methodtitle := ":"
-                               , webshopid := 0
-                               , apikey := ""
-                               , testmode := FALSE
                                ]
           ]
          ,[ tag := "wrd:pay_nl"
