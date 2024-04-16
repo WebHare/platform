@@ -324,7 +324,7 @@ export default class RPCFormBase extends FormBase {
   }
 
   //override this to deal with succesful submissions
-  onSubmitSuccess(result: FormSubmitEmbeddedResult) {
+  onSubmitSuccess(result: FormSubmitEmbeddedResult<unknown>) {
     const formpos = this.node.getBoundingClientRect();
     if (formpos.top < 0)
       this.node.scrollIntoView({ block: 'start', behavior: 'smooth' });
