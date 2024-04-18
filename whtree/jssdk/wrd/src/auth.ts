@@ -7,7 +7,7 @@ import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicK
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
 import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
 import { NavigateInstruction } from "@webhare/env";
-import { closeSession, createSession, encryptForThisServer, getSession, logDebug, updateSession } from "@webhare/services";
+import { closeSession, createSession, encryptForThisServer, getSession, updateSession } from "@webhare/services";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "./wrdsupport";
 import { loadlib } from "@webhare/harescript";
@@ -202,7 +202,7 @@ export interface WRDAuthCustomizer {
   onOpenIdReturn?: (params: OnOpenIdReturnParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
   /*** @deprecated Switch to onCreateIDToken*/
   onCreateJWT?: (params: onCreateJWTParameters, payload: JWTPayload) => Promise<void> | void;
-  /** Invoked when creating an OpenID Token for a third aprty*/
+  /** Invoked when creating an OpenID Token for a third party. Allows you to add or modify claims before it's signed */
   onCreateOpenIDToken?: (params: onCreateOpenIDTokenParameters, payload: JWTPayload) => Promise<void> | void;
 }
 
@@ -295,7 +295,7 @@ function preparePayload(subject: string, created: Date | null, validuntil: Date 
   return payload;
 }
 
-/** Create a WRDAuth JWT token. Note this is more of a debugging/testing endploint now as we're not actually using it in createTokens anymore
+/** Create a WRDAuth JWT token. Note this is more of a debugging/testing endpoint now as we're not actually using it in createTokens anymore
  * @param key - JWK key to sign the token with
  * @param keyid - The id for this key
  * @param issuer - Token issuer
@@ -445,8 +445,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
       payload.iss = config.issuer;
-      logDebug("wrd:openidtokens", { payload });
-
 
       const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
       const signingkey = createPrivateKey({ key: bestsigningkey.privateKey, format: 'jwk' }); //TODO use async variant
@@ -507,7 +505,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Unable to find key '${decoded?.header.kid}'`);
 
     const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyOptions);
-    console.log(payload);
     if (!payload.jti || !payload.sub)
       throw new Error(`Invalid token - missing jti or sub`);
 
@@ -548,7 +545,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const client = await this.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
     if (client.length !== 1)
       return { error: "No such client" };
-    console.error(client[0].callbackUrls);
+
     if (!client[0].callbackUrls.find((cb) => cb.url === redirect_uri))
       return { error: "Unauthorized callback URL " + redirect_uri };
 
