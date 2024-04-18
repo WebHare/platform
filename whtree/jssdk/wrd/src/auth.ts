@@ -116,7 +116,7 @@ export interface LookupUsernameParameters extends LoginUsernameLookupOptions {
   username: string;
 }
 
-export interface OnOpenIdReturnParameters {
+export interface OpenIdRequestParameters {
   /// ID of the client requesting the token
   client: number;
   /// Requested scopes
@@ -124,17 +124,10 @@ export interface OnOpenIdReturnParameters {
   /// ID of the WRD user that has authenticated
   user: number;
 }
-
-export interface onCreateJWTParameters {
+/** @deprecated replaced by OpenIdRequestParameters */
+export interface onCreateJWTParameters { //LEGACY  will be removed
   /// ID of the client requesting the token. If null, we're creating a ID token for ourselves (WRDAuth login)
   client: number | null;
-  /// ID of the WRD user that has authenticated
-  user: number;
-}
-
-export interface onCreateOpenIDTokenParameters {
-  /// ID of the client requesting the ID token
-  client: number;
   /// ID of the WRD user that has authenticated
   user: number;
 }
@@ -195,15 +188,19 @@ export type JWTPayload = {
   birthdate?: string;
 };
 
+export type ReportedUserInfo = Omit<Record<string, unknown>, "error">;
+
 export interface WRDAuthCustomizer {
   /** Invoked to look up a login name */
   lookupUsername?: (params: LookupUsernameParameters) => Promise<number | null> | number | null;
   /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
-  onOpenIdReturn?: (params: OnOpenIdReturnParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
+  onOpenIdReturn?: (params: OpenIdRequestParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
   /*** @deprecated Switch to onCreateIDToken*/
   onCreateJWT?: (params: onCreateJWTParameters, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when creating an OpenID Token for a third party. Allows you to add or modify claims before it's signed */
-  onCreateOpenIDToken?: (params: onCreateOpenIDTokenParameters, payload: JWTPayload) => Promise<void> | void;
+  onOpenIdToken?: (params: OpenIdRequestParameters, payload: JWTPayload) => Promise<void> | void;
+  /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
+  onOpenIdUserInfo?: (params: OpenIdRequestParameters, userinfo: ReportedUserInfo) => Promise<void> | void;
 }
 
 export interface JWKS {
@@ -437,8 +434,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (customizer?.onCreateJWT)
         await customizer.onCreateJWT({ user: subject, client }, payload as JWTPayload);
-      if (customizer?.onCreateOpenIDToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
-        await customizer.onCreateOpenIDToken({ user: subject, client }, payload as JWTPayload);
+      if (customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
+        await customizer.onOpenIdToken({ user: subject, scopes, client }, payload as JWTPayload);
 
       const config = await this.getKeyConfig();
       if (!config || !config.issuer || !config.signingKeys?.length)
@@ -477,23 +474,33 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Get userinfo for a token */
-  async getUserInfo(token: string) {
+  async getUserInfo(token: string, customizer: WRDAuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
     const tokeninfo = await this.verifyAccessToken(token);
     if ("error" in tokeninfo)
       return { error: tokeninfo.error };
+    if (!tokeninfo.client)
+      return { error: "WRDAuth login tokens are not valid for OpenID /userinfo endpoints" };
 
     const userfields = await this.wrdschema.getFields("wrdPerson", tokeninfo.entity, ["wrdFullName", "wrdFirstName", "wrdLastName"/*,"wrdContactEmail"*/]);
     if (!userfields)
       return { error: "No such user" };
 
     const decoded = jwt.decode(token, { complete: true });
-    return { //TODO limit by scope/access/... ?
-      sub: decoded?.payload.sub,
+    if (!decoded)
+      return { error: "Invalid access token for userinfo" };
+
+    const userinfo: Record<string, unknown> = { //TODO limit by the fields by requested scope and client access
+      sub: decoded.payload.sub,
       name: userfields.wrdFullName,
       given_name: userfields.wrdFirstName,
       family_name: userfields.wrdLastName,
       // email: userinfo.wrdContactEmail
     };
+
+    if (customizer?.onOpenIdUserInfo)
+      await customizer?.onOpenIdUserInfo({ client: tokeninfo.client, scopes: tokeninfo.scopes, user: tokeninfo.entity }, userinfo);
+
+    return userinfo;
   }
 
   /** Validate a token (not considering retractions). Note that wrdauth doesn't need to validate tokens it gave out itself - its own token db is considered authorative */

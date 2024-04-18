@@ -108,13 +108,9 @@ async function verifyRoutes() {
   test.eq({ success: true }, await oauth2.HandleAuthorizedLanding(oauth2session));
 
   const oauth2tokens = await oauth2.$get("token") as { id_token: string };
-  console.log(oauth2tokens);
-  //TODO Proper verification but we should just build APIs for that
-  const [header, payload] = oauth2tokens.id_token.split(".");
-  const parsedHeader = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+
+  const [, payload] = oauth2tokens.id_token.split(".");
   const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
-  console.log(parsedHeader);
-  console.log(parsedPayload);
 
   const sysopguid = wrdGuidToUUID(await (await sysopobject!.$get<HSVMObject>("entity")).$get<string>("guid"));
   test.eq(sysopguid, parsedPayload.sub);
@@ -159,16 +155,16 @@ async function verifyOpenIDClient() {
   const params = client.callbackParams(finalurl);
 
   const tokenSet = await client.callback(callbackUrl, params); // , { code_verifier });
-  console.log('received and validated tokens %j', tokenSet);
-  console.log('validated ID Token claims %j', tokenSet.claims());
+  // console.log('received and validated tokens %j', tokenSet);
+  // console.log('validated ID Token claims %j', tokenSet.claims());
 
   test.eq("Sysop", tokenSet.claims().sub);
 
   test.assert(tokenSet.id_token);
   await test.throws(/Token is invalid/, client.userinfo(tokenSet.id_token), "Shouldn't accept id_token");
   const userinfo = await client.userinfo(tokenSet.access_token!);
-  console.log('userinfo %j', userinfo);
-  test.eqPartial({ "sub": "Sysop", "name": "Sysop McTestsuite", "given_name": "Sysop", "family_name": "McTestsuite" }, userinfo);
+
+  test.eqPartial({ "sub": "Sysop", "name": "Sysop McTestsuite", "given_name": "Sysop", "family_name": "McTestsuite", answer: 43 }, userinfo);
 }
 
 test.run([

@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, } from "@webhare/wrd/src/auth";
-import { type LookupUsernameParameters, type OnOpenIdReturnParameters, type WRDAuthCustomizer, type onCreateOpenIDTokenParameters, type JWTPayload } from "@webhare/wrd";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT } from "@webhare/wrd/src/auth";
+import { type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
@@ -87,8 +87,8 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   test.assert(tokens.body.id_token, "We did an openid login so there should be a id_token");
   test.assert(tokens.body.access_token, "and there should be an access_token");
 
-  test.eq({ error: /Token is invalid/ }, await provider.getUserInfo(tokens.body.id_token));
-  test.eq({ sub: /@beta.webhare.net$/, name: /^.* .*$/, given_name: /.*/, family_name: /.*/ }, await provider.getUserInfo(tokens.body.access_token));
+  test.eq({ error: /Token is invalid/ }, await provider.getUserInfo(tokens.body.id_token, null));
+  test.eq({ sub: /@beta.webhare.net$/, name: /^.* .*$/, given_name: /.*/, family_name: /.*/ }, await provider.getUserInfo(tokens.body.access_token, null));
 
   return {
     idToken: tokens.body.id_token,
@@ -148,7 +148,7 @@ async function testAuthAPI() {
 
   // Test the openid session apis
   const blockingcustomizer: WRDAuthCustomizer = {
-    onOpenIdReturn(params: OnOpenIdReturnParameters): NavigateInstruction | null {
+    onOpenIdReturn(params: OpenIdRequestParameters): NavigateInstruction | null {
       if (params.client === robotClient!.wrdId)
         return { type: "redirect", url: "https://www.webhare.dev/blocked" };
       return null;
@@ -159,19 +159,26 @@ async function testAuthAPI() {
 
   // Test modifying the claims
   const claimCustomizer: WRDAuthCustomizer = {
-    async onCreateOpenIDToken(params: onCreateOpenIDTokenParameters, payload: JWTPayload) {
+    async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload) {
       test.assert(payload.exp >= (Date.now() / 1000) && payload.exp < (Date.now() / 1000 + 30 * 86400));
       const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
       if (!userinfo)
         throw new Error(`No such user`);
       payload.name = userinfo?.wrdFullName;
-    }
+    },
+    async onOpenIdUserInfo(params: OpenIdRequestParameters, userinfo: ReportedUserInfo) {
+      await test.sleep(20);
+      userinfo.bob = "Beagle";
+      userinfo.answer = 42;
+      userinfo.sub = (userinfo.name as string).toUpperCase();
+    },
   };
 
   const claimResult = await mockAuthorizeFlow(provider, robotClient!, testuser, claimCustomizer);
   test.assert(claimResult.idToken);
   test.eqPartial({ name: "Jon Show" }, await provider.validateToken(claimResult.idToken));
   test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken(claimResult.accessToken));
+  test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(claimResult.accessToken, claimCustomizer));
 
   //Test simple login tokens
   const login1 = await provider.createFirstPartyToken(testuser, null);

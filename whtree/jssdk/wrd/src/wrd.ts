@@ -1,5 +1,5 @@
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
-export type { WRDAuthCustomizer, LookupUsernameParameters, OnOpenIdReturnParameters, onCreateJWTParameters, onCreateOpenIDTokenParameters, JWTPayload } from "./auth";
+export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, onCreateJWTParameters, JWTPayload, ReportedUserInfo } from "./auth";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
