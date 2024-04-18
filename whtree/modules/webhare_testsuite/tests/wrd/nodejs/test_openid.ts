@@ -165,7 +165,8 @@ async function verifyOpenIDClient() {
   test.eq("Sysop", tokenSet.claims().sub);
 
   test.assert(tokenSet.id_token);
-  const userinfo = await client.userinfo(tokenSet.id_token);
+  await test.throws(/Token is invalid/, client.userinfo(tokenSet.id_token), "Shouldn't accept id_token");
+  const userinfo = await client.userinfo(tokenSet.access_token!);
   console.log('userinfo %j', userinfo);
   test.eqPartial({ "sub": "Sysop", "name": "Sysop McTestsuite", "given_name": "Sysop", "family_name": "McTestsuite" }, userinfo);
 }

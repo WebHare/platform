@@ -289,8 +289,8 @@
       <d:datetime name="expirationdate" nullable="false">
         <d:documentation>Date when the token will expire</d:documentation>
       </d:datetime>
-      <d:integer name="audience" ondelete="cascade" references=".entities">
-        <d:documentation>Audience (client) for this token. 0 if WRDAuth itself is the consumer (login id tokens)</d:documentation>
+      <d:integer name="client" ondelete="cascade" references=".entities">
+        <d:documentation>Client which requested this token. Null for the WRDAuth login APIs</d:documentation>
       </d:integer>
       <d:varchar name="scopes" maxlength="1024">
         <d:documentation>Space separated list of scopes in this token</d:documentation>

@@ -175,7 +175,7 @@ PUBLIC SCHEMA
 
   , TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "audience" NULL := 0
+    , INTEGER "client" NULL := 0
     , DATETIME "creationdate"
     , INTEGER "entity" NULL := 0
     , DATETIME "expirationdate"
