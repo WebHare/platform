@@ -333,7 +333,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(GetWebCookie(this->cookiename || "_j") = "") //missing javascript state
       {
         STRING logincookie := GetWebCookie(this->cookiename);
-        IF(logincookie != "" AND logincookie NOT LIKE "* idToken:*") //don't destroy modern cookies
+        IF(logincookie != "" AND logincookie NOT LIKE "* accessToken:*") //don't destroy modern cookies
         {
           this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
         }
@@ -629,11 +629,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(IsRequest())
       {
         STRING idcookie := GetWebCookie(this->cookiename);
-        IF(idcookie LIKE "* idToken:*") //We're talking to the JS WRDAuth implementation ?
+        IF(idcookie LIKE "* accessToken:*") //We're talking to the JS WRDAuth implementation ?
         {
           STRING idtoken := Substring(idcookie, SearchSubstring(idcookie,':')+1); //grab the token
           STRING tokenhash := GetHashForString(idtoken, "SHA-256");
-          RECORD match := SELECT * FROM wrd.tokens WHERE hash = tokenhash AND audience = 0; //find a session attached to us
+          RECORD match := SELECT * FROM wrd.tokens WHERE hash = tokenhash AND client = 0; //find a session attached to us
           IF(RecordExists(match) AND this->IsValidAccountEntity(match.entity))
           { //It's s a hit!
             this->wrdauthjs := [ entity := match.entity ];

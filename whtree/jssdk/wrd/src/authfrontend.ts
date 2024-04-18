@@ -12,11 +12,11 @@ export async function getRequestUser(req: WebRequest, pathname: string): Promise
     throw new Error(`WRDAuth is not configured for ${req.url}`);
 
   const logincookie = req.getCookie(wrdauth.cookieName);
-  const idtoken = logincookie?.match(/ idToken:(.+)$/)?.[1];
-  if (idtoken) {
+  const accessToken = logincookie?.match(/ accessToken:(.+)$/)?.[1];
+  if (accessToken) {
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(wrdauth.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
-    const tokeninfo = await provider.verifyLoginToken(idtoken);
+    const tokeninfo = await provider.verifyAccessToken(accessToken);
     if (!("error" in tokeninfo))
       return { wrdSchema: wrdauth.wrdSchema, user: tokeninfo.entity };
   }

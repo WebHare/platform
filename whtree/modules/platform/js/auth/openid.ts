@@ -97,7 +97,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
 
         //FIXME webdesignplugin.whlib rewrites the cookiename if the server is not hosted in port 80/443, our authcode should do so too (but probably not inside the plugin)
         //generateRandomId is prefixed to support C++ webserver webharelogin caching
-        const logincookie = generateRandomId() + " idToken:" + response.idToken;
+        const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
         return createJSONResponse(200, {
           loggedIn: true,
           expires: response.expires.toISOString()
@@ -164,7 +164,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
       return createJSONResponse(401, { error: "Missing bearer token" });
 
     const provider = new IdentityProvider(wrdschema);
-    const userinfo = await provider.getUserInfo(authorization[1]);
+    const userinfo = await provider.getUserInfo(authorization[1], customizer);
     if ('error' in userinfo)
       return createJSONResponse(400, { error: userinfo.error });
 

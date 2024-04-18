@@ -31,6 +31,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     userinfo_endpoint: oidc_baseurl + "userinfo",
     id_token_signing_alg_values_supported: ["RS256"],
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+    scopes_supported: ["openid", "email", "profile"],
   });
 
 }
