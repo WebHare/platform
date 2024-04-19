@@ -984,9 +984,7 @@ PUBLIC STATIC OBJECTTYPE IdealPaymentProvider EXTEND WRDPaymentProviderBase
 
     RECORD transaction := transreq->CreateTransaction();
     this->transactionid := transaction.transactionid;
-    GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ transactionid := this->transactionid ]);
-    GetPrimary()->CommitWork();
 
     RETURN transaction.transactionurl;
   }

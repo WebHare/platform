@@ -151,11 +151,9 @@ PUBLIC STATIC OBJECTTYPE SisowPaymentProvider EXTEND WRDPaymentProviderBase
     STRING issuerurl := DecodeURL(browser->document->GetElement("issuerurl")->textcontent); //yes, really, decodeurl..
     this->transactionid := browser->document->GetElement("trxid")->textcontent;
 
-    GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ transactionid := this->transactionid
                                       , issuer := this->issuer
                                       ]);
-    GetPrimary()->CommitWork();
 
     RETURN DecodeURL(issuerurl);
   }

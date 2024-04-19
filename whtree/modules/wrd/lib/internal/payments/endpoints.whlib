@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "mod::system/lib/database.whlib";
+
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
@@ -19,20 +21,30 @@ RECORD FUNCTION GetPaymentByUUID(STRING finduuid)
 PUBLIC MACRO UpdatePaymentMetadata(STRING paymenttok, RECORD updatedata)
 {
   RECORD paymentdetails := GetPaymentByUUID(paymenttok);
-
   RECORD paymententityinfo := DescribeWRDEntity(paymentdetails.paymententity);
   OBJECT paymentschema := OpenWRDSchemaById(paymententityinfo.wrdschema);
   OBJECT paymenttype := paymentschema->GetTypeById(paymententityinfo.wrdtype);
   RECORD paymentattr := paymenttype->GetAttributeById(paymentdetails.paymentattr);
-  OBJECT paymententity := paymenttype->GetEntity(paymentdetails.paymententity);
-  RECORD paymentdata := paymententity->GetField(paymentattr.tag);
 
-  INTEGER pos := (SELECT AS INTEGER #payments + 1 FROM paymentdata.payments WHERE __paymentdata.u = paymenttok)-1;
-  IF(pos<0)
-    THROW NEW Exception(`Cannot find payment status '${paymenttok}' in entity #${paymententity->id}`);
+  GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymentdetails.paymententity);
+  TRY
+  {
+    OBJECT paymententity := paymenttype->GetEntity(paymentdetails.paymententity);
+    RECORD paymentdata := paymententity->GetField(paymentattr.tag);
 
-  paymentdata.payments[pos].__paymentdata.m := CELL[...paymentdata.payments[pos].__paymentdata.m, ...updatedata];
-  paymententity->UpdateEntity(CellInsert(CELL[], paymentattr.tag, paymentdata));
+    INTEGER pos := (SELECT AS INTEGER #payments + 1 FROM paymentdata.payments WHERE __paymentdata.u = paymenttok)-1;
+    IF(pos<0)
+      THROW NEW Exception(`Cannot find payment status '${paymenttok}' in entity #${paymententity->id}`);
+
+    paymentdata.payments[pos].__paymentdata.m := CELL[...paymentdata.payments[pos].__paymentdata.m, ...updatedata];
+    paymententity->UpdateEntity(CellInsert(CELL[], paymentattr.tag, paymentdata));
+    GetPrimary()->CommitWork();
+  }
+  FINALLY
+  {
+    IF(GetPrimary()->IsWorkOpen())
+      GetPrimary()->RollbackWork();
+  }
 }
 
 PUBLIC RECORD FUNCTION ReinstantiatePayment(STRING paymenttok)
@@ -73,4 +85,3 @@ PUBLIC RECORD FUNCTION ReinstantiatePaymentFromRecord(RECORD paymentdetails)
              , returnurl
              ];
 }
-

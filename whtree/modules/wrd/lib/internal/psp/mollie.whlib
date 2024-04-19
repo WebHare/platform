@@ -199,11 +199,9 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
 
     RECORD result := this->DoRequest("POST", "v2/payments", req);
 
-    GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ mollieid :=     result.id
                                       , status :=       result.status
                                       ]);
-    GetPrimary()->CommitWork();
     RETURN result._links.checkout.href;
   }
 

@@ -251,10 +251,8 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
 
     RECORD result := DoPayNLRequest(this->settings, "POST", "v13/Transaction/start/json", req);
 
-    GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ transactionid :=  result.transaction.transactionId
                                       ]);
-    GetPrimary()->CommitWork();
     RETURN result.transaction.paymentURL;
   }
 

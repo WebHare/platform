@@ -279,12 +279,10 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
 
     callresult.response := EnforceStructure( [ paymentkey := ""
                                              , services := RECORD[] ], callresult.response);
-    GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ transactionkey := callresult.response."key"
                                       , paymentkey := callresult.response.paymentkey
                                       , mandateid := Length(callresult.response.services) > 0 ? (SELECT AS STRING value FROM callresult.response.services[0].parameters WHERE ToUppercase(name) = "MANDATEID") : ""
                                       ]);
-    GetPrimary()->CommitWork();
 
     IF(RecordExists(callresult.response.requiredaction))
       result.submitinstruction := [ type := "redirect", url := callresult.response.requiredaction.redirecturl ];
