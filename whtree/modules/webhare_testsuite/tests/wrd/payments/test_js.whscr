@@ -245,7 +245,10 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   TestEq(TRUE, RecordExists(SELECT FROM wrd.pendingpayments WHERE uuid = paymentuuid AND nextcheck < MAX_DATETIME));
 
   DATETIME paymentstart := GetCurrentDatetime();
+  STRING paymentmetadata := pd2b->GetField("DATA").payments[0].__paymentdata.m.paymeta;
   CompleteWRDTestpayment(gotourl, "approved");
+  TestEq(paymentmetadata, pd2b->GetField("DATA").payments[0].__paymentdata.m.paymeta, "ProcessUpdatedPayment shouldn't be killing the payment metadata");
+
   //should also clear the planned next check
   TestEq(TRUE, RecordExists(SELECT FROM wrd.pendingpayments WHERE uuid = paymentuuid AND nextcheck = MAX_DATETIME));
 
@@ -790,7 +793,6 @@ ASYNC MACRO TestFailedPaymentSucceeding()
 
   //TestThrowsLike("*Invalid payment option*", PTR paymentapi->StartPayment(pd2b->id, 10.486m, [ paymentprovider := pm2->id ]));
   RECORD ARRAY opts := paymentapi->ListAllPaymentOptions();
-  DumpValue(opts);
 
   testfw->CommitWork();
 

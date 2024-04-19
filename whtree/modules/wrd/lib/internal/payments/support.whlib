@@ -123,6 +123,8 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
     IF(pos<0)
       THROW NEW Exception(`Cannot find payment status '${paymentobject->paymentuuid}' in entity #${paymententity->id}`);
 
+    // prevent us from losing metadata fields in this update. Meta should probably be a cleaner set-once-only keyvalue store serialized as separate DB rows instead of require updates of database rows
+    setstatus.payments[0].__paymentdata.m := CELL[...currentstatus.payments[pos].__paymentdata.m, ...setstatus.payments[0].__paymentdata.m];
     currentstatus.payments[pos] := setstatus.payments[0];
   }
 
