@@ -6,6 +6,7 @@ import type { Platform_BasewrdschemaSchemaType } from "@mod-system/js/internal/g
 import { WRDSchema } from "@webhare/wrd";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 
+//wellKnownRouter implements .well-known/openid-configuration
 export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   const target = await lookupPublishedTarget(req.url.toString()); //TODO can't we use 'obj' directly instead of going through a URL lookup?
   if (!target?.targetObject)
@@ -23,6 +24,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
 
   //Encode wrd:schema as /wrd/schema/ in the URL
   const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace('%3A', '/')}/`, req.baseURL).toString();
+  //See https://openid.net/specs/openid-connect-discovery-1_0.html for the basic field list
   return createJSONResponse(200, {
     issuer: settings.issuer,
     jwks_uri: oidc_baseurl + 'jwks',
@@ -32,6 +34,10 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     id_token_signing_alg_values_supported: ["RS256"],
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
     scopes_supported: ["openid", "email", "profile"],
+    //we many need to add various id_token/token combinations too? but they may only apply to implicit flows?
+    //see also https://openid.net/specs/oauth-v2-multiple-response-types-1_0.html
+    response_types_supported: ["code"],
+    subject_types_supported: ["public"]
   });
 
 }
