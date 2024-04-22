@@ -252,7 +252,7 @@ export async function processReturnURL(driver: string, configAsJSON: string, pay
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.processReturn(JSON.parse(paymeta), req, { isPush: isNotification });
+  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, req, { isPush: isNotification });
   return retval;
 }
 
@@ -261,6 +261,6 @@ export async function checkStatus(driver: string, configAsJSON: string, paymeta:
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.checkStatus(JSON.parse(paymeta));
+  const retval = await psp.checkStatus(paymeta ? JSON.parse(paymeta) : null);
   return retval;
 }

@@ -125,11 +125,8 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
     IF(paymentresult.paymentmetadata != "")
     {
       this->paymeta := paymentresult.paymentmetadata;
-      GetPrimary()->BeginWork();
       UpdatePaymentMetadata(paymenttok, [ paymeta := paymentresult.paymentmetadata
                                         ]);
-      GetPrimary()->CommitWork();
-
     }
 
     result.submitinstruction := paymentresult.navigateto;

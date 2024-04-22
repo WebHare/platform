@@ -313,21 +313,14 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     }
 
     RECORD mspresult := DecodeJSONBlob(browser->content);
-    GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ mspresult := mspresult
                                       ]);
-    GetPrimary()->CommitWork();
     IF(NOT mspresult.success)
     {
       this->pvt_status := "failed";
       result.processnow := TRUE;
       RETURN result;
     }
-
-    //GetPrimary()->BeginWork();
-    //UpdatePaymentMetadata(paymenttok, [ transaction_id := result.data.transaction_id
-    //                                  ]);
-    //GetPrimary()->CommitWork();
 
     result.submitinstruction := [ type := "redirect", url := mspresult.data.payment_url ];
     RETURN result;

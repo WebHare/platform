@@ -124,13 +124,6 @@ export interface OpenIdRequestParameters {
   /// ID of the WRD user that has authenticated
   user: number;
 }
-/** @deprecated replaced by OpenIdRequestParameters */
-export interface onCreateJWTParameters { //LEGACY  will be removed
-  /// ID of the client requesting the token. If null, we're creating a ID token for ourselves (WRDAuth login)
-  client: number | null;
-  /// ID of the WRD user that has authenticated
-  user: number;
-}
 
 export type JWTPayload = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- like JwtPayload did. At most we could pick a JSON-Serializable type?
@@ -195,8 +188,6 @@ export interface WRDAuthCustomizer {
   lookupUsername?: (params: LookupUsernameParameters) => Promise<number | null> | number | null;
   /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
   onOpenIdReturn?: (params: OpenIdRequestParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
-  /*** @deprecated Switch to onCreateIDToken*/
-  onCreateJWT?: (params: onCreateJWTParameters, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when creating an OpenID Token for a third party. Allows you to add or modify claims before it's signed */
   onOpenIdToken?: (params: OpenIdRequestParameters, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
@@ -432,8 +423,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       const payload = preparePayload(subjectValue, creationdate, validuntil, { audiences: [compressUUID(clientInfo?.wrdGuid)] });
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
-      if (customizer?.onCreateJWT)
-        await customizer.onCreateJWT({ user: subject, client }, payload as JWTPayload);
       if (customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
         await customizer.onOpenIdToken({ user: subject, scopes, client }, payload as JWTPayload);
 
