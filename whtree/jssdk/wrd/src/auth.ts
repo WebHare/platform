@@ -29,6 +29,7 @@ export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
 
 type TokenResponse = {
   access_token: string;
+  token_type: "Bearer";
   id_token?: string;
   expires_in: number;
 };
@@ -51,6 +52,7 @@ declare module "@webhare/services" {
       clientid: number;
       scopes: string[];
       state: string | null;
+      nonce: string | null;
       cbUrl: string;
       /** User id to set */
       user?: number;
@@ -201,6 +203,7 @@ export interface JWKS {
 export interface JWTCreationOptions {
   scopes?: string[];
   audiences?: string[];
+  nonce?: string | null;
 }
 
 export interface JWTVerificationOptions {
@@ -279,6 +282,8 @@ function preparePayload(subject: string, created: Date | null, validuntil: Date 
     payload.scope = options.scopes.join(" ");
   if (options?.audiences?.length)
     payload.aud = options.audiences.length === 1 ? options.audiences[0] : options.audiences;
+  if (typeof options?.nonce === "string")
+    payload.nonce = options.nonce;
 
   return payload;
 }
@@ -399,7 +404,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        password reset as a way to clear tokens)
   */
 
-  private async createTokens(subject: number, client: number | null, expires: WaitPeriod, scopes: string[], closeSessionId: string | null, customizer: WRDAuthCustomizer | null) {
+  private async createTokens(subject: number, client: number | null, expires: WaitPeriod, scopes: string[], closeSessionId: string | null, nonce: string | null, customizer: WRDAuthCustomizer | null) {
     let clientInfo;
     if (client !== null) {
       clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
@@ -420,7 +425,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     //ID tokens are only generated for 3rd party clients requesting an openid scope. They shouldn't be providing access to APIs and cannot be retracted by us (so we won't store them)
     let id_token: string | undefined;
     if (client && clientInfo && scopes.includes("openid")) {
-      const payload = preparePayload(subjectValue, creationdate, validuntil, { audiences: [compressUUID(clientInfo?.wrdGuid)] });
+      const payload = preparePayload(subjectValue, creationdate, validuntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
@@ -537,6 +542,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const scopes = url.searchParams.get("scope")?.split(" ") || [];
     const redirect_uri = url.searchParams.get("redirect_uri") || '';
     const state = url.searchParams.get("state") || null;
+    const nonce = url.searchParams.get("nonce") || null;
 
     const client = await this.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
     if (client.length !== 1)
@@ -546,7 +552,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: "Unauthorized callback URL " + redirect_uri };
 
     const returnInfo = await runInWork(() => createSession("wrd:openid.idpstate",
-      { clientid: client[0].wrdId, scopes: scopes || [], state: state, cbUrl: redirect_uri }));
+      { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, cbUrl: redirect_uri }));
 
     const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
 
@@ -642,12 +648,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: "Invalid or expired code" };
 
     const expires = this.config.expires || "P1D";
-    const tokens = await this.createTokens(returnInfo.user, returnInfo.clientid, expires, returnInfo.scopes, sessionid, customizer);
+    const tokens = await this.createTokens(returnInfo.user, returnInfo.clientid, expires, returnInfo.scopes, sessionid, returnInfo.nonce, customizer);
     return {
       error: null,
       body: {
         id_token: tokens.id_token,
         access_token: tokens.access_token,
+        token_type: "Bearer",
         expires_in: Math.floor(tokens.expires - (Date.now() / 1000)),
       }
     };
@@ -656,7 +663,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   /** Create an access token for WRD's local use */
   async createFirstPartyToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ accessToken: string; expires: Date }> {
     //FIXME adopt expiry settings from HS WRDAuth
-    const tokens = await this.createTokens(userid, null, "P1D", [], null, customizer);
+    const tokens = await this.createTokens(userid, null, "P1D", [], null, null, customizer);
     return {
       accessToken: tokens.access_token,
       expires: new Date(tokens.expires * 1000)

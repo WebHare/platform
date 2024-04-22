@@ -3,7 +3,7 @@ import { HSVMObject, loadlib, makeObject } from "@webhare/harescript";
 import { toResourcePath } from "@webhare/services/src/resources";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
-import { Issuer } from 'openid-client';
+import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type PuppeteerBrowser } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
@@ -155,6 +155,7 @@ async function verifyOpenIDClient() {
   const params = client.callbackParams(finalurl);
 
   const tokenSet = await client.callback(callbackUrl, params); // , { code_verifier });
+  test.eq("Bearer", tokenSet.token_type);
   // console.log('received and validated tokens %j', tokenSet);
   // console.log('validated ID Token claims %j', tokenSet.claims());
 
@@ -165,6 +166,19 @@ async function verifyOpenIDClient() {
   const userinfo = await client.userinfo(tokenSet.access_token!);
 
   test.eqPartial({ "sub": "Sysop", "name": "Sysop McTestsuite", "given_name": "Sysop", "family_name": "McTestsuite", answer: 43 }, userinfo);
+
+  //Now with a nonce
+  const nonce = generators.nonce();
+  const authorizeurl2 = client.authorizationUrl({
+    scope: 'openid email',
+    nonce
+  });
+
+  const finalurl2 = await runAuthorizeFlow(authorizeurl2);
+  const params2 = client.callbackParams(finalurl2);
+
+  const tokenSet2 = await client.callback(callbackUrl, params2, { nonce });
+  test.eq("Sysop", tokenSet2.claims().sub);
 }
 
 test.run([
