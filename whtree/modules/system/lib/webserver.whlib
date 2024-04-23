@@ -16,6 +16,7 @@ LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -638,6 +639,9 @@ PUBLIC MACRO CloseWebSession(STRING sessid, STRING scope)
     toinvoke();
   ELSE
     RunInSeparatePrimary(toinvoke);
+
+  IF(scope = "platform:uploadsession")
+    DeleteDiskDirectoryRecursive(GetModuleStorageRoot("platform") || "uploads/" || sessid);
 }
 
 MACRO InTrans_CloseWebSession(STRING sessid, STRING scope)

@@ -10,6 +10,8 @@ import { SingleFileUploader, type UploadInstructions } from "@webhare/frontend/s
 import { createUploadSession, getUploadedFile } from "@webhare/services";
 import { buffer } from "node:stream/consumers";
 import { Money } from "@webhare/std";
+import { existsSync } from "fs";
+import { getStorageFolderForSession } from "@webhare/services/src/sessions";
 
 
 declare module "@webhare/services" {
@@ -102,14 +104,46 @@ async function testUpload() {
   test.assert(fileInJS.stream, "File has a stream");
   test.eq(uploadText, (await buffer(fileInJS.stream)).toString());
 
+  //Note that we can find the storage on disk
+  test.eq(true, existsSync(getStorageFolderForSession(howToUpload.sessionId)));
+
+  //Cleanup the session
+  await runInWork(() => services.closeSession(howToUpload.sessionId));
+
+  //Storage should be gone eventually (the cleanup is async in JS)
+  await test.wait(() => !existsSync(getStorageFolderForSession(howToUpload.sessionId)));
+}
+
+async function testUploadHSCompat() {
+  const uploadText = "This is another test!".repeat(4096);
+  const uploader = new SingleFileUploader(new File([uploadText], "text.txt", { type: "text/plain" }));
+
+  await beginWork();
+  const howToUpload = await createUploadSession(uploader.manifest, { chunkSize: 555 }) satisfies UploadInstructions;
+  await commitWork();
+
+  //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install
+  howToUpload.baseUrl = new URL(howToUpload.baseUrl, services.backendConfig.backendURL).href;
+  const uploadResult = await uploader.upload(howToUpload);
+
   //Retrieve the file using HS
   const fileInHS = await loadlib("mod::system/lib/webserver.whlib").GetUploadedFile(uploadResult.token);
   test.eqPartial({ filename: "text.txt", mimetype: "text/plain" }, fileInHS);
   test.eq(uploadText, (await loadlib("wh::files.whlib").BlobToString(fileInHS.data)).toString());
+
+  //Note that we can find the storage on disk
+  test.eq(true, existsSync(getStorageFolderForSession(howToUpload.sessionId)));
+
+  //Cleanup the session using HS
+  await loadlib("mod::system/lib/webserver.whlib").CloseWebSession(howToUpload.sessionId, "platform:uploadsession");
+
+  //Storage should be gone immediately (the cleanup is sync in HS)
+  test.assert(!existsSync(getStorageFolderForSession(howToUpload.sessionId)));
 }
 
 test.run(
   [
     testSessionStorage,
-    testUpload
+    testUpload,
+    testUploadHSCompat
   ]);
