@@ -8,7 +8,7 @@ import { toElement, type CastableToElement } from "dompack/testframework/pointer
 import { getCurrentScreen, getTestScreen } from "./testframework";
 
 import * as test from "@webhare/test-frontend";
-import { qSA } from "@webhare/dompack";
+import { changeValue, isFormControl, qSA } from "@webhare/dompack";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
@@ -33,6 +33,26 @@ class ComponentProxy implements CastableToElement {
       return this.node.querySelector("textarea")!.value;
 
     throw new Error(`Don't know how to getTextValue from node '${this.node.dataset.name}'`);
+  }
+
+  /** Set a value, allowing events to trigger */
+  set(value: unknown) {
+    if (isFormControl(this.node)) {
+      if (this.node.matches("input[type=checkbox]")) {
+        if (typeof value !== "boolean")
+          throw new Error(`Checkbox input '${this.node.dataset.name}' expects a boolean value`);
+
+        if ((this.node as HTMLInputElement).checked !== value) {
+          this.node.focus();
+          changeValue(this.node, value);
+        } else {
+          console.warn("Checkbox", this.node, "already has the value", value);
+        }
+        return;
+      }
+
+      throw new Error(`Don't know how to set() for node '${this.node.dataset.name}'`);
+    }
   }
 
   ////////////////////////////

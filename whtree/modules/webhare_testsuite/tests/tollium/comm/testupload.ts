@@ -18,6 +18,16 @@ test.run([
       filename: "portrait_8.jpg"
     }, getResult());
 
+    tt.comp("opendialog").set(true);
+    test.prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
+    test.click(await test.waitForElement(['button', /Upload single/]));
+    await test.waitForUI();
+
+    test.click(await test.waitForElement(['button', /OK/]));
+    await test.waitForUI();
+
+    tt.comp("opendialog").set(false);
+
     const droptarget = tt.comp("uploadlist");
     test.startExternalFileDrag(await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg'));
 
