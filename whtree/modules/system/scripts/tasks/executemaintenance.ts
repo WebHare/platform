@@ -26,8 +26,8 @@ async function cleanupOldUploads() {
   if (currentuploads.length === 0)
     return; //nothing to do
 
-  const uploadsessions = new Set(
-    ...(await db<PlatformDB>().selectFrom("system.sessions").select(["sessionid"]).where("scope", "=", "platform:uploadsession").execute()).map(_ => _.sessionid));
+  const uploadsessionids = await db<PlatformDB>().selectFrom("system.sessions").select(["sessionid"]).where("scope", "=", "platform:uploadsession").execute();
+  const uploadsessions = new Set(uploadsessionids.map(_ => _.sessionid));
   for (const session of currentuploads)
     if (!uploadsessions.has(session))
       await deleteRecursive(`${basedir}/${session}`, { deleteSelf: true });
