@@ -13,6 +13,7 @@ import { RichDocument, __RichDocumentInternal } from "@webhare/services/src/rich
 import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb/src/whdb";
+import { WebHareBlob } from "@webhare/services";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -1682,9 +1683,8 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
       dbLoc: { source: 3, id: val.id, cc }
     };
 
-    return val.blobdata
-      ? new ResourceDescriptor(val.blobdata, meta)
-      : null;
+    const blob = val.blobdata ?? WebHareBlob.from("");
+    return new ResourceDescriptor(blob, meta);
   }
 
   validateInput(value: ResourceDescriptor | null | { data: Buffer }): void {
