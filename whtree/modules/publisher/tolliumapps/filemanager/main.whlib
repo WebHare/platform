@@ -1836,6 +1836,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     targetfolder := targetfolder ?? ^foldertree->value;
 
     INTEGER ARRAY uploadedfiles := DoFilemanagerUpload(this, targetfolder, files);
+    this->tolliumcontroller->CloseUploadFor(files[0]);
     IF(Length(uploadedfiles)=0)
       RETURN;
 
