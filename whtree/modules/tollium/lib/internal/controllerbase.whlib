@@ -2163,6 +2163,15 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
     this->TransmitAnyPendingData();
   }
+  /** Abandon an upload session
+      @param file_or_dragdata File that was part of an upoad sesion */
+  PUBLIC MACRO CloseUploadFor(RECORD file_or_dragdata)
+  {
+    IF(CellExists(file_or_dragdata,'__uploadsession'))
+      CloseWebSession(file_or_dragdata.__uploadsession, "platform:uploadsession");
+    ELSE
+      THROW NEW Exception(`Argument passed to CloseUploadFor is not an uploaded or dropped file`);
+  }
   MACRO LaunchTheApplication(STRING apppath, RECORD data)
   {
     BOOLEAN errorhandled; // sysop-only warning given so no need to give a generic applaunchfailure message?

@@ -67,7 +67,8 @@ PUBLIC OBJECTTYPE TolliumFileDropAccepter
         ...WrapBlob(uploadedfile.data, CellExists(item,'name') ? item.name : uploadedfile.filename),
         type := "file" ,
         extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD,
-        fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
+        fullpath := CellExists(item,"fullpath") ? item.fullpath : "",
+        __uploadsession := Tokenize(item.token,'#')[0]
       ];
 
       IF(NOT DoAntiVirusCheck(this->owner, uploaded))
