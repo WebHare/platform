@@ -82,6 +82,8 @@ PUBLIC OBJECTTYPE TolliumFileDropAccepter
 
   RECORD FUNCTION OnRequestCanUpload(RECORD manifest)
   {
-    RETURN CallJS("@mod-tollium/js/internal/tolliumcalls.ts#createUploadSession", manifest);
+    RECORD uploadsession := CallJS("@mod-tollium/js/internal/tolliumcalls.ts#createUploadSession", manifest);
+    INSERT uploadsession.session_id INTO this->contexts->controller->__uploadsessions AT END;
+    RETURN uploadsession;
   }
 >;

@@ -656,7 +656,7 @@ MACRO InTrans_CloseWebSession(STRING sessid, STRING scope)
     DELETE FROM system_internal.sessions WHERE COLUMN id = sess.id;
     GetPrimary()->CommitWork();
 
-    IF(NOT IsWasm())
+    IF(NOT IsWasm() AND IsRequest()) // IsRequest: so tollium apps can get rid of their JS upload sessions. They're not actually stored in __WHS anyway
       __WHS_CloseWebSession(sessid, scope);
   }
   FINALLY

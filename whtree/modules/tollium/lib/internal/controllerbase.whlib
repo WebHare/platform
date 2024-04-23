@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
@@ -1416,6 +1417,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
   RECORD __startupoptions;
 
+  PUBLIC STRING ARRAY __uploadsessions;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -2152,6 +2155,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
     TRY this->LaunchTheApplication(appname, data);
     FINALLY this->currentapplication := previousapplication;
+
+    //Cleanup uncleaned upload session. Note that even if we forget, executemaintenance.ts will eventually pick them up
+    FOREVERY(STRING uploadsession FROM this->__uploadsessions)
+      CloseWebSession(uploadsession, "platform:uploadsession");
+    this->__uploadsessions := STRING[];
 
     this->TransmitAnyPendingData();
   }
