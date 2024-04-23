@@ -436,10 +436,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   PUBLIC MACRO DoToggleLinks()
   {
-    BOOLEAN linksvisible := this->linksbox->visible;
+    BOOLEAN linksvisible := ^linksbox->visible;
 
-    this->linksbox->visible := NOT linksvisible;
-    this->togglelinksbtn->pressed := NOT linksvisible;
+    ^linksbox->visible := NOT linksvisible;
+    ^togglelinksbtn->pressed := NOT linksvisible;
+    this->ReloadLinks();
   }
 
   MACRO DoToggleDataViewer()
@@ -725,7 +726,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO ReloadLinks()
   {
-    IF (this->current_entity = 0)
+    IF (this->current_entity = 0 OR NOT ^linksbox->visible)
     {
       ^links->rows := DEFAULT RECORD ARRAY;
       RETURN;
@@ -753,14 +754,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         INTEGER linked_object_id;
         IF(NOT link_to_us AND link_from_us)
         {
-          RECORD x := this->current_type->GetEntityFields(this->current_entity, [STRING(attr.tag)]);
-          IF(NOT RecordExists(x))
-          {
-            // Current entity has been deleted.
-            ^links->rows := DEFAULT RECORD ARRAY;
-            RETURN;
-          }
-          linked_object_id := GetCell(x, attr.tag);
+          linked_object_id := this->current_type->GetEntityField(this->current_entity, attr.tag);
           IF(linked_object_id = 0)
             CONTINUE;
         }
@@ -810,11 +804,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
 
     this->links->rows := rows;
-
-    INTEGER nr_links:= LENGTH(rows);
-    this->linkcount->visible:= TRUE;
-    this->linkcount->value := ToString(nr_links);
-
+    ^linksbox->title := `${this->GetTid(".links")} (${Length(rows)})`;
   }
 
   PUBLIC MACRO DoFollowLink()

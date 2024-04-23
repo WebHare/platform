@@ -184,10 +184,9 @@
                     <cell layout="left" width="1pr"><text name="entityid" selectable="true" /></cell>
                   </row>
                 </grid>
-                <text name="linkcount" visible="false" action="togglelinks"/>
               </box>
 
-              <box tid=".links" height="1pr" name="linksbox" visible="false" >
+              <box tid=".links" height="1pr" name="linksbox" visible="false" hr="false">
                 <panel spacers="right bottom" height="1pr">
                   <grid height="1pr" >
                     <col width="1pr" />
