@@ -383,7 +383,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
                                                AND isactive) INTO newphoto;
       }
       IF (CellExists(extradata, "REFPOINT"))
-        INSERT CELL refpoint := extradata.refpoint INTO newphoto;
+        newphoto := CELL[...newphoto, refpoint := extradata.refpoint ];
       DELETE CELL extradata FROM newphoto;
     }
 

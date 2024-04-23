@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -61,15 +62,13 @@ PUBLIC OBJECTTYPE TolliumFileDropAccepter
         CONTINUE;
       }
 
-      RECORD uploaded := GetUploadedFile(item.token);
-
-      INSERT CELL type := "file" INTO uploaded;
-      IF (CellExists(item, "name"))
-        uploaded.filename := item.name;
-
-      INSERT CELL extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD
-                , fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
-              INTO uploaded;
+      RECORD uploadedfile := GetUploadedFile(item.token);
+      RECORD uploaded := CELL[
+        ...WrapBlob(uploadedfile.data, CellExists(item,'name') ? item.name : uploadedfile.filename),
+        type := "file" ,
+        extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD,
+        fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
+      ];
 
       IF(NOT DoAntiVirusCheck(this->owner, uploaded))
         RETURN CELL[...msgdata, items := RECORD[] ]; //make it look like an empty upload to properly cancel it
