@@ -8,6 +8,7 @@
     <body >
       <line layout="left">
         <button action="uploadsingle" />
+        <checkbox title="" name="opendialog" label="Dialog after upload" />
       </line>
       <list name="uploadlist">
         <acceptdrops ondrop="ondrop">

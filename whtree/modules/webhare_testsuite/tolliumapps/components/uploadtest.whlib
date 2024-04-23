@@ -7,11 +7,17 @@ PUBLIC STATIC OBJECTTYPE UploadTest EXTEND TolliumScreenBase <
   MACRO OnUpload(RECORD file)
   {
     ^result->value := EncodeJSON(CELL[...file, DELETE data, datasize := Length64(file.data)]);
+    IF(^opendialog->value)
+      this->RunSimpleScreen("info","File uploaded");
+    this->tolliumcontroller->CloseUploadFor(file);
   }
   MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
   {
     ^result->value := EncodeJSON(
       SELECT *, DELETE data, datasize := Length64(data) FROM dragdata.items
       );
+    IF(^opendialog->value)
+      this->RunSimpleScreen("info","File dropped");
+    this->tolliumcontroller->CloseUploadFor(dragdata);
   }
 >;

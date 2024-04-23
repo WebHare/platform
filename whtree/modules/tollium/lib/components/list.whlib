@@ -2211,7 +2211,11 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         // FIXME: noloops serverside check
         RECORD dropdata := this->VerifyDrop(this->pvt_acceptdrops, msgdata, droptarget, this->pvt_flags);
         IF (RecordExists(dropdata) AND this->pvt_acceptdrops.ondrop != DEFAULT FUNCTION PTR)
-          this->pvt_acceptdrops.ondrop([ items := dropdata.items ], droptarget, msgdata.droplocation, msgdata.dropeffect);
+          this->pvt_acceptdrops.ondrop([
+            items := dropdata.items,
+            __uploadsession := CellExists(dropdata.items[0], '__uploadsession') ? dropdata.items[0].__uploadsession : ""
+            ],
+            droptarget, msgdata.droplocation, msgdata.dropeffect);
       }
 
       CASE "sortorder"

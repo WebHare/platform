@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::javascript.whlib";
 
@@ -825,6 +826,7 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
 
     //ADDME how to select the rule properly?
     this->OnRequestUpload(CELL[ rule := 0, items ]);
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME); //Flush microtasks which complete the actual upload (TODO how to do this properly)
   }
 
   ASYNC MACRO OnRequestUpload(RECORD msgdata)
@@ -834,6 +836,11 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
       RETURN;
 
     RECORD ARRAY files := this->ProcessUpload(msgdata).items;
+    ScheduleMicroTask(PTR this->CompleteUpload(files, handler));
+  }
+
+  MACRO CompleteUpload(RECORD ARRAY files, MACRO PTR handler)
+  {
     IF (LENGTH(this->pvt_mimetypes) != 0)
     {
       RECORD ARRAY orgfiles := files;

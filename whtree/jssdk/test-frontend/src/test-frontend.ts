@@ -21,14 +21,14 @@ export async function waitForLoad(): Promise<void> {
   await oldWait("load");
 }
 
-export async function fetchAsFile(url: string): Promise<File> {
+export async function fetchAsFile(url: string, options?: { overrideContentType?: string }): Promise<File> {
   const fetchresult = await fetch(url);
   if (!fetchresult.ok)
     throw new Error(`Failed to fetch ${url}: ${fetchresult.statusText}`);
 
   return new File([await fetchresult.blob()],
     url.split("/").pop() || "file.dat",
-    { type: fetchresult.headers.get("Content-Type") || "application/octet-stream" });
+    { type: options?.overrideContentType || fetchresult.headers.get("Content-Type") || "application/octet-stream" });
 }
 
 /** Prepare files for the next \@webhare/frontend upload request

@@ -59,7 +59,7 @@ export function qSA<E extends Element>(node_or_selector: ParentNode | string, se
 
 /** Return whether the passed element is a FormControlElement */
 export function isFormControl(field: Element): field is FormControlElement {
-  return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement;
+  return isHTMLElement(field) && ["INPUT", "SELECT", "TEXTAREA"].includes(field.tagName);
 }
 
 /** Test whether node is an Element, even if it's in a different iframe */

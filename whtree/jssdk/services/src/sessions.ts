@@ -1,7 +1,7 @@
 import { generateRandomId } from "@webhare/std/platformbased";
 import { SessionScopes, WebHareBlob, toFSPath } from "./services";
 import { convertWaitPeriodToDate, parseTyped, stringify, type WaitPeriod } from "@webhare/std";
-import { db, isWorkOpen, uploadBlob } from "@webhare/whdb";
+import { db, isWorkOpen, onFinishWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import type { UploadInstructions, UploadManifest } from "@webhare/frontend/src/upload";
 import * as fs from "node:fs/promises";
@@ -98,7 +98,14 @@ export async function updateSession<S extends string>(scope: S, sessionId: strin
 export async function closeSession(sessionId: string) {
   if (!isWorkOpen())
     throw new Error(`Can only manage sessions inside open work`);
-  await db<PlatformDB>().deleteFrom("system.sessions").where("sessionid", "=", sessionId).execute();
+
+  const sessinfo = await db<PlatformDB>().selectFrom("system.sessions").select(["id", "scope"]).where("sessionid", "=", sessionId).executeTakeFirst();
+  if (!sessinfo)
+    return; //already gone
+
+  await db<PlatformDB>().deleteFrom("system.sessions").where("id", "=", sessinfo.id).execute();
+  if (sessinfo.scope === "platform:uploadsession") //asynchronously delete the upload data dir. ignore exceptions, if files are stuck maintenance  will fix it at some point
+    onFinishWork({ onCommit: () => fs.rm(getStorageFolderForSession(sessionId), { recursive: true }).then(() => { }, () => { }) });
 }
 
 export interface UploadSessionOptions {
@@ -156,6 +163,10 @@ function getUploadedStream(basePath: string, size: number, chunkSize: number): R
   });
 }
 
+export function getStorageFolderForSession(sessionId: string): string {
+  return toFSPath(`storage::platform/uploads/${sessionId}/`);
+}
+
 // Get uploaded file disk details - shared with the HS implementation
 export async function getUploadedFileDetails(token: string) {
   const [sessionId, fileIndexStr] = token.split("#");
@@ -169,7 +180,7 @@ export async function getUploadedFileDetails(token: string) {
     fileName: matchfile.name,
     size: matchfile.size,
     mediaType: matchfile.type,
-    basePath: toFSPath(`storage::platform/uploads/${sessionId}/file-${fileIndex}-`),
+    basePath: `${getStorageFolderForSession(sessionId)}file-${fileIndex}-`,
     chunkSize: matchsession.chunkSize
   };
 }

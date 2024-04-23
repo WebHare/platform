@@ -63,7 +63,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
   {
-    this->OnImport(WrapBlob(dragdata.items[0].data, dragdata.items[0].filename));
+    this->RunImport(dragdata.items[0]);
+    this->tolliumcontroller->CloseUploadFor(dragdata.items[0]);
   }
 
   MACRO GotSchemaListUpdate(RECORD ARRAY events)
@@ -134,7 +135,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     work->Finish();
   }
 
-  MACRO OnImport(RECORD infile)
+  MACRO OnImport(RECORD uploadedfile)
+  {
+    this->RunImport(uploadedfile);
+    this->tolliumcontroller->CloseUploadFor(uploadedfile);
+  }
+
+  MACRO RunImport(RECORD infile)
   {
     OBJECT screen := this->LoadScreen(".importschema", [ infile := infile ]);
     screen->RunModal();
