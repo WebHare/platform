@@ -1,3 +1,13 @@
+/** Rect describing an elements position */
+export type Rect = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width: number;
+  height: number;
+};
+
 /** Elements you can set a value on and would have to trigger change and/or input events */
 export type FormControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -78,4 +88,26 @@ export function isElement(node: unknown): node is Element {
 /** Test whether node is a HTMLElement, even if it's in a different iframe */
 export function isHTMLElement(node: unknown): node is HTMLElement {
   return isElement(node) && "accessKey" in node;
+}
+
+/**
+ * get the relative bound difference between two elements, and return a writable copy
+ *
+ * @param node - The node for which you need coordinates
+ * @param relativeto - Optional reference point. If not set, you just get a 'normal' coordinate object
+ */
+export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
+  if (!relativeto)
+    relativeto = node.ownerDocument.documentElement;
+
+  const nodecoords = node.getBoundingClientRect();
+  const relcoords = relativeto.getBoundingClientRect();
+  return {
+    top: nodecoords.top - relcoords.top,
+    left: nodecoords.left - relcoords.left,
+    right: nodecoords.right - relcoords.left,
+    bottom: nodecoords.bottom - relcoords.top,
+    width: nodecoords.width,
+    height: nodecoords.height
+  };
 }

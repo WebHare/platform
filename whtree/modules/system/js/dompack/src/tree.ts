@@ -9,17 +9,6 @@ const IS_NON_DIMENSIONAL = /acit|ex(?:s|g|n|p|$)|rph|ows|mnc|ntw|ine[ch]|zoo|^or
 
 export { qS, qSA } from '@webhare/dompack';
 
-export type Rect =
-  {
-    top: number;
-    bottom: number;
-    left: number;
-    right: number;
-    width: number;
-    height: number;
-    node?: HTMLElement;
-  };
-
 function generateInsertList(nodes: Array<string | Node>) {
   if (nodes.length === 1)
     return typeof nodes[0] === 'string' ? document.createTextNode(nodes[0]) : nodes[0];
@@ -158,28 +147,6 @@ export function empty(node: Element) {
   //TODO: Warn about out-of-date browser?
   while (node.lastChild)
     node.removeChild(node.lastChild);
-}
-
-/**
- * get the relative bound difference between two elements, and return a writable copy
- *
- * @param node - The node for which you need coordinates
- * @param relativeto - Optional reference point. If not set, you just get a 'normal' coordinate object
- */
-export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
-  if (!relativeto)
-    relativeto = node.ownerDocument.documentElement;
-
-  const nodecoords = node.getBoundingClientRect();
-  const relcoords = relativeto.getBoundingClientRect();
-  return {
-    top: nodecoords.top - relcoords.top,
-    left: nodecoords.left - relcoords.left,
-    right: nodecoords.right - relcoords.left,
-    bottom: nodecoords.bottom - relcoords.top,
-    width: nodecoords.width,
-    height: nodecoords.height
-  };
 }
 
 export function isDomReady() {
