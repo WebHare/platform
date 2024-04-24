@@ -933,6 +933,7 @@ IF(parsedargs.outputdir != "")
                         , time := FormatFloat(time_msecs / 1000f, 3)
                         , failures
                      FROM alltests
+                    WHERE id NOT LIKE "wh.hscore.test.*" //these tests cheat with their lacking xfails. banning them from junit.xml
     ]);
   StoreDiskFile(MergePath(parsedargs.outputdir, "junit.xml"), result, [ overwrite := TRUE ]);
   Print(`Written junit report to ${MergePath(parsedargs.outputdir, "junit.xml")}\n`);

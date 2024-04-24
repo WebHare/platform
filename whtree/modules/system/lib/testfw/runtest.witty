@@ -1,5 +1,6 @@
 [!
-https://www.ibm.com/docs/en/developer-for-zos/16.0?topic=formats-junit-xml-format
+https://github.com/testmoapp/junitxml
+https://docs.gitlab.com/ee/ci/testing/unit_test_reports.html
 !]
 
 [component junitxml]<?xml version="1.0" encoding="UTF-8" ?>
