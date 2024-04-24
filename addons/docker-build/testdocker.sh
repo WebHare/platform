@@ -288,6 +288,9 @@ if [ -n "$ISMODULETEST" ]; then
   fi
 fi
 
+# Reference to the module being tested, 'platform' when we're testing WebHare's core (allows us to share code between module and core test as some scripts accept 'platform' as a module name)
+TESTINGMODULEREF="${TESTINGMODULENAME:-platform}"
+
 if [ "$COVERAGE" == "1" ]; then
   WEBHARE_DEBUG="cov,$WEBHARE_DEBUG"
 elif [ "$PROFILE" == "1" ]; then
@@ -649,6 +652,7 @@ if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartd
   FATALERROR=1
 fi
 
+
 if is_atleast_version 5.0.0; then
   echo "$(date) container1 poststartdone, look for errors"
   if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
@@ -683,17 +687,21 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   fi
 fi
 
-if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
+
+if [ -z "$FATALERROR" ]; then
   if [ -z "$NOCHECKMODULE" ] ; then
     echo "$(date) Starting global module tests (use --nocheckmodule in all but one step to skip this to speed up parallelized CIs)"
     # assetpack compiles are much more complex and may rely on siteprofiles etc working, so it's best to find any validation errors first.
     # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
-    echo "$(date) Check module"
-    CHECKMODULEOPTS=""
+    echo "$(date) Check module $TESTINGMODULEREF"
+    CHECKMODULEOPTS=()
     if is_atleast_version 5.2.0-dev ; then
-      CHECKMODULEOPTS="--hidehints"
+      CHECKMODULEOPTS+=(--hidehints)
     fi
-    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule $CHECKMODULEOPTS --color "$TESTINGMODULENAME" ; then
+    if is_atleast_version 5.5.0-dev ; then
+      CHECKMODULEOPTS+=(--async)
+    fi
+    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule "${CHECKMODULEOPTS[@]}" --color "$TESTINGMODULEREF" ; then
       testfail "wh checkmodule failed"
     fi
 
@@ -701,7 +709,16 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
     if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkwebhare ; then
       testfail "wh checkwebhare failed"
     fi
-  fi
+
+    if is_atleast_version 5.5.0; then
+      echo "$(date) Audit module $TESTINGMODULEREF"
+      RunDocker exec "$TESTENV_CONTAINER1" mkdir /output/ # it doesn't exist yet (runtest.whscr would otherwise create it?)
+      if ! RunDocker exec "$TESTENV_CONTAINER1" wh platform:auditmodule --outputfile /output/auditmodule.json "$TESTINGMODULEREF" ; then
+        testfail "Module audit failed"
+        FATALERROR=1
+      fi
+    fi
+  fi # ends --nocheckmodule not set
 
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
@@ -782,7 +799,7 @@ fi
 mkdir -p $ARTIFACTS/whdata
 $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
 $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml | tar -x -C $ARTIFACTS/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml auditmodule.json | tar -x -C $ARTIFACTS/
 $SUDO docker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
 
 if [ -n "$TESTFW_EXPORTMODULE" ]; then

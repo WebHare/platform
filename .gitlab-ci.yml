@@ -64,7 +64,7 @@ builddocker-scheduled:
 testbaselibs:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external baselibs
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external baselibs
 
 testmodules:
   stage: test
@@ -74,100 +74,100 @@ testmodules:
 testversioning:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external publisher-versioning
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external publisher-versioning
 
 testpublisher:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external,-forms publisher
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external,-forms publisher
 
 testpublisher-forms:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=forms publisher
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=forms publisher
 
 testsystem:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external,-nodejs system
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external,-nodejs system
 
 testsystem_nodejs:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external,nodejs system
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external,nodejs system
 
 testwebdesign:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external publisher-webdesign
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external publisher-webdesign
 
 testdatabase:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.database
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.database
 
 testtollium:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external tollium
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external tollium
 
 testconsilio:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external consilio
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external consilio
 
 testcore:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external --generatexmltests wh.hscore
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external --generatexmltests wh.hscore
 
 testwebserver:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.webserver
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.webserver
 
 testsocialite:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external socialite
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external socialite
 
 testwrd:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wrd
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wrd
 
 testjscomponents:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.jscomponents
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.jscomponents
 
 testexternal:
   stage: test
   allow_failure: true
   script:
-    - addons/docker-build/testdocker.sh --tag=external
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=external
 
 testsftp:
   stage: test
   allow_failure: true
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.sftp
+    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.sftp
 
 testtwohares:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
+    - addons/docker-build/testdocker.sh --nocheckmodule --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
 
 testbackuprestore:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
+    - addons/docker-build/testdocker.sh --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
 
 calculatecoverage:
   stage: test
   when: manual
   script:
-    - addons/docker-build/testdocker.sh --coverage --generatexmltests
+    - addons/docker-build/testdocker.sh --nocheckmodule --coverage --generatexmltests
 
 deploydocker:
   stage: deploy
