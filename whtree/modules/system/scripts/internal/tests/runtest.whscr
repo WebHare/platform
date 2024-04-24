@@ -1,10 +1,12 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/jobs.whlib";
@@ -50,6 +52,7 @@ STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
 RECORD parsedargs;
 
+DATETIME teststart := GetCurrentDateTime();
 BOOLEAN interrupted;
 RECORD interruptdefer := CreateDeferredPromise();
 MACRO AbortTests()
@@ -112,17 +115,25 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       [ status :=       "none"
       , failed :=       DEFAULT RECORD ARRAY
       , executed :=     DEFAULT STRING ARRAY
+
+      , id := ""
+      , time_msecs := 0
+      , failures := RECORD[]
       ];
 
   IF (testrunner->print_debug)
     Print("; RunTest(" || testinfo.type || ", " || testinfo.testname || ")\n");
 
+  DATETIME start := GetCurrentDateTime();
   SWITCH (testinfo.type)
   {
     CASE "test"
     {
       IF ("backend" NOT IN testtypes)
+      {
+        result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
         RETURN result;
+      }
 
       IF (autotests AND testinfo.skipauto)
       {
@@ -130,6 +141,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           Print("; Skipping test: " || testinfo.testname || "\n");
 
         result.status := "ok";
+        result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
         RETURN result;
       }
 
@@ -140,6 +152,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             Print("; Skipping test: " || testinfo.testname || "\n");
 
           result.status := "ok";
+          result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
           RETURN result;
         }
 
@@ -203,6 +216,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       WriteLogMarker("Test " || testinfo.testname || (testinfo.xfail ? " (xfailed)" : ""));
 
       INSERT testinfo.testname INTO result.executed AT END;
+      result.id := testinfo.testname;
       BOOLEAN success;
 
       // Try flaky tests for 3 times
@@ -223,33 +237,45 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             [ test :=     Substitute(testinfo.testname, ".all", "")
             ] INTO result.failed AT END;
         result.status := "fail";
+        INSERT [ type := "ERROR", message := "Test failed", text := "" ] INTO result.failures AT END;
       }
       ELSE
         result.status := "ok";
 
+      result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
       RETURN result;
     }
 
     CASE "fail"
     {
       IF ("backend" NOT IN testtypes)
+      {
+        result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
         RETURN result;
+      }
 
       MyPrint("\nRunning test " || testinfo.testname || ": " || testinfo.script || "\n");
       MyPrint("Test definition error: " || testinfo.errormsg || "\n");
+
+      INSERT [ type := "ERROR", message := testinfo.errormsg, text := "" ] INTO result.failures AT END;
 
       INSERT SubStitute(testinfo.testname, ".all", "") INTO result.executed AT END;
       INSERT
          [ test :=  SubStitute(testinfo.testname, ".all", "")
          ] INTO result.failed AT END;
       result.status := "fail";
+      result.id := Substitute(testinfo.testname, ".all", "");
+      result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
       RETURN result;
     }
 
     CASE "jstest"
     {
       IF ("frontend" NOT IN testtypes)
+      {
+        result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
         RETURN result;
+      }
 
       IF (autotests AND testinfo.skipauto)
       {
@@ -257,6 +283,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           Print("; Skipping test: " || testinfo.testname || "\n");
 
         result.status := "ok";
+        result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
         RETURN result;
       }
 
@@ -267,6 +294,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             Print("; Skipping test: " || testinfo.testname || "\n");
 
           result.status := "ok";
+          result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
           RETURN result;
         }
 
@@ -277,6 +305,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         Print("; Running test: " || testinfo.testname || "\n");
 
       INSERT testinfo.testname INTO result.executed AT END;
+      result.id := testinfo.testname;
 
       IF(NOT ObjectExists(jstestrunner)) //not initialized yet
       {
@@ -320,12 +349,16 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             BOOLEAN failed;
             IF (LENGTH(test.fails) != 0)
             {
+              FOREVERY(RECORD fail FROM test.fails)
+                INSERT [ type := "ERROR", message := fail.text, text := fail.text || "\n\n" || fail.stack ] INTO result.failures AT END;
+
               MyPrint("Test error: " || test.fails[0].text || "\n" || test.fails[0].stack || "\n");
               failed := TRUE;
             }
             ELSE IF (NOT report.finished)
             {
               MyPrint("Test timeout\n");
+              INSERT [ type := "ERROR", message := "Test timeout", text := "" ] INTO result.failures AT END;
               failed := TRUE;
             }
 
@@ -353,6 +386,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
     }
   }
 
+  result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
   RETURN result;
 }
 
@@ -885,8 +919,22 @@ IF (ObjectExists(jstestrunner))
 
 IF(parsedargs.outputdir != "")
 {
-  STRING testreportfile :=MergePath(parsedargs.outputdir, "testreport.json");
+  STRING testreportfile := MergePath(parsedargs.outputdir, "testreport.json");
   CreateDiskDirectoryRecursive(parsedargs.outputdir, TRUE);
   StoreDiskFile(testreportfile, EncodeJSONBlob(CELL[ alltests ]), [ overwrite := TRUE ]);
   Print(`Written test report to ${testreportfile}\n`);
+
+  OBJECT junitfile := LoadWittyLibrary("mod::system/lib/testfw/runtest.witty","XML");
+  BLOB result := junitfile->RunComponentToBlob("junitxml",
+    [ numtests := Length(alltests)
+    , numfailures := Length(SELECT FROM alltests WHERE Length(failures) > 0)
+    , time := FormatFloat( GetDateTimeDifference(teststart, GetCurrentDateTime()).msecs / 1000f, 3)
+    , testcases := SELECT id := executed[0]
+                        , time := FormatFloat(time_msecs / 1000f, 3)
+                        , failures
+                     FROM alltests
+                    WHERE id NOT LIKE "wh.hscore.test.*" //these tests cheat with their lacking xfails. banning them from junit.xml
+    ]);
+  StoreDiskFile(MergePath(parsedargs.outputdir, "junit.xml"), result, [ overwrite := TRUE ]);
+  Print(`Written junit report to ${MergePath(parsedargs.outputdir, "junit.xml")}\n`);
 }

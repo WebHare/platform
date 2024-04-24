@@ -1,0 +1,18 @@
+[!
+https://github.com/testmoapp/junitxml
+https://docs.gitlab.com/ee/ci/testing/unit_test_reports.html
+!]
+
+[component junitxml]<?xml version="1.0" encoding="UTF-8" ?>
+  <testsuites id="20140612_170519" name="New_configuration (14/06/12 17:05:19)" tests="[numtests]" failures="[numfailures]" time="[time]">
+    <testsuite id="codereview.cobol.analysisProvider" name="COBOL Code Review" tests="[numtests]" failures="[numfailures]" time="[time]">
+      [forevery testcases]
+        <testcase id="[id]" name="[id]" time="[time]">
+          [forevery failures]
+            <failure message="[message]" type="[type]">[text]</failure>
+          [/forevery]
+        </testcase>
+      [/forevery]
+    </testsuite>
+  </testsuites>
+[/component]
