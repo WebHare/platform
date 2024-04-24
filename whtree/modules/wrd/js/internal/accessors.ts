@@ -11,6 +11,7 @@ import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableData, IPCMarshallableRecord, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { RichDocument } from "@webhare/services/src/richdocument";
 import * as kysely from "kysely";
+import { WebHareBlob } from "@webhare/services";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -1654,9 +1655,8 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
     const val = entity_settings[settings_start];
     const lpos = recordLowerBound(links, val, ["id"]);
     const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
-    return val.blobdata
-      ? new ResourceDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
-      : null;
+    const blob = val.blobdata ?? WebHareBlob.from("");
+    return new ResourceDescriptor(blob, { ...decodeScanData(val.rawdata), sourceFile });
   }
 
   validateInput(value: ResourceDescriptor | null | { data: Buffer }): void {

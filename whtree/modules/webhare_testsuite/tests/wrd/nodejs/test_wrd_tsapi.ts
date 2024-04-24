@@ -391,7 +391,7 @@ async function testNewAPI() {
 
   // verify File/Image fields (blob). TODO this might go away in the future, but for 5.3 compatibility support `{data:Buffer}` fields
   await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody") } });
-  const file: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
+  let file: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
   test.eq("Hey everybody", await file.resource.text());
 
   test.eq('XwMO4BX9CoLbEUXw98kaTSw3Ut4S-HbEvWpHyBtJD1c', file.hash);
@@ -404,6 +404,16 @@ async function testNewAPI() {
   test.eq(null, file.refPoint);
   test.eq(null, file.dominantColor); //FIXME not set?
   test.eq(null, file.fileName); //FIXME not set?
+
+  // Set from a ResourceDescriptor
+  await schema.update("wrdPerson", newperson, { testFile: await ResourceDescriptor.from(Buffer.from("Hey everybody"), { fileName: "test.txt" }) });
+  file = (await schema.selectFrom("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
+  test.eq("Hey everybody", await file.resource.text());
+
+  // Set from a ResourceDescriptor with an empty blob
+  await schema.update("wrdPerson", newperson, { testFile: await ResourceDescriptor.from(Buffer.from(""), { fileName: "test.txt" }) });
+  file = (await schema.selectFrom("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
+  test.eq("", await file.resource.text());
 
   await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody 2") } });
   const filerec: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select(["testFile"]).where("wrdId", "=", newperson).execute())[0].testFile!;
