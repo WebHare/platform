@@ -782,7 +782,7 @@ fi
 mkdir -p $ARTIFACTS/whdata
 $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
 $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json | tar -x -C $ARTIFACTS/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml | tar -x -C $ARTIFACTS/
 $SUDO docker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
 
 if [ -n "$TESTFW_EXPORTMODULE" ]; then
