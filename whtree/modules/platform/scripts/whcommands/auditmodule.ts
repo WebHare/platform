@@ -65,19 +65,28 @@ async function main() {
   const pkgdirs = getPackageDirs(module);
   for (const dir of pkgdirs) {
     const reportDir = toResourcePath(dir, { allowUnmatched: true }) ?? dir;
+    const directDependencies = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).dependencies || {}) as Record<string, string>;
+    if (!Object.keys(directDependencies).length)
+      continue; //no need to mention this dir, no modules
+
     const auditResult = spawnSync("npm", ["audit", "--json"], { cwd: dir });
-    let npmAudit: unknown = null;
-    if (auditResult.status !== 0)
+    const output = auditResult.stdout.toString().trim();
+    if (!output) {
       retval.errors.push({
-        message: `npm audit failed: ${auditResult.status ?? auditResult.signal}`,
+        message: (`npm audit failed: ${auditResult.status ?? auditResult.signal}\n` + output).trim(),
         resource: reportDir
       });
-    else {
-      npmAudit = JSON.parse(auditResult.stdout.toString());
+      continue;
     }
 
-    const directDependencies = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).dependencies || {}) as Record<string, string>;
-    retval.packageDirs.push({ dir: reportDir, npmAudit, directDependencies });
+    try {
+      retval.packageDirs.push({ dir: reportDir, npmAudit: JSON.parse(output), directDependencies });
+    } catch (e) {
+      retval.errors.push({
+        message: (`npm audit failed: ${e}`).trim(),
+        resource: reportDir
+      });
+    }
   }
 
   if (program.opts().outputfile)
