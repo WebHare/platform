@@ -131,6 +131,12 @@ export class ImageSurface {
   }
 
   setImg(img: HTMLImageElement, settings: { refPoint: Size; orientation: number }) {
+    if ("refpoint" in settings) {
+      //FIXME there are steps missing in the typescript APIs but once we have types at all stack levels between us and ImageSettings we should rename the fields to fileName and refPoiht
+      console.warn(`Received refpoint instead of refPoint - should fix caller`);
+      //@ts-ignore trust us
+      settings = { ...settings, refPoint: settings.refpoint, refpoint: undefined };
+    }
     this.orgRefPoint = settings.refPoint;
 
     this.undoStack = [];
