@@ -552,7 +552,7 @@ class LoginApp {
   }
 
   async runSSOLogin(tag: string) {
-    const lock = this.app.getBusyLock(); //NOTE we're not going to ever release it on the success path, as we're going to redirect away
+    const lock = this.topscreen!.lockScreen(); //NOTE we're not going to ever release it on the success path, as we're going to redirect away
     try {
       await frontend.startSSOLogin(tag);
     } catch (error) {

@@ -11,6 +11,10 @@ PUBLIC STATIC OBJECTTYPE UploadTest EXTEND TolliumScreenBase <
       this->RunSimpleScreen("info","File uploaded");
     this->tolliumcontroller->CloseUploadFor(file);
   }
+  MACRO OnReset()
+  {
+    ^result->value := "";
+  }
   MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
   {
     ^result->value := EncodeJSON(

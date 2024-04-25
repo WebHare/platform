@@ -68,6 +68,27 @@ const screen_minheight = 20;
 // FIXME: remove all click handlers from menuitems
 // FIXME: remove all scroll handling for menu's (let DF menu do that)
 
+/** Locks the screen. If the topmost screen of an app has a locked, the app is busy. If the active app is busy, the UI is busy
+*/
+class ScreenLock implements Disposable {
+  private readonly screen: Frame | null;
+
+  constructor(screen: Frame) {
+    this.screen = screen;
+  }
+  [Symbol.dispose]() {
+    this.release();
+  }
+  release() {
+    if (!this.screen)
+      throw new Error(`Duplicate screen unlock`);
+
+    this.screen._removeScreenLock(this);
+  }
+}
+
+export type { ScreenLock };
+
 export default class Frame extends ToddCompBase {
   node: HTMLElement;
   screenname: string;
@@ -140,6 +161,8 @@ export default class Frame extends ToddCompBase {
 
   /** asyncRequests. we keep them at the frame level as components might be recreated and the new one can't deal with the response (and thus can't clear locks) */
   pendingRequests = new Map<string, DeferredPromise<unknown>>;
+
+  private locks = new Set<ScreenLock>;
 
   get innerFocus() {
     return this.innerFocusNode;
@@ -839,7 +862,7 @@ export default class Frame extends ToddCompBase {
     switch (type) {
       case "completelogin":
         {
-          const block = this.displayapp!.getBusyLock();
+          const block = this.lockScreen();
           getIndyShell().completeLogin(data.data, block);
           return;
         }
@@ -986,8 +1009,27 @@ export default class Frame extends ToddCompBase {
       }
       this._fireUpdateScreenEvent();
     }
+    this.displayapp?.notifyTopScreenChange();
 
     return this;
+  }
+
+  isLocked(): boolean {
+    return this.locks.size > 0;
+  }
+
+  lockScreen(): ScreenLock {
+    const lock = new ScreenLock(this);
+    this.locks.add(lock);
+    if (this.locks.size === 1) //was first lock
+      this.displayapp?.notifyTopScreenChange();
+    return lock;
+  }
+
+  _removeScreenLock(lock: ScreenLock): void {
+    this.locks.delete(lock);
+    if (this.locks.size === 0) //was last lock
+      this.displayapp?.notifyTopScreenChange();
   }
 
   /****************************************************************************************************************************
@@ -1510,8 +1552,8 @@ export default class Frame extends ToddCompBase {
       delete this.frontendevents[component + ' ' + msgtype];
   }
   tryProcessMessage(target: string, type: string, data: unknown, synchronous: boolean, originalcallback: () => void) {
-    const busylock = synchronous ? this.displayapp!.getBusyLock() : dompack.flagUIBusy();
-    const finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
+    const busylock: Disposable = synchronous ? this.lockScreen() : dompack.flagUIBusy();
+    const finalcallback = () => { busylock[Symbol.dispose](); if (originalcallback) originalcallback(); };
 
     //yep, we have a local processor!
     const func = this.frontendevents[target + ' ' + type];

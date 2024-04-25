@@ -77,20 +77,20 @@ class ImgeditDialogController {
 
   loadImageBlob(blob: File, settings: ImageSettings) {
     if (this.busylock)
-      return;
+      throw new Error("Recursive LoadImage call");
 
     // Take a busy lock during loading
-    this.busylock = this.screen.displayapp!.getBusyLock();
+    this.busylock = this.screen.lockScreen();
 
     this._readImageFile(blob, settings);
   }
 
   loadImageSrc(src, settings) {
     if (this.busylock)
-      return;
+      throw new Error("Recursive LoadImage call");
 
-    // Take a busy lock during loading
-    this.busylock = this.screen.displayapp!.getBusyLock();
+    // Take a busy lock during loading. This locks the *parent* screen of our soon appearing image edit screen
+    this.busylock = this.screen.lockScreen();
 
     if (src.indexOf("data:") === 0) {
       //console.log("Convert image data from data URL to blob");
@@ -143,7 +143,7 @@ class ImgeditDialogController {
 
   _loadImageUrl(url, options) {
     const img = new Image(); //FIXME error handler
-    img.addEventListener("load", (function () {
+    img.addEventListener("load", () => {
       (URL || webkitURL).revokeObjectURL(url);
 
       if (this.editor) {
@@ -158,12 +158,15 @@ class ImgeditDialogController {
         } else {
           //console.log("Create image editor dialog with object URL");
           this._createDialog();
+          // This above _createDialog releases the applock as our parent screen is busy, not this new one! so we'll take a new lock
+          this.busylock.release();
+          this.busylock = this.dialog.lockScreen();
 
           // Set image in a delay, so it's set after the relayout when showing the dialog, preventing an initial image resize
           setTimeout(() => this.editor.setImg(img, options), 1);
         }
       }
-    }).bind(this));
+    });
 
     img.addEventListener("error", e => {
       console.error("Error loading image in imgeditor <img> element", e);
@@ -191,7 +194,7 @@ class ImgeditDialogController {
     return !resizeMethodApplied(this.options.imgsize, width, height, mimetype);
   }
 
-  _createDialog() {
+  private _createDialog() {
     this.dialog = this.screen.displayapp.createScreen(
       {
         frame: {
@@ -266,7 +269,7 @@ class ImgeditDialogController {
       height: container.offsetHeight,
       imgsize: this.options.imgsize,
       resourcebase: $todd.resourcebase,
-      getBusyLock: this.screen.displayapp.getBusyLock.bind(this.screen.displayapp),
+      getBusyLock: () => this.dialog.lockScreen(),
       setStatus: this._setStatus.bind(this),
       setProgress: this._setProgress.bind(this),
       createScreen: this.screen.displayapp.createScreen.bind(this.screen.displayapp),
@@ -325,7 +328,7 @@ class ImgeditDialogController {
   _closeImageEditor(sendblob, callback) {
     if (sendblob === true) {
       // Retrieve the image from the editor and close the dialog
-      this.busylock = this.screen.displayapp.getBusyLock();
+      this.busylock = this.screen.lockScreen();
       this.editor.getImageAsBlob((blob: Blob | null, settings?: { refpoint?: RefPoint }) => {
         this.defer.resolve({
           blob: blob,

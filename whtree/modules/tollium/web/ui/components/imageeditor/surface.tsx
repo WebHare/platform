@@ -1,7 +1,6 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { type ApplicationBusyLock } from "@mod-tollium/web/ui/js/application";
 import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import { PhotoCrop } from "./crop";
 import { PhotoRotate } from "./scaling";
@@ -11,7 +10,7 @@ import { PhotoPoint } from "./refpoint";
 require("./imageeditor.lang.json");
 
 export type ImageSurfaceOptions = {
-  getBusyLock?: (() => ApplicationBusyLock) | null;
+  getBusyLock?: (() => Disposable) | null;
   editorBackground?: string;
   maxLength?: number;
   maxArea?: number;
@@ -92,7 +91,7 @@ export class ImageSurface {
   redoStack: EditStep[] = []; //contains all steps undone
   undoButton: ToolbarButton | null = null;
   redoButton: ToolbarButton | null = null;
-  busyLock: ApplicationBusyLock | null = null;
+  busyLock: Disposable | null = null;
   scaleTimeout?: NodeJS.Timeout;
   options: ImageSurfaceOptions = {};
 
@@ -181,7 +180,7 @@ export class ImageSurface {
       this.busyLock = this.options.getBusyLock();
     } else {
       if (this.busyLock)
-        this.busyLock.release();
+        this.busyLock[Symbol.dispose]();
       this.busyLock = null;
     }
     return true;

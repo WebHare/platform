@@ -700,7 +700,7 @@ export async function handleApplicationErrors(app: ApplicationBase, data) {
   if (data.type === "expired") //StartApp error
   {
     await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
-    app.getBusyLock();
+    app.__startAppClose();
     location.reload(true);
     return;
   }

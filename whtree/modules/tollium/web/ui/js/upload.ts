@@ -44,11 +44,14 @@ async function runUpload(component: ToddCompBase, uploader: MultiFileUploader, u
   const response = await component.asyncRequest<frontend.UploadInstructions>("canUpload", uploader.manifest);
   const aborter = new AbortController;
   const uploadcontroller = new UploadDialogController(component.owner, aborter);
+  using lock = component.owner.lockScreen();
+  void lock;
 
   try {
     const result = await uploader.upload(response, { onProgress: uploadcontroller.onProgress, signal: aborter.signal });
     uploadcontroller.gotEnd({ success: true }); //disables cancel button until we have a chance to fully dismiss the dialog
-    uploadedcallback(result.map(i => ({ type: "file", filename: i.name, filetoken: i.token })), () => uploadcontroller.close());
+    uploadcontroller.close();
+    uploadedcallback(result.map(i => ({ type: "file", filename: i.name, filetoken: i.token })), () => { });
   } catch (e) {
     console.error("upload exception", e);
     //TODO uploadcontroller.gotEnd({ success: false });  - and give the user a chance to see it? how to trigger?
@@ -142,7 +145,7 @@ export async function uploadFilesForDrop(component: ToddCompBase, dragdata: Curr
 
   if (!firstFile) {
     // No files? Just a busy lock is good enough
-    const busylock = component.owner.displayapp!.getBusyLock();
+    const busylock = component.owner.lockScreen();
     callback(msg, busylock.release.bind(busylock));
     return;
   }

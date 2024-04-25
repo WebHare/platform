@@ -2,7 +2,7 @@ import * as test from "@webhare/test-frontend";
 import * as tt from "@mod-tollium/js/tolliumtest";
 
 function getResult() {
-  return JSON.parse(tt.comp("result").getTextValue());
+  return JSON.parse(tt.comp("result", { allowMissing: true })?.getTextValue() || "null");
 }
 
 test.run([
@@ -17,7 +17,7 @@ test.run([
       datasize: 132543,
       filename: "portrait_8.jpg",
       mimetype: "image/jpeg"
-    }, getResult());
+    }, await test.wait(() => getResult()));
 
     tt.comp("opendialog").set(true);
     test.prepareUpload([await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg', { overrideContentType: "application/octet-stream" })]);
@@ -29,6 +29,9 @@ test.run([
 
     tt.comp("opendialog").set(false);
 
+    test.click(await test.waitForElement(['button', /Reset/]));
+    await test.waitForUI();
+
     test.prepareUpload([await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/contact.wharchive', { overrideContentType: "application/octet-stream" })]);
     test.click(await test.waitForElement(['button', /Upload single/]));
 
@@ -37,7 +40,7 @@ test.run([
       datasize: 3137,
       filename: "contact.wharchive",
       mimetype: "application/x-webhare-archive"
-    }, getResult());
+    }, await test.wait(() => getResult()));
 
     const droptarget = tt.comp("uploadlist");
     test.startExternalFileDrag(await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg', { overrideContentType: "application/octet-stream" }));
@@ -51,7 +54,7 @@ test.run([
         filename: "landscape_4.jpg",
         mimetype: "image/jpeg"
       }
-    ], getResult());
+    ], await test.wait(() => getResult()));
 
     test.startExternalFileDrag(await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/contact.wharchive'));
     // drop the archive
@@ -63,6 +66,6 @@ test.run([
         filename: "contact.wharchive",
         mimetype: "application/x-webhare-archive"
       }
-    ], getResult());
+    ], await test.wait(() => getResult()));
   }
 ]);

@@ -135,8 +135,8 @@ export default class ObjAction extends ActionForwardBase {
     else if (this.isEventUnmasked('execute'))
       this.queueMessage("execute", { rule: hitrule }, true);
     else if (this._onexecute) {
-      const block = this.owner.displayapp!.getBusyLock();
-      this._onexecute(this, { rule: hitrule }, block.release.bind(block));
+      const block = this.owner.lockScreen();
+      this._onexecute(this, { rule: hitrule }, () => block.release());
     }
 
     const customaction = this.enableons.length ? this.enableons[hitrule].customaction : this.customaction;
