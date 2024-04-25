@@ -1,5 +1,4 @@
-import * as dompack from 'dompack';
-import { Rect } from '../src/tree';
+import { getRelativeBounds, type Rect } from "@webhare/dompack";
 
 type ScrollStyle =
   {
@@ -30,7 +29,6 @@ const addContextToRect = function (rect: Rect, context: Rect): Rect {
       left: rect.left - context.left,
       width: rect.width + context.left + context.right,
       height: rect.height + context.top + context.bottom,
-      node: rect.node
     });
 };
 
@@ -80,7 +78,7 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle) {
   return style;
 }
 
-const getMovedBoxes = function (boxes: Rect[], x: number, y: number) {
+function getMovedBoxes(boxes: Rect[], x: number, y: number) {
   const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
@@ -93,14 +91,13 @@ const getMovedBoxes = function (boxes: Rect[], x: number, y: number) {
         left: item.left + x,
         width: item.width,
         height: item.height,
-        node: item.node
       });
   });
 
   return newboxes;
-};
+}
 
-const getClampedBoxes = function (boxes: Rect[], max_x: number, max_y: number) {
+function getClampedBoxes(boxes: Rect[], max_x: number, max_y: number) {
   const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
@@ -113,7 +110,6 @@ const getClampedBoxes = function (boxes: Rect[], max_x: number, max_y: number) {
       left: clamp(0, max_x, item.left),
       width: 0,
       height: 0,
-      node: item.node
     };
     newbox.width = newbox.right - newbox.left;
     newbox.height = newbox.bottom - newbox.top;
@@ -121,7 +117,7 @@ const getClampedBoxes = function (boxes: Rect[], max_x: number, max_y: number) {
   });
 
   return newboxes;
-};
+}
 
 type ScrollOptions =
   {
@@ -220,7 +216,6 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
         left: x - 1,
         width: 2,
         height: 2,
-        node: node
       },
       {
         top: y - context.top,
@@ -229,12 +224,11 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
         left: x - context.left,
         width: context.left + context.right,
         height: context.top + context.bottom,
-        node: node
       }
     ];
 
   // Add a whole element box
-  boxes.push(addContextToRect(dompack.getRelativeBounds(node, node), context));
+  boxes.push(addContextToRect(getRelativeBounds(node, node), context));
 
   //  var orgnode = node;
   let parent: HTMLElement | null;
@@ -389,9 +383,9 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
 
     // Add box for parent
     if (debugscrolling)
-      console.log('parentbox', dompack.getRelativeBounds(parent, parent));
+      console.log('parentbox', getRelativeBounds(parent, parent));
 
-    boxes.push(addContextToRect(dompack.getRelativeBounds(parent, parent), context));
+    boxes.push(addContextToRect(getRelativeBounds(parent, parent), context));
   }
   return actions;
 }

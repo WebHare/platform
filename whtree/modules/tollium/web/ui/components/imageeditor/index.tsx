@@ -169,9 +169,9 @@ export class ImageEditor {
     let mimetype = this.mimetype;
 
     const settings = {
-      refpoint: this.surface.refpoint ? {
-        x: Math.round(this.surface.refpoint.x),
-        y: Math.round(this.surface.refpoint.y)
+      refpoint: this.surface.refPoint ? {
+        x: Math.round(this.surface.refPoint.x),
+        y: Math.round(this.surface.refPoint.y)
       } : null
     };
     if (this.options.imgsize) {
@@ -184,7 +184,7 @@ export class ImageEditor {
         }, 1);
         return;
       }
-      const res = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refpoint || this.isRefpointAllowed(), true);
+      const res = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refPoint || this.isRefpointAllowed(), true);
       if (res) {
         if (res.rect && res.rect.refpoint)
           settings.refpoint = {
@@ -237,7 +237,7 @@ export class ImageEditor {
 
     const canvas = this.surface.canvas;
     if (this.previewing && this.options.imgsize) {
-      const resized = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refpoint || this.isRefpointAllowed());
+      const resized = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refPoint || this.isRefpointAllowed());
       if (resized) {
         this.surface.setPreviewCanvas(resized.canvas, resized.rect);
         this.setStatus(resized.rect ? resized.rect.width : resized.canvas.width,

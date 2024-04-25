@@ -2,7 +2,7 @@
 */
 
 export { createDeferred } from '@webhare/std';
-export { flagUIBusy } from '@webhare/dompack';
+export { flagUIBusy, getRelativeBounds, type Rect } from '@webhare/dompack';
 export {
   dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, normalizeKeyboardEventData,
   stop
@@ -13,9 +13,8 @@ export {
   before, after, replaceWith, remove, prepend, append,
   toggleClass, toggleClasses,
   setStyles,
-  getBaseURI, getRelativeBounds,
+  getBaseURI,
 } from './src/tree';
-export type { Rect } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
 export { focus, register, registerMissed, scrollIntoView } from './src/components';
 export type { TakeFocusEvent } from './src/components';
