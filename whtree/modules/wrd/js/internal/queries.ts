@@ -78,7 +78,7 @@ function createSelectMap<S extends SchemaTypeDefinition, T extends keyof S & str
   for (const field of fieldset) {
     const attrrec = rootattrs.get(field);
     if (!attrrec) {
-      throw new Error(`Could not find attribute ${field}`);
+      throw new Error(`Could not find attribute '${field}' in type '${type.tag}'`);
     }
     accessors.push({ field, accessor: getAccessor(attrrec, parentAttrMap) as AnyWRDAccessor });
   }
