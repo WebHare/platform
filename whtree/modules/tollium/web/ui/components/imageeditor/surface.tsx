@@ -11,6 +11,7 @@ import { PhotoPoint, PhotoPointProps } from "./refpoint";
 import { PhotoRotate, PhotoRotateProps } from "./scaling";
 
 import "./imageeditor.lang.json";
+import type { ImageEditSettings, ImagePoint } from "@webhare/image-edit";
 
 export type ImageSurfaceOptions = {
   getBusyLock?: (() => Disposable) | null;
@@ -50,9 +51,8 @@ type EditStep = {
 
 //image canvas
 export class ImageSurface {
-  imgEditorNode: HTMLElement;
+  imgEditorNode: HTMLElement | ShadowRoot;
   node: HTMLElement;
-  img: HTMLImageElement | null = null;
   imgData: {
     size: Size;
     scale: Size;
@@ -84,8 +84,9 @@ export class ImageSurface {
   busyLock: Disposable | null = null;
   scaleTimeout?: NodeJS.Timeout;
   options: ImageSurfaceOptions = {};
+  originalImage: HTMLImageElement | ImageBitmap | null = null;
 
-  constructor(imgEditorNode: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
+  constructor(imgEditorNode: HTMLElement | ShadowRoot, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
     this.imgEditorNode = imgEditorNode;
     this.options = {
       editorBackground: "",
@@ -119,27 +120,15 @@ export class ImageSurface {
     }
   }
 
+  setImgBitmap(img: ImageBitmap, settings: ImageEditSettings) {
+    this.setupImage(settings.focalPoint, img, 0);
+  }
+
   setImg(img: HTMLImageElement, settings: ImageSurfaceSettings) {
     if ("refpoint" in settings)
       throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
 
-    this.orgRefPoint = settings.refPoint;
-
-    this.undoStack = [];
-    this.redoStack = [];
-    if (this.undoButton)
-      this.undoButton.setEnabled(false);
-    if (this.redoButton)
-      this.redoButton.setEnabled(false);
-
-    const containersize = this.node.getBoundingClientRect();
-    this.viewPort = { x: containersize.width, y: containersize.height };
-    this.setupFromImage(img, settings.orientation);
-
-    this.ctx = this.canvas.getContext("2d");
-
-    this.setupCanvas();
-    this.fireEvent('ready', this.imgData);
+    this.setupImage(settings.refPoint, img, settings.orientation);
   }
 
   // Are there changes?
@@ -175,9 +164,21 @@ export class ImageSurface {
   stop() {
   }
 
-  setupFromImage(img: HTMLImageElement, orientation: number) {
+  private setupImage(focalPoint: ImagePoint | null, img: HTMLImageElement | ImageBitmap, orientation: number) {
     let width = img.width;
     let height = img.height;
+
+    this.orgRefPoint = focalPoint;
+    this.undoStack = [];
+    this.redoStack = [];
+
+    if (this.undoButton)
+      this.undoButton.setEnabled(false);
+    if (this.redoButton)
+      this.redoButton.setEnabled(false);
+
+    const containersize = this.node.getBoundingClientRect();
+    this.viewPort = { x: containersize.width, y: containersize.height };
 
     // Restrict image width and height
     if (this.options.maxLength && this.options.maxLength > 0 && (width > this.options.maxLength || height > this.options.maxLength)) {
@@ -201,7 +202,6 @@ export class ImageSurface {
     const scale = { x: 1, y: 1 };//use separate scale x/y for error reduction rounding
     const orgSize = { x: rotated ? height : width, y: rotated ? width : height };
 
-    this.img = img;
     this.imgData = {
       size: { x: rotated ? height : width, y: rotated ? width : height },
       scale: scale,
@@ -209,9 +209,14 @@ export class ImageSurface {
       aspect: (orgSize.x / orgSize.y),
       orientation: orientation
     };
+
+    this.ctx = this.canvas.getContext("2d");
+    this.originalImage = img;
+    this.setupCanvas();
+    this.fireEvent('ready', this.imgData);
   }
 
-  setupCanvas() {
+  private setupCanvas() {
     this.refPoint = this.orgRefPoint;
     this.canvas.width = this.imgData!.size.x;
     this.canvas.height = this.imgData!.size.y;
@@ -283,7 +288,7 @@ export class ImageSurface {
         this.ctx!.rotate(3 * Math.PI / 2);
         break;
     }
-    this.ctx!.drawImage(this.img!, 0, 0, drawWidth, drawHeight);
+    this.ctx!.drawImage(this.originalImage!, 0, 0, drawWidth, drawHeight);
     this.showScale();
     this.fireEvent('reset');
   }

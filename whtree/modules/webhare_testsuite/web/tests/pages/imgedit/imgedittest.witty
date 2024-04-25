@@ -1,1 +1,3 @@
-<div id="imgedit"></div>
+<div>
+  <wh-image-edit id="imgedit"></wh-image-edit>
+</div>

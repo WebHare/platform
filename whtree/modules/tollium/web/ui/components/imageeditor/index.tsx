@@ -97,8 +97,10 @@ export class ImageEditor {
   dirty: boolean = false;
   options: ImageEditorOptions;
 
-  constructor(el: HTMLElement, options?: ImageEditorOptions) {
+  constructor(el: HTMLElement, options?: ImageEditorOptions, __shadowroot?: true) {
     this.el = el;
+    const host = __shadowroot ? this.el.attachShadow({ mode: "open" }) : this.el;
+
     this.options = {
       width: 640,
       height: 320, //ADDME default toolbar height!
@@ -116,13 +118,13 @@ export class ImageEditor {
       closeIcon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b"),
       closeLabel: getTid("~cancel")
     });
-    this.surface = new ImageSurface(this.el, this.toolbar, options);
+    this.surface = new ImageSurface(host, this.toolbar, options);
     this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt as CustomEvent));
     this.el.addEventListener("tollium-imageeditor:refresh", () => this.previewImgSize());
     this.el.addEventListener("tollium-imageeditor:undo", () => this.previewImgSize());
     this.el.addEventListener("tollium-imageeditor:redo", () => this.previewImgSize());
 
-    this.el.replaceChildren(this.toolbar.node, this.surface.node);
+    host.replaceChildren(this.toolbar.node, this.surface.node);
     this.setSize(this.options.width!, this.options.height!);
 
     // Add toolbar buttons
@@ -154,6 +156,7 @@ export class ImageEditor {
       this.applyImgSize();
     }
   }
+
   onLoad(event: CustomEvent) {
     this.previewImgSize();
     this.surface.fireEvent("load", { target: this, width: event.detail.size.x, height: event.detail.size.y }); //who was listening ??

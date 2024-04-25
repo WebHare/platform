@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
-
-import { ImageEditor } from "@mod-tollium/web/ui/components/imageeditor";
+import { ImageEditElement } from "@webhare/image-edit";
 
 dompack.register("#imgedit", node => {
-  new ImageEditor(node);
 });
+
+customElements.define("wh-image-edit", ImageEditElement);
