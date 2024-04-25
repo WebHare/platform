@@ -122,6 +122,7 @@ class ProcessManager {
   started: number | null = null;
   startDelay;
   startDelayTimer: NodeJS.Timeout | null = null;
+  lastLogText = "";
 
   constructor(name: string, service: ServiceDefinition, startDelay = 0) {
     this.name = name;
@@ -134,6 +135,7 @@ class ProcessManager {
   }
 
   log(text: string, data?: LoggableRecord) {
+    this.lastLogText = text;
     const at = this.started ? Date.now() - this.started : null;
     smLog(`${this.displayName}: ${text}`, { message: text, service: this.name, at, ...data });
   }
@@ -198,7 +200,7 @@ class ProcessManager {
 
     this.running = false;
     if (error)
-      this.log(`Failed to start: ${error.message}`, { message: error.message, stack: error.stack });
+      this.log(`Failed to start: ${error.message}`, { error: error.message, stack: error.stack });
     if (signal)
       this.log(`Exited with signal ${signal}`, { exitSignal: signal });
     else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) //report on error, if it's an always-running service, or if debugging
@@ -350,11 +352,17 @@ class ServiceManagerClient extends BackendServiceConnection {
     return {
       stage: stagetitles[currentstage],
       serviceManagerId,
-      availableServices: [...expectedServices.entries()].map(([name, service]) => ({
-        name,
-        isRunning: processes.get(name)?.running ?? false,
-        run: service.run
-      }))
+      availableServices: [...expectedServices.entries()].map(([name, service]) => {
+        const process = processes.get(name);
+        return {
+          name,
+          isRunning: process?.running ?? false,
+          startedSince: process?.started ? new Date(process.started) : null,
+          lastLogText: process?.lastLogText ?? "",
+          pid: process?.process?.pid ?? 0,
+          run: service.run
+        };
+      })
     };
   }
   startService(service: string) {
