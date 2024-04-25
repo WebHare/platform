@@ -403,6 +403,7 @@ PUBLIC OBJECT FUNCTION CreateProcess(
 }
 
 INTEGER FUNCTION GetProcessOutputHandle(INTEGER processid, BOOLEAN errors) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION GetProcessPid(INTEGER processid) __ATTRIBUTES__(EXTERNAL);
 
 
 /** Process objecttype
@@ -444,6 +445,9 @@ OBJECTTYPE Process EXTEND __HS_INTERNAL_OutputObject
 
   /// Exit code of process, -1 if still running
   PUBLIC PROPERTY exitcode(GetExitCode, -);
+
+  /// pid of process, -1 if still running
+  PUBLIC PROPERTY pid(GetPid, -);
 
 
   /// Input handle (0 if input is not taken)
@@ -498,6 +502,11 @@ OBJECTTYPE Process EXTEND __HS_INTERNAL_OutputObject
   INTEGER FUNCTION GetInputHandle()
   {
     RETURN this->pvt_taken_input ? this->pvt_handle : 0;
+  }
+
+  INTEGER FUNCTION GetPid()
+  {
+    RETURN this->pvt_running ? GetProcessPid(this->pvt_handle) : -1;
   }
 
   // ---------------------------------------------------------------------------

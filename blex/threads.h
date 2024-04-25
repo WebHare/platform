@@ -767,6 +767,8 @@ class BLEXLIB_PUBLIC Process
         void SendTerminate();
         /** Forcibly terminate the process */
         void Kill();
+        /** Get the process ID, -1 if not available */
+        pid_t GetPid() const;
 
         ///Create a separate process group (ie to prevent ctrl+c on terminal to reach this process). defaultsto false
         bool separate_processgroup;

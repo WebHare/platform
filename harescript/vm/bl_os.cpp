@@ -498,6 +498,15 @@ void OSContext::ResetProcessInput(int processid)
 
         proc->input.reset(NULL);
 }
+pid_t OSContext::GetProcessPid(int processid)
+{
+        Process *proc = GetProcess(processid);
+        if (!proc)
+            throw std::runtime_error("Invalid process id");
+
+        return proc->proc->GetPid();
+}
+
 
 #endif // __EMSCRIPTEN__
 
@@ -952,6 +961,12 @@ void HS_IsProcessRunning(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
         HSVM_BooleanSet(*vm, id_set, context->os.IsProcessRunning(HSVM_IntegerGet(*vm, HSVM_Arg(0))));
+}
+
+void HS_GetProcessPid(VarId id_set, VirtualMachine *vm)
+{
+        SystemContext context(vm->GetContextKeeper());
+        HSVM_IntegerSet(*vm, id_set, context->os.GetProcessPid(HSVM_IntegerGet(*vm, HSVM_Arg(0))));
 }
 
 #endif // __EMSCRIPTEN__
@@ -1654,6 +1669,7 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DETACHPROCESS:::I",HS_DetachProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORPROCESSOUTPUT::I:II",HS_WaitForProcessOutput));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSOUTPUTHANDLE::I:IB",HS_GetProcessOutputHandle));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSPID::I:I",HS_GetProcessPid));
 #endif
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPIPE:::I", HS_ClosePipe));
