@@ -1,3 +1,14 @@
+import * as dompack from "@webhare/dompack";
+
+export type ImageEditMetadataEvent = CustomEvent<ImageEditMetadata & ImageEditSettings>;
+
+declare global {
+  interface GlobalEventHandlersEventMap {
+    /** Fired whenever image metadata changes */
+    "wh-image-edit-metadata": ImageEditMetadataEvent;
+  }
+}
+
 /* we attempt to clean up/define some 'clean' types for images with more common names
    these types don't really exist in the browser - there was WebkitPoint (https://developer.mozilla.org/en-US/docs/Web/API/WebKitPoint)
    which never became Point, and there's DOMPoint that works in 3 dimensions */
@@ -315,10 +326,26 @@ export class ImageEditElement extends HTMLElement {
     const styleSheet = document.createElement("style");
     styleSheet.innerText = stylesheet;
     this.shadowRoot?.prepend(styleSheet);
+
+    this.addEventListener("tollium-imageeditor:ready", () => this.#broadcastMetadata());
+  }
+
+  #broadcastMetadata() {
+    dompack.dispatchCustomEvent(this, "wh-image-edit-metadata", {
+      bubbles: true,
+      cancelable: false,
+      detail: {
+        focalPoint: this.editor.surface.refPoint,
+        imageSize: {
+          width: this.editor.surface.imgData!.size.x,
+          height: this.editor.surface.imgData!.size.y
+        }
+      }
+    });
   }
 
   /** Load a blob into the canvas  */
-  async loadImage(image: Blob, settings?: Partial<ImageEditorSettings>): Promise<void> {
+  async loadImage(image: Blob, settings?: Partial<ImageEditSettings>): Promise<void> {
 
     //We use Blob because we're most likely to work and return uploads. Image elements just complicate load/error handling
     //Not sure if we need to care about EXIF? https://github.com/whatwg/html/issues/7210 suggests al browsers apply EXIF orientation

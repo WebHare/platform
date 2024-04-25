@@ -1,3 +1,4 @@
 <div>
   <wh-image-edit id="imgedit"></wh-image-edit>
+  <div id="statusbar"></div>
 </div>

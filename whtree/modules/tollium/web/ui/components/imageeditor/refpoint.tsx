@@ -63,11 +63,11 @@ class PhotoPoint extends SurfaceTool {
     this._setPoint = (event: MouseEvent) => this.setPoint(event);
     this.keyboard = new Keyboard(this.surface.node, { Delete: () => this.clearPoint() });
     if (tool_inline) {
-      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:reset", () => this.resetPoint());
-      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:showpreview", () => this.activate(true));
-      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:hidepreview", () => this.activate(false));
+      this.surface.eventTarget.addEventListener("tollium-imageeditor:reset", () => this.resetPoint());
+      this.surface.eventTarget.addEventListener("tollium-imageeditor:showpreview", () => this.activate(true));
+      this.surface.eventTarget.addEventListener("tollium-imageeditor:hidepreview", () => this.activate(false));
     } else {
-      this.surface.imgEditorNode.addEventListener("tollium-imageeditor:updatepreview", (evt: Event) => this.previewCanvasChanged(evt as CustomEvent));
+      this.surface.eventTarget.addEventListener("tollium-imageeditor:updatepreview", (evt: Event) => this.previewCanvasChanged(evt as CustomEvent));
     }
   }
 

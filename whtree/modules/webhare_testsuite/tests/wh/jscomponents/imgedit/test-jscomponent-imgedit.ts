@@ -18,6 +18,7 @@ async function testBasicEditor() {
 
   const surface = qSAImgEdit(".wh-image-surface canvas")[0];
   test.eq(331, surface.getBoundingClientRect().width);
+  test.eqPartial({ imageSize: { width: 600 } }, JSON.parse(test.qR("#statusbar").textContent));
 }
 
 test.run([ //

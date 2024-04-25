@@ -51,7 +51,7 @@ type EditStep = {
 
 //image canvas
 export class ImageSurface {
-  imgEditorNode: HTMLElement | ShadowRoot;
+  eventTarget: HTMLElement;
   node: HTMLElement;
   imgData: {
     size: Size;
@@ -86,8 +86,8 @@ export class ImageSurface {
   options: ImageSurfaceOptions = {};
   originalImage: HTMLImageElement | ImageBitmap | null = null;
 
-  constructor(imgEditorNode: HTMLElement | ShadowRoot, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
-    this.imgEditorNode = imgEditorNode;
+  constructor(eventTarget: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
+    this.eventTarget = eventTarget;
     this.options = {
       editorBackground: "",
       maxLength: 0,
@@ -105,7 +105,7 @@ export class ImageSurface {
   }
 
   fireEvent(name: string, detail?: unknown) {
-    dompack.dispatchCustomEvent(this.imgEditorNode, 'tollium-imageeditor:' + name, { bubbles: true, cancelable: false, detail });
+    dompack.dispatchCustomEvent(this.eventTarget, 'tollium-imageeditor:' + name, { bubbles: true, cancelable: false, detail });
   }
 
   setSize(w: number, h: number) {

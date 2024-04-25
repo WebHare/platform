@@ -118,7 +118,7 @@ export class ImageEditor {
       closeIcon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b"),
       closeLabel: getTid("~cancel")
     });
-    this.surface = new ImageSurface(host, this.toolbar, options);
+    this.surface = new ImageSurface(this.el, this.toolbar, options);
     this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt as CustomEvent));
     this.el.addEventListener("tollium-imageeditor:refresh", () => this.previewImgSize());
     this.el.addEventListener("tollium-imageeditor:undo", () => this.previewImgSize());
