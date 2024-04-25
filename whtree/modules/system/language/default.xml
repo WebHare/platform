@@ -1542,12 +1542,16 @@
         <text tid="name">Name</text>
         <text tid="notrunning">Not running</text>
         <text tid="ondemand">On demand</text>
+        <text tid="owner">Owner</text>
         <text tid="persistent">Persistent</text>
+        <text tid="pid">PID</text>
         <text tid="restart">Restart</text>
         <text tid="restartfailed">The service could not be restarted.<br/><br/>Please make sure the command line is correct.</text>
         <text tid="running">Running</text>
         <text tid="servicemanager">Service manager</text>
         <text tid="since">Since</text>
+        <text tid="softreset">Softreset</text>
+        <text tid="startup">Startup</text>
         <text tid="type">Type</text>
       </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->

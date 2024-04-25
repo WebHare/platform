@@ -1356,12 +1356,16 @@
         <text tid="name">Naam</text>
         <text tid="notrunning">Draait niet</text>
         <text tid="ondemand">Op aanvraag</text>
+        <text tid="owner">Eigenaar</text>
         <text tid="persistent">Permanent</text>
+        <text tid="pid">PID</text>
         <text tid="restart">Herstarten</text>
         <text tid="restartfailed">Herstart van de service is mislukt. <br/><br/>Controleer a.u.b. of de opdrachtregel correct is.</text>
         <text tid="running">Draait</text>
         <text tid="servicemanager">Servicebeheer</text>
         <text tid="since">Sinds</text>
+        <text tid="softreset">Softreset</text>
+        <text tid="startup">Start-up</text>
         <text tid="type">Type</text>
       </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
