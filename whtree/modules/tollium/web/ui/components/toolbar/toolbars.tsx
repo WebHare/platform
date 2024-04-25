@@ -14,10 +14,10 @@ type ToolbarButtonOptions = {
 
 export class ToolbarButton {
   node: HTMLElement;
-  toolbar: Toolbar;
+  toolbar: ToolbarContainer;
   options: ToolbarButtonOptions;
 
-  constructor(toolbar: Toolbar, options?: ToolbarButtonOptions) {
+  constructor(toolbar: ToolbarContainer, options?: ToolbarButtonOptions) {
     this.toolbar = toolbar;
     this.options = {
       enabled: true,
@@ -64,22 +64,34 @@ export class ToolbarButton {
 }
 
 export class ToolbarSeparator extends ToolbarButton {
-  constructor(toolbar: Toolbar, options?: ToolbarButtonOptions) {
+  constructor(toolbar: ToolbarContainer, options?: ToolbarButtonOptions) {
     super(toolbar, options);
     this.node = dompack.create("div", { "className": ["wh-toolbar-separator"].concat(this.options.classNames || []).join(" ") });
   }
 }
 
-type ToolbarPanelOptions = {
+class ToolbarContainer {
+  addButton(_button: ToolbarButton) {
+    throw new Error("addButton not implemented");
+  }
+
+  addComponent(_comp: ToolbarButton) {
+    throw new Error("addComponent not implemented");
+  }
+}
+
+export type ToolbarPanelOptions = {
   onClose?: EventListenerOrEventListenerObject;
   onApply?: EventListenerOrEventListenerObject;
 };
 
-export class ToolbarPanel {
+export class ToolbarPanel extends ToolbarContainer {
   node: HTMLElement;
   options?: ToolbarPanelOptions;
 
   constructor(options?: ToolbarPanelOptions) {
+    super();
+
     this.options = options;
     this.node = <div class="wh-toolbar-panel open"></div>;
 
@@ -106,7 +118,7 @@ type ToolbarOptions = {
   classNames?: string[];
 };
 
-export class Toolbar {
+export class Toolbar extends ToolbarContainer {
   options: ToolbarOptions;
   node: HTMLElement;
   mainPanel: ToolbarPanel;
@@ -114,6 +126,8 @@ export class Toolbar {
   modalHolder: HTMLElement;
 
   constructor(options: ToolbarOptions) {
+    super();
+
     this.options = {
       applyLabel: "Apply",
       closeLabel: "Close",

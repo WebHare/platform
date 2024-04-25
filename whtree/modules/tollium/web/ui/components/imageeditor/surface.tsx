@@ -1,13 +1,16 @@
 import * as dompack from "dompack";
+
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
-import { PhotoCrop } from "./crop";
-import { PhotoRotate } from "./scaling";
-import { PhotoFilters } from "./filters";
-import { PhotoPoint } from "./refpoint";
 
-require("./imageeditor.lang.json");
+import { OffsetRect, Rect, Size } from ".";
+import { PhotoCrop, PhotoCropProps } from "./crop";
+import { PhotoFilters, PhotoFiltersProps } from "./filters";
+import { PhotoPoint, PhotoPointProps } from "./refpoint";
+import { PhotoRotate, PhotoRotateProps } from "./scaling";
+
+import "./imageeditor.lang.json";
 
 export type ImageSurfaceOptions = {
   getBusyLock?: (() => Disposable) | null;
@@ -16,45 +19,32 @@ export type ImageSurfaceOptions = {
   maxArea?: number;
 };
 
-type Size = { x: number; y: number };
-
-type Rect = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
-
-type OffsetRect = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  offsetx: number;
-  offsety: number;
+export type ImageSurfaceSettings = {
+  refPoint: Size;
+  orientation: number;
 };
 
 type EditStep = {
   action: "crop";
   comp: PhotoCrop;
-  props: { crop: number[] };
-  width: number;
-  height: number;
+  props: PhotoCropProps;
+  // width: number;
+  // height: number;
   meta: boolean;
 } | {
   action: "rotate";
-  props: { angle: number; scale: number };
   comp: PhotoRotate;
+  props: PhotoRotateProps;
   meta: boolean;
 } | {
   action: "filters";
-  props: { data: unknown };
   comp: PhotoFilters;
+  props: PhotoFiltersProps;
   meta: boolean;
 } | {
   action: "refpoint";
-  props: { refpoint: Size };
   comp: PhotoPoint;
+  props: PhotoPointProps;
   meta: boolean;
 };
 
@@ -71,7 +61,7 @@ export class ImageSurface {
     orientation: number;
   } | null = null;
   viewPort: Size | null = null;
-  canvas: HTMLCanvasElement | null = null;
+  canvas: HTMLCanvasElement;
   canvasData: {
     cssSize: Size;
     scale: Size;
@@ -82,7 +72,7 @@ export class ImageSurface {
   previewScale = 1;
   previewRect: OffsetRect | null = null;
   previewMask: Rect | null = null;
-  maskCanvas: HTMLCanvasElement | null = null;
+  maskCanvas: HTMLCanvasElement;
   imageLimited = false;
   ctx: CanvasRenderingContext2D | null = null;
   refPoint: Size | null = null;
@@ -95,7 +85,7 @@ export class ImageSurface {
   scaleTimeout?: NodeJS.Timeout;
   options: ImageSurfaceOptions = {};
 
-  constructor(imgEditorNode: HTMLElement, toolbar: Toolbar, options?: ImageSurfaceOptions) {
+  constructor(imgEditorNode: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
     this.imgEditorNode = imgEditorNode;
     this.options = {
       editorBackground: "",
@@ -104,13 +94,13 @@ export class ImageSurface {
       ...options
     };
 
+
     this.node = <div class="wh-image-surface" tabindex="0">
       {this.canvas = <canvas />}
       {this.maskCanvas = <canvas style="position: absolute; left: 0; top: 0; pointer-events: none;" />}
     </div>;
     if (this.options.editorBackground)
       this.node.style.background = this.options.editorBackground;
-
   }
 
   fireEvent(name: string, detail?: unknown) {
@@ -118,7 +108,7 @@ export class ImageSurface {
   }
 
   setSize(w: number, h: number) {
-    dompack.setStyles(this.node, { width: w, height: h });
+    Object.assign(this.node.style, { width: w + "px", height: h + "px" });
     if (this.ctx) {
       this.viewPort = { x: w, y: h };
       this.setupCanvas();
@@ -129,13 +119,10 @@ export class ImageSurface {
     }
   }
 
-  setImg(img: HTMLImageElement, settings: { refPoint: Size; orientation: number }) {
-    if ("refpoint" in settings) {
-      //FIXME there are steps missing in the typescript APIs but once we have types at all stack levels between us and ImageSettings we should rename the fields to fileName and refPoint
-      console.warn(`Received refpoint instead of refPoint - should fix caller`);
-      //@ts-ignore trust us
-      settings = { ...settings, refPoint: settings.refpoint, refpoint: undefined };
-    }
+  setImg(img: HTMLImageElement, settings: ImageSurfaceSettings) {
+    if ("refpoint" in settings)
+      throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
+
     this.orgRefPoint = settings.refPoint;
 
     this.undoStack = [];
@@ -149,8 +136,7 @@ export class ImageSurface {
     this.viewPort = { x: containersize.width, y: containersize.height };
     this.setupFromImage(img, settings.orientation);
 
-    // After setupFromImage, this.canvas is not null
-    this.ctx = this.canvas!.getContext("2d");
+    this.ctx = this.canvas.getContext("2d");
 
     this.setupCanvas();
     this.fireEvent('ready', this.imgData);
@@ -164,7 +150,7 @@ export class ImageSurface {
   // Are there image data modifying changes?
   isModified() {
     // Returns true if there is at least one image modifying state on the undo stack
-    return this.undoStack.findIndex(function (state) {
+    return this.undoStack.findIndex(state => {
       return !state.meta;
     }) >= 0;
   }
@@ -227,34 +213,34 @@ export class ImageSurface {
 
   setupCanvas() {
     this.refPoint = this.orgRefPoint;
-    this.canvas!.width = this.imgData!.size.x;
-    this.canvas!.height = this.imgData!.size.y;
+    this.canvas.width = this.imgData!.size.x;
+    this.canvas.height = this.imgData!.size.y;
     this.maskCanvas!.width = this.viewPort!.x;
     this.maskCanvas!.height = this.viewPort!.y;
 
     //what scale to use to fit image on canvas in current position
-    const canvasScaleX = this.canvas!.width / this.viewPort!.x;
-    const canvasScaleY = this.canvas!.height / this.viewPort!.y;
+    const canvasScaleX = this.canvas.width / this.viewPort!.x;
+    const canvasScaleY = this.canvas.height / this.viewPort!.y;
     let canvasScale = canvasScaleX > canvasScaleY ? canvasScaleX : canvasScaleY;
     if (canvasScale < 1)
       canvasScale = 1;//don't scale up
     this.canvasScale = 1 / canvasScale;
 
-    const cssw = Math.round(this.canvas!.width / canvasScale);
-    const cssh = Math.round(this.canvas!.height / canvasScale);
+    const cssw = Math.round(this.canvas.width / canvasScale);
+    const cssh = Math.round(this.canvas.height / canvasScale);
     this.canvasData = {
       cssSize: { x: cssw, y: cssh },
-      scale: { x: (this.canvas!.width / cssw), y: (this.canvas!.height / cssh) },
+      scale: { x: (this.canvas.width / cssw), y: (this.canvas.height / cssh) },
       realSize: { x: this.imgData!.orgSize.x, y: this.imgData!.orgSize.y }
     };
 
-    this.canvas!.style.position = "absolute";
-    this.canvas!.style.top = '50%';
-    this.canvas!.style.left = '50%';
-    this.canvas!.style.width = this.canvasData.cssSize!.x + 'px';
-    this.canvas!.style.height = this.canvasData.cssSize!.y + 'px';
-    this.canvas!.style.marginLeft = Math.ceil(this.canvasData.cssSize!.x * -0.5) + 'px';
-    this.canvas!.style.marginTop = Math.ceil(this.canvasData.cssSize!.y * -0.5) + 'px';
+    this.canvas.style.position = "absolute";
+    this.canvas.style.top = '50%';
+    this.canvas.style.left = '50%';
+    this.canvas.style.width = this.canvasData.cssSize!.x + 'px';
+    this.canvas.style.height = this.canvasData.cssSize!.y + 'px';
+    this.canvas.style.marginLeft = Math.ceil(this.canvasData.cssSize!.x * -0.5) + 'px';
+    this.canvas.style.marginTop = Math.ceil(this.canvasData.cssSize!.y * -0.5) + 'px';
 
     let drawWidth = this.imgData!.size.x;
     let drawHeight = this.imgData!.size.y;
@@ -302,7 +288,7 @@ export class ImageSurface {
     this.fireEvent('reset');
   }
 
-  setPreviewCanvas(canvas: HTMLCanvasElement, contentRect?: OffsetRect) {
+  setPreviewCanvas(canvas: HTMLCanvasElement | null, contentRect?: OffsetRect) {
     const oldcanvas = this.previewCanvas;
     if (this.previewCanvas) {
       this.hidePreviewCanvas();
@@ -381,7 +367,7 @@ export class ImageSurface {
     if (this.previewCanvas) {
       this.fireEvent("hidepreview");
       this.node.removeChild(this.previewCanvas);
-      this.node.insertBefore(this.canvas!, this.node.firstChild);
+      this.node.insertBefore(this.canvas, this.node.firstChild);
       if (hidemask)
         this.node.removeChild(this.maskCanvas!);
       else
@@ -439,7 +425,8 @@ export class ImageSurface {
 
     // Reconstruct previous actions with minimum steps
     this.undoStack.forEach(step => {
-      step.comp.applyCanvas(step.props);
+      //eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO FIX the requirement for any here. eg store callbacks on the undo stack?
+      step.comp.applyCanvas(step.props as any);
     });
 
     this.fireEvent("undo");
@@ -461,7 +448,8 @@ export class ImageSurface {
 
     // Reconstruct previous actions with minimum steps
     this.undoStack.forEach(step => {
-      step.comp.applyCanvas(step.props);
+      //eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO FIX the requirement for any here. eg store callbacks on the undo stack?
+      step.comp.applyCanvas(step.props as any);
     });
 
     this.fireEvent("redo");
@@ -469,42 +457,40 @@ export class ImageSurface {
 
   cloneCanvas(options?: { clearOriginal: boolean }) {
     const copy = document.createElement("canvas");
-    copy.width = this.canvas!.width;
-    copy.height = this.canvas!.height;
+    copy.width = this.canvas.width;
+    copy.height = this.canvas.height;
 
     const ctx = copy.getContext('2d');
     if (!ctx)
       return;
-    ctx.drawImage(this.canvas!, 0, 0);
+    ctx.drawImage(this.canvas, 0, 0);
 
     if (options?.clearOriginal) {
-      this.ctx!.clearRect(0, 0, this.canvas!.width, this.canvas!.height);
+      this.ctx!.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     return { canvas: copy, ctx };
   }
 
   static addUndoButton(toolbar: Toolbar, surface: ImageSurface) {
-    const button = new ToolbarButton(toolbar,
-      {
-        label: getTid("~undo"),
-        icon: toddImages.createImage("tollium:actions/undo", 24, 24, "b"),
-        onExecute: surface.popUndo.bind(surface),
-        enabled: false
-      });
+    const button = new ToolbarButton(toolbar, {
+      label: getTid("~undo"),
+      icon: toddImages.createImage("tollium:actions/undo", 24, 24, "b"),
+      onExecute: () => surface.popUndo(),
+      enabled: false
+    });
     toolbar.addButton(button);
     surface.undoButton = button;
     return { button: button };
   }
 
   static addRedoButton(toolbar: Toolbar, surface: ImageSurface) {
-    const button = new ToolbarButton(toolbar,
-      {
-        label: getTid("~redo"),
-        icon: toddImages.createImage("tollium:actions/redo", 24, 24, "b"),
-        onExecute: surface.popRedo.bind(surface),
-        enabled: false
-      });
+    const button = new ToolbarButton(toolbar, {
+      label: getTid("~redo"),
+      icon: toddImages.createImage("tollium:actions/redo", 24, 24, "b"),
+      onExecute: () => surface.popRedo(),
+      enabled: false
+    });
     toolbar.addButton(button);
     surface.redoButton = button;
     return { button: button };

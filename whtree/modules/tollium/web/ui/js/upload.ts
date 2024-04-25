@@ -67,7 +67,7 @@ async function gatherUploadFiles(items: FileSystemEntry[]): Promise<ItemWithFull
 
   for (let i = 0; i < items.length; ++i) {
     if (items[i].isDirectory) {
-      const contents = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+      const contents = await new Promise<FileSystemEntry[]>(resolve => {
         const reader = (items[i] as FileSystemDirectoryEntry).createReader();
         reader.readEntries(resolve);
       });
@@ -83,19 +83,23 @@ async function gatherUploadFiles(items: FileSystemEntry[]): Promise<ItemWithFull
 export type ImageUploadCallbackData = {
   name: string;
   token: string;
+  //note that refpoint needs to be lowercase here as asyncQueue will snake_case it oherwise
   extradata: { imageeditor: { refpoint: RefPoint | null } };
 };
 export type ImageUploadCallback = (data: ImageUploadCallbackData) => Promise<void>;
 
-export async function handleImageUpload(component: ToddCompBase, file: File | { type: string; url?: string; name: string; source_fsobject: number; refpoint?: RefPoint }, imgcallback: ImageUploadCallback, options: {
+export async function handleImageUpload(component: ToddCompBase, file: File | { type: string; url?: string; name: string; source_fsobject: number; refPoint?: RefPoint }, imgcallback: ImageUploadCallback, options: {
   mimetype: string;
   imgsize: unknown;
   action: string;
 }) {
+  if ("refpoint" in file)
+    throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
+
   const imageeditdialog = new ImgeditDialogController(component.owner, options);
   const settings: ImageSettings = {
-    refpoint: "refpoint" in file && file.refpoint ? file.refpoint : null,
-    filename: file.name
+    refPoint: "refPoint" in file && file.refPoint ? file.refPoint : null,
+    fileName: file.name
   };
 
   if ("lastModified" in file) //ugly way to dfiferentiate a real 'uploaded' File from EditImage.file
@@ -111,7 +115,7 @@ export async function handleImageUpload(component: ToddCompBase, file: File | { 
       const extradata = {
         imageeditor: {
           // source_fsobject: parseInt(file.source_fsobject) || 0, //FIXME where to preserve this? what is the source? why do we even have this number on the client side?
-          refpoint: done.settings && done.settings.refpoint
+          refpoint: done.settings && done.settings.refPoint
         }
       };
       await imgcallback({ name: file.name, token: files[0].filetoken, extradata });
