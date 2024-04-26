@@ -427,14 +427,15 @@ export type SelectionResultRow<T extends TypeDefinition, O extends OutputMap<T>>
 export type CombineAttrs<A extends WRDAttrBase, B extends WRDAttrBase> = A extends B ? B extends A ? A : never : never;
 
 /** Combines two types. Two incompatible attributes resolve to never */
-export type CombineTypes<A extends RootTypeDefinition, B extends RootTypeDefinition> = {
-  [K in keyof A | keyof B]: K extends keyof A ? K extends keyof B ? CombineAttrs<ToWRDAttr<A[K]>, ToWRDAttr<B[K]>> : A[K] : K extends keyof B ? B[K] : never;
+export type CombineTypes<A extends RootTypeDefinition, B extends RootTypeDefinition> = Omit<A, keyof B> & Omit<B, keyof A> & {
+  [K in keyof A & keyof B]: CombineAttrs<ToWRDAttr<A[K]>, ToWRDAttr<B[K]>>;
 } & WRDTypeBaseSettings;
 
 /** Combines two schemas. Two incompatible attributes resolve to never */
-export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeDefinition> = {
-  [K in keyof A | keyof B]: K extends keyof A ? K extends keyof B ? CombineTypes<A[K], B[K]> : A[K] : K extends keyof B ? B[K] : never;
+export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeDefinition> = Omit<A, keyof B> & Omit<B, keyof A> & {
+  [K in keyof A & keyof B]: CombineTypes<A[K], B[K]>
 };
+
 
 /** Combines an array with multiple schema types. Also accepts a simple schema, passes it through directly */
 export type Combine<S extends SchemaTypeDefinition | SchemaTypeDefinition[]> = S extends [infer A extends SchemaTypeDefinition, infer B extends SchemaTypeDefinition, ...infer C extends SchemaTypeDefinition[]] ? CombineSchemas<A, Combine<[B, ...C]>> : S extends [SchemaTypeDefinition] ? S[0] : S extends SchemaTypeDefinition ? S : never;

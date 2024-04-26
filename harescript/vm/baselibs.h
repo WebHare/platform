@@ -323,6 +323,7 @@ struct OSContext
         void ResetProcessInput(int processid);
         bool IsProcessRunning(int processid);
         int GetProcessExitCode(int processid);
+        pid_t GetProcessPid(int processid);
 #endif // __EMSCRIPTEN__
         std::string GetConsoleLine();
         int OpenDiskFile(HSVM *vm, std::string const &path, bool writeaccess, bool create, bool failifexists, bool publicfile);

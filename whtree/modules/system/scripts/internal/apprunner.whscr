@@ -496,6 +496,7 @@ PUBLIC STATIC OBJECTTYPE AppRunner
         SELECT name := app->name
              , runnable := app->runnable
              , running := ObjectExists(app->process)
+             , pid := ObjectExists(app->process) ? app->process->pid : -1
              , runatsoftreset := app->runatsoftreset
              , since := app->since
              , lasterror := app->lasterror

@@ -122,20 +122,43 @@ PUBLIC RECORD ARRAY FUNCTION ListExpectedApps()
 PUBLIC RECORD ARRAY FUNCTION ListRunningServices()
 {
   OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
-  RECORD response := WaitForPromise(link->GetReport());
+  RECORD ARRAY apprunner_services :=
+      SELECT *
+           , run :=               runatsoftreset ? "softreset" : "always"
+           , owner :=             "system:apprunner"
+        FROM WaitForPromise(link->GetReport()).report;
   link->CloseService();
-  RETURN response.report;
+
+  OBJECT smservice := WaitForPromise(OpenWebhareService("platform:servicemanager", [ timeout := 5000, notondemand := TRUE ]));
+  RECORD ARRAY servicemanager_services :=
+      SELECT name
+           , enabled :=           TRUE
+           , running :=           isrunning
+           , runatsoftreset :=    FALSE
+           , run
+           , since :=             startedsince
+           , lasterror :=         lastlogtext
+           , regkey :=            ""
+           , owner :=             "platform:servicemanager"
+           , pid
+        FROM EnforceStructure(
+          [ [ startedsince :=     DEFAULT DATETIME
+            , pid :=              -1
+            ]
+          ], WaitForPromise(smservice->getWebHareState()).availableservices);
+  smservice->CloseService();
+
+  RETURN apprunner_services CONCAT servicemanager_services;
 }
 
 PUBLIC OBJECTTYPE ServicesCheck EXTEND CustomCheckBase
 <
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssueList()
   {
-    RECORD ARRAY deadservices := SELECT * FROM ListRunningServices() WHERE running = FALSE AND enabled = TRUE AND runatsoftreset = FALSE;
+    RECORD ARRAY deadservices := SELECT * FROM ListRunningServices() WHERE running = FALSE AND enabled = TRUE AND run != "always";
     RETURN
         SELECT msg := `:Service '${name}' is not running`
              , jumpto := [ app := "system:dashboard", panel := "system:servicemanager", service := name ]
           FROM deadservices;
   }
 >;
-

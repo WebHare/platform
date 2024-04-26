@@ -1700,6 +1700,11 @@ void Process::Kill()
             kill(pid,SIGKILL);
 }
 
+pid_t Process::GetPid() const
+{
+        return pid;
+}
+
 void Process::SetEnvironment(Environment const &newenvironment)
 {
         //Clear existing environment

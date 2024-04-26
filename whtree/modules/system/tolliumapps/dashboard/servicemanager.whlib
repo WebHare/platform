@@ -12,7 +12,7 @@ PUBLIC STATIC OBJECTTYPE ServiceManager EXTEND DashboardPanelBase
 <
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
-    RETURN 0;
+    RETURN 1;
   }
   /** @short This monitor has been activated, start refreshing */
   UPDATE PUBLIC MACRO EnableRefresh()
@@ -40,32 +40,40 @@ PUBLIC STATIC OBJECTTYPE ServiceManager EXTEND DashboardPanelBase
   {
     TRY
     {
+      RECORD ARRAY hs_services := ListRunningServices();
+
       ^applist->rows :=
-            SELECT rowkey := name
-                 , icon :=      NOT enabled
-                                    ? 3 // not enabled
-                                    : running
-                                          ? runatsoftreset
-                                                ? 4 // neutral (task running)
-                                                : 1 // checked (running now)
-                                          : runatsoftreset
-                                                ? lasterror IN [ "Terminated", "" ]
-                                                      ? 1 // checked, should not be running
-                                                      : 2
-                                                : 2 // terminated
-                 , type :=      runatsoftreset
-                                    ? this->GetTid(".ondemand")
-                                    : this->GetTid(".persistent")
-                 , status :=    running
-                                    ? this->GetTid(".running")
-                                    : lasterror IN [ "", "Terminated" ] AND runatsoftreset
-                                          ? this->GetTid(".inactive")
-                                          : this->GetTid(".notrunning")
+            SELECT TEMPORARY ondemand := run != "always"
+                 , rowkey := name
+                 , icon :=        NOT enabled
+                                      ? 3 // not enabled
+                                      : running
+                                            ? ondemand
+                                                  ? 4 // neutral (task running)
+                                                  : 1 // checked (running now)
+                                            : ondemand
+                                                  ? lasterror IN [ "Terminated", "" ]
+                                                        ? 1 // checked, should not be running
+                                                        : 2
+                                                  : 2 // terminated
+                 , type :=        run = "always" ? this->GetTid(".persistent")
+                                    : run = "on-demand" ? this->GetTid(".ondemand")
+                                    : run = "once" ? this->GetTid(".startup")
+                                    : run = "softreset" ? this->GetTid(".softreset")
+                                    : run
+                 , status :=      running
+                                      ? this->GetTid(".running")
+                                      : lasterror IN [ "", "Terminated" ] AND ondemand
+                                            ? this->GetTid(".inactive")
+                                            : this->GetTid(".notrunning")
+                 , owner
                  , since
-                 , lasterror    := lasterror = "Terminated" AND runatsoftreset ? "" : lasterror
+                 , lasterror :=   lasterror = "Terminated" AND ondemand ? "" : lasterror
                  , regkey
-                 , canedit :=   regkey != ""
+                 , canedit :=     regkey != ""
+                 , canenable :=   owner = "system:apprunner"
                  , enabled
+                 , pid :=         pid <= 0 ? "" : ToString(pid)
               FROM ListRunningServices()
           ORDER BY name;
 
@@ -80,16 +88,25 @@ PUBLIC STATIC OBJECTTYPE ServiceManager EXTEND DashboardPanelBase
 
   MACRO DoRestart()
   {
-    STRING appname := ^applist->value;
+    RECORD res := ^applist->selection;
     TRY
     {
-      OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
-      WaitForPromise(link->Restart(appname));
-      link->CloseService();
+      IF (res.owner = "system:apprunner")
+      {
+        OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
+        WaitForPromise(link->Restart(res.rowkey));
+        link->CloseService();
+      }
+      ELSE
+      {
+        OBJECT link := WaitForPromise(OpenWebHareService("platform:servicemanager"));
+        WaitForPromise(link->RestartService(res.rowkey));
+        link->CloseService();
+      }
     }
     CATCH(OBJECT e)
     {
-      this->RunSimpleScreen("error", this->GetTid(".restartfailed", appname));
+      this->RunSimpleScreen("error", this->GetTid(".restartfailed", res.rowkey));
     }
   }
   MACRO SetEnabled(STRING appname, BOOLEAN doenable)

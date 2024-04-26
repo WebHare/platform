@@ -8,10 +8,10 @@
         <enableon source="applist" min="1" />
       </action>
       <action name="enable" onexecute="doenable" tid="~enable">
-        <enableon source="applist" min="1" checkflags="!enabled" />
+        <enableon source="applist" min="1" checkflags="canenable !enabled" />
       </action>
       <action name="disable" onexecute="dodisable" tid="~disable">
-        <enableon source="applist" min="1" checkflags="enabled" />
+        <enableon source="applist" min="1" checkflags="canenable enabled" />
       </action>
     </actions>
     <menus>
@@ -36,14 +36,16 @@
                   height="1pr"
                   icons="tollium:status/checked tollium:status/serious_error tollium:status/negative tollium:status/neutral"
                   selectcontextmenu="contextmenu"
-                  flags="enabled"
+                  flags="canenable enabled"
                   borders="right"
                   >
               <column name="rowkey" type="text" width="30x" tid=".name" />
               <column name="icon" type="icon" title=""/>
               <column name="type" type="text" width="13x" />
+              <column name="owner" type="text" width="21x" />
               <column name="since"  type="datetime" precision="milliseconds" width="21x" storeutc="true" />
               <column name="lasterror" type="text" />
+              <column name="pid" type="text" align="right" width="10x" />
             </list>
           </cell>
           <cell spacers="left right top">

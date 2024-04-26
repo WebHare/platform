@@ -19,9 +19,9 @@ const propnames = {
 };
 
 function getFinalKey(event: NormalizedKeyboardEvent) { //get the name for the 'final' key, eg the 'D' in 'alt+control+d'
-  if (event.code.startsWith('Key') && event.code.length === 4)
+  if (event.code?.startsWith('Key') && event.code.length === 4)
     return event.code.substring(3, 4).toUpperCase();
-  if (event.code.startsWith('Digit') && event.code.length === 6)
+  if (event.code?.startsWith('Digit') && event.code.length === 6)
     return event.code.substring(5, 6).toUpperCase();
   return event.key.length === 1 ? event.key.toUpperCase() : event.key;
 }
