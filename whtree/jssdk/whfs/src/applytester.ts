@@ -311,6 +311,15 @@ export class WHFSApplyTester {
     return getWRDPlugindata(data);
   }
 
+  async getSiteLanguage() {
+    let lang = 'en';
+    for (const apply of await this.getMatchingRules('sitelanguage')) {
+      if (apply.sitelanguage.has_lang)
+        lang = apply.sitelanguage.lang;
+    }
+    return lang;
+  }
+
   async getWebDesignInfo() {
     //Inspired on GetWebDesignObjinfo()
     const webDesign = {

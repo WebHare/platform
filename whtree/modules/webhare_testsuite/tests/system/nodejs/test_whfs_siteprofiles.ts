@@ -4,12 +4,19 @@ import * as whfs from "@webhare/whfs";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getTestSiteHS, getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
+async function getApplyTester(path: string) {
+  return await getApplyTesterForObject(await whfs.openFile(path));
+}
+
 async function testSiteProfiles() {
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
 
   const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
   test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectName);
+
+  test.eq("en", await (await getApplyTester("site::webhare_testsuite.testsitejs/testpages/markdownpage")).getSiteLanguage(), "Undefined falls back to 'en'");
+  test.eq("ps-AF", await (await getApplyTester("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af")).getSiteLanguage());
 
   const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();

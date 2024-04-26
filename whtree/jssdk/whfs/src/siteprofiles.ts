@@ -198,7 +198,10 @@ export interface CSPApplyRule {
   setlibrary: any[];
   setobjecteditor?: any;
   setwidget: any[];
-  sitelanguage?: any;
+  sitelanguage?: {
+    has_lang: boolean;
+    lang: string;
+  } | null;
   siteprofile: string;
   siteprofileids: any[];
   tagsources: any[];

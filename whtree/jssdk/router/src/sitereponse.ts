@@ -8,7 +8,7 @@ import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/c
 export class SiteResponseSettings {
   assetpack: string = '';
   witty: string = '';
-  lang: string = 'en-US';
+  lang: string = 'en';
   htmlclasses: string[] = [];
   htmlprefixes: Record<string, string> = {};
   htmldirection: "ltr" | "rtl" = "ltr";
