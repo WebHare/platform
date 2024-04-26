@@ -27,7 +27,7 @@ while true; do
   fi
   if [ -n "$REMAINING" ]; then
     REMAINING=$(( $REMAINING - 1))
-    if [ "$REMAINING" == "0" ]; then
+    if [ "$REMAINING" -le 0 ]; then
       echo Timeout waiting for $1 after $TIMEOUT seconds
       exit 250
     fi
