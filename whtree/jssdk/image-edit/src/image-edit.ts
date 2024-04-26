@@ -43,7 +43,7 @@ export type ImageEditSaveOptions = {
   quality?: number;
 };
 
-import { ImageEditor, type ImageEditorOptions } from "@mod-tollium/web/ui/components/imageeditor";
+import { ImageEditor } from "@mod-tollium/web/ui/components/imageeditor";
 
 //stylesheet for when running in Shadow mode
 const stylesheet = ` //copied from apps.css
@@ -324,11 +324,11 @@ const stylesheet = ` //copied from apps.css
 `;
 
 export class ImageEditElement extends HTMLElement {
-  private editor: ImageEditor;
+  #editor: ImageEditor;
 
   constructor() {
     super();
-    this.editor = new ImageEditor(this, {}, true);
+    this.#editor = new ImageEditor(this, {}, true);
 
     const styleSheet = document.createElement("style");
     styleSheet.innerText = stylesheet;
@@ -342,10 +342,10 @@ export class ImageEditElement extends HTMLElement {
       bubbles: true,
       cancelable: false,
       detail: {
-        focalPoint: this.editor.surface.refPoint,
+        focalPoint: this.#editor.surface.refPoint,
         imageSize: {
-          width: this.editor.surface.imgData!.size.x,
-          height: this.editor.surface.imgData!.size.y
+          width: this.#editor.surface.imgData!.size.x,
+          height: this.#editor.surface.imgData!.size.y
         }
       }
     });
@@ -357,7 +357,7 @@ export class ImageEditElement extends HTMLElement {
     //We use Blob because we're most likely to work and return uploads. Image elements just complicate load/error handling
     //Not sure if we need to care about EXIF? https://github.com/whatwg/html/issues/7210 suggests al browsers apply EXIF orientation
     const bitmap = await createImageBitmap(image);
-    this.editor.surface.setImgBitmap(bitmap, {
+    this.#editor.surface.setImgBitmap(bitmap, {
       focalPoint: null,
       ...settings
     });
@@ -372,15 +372,13 @@ export class ImageEditElement extends HTMLElement {
     if (quality < 0 || quality > 1) //"is a number in the range 0.0 to 1.0 inclusive"
       throw new Error("Quality must be between 0 and 1");
 
-    const blob = await new Promise<Blob | null>(resolve => this.editor.surface.canvas.toBlob(resolve, type, quality));
+    const blob = await new Promise<Blob | null>(resolve => this.#editor.surface.canvas.toBlob(resolve, type, quality));
     if (!blob)
       throw new Error("Failed to save image");
 
     return {
       blob,
-      settings: { focalPoint: this.editor.getFocalPoint() }
+      settings: { focalPoint: this.#editor.getFocalPoint() }
     };
   }
 }
-
-export { type ImageEditorOptions };
