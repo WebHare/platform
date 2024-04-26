@@ -39,13 +39,14 @@ class SiteRequest {
       return wrapHSWebdesign<T>(this);
     }
 
-    const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
     //FIXME - we need to fill in some more data based on the site profile
     const settings = new SiteResponseSettings;
     settings.assetpack = publicationsettings.assetPack;
     settings.witty = publicationsettings.witty;
     settings.supportedlanguages = publicationsettings.supportedLanguages;
+    settings.lang = await applytester.getSiteLanguage();
 
+    const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
     const composer = await factory(this, settings);
 
     for (const plugin of publicationsettings.plugins) //apply plugins

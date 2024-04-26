@@ -70,6 +70,7 @@ async function testSiteResponse() {
   const responsetext = await response.text();
   const doc = parseHTMLDoc(responsetext);
   test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
+  test.eq("en", doc.documentElement.getAttribute("lang"));
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html; charset=utf-8", response.getHeader("content-type"));
@@ -80,6 +81,20 @@ async function testSiteResponse() {
 
   //Verify the GTM noscript is present
   test.eq(/.*<noscript>.*<iframe.*src=".*googletagmanager.com.*id=GTM-TN7QQM".*<\/noscript>.*/, responsetext.replaceAll("\n", " "));
+}
+
+async function getAsDoc(whfspath: string) {
+  const whfsobj = await whfs.openFile(whfspath);
+  const page = await (await buildSiteRequest(new IncomingWebRequest(whfsobj.link), whfsobj)).createComposer();
+  const response = await page.finish();
+  const responsetext = await response.text();
+  return parseHTMLDoc(responsetext);
+}
+
+async function testSiteResponseApplies() {
+  //test various <apply>s and that they affect the webdesign
+  const langPsAFDoc = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
+  test.eq("ps-AF", langPsAFDoc.documentElement.getAttribute("lang"));
 }
 
 async function testCaptureJSDesign() {
@@ -118,6 +133,7 @@ async function testRouter_JSWebDesign() {
 
 test.run([
   testSiteResponse,
+  testSiteResponseApplies,
   testCaptureJSDesign,
   testCaptureJSRendered,
   testRouter_HSWebDesign,

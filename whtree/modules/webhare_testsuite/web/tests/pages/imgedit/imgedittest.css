@@ -1,0 +1,7 @@
+div.tabs > div.tab {
+  display: none;
+}
+div.tabs > div.tab:target
+, div.tabs:not(:has(:target)) > div.tab:first-child {
+  display:block;
+}

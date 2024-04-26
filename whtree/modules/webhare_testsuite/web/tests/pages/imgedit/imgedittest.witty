@@ -1,7 +1,20 @@
 <div>
-  <wh-image-edit id="imgedit"></wh-image-edit>
-  <div id="statusbar"></div>
+  <a id="tab_withfocalpoint" href="#">With focal point</a>
+  <a id="tab_withoutfocalpoint" href="#nofocal">Without focal point</a>
+  <div class="tabs">
+    <div class="tab">
+      <h2>With focal point</h2>
+      <wh-image-edit focalpoint></wh-image-edit>
+      <div class="statusbar"></div>
+    </div>
+    <div class="tab" id="nofocal">
+      <h2>Without focal point</h2>
+      <wh-image-edit ></wh-image-edit>
+      <div class="statusbar"></div>
+    </div>
+  </div>
   <button id="loadlandscape">Load landscape</button>
+  <button id="loadportrait">Load portrait</button>
   <button id="save">Save</button>
 </div>
 <h2>Saved images</h2>

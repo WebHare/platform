@@ -13,9 +13,6 @@
                wittyencoding="HTML-NI"
                async="true" />
 
-    <!-- Set site language -->
-    <sitelanguage lang="en" />
-
     <!-- Set up a rtdtype -->
     <rtddoc rtdtype="http://www.webhare.dev/xmlns/basetestjs/defaultrtdtype" />
 
@@ -81,6 +78,21 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              customizer="pages/wrdauthtest.backend.ts#MultisiteCustomizer"
              cookiename="webharelogin-js-multisite"/>
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*-ps-af*" />
+    <sitelanguage lang="ps-AF" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*-en-gb" />
+    <sitelanguage lang="en-GB" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*-nl*" />
+    <sitelanguage lang="nl" />
   </apply>
 
   <!-- Other siteprofile imports (applysiteprofile) must always be at end of this primary siteprofile -->

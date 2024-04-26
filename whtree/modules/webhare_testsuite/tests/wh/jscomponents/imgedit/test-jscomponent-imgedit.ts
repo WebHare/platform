@@ -2,28 +2,43 @@ import type { ImageEditElement } from '@webhare/image-edit';
 import * as dompack from '@webhare/dompack';
 import * as test from '@webhare/test-frontend';
 
+function getActiveTab() {
+  return test.qS(".tab:target") ?? test.qR(".tab:first-child");
+}
+
 function qSImgEdit(selector: string) {
-  return dompack.qS(test.qR<ImageEditElement>("#imgedit").shadowRoot!, selector);
+  return dompack.qS(test.qR<ImageEditElement>(getActiveTab(), "wh-image-edit").shadowRoot!, selector);
 }
 function qSAImgEdit(selector: string) {
-  return dompack.qSA(test.qR<ImageEditElement>("#imgedit").shadowRoot!, selector);
+  return dompack.qSA(test.qR<ImageEditElement>(getActiveTab(), "wh-image-edit").shadowRoot!, selector);
 }
 
 async function testBasicEditor() {
   await test.load('/.webhare_testsuite/tests/pages/imgedit/');
   const img = await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg');
-  const imgeditor = test.qR<ImageEditElement>("#imgedit");
+  const imgeditor = dompack.qR<ImageEditElement>(getActiveTab(), "wh-image-edit");
   test.assert(imgeditor);
   await imgeditor.loadImage(img);
 
   const surface = qSAImgEdit(".wh-image-surface canvas")[0];
   test.eq(331, surface.getBoundingClientRect().width);
-  test.eqPartial({ imageSize: { width: 600 } }, JSON.parse(test.qR("#statusbar").textContent || 'null'));
+  const statusbar = dompack.qR<ImageEditElement>(getActiveTab(), ".statusbar");
+  test.eqPartial({ imageSize: { width: 600 } }, JSON.parse(statusbar.textContent || 'null'));
 
   test.click("#save");
   await test.wait(() => test.qSA<HTMLImageElement>(".savedimage img")[0]?.naturalHeight > 0);
   test.eq(600, test.qSA<HTMLImageElement>(".savedimage img")[0].naturalWidth);
   test.eq(450, test.qSA<HTMLImageElement>(".savedimage img")[0].naturalHeight);
+
+  test.assert(test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Reference Point"))!)); //TODO rename to focal point
+
+  test.click("#tab_withoutfocalpoint");
+  test.click("#loadportrait");
+  const statusbarNoFocalPoint = dompack.qR<ImageEditElement>(getActiveTab(), ".statusbar");
+  await test.wait(() => statusbarNoFocalPoint.textContent);
+  test.eqPartial({ imageSize: { height: 600 } }, JSON.parse(statusbarNoFocalPoint.textContent || 'null'));
+
+  test.assert(!test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Reference Point"))!));
 }
 
 test.run([ //
