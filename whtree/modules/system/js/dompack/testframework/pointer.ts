@@ -73,11 +73,6 @@ if (window.waitForGestures) {
 } else
   window.waitForGestures = localWaitForGestures;
 
-function isElementSafeToAccess(el) //is it safe to fire an event towards element 'el'? IE doesn't like you messing with unloaded (eg iframed) nodes
-{
-  //  return Boolean(el?.ownerDocument?.documentElement.contains(el));
-  return Boolean(el);
-}
 
 export class SimulatedDragDataStore {
   items = new Array<RawDragItem>;
@@ -341,7 +336,7 @@ function getDraggableElement(el) {
 }
 
 function setMouseCursor(x, y) {
-  if (!mousestate.cursorel || !isElementSafeToAccess(mousestate.cursorel)) {
+  if (!mousestate.cursorel) {
     //FIXME reinstall mousecursor element into the dom if the page reloaded
     mousestate.cursorel = mousestate.lastdoc.createElement('div');
     mousestate.cursorel.style.cssText = 'position:fixed; pointer-events:none; z-index: 2147483647; width:14px; height:22px; pointer-events:none;top:0;left:0';
@@ -1058,7 +1053,7 @@ function processGestureQueue() {
         if (!mousestate.dndstate) {
           if (target.el && target.el === mousestate.downel) {
             let clickcount = 1;
-            if (isElementSafeToAccess(mousestate.previousclickel)
+            if (mousestate.previousclickel
               && mousestate.previousclickel === mousestate.downel
               && (Date.now() - mousestate.previousclicktime) < 100
               && (Math.abs(mousestate.previousclickpos.cx - target.cx) <= 2)
@@ -1113,7 +1108,7 @@ function getParents(el) {
 }
 
 function fireMouseEventsTree(eventtype: string, cx: number, cy: number, el: Element, button: 0 | 1 | 2, relatedtarget: HTMLElement | null, options: PointEventOptions) {
-  if (!isElementSafeToAccess(el))
+  if (!el)
     return;
 
   /* eventtype==mouseleave:
@@ -1173,7 +1168,7 @@ export function checkedDispatchEvent(el, event) {
 
 
 function fireMouseEvent(eventtype: string, cx: number, cy: number, el: Element, button: 0 | 1 | 2, relatedtarget: HTMLElement | null, options: PointEventOptions) {
-  if (!isElementSafeToAccess(el))
+  if (!el)
     return false;
 
   //https://developer.mozilla.org/en-US/docs/DOM/event.initMouseEvent
