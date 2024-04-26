@@ -421,6 +421,17 @@ export function getValidatedElementFromPoint(doc: Document, px: number, py: numb
   return el;
 }
 
+/// Is the element still in the DOM (even if shadow?)
+function isInDeepDom(el: Node) {
+  if (!el.ownerDocument)
+    return false;
+  for (let findroot = el; findroot; findroot = findroot.parentNode ?? (findroot as unknown as ShadowRoot).host) //also walk out of shadowdoms
+    if (findroot === el.ownerDocument.documentElement)
+      return true;
+
+  return false;
+}
+
 /** Returns the position from a part with an element and optionally x/y position within that element
     @return
     @cell return.x X-coordinate of selected position
@@ -453,11 +464,10 @@ function getPartPosition(part) {
   else
     throw new Error("Did not understand 'y'");
 
-  for (let findroot = part.el; findroot !== part.el.ownerDocument.documentElement; findroot = findroot.parentNode ?? findroot.host) //also walk out of shadowdoms
-    if (!findroot) {
-      console.error("The element we're looking for is no longer part of the DOM: ", part.el);
-      throw new Error("The element we're looking for is no longer part of the DOM");
-    }
+  if (!isInDeepDom(part.el)) {
+    console.error("The element we're looking for is no longer part of the DOM: ", part.el);
+    throw new Error("The element we're looking for is no longer part of the DOM");
+  }
 
   const clientx = coords.left + relx;
   const clienty = coords.top + rely;
@@ -1066,10 +1076,10 @@ function processGestureQueue() {
             mousestate.previousclickpos = { cx: target.cx, cy: target.cy, clickcount: clickcount };
 
             //if element leaves dom, it should no longer receive clicks (confirmed at least for chrome in tollium testautosuggest
-            if (dompack.contains(target.el.ownerDocument.body, target.el))
+            if (isInDeepDom(target.el))
               fireMouseEvent("click", target.cx, target.cy, target.el, part.up, null, part);
 
-            if (dompack.contains(target.el.ownerDocument.body, target.el) && clickcount === 2)
+            if (isInDeepDom(target.el) && clickcount === 2)
               fireMouseEvent("dblclick", target.cx, target.cy, target.el, part.up, null, { clickcount: clickcount });
           } else {
             console.log("Not generating a 'click' as 'down' target moved away during mouse action, down target:", mousestate.downel, " up target", target.el);
