@@ -166,20 +166,8 @@ const TestImageEditor =
       }
     },
 
-    "Apply filters",
+    "Save",
     async function () {
-      const filterbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent?.includes('Apply Filters'))[0];
-      test.assert(filterbutton);
-      test.click(filterbutton);
-
-      const invertbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent?.includes('Invert'))[0];
-      test.assert(invertbutton);
-      test.click(invertbutton);
-      await test.wait('ui');
-
-      test.clickTolliumButton("OK");
-      await test.wait('ui');
-
       test.clickTolliumButton("Save");
       await test.wait('ui');
     }

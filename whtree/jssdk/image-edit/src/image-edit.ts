@@ -1,4 +1,5 @@
 import * as dompack from "@webhare/dompack";
+import { ImageEditor } from "./imageeditor";
 
 export type ImageEditMetadataEvent = CustomEvent<ImageEditMetadata & ImageEditSettings>;
 
@@ -43,7 +44,6 @@ export type ImageEditSaveOptions = {
   quality?: number;
 };
 
-import { ImageEditor } from "@mod-tollium/web/ui/components/imageeditor";
 
 //stylesheet for when running in Shadow mode
 const stylesheet = ` //copied from apps.css
@@ -219,7 +219,6 @@ const stylesheet = ` //copied from apps.css
 }
 
   .wh-cropbox
-, .wh-filterbox
 , .wh-refbox
 {
   position:absolute;
@@ -227,7 +226,6 @@ const stylesheet = ` //copied from apps.css
 }
   .wh-cropbox .wh-cropbox-mask
 , .wh-cropbox .wh-cropbox-img
-, .wh-filterbox .wh-filterbox-img
 {
   position:absolute;
   top:0;

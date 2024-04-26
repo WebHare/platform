@@ -3,18 +3,17 @@ import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { Toolbar, ToolbarButton, ToolbarPanel, ToolbarPanelOptions, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
-import * as $todd from "@mod-tollium/web/ui/js/support";
-import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type * as $todd from "@mod-tollium/web/ui/js/support";
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import { PhotoCrop, addImageCropButton } from "./crop";
 import { PhotoPoint, addRefPointButton } from "./refpoint";
 import { PhotoRotate, addImageRotateButton } from "./scaling";
 import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./surface";
 
-import "./imageeditor.css";
-import "./imageeditor.lang.json";
-import "../../common.lang.json";
-import type { ImagePoint } from "@webhare/image-edit/src/image-edit";
+import "@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json"; //TODO gettid system currently cant read from a JSSDK folder. our caller will have to register texts
+import "@mod-tollium/web/ui/common.lang.json"; //TODO that's a lot of texts from which we only need a small part
+import type { ImagePoint } from "./image-edit";
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?

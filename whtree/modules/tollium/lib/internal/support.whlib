@@ -512,7 +512,6 @@ PUBLIC RECORD FUNCTION FixImgSize(RECORD imgsize)
                                , noforce := FALSE
                                , fixorientation := TRUE
                                , allowedactions := DEFAULT STRING ARRAY
-                               , allowedfilters := DEFAULT STRING ARRAY
                                ], imgsize);
 
   imgsize.method := ToLowercase(imgsize.method);
@@ -530,14 +529,6 @@ PUBLIC RECORD FUNCTION FixImgSize(RECORD imgsize)
   // If nothing (or only invalid actions) specified, 'all' actions are allowed (doesn't include 'refpoint')
   IF (Length(imgsize.allowedactions) = 0)
     imgsize.allowedactions := [ "all" ];
-
-  imgsize.allowedfilters :=
-      SELECT AS STRING ARRAY filter
-        FROM ToRecordArray(imgsize.allowedfilters, "filter")
-       WHERE filter IN [ "all", "grayscale", "invert", "sharpen", "blur", "brightnesscontrast", "autocontrast", "coloradjust" ];
-  // If nothing (or only invalid filters) specified, 'all' filters are allowed
-  IF (Length(imgsize.allowedfilters) = 0)
-    imgsize.allowedfilters := [ "all" ];
 
   RETURN imgsize;
 }

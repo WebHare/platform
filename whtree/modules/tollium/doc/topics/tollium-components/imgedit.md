@@ -11,19 +11,6 @@ You can control which functions are available within the image editor using the
 * `all`: All of the above, the default (NOTE: doesn't include `refpoint`!)
 * `refpoint`: Set the reference point for the image (see below)
 
-If the `filters` action is allowed, the `allowedfilters` attribute defines which
-filters are allowed. Possible values are:
-
-* `grayscale`
-* `invert`
-* `sharpen`
-* `blur`
-* `brightnesscontrast`
-* `autocontrast`
-* `coloradjust`
-* `all`: All of the above, the default
-
-
 ## Reference point
 
 The `refpoint` action can be activated to allow setting the image reference

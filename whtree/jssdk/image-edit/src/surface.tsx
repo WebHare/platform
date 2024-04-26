@@ -4,12 +4,11 @@ import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 
-import { OffsetRect, Rect, Size } from ".";
+import { OffsetRect, Rect, Size } from "./imageeditor";
 import { PhotoCrop, PhotoCropProps } from "./crop";
 import { PhotoPoint, PhotoPointProps } from "./refpoint";
 import { PhotoRotate, PhotoRotateProps } from "./scaling";
 
-import "./imageeditor.lang.json";
 import type { ImageEditSettings, ImagePoint } from "@webhare/image-edit";
 
 export type ImageSurfaceOptions = {
