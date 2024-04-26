@@ -323,10 +323,12 @@ const stylesheet = ` //copied from apps.css
 
 export class ImageEditElement extends HTMLElement {
   #editor: ImageEditor;
+  static observedAttributes = ["focalpoint"];
 
   constructor() {
     super();
     this.#editor = new ImageEditor(this, {}, true);
+    this.attributeChangedCallback();
 
     const styleSheet = document.createElement("style");
     styleSheet.innerText = stylesheet;
@@ -347,6 +349,10 @@ export class ImageEditElement extends HTMLElement {
         }
       }
     });
+  }
+
+  attributeChangedCallback(/*name: string, oldValue: string, newValue: string*/) {
+    this.#editor.pointer.button.node.style.display = this.hasAttribute("focalpoint") ? "" : "none";
   }
 
   /** Load a blob into the canvas  */
