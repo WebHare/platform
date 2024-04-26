@@ -4144,23 +4144,24 @@ void StoreHSMessage(HSVM *hsvm, HSVM_VariableId toset, HareScript::Message const
 {
         ColumnNameCache const &cn_cache = GetVirtualMachine(hsvm)->cn_cache;
 
-        HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_iserror), is_error && !is_trace);
-        HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_iswarning), !is_error && !is_trace);
-        HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_istrace), is_trace);
-        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_filename), msg.filename);
-        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_line), msg.position.line);
-        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_col), msg.position.column);
-        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_code), msg.code);
-        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_param1), msg.msg1);
-        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_param2), msg.msg2);
-        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_func), msg.func);
+        StackMachine &stackm = GetVirtualMachine(hsvm)->stackmachine;
+        stackm.SetBoolean(stackm.RecordCellCreate(toset, cn_cache.col_iserror), is_error && !is_trace);
+        stackm.SetBoolean(stackm.RecordCellCreate(toset, cn_cache.col_iswarning), !is_error && !is_trace);
+        stackm.SetBoolean(stackm.RecordCellCreate(toset, cn_cache.col_istrace), is_trace);
+        stackm.SetSTLString(stackm.RecordCellCreate(toset, cn_cache.col_filename), msg.filename);
+        stackm.SetInteger(stackm.RecordCellCreate(toset, cn_cache.col_line), msg.position.line);
+        stackm.SetInteger(stackm.RecordCellCreate(toset, cn_cache.col_col), msg.position.column);
+        stackm.SetInteger(stackm.RecordCellCreate(toset, cn_cache.col_code), msg.code);
+        stackm.SetSTLString(stackm.RecordCellCreate(toset, cn_cache.col_param1), msg.msg1);
+        stackm.SetSTLString(stackm.RecordCellCreate(toset, cn_cache.col_param2), msg.msg2);
+        stackm.SetSTLString(stackm.RecordCellCreate(toset, cn_cache.col_func), msg.func);
         if (msg.code < 0)
         {
-                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_message), "");
+                stackm.SetSTLString(stackm.RecordCellCreate(toset, cn_cache.col_message), "");
         }
         else
         {
-                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, toset, cn_cache.col_message), GetMessageString(msg));
+                stackm.SetSTLString(stackm.RecordCellCreate(toset, cn_cache.col_message), GetMessageString(msg));
         }
 }
 
@@ -4173,6 +4174,8 @@ void StoreHSMessages(HSVM *hsvm, HSVM_VariableId toset, HareScript::ErrorHandler
 //split so eg. selfcompile can directly access the error list converter
 void GetMessageList(HSVM *vm, HSVM_VariableId errorstore, HareScript::ErrorHandler const &errhandler, bool with_trace)
 {
+        StackMachine &stackm = GetVirtualMachine(vm)->stackmachine;
+
         HSVM_SetDefault(vm, errorstore, HSVM_VAR_RecordArray);
         StoreHSMessages(vm, errorstore, errhandler.GetWarnings(), false);
         StoreHSMessages(vm, errorstore, errhandler.GetErrors(), true);
@@ -4188,7 +4191,10 @@ void GetMessageList(HSVM *vm, HSVM_VariableId errorstore, HareScript::ErrorHandl
                         tracemsg.filename = itr->filename;
                         tracemsg.position = itr->position;
 
-                        StoreHSMessage(vm, HSVM_ArrayAppend(vm, errorstore), tracemsg, true, false);
+                        auto elt = stackm.ArrayElementAppend(errorstore);
+                        stackm.InitVariable(elt, VariableTypes::Record);
+
+                        StoreHSMessage(vm, elt, tracemsg, true, false);
                         --tracecount;
                 }
         }
