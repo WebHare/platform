@@ -1,4 +1,3 @@
-
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
 import DownloadManager from '@mod-system/js/compat/download';
@@ -9,6 +8,7 @@ import ImgeditDialogController, { type RefPoint } from '@mod-tollium/web/ui/js/d
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { EnableOnRule } from '@mod-tollium/web/ui/js/types';
+import { omit } from '@webhare/std/collections';
 require("@mod-tollium/web/ui/common.lang.json");
 require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
 
@@ -288,8 +288,15 @@ export default class ObjAction extends ActionForwardBase {
 
   //We're invoked after upload *OR* with the image record prepared by imgedit.whlib editaction.
   async handleImageUploaded(data: { rule: number }, file: File | { type: string; url?: string; name: string; source_fsobject: number; refpoint?: RefPoint }) {
+    if ("refPoint" in file)
+      throw new Error("refPoint? from HS we would expect refpoint");
+
     if (!file || !ImgeditDialogController.checkTypeAllowed(this.owner, file.type))
       return;
+
+    if ("refpoint" in file)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- disable for now until we better align the refpoint/refPoint
+      file = { ...omit(file, ["refpoint"]), refPoint: file.refpoint } as any;
 
     toddupload.handleImageUpload(this, file, async (imgdata: toddupload.ImageUploadCallbackData) => {
       await this.asyncRequest("Upload", {

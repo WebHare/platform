@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/image-edit",
+  "version": "",
+  "description": "The WebHare bult-in image editor",
+  "main": "src/image-edit.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/image-edit.ts"
+    ]
+  },
+  "dependencies": {},
+  "private": true
+}

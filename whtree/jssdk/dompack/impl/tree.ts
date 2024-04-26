@@ -11,7 +11,10 @@ export type Rect = {
 /** Elements you can set a value on and would have to trigger change and/or input events */
 export type FormControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
-export function qS<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E | null;
+/** Types that support querySelector(All) */
+type QuerySelectorAble = ParentNode | ShadowRoot;
+
+export function qS<E extends Element = HTMLElement>(startnode: QuerySelectorAble, selector: string): E | null;
 export function qS<E extends Element = HTMLElement>(selector: string): E | null;
 
 /** Match the first element using a CSS selector
@@ -19,7 +22,7 @@ export function qS<E extends Element = HTMLElement>(selector: string): E | null;
  * @param selector - The selector to match if the starting node was specified
  * @returns The first matching element or null
  */
-export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
+export function qS<E extends Element>(node_or_selector: QuerySelectorAble | string, selector?: string): E | null {
   if (typeof node_or_selector === 'string')
     return document.querySelector<E>(node_or_selector);
   else if (selector)
@@ -28,7 +31,7 @@ export function qS<E extends Element>(node_or_selector: ParentNode | string, sel
 }
 
 
-export function qR<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E;
+export function qR<E extends Element = HTMLElement>(startnode: QuerySelectorAble, selector: string): E;
 export function qR<E extends Element = HTMLElement>(selector: string): E;
 
 /** Match a specific element using a CSS selector, requiring it to exist and be unique
@@ -36,8 +39,8 @@ export function qR<E extends Element = HTMLElement>(selector: string): E;
  * @param selector - The selector to match if the starting node was specified
  * @returns The requested element. Throw it the selector doesn't match exactly one element
  */
-export function qR<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E {
-  const matches = qSA<E>(node_or_selector as ParentNode, selector as string);
+export function qR<E extends Element>(node_or_selector: QuerySelectorAble | string, selector?: string): E {
+  const matches = qSA<E>(node_or_selector as QuerySelectorAble, selector as string);
   if (matches.length === 1)
     return matches[0];
 
@@ -50,7 +53,7 @@ export function qR<E extends Element>(node_or_selector: ParentNode | string, sel
   }
 }
 
-export function qSA<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends Element = HTMLElement>(startnode: QuerySelectorAble, selector: string): E[];
 export function qSA<E extends Element = HTMLElement>(selector: string): E[];
 
 /** Find multiple elements using a CSS selector
@@ -58,7 +61,7 @@ export function qSA<E extends Element = HTMLElement>(selector: string): E[];
  * @param selector - The selector to match if the starting node was specified
  * @returns The requested elements.
  */
-export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
+export function qSA<E extends Element>(node_or_selector: QuerySelectorAble | string, selector?: string): E[] {
   if (typeof node_or_selector === 'string')
     return Array.from(document.querySelectorAll(node_or_selector));
   else if (selector)

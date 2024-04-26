@@ -1,1 +1,8 @@
-<div id="imgedit"></div>
+<div>
+  <wh-image-edit id="imgedit"></wh-image-edit>
+  <div id="statusbar"></div>
+  <button id="loadlandscape">Load landscape</button>
+  <button id="save">Save</button>
+</div>
+<h2>Saved images</h2>
+<div id="savedimages"></div>

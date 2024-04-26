@@ -1,28 +1,27 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-/* globals webkitURL */
-require("../../common.lang.json");
-require("../../components/imageeditor/imageeditor.lang.json");
-import * as whintegration from '@mod-system/js/wh/integration';
-import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import { createDeferred } from '@webhare/std';
 import ExifParser from "exif-parser";
 
-const getTid = require("@mod-tollium/js/gettid").getTid;
-
-export type RefPoint = { x: number, y: number };
-
-export interface ImageSettings {
-  filename: string;
-  refpoint: RefPoint | null;
-};
-
+import { createDeferred } from '@webhare/std';
+import * as whintegration from '@mod-system/js/wh/integration';
+import { getTid } from '@mod-tollium/js/gettid';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
-import type { ApplicationBusyLock } from '../application';
 
-import { ImageEditor, resizeMethodApplied } from "../../components/imageeditor";
+import { ImageEditor, resizeMethodApplied, type ImageEditorOptions, type RefPoint, type Size } from "../../components/imageeditor";
+
+import "../../common.lang.json";
+import "../../components/imageeditor/imageeditor.lang.json";
+import type { ImageSurfaceSettings } from "../../components/imageeditor/surface";
+
+export { type RefPoint } from "../../components/imageeditor";
+
+export type ImageSettings = {
+  refPoint: Size | null;
+  fileName: string;
+};
 
 // http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html
 function dataURItoBlob(dataURI) {
@@ -48,12 +47,14 @@ function dataURItoBlob(dataURI) {
 class ImgeditDialogController {
   defer = createDeferred<{
     blob: Blob | null;
-    settings: { refpoint: RefPoint } | null;
+    settings: { refPoint: RefPoint } | null;
     editcallback: () => void;
   }>();
   screen: Frame;
-  busylock: ApplicationBusyLock | null = null;
-  editor: ImageEditorType | null = null;
+  busylock: Disposable | null = null;
+  editor: ImageEditor | null = null;
+  dialog: Frame | null;
+  options;
 
   constructor(screen: Frame, options?) {
     this.screen = screen;
@@ -76,6 +77,8 @@ class ImgeditDialogController {
   }
 
   loadImageBlob(blob: File, settings: ImageSettings) {
+    if ("refpoint" in settings)
+      throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
     if (this.busylock)
       throw new Error("Recursive LoadImage call");
 
@@ -85,7 +88,9 @@ class ImgeditDialogController {
     this._readImageFile(blob, settings);
   }
 
-  loadImageSrc(src, settings) {
+  loadImageSrc(src, settings: ImageSettings) {
+    if ("refpoint" in settings)
+      throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
     if (this.busylock)
       throw new Error("Recursive LoadImage call");
 
@@ -98,7 +103,7 @@ class ImgeditDialogController {
       this._readImageFile(blob, settings);
     } else {
       const request = new XMLHttpRequest();
-      request.onload = evt => {
+      request.onload = () => {
         //console.log("Received image file as Blob");
         const mimeType = request.getResponseHeader("Content-Type");
         const blob = new Blob([request.response], { type: mimeType });
@@ -126,11 +131,10 @@ class ImgeditDialogController {
       } catch (e) { }
       //console.log("Parsed EXIF data", exifdata);
 
-      const objecturl = (URL || webkitURL).createObjectURL(file);
+      const objecturl = URL.createObjectURL(file);
       const options = {
         orientation: exifdata && exifdata.tags.Orientation,
         mimetype: file.type,
-        refpoint: null,
         filename: "",
         ...settings
       };
@@ -141,10 +145,10 @@ class ImgeditDialogController {
     reader.readAsArrayBuffer(file);
   }
 
-  _loadImageUrl(url, options) {
+  _loadImageUrl(url, options: ImageSurfaceSettings) {
     const img = new Image(); //FIXME error handler
     img.addEventListener("load", () => {
-      (URL || webkitURL).revokeObjectURL(url);
+      URL.revokeObjectURL(url);
 
       if (this.editor) {
         // The editor dialog is already opened, load the image into the editor
@@ -159,7 +163,7 @@ class ImgeditDialogController {
           //console.log("Create image editor dialog with object URL");
           this._createDialog();
           // This above _createDialog releases the applock as our parent screen is busy, not this new one! so we'll take a new lock
-          this.busylock.release();
+          this.busylock?.[Symbol.dispose]();
           this.busylock = this.dialog.lockScreen();
 
           // Set image in a delay, so it's set after the relayout when showing the dialog, preventing an initial image resize
@@ -174,13 +178,12 @@ class ImgeditDialogController {
         this.busylock.release();
       this.busylock = null;
 
-      runSimpleScreen(this.screen.displayapp,
-        {
-          title: getTid("tollium:components.imgedit.editor.title"),
-          text: getTid("tollium:components.imgedit.messages.corruptimage"),
-          icon: "warning",
-          buttons: [{ name: "close", title: getTid("~close") }]
-        });
+      runSimpleScreen(this.screen.displayapp, {
+        title: getTid("tollium:components.imgedit.editor.title"),
+        text: getTid("tollium:components.imgedit.messages.corruptimage"),
+        icon: "warning",
+        buttons: [{ name: "close", title: getTid("~close") }]
+      });
     });
     img.src = url;
   }
@@ -195,64 +198,63 @@ class ImgeditDialogController {
   }
 
   private _createDialog() {
-    this.dialog = this.screen.displayapp.createScreen(
-      {
-        frame: {
-          bodynode: 'root',
-          specials: ['okaction', 'cancelaction'],
-          title: getTid("tollium:components.imgedit.editor.title"),
-          defaultbutton: "okbutton",
-          //, allowresize: true
-          allowclose: true,
-          width: this.editorsize.x + "px", height: this.editorsize.y + "px"
-        },
-        root: {
-          type: 'panel', lines: [
-            { layout: "block", items: [{ item: "body" }], width: "1pr", height: "1pr" },
-            { layout: "block", items: [{ item: "footer" }] }
-          ]
-        },
-        body: {
-          type: 'panel',
-          lines: [{ layout: "block", title: "", items: [{ item: "imageeditor" }], width: "1pr", height: "1pr" }],
-          width: "1pr", height: "1pr"
-        },
-        footer: {
-          type: 'panel',
-          lines: [
-            {
-              items: [
-                { item: "minsizewarning" },
-                { item: "maxsizewarning" },
-                { item: "status" },
-                { item: "progress" },
-                { item: "okbutton" },
-                { item: "cancelbutton" }
-              ]
-            }
-          ],
-          spacers: { top: true, bottom: true, left: true, right: true },
-          isfooter: true,
-          width: '1pr'
-        },
-        minsizewarning: {
-          type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.minsizewarning"),
-          imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" },
-          visible: false
-        },
-        maxsizewarning: {
-          type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.maxsizewarning"),
-          imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" },
-          visible: false
-        },
-        status: { type: 'text', width: "1pr", ellipsis: true, value: "" },
-        progress: { type: 'progress', width: "150px", max: 0, value: 0, visible: false },
-        okaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        okbutton: { type: 'button', title: getTid("~save"), action: 'okaction' },
-        cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        cancelbutton: { type: 'button', title: getTid("~cancel"), action: 'cancelaction' },
-        imageeditor: { type: 'customhtml', width: "1pr", height: "1pr" }
-      });
+    this.dialog = this.screen.displayapp.createScreen({
+      frame: {
+        bodynode: 'root',
+        specials: ['okaction', 'cancelaction'],
+        title: getTid("tollium:components.imgedit.editor.title"),
+        defaultbutton: "okbutton",
+        //, allowresize: true
+        allowclose: true,
+        width: this.editorsize.x + "px", height: this.editorsize.y + "px"
+      },
+      root: {
+        type: 'panel', lines: [
+          { layout: "block", items: [{ item: "body" }], width: "1pr", height: "1pr" },
+          { layout: "block", items: [{ item: "footer" }] }
+        ]
+      },
+      body: {
+        type: 'panel',
+        lines: [{ layout: "block", title: "", items: [{ item: "imageeditor" }], width: "1pr", height: "1pr" }],
+        width: "1pr", height: "1pr"
+      },
+      footer: {
+        type: 'panel',
+        lines: [
+          {
+            items: [
+              { item: "minsizewarning" },
+              { item: "maxsizewarning" },
+              { item: "status" },
+              { item: "progress" },
+              { item: "okbutton" },
+              { item: "cancelbutton" }
+            ]
+          }
+        ],
+        spacers: { top: true, bottom: true, left: true, right: true },
+        isfooter: true,
+        width: '1pr'
+      },
+      minsizewarning: {
+        type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.minsizewarning"),
+        imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" },
+        visible: false
+      },
+      maxsizewarning: {
+        type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.maxsizewarning"),
+        imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" },
+        visible: false
+      },
+      status: { type: 'text', width: "1pr", ellipsis: true, value: "" },
+      progress: { type: 'progress', width: "150px", max: 0, value: 0, visible: false },
+      okaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
+      okbutton: { type: 'button', title: getTid("~save"), action: 'okaction' },
+      cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
+      cancelbutton: { type: 'button', title: getTid("~cancel"), action: 'cancelaction' },
+      imageeditor: { type: 'customhtml', width: "1pr", height: "1pr" }
+    });
     this.modallayer = this.dialog.node.querySelector(".modallayer");
 
     this.dialog.setMessageHandler("okaction", "execute", this._onEditorOkButton.bind(this));
@@ -264,12 +266,12 @@ class ImgeditDialogController {
     const container = containercomp.getContainer();
     container.addEventListener("tollium:resized", evt => this._onEditorResized(evt.detail));
 
-    const options = {
+    const options: ImageEditorOptions = {
       width: container.offsetWidth,
       height: container.offsetHeight,
-      imgsize: this.options.imgsize,
-      resourcebase: $todd.resourcebase,
-      getBusyLock: () => this.dialog.lockScreen(),
+      imgSize: this.options.imgsize,
+      resourceBase: $todd.resourcebase,
+      getBusyLock: () => this.dialog!.lockScreen(),
       setStatus: this._setStatus.bind(this),
       setProgress: this._setProgress.bind(this),
       createScreen: this.screen.displayapp.createScreen.bind(this.screen.displayapp),
@@ -325,11 +327,13 @@ class ImgeditDialogController {
   // sendblob true: retrieve image from editor
   // sendblob not null: send sendblob
   // sendblob null: don't send blob
-  _closeImageEditor(sendblob, callback) {
+  _closeImageEditor(sendblob, callback?) {
     if (sendblob === true) {
       // Retrieve the image from the editor and close the dialog
       this.busylock = this.screen.lockScreen();
-      this.editor.getImageAsBlob((blob: Blob | null, settings?: { refpoint?: RefPoint }) => {
+      this.editor.getImageAsBlob((blob: Blob | null, settings: { refPoint: RefPoint }) => {
+        if ("refpoint" in settings)
+          throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
         this.defer.resolve({
           blob: blob,
           settings: settings,
@@ -380,7 +384,7 @@ class ImgeditDialogController {
     this._relayoutDialog();
   }
 
-  _onEditorOkButton(data, callback) {
+  _onEditorOkButton(_data, callback) {
     if (this.activetool) {
       // Apply the active tool
       this.activetool.apply();
@@ -390,7 +394,7 @@ class ImgeditDialogController {
     }
   }
 
-  async _onEditorCancelButton(frameclose, data, callback) {
+  async _onEditorCancelButton(frameclose, _data, callback) {
     if (this.activetool) {
       // Closing the window when a tool is active
       if (frameclose) {

@@ -1,20 +1,21 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from "dompack";
+
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { Toolbar, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { Toolbar, ToolbarButton, ToolbarPanel, ToolbarPanelOptions, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import * as $todd from "@mod-tollium/web/ui/js/support";
+import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
-import { addImageCropButton } from "./crop";
-import { addFiltersButton } from "./filters";
-import { addRefPointButton } from "./refpoint";
-import { addImageRotateButton } from "./scaling";
-import { ImageSurface, type ImageSurfaceOptions } from "./surface";
+import { PhotoCrop, addImageCropButton } from "./crop";
+import { ImageFilter, PhotoFilters, addFiltersButton } from "./filters";
+import { PhotoPoint, addRefPointButton } from "./refpoint";
+import { PhotoRotate, addImageRotateButton } from "./scaling";
+import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./surface";
 
 import "./imageeditor.css";
 import "./imageeditor.lang.json";
 import "../../common.lang.json";
+import type { ImagePoint } from "@webhare/image-edit/src/image-edit";
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
@@ -27,70 +28,90 @@ Supported debug flags:
   ixf Enable experimental filters
   */
 
-export type SetStatusCallback = (width: number, height: number, orgwidth: number, orgheight: number) => void;
+export type Size = { x: number; y: number };
+export type RefPoint = Size;
+export type RectSize = { width: number; height: number };
+export type Rect = RectSize & { left: number; top: number };
+export type OffsetRect = Rect & { offsetx: number; offsety: number };
+export type OffsetRectWithRefpoint = OffsetRect & { refPoint?: RefPoint };
+
+export class ImageToolbarPanel extends ToolbarPanel {
+  imageEditTool: string;
+
+  constructor(tool: string, options?: ToolbarPanelOptions) {
+    super(options);
+    this.imageEditTool = tool;
+  }
+}
+
+export type SetStatusCallback = (width: number, height: number, orgwidth?: number, orgheight?: number) => void;
+export type ExportImageCallback = (blob: Blob | null, settings: { refPoint: RefPoint | null }) => void;
+export type SetProgressCallback = (value: number, max: number) => void;
+export type CreateScreenCallback = (components: $todd.ComponentsForMessages) => Frame;
+export type SetModalLayerOpacityCallback = (opacity: number) => void;
+
+type ImageAction = "all" | "crop" | "rotate" | "filters" | "refpoint";
+
+export type ImgSize = {
+  method?: "none" | "fill" | "fitcanvas" | "scalecanvas" | "stretch" | "fit" | "scale";
+  setwidth?: number;
+  setheight?: number;
+  noforce?: boolean;
+  format?: string;
+  bgcolor?: string;
+  fixorientation?: boolean;
+  allowedactions?: ImageAction[];
+  allowedfilters?: ImageFilter[];
+};
 
 export interface ImageEditorOptions extends ImageSurfaceOptions {
   width?: number;
   height?: number;
-  toolbarheight?: number;
-  imgsize?: null;
-  resourcebase?: string;
-  setStatus?: null;
-  createScreen?: null;
-  setModalLayerOpacity?: null;
+  toolbarHeight?: number;
+  imgSize?: ImgSize;
+  resourceBase?: string;
+  setStatus?: (status: string, warning?: string) => void;
+  setProgress?: SetProgressCallback;
+  createScreen?: CreateScreenCallback;
+  setModalLayerOpacity?: SetModalLayerOpacityCallback;
 }
 
 export class ImageEditor {
   readonly el: HTMLElement;
   readonly toolbar: Toolbar;
   readonly surface: ImageSurface;
-  undobutton;
-  redobutton;
-  cropper;
-  rotator;
-  filters;
-  pointer;
-  mimetype: string;
-  filename: string;
-  orgblob: null;
-  cropsize: null;
-  cropratio: null;
-  fixorientation: boolean;
-  allowedactions: never[];
-  allowedfilters: never[];
-  previewing: boolean;
-  dirty: boolean;
-  options: Required<ImageEditorOptions>;
+  undoButton: ToolbarButton;
+  redoButton: ToolbarButton;
+  cropper: { button: ToolbarButton; comp: PhotoCrop };
+  rotator: { button: ToolbarButton; comp: PhotoRotate };
+  filters: { button: ToolbarButton; comp: PhotoFilters };
+  pointer: { button: ToolbarButton; comp: PhotoPoint };
+  mimeType = "";
+  fileName = "";
+  orgBlob: Blob | null = null;
+  cropSize: RectSize | null = null;
+  cropRatio: RectSize | null = null;
+  fixorientation: boolean = true;
+  allowedactions: ImageAction[] = [];
+  allowedfilters: ImageFilter[] = [];
+  previewing: boolean = false;
+  dirty: boolean = false;
+  options: ImageEditorOptions;
 
-  constructor(el: HTMLElement, options: ImageEditorOptions = {}) {
+  constructor(el: HTMLElement, options?: ImageEditorOptions, __shadowroot?: true) {
     this.el = el;
-    this.mimetype = "";
-    this.filename = "";
-    this.orgblob = null;
-    this.cropsize = null; // { width: 0, height: 0 }
-    this.cropratio = null; // { width: 0, height: 0 }
-    this.fixorientation = true;
-    this.allowedactions = [];
-    this.allowedfilters = [];
-    this.previewing = false;
-    this.dirty = false;
+    const host = __shadowroot ? this.el.attachShadow({ mode: "open" }) : this.el;
+
     this.options = {
       width: 640,
       height: 320, //ADDME default toolbar height!
-      toolbarheight: 72,
-      imgsize: null,
-      resourcebase: "",
-      getBusyLock: null,
-      setStatus: null,
-      createScreen: null,
-      setModalLayerOpacity: null,
+      toolbarHeight: 72,
+      resourceBase: "",
       editorBackground: "",
       maxLength: MAX_IMAGE_LENGTH,
       maxArea: MAX_IMAGE_AREA,
       ...options
     };
-
-    this.el = el;
 
     this.toolbar = new Toolbar({
       applyIcon: toddImages.createImage("tollium:actions/apply", 24, 24, "b"),
@@ -99,106 +120,100 @@ export class ImageEditor {
       closeLabel: getTid("~cancel")
     });
     this.surface = new ImageSurface(this.el, this.toolbar, options);
-    this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt));
-    this.el.addEventListener("tollium-imageeditor:refresh", evt => this.previewImgSize(evt));
-    this.el.addEventListener("tollium-imageeditor:undo", evt => this.previewImgSize(evt));
-    this.el.addEventListener("tollium-imageeditor:redo", evt => this.previewImgSize(evt));
+    this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt as CustomEvent));
+    this.el.addEventListener("tollium-imageeditor:refresh", () => this.previewImgSize());
+    this.el.addEventListener("tollium-imageeditor:undo", () => this.previewImgSize());
+    this.el.addEventListener("tollium-imageeditor:redo", () => this.previewImgSize());
 
-    dompack.empty(this.el);
-    this.el.appendChild(this.toolbar.node);
-    this.el.appendChild(this.surface.node);
-    this.setSize(this.options.width, this.options.height);
+    host.replaceChildren(this.toolbar.node, this.surface.node);
+    this.setSize(this.options.width!, this.options.height!);
 
     // Add toolbar buttons
-    this.undobutton = ImageSurface.addUndoButton(this.toolbar, this.surface).button;
-    this.redobutton = ImageSurface.addRedoButton(this.toolbar, this.surface).button;
+    this.undoButton = ImageSurface.addUndoButton(this.toolbar, this.surface).button;
+    this.redoButton = ImageSurface.addRedoButton(this.toolbar, this.surface).button;
     this.toolbar.addButton(new ToolbarSeparator(this.toolbar));
 
-    this.cropper = addImageCropButton(this.toolbar, this.surface,
-      {
-        fixedsize: this.cropsize,
-        ratiosize: this.cropratio,
-        setStatus: this.setStatus.bind(this)
-      });
-    this.rotator = addImageRotateButton(this.toolbar, this.surface,
-      {
-        setStatus: this.setStatus.bind(this)
-      });
-    this.filters = addFiltersButton(this.toolbar, this.surface,
-      {
-        resourcebase: this.options.resourcebase,
-        setStatus: this.setStatus.bind(this),
-        setProgress: options.setProgress,
-        createScreen: this.options.createScreen,
-        getAllowedFilters: this.getAllowedFilters.bind(this),
-        setModalLayerOpacity: this.options.setModalLayerOpacity
-      });
-    this.pointer = addRefPointButton(this.toolbar, this.surface,
-      {
-        setStatus: this.setStatus.bind(this)
-      });
-    if (this.options.imgsize) {
+    this.cropper = addImageCropButton(this.toolbar, this.surface, {
+      fixedSize: this.cropSize || undefined,
+      ratioSize: this.cropRatio || undefined,
+      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
+    });
+    this.rotator = addImageRotateButton(this.toolbar, this.surface, {
+      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
+    });
+    this.filters = addFiltersButton(this.toolbar, this.surface, {
+      resourceBase: this.options.resourceBase,
+      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight),
+      setProgress: this.options.setProgress,
+      createScreen: this.options.createScreen,
+      getAllowedFilters: () => this.getAllowedFilters(),
+      setModalLayerOpacity: this.options.setModalLayerOpacity
+    });
+    this.pointer = addRefPointButton(this.toolbar, this.surface, {
+      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
+    });
+    if (this.options.imgSize) {
       this.previewing = true;
       this.applyImgSize();
     }
   }
-  onLoad(event) {
+
+  onLoad(event: CustomEvent) {
     this.previewImgSize();
     this.surface.fireEvent("load", { target: this, width: event.detail.size.x, height: event.detail.size.y }); //who was listening ??
   }
-  setSize(w, h) {
-    this.toolbar.setSize(w, this.options.toolbarheight);
-    this.surface.setSize(w, h - this.options.toolbarheight);
+  setSize(w: number, h: number) {
+    this.toolbar.setSize(w, this.options.toolbarHeight!);
+    this.surface.setSize(w, h - this.options.toolbarHeight!);
     this.previewImgSize();
   }
-  setImg(img, options) {
-    this.mimetype = options.mimetype;
-    this.filename = options.filename;
-    this.orgblob = options.orgblob;
+  setImg(img: HTMLImageElement, options: ImageSurfaceSettings & {
+    mimetype: string;
+    filename: string;
+    orgblob: null;
+  }) {
+    this.mimeType = options.mimetype;
+    this.fileName = options.filename;
+    this.orgBlob = options.orgblob;
     this.surface.setImg(img, options);
   }
-  getImageAsBlob(callback) {
-    if (!this.surface.ctx) {
-      setTimeout(function () {
-        callback(null); //not ready yet
-      }, 1);
-      return;
-    }
+  getFocalPoint(): ImagePoint | null {
+    return this.surface.refPoint ? { //They're integers in HS so we'll keep rounding for now
+      x: Math.round(this.surface.refPoint.x),
+      y: Math.round(this.surface.refPoint.y)
+    } : null;
+  }
+  getImageAsBlob(callback: ExportImageCallback) {
+    if (!this.surface.ctx)
+      throw new Error(`Cannot export image yet`);
 
     let canvas = this.surface.canvas;
-    let mimetype = this.mimetype;
+    let mimeType = this.mimeType;
 
     const settings = {
-      refpoint: this.surface.refPoint ? {
-        x: Math.round(this.surface.refPoint.x),
-        y: Math.round(this.surface.refPoint.y)
-      } : null
+      refPoint: this.getFocalPoint()
     };
-    if (this.options.imgsize) {
+    if (this.options.imgSize) {
       // If the image didn't actually change, we can return the original blob directly
-      if (!this.surface.isModified() && !resizeMethodApplied(this.options.imgsize, canvas.width, canvas.height, mimetype)) {
+      if (!this.surface.isModified() && !resizeMethodApplied(this.options.imgSize, canvas.width, canvas.height, mimeType)) {
         // Call callback after a delay; maybe the caller doesn't expect the callback to be called directly
-        const blob = this.orgblob;
-        setTimeout(function () {
-          callback(blob, settings);
-        }, 1);
+        const blob = this.orgBlob;
+        setTimeout(() => callback(blob, settings), 1);
         return;
       }
-      const res = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refPoint || this.isRefpointAllowed(), true);
+      const res = resizeCanvasWithMethod(canvas, this.options.imgSize, this.surface.refPoint || this.isRefpointAllowed(), true);
       if (res) {
-        if (res.rect && res.rect.refpoint)
-          settings.refpoint = {
-            x: Math.round(res.rect.refpoint.x),
-            y: Math.round(res.rect.refpoint.y)
+        if (res.rect && res.rect.refPoint)
+          settings.refPoint = {
+            x: Math.round(res.rect.refPoint.x),
+            y: Math.round(res.rect.refPoint.y)
           };
         canvas = res.canvas;
       }
-      mimetype = this.options.imgsize.format || mimetype;
+      mimeType = this.options.imgSize.format || mimeType;
     }
 
-    canvas.toBlob(function (blob) {
-      callback(blob, settings);
-    }, mimetype, 0.85);
+    canvas.toBlob((blob) => callback(blob, settings), mimeType, 0.85);
   }
   stop() {
     this.surface.stop();
@@ -207,19 +222,19 @@ export class ImageEditor {
     return this.dirty || this.surface.isDirty();
   }
   applyImgSize() {
-    if (this.options.imgsize) {
-      if (this.options.imgsize.setwidth > 0 && this.options.imgsize.setheight > 0) {
-        this.cropratio = {
-          width: this.options.imgsize.setwidth,
-          height: this.options.imgsize.setheight
+    if (this.options.imgSize) {
+      if (this.options.imgSize.setwidth && this.options.imgSize.setwidth > 0 && this.options.imgSize.setheight && this.options.imgSize.setheight > 0) {
+        this.cropRatio = {
+          width: this.options.imgSize.setwidth,
+          height: this.options.imgSize.setheight
         };
         if (this.cropper)
-          this.cropper.comp.options.ratiosize = this.cropratio;
+          this.cropper.comp.options.ratioSize = this.cropRatio;
       }
 
-      this.fixorientation = this.options.imgsize.fixorientation;
-      this.allowedactions = this.options.imgsize.allowedactions;
-      this.allowedfilters = this.options.imgsize.allowedfilters;
+      this.fixorientation = this.options.imgSize.fixorientation === true;
+      this.allowedactions = this.options.imgSize.allowedactions ?? [];
+      this.allowedfilters = this.options.imgSize.allowedfilters ?? [];
     } else {
       this.allowedactions = [];
       this.allowedfilters = [];
@@ -228,16 +243,14 @@ export class ImageEditor {
     this.updateActionButtons();
     this.previewImgSize();
   }
-  previewImgSize(event) {
+  previewImgSize() {
     if (!this.surface.ctx)
       return; //not ready yet
 
-    if (event && event.norefresh)
-      return;
-
     const canvas = this.surface.canvas;
-    if (this.previewing && this.options.imgsize) {
-      const resized = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refPoint || this.isRefpointAllowed());
+
+    if (this.previewing && this.options.imgSize) {
+      const resized = resizeCanvasWithMethod(canvas, this.options.imgSize, this.surface.refPoint || this.isRefpointAllowed());
       if (resized) {
         this.surface.setPreviewCanvas(resized.canvas, resized.rect);
         this.setStatus(resized.rect ? resized.rect.width : resized.canvas.width,
@@ -250,15 +263,17 @@ export class ImageEditor {
       this.previewing = true;
     }
   }
-  setStatus(width, height, orgwidth, orgheight) {
-    const status = (this.filename ? this.filename + ": " : "")
+  setStatus(width: number, height: number, orgwidth = 0, orgheight = 0) {
+    if (!this.options.setStatus)
+      return;
+    const status = (this.fileName ? this.fileName + ": " : "")
       + width + "\u00d7" + height
       + (orgwidth && orgheight ? " (" + orgwidth + "\u00d7" + orgheight + ")" : "");
     const minwarning = (orgwidth > 0 && orgwidth < width) || (orgheight > 0 && orgheight < height);
     const maxwarning = (orgwidth > 0 || orgheight > 0)
-      && this.surface.imagelimited
-      && !this.surface.undostack.some(function (item) { return item.action === "crop"; });
-    this.options.setStatus(status, minwarning ? "min" : maxwarning ? "max" : null);
+      && this.surface.imageLimited
+      && !this.surface.undoStack.some(item => item.action === "crop");
+    this.options.setStatus(status, minwarning ? "min" : maxwarning ? "max" : undefined);
   }
   updateActionButtons() {
     const allallowed = this.allowedactions.indexOf("all") >= 0;
@@ -271,185 +286,176 @@ export class ImageEditor {
     // Setting the reference point only makes sense if the image is not resized (it may be resized in the image cache using
     // the reference point) or if the resize method is fill (which actually crops the image). It is not enabled when 'all'
     // actions are allowed; it has to be enabled explicitly.
-    const method_refpoint = !this.options.imgsize || this.options.imgsize.method === "none" || this.options.imgsize.method === "fill";
-    return method_refpoint && this.allowedactions.indexOf("refpoint") >= 0;
+    const methodRefPoint = !this.options.imgSize || this.options.imgSize.method === "none" || this.options.imgSize.method === "fill";
+    return methodRefPoint && this.allowedactions.indexOf("refpoint") >= 0;
   }
   getAllowedFilters() {
     return this.allowedfilters;
   }
 }
 
-function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
-  let resizemethod = imgsize.method;
-  if (resizemethod === "")
+function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: ImgSize, refPoint: RefPoint | boolean, forUpload?: boolean) {
+  let resizeMethod = imgSize.method;
+  if (!resizeMethod)
     return;
 
-  if (resizemethod === "none") {
+  if (resizeMethod === "none") {
     // Use 'fill' method for previewing refpoint when method is 'none'
-    if (refpoint && !forupload)
-      resizemethod = "fill";
+    if (refPoint && !forUpload)
+      resizeMethod = "fill";
     else
       return;
   }
 
-  let canvaswidth = imgsize.setwidth;
-  let canvasheight = imgsize.setheight;
-  if (canvaswidth || canvasheight) {
-    let imagewidth = canvas.width;
-    let imageheight = canvas.height;
-    let imagetop = 0;
-    let imageleft = 0;
-    if (!canvaswidth) {
+  let canvasWidth = imgSize.setwidth ?? 0;
+  let canvasHeight = imgSize.setheight ?? 0;
+  if (canvasWidth || canvasHeight) {
+    let imageWidth = canvas.width;
+    let imageHeight = canvas.height;
+    let imageTop = 0;
+    let imageLeft = 0;
+    if (!canvasWidth) {
       // If only height is restricted, scale width proportionally
-      canvaswidth = Math.round(canvasheight * imagewidth / imageheight);
-    } else if (!canvasheight) {
+      canvasWidth = Math.round(canvasHeight * imageWidth / imageHeight);
+    } else if (!canvasHeight) {
       // If only width is restricted, scale height proportionally
-      canvasheight = Math.round(canvaswidth * imageheight / imagewidth);
+      canvasHeight = Math.round(canvasWidth * imageHeight / imageWidth);
     }
 
-    if (resizemethod === "stretch") {
+    if (resizeMethod === "stretch") {
       // Just stretch to canvas
-      imagewidth = canvaswidth;
-      imageheight = canvasheight;
-    } else if (resizemethod.indexOf("fit") === 0 && imagewidth <= canvaswidth && imageheight <= canvasheight) {
+      imageWidth = canvasWidth;
+      imageHeight = canvasHeight;
+    } else if (resizeMethod.indexOf("fit") === 0 && imageWidth <= canvasWidth && imageHeight <= canvasHeight) {
       // Don't resize
-      if (resizemethod === "fit") {
-        canvaswidth = imagewidth;
-        canvasheight = imageheight;
+      if (resizeMethod === "fit") {
+        canvasWidth = imageWidth;
+        canvasHeight = imageHeight;
       }
-    } else if (canvaswidth / canvasheight > imagewidth / imageheight) {
+    } else if (canvasWidth / canvasHeight > imageWidth / imageHeight) {
       // canvas is more wide than image
-      if (resizemethod.indexOf("scale") === 0
-        || (resizemethod.indexOf("fit") === 0 && imageheight > canvasheight)) {
+      if (resizeMethod.indexOf("scale") === 0
+        || (resizeMethod.indexOf("fit") === 0 && imageHeight > canvasHeight)) {
         // Scale width proportionally, keep height
-        imagewidth = Math.round(canvasheight * imagewidth / imageheight);
-        imageheight = canvasheight;
+        imageWidth = Math.round(canvasHeight * imageWidth / imageHeight);
+        imageHeight = canvasHeight;
         // If not scaling to canvas, only keep image width
-        if (resizemethod.indexOf("canvas") < 0)
-          canvaswidth = imagewidth;
-      } else if (resizemethod === "fill") {
+        if (resizeMethod.indexOf("canvas") < 0)
+          canvasWidth = imageWidth;
+      } else if (resizeMethod === "fill") {
         // Scale height proportionally, keep width
-        imageheight = Math.round(canvaswidth * imageheight / imagewidth);
-        imagewidth = canvaswidth;
+        imageHeight = Math.round(canvasWidth * imageHeight / imageWidth);
+        imageWidth = canvasWidth;
       }
     } else {
       // canvas is more tall than image
-      if (resizemethod.indexOf("scale") === 0
-        || (resizemethod.indexOf("fit") === 0 && imagewidth > canvaswidth)) {
+      if (resizeMethod.indexOf("scale") === 0
+        || (resizeMethod.indexOf("fit") === 0 && imageWidth > canvasWidth)) {
         // Scale height proportionally, keep width
-        imageheight = Math.round(canvaswidth * imageheight / imagewidth);
-        imagewidth = canvaswidth;
+        imageHeight = Math.round(canvasWidth * imageHeight / imageWidth);
+        imageWidth = canvasWidth;
         // If not scaling to canvas, only keep image height
-        if (resizemethod.indexOf("canvas") < 0)
-          canvasheight = imageheight;
-      } else if (resizemethod === "fill") {
+        if (resizeMethod.indexOf("canvas") < 0)
+          canvasHeight = imageHeight;
+      } else if (resizeMethod === "fill") {
         // Scale width proportionally, keep height
-        imagewidth = Math.round(canvasheight * imagewidth / imageheight);
-        imageheight = canvasheight;
+        imageWidth = Math.round(canvasHeight * imageWidth / imageHeight);
+        imageHeight = canvasHeight;
       }
     }
 
     // Center image
-    imagetop = Math.round((canvasheight - imageheight) / 2);
-    imageleft = Math.round((canvaswidth - imagewidth) / 2);
+    imageTop = Math.round((canvasHeight - imageHeight) / 2);
+    imageLeft = Math.round((canvasWidth - imageWidth) / 2);
 
-    let rect = null;
-    if (resizemethod === "fill") {
+    let rect: OffsetRectWithRefpoint | undefined;
+    if (resizeMethod === "fill") {
       // When filling, either top or left is 0, the other is <0
       rect = {
-        left: Math.abs(imageleft),
-        top: Math.abs(imagetop),
+        left: Math.abs(imageLeft),
+        top: Math.abs(imageTop),
         offsetx: 0,
         offsety: 0,
-        width: canvaswidth,
-        height: canvasheight,
-        refpoint: null // Refpoint relative to resized image
+        width: canvasWidth,
+        height: canvasHeight,
       };
-      if (refpoint && refpoint !== true) {
+      if (refPoint && refPoint !== true) {
         if (!rect.left) {
           const curtop = rect.top;
-          const scalex = imagewidth / canvas.width;
-          rect.top = (refpoint.y * scalex / imageheight) * (imageheight - canvasheight);
+          const scalex = imageWidth / canvas.width;
+          rect.top = (refPoint.y * scalex / imageHeight) * (imageHeight - canvasHeight);
           rect.offsety = rect.top - curtop;
-          rect.refpoint = {
-            x: refpoint.x * scalex,
-            y: refpoint.y * scalex - rect.top
+          rect.refPoint = {
+            x: refPoint.x * scalex,
+            y: refPoint.y * scalex - rect.top
           };
         } else if (!rect.top) {
           const curleft = rect.left;
-          const scaley = imageheight / canvas.height;
-          rect.left = (refpoint.x * scaley / imagewidth) * (imagewidth - canvaswidth);
+          const scaley = imageHeight / canvas.height;
+          rect.left = (refPoint.x * scaley / imageWidth) * (imageWidth - canvasWidth);
           rect.offsetx = rect.left - curleft;
-          rect.refpoint = {
-            x: refpoint.x * scaley - rect.left,
-            y: refpoint.y * scaley
+          rect.refPoint = {
+            x: refPoint.x * scaley - rect.left,
+            y: refPoint.y * scaley
           };
         }
       }
 
-      if (!forupload) {
-        canvaswidth = imagewidth;
-        canvasheight = imageheight;
-        imagetop = 0;
-        imageleft = 0;
+      if (!forUpload) {
+        canvasWidth = imageWidth;
+        canvasHeight = imageHeight;
+        imageTop = 0;
+        imageLeft = 0;
       } else {
-        imagetop -= rect.offsety;
-        imageleft -= rect.offsetx;
+        imageTop -= rect.offsety;
+        imageLeft -= rect.offsetx;
       }
     }
 
     // Create the resized canvas
-    const resized = <canvas width={canvaswidth} height={canvasheight} />;
-    const ctx = resized.getContext("2d");
+    const resized: HTMLCanvasElement = <canvas width={canvasWidth} height={canvasHeight} />;
+    const ctx = resized.getContext("2d")!;
     // Set background color, if specified
-    if (imgsize.bgcolor !== "" && imgsize.bgcolor !== "transparent") {
-      ctx.fillStyle = imgsize.bgcolor;
-      ctx.fillRect(0, 0, canvaswidth, canvasheight);
+    if (imgSize.bgcolor && imgSize.bgcolor !== "transparent") {
+      ctx.fillStyle = imgSize.bgcolor;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }
     // Draw (and possibly resize) the editor image onto the resized canvas
-    ctx.drawImage(canvas, imageleft, imagetop, imagewidth, imageheight);
+    ctx.drawImage(canvas, imageLeft, imageTop, imageWidth, imageHeight);
     return { canvas: resized, rect: rect };
   }
 }
 
 // Check if the given resize method is applied for an image with given widht, height and MIME type
-export function resizeMethodApplied(imgsize, width, height, mimetype) {
+export function resizeMethodApplied(imgSize: ImgSize, width: number, height: number, mimeType: string) {
   // If preserveifunchanged is not set (unless resize method is "none"), the method is applied
-  if (!imgsize.noforce && imgsize.method !== "none")
+  if (!imgSize.noforce && imgSize.method !== "none")
     return true;
 
   // If the image doesn't have the expected MIME type, the method is applied
-  if (imgsize.format !== "" && mimetype !== imgsize.format)
+  if (imgSize.format !== "" && mimeType !== imgSize.format)
     return true;
 
-  switch (imgsize.method) {
+  switch (imgSize.method) {
     case "none":
-      {
-        // The image would not be resized, skip editor
-        return false;
-      }
+      // The image would not be resized, skip editor
+      return false;
     case "fill":
     case "fitcanvas":
     case "scalecanvas":
     case "stretch":
-      {
-        // Image method is applied if the image doesn't match both the set width and height exactly
-        //ADDME: If image has transparency, only skip editor if conversionbackground is transparent
-        return width !== imgsize.setwidth || height !== imgsize.setheight;
-      }
+      // Image method is applied if the image doesn't match both the set width and height exactly
+      //ADDME: If image has transparency, only skip editor if conversionbackground is transparent
+      return width !== imgSize.setwidth || height !== imgSize.setheight;
     case "fit":
-      {
-        // Image method is applied if the image is bigger than to the set width and/or height
-        return (imgsize.setwidth > 0 && width > imgsize.setwidth)
-          || (imgsize.setheight > 0 && height > imgsize.setheight);
-      }
+      // Image method is applied if the image is bigger than to the set width and/or height
+      return (imgSize.setwidth && imgSize.setwidth > 0 && width > imgSize.setwidth)
+        || (imgSize.setheight && imgSize.setheight > 0 && height > imgSize.setheight);
     case "scale":
-      {
-        // Image method is applied if the image size has an incorrect width and/or height
-        return (imgsize.setwidth > 0 && width !== imgsize.setwidth)
-          || (imgsize.setheight > 0 && height !== imgsize.setheight);
-      }
+      // Image method is applied if the image size has an incorrect width and/or height
+      return (imgSize.setwidth && imgSize.setwidth > 0 && width !== imgSize.setwidth)
+        || (imgSize.setheight && imgSize.setheight > 0 && height !== imgSize.setheight);
   }
   // Don't know, assume it's applied
   return true;
-};
+}
