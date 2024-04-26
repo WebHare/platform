@@ -6,7 +6,6 @@ import * as browser from 'dompack/extra/browser';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import { Lock, flagUIBusy } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import { loadScript } from '@webhare/dompack';
 import * as utilerror from '@mod-system/js/wh/errorreporting';
@@ -19,7 +18,7 @@ import * as toddImages from "@mod-tollium/js/icons";
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import IndyShell, { getIndyShell, handleApplicationErrors } from './shell';
 import { getFocusableComponents } from 'dompack/browserfix/focus';
-import { debugFlags } from '@webhare/env/src/envbackend';
+import { debugFlags } from "@webhare/env";
 
 require("../common.lang.json");
 
@@ -35,27 +34,7 @@ const busydonedelay = 50;     //time before we start the 'done' fadeout
 
 type JSAppConstructor = new (app: FrontendEmbeddedApplication, callback: () => void) => void;
 const jsappconstructors: Record<string, JSAppConstructor> = {};
-
-/** Busy lock (while taken, the tollium app is busy
-*/
-export class ApplicationBusyLock implements Disposable {
-  private readonly lock: Lock;
-  private readonly app: ApplicationBase;
-
-  constructor(app: ApplicationBase) {
-    this.lock = flagUIBusy();
-    this.app = app;
-  }
-  [Symbol.dispose]() {
-    this.release();
-  }
-  release() {
-    this.lock.release();
-    this.app.removeBusyLock(this);
-  }
-}
-
-export type { ApplicationBusyLock };
+let appesqnr = 1; //to generate simple local IDs
 
 //ADDME: Move these to SessionManager? A SessionManager would manage one user's session in a browser; the CommHandler
 //       would manage one or more SessionManagers.
@@ -65,7 +44,6 @@ export class ApplicationBase {
   //
   // Initialization
   //
-  busylocks: ApplicationBusyLock[] = [];
   apptarget;
 
   /* the screenstack contains the screens currently displayed by this application (including foreign screens) in displayorder.
@@ -97,12 +75,26 @@ export class ApplicationBase {
   //Application title
   title = getTid("tollium:shell.loadingapp");
 
+  //Is the app closing?
+  private appIsClosing = false;
+
+  //Is the app currently showing a lock (or in the pre-spinner phase, but intending to show a spinner)
+  private appShowsLocked = false;
+
+  private appbusytimeout: NodeJS.Timeout | null = null;
+  private appunbusytimeout: NodeJS.Timeout | null = null;
+
+  private visible = false;
+
+  ///Unique identifier for this browser load
+  readonly localId;
+
   constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?) {
+    this.localId = "app#" + appesqnr++;
     this.container = null;
     /// Name of  app
     this.appname = appname;
     this.appicon = '';
-    this.visible = false;
     /// Target
     this.apptarget = {};
 
@@ -124,17 +116,11 @@ export class ApplicationBase {
     ///@}
 
     this.appisbusy = false;
-    this.appisclosing = false;
     this.screencounter = 0;
     this.hasissues = false;
     this.isdebugged = false;
     this.isdebugpaused = false;
     this.appmenu = [];
-
-    this.busysuppressors = {};
-
-    /// Busy lock for application initialization
-    this.initbusylock = null;
 
     this._apploaddeferred = dompack.createDeferred();
     this._apploadlock = dompack.flagUIBusy();
@@ -198,34 +184,6 @@ export class ApplicationBase {
     return this.appnodes.screens;
   }
 
-  removeBusyLock(lock: ApplicationBusyLock) {
-    const pos = this.busylocks.indexOf(lock);
-    this.busylocks.splice(pos, 1);
-
-    $todd.DebugTypedLog("messages", "Busy lock released, now " + this.busylocks.length + " locks active");
-    if (this.busylocks.length !== 0) //still something up
-      return;
-
-    //    this.setBusyFlag(Object.getLength(this.busylocks) && !Object.getLength(this.busysuppressors), false);
-
-    // Are we still waiting for the busy indicator to show (short wait period)
-    if (this.appbusytimeout) {
-      // Indicator hasn't been shown yet, nothing to do
-      clearTimeout(this.appbusytimeout);
-      this.appbusytimeout = null;
-    } else {
-      // Indicator is being shown at the moment. Show done indicator
-      this.appnodes.root.classList.add('appcanvas--isbusydone');
-
-      // Remove everything after a small delay
-      this.appunbusytimeout = setTimeout(() => this.undisplayBusy(), busydonedelay);
-    }
-
-    // Remove the modality layer immediately
-    this.appnodes.root.classList.remove('appcanvas--isbusy');
-    this.getTopScreen()?.updateFocusable();
-  }
-
   showBusyFlags() {
     console.log('Current busy locks:');
     window.$dompack$busylockmanager.logLocks();
@@ -281,37 +239,7 @@ export class ApplicationBase {
   // Embedded application API: Application state management
   //
 
-  /** Acquires a busy lock, returns the lock object. Can be closed with .close(). The application
-      is busy until all busy locks are closed
-  */
-  getBusyLock(): ApplicationBusyLock {
-    const lock = new ApplicationBusyLock(this);
-    this.busylocks.push(lock);
-
-    if (this.busylocks.length > 1) //app already busy
-      return lock;
-
-    // Apply the modality layer
-    this.appnodes.root.classList.add('appcanvas--isbusy'); //initially this just applies a modality layer
-    this.getTopScreen()?.updateFocusable();
-
-    // FIXME: calculate from real animation periods
-    const animation_period_lcm = 6000;
-
-    // Emulate that the animation is running continuously
-    this.appnodes.loader.animationDelay = -(Date.now() % animation_period_lcm) + "ms";
-
-    // Still showing busy indicators? Hide them immediately.
-    if (this.appunbusytimeout) {
-      clearTimeout(this.appunbusytimeout);
-      this.undisplayBusy();
-    }
-
-    this.appbusytimeout = setTimeout(() => this.displayBusy(), busyinitialwait);
-    return lock;
-  }
-
-  setVisible(newvisible) {
+  setVisible(newvisible: boolean) {
     if (this.visible === newvisible)
       return;
 
@@ -331,7 +259,7 @@ export class ApplicationBase {
       this.shell.appmgr.onApplicationStackChange();
     }
   }
-  setOnAppBar(onappbar, fixedonappbar) {
+  setOnAppBar(onappbar: boolean, fixedonappbar?: boolean) {
     if (this.shell.applicationbar)
       this.shell.applicationbar.toggleShortcut(this, onappbar, fixedonappbar);
   }
@@ -419,6 +347,95 @@ export class ApplicationBase {
     }
   }
 
+  __startAppClose() { //should be private but shell needs it
+    return; //disabled for now. we don't seem to need it? enabling it causes tollium.comm.testappstart to hang on Exception screen
+    this.appIsClosing = true;
+    this.notifyTopScreenChange();
+  }
+
+  isLocked(): boolean {
+    return this.appShowsLocked;
+  }
+
+  private getAppAndChildren(): ApplicationBase[] {
+    const apps: ApplicationBase[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let app: ApplicationBase = this;
+    while (app.parentapp)
+      app = app.parentapp;
+
+    for (; ;) {
+      apps.push(app);
+      // eslint-disable-next-line @typescript-eslint/no-loop-func
+      const child = $todd.applications.find(_ => _.parentapp === app);
+      if (child) {
+        app = child;
+        continue; //keep searching down
+      }
+      return apps;
+    }
+  }
+
+  private getAppGlobalTopScreen(): Frame | null {
+    const apps = this.getAppAndChildren();
+    for (let idx = apps.length - 1; idx >= 0; --idx)
+      if (apps[idx].getTopScreen())
+        return apps[idx].getTopScreen();
+    return null;
+  }
+
+
+  notifyTopScreenChange(): void {
+    //Apps can be embedded into each other (only used by test_jsapp) so the actual topscreen might not be ours
+    //If the toplevel screen is inactive or the app is closing, the app should be showing modality and busy layers
+    //TODO we can do this cleaner? a parent can only have one child so we might be able to link more directly. or separate the 'column of apps/screens' inside a tab from their actual backends
+    const globaltop = this.getAppGlobalTopScreen();
+    const shouldBeLocked = !globaltop?.active || globaltop?.isLocked() || this.appIsClosing;
+    if (debugFlags["tollium-active"])
+      console.log(`[${this.localId}] notifyTopScreenChange`, globaltop, "active=", globaltop?.active, "isLocked=", globaltop?.isLocked(), "appIsClosing=", this.appIsClosing, "shouldBeLocked=", shouldBeLocked, "appShowsLocked=", this.appShowsLocked);
+    if (this.appShowsLocked === shouldBeLocked)
+      return;  //no change
+
+    if (shouldBeLocked) { // Apply the modality layer
+      this.appnodes.root.classList.add('appcanvas--isbusy'); //initially this just applies a modality layer
+      globaltop?.updateFocusable();
+
+      // FIXME: calculate from real animation periods
+      const animation_period_lcm = 6000;
+
+      // Emulate that the animation is running continuously
+      this.appnodes.loader.style.animationDelay = -(Date.now() % animation_period_lcm) + "ms";
+
+      // Still showing busy indicators? Hide them immediately.
+      if (this.appunbusytimeout) {
+        clearTimeout(this.appunbusytimeout);
+        this.undisplayBusy();
+      }
+
+      this.appbusytimeout = setTimeout(() => this.displayBusy(), busyinitialwait);
+    } else { //remove the modality later
+      // Are we still waiting for the busy indicator to show (short wait period)
+      if (this.appbusytimeout) {
+        // Indicator hasn't been shown yet, nothing to do
+        clearTimeout(this.appbusytimeout);
+        this.appbusytimeout = null;
+      } else {
+        // Indicator is being shown at the moment. Show done indicator
+        this.appnodes.root.classList.add('appcanvas--isbusydone');
+
+        // Remove everything after a small delay
+        this.appunbusytimeout = setTimeout(() => this.undisplayBusy(), busydonedelay);
+      }
+
+      // Remove the modality layer immediately
+      this.appnodes.root.classList.remove('appcanvas--isbusy');
+      globaltop?.updateFocusable();
+    }
+
+    this.appShowsLocked = shouldBeLocked;
+    this.shell.appmgr.notifyApplicationLockChange();
+  }
+
   /** Terminate an application, clearing all its screens (ADDME: what if we're hosting foreign screens?)
    *
   */
@@ -429,8 +446,6 @@ export class ApplicationBase {
     const apppos = $todd.applications.indexOf(this);
     if (apppos >= 0)
       $todd.applications.splice(apppos, 1);
-
-    const shutdownlock = this.getBusyLock();
 
     if (this.appcomm) // Send a termination for the app. this flushes the contentsof any screens (ie dirty RTDs) to the server
       await this.queueEventAsync('$terminate', '');
@@ -450,12 +465,7 @@ export class ApplicationBase {
       this.whsid = null;
     }
 
-    if (this.closebusylock) {
-      this.closebusylock.release();
-      this.closebusylock = null;
-    }
-
-    shutdownlock.release();
+    this.__startAppClose();
 
     //FIXME dispose comm channels etc?
     if (this.appnodes) {
@@ -483,6 +493,7 @@ export class ApplicationBase {
     const showapp = this.getToplevelApp();
     showapp.appnodes.screens.appendChild(screen.getNode());
     screen.showScreen(showapp);
+    this.notifyTopScreenChange();
 
     return screen;
   }
@@ -678,8 +689,6 @@ export class BackendApplication extends ApplicationBase {
 
     this.queuedEvents = [];
 
-    this.closebusylock = null;
-
   }
 
   applyAppInit(node) {
@@ -715,13 +724,10 @@ export class BackendApplication extends ApplicationBase {
       case "error":
       case "expired":
         {
-          if (!this.closebusylock)
-            this.closebusylock = this.getBusyLock();
-
           this.deferred_metamessage.resolve(data);
           setTimeout(this.deferred_close.resolve, 5000); // wait max 5 secs for link close
 
-          this.appisclosing = true;
+          this.__startAppClose();
         } break;
 
       case "debugstatus":
@@ -757,7 +763,8 @@ export class BackendApplication extends ApplicationBase {
    */
 
   queueEvent(actionname: string, param: unknown, synchronous: boolean, originalcallback?: () => void) { //for legacy queueEvent calls, too many still remaining
-    const busylock = synchronous ? this.getBusyLock() : dompack.flagUIBusy();
+    //TODO the screens invoking us should be locking us, instead of us assuming topscreen
+    const busylock = synchronous && this.getTopScreen() ? this.getTopScreen()!.lockScreen() : dompack.flagUIBusy();
     const finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
     this.queueEventNoLock(actionname, param, synchronous, finalcallback);
   }
@@ -981,8 +988,7 @@ export class BackendApplication extends ApplicationBase {
 
   _gotLinkClosed() {
     this.appcomm = null;
-    if (!this.closebusylock)
-      this.closebusylock = this.getBusyLock();
+    this.__startAppClose();
 
     // Remove event callbacks and queued events, won't be activated again
     this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
@@ -996,10 +1002,7 @@ export class BackendApplication extends ApplicationBase {
 
   _closeApplication(metamessage) {
     // Remove the 'closing' busy lock
-    if (this.closebusylock) {
-      this.closebusylock.release();
-      this.closebusylock = null;
-    }
+    this.__startAppClose();
 
     // Won't be referred by our whsid anymore
     this.whsid = null;
@@ -1072,7 +1075,7 @@ export class BackendApplication extends ApplicationBase {
     console.error('Unexpected application update type: ' + node.type);
   }
   async launchApp() {
-    const initlock = this.getBusyLock();
+    this.notifyTopScreenChange();
     //FIXME whitelist options instead of deleting them
     const options = {
       ...this.options,
@@ -1087,11 +1090,9 @@ export class BackendApplication extends ApplicationBase {
     try {
       const data = await this.shell.tolliumservice.startApp(this.appname, options);
       this.gotApplication(data);
-      initlock.release();
       return;
     } catch (err) {
       console.warn("Unable to start the application due to an exception", err);
-      initlock.release();
       await runSimpleScreen(this,
         {
           text: whintegration.config.dtapstage === 'development'

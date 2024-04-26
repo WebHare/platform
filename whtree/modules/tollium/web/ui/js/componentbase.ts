@@ -328,7 +328,7 @@ export class ToddCompBase {
     if (!this.owner) //already disassociated
       throw new Error(`Already disconnected, no answer to request possible`);
 
-    using busylock = modal ? this.owner.displayapp!.getBusyLock() : dompack.flagUIBusy();
+    using busylock = modal ? this.owner.lockScreen() : dompack.flagUIBusy();
     void busylock;
 
     //TODO register our pending promise somewhere and autocancel if the app/screen is killed. is there any impl to share as this I/O pattern is extremely common

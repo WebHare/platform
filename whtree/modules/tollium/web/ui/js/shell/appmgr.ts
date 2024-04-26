@@ -1,7 +1,9 @@
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import * as dompack from "@webhare/dompack";
 import type { ApplicationBase } from "../application";
 import type IndyShell from "../shell";
 import { TypedEventTarget, type EventMapType } from "../support/typedeventtarget";
+import { debugFlags } from "@webhare/env";
 
 
 //Event definities
@@ -13,12 +15,12 @@ interface AppMgrEventMap extends EventMapType {
 /** Manages applicaions for the shell */
 export class AppMgr extends TypedEventTarget<AppMgrEventMap> {
   readonly shell;
+  private uiLock: dompack.UIBusyLock | null = null;
 
   constructor(shell: IndyShell) {
     super();
     this.shell = shell;
   }
-
 
   /** Get currently focused application */
   getCurrent(): ApplicationBase | null {
@@ -57,6 +59,35 @@ export class AppMgr extends TypedEventTarget<AppMgrEventMap> {
       if (lasttab?.app)
         this.activate(lasttab.app);
     }
+
+    this.notifyApplicationLockChange();
   }
 
+  notifyApplicationLockChange() {
+    const wasUILocked: boolean = Boolean(this.uiLock);
+    const shouldUILock: boolean = this.getCurrent()?.isLocked() || false;
+    if (debugFlags["tollium-active"])
+      console.log("notifyApplicationLockChange", this.getCurrent(), "isLocked=", this.getCurrent()?.isLocked(), "shouldUILock=", shouldUILock, "wasUILocked=", wasUILocked);
+
+    if (wasUILocked === shouldUILock)
+      return;
+
+    if (shouldUILock) {
+      this.uiLock = dompack.flagUIBusy();
+    } else {
+      this.uiLock!.release();
+      this.uiLock = null;
+    }
+  }
+
+  listApps() {
+    //TODO move to debug interface
+    return $todd.applications.map(app => ({
+      localId: app.localId,
+      title: app.title,
+      app,
+      stackpos: $todd.applicationstack.indexOf(app),
+      locked: app.isLocked()
+    }));
+  }
 }

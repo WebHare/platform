@@ -2,12 +2,14 @@
 
   <screen name="uploadtest">
     <actions>
+      <action name="reset" title="Reset" onexecute="onreset"/>
       <uploadaction name="uploadsingle" title="Upload single" onupload="onupload"/>
     </actions>
 
     <body >
       <line layout="left">
         <button action="uploadsingle" />
+        <button action="reset" />
         <checkbox title="" name="opendialog" label="Dialog after upload" />
       </line>
       <list name="uploadlist">

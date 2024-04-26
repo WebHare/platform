@@ -111,6 +111,7 @@ test.registerTests(
         test.assert(!test.getCurrentApp().isBusy());
 
         //we should have a crash dialog here now
+        await test.wait(() => test.compByName("errorlist")?.querySelector("textarea"));
         const errorlist = test.compByName("errorlist").querySelector("textarea");
         test.assert(errorlist.value.includes("DoAbortApp requested"));
         test.eq(0, errorlist.scrollTop); //used to scroll halfway

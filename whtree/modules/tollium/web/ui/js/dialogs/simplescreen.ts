@@ -23,9 +23,8 @@ interface SimpleScreenSettings {
     @param options - Options
 */
 export async function runSimpleScreen(app: ApplicationBase, options: SimpleScreenSettings) { //TODO move API closer to tollium's RunSimpleScreen
-  let busylock;
-  if (app)
-    busylock = app.getBusyLock(); //as we may be loading components, lock just to be sasfe
+  using busylock = app.getTopScreen()?.lockScreen() ?? dompack.flagUIBusy();
+  void busylock;
 
   const defer = dompack.createDeferred();
   try {
@@ -98,7 +97,6 @@ export async function runSimpleScreen(app: ApplicationBase, options: SimpleScree
 
     return defer.promise;
   } finally {
-    if (busylock)
-      busylock.release();
+    //probably no more finally needed now that we have using?
   }
 }

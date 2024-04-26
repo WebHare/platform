@@ -459,7 +459,7 @@ class FilterDialogController {
     this._createDialog();
   }
 
-  _createDialog() {
+  private _createDialog() {
     const dialog =
     {
       frame: {
