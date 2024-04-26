@@ -68,10 +68,10 @@ const screen_minheight = 20;
 // FIXME: remove all click handlers from menuitems
 // FIXME: remove all scroll handling for menu's (let DF menu do that)
 
-/** Locks the screen. If the topmost screen of an app has a locked, the app is busy. If the active app is busy, the UI is busy
+/** Locks the screen. If the topmost screen of an app is locked, the app is busy. If the active app is busy, the UI is busy
 */
 class ScreenLock implements Disposable {
-  private readonly screen: Frame | null;
+  private screen: Frame | null;
 
   constructor(screen: Frame) {
     this.screen = screen;
@@ -84,6 +84,7 @@ class ScreenLock implements Disposable {
       throw new Error(`Duplicate screen unlock`);
 
     this.screen._removeScreenLock(this);
+    this.screen = null;
   }
 }
 
