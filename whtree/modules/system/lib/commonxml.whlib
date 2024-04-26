@@ -47,7 +47,6 @@ PUBLIC RECORD FUNCTION ParseImageEditSettings(OBJECT node, RECORD current DEFAUL
   RETURN
       CELL[ ...ParseImageResizeSettings(node, current)
           , allowedactions := node->HasAttribute("allowedactions") ? ParseXSList(node->GetAttribute("allowedactions")) : CellExists(current, "allowedactions") ? current.allowedactions : ["all"]
-          , allowedfilters := node->HasAttribute("allowedfilters") ? ParseXSList(node->GetAttribute("allowedactions")) : CellExists(current, "allowedfilters") ? current.allowedactions : ["all"]
           ];
 }
 

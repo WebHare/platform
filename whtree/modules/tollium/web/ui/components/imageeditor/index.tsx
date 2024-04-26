@@ -7,7 +7,6 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import { PhotoCrop, addImageCropButton } from "./crop";
-import { ImageFilter, PhotoFilters, addFiltersButton } from "./filters";
 import { PhotoPoint, addRefPointButton } from "./refpoint";
 import { PhotoRotate, addImageRotateButton } from "./scaling";
 import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./surface";
@@ -25,7 +24,6 @@ const MAX_IMAGE_AREA = 15000000; // Max number of pixels
 /*
 Supported debug flags:
   isc Set SmartCrop debug flag
-  ixf Enable experimental filters
   */
 
 export type Size = { x: number; y: number };
@@ -50,7 +48,7 @@ export type SetProgressCallback = (value: number, max: number) => void;
 export type CreateScreenCallback = (components: $todd.ComponentsForMessages) => Frame;
 export type SetModalLayerOpacityCallback = (opacity: number) => void;
 
-type ImageAction = "all" | "crop" | "rotate" | "filters" | "refpoint";
+type ImageAction = "all" | "crop" | "rotate" | "refpoint";
 
 export type ImgSize = {
   method?: "none" | "fill" | "fitcanvas" | "scalecanvas" | "stretch" | "fit" | "scale";
@@ -61,7 +59,6 @@ export type ImgSize = {
   bgcolor?: string;
   fixorientation?: boolean;
   allowedactions?: ImageAction[];
-  allowedfilters?: ImageFilter[];
 };
 
 export interface ImageEditorOptions extends ImageSurfaceOptions {
@@ -69,10 +66,7 @@ export interface ImageEditorOptions extends ImageSurfaceOptions {
   height?: number;
   toolbarHeight?: number;
   imgSize?: ImgSize;
-  resourceBase?: string;
   setStatus?: (status: string, warning?: string) => void;
-  setProgress?: SetProgressCallback;
-  createScreen?: CreateScreenCallback;
   setModalLayerOpacity?: SetModalLayerOpacityCallback;
 }
 
@@ -84,7 +78,6 @@ export class ImageEditor {
   redoButton: ToolbarButton;
   cropper: { button: ToolbarButton; comp: PhotoCrop };
   rotator: { button: ToolbarButton; comp: PhotoRotate };
-  filters: { button: ToolbarButton; comp: PhotoFilters };
   pointer: { button: ToolbarButton; comp: PhotoPoint };
   mimeType = "";
   fileName = "";
@@ -93,7 +86,6 @@ export class ImageEditor {
   cropRatio: RectSize | null = null;
   fixorientation: boolean = true;
   allowedactions: ImageAction[] = [];
-  allowedfilters: ImageFilter[] = [];
   previewing: boolean = false;
   dirty: boolean = false;
   options: ImageEditorOptions;
@@ -106,7 +98,6 @@ export class ImageEditor {
       width: 640,
       height: 320, //ADDME default toolbar height!
       toolbarHeight: 72,
-      resourceBase: "",
       editorBackground: "",
       maxLength: MAX_IMAGE_LENGTH,
       maxArea: MAX_IMAGE_AREA,
@@ -140,14 +131,6 @@ export class ImageEditor {
     });
     this.rotator = addImageRotateButton(this.toolbar, this.surface, {
       setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
-    });
-    this.filters = addFiltersButton(this.toolbar, this.surface, {
-      resourceBase: this.options.resourceBase,
-      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight),
-      setProgress: this.options.setProgress,
-      createScreen: this.options.createScreen,
-      getAllowedFilters: () => this.getAllowedFilters(),
-      setModalLayerOpacity: this.options.setModalLayerOpacity
     });
     this.pointer = addRefPointButton(this.toolbar, this.surface, {
       setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
@@ -234,10 +217,8 @@ export class ImageEditor {
 
       this.fixorientation = this.options.imgSize.fixorientation === true;
       this.allowedactions = this.options.imgSize.allowedactions ?? [];
-      this.allowedfilters = this.options.imgSize.allowedfilters ?? [];
     } else {
       this.allowedactions = [];
-      this.allowedfilters = [];
     }
 
     this.updateActionButtons();
@@ -279,7 +260,6 @@ export class ImageEditor {
     const allallowed = this.allowedactions.indexOf("all") >= 0;
     this.cropper.button.node.style.display = allallowed || this.allowedactions.indexOf("crop") >= 0 ? "" : "none";
     this.rotator.button.node.style.display = allallowed || this.allowedactions.indexOf("rotate") >= 0 ? "" : "none";
-    this.filters.button.node.style.display = allallowed || this.allowedactions.indexOf("filters") >= 0 ? "" : "none";
     this.pointer.button.node.style.display = this.isRefpointAllowed() ? "" : "none";
   }
   isRefpointAllowed() {
@@ -288,9 +268,6 @@ export class ImageEditor {
     // actions are allowed; it has to be enabled explicitly.
     const methodRefPoint = !this.options.imgSize || this.options.imgSize.method === "none" || this.options.imgSize.method === "fill";
     return methodRefPoint && this.allowedactions.indexOf("refpoint") >= 0;
-  }
-  getAllowedFilters() {
-    return this.allowedfilters;
   }
 }
 

@@ -52,7 +52,6 @@ interface ImageSize {
   noforce: boolean;
   fixorientation: boolean;
   allowedactions: string[];
-  allowedfilters: string[];
 }
 
 /****************************************************************************************************************************

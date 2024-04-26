@@ -219,7 +219,6 @@ const stylesheet = ` //copied from apps.css
 }
 
   .wh-cropbox
-, .wh-filterbox
 , .wh-refbox
 {
   position:absolute;
@@ -227,7 +226,6 @@ const stylesheet = ` //copied from apps.css
 }
   .wh-cropbox .wh-cropbox-mask
 , .wh-cropbox .wh-cropbox-img
-, .wh-filterbox .wh-filterbox-img
 {
   position:absolute;
   top:0;

@@ -6,7 +6,6 @@ import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/t
 
 import { OffsetRect, Rect, Size } from ".";
 import { PhotoCrop, PhotoCropProps } from "./crop";
-import { PhotoFilters, PhotoFiltersProps } from "./filters";
 import { PhotoPoint, PhotoPointProps } from "./refpoint";
 import { PhotoRotate, PhotoRotateProps } from "./scaling";
 
@@ -36,11 +35,6 @@ type EditStep = {
   action: "rotate";
   comp: PhotoRotate;
   props: PhotoRotateProps;
-  meta: boolean;
-} | {
-  action: "filters";
-  comp: PhotoFilters;
-  props: PhotoFiltersProps;
   meta: boolean;
 } | {
   action: "refpoint";

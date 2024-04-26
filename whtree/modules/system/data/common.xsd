@@ -622,26 +622,8 @@
     </xs:attribute>
     <xs:attribute name="allowedfilters" default="all">
       <xs:annotation>
-        <xs:documentation>
-          The filters that a user can use, defaults to 'all'. Only applies if the 'filters' action is allowed.
-        </xs:documentation>
+        <xs:documentation>Filters have been removed</xs:documentation>
       </xs:annotation>
-      <xs:simpleType>
-        <xs:list>
-          <xs:simpleType>
-            <xs:restriction base="xs:string">
-              <xs:enumeration value="all" />
-              <xs:enumeration value="grayscale" />
-              <xs:enumeration value="invert" />
-              <xs:enumeration value="sharpen" />
-              <xs:enumeration value="blur" />
-              <xs:enumeration value="brightnesscontrast" />
-              <xs:enumeration value="autocontrast" />
-              <xs:enumeration value="coloradjust" />
-            </xs:restriction>
-          </xs:simpleType>
-        </xs:list>
-      </xs:simpleType>
     </xs:attribute>
   </xs:attributeGroup>
 

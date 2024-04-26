@@ -10,7 +10,6 @@
     <debugsettings title="Tollium debugging">
       <option tag="ild" title="Image loading: debug SVG composition" />
       <option tag="isc" title="Image editor: Debug smartcrop" />
-      <option tag="ixf" title="Image editor: Experimental functions" />
     </debugsettings>
     <debugsettings title="Site testing">
       <option tag="nsc" title="No spam checks (disable recaptchas etc)" />

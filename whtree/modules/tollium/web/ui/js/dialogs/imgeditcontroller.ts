@@ -270,11 +270,8 @@ class ImgeditDialogController {
       width: container.offsetWidth,
       height: container.offsetHeight,
       imgSize: this.options.imgsize,
-      resourceBase: $todd.resourcebase,
       getBusyLock: () => this.dialog!.lockScreen(),
       setStatus: this._setStatus.bind(this),
-      setProgress: this._setProgress.bind(this),
-      createScreen: this.screen.displayapp.createScreen.bind(this.screen.displayapp),
       setModalLayerOpacity: this._setModalLayerOpacity.bind(this),
       editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
     };
