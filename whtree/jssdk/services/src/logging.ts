@@ -63,13 +63,21 @@ export type GenericLogLine = GenericLogFields & LogLineBase;
 /** Read log lines from a specified log between the two given dates. Note that we ONLY support JSON encoded log lines */
 export async function* readLogLines<LogFields = GenericLogFields>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase> {
   const [module, logfile] = checkModuleScopedName(logname);
-  const fileinfo = getModuleDefinition(module).logs[logfile];
-  if (!fileinfo)
-    throw new Error(`No such logfile '${logfile}' in module '${module}'`);
-  if (fileinfo.timestamps !== false)
-    throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLines to be able to process it`);
+  let fileinfo = getModuleDefinition(module).logs[logfile];
+  if (!fileinfo) {
+    if (module === "system" && logfile === "servicemanager") {
+      fileinfo = {
+        filename: "servicemanager",
+        timestamps: false
+      };
+    } else
+      throw new Error(`No such logfile '${logfile}' in module '${module}'`);
+  } else {
+    if (fileinfo.timestamps !== false)
+      throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLines to be able to process it`);
 
-  await flushLog(logname);
+    await flushLog(logname);
+  }
 
   //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
   const basedir = backendConfig.dataroot + "log";
