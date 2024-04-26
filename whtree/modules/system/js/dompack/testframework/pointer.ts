@@ -363,7 +363,7 @@ function setMouseCursor(x, y) {
   mousestate.cursorel.style.top = y + 'px';
 }
 
-//like getElmmentFromPoint, but sees through shadow roots
+//like getElementFromPoint, but sees through shadow roots
 function getDeepElementFromPoint(doc: Document | ShadowRoot, px: number, py: number) {
   const el = doc.elementFromPoint(px, py);
   if (el && el.shadowRoot?.elementFromPoint)
