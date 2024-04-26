@@ -363,6 +363,14 @@ function setMouseCursor(x, y) {
   mousestate.cursorel.style.top = y + 'px';
 }
 
+//like getElmmentFromPoint, but sees through shadow roots
+function getDeepElementFromPoint(doc: Document | ShadowRoot, px: number, py: number) {
+  const el = doc.elementFromPoint(px, py);
+  if (el && el.shadowRoot?.elementFromPoint)
+    return getDeepElementFromPoint(el.shadowRoot, px, py) ?? el;
+  return el;
+}
+
 export function getValidatedElementFromPoint(doc: Document, px: number, py: number, expectelement: boolean): Element | null {
   const scroll = { x: 0, y: 0 }; // actually breaks the ui.menu test.... var scroll = safe_id(doc.body).getScroll();
   const lookupx = /*Math.floor*/(px - scroll.x);
@@ -400,7 +408,7 @@ export function getValidatedElementFromPoint(doc: Document, px: number, py: numb
   }
 
   // Make sure mouse cursor element is hidden, so it doesn't interfere
-  const el = doc.elementFromPoint(lookupx, lookupy);
+  const el = getDeepElementFromPoint(doc, lookupx, lookupy);
   //console.log(px,py,lookupx,lookupy,el);
 
   if (!el && expectelement) {
@@ -450,7 +458,7 @@ function getPartPosition(part) {
   else
     throw new Error("Did not understand 'y'");
 
-  for (let findroot = part.el; findroot !== part.el.ownerDocument.documentElement; findroot = findroot.parentNode)
+  for (let findroot = part.el; findroot !== part.el.ownerDocument.documentElement; findroot = findroot.parentNode ?? findroot.host) //also walk out of shadowdoms
     if (!findroot) {
       console.error("The element we're looking for is no longer part of the DOM: ", part.el);
       throw new Error("The element we're looking for is no longer part of the DOM");
@@ -1273,7 +1281,7 @@ export function canClick(element: ValidElementTarget, options?: ElementTargetOpt
   const atpos = getPartPosition({ el: element, x: x, y: y });
 
   // Make sure mouse cursor element is hidden, so it doesn't interfere
-  const elhere = element.ownerDocument.elementFromPoint(atpos.x, atpos.y);
+  const elhere = getDeepElementFromPoint(element.ownerDocument, atpos.x, atpos.y);
 
   //console.log('canClick', element,atpos,elhere,element.getBoundingClientRect(), elhere && elhere.getBoundingClientRect());
   return element.contains(elhere);
