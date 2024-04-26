@@ -155,7 +155,7 @@ PUBLIC OBJECTTYPE ServicesCheck EXTEND CustomCheckBase
 <
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssueList()
   {
-    RECORD ARRAY deadservices := SELECT * FROM ListRunningServices() WHERE running = FALSE AND enabled = TRUE AND run != "always";
+    RECORD ARRAY deadservices := SELECT * FROM ListRunningServices() WHERE running = FALSE AND enabled = TRUE AND run = "always";
     RETURN
         SELECT msg := `:Service '${name}' is not running`
              , jumpto := [ app := "system:dashboard", panel := "system:servicemanager", service := name ]
