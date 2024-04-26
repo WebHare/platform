@@ -1,4 +1,4 @@
-import type { ImageEditElement } from '@webhare/image-editor';
+import type { ImageEditElement } from '@webhare/image-edit';
 import * as dompack from '@webhare/dompack';
 import * as test from '@webhare/test-frontend';
 
@@ -18,7 +18,12 @@ async function testBasicEditor() {
 
   const surface = qSAImgEdit(".wh-image-surface canvas")[0];
   test.eq(331, surface.getBoundingClientRect().width);
-  test.eqPartial({ imageSize: { width: 600 } }, JSON.parse(test.qR("#statusbar").textContent));
+  test.eqPartial({ imageSize: { width: 600 } }, JSON.parse(test.qR("#statusbar").textContent || 'null'));
+
+  test.click("#save");
+  await test.wait(() => test.qSA<HTMLImageElement>(".savedimage img")[0]?.naturalHeight > 0);
+  test.eq(600, test.qSA<HTMLImageElement>(".savedimage img")[0].naturalWidth);
+  test.eq(450, test.qSA<HTMLImageElement>(".savedimage img")[0].naturalHeight);
 }
 
 test.run([ //

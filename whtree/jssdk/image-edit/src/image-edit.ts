@@ -36,6 +36,13 @@ export type ImageEditMetadata = {
   imageSize: ImageSize;
 };
 
+export type ImageEditSaveOptions = {
+  /** Type. Browsers default to image/png (and also pick that if the requested type is unsupported. See also https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) */
+  type?: string;
+  /** Quality for lossy formats, between 0 and 1. Defaults to 0.85 if not set */
+  quality?: number;
+};
+
 import { ImageEditor, type ImageEditorOptions } from "@mod-tollium/web/ui/components/imageeditor";
 
 //stylesheet for when running in Shadow mode
@@ -356,6 +363,24 @@ export class ImageEditElement extends HTMLElement {
     });
   }
 
+  async saveImage(options?: ImageEditSaveOptions): Promise<{
+    blob: Blob;
+    settings: ImageEditSettings;
+  }> {
+    const type = options?.type ?? "image/png";
+    const quality = options?.quality ?? 0.85;
+    if (quality < 0 || quality > 1) //"is a number in the range 0.0 to 1.0 inclusive"
+      throw new Error("Quality must be between 0 and 1");
+
+    const blob = await new Promise<Blob | null>(resolve => this.editor.surface.canvas.toBlob(resolve, type, quality));
+    if (!blob)
+      throw new Error("Failed to save image");
+
+    return {
+      blob,
+      settings: { focalPoint: this.editor.getFocalPoint() }
+    };
+  }
 }
 
 export { type ImageEditorOptions };

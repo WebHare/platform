@@ -15,6 +15,7 @@ import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./
 import "./imageeditor.css";
 import "./imageeditor.lang.json";
 import "../../common.lang.json";
+import type { ImagePoint } from "@webhare/image-edit/src/image-edit";
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
@@ -176,6 +177,12 @@ export class ImageEditor {
     this.orgBlob = options.orgblob;
     this.surface.setImg(img, options);
   }
+  getFocalPoint(): ImagePoint | null {
+    return this.surface.refPoint ? { //They're integers in HS so we'll keep rounding for now
+      x: Math.round(this.surface.refPoint.x),
+      y: Math.round(this.surface.refPoint.y)
+    } : null;
+  }
   getImageAsBlob(callback: ExportImageCallback) {
     if (!this.surface.ctx)
       throw new Error(`Cannot export image yet`);
@@ -184,10 +191,7 @@ export class ImageEditor {
     let mimeType = this.mimeType;
 
     const settings = {
-      refPoint: this.surface.refPoint ? {
-        x: Math.round(this.surface.refPoint.x),
-        y: Math.round(this.surface.refPoint.y)
-      } : null
+      refPoint: this.getFocalPoint()
     };
     if (this.options.imgSize) {
       // If the image didn't actually change, we can return the original blob directly
