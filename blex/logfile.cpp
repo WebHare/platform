@@ -1,8 +1,9 @@
 #include <blex/blexlib.h>
 
 #if !defined(__EMSCRIPTEN__)
-#define STACKTRACE_SUPPORT
 #include <execinfo.h>
+#else
+#include <emscripten.h>
 #endif
 
 #include <iomanip>
@@ -446,11 +447,16 @@ void FatalAbort()
         _exit(13);
 }
 
+#if defined(__EMSCRIPTEN__)
+EM_JS(char*, supportGetStackTrace, (), {
+  return stringToNewUTF8("Stack trace:\n" + (new Error()).stack.split("\n").splice(4).join("\n"));
+});
+#endif
+
 void DumpStackTrace()
 {
-#ifdef STACKTRACE_SUPPORT
         ErrStream error;
-
+#if !defined (__EMSCRIPTEN__)
         void *buffer[30];
         int cnt = backtrace (buffer, 30);
 
@@ -461,13 +467,15 @@ void DumpStackTrace()
                     error << strings[j] << "\n";
                 free(strings);
         }
+#else
+        error << supportGetStackTrace();
 #endif
 }
 
 std::string GetStackTrace()
 {
         std::string result;
-#ifdef STACKTRACE_SUPPORT
+#if !defined (__EMSCRIPTEN__)
         void *buffer[30];
         int cnt = backtrace (buffer, 30);
 
@@ -481,6 +489,8 @@ std::string GetStackTrace()
                 }
                 free(strings);
         }
+#else
+        return supportGetStackTrace();
 #endif
         return result;
 }
