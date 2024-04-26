@@ -41,6 +41,19 @@ async function testBasicEditor() {
   test.assert(!test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Reference Point"))!));
 }
 
-test.run([ //
-  testBasicEditor
+async function testActions() {
+  const statusbar = dompack.qR<ImageEditElement>(getActiveTab(), ".statusbar");
+  test.eqPartial({ imageSize: { height: 600, width: 450 } }, JSON.parse(statusbar.textContent || 'null'));
+  test.assert(test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Crop"))!));
+  test.click(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Rotate"))!);
+  test.click(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Rotate 90° Right"))!);
+  //should see Crop & Rotate again (ie left modality of the Rotate action)
+  test.assert(test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Crop"))!));
+
+  test.eqPartial({ imageSize: { height: 450, width: 600 } }, JSON.parse(statusbar.textContent || 'null'));
+}
+
+test.run([
+  testBasicEditor,
+  testActions
 ]);

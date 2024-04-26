@@ -67,6 +67,7 @@ export interface ImageEditorOptions extends ImageSurfaceOptions {
   imgSize?: ImgSize;
   setStatus?: (status: string, warning?: string) => void;
   setModalLayerOpacity?: SetModalLayerOpacityCallback;
+  onMetadataChange?: () => void;
 }
 
 export class ImageEditor {

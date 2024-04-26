@@ -327,14 +327,15 @@ export class ImageEditElement extends HTMLElement {
 
   constructor() {
     super();
-    this.#editor = new ImageEditor(this, {}, true);
+    this.#editor = new ImageEditor(this, {
+      onMetadataChange: () => this.#broadcastMetadata()
+
+    }, true);
     this.attributeChangedCallback();
 
     const styleSheet = document.createElement("style");
     styleSheet.innerText = stylesheet;
     this.shadowRoot?.prepend(styleSheet);
-
-    this.addEventListener("tollium-imageeditor:ready", () => this.#broadcastMetadata());
   }
 
   #broadcastMetadata() {
@@ -344,8 +345,8 @@ export class ImageEditElement extends HTMLElement {
       detail: {
         focalPoint: this.#editor.surface.refPoint,
         imageSize: {
-          width: this.#editor.surface.imgData!.size.x,
-          height: this.#editor.surface.imgData!.size.y
+          width: this.#editor.surface.canvasData!.realSize.x ?? this.#editor.surface.imgData!.size.x,
+          height: this.#editor.surface.canvasData!.realSize.y ?? this.#editor.surface.imgData!.size.y
         }
       }
     });
