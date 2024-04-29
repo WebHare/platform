@@ -37,7 +37,7 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
       INSERT "wh-tollium--manual" INTO this->htmlclasses AT END;
 
     STRING banner; //Allow to set a banner using ?banner= for testing purposes
-    IF(GetDtapStage() = "development")
+    IF(GetDtapStage() = "development" AND IsRequest())
       banner := GetWebvariable("banner");
 
     IF(banner = "")
