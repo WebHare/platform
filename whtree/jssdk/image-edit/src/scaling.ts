@@ -22,6 +22,7 @@ class PhotoRotate extends SurfaceTool {
   active = false;
   canvasScale = 1;
   scalePanel: ImageToolbarPanel;
+  toolbar?: Toolbar;
 
   constructor(surface: ImageSurface, options?: PhotoRotateOptions) {
     super(surface);
@@ -58,6 +59,7 @@ class PhotoRotate extends SurfaceTool {
   }
 
   startScaling(toolbar: Toolbar) {
+    this.toolbar = toolbar;
     toolbar.activateModalPanel(this.scalePanel);
     this.surface.hidePreviewCanvas();
     this.start();
@@ -255,11 +257,15 @@ class PhotoRotate extends SurfaceTool {
   fliphorizontal() {
     this.scale.x *= -1;
     this.rotate(0);
+    this.toolbar?.onModalApply();
+    this.setStatus();
   }
 
   flipvertical() {
     this.scale.y *= -1;
     this.rotate(0);
+    this.toolbar?.onModalApply();
+    this.setStatus();
   }
 
   rotate(degrees: number) {
@@ -269,6 +275,9 @@ class PhotoRotate extends SurfaceTool {
     this.surface.canvas.style.transform = 'scale(' + this.scale.x + ',' + this.scale.y + ') rotate(' + this.angle + 'deg)';
 
     this.setStatus();
+    if (degrees !== 0)  //if not invoked with 0 (start does that..) we've been modified, so finalize it
+      this.toolbar?.onModalApply();
+
   }
 
   setStatus() {

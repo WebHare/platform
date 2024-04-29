@@ -13,6 +13,7 @@ import type { ImageEditSettings, ImagePoint } from "@webhare/image-edit";
 
 export type ImageSurfaceOptions = {
   getBusyLock?: (() => Disposable) | null;
+  onMetadataChange?: () => void;
   editorBackground?: string;
   maxLength?: number;
   maxArea?: number;
@@ -380,6 +381,8 @@ export class ImageSurface {
       scale = this.previewCanvas ? this.previewScale : this.canvasScale;
     this.node.appendChild(<span class="wh-imageeditor-scale">{Math.round(100 * scale) + "%"}</span>);
     this.scaleTimeout = setTimeout(() => this.hideScale(), 2500);
+
+    this.options.onMetadataChange?.(); //TODO if there's a better place to put this, fine with me. as long as it gets invoked at least once per actual metadata change
   }
 
   hideScale() {
