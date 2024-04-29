@@ -254,6 +254,7 @@ WHLDFLAGS_WASM += -s ASYNCIFY=2
 WHLDFLAGS_WASM += -s ASYNCIFY_EXPORTS=$(ASYNCIFY_EXPORTS)
 WHLDFLAGS_WASM += -s ALLOW_TABLE_GROWTH
 WHLDFLAGS_WASM += -s WASM_BIGINT
+WHLDFLAGS_WASM += --pre-js $(SRCDIR)/harescript/vm/wasm-pre.js
 
 CPPFLAGS_WASM += -s USE_ZLIB=1
 WHLDFLAGS_WASM += -s USE_ZLIB=1
@@ -653,7 +654,7 @@ success.blex: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
 	ulimit -n 1024 && bin/blex-test-native test bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 241
 	> success.blex
 
-bin/blex-test-wasm: $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS) | $(SRCDIR)/harescript/vm/fix-emcc-output.js
+bin/blex-test-wasm: $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS) | $(SRCDIR)/harescript/vm/wasm-pre.js $(SRCDIR)/harescript/vm/fix-emcc-output.js
 	$(call LinkWASMExecutable,$^,bin/blex-test-wasm,$(WHBUILD_BUILDDIR)/bin/)
 
 # no dynamic libs, so no build necessary
@@ -839,7 +840,7 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 # Note that wasm targets are easier as we don't bother with dynamic linking.
 # Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
 # We use build.harescript-wasm as a barrier to ensure these targets waiting for the build
-lib/harescript.js lib/harescript.wasm &: $(LIBHSVM_WASM_SOURCEOBJS) success.wasm-blex $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/fix-emcc-output.js
+lib/harescript.js lib/harescript.wasm &: $(LIBHSVM_WASM_SOURCEOBJS) success.wasm-blex $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/wasm-pre.js $(SRCDIR)/harescript/vm/fix-emcc-output.js
 	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),lib/harescript.js,$(PREFIX)/lib/)
 	> build.harescript-wasm
 
