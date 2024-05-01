@@ -13,7 +13,7 @@ import KeyboardHandler from 'dompack/extra/keyboard';
 require("../../common.lang.json");
 import { ToddImage } from "../components/jsx";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import { registerJSApp } from "../application";
+import { registerJSApp, type ApplicationBase } from "../application";
 
 function rememberMenuHeights() {
   dompack.qSA('.dashboard__menuitem, .dashboard__app').forEach(node => {
@@ -32,11 +32,14 @@ function setMenuLiVisible(node, active) {
 }
 
 class DashboardApp {
-  constructor(appinterface, callback) {
+  readonly app: ApplicationBase;
+
+  constructor(appinterface: ApplicationBase, callback) {
     this.app = appinterface;
     this.appshortcuts = [];
     this.menusearch = '';
     this.app.onappstackbottom = true; //we don't want to be in the app activation stack
+    this.app.requiresScreen = false; //we don't need a screen to be 'active'
 
     this.dashboardappsnode = <div className="dashboard__apps" tabindex="0">
       <nav className="dasbhoard__menuitems" />
