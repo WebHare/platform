@@ -246,7 +246,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 
   DATETIME paymentstart := GetCurrentDatetime();
   STRING paymentmetadata := pd2b->GetField("DATA").payments[0].__paymentdata.m.paymeta;
-  CompleteWRDTestpayment(gotourl, "approved");
+  RECORD status := CompleteWRDTestpayment2(gotourl, "approved", [ cardnumber := "1234", cardissuer := "DPB"]);
   TestEq(paymentmetadata, pd2b->GetField("DATA").payments[0].__paymentdata.m.paymeta, "ProcessUpdatedPayment shouldn't be killing the payment metadata");
 
   //should also clear the planned next check
@@ -255,8 +255,11 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   TestEq("approved", pd2b->GetField("DATA").status);
   TestEq("approved", pd2b->GetField("LOG").entries[end-1].status); //proves the callback was invoked
   //FIXME TestEq(TRUE, pd2b->GetField("DATA").paymentdate >= paymentstart, EncodeJSON(payment.paymentdate) || " not past teststart");
-  RECORD status := DecodeJSONBlob(testfw->browser->content);
   TestEq(pd2b->id, status.returninfo.paymentid);
+
+  RECORD explained := paymentapi->ExplainPayment(pd2b->GetField("DATA"));
+  Testeq("1234", explained.cardnumber);
+  Testeq("DPB", explained.cardissuer);
 
   // STORY: Create a payment we'll expire
   testfw->BeginWork();
@@ -359,7 +362,7 @@ MACRO TestParallelPayments() //completing first payment
   STRING pay3ref := pmulti->GetField("DATA").paymentref;
 
   TestEq("pending", pmulti->GetField("DATA").status);
-  CompleteWRDTestpayment(pay1url, "approved");
+  CompleteWRDTestpayment2(pay1url, "approved");
   TestEq(3, Length(paymentapi->GetPaymentData(pmulti->id).payments));
   TestEq("approved", pmulti->GetField("DATA").status);
   TestEq(pay1ref, pmulti->GetField("DATA").paymentref);
@@ -370,7 +373,7 @@ MACRO TestParallelPayments() //completing first payment
   TestEq(['approved','pending','pending'], SELECT AS STRING ARRAY status FROM payment.payments);
 
   //Now fail the second pay attempt
-  CompleteWRDTestpayment(pay2url, "failed");
+  CompleteWRDTestpayment2(pay2url, "failed");
   TestEq(2, Length(pmulti->GetField("LOG").entries), 'old transaction failing should not affect payment status.');
   TestEq("approved", pmulti->GetField("LOG").entries[1].status);
 
@@ -564,7 +567,7 @@ MACRO TestPaymentPersonEntity()
 
   //Test a rejection
   STRING gotourl := StartWRDTestPayment(paymentapi, pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ], orderid := "PDE1"  ]);
-  CompleteWRDTestpayment(gotourl, "approved");
+  CompleteWRDTestpayment2(gotourl, "approved");
   payment := paymentapi->GetPaymentData(pde1->id);
   TestEq("failed", payment.status);
 
@@ -605,9 +608,8 @@ MACRO TestPaymentBigData()
   TestEq(0, Length(precheck.errors));
 
   STRING gotourl := StartWRDTestPayment(paymentapi, pdf1->id, 13.28m, bigrequest);
-  CompleteWRDTestpayment(gotourl, "approved");
+  CompleteWRDTestpayment2(gotourl, "approved");
   RECORD payment := paymentapi->GetPaymentData(pdf1->id);
-  dumpvalue(payment,'tree');
 
   TestEq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
   TestEq(bigrequest.userdata.bigdata, payment.__bestpayment.userdata.bigdata, "white-box inspection of stored userdata failed");

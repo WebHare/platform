@@ -82,9 +82,9 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
 
   translateStatus(sessinfo: Record<string, unknown>): CheckPaymentResult {
     if (sessinfo.approval === "yes")
-      return { setStatus: "approved" };
+      return { setStatus: "approved", cardIssuer: (sessinfo.cardissuer || "") as string, cardNumber: (sessinfo.cardnumber || "") as string };
     if (sessinfo.approval === "no")
-      return { setStatus: "failed" };
+      return { setStatus: "failed", cardIssuer: (sessinfo.cardissuer || "") as string, cardNumber: (sessinfo.cardnumber || "") as string };
     if (sessinfo.approval === "reject")
       return { setStatus: "failed", rejectReasonHTML: sessinfo.why as string };
 

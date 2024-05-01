@@ -23,12 +23,17 @@ let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
 
 
 /** Load Puppeteer */
-export async function launchPuppeteer(options?: Puppeteer.PuppeteerLaunchOptions): Promise<Puppeteer.Browser> {
+export async function launchPuppeteer(options?: Puppeteer.PuppeteerLaunchOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
   if (!puppeteerpromise)
     puppeteerpromise = import("puppeteer");
 
   const puppeteer = await puppeteerpromise;
   process.env.CHROMIUM_PATH = puppeteer.executablePath();
   options = { executablePath: __dirname + "/../bin/start-chromium.sh", ...options };
-  return await (await puppeteerpromise).launch(options);
+
+  const puppet = await (await puppeteerpromise).launch(options) as Puppeteer.Browser & AsyncDisposable;
+  if (!puppet[Symbol.asyncDispose]) //it should be there, but just not exposed..
+    throw new Error("Puppet unexpectedly lacks Symbol.asyncDispose");
+
+  return puppet;
 }

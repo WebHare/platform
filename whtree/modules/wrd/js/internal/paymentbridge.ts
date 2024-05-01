@@ -142,6 +142,8 @@ export interface PaymentSetup {
 
 export interface CheckPaymentResult {
   setStatus?: "approved" | "failed";
+  cardIssuer?: string;
+  cardNumber?: string;
   rejectReasonHTML?: string;
 }
 

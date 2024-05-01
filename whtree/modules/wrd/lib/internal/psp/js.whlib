@@ -61,6 +61,10 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
     RECORD retval;
     IF(this->rejectreasonhtml != "")
       retval := CELL[...retval, this->rejectreasonhtml];
+    IF(this->cardissuer != "")
+      retval := CELL[...retval, this->cardissuer];
+    IF(this->cardnumber != "")
+      retval := CELL[...retval, this->cardnumber];
     RETURN retval;
   }
 
@@ -73,9 +77,11 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
   UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
   {
     WRDPaymentProviderBase::__SetupExistingTransaction(payment);
-    RECORD opts := EnforceStructure([ rejectreasonhtml := "" ], payment.__paymentdata.m);
+    RECORD opts := EnforceStructure([ rejectreasonhtml := "", cardissuer := "", cardnumber := "" ], payment.__paymentdata.m);
     this->paymeta := CellExists(payment.__paymentdata.m,'paymeta') ? payment.__paymentdata.m.paymeta : "";
     this->rejectreasonhtml := opts.rejectreasonhtml;
+    this->cardissuer := opts.cardissuer;
+    this->cardnumber := opts.cardnumber;
   }
 
   UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
@@ -131,9 +137,8 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
 
     result.submitinstruction := paymentresult.navigateto;
     result.errors := MapErrors(paymentresult.errors);
+    this->ProcessPaymentResult(paymentresult);
 
-    IF(CellExists(paymentresult,'rejectreasonhtml'))
-      this->rejectreasonhtml := paymentresult.rejectreasonhtml;
     RETURN result;
   }
 
@@ -143,6 +148,10 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
       this->pvt_status := paymentresult.setstatus;
     IF(CellExists(paymentresult,'rejectreasonhtml'))
       this->rejectreasonhtml := paymentresult.rejectreasonhtml;
+    IF(CellExists(paymentresult,'cardnumber'))
+      this->cardnumber := paymentresult.cardnumber;
+    IF(CellExists(paymentresult,'cardissuer'))
+      this->cardissuer := paymentresult.cardissuer;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)

@@ -712,6 +712,7 @@ STATIC OBJECTTYPE PaymentAPI
       @cell(string) return.paymentref
       @cell(string) return.paymentmethodtitle Title for the selected payment method
       @cell(datetime) return.paymentdate
+      @cell(string) return.cardissuer Card issuer (bank or network)
       @cell(string) return.cardnumber Card or account number
       @cell(string) return.htmlstatusforuser Rich additional description as passed by the payment provider */
   PUBLIC RECORD FUNCTION ExplainPayment(RECORD paymentdata)
@@ -737,6 +738,7 @@ STATIC OBJECTTYPE PaymentAPI
                , paymentdata.paymentref
                , paymentmethodtitle :=  RecordExists(paymentoption) ? paymentoption.title : ""
                , paymentdata.paymentdate
+               , psp->cardissuer
                , psp->cardnumber
                , htmlstatusforuser := psp->GetHTMLStatusForUser()
                ];
