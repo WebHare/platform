@@ -1272,6 +1272,7 @@ export default class Frame extends ToddCompBase {
     if (parent)
       parent.setActive(true);
 
+    this.setActive(false); //ensures the displayapp gets a notifyTopScreenChange even if we're toplevel
     this.displayapp.appnodes.root.removeEventListener("tollium:appcanvas-resize", this.onDesktopResized);
     this.displayapp = null;
     this.node.remove();

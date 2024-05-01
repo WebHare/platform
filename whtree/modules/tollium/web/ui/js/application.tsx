@@ -69,7 +69,9 @@ export class ApplicationBase {
     root: HTMLElement;
   };
 
-  /// If set, keep this app at the bottom of the application stack
+  /** This application is 'busy' if no screen is active. (Dashboard is an exception) */
+  requiresScreen = true;
+  /** If set, keep this app at the bottom of the application stack */
   onappstackbottom = false;
 
   //Application title
@@ -387,10 +389,10 @@ export class ApplicationBase {
 
   notifyTopScreenChange(): void {
     //Apps can be embedded into each other (only used by test_jsapp) so the actual topscreen might not be ours
-    //If the toplevel screen is inactive or the app is closing, the app should be showing modality and busy layers
+    //If the toplevel screen is inactive and we requireScreen, or the app is closing, the app should be showing modality and busy layers
     //TODO we can do this cleaner? a parent can only have one child so we might be able to link more directly. or separate the 'column of apps/screens' inside a tab from their actual backends
     const globaltop = this.getAppGlobalTopScreen();
-    const shouldBeLocked = !globaltop?.active || globaltop?.isLocked() || this.appIsClosing;
+    const shouldBeLocked = (globaltop ? (!globaltop?.active || globaltop?.isLocked()) : this.requiresScreen) || this.appIsClosing;
     if (debugFlags["tollium-active"])
       console.log(`[${this.localId}] notifyTopScreenChange`, globaltop, "active=", globaltop?.active, "isLocked=", globaltop?.isLocked(), "appIsClosing=", this.appIsClosing, "shouldBeLocked=", shouldBeLocked, "appShowsLocked=", this.appShowsLocked);
     if (this.appShowsLocked === shouldBeLocked)
