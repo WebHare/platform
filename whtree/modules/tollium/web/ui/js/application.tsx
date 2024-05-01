@@ -389,7 +389,7 @@ export class ApplicationBase {
 
   notifyTopScreenChange(): void {
     //Apps can be embedded into each other (only used by test_jsapp) so the actual topscreen might not be ours
-    //If the toplevel screen is inactive and we requirsScreen, or the app is closing, the app should be showing modality and busy layers
+    //If the toplevel screen is inactive and we requireScreen, or the app is closing, the app should be showing modality and busy layers
     //TODO we can do this cleaner? a parent can only have one child so we might be able to link more directly. or separate the 'column of apps/screens' inside a tab from their actual backends
     const globaltop = this.getAppGlobalTopScreen();
     const shouldBeLocked = (globaltop ? (!globaltop?.active || globaltop?.isLocked()) : this.requiresScreen) || this.appIsClosing;
