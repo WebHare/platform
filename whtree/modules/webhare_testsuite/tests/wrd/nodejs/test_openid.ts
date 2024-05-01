@@ -4,7 +4,7 @@ import { toResourcePath } from "@webhare/services/src/resources";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
-import { launchPuppeteer, type PuppeteerBrowser } from "@webhare/deps";
+import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
@@ -14,7 +14,7 @@ const callbackUrl = "http://localhost:3000/cb";
 const headless = true;
 let sysoplogin = '', sysoppassword = '', clientWrdId = 0, clientId = '', clientSecret = '';
 let sysopobject: HSVMObject | undefined;
-let puppeteer: PuppeteerBrowser | undefined;
+let puppeteer: Puppeteer.Browser | undefined;
 
 async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
   if (!puppeteer)

@@ -3,6 +3,7 @@
     @topic testframework/wrd
 */
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -12,10 +13,16 @@ LOADLIB "mod::system/lib/testframework.whlib";
     @param payurl Payment URL as received in the payment submitinstruction
     @param approvetype Either 'approved' or 'failed'
 */
+PUBLIC RECORD FUNCTION CompleteWRDTestpayment2(STRING payurl, STRING approvetype, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ cardissuer := "", cardnumber := ""], options);
+  payurl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), payurl);
+  RETURN WaitForPromise(ImportJS("./payments.ts")->pushWRDTestPaymentButton(payurl, approvetype, options));
+}
+
 PUBLIC MACRO CompleteWRDTestpayment(STRING payurl, STRING approvetype)
 {
   payurl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), payurl);
-
   TestEq(TRUE, testfw->browser->GotoWebPage(payurl), "Failed to navigate to payment URL " || payurl);
   PushWRDTestPaymentButton(approvetype);
 }
@@ -36,4 +43,3 @@ PUBLIC MACRO PushWRDTestPaymentButton(STRING approvetype)
   IF(testfw->debug)
     Print("Return url: " || testfw->browser->href||'\n');
 }
-

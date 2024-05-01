@@ -1,5 +1,6 @@
 import type * as sharp from "sharp";
-import type * as puppeteer from "puppeteer";
+import type * as Puppeteer from "puppeteer";
+export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browser, Puppeteer.Page, ..
 
 ////////////////////////////// SHARP //////////////////////////
 let sharppromise: Promise<typeof sharp> | undefined = undefined;
@@ -18,17 +19,21 @@ export async function createSharpImage(...args: Parameters<typeof sharp.default>
 }
 
 ////////////////////////////// Puppeteer //////////////////////////
-let puppeteerpromise: Promise<typeof puppeteer> | undefined = undefined;
+let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
 
-export type PuppeteerBrowser = puppeteer.Browser;
 
 /** Load Puppeteer */
-export async function launchPuppeteer(options?: puppeteer.PuppeteerLaunchOptions): Promise<PuppeteerBrowser> {
+export async function launchPuppeteer(options?: Puppeteer.PuppeteerLaunchOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
   if (!puppeteerpromise)
     puppeteerpromise = import("puppeteer");
 
   const puppeteer = await puppeteerpromise;
   process.env.CHROMIUM_PATH = puppeteer.executablePath();
   options = { executablePath: __dirname + "/../bin/start-chromium.sh", ...options };
-  return await (await puppeteerpromise).launch(options);
+
+  const puppet = await (await puppeteerpromise).launch(options) as Puppeteer.Browser & AsyncDisposable;
+  if (!puppet[Symbol.asyncDispose]) //it should be there, but just not exposed..
+    throw new Error("Puppet unexpectedly lacks Symbol.asyncDispose");
+
+  return puppet;
 }

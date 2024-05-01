@@ -87,6 +87,7 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
 
   PUBLIC RECORD __paymentapi_mydata;
 
+  PUBLIC STRING cardissuer;
   PUBLIC STRING cardnumber;
 
   PUBLIC BOOLEAN needspaymentref;

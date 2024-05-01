@@ -59,6 +59,8 @@ PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
         PRINT(`Approve payment of <b class="paymentamount">${FormatMoney(data.amount,2,'.','',FALSE)}</b> ref '${EncodeHTML(data.paymentid)}' orderid '${EncodeHTML(data.orderid)}'<br><br>`);
         PRINT('<form method="POST" action="' || EncodeValue(GetClientRequestURL()) || '">');
         PRINT('<input type="hidden" name="s" value="'||EncodeValue(GetWebVariable("s"))||'" />');
+        PRINT('Card issuer: <input type="text" name="cardissuer" value="VISA" /><br>');
+        PRINT('Card number: <input type="text" name="cardnumber" value="4111 1111 4555 1142" /><br>');
 
         IF (GetWebVariable("approve") != "no")
           PRINT('<button type="submit" name="approve" value="yes" id="approvepayment">Yes, approve</button>');
@@ -66,12 +68,10 @@ PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
           PRINT('<button type="submit" name="approve" value="no" id="rejectpayment">No, cancel payment</button>');
         IF (GetWebVariable("approve") != "pending")
           PRINT('<button type="submit" name="approve" value="pending" id="pendingpayment">Dunno, keep pending</button>');
-        PRINT('</form>');
       }
 
       PRINT(`<br><br>Send HTTP push for payment of ${FormatMoney(data.amount,2,'.','',FALSE)} ref ${data.paymentid}<br><br>`);
 
-      PRINT(`<form>`);
       PRINT('<input type="hidden" name="s" value="'||EncodeValue(GetWebVariable("s"))||'" />');
       PRINT(`<button type="button" name="notified" value="approved" id="notifyapprovepayment">Approved</button>`);
       PRINT(`<button type="button" name="notified" value="rejected" id="notifyrejectpayment">Rejected</button>`);
@@ -84,6 +84,7 @@ PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
     {
       BOOLEAN isnotify := GetWebVariable("isnotify") != "";
       STRING result := GetWebVariable(isnotify ? "notified" : "approve");
+      data := CELL [...data, cardissuer := GetWebVariable("cardissuer"), cardnumber := GetWebVariable("cardnumber") ];
       IF(result="yes" AND ToUppercase(data.lastname) LIKE "*FRAUD*")
         StoreWebSessionData(sessid,"wrd:testpayment", [...data, approval := "reject", why := "Not trusting users with '<b>fraud</b>' in their last name" ]);
       ELSE
