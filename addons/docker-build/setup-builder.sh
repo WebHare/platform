@@ -38,7 +38,7 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 # nodesource key & repositoty
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
@@ -151,12 +151,7 @@ cd /opt
 git clone https://github.com/emscripten-core/emsdk.git
 cd /opt/emsdk
 
-if [ "$(uname -m)" == "aarch64" ]; then
-  # not all releases are available for arm64: https://github.com/emscripten-core/emsdk/issues/547
-  EMSDKVERSION=latest-arm64-linux
-else
-  EMSDKVERSION=3.1.44
-fi
+EMSDKVERSION=3.1.59
 
 ./emsdk install "$EMSDKVERSION"
 ./emsdk activate "$EMSDKVERSION"

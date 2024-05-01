@@ -606,7 +606,7 @@ test.run([
   testPromises,
   "BigInt",
   testBigInt,
-  ...(typeof navigator !== "undefined" ? [
+  ...(typeof window !== "undefined" ? [
     "UUID fallback",
     testUUIDFallback  //can't run on nodejs
   ] : [])
