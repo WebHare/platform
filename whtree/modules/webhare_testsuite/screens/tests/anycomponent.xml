@@ -52,16 +52,16 @@
               <textedit name="value" title="Value" />
               <textedit name="onchangecount" readonly="true" title="" valuetype="integer" />
               <text value="onchanges" />
-              <button name="readvaluebutton" action="readvalue" title="Read" />
-              <button name="writevaluebutton" action="writevalue" title="Write" />
+              <button name="readvaluebutton" action="readvalue" />
+              <button name="writevaluebutton" action="writevalue" />
               <button action="validatevalue" />
             </line>
             <line>
               <textedit name="selection" width="1pr" title="Selection" />
               <textedit name="onselectcount" readonly="true" title="" valuetype="integer" />
               <text value="onselects" />
-              <button action="readselection" />
-              <button action="writeselection" />
+              <button name="readselectionbutton" action="readselection" />
+              <button name="writeselectionbutton" action="writeselection" />
             </line>
             <panel name="overlaypanel">
               <line>

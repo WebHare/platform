@@ -478,8 +478,8 @@ class LoginApp {
   }
 
   async executePasswordLogin(data, callback) {
-    const loginname = this.topscreen.getComponent('loginname').getSubmitValue();
-    const password = this.topscreen.getComponent('password').getSubmitValue();
+    const loginname = this.topscreen.getComponent('loginname').getSubmitValue().value;
+    const password = this.topscreen.getComponent('password').getSubmitValue().value;
     const savelogin = this.topscreen.getComponent('savelogin').getSubmitValue().value;
 
     if (!loginname || !password) {
@@ -608,7 +608,7 @@ class LoginApp {
       this.executePasswordLogin(data, callback);
       return;
     }
-    const code = this.topscreen.getComponent('totpcode').getSubmitValue();
+    const code = this.topscreen.getComponent('totpcode').getSubmitValue().value;
     const persistent = this.topscreen.getComponent('savelogin').getSubmitValue().value;
 
     const result = await getIndyShell().wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
