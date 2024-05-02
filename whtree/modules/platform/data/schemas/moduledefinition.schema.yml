@@ -93,7 +93,7 @@ definitions:
               required:
                 - category
                 - title
-                - onexecute
+                - onExecute
               properties:
                 title:
                   type: string
@@ -101,7 +101,7 @@ definitions:
                 category:
                   type: string
                   description: "Action category (possible values defined by the screen)"
-                onexecute:
+                onExecute:
                   type: string
                   description: "Function to invoke"
 
