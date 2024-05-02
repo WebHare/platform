@@ -17,6 +17,7 @@ async function expireOldUsers() {
 async function cleanupOldSessions() {
   await beginWork();
   await db<PlatformDB>().deleteFrom("system.sessions").where("expires", "<", new Date).execute();
+  await db<PlatformDB>().deleteFrom("wrd.tokens").where("expirationdate", "<", new Date).execute();
   await commitWork();
 }
 
