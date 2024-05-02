@@ -154,6 +154,22 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
       this->cardissuer := paymentresult.cardissuer;
   }
 
+  UPDATE PUBLIC RECORD FUNCTION ProcessNotification()
+  {
+    RECORD returnreq := EncodeWebRequestForJS();
+    RECORD pushresult := CallJS("@mod-wrd/js/internal/paymentbridge.ts#processPush",
+        this->methodsettings.driver,
+        this->methodsettings.configuration,
+        this->paymeta,
+        returnreq);
+
+    IF(NOT RecordExists(pushresult))
+      RETURN DEFAULT RECORD;
+
+    this->ProcessPaymentResult(pushresult);
+    RETURN pushresult.response;
+  }
+
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
   {
     RECORD returnreq := EncodeWebRequestForJS();

@@ -1,7 +1,8 @@
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
-import { type CheckPaymentResult, type PaymentDriver, type WebHarePaymentPrecheckRequest, type WebHarePaymentRequest, type WebHarePaymentResult } from "@mod-wrd/js/internal/paymentbridge";
-import { createSession, getSession } from "@webhare/services";
-import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
+import { type CheckPaymentResult, type PaymentDriver, type PushPaymentResult, type WebHarePaymentPrecheckRequest, type WebHarePaymentRequest, type WebHarePaymentResult } from "@mod-wrd/js/internal/paymentbridge";
+import { createWebResponse } from "@webhare/router";
+import { createSession, getSession, updateSession } from "@webhare/services";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 
 interface TestDriverConfig {
   methods: number;
@@ -92,12 +93,28 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
 
   }
 
-  async processReturn(paymeta: TestDriverPayMeta, req: WebRequestInfo, opts: { isPush: boolean }): Promise<CheckPaymentResult> {
+  async processReturn(paymeta: TestDriverPayMeta, req: WebRequestInfo): Promise<CheckPaymentResult> {
     const sessinfo = await getSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo)
       throw new Error("Session has expired");
 
     return this.translateStatus(sessinfo);
+  }
+
+  async processPush(paymeta: TestDriverPayMeta, req: WebRequestInfo): Promise<PushPaymentResult> {
+    const sessinfo = await getSession("wrd:testpayment", paymeta.paymentSession);
+    if (!sessinfo)
+      throw new Error("Session has expired");
+
+    const params = new URLSearchParams(await req.body.text());
+    if (params.get("approval")) {
+      sessinfo.approval = params.get("approval");
+      await runInWork(() => updateSession("wrd:testpayment", paymeta.paymentSession, sessinfo));
+    } else {
+      throw new Error("Missing 'approval' variable");
+    }
+
+    return { ...this.translateStatus(sessinfo), response: createWebResponse("It is done", { headers: { "content-type": "text/plain" } }) };
   }
 
   async checkStatus(paymeta: TestDriverPayMeta): Promise<CheckPaymentResult> {
