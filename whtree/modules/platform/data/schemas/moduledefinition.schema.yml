@@ -136,9 +136,6 @@ definitions:
               tagset:
                 type: string
                 description: Tagset for task labels
-              backendHooks:
-                description: "Connect schema specific backend hooks. Deprecated, will be moved into backendHooks"
-                $ref: "#/definitions/BackendHooks"
 
   # Filter where backend hooks are applied
   ContextFilter:
