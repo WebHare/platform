@@ -1,35 +1,32 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/tests/anycomponent.whlib">
-
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="/lib/screens/tests/anycomponent.whlib">
 
   <screen name="anycomponent" allowresize="true" flags="readvalue readselection readoverlays">
     <actions>
       <action name="updateoptions" onexecute="doupdateoptions" title="Update options" />
       <action name="updatetitle" onexecute="doupdatetitle" title="Update title" />
       <action name="updatelabel" onexecute="doupdatelabel" title="Update label" />
-      <action name="readvalue" onexecute="doreadvalue" title="Read" frameflags="readvalue" />
+      <action name="readvalue" frameflags="readvalue" onexecute="doreadvalue" title="Read" />
       <action name="writevalue" onexecute="dowritevalue" title="Write" />
-      <action name="readselection" onexecute="doreadselection" title="Read" frameflags="readselection" />
+      <action name="readselection" frameflags="readselection" onexecute="doreadselection" title="Read" />
       <action name="writeselection" onexecute="dowriteselection" title="Write" />
       <action name="validatevalue" onexecute="dovalidatevalue" title="Validate" />
-      <action name="readoverlays" onexecute="doreadoverlays" title="Read" frameflags="readoverlays" />
+      <action name="readoverlays" frameflags="readoverlays" onexecute="doreadoverlays" title="Read" />
       <action name="writeoverlays" onexecute="dowriteoverlays" title="Write" />
     </actions>
 
     <compositions>
       <radiogroup name="radiogroup" />
     </compositions>
+
     <body name="body">
-      <split type="vertical" name="splitv">
+      <split name="splitv" type="vertical">
         <part>
-          <split type="horizontal" name="splith">
+          <split name="splith" type="horizontal">
             <part name="componentpanel" />
             <part width="1pr" />
           </split>
         </part>
-        <part/>
+        <part />
       </split>
       <grid name="controlpanel">
         <col width="1pr" />
@@ -37,58 +34,63 @@
         <row>
           <cell>
             <line>
-              <checkbox name="visible" label="Visible" value="true" onchange="onvisiblechange" title="Options"/>
-              <checkbox name="enable" label="Enabled" value="true" onchange="onenablechange"/>
-              <checkbox name="required" label="Required" value="false" onchange="onrequiredchange"/>
-              <checkbox name="readonly" label="Readonly" value="false" onchange="onreadonlychange"/>
-              <checkbox name="indeterminate" label="Indeterminate" value="false" onchange="onindeterminatechange"/>
-              <checkbox name="hiderequiredifdisabled" label="HideRequiredIfDisabled" onchange="onhiderequiredifdisabledchange" value="true"/>
+              <checkbox name="visible" label="Visible" onchange="onvisiblechange" title="Options" value="true" />
+              <checkbox name="enable" label="Enabled" onchange="onenablechange" value="true" />
+              <checkbox name="required" label="Required" onchange="onrequiredchange" value="false" />
+              <checkbox name="readonly" label="Readonly" onchange="onreadonlychange" value="false" />
+              <checkbox name="indeterminate" label="Indeterminate" onchange="onindeterminatechange" value="false" />
+              <checkbox name="hiderequiredifdisabled"
+                        label="HideRequiredIfDisabled"
+                        onchange="onhiderequiredifdisabledchange"
+                        value="true" />
             </line>
             <line>
               <textedit name="title" title="Title" />
-              <button action="updatetitle" name="updatetitlebutton"/>
+              <button name="updatetitlebutton" action="updatetitle" />
             </line>
             <line>
               <textedit name="value" title="Value" />
-              <textedit name="onchangecount" title="" valuetype="integer" readonly="true"/>
+              <textedit name="onchangecount" readonly="true" title="" valuetype="integer" />
               <text value="onchanges" />
-              <button name="readvaluebutton" title="Read" action="readvalue" />
-              <button name="writevaluebutton" title="Write" action="writevalue" />
+              <button name="readvaluebutton" action="readvalue" title="Read" />
+              <button name="writevaluebutton" action="writevalue" title="Write" />
               <button action="validatevalue" />
             </line>
             <line>
-              <textedit name="selection" title="Selection" width="1pr"/>
-              <textedit name="onselectcount" title="" valuetype="integer" readonly="true"/>
+              <textedit name="selection" width="1pr" title="Selection" />
+              <textedit name="onselectcount" readonly="true" title="" valuetype="integer" />
               <text value="onselects" />
-              <button action="readselection" /><button action="writeselection" />
+              <button action="readselection" />
+              <button action="writeselection" />
             </line>
             <panel name="overlaypanel">
               <line>
-                <textedit name="overlays" title="Overlays" width="1pr"/>
-                <button action="readoverlays" name="buttonreadoverlays" /><button action="writeoverlays" name="buttonwriteoverlays" />
-                <textedit name="onchangeoverlayscount" valuetype="integer" readonly="true" />
+                <textedit name="overlays" width="1pr" title="Overlays" />
+                <button name="buttonreadoverlays" action="readoverlays" />
+                <button name="buttonwriteoverlays" action="writeoverlays" />
+                <textedit name="onchangeoverlayscount" readonly="true" valuetype="integer" />
                 <text value="onchangeoverlays" />
               </line>
             </panel>
             <line>
               <textedit name="label" />
-              <button action="updatelabel" name="updatelabelbutton"/>
+              <button name="updatelabelbutton" action="updatelabel" />
             </line>
             <button action="updateoptions" />
             <line>
               <textedit name="onchangecounter" enabled="false" />
-              <checkbox name="listenonchange" title="" label="listen onchange/onset" onchange="DoListenOnchange" />
+              <checkbox name="listenonchange" label="listen onchange/onset" onchange="DoListenOnchange" title="" />
             </line>
             <panel name="mainprops" />
           </cell>
           <cell>
             <line>
-              <textedit name="enableontarget1" title="EnableOnTarget1" width="5x" />
-              <checkbox name="enableontarget1_include" title="" label="included1" onchange="onupdateenablecomponents" />
+              <textedit name="enableontarget1" width="5x" title="EnableOnTarget1" />
+              <checkbox name="enableontarget1_include" label="included1" onchange="onupdateenablecomponents" title="" />
             </line>
             <line>
-              <textedit name="enableontarget2" title="EnableOnTarget2" width="5x" />
-              <checkbox name="enableontarget2_include" title="" label="included2" onchange="onupdateenablecomponents" />
+              <textedit name="enableontarget2" width="5x" title="EnableOnTarget2" />
+              <checkbox name="enableontarget2_include" label="included2" onchange="onupdateenablecomponents" title="" />
             </line>
             <radiobutton name="radiobutton2" group="radiogroup" title="RadioButton" />
             <button name="alternatedefault" title="Alternate default" />
@@ -102,14 +104,16 @@
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
-      <checkbox composition="row" cellname="checkbox" visible="false" label="Checkbox" />
-      <textedit title="Other text" composition="row" cellname="othertext" name="othertext" />
-      <textedit title="Virtualized text" composition="row" name="virtualized_text" />
+      <checkbox composition="row" cellname="checkbox" label="Checkbox" visible="false" />
+      <textedit composition="row" cellname="othertext" name="othertext" title="Other text" />
+      <textedit composition="row" name="virtualized_text" title="Virtualized text" />
       <select composition="row" cellname="radio" name="radio" type="radio" title="Radio">
-        <option rowkey="test" title="gaga"/>
-        <option rowkey="test2" title="gugu"/>
+        <option rowkey="test" title="gaga" />
+        <option rowkey="test2" title="gugu" />
       </select>
     </body>
   </screen>
+
 </screens>

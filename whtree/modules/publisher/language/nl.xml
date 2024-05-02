@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl">
   <textgroup gid="backgroundtasks">   <!-- backgroundtasks -->
     <textgroup gid="archiver">   <!-- backgroundtasks.archiver -->
       <text tid="archivecorrupt">Kan dit archief niet uitpakken, het is waarschijnlijk corrupt of gedeeltelijk afgebroken.</text>

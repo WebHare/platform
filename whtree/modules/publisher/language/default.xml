@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="backgroundtasks" limitlanguages="en nl">   <!-- backgroundtasks -->
     <textgroup gid="archiver">   <!-- backgroundtasks.archiver -->
       <text tid="archivecorrupt">Cannot unpack this archive; it is corrupt or truncated.</text>

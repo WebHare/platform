@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="bg" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="bg" fallbacklanguage="en">
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="captcha">   <!-- site.captcha -->
       <text tid="explain">Моля, проверете полето отдолу</text>
