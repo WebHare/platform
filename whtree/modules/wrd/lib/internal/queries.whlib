@@ -737,7 +737,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         {
           query->AddConstraint(single->name || ".creationdate", "<", MAX_DATETIME); //filter out temporaries
         }
-        ELSE IF (single->history_mode != "__getfields") //__getfields is used by getentityfield(s) to be able to select temporaries too
+        ELSE IF (single->history_mode NOT IN ["__getfields","active"]) //__getfields is used by getentityfield(s) to be able to select temporaries too
         {
           query->AddConstraint(single->name || ".creationdate", "<", single->when_limit);
           query->AddConstraint(single->name || ".limitdate", ">", single->when_start);
@@ -4446,7 +4446,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
       CASE "now"
         { // historymode "now" will be filled in at query execution start, instead of query construction
         }
-      CASE "all","__getfields" { }
+      CASE "all","__getfields","active" { }
       CASE "at"         { obj->when_start := source.when; obj->when_limit := source.when = MAX_DATETIME ? MAX_DATETIME : AddTimeToDate(1, source.when); }
       CASE "range"      { obj->when_start := source.when_start; obj->when_limit := source.when_limit; }
       DEFAULT           { THROW NEW Exception(`Illegal historymode '${historymode}', acceptable modes are 'now', 'all', 'at', 'range'`); }
