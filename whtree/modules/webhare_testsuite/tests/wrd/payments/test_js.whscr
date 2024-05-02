@@ -16,12 +16,8 @@ LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -651,7 +647,7 @@ ASYNC MACRO TestPaymentProvidersDialog()
   topscreen->providers->selection := rows[3];
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->deleteprovider->TolliumClick);
 
-  //Receate it TestNoIssuer, TestWithIssuer
+  //Receate it TestNoIssuer, TestWithIssuer - FIXME rebuild to actually use the JS TestDriver, not wrd:test
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   topscreen->methods->value := "wrd:test";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
@@ -754,13 +750,13 @@ MACRO TestPaymentOptions()
 
   OBJECT pm_2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #2"
-    , method := MakePaymentProviderValue("wrd:test")
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
     , wrd_ordering := 9
     ]);
 
   OBJECT pm_3 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #3"
-    , method := MakePaymentProviderValue("wrd:test")
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
     , wrd_ordering := 10
     ]);
 
@@ -776,7 +772,7 @@ MACRO TestPaymentOptions()
   TestEq(8, Length(SELECT DISTINCT paymentmethodtag FROM opts));
 
   //Want to be able to specify the option using just the method tag. using second-to-last as this should be a NoIssuser option
-  RECORD uselastpaymentoption := paymentapi->StartPayment(pd4->id, 16.61m, [ paymentmethodtag := opts[END-2].paymentmethodtag]);
+  RECORD uselastpaymentoption := paymentapi->StartPayment(pd4->id, 16.61m, [ paymentmethodtag := opts[END-2].paymentmethodtag, orderid := "PD4" ]);
   TestEq(FALSE, uselastpaymentoption.complete);
   TestEq(TRUE, RecordExists(uselastpaymentoption.submitinstruction));
 }
