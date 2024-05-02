@@ -90,10 +90,7 @@ definitions:
             items:
               type: object
               additionalProperties: false
-              required:
-                - category
-                - title
-                - onExecute
+              required: [ category, title, onExecute ]
               properties:
                 title:
                   type: string
@@ -136,6 +133,24 @@ definitions:
               tagset:
                 type: string
                 description: Tagset for task labels
+      touchTypes:
+        type: object
+        additionalProperties: false
+        patternProperties:
+          "^[a-z_][-a-z0-9_]+$": # Touchpoint name, auto scoped to the current module
+            type: object
+            additionalProperties: false
+            required: [ title ]
+            properties:
+              icon:
+                type: string
+                description: "Icon to use for the touchpoint"
+              title:
+                type: string
+                description: "Title for the touchpoint"
+              onDetails:
+                type: string
+                description: "Function to invoke if touch details are opened"
 
   # Filter where backend hooks are applied
   ContextFilter:
