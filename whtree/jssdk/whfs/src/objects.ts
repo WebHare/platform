@@ -8,6 +8,7 @@ import { extname, parse } from 'node:path';
 import { excludeKeys, formatPathOrId, isPublish, isValidName } from "./support";
 import * as std from "@webhare/std";
 import type { WebHareBlob } from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -106,6 +107,16 @@ export interface UpdateFolderMetadata extends CreateFolderMetadata {
   name?: string;
 }
 
+function isHistoricWHFSSpace(path: string) {
+  path = path.toUpperCase();
+  if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/")
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONARCHIVE/")
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/"))
+    return true;
+  return false;
+}
+
 export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
   private readonly _typens: string;
@@ -130,6 +141,12 @@ export class WHFSObject {
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
     await db<PlatformDB>().deleteFrom("system.fs_objects").where("id", "=", this.id).execute();
+  }
+
+  async recycle(): Promise<void> {
+    const obj = await loadlib("mod::system/lib/whfs.whlib").openWHFSObject(this.id);
+    if (obj)
+      await obj.RecycleSelf();
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
@@ -343,16 +360,16 @@ export class WHFSFolder extends WHFSObject {
     return existingfolder;
   }
 
-  async openFile(path: string, options: { allowMissing: true }): Promise<WHFSFile | null>;
-  async openFile(path: string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
-  async openFile(path: string, options?: { allowMissing: boolean }) {
-    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`);
+  async openFile(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | null>;
+  async openFile(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFile>;
+  async openFile(path: string, options?: OpenWHFSObjectOptions) {
+    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false);
   }
 
-  async openFolder(path: string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
-  async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
-  async openFolder(path: string, options?: { allowMissing: boolean }) {
-    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`);
+  async openFolder(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
+  async openFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
+  async openFolder(path: string, options?: OpenWHFSObjectOptions) {
+    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false);
   }
 
   /** Generate a unique name for a new object in this folder
@@ -516,10 +533,15 @@ async function lookupWHFSObject(startingpoint: number, fullpath: string) {
   return res.leftover ? -1 : res.id;
 }
 
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string): Promise<WHFSFile | WHFSFolder>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string): Promise<WHFSFile | WHFSFolder | null>;
+export interface OpenWHFSObjectOptions {
+  allowMissing?: boolean;
+  allowHistoric?: boolean;
+}
 
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string): Promise<WHFSFile | WHFSFolder | null> {
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string, allowHistoric: boolean): Promise<WHFSFile | WHFSFolder>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean): Promise<WHFSFile | WHFSFolder | null>;
+
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean): Promise<WHFSFile | WHFSFolder | null> {
   let location;
   if (typeof path === "string")
     location = await lookupWHFSObject(startingpoint, path);
@@ -545,6 +567,12 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
     return null;
   }
 
+  if (isHistoricWHFSSpace(dbrecord.whfspath) && !allowHistoric) {
+    if (!allowmissing)
+      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)} ${failcontext} - it is a recycled of versioned version`);
+    return null;
+  }
+
   if (findfile !== undefined && dbrecord.isfolder !== !findfile)
     throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)} ${failcontext}`);
 
@@ -553,26 +581,26 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
   return dbrecord.isfolder ? new WHFSFolder(dbrecord, typens) : new WHFSFile(dbrecord, typens);
 }
 
-export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;
-export async function openFile(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
+export async function openFile(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | null>;
+export async function openFile(path: number | string, options?: OpenWHFSObjectOptions): Promise<WHFSFile>;
 
 /** Open a file */
-export async function openFile(path: number | string, options?: { allowMissing: boolean }) {
-  return openWHFSObject(0, path, true, options?.allowMissing ?? false, "");
+export async function openFile(path: number | string, options?: OpenWHFSObjectOptions) {
+  return openWHFSObject(0, path, true, options?.allowMissing ?? false, "", options?.allowHistoric ?? false);
 }
 
-export async function openFolder(path: number | string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
-export async function openFolder(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
+export async function openFolder(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
+export async function openFolder(path: number | string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
 
 /** Open a folder */
-export async function openFolder(path: number | string, options?: { allowMissing: boolean }) {
-  return openWHFSObject(0, path, false, options?.allowMissing ?? false, "");
+export async function openFolder(path: number | string, options?: OpenWHFSObjectOptions) {
+  return openWHFSObject(0, path, false, options?.allowMissing ?? false, "", options?.allowHistoric ?? false);
 }
 
-export async function openFileOrFolder(path: number | string, options: { allowMissing: true }): Promise<WHFSFolder | WHFSFile | null>;
-export async function openFileOrFolder(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFolder | WHFSFile>;
+export async function openFileOrFolder(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | WHFSFile | null>;
+export async function openFileOrFolder(path: number | string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder | WHFSFile>;
 
 /** Open a file or folder - used when you're unsure what an ID points to */
-export async function openFileOrFolder(path: number | string, options?: { allowMissing: boolean }) {
-  return openWHFSObject(0, path, undefined, options?.allowMissing ?? false, "");
+export async function openFileOrFolder(path: number | string, options?: OpenWHFSObjectOptions) {
+  return openWHFSObject(0, path, undefined, options?.allowMissing ?? false, "", options?.allowHistoric ?? false);
 }

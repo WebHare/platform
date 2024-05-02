@@ -1,6 +1,6 @@
 import { db, sql, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
-import { WHFSFile, WHFSFolder, openWHFSObject } from "./objects";
+import { WHFSFile, WHFSFolder, openWHFSObject, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType } from "./contenttypes";
 import { createAppliedPromise } from "@webhare/services";
@@ -63,16 +63,16 @@ export class Site {
     this.dbrow = siterecord;
   }
 
-  async openFile(path: string, options: { allowMissing: true }): Promise<WHFSFile | null>;
-  async openFile(path: string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
-  async openFile(path: string, options?: { allowMissing: boolean }) {
-    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`);
+  async openFile(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | null>;
+  async openFile(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFile>;
+  async openFile(path: string, options?: OpenWHFSObjectOptions) {
+    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false);
   }
 
-  async openFolder(path: string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
-  async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
-  async openFolder(path: string, options?: { allowMissing: boolean }) {
-    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`);
+  async openFolder(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
+  async openFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
+  async openFolder(path: string, options?: OpenWHFSObjectOptions) {
+    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false);
   }
 
   /** Get the webdesign for this site */
