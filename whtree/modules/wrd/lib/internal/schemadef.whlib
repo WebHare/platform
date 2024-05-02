@@ -140,9 +140,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaDefinitionFile EXTEND XMLValidatorBase
         STRING gid := ParseXMLGid(modulename, "", enum, "", "gid");
         IF(gid!="")
           FOREVERY(STRING val FROM ParseXSLIst(enum->GetAttribute("allowedvalues")))
-            ParseXMLTidDirectly(this->respath, enum, ToLowercase(gid || "." || val), "allowedvalues");
+            IF(val NOT LIKE "*:*" AND SearchSubstring(val,'*') = -1 AND SearchSubstring(val,'?') = -1) //dont try to find a tid for patterns and modulescoped:values
+              ParseXMLTidDirectly(this->respath, enum, ToLowercase(gid || "." || val), "allowedvalues");
       }
     }
   }
 >;
-
