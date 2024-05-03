@@ -26,11 +26,11 @@ test.registerTests([
     registerTexts("base", "en", base_texts);
 
     //retrieval with wrong language"
-    test.eq(getTid("base:testgroup.testtext"), "(cannot find text:base:testgroup.testtext)");
+    test.eq("(cannot find text: base:testgroup.testtext)", getTid("base:testgroup.testtext"));
 
     // Test short tid's by temporarily setting the 'sut' flag
     domdebug.debugflags.sut = true;
-    test.eq(getTid("base:testgroup.testtext"), ".testtext");
+    test.eq(".testtext", getTid("base:testgroup.testtext"));
     domdebug.debugflags.sut = false;
 
     // set language
@@ -38,10 +38,10 @@ test.registerTests([
     test.eq(getTid.tidLanguage, "en");
 
     // retrieval
-    test.eq(getTid("base:testgroup.testtext"), "This is a test");
+    test.eq("This is a test", getTid("base:testgroup.testtext"));
 
     // retrieve a group node
-    test.eq("(cannot find text:base:testgroup)", getTid("base:testgroup"));
+    test.eq("(cannot find text: base:testgroup)", getTid("base:testgroup"));
   },
 
   "Test string substitution (param, ifparam, else)",
@@ -168,7 +168,7 @@ test.registerTests([
   async function () {
     await test.load(test.getTestSiteRoot());
     const tids = test.getWin().getTidTest();
-    test.eq("(cannot find text:webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
+    test.eq("(cannot find text: webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
     test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
     test.eq('Dit is <b>bold</b><br>volgende<br>regel', tids.richtext);
     test.eq('Please note: max 1 person', tids.maxextras_1);

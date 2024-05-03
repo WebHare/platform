@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/gettid",
+  "version": "",
+  "description": "",
+  "main": "src/gettid.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/gettid.ts"
+    ]
+  },
+  "private": true
+}

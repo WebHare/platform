@@ -61,6 +61,8 @@
   <textgroup gid="testfallback">
     <text tid="anothertext">Changed this text!</text>
   </textgroup>
+  <textgroup gid="testhmr">
+    <text tid="modifiedtext">[modifiedtext]</text>
+  </textgroup>
 </language>
 [/component]
-

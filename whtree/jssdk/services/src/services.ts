@@ -24,6 +24,7 @@ export { getSignatureForThisServer, validateSignatureForThisServer, encryptForTh
 export { prepareMail } from "./mail";
 export { applyConfiguration, createAppliedPromise } from "./applyconfig";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
+export { EncodingStyles as WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
