@@ -4,17 +4,17 @@ import { getDebugSettings } from "./debug";
 import { TransferListItem } from "worker_threads";
 
 export enum HTTPMethod {
-  GET = "get",
-  PUT = "put",
-  POST = "post",
-  DELETE = "delete",
-  OPTIONS = "options",
-  HEAD = "head",
-  PATCH = "patch",
-  TRACE = "trace"
+  GET = "GET",
+  PUT = "PUT",
+  POST = "POST",
+  DELETE = "DELETE",
+  OPTIONS = "OPTIONS",
+  HEAD = "HEAD",
+  PATCH = "PATCH",
+  TRACE = "TRACE"
 }
 
-const validmethods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
+const validmethods = ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"];
 
 export type WebRequestTransferData = {
   method: HTTPMethod;
@@ -26,11 +26,14 @@ export type WebRequestTransferData = {
   localPath: string;
 };
 
-export interface WebRequest {
+//TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
+export type SupportedRequestSubset = Omit<Request, "cache" | "credentials" | "destination" | "integrity" | "keepalive" | "mode" | "redirect" | "referrer" | "referrerPolicy" | "signal" | "clone" | "body" | "bodyUsed" | "arrayBuffer" | "blob" | "formData">;
+
+export interface WebRequest extends SupportedRequestSubset {
   ///HTTP Method, eg "get", "post"
   readonly method: HTTPMethod;
   ///Full original request URL
-  readonly url: URL;
+  readonly url: string;
   ///Request headers
   readonly headers: Headers;
   ///Client webserver ID
@@ -75,18 +78,25 @@ export interface WebRequest {
 
 export class IncomingWebRequest implements WebRequest {
   readonly method: HTTPMethod;
-  readonly url: URL;
   readonly headers: Headers;
+  readonly url: string;
   readonly clientWebServer: number;
   private readonly __body: ArrayBuffer | null;
 
   constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: ArrayBuffer | null; clientWebServer?: number }) {
-    this.url = new URL(url);
+    this.url = url;
     if (options && "method" in options) {
-      if (!validmethods.includes(options.method as string))
-        throw new Error(`Invalid method '${options.method}', must be one of: ${validmethods.join(", ")}`);
+      if (!validmethods.includes(options.method as string)) {
+        //Migration code
+        if (validmethods.includes(options.method!.toUpperCase())) {
+          console.error(`Invalid method '${options.method}' - convert to uppercase!`);
+          console.trace();
+        } else {
+          throw new Error(`Invalid method '${options.method}', must be one of: ${validmethods.join(", ")}`);
+        }
+      }
 
-      this.method = options.method!;
+      this.method = (options.method!).toLowerCase() as HTTPMethod;
     } else {
       this.method = HTTPMethod.GET;
     }
@@ -105,11 +115,11 @@ export class IncomingWebRequest implements WebRequest {
   }
 
   get baseURL() {
-    return this.url.origin + "/";
+    return new URL("/", this.url).toString();
   }
 
   get localPath() {
-    return decodeURIComponent(this.url.pathname).toLowerCase().substring(1);
+    return decodeURIComponent(new URL(this.url).pathname).toLowerCase().substring(1);
   }
 
   getAllCookies(): Record<string, string> {
@@ -151,7 +161,7 @@ export class IncomingWebRequest implements WebRequest {
         origin = new URL(referrer).origin;
     }
     if (!origin) //still not found
-      origin = this.url.origin;
+      origin = new URL(this.url).origin;
 
     return origin + (pathname.startsWith('/') ? '' : '/') + pathname;
   }

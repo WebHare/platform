@@ -40,7 +40,7 @@ class WebServerPort {
 
     //Translate nodejs request to our Router stuff
     const webreq = new IncomingWebRequest(finalurl, {
-      method: req.method!.toLowerCase() as HTTPMethod,
+      method: req.method!.toUpperCase() as HTTPMethod,
       headers: req.headers as Record<string, string>,
       body,
       clientWebServer: this.fixedHost?.id || 0

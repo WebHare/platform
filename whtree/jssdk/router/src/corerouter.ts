@@ -38,10 +38,11 @@ export function getHSWebserverTarget(request: WebRequest) {
   //Convert Request headers to Undici compatible headers, filter out the dangeorus ones
   const headers = Object.fromEntries([...request.headers.entries()].filter(([header,]) => !["host", "x-forwarded-for", "x-forwarded-proto"].includes(header)));
   headers["x-forwarded-for"] = "1.2.3.4"; //FIXME use real remote IP, should be in 'request'
-  headers["x-forwarded-proto"] = request.url.protocol.split(':')[0]; //without ':'
-  headers["host"] = request.url.host;
-  const targeturl = `http://${trustedip}:${trustedlocalport}${request.url.pathname}${request.url.search}`;
-  const fetchmethod = request.method.toUpperCase();
+  const url = new URL(request.url);
+  headers["x-forwarded-proto"] = url.protocol.split(':')[0]; //without ':'
+  headers["host"] = url.host;
+  const targeturl = `http://${trustedip}:${trustedlocalport}${url.pathname}${url.search}`;
+  const fetchmethod = request.method;
   return { targeturl, fetchmethod, headers };
 }
 

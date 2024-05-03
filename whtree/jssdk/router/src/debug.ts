@@ -19,7 +19,7 @@ export function getDebugSettings(req: WebRequest, { skipChecks }: { skipChecks?:
     }
   }
 
-  const debugVars = req.url.searchParams.get("wh-debug");
+  const debugVars = new URL(req.url).searchParams.get("wh-debug");
   if (debugVars) {
     for (const opt of debugVars.split(",")) {
       if (skipChecks || whconstant_whdebug_publicflags.includes(opt))

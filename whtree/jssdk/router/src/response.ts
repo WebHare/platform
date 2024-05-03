@@ -64,20 +64,29 @@ export type WebResponseForTransfer = {
   trace: string | undefined;
 };
 
-class WebResponse {
+//TODO ideally we'll support the full Response interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Response instead of WebResponse
+export type SupportedResponseSubset = Omit<Response, "redirect" | "statusText" | "type" | "redirected" | "url" | "clone" | "body" | "bodyUsed" | "blob" | "formData">;
+
+class WebResponse implements SupportedResponseSubset {
   private _status: HTTPStatusCode;
   private _bodybuffer: ArrayBuffer | null = null;
-  private _headers: Headers;
   private _trace: string | undefined;
+
+  headers: Headers;
 
   constructor(status: HTTPStatusCode, headers: Record<string, string> | Headers, options: { trace?: string | undefined } = {}) {
     this._status = status;
-    this._headers = new Headers(headers);
+    this.headers = new Headers(headers);
     if ("trace" in options)
       this._trace = options.trace;
     else if (debugFlags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
       this._trace = getCallStackAsText(1);
     }
+  }
+
+  get ok() {
+    //The ok read-only property of the Response interface contains a Boolean stating whether the response was successful (status in the range 200-299) or not.
+    return this._status >= 200 && this._status >= 299;
   }
 
   get status() {
@@ -120,12 +129,12 @@ class WebResponse {
   }
 
   getHeader(header: string): string | null {
-    return this._headers.get(header);
+    return this.headers.get(header);
   }
 
   /** Get all headers */
   getHeaders(): string[][] {
-    return [...this._headers.entries()];
+    return [...this.headers.entries()];
   }
 
   /** Get all setCookie headers */
@@ -134,11 +143,11 @@ class WebResponse {
     interface HeadersWithSetSookie extends Headers {
       getSetCookie(): string[];
     }
-    return (this._headers as HeadersWithSetSookie).getSetCookie();
+    return (this.headers as HeadersWithSetSookie).getSetCookie();
   }
 
   setHeader(header: string, value: string) {
-    this._headers.set(header, value);
+    this.headers.set(header, value);
   }
 
   setStatus(status: HTTPStatusCode) {

@@ -40,8 +40,9 @@ function testWebRequest() {
   test.eq("", req.localPath);
 
   req = new IncomingWebRequest(services.backendConfig.backendURL + "sub%20URL/dir/f?hungry4=Spicy");
-  test.eq("Spicy", req.url.searchParams.get("hungry4"));
-  test.eq(null, req.url.searchParams.get("Hungry4"), "On the JS side we're case sensitive");
+  const searchParams = new URL(req.url).searchParams;
+  test.eq("Spicy", searchParams.get("hungry4"));
+  test.eq(null, searchParams.get("Hungry4"), "On the JS side we're case sensitive");
   test.eq(services.backendConfig.backendURL, req.baseURL);
   test.eq("sub url/dir/f", req.localPath);
 
@@ -51,12 +52,14 @@ function testWebRequest() {
   test.throws(/search/, () => newForwardedWebRequest(req, "sub%20URL/dir/f?hungry4"));
 
   const req2 = newForwardedWebRequest(req, "sub%20URL/");
-  test.eq("Spicy", req2.url.searchParams.get("hungry4"));
+  const searchParams2 = new URL(req2.url).searchParams;
+  test.eq("Spicy", searchParams2.get("hungry4"));
   test.eq(services.backendConfig.backendURL + "sub%20URL/", req2.baseURL);
   test.eq("dir/f", req2.localPath);
 
   const req3 = newForwardedWebRequest(req2, "dir/");
-  test.eq("Spicy", req3.url.searchParams.get("hungry4"));
+  const searchParams3 = new URL(req2.url).searchParams;
+  test.eq("Spicy", searchParams3.get("hungry4"));
   test.eq(services.backendConfig.backendURL + "sub%20URL/dir/", req3.baseURL);
   test.eq("f", req3.localPath);
 }
@@ -99,7 +102,6 @@ async function testJSBackedURLs() {
 
   fetchresult = await fetch(baseURL + "?type=debug");
   jsonresponse = await fetchresult.json();
-
   test.eq(200, fetchresult.status);
   test.eq(true, jsonresponse.debug);
   test.eq(baseURL + "?type=debug", jsonresponse.url);

@@ -63,7 +63,8 @@ async function findLoginPageForSchema(schema: string) {
 }
 
 async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
-  const url = req.getOriginURL(req.url.searchParams.get('pathname') || '');
+  const params = new URL(req.url).searchParams;
+  const url = req.getOriginURL(params.get('pathname') || '');
   if (!url)
     return createJSONResponse(400, { error: "Cannot determine origin URL" });
 
@@ -78,7 +79,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
   const provider = new IdentityProvider(wrdschema);
 
   //FIXME validate body size and reject decoding huge bodies. but Webrequest doesn't give us quick access to the body size yet
-  switch (req.url.searchParams.get('type')) {
+  switch (params.get('type')) {
     case "login": {
       //TODO? could move this API closer to OAUTH username/password flow https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
       const body = await req.json() as { username: string; password: string; cookieName: string; options?: LoginRemoteOptions };
@@ -105,7 +106,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
           headers: {
             "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
               httpOnly: true,
-              secure: req.url.protocol === "https:",
+              secure: new URL(req.url).protocol === "https:",
               path: "/",
               sameSite: "Lax",
               expires: response.expires
@@ -141,10 +142,11 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
-  if (req.url.pathname === "/.wh/openid/frontendservice")
+  const pathname = new URL(req.url).pathname;
+  if (pathname === "/.wh/openid/frontendservice")
     return handleFrontendService(req);
 
-  const endpoint = req.url.pathname.match(/^\/.wh\/openid\/([^/]+)\/([^/]+)\/([^/?]+)/);
+  const endpoint = pathname.match(/^\/.wh\/openid\/([^/]+)\/([^/]+)\/([^/?]+)/);
   if (!endpoint)
     return createJSONResponse(400, { error: "Invalid endpoint" });
 

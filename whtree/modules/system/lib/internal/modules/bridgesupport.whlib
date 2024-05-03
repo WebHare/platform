@@ -30,7 +30,7 @@ PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
 {
   RETURN CELL[ url := GetRequestURL()
              , headers := FoldHeaders(GetAllWebHeaders())
-             , method := ToLowercase(GetRequestMethod())
+             , method := ToUppercase(GetRequestMethod())
              , body := GetRequestBody()
              , sourceip := GetClientRemoteIP()
              ];
