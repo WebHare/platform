@@ -1340,8 +1340,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
            WHERE namespace = handler->namespaceuri
                  AND name = handler->localname;
 
-      STRING title;
-      IF(ObjectExists(handlerobj))
+      STRING title := handler->GetAttribute("listlabel") ?? GetTidForLanguage(this->uselanguage, handler->GetAttribute("listlabeltid"));
+      IF(title = "")
         title := handlerobj->GetFormEditTitle();
       IF(title = "")
         title := RecordExists(component) ? component.title : handler->localname;

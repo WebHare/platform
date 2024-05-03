@@ -2055,6 +2055,7 @@
         <text tid="condition">Voorwaarde</text>
         <text tid="dependencies">Afhankelijkheden</text>
         <text tid="edithandler">Afhandeling aanpassen</text>
+        <text tid="listlabel">Titel in editor</text>
         <text tid="pins">Bescherming</text>
         <text tid="pins-existence">Bescherm tegen verwijderen</text>
         <text tid="settings">Instellingen</text>

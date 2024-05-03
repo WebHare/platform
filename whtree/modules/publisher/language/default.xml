@@ -2056,6 +2056,7 @@
         <text tid="condition">Condition</text>
         <text tid="dependencies">Dependencies</text>
         <text tid="edithandler">Edit handler</text>
+        <text tid="listlabel">Title in editor</text>
         <text tid="pins">Protection</text>
         <text tid="pins-existence">Protect against removal</text>
         <text tid="settings">Settings</text>

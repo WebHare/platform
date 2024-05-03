@@ -40,6 +40,7 @@ PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
         , [ name := "advanced",     component := ^advanced_insertpoint ]
         ];
 
+    ReadFormNodeTidAttribute(this->node, ^listlabel, "listlabel");
     ^comment->value := this->node->GetAttribute("comment");
     ^pins->value := ParseXSList(this->node->GetAttribute("pins"));
     ^condition->visible := "condition" IN this->compdef.editdefaults; //only require title if you can see it
@@ -100,6 +101,8 @@ PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
     {
       IF(^condition->visible)
         this->contexts->formcomponentapi->SetConditionAttribute(this->node, "conditionid", ^condition->value);
+
+      WriteFormNodeTidAttribute(this->node, ^listlabel, "listlabel");
 
       IF (^comment->value != "")
         this->node->SetAttribute("comment", ^comment->value);
