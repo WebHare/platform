@@ -159,6 +159,16 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       const now = new Date;
       query = query.where("creationdate", "<=", now).where("limitdate", ">", now);
     } break;
+    case "active": {
+      const now = new Date;
+      /* creationdate <= now AND limitdate > now
+         OR
+         creationdate = null
+
+         we need the outer wrapper to keep ( )s around the OR
+      */
+      query = query.where(qb => query.where(qb2 => qb2.where("creationdate", "<=", now).where("limitdate", ">", now)).orWhere("creationdate", "=", maxDateTime));
+    } break;
     case "range": {
       query = query.where("creationdate", "<=", historyMode.when_limit).where("limitdate", ">", historyMode.when_start);
     } break;

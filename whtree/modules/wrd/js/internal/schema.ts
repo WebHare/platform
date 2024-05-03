@@ -27,6 +27,11 @@ interface SyncOptions {
   unmatched?: WRDCloseMode | "keep";
 }
 
+interface GetFieldsOptions {
+  historyMode?: SimpleHistoryModes;
+  allowMissing?: boolean;
+}
+
 interface EntityCloseOptions {
   mode?: WRDCloseMode;
 }
@@ -309,13 +314,23 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null> {
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
+
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null> {
     const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.selectFrom(type)
       .select(mapping)
       .where("wrdId", "=" as any, id as any)
-      .historyMode("__getfields")
+      .historyMode(options?.historyMode || "active")
       .execute();
-    return rows[0] ?? null;
+
+    if (rows.length)
+      return rows[0];
+
+    if (options?.allowMissing)
+      return null;
+
+    throw new Error(`No such ${type} #${id} in schema ${this.tag}`);
   }
 
   enrich<
@@ -701,14 +716,19 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 }
 
-export type SimpleHistoryModes = "now" | "all";
-export type HistoryModeData = { mode: "now" | "all" | "__getfields" } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
+/** Simple history modes:
+ * now: Only show currently visible entities (the default for queryFrom)
+ * all: Show all entities, including past and future - but no temporaries
+ * active: Show all entities that are now visible plus any temporaries (the default for getFields).
+ */
+export type SimpleHistoryModes = "now" | "all" | "active"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
+export type HistoryModeData = { mode: SimpleHistoryModes } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
 type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
 type HSWRDQuery = {
   outputcolumn?: string;
   outputcolumns?: object;
   filters?: object[];
-  historyMode?: "now" | "all" | "__getfields" | "at" | "range";
+  historyMode?: SimpleHistoryModes | "at" | "range";
   when?: Date;
   when_start?: Date;
   when_limit?: Date;
@@ -757,14 +777,13 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     return cb(this);
   }
 
-  historyMode(mode: "now" | "all" | "__getfields"): WRDModificationBuilder<S, T>;
+  historyMode(mode: "now" | "all"): WRDModificationBuilder<S, T>;
   historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
   historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
 
-  historyMode(mode: "now" | "all" | "__getfields" | "at" | "range", start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+  historyMode(mode: "now" | "all" | "at" | "range", start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
     switch (mode) {
       case "now":
-      case "__getfields":
       case "all": {
         return new WRDModificationBuilder(this.type, this.wheres, { mode });
       }
@@ -897,14 +916,14 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return cb(this);
   }
 
-  historyMode(mode: "now" | "all" | "__getfields"): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
+  historyMode(mode: "now" | "all" | "active"): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
 
-  historyMode(mode: "now" | "all" | "__getfields" | "at" | "range", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+  historyMode(mode: "now" | "all" | "at" | "range" | "active", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
     switch (mode) {
       case "now":
-      case "__getfields":
+      case "active":
       case "all": {
         return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode }, this._limit);
       }
@@ -914,6 +933,8 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
       case "range": {
         return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when_start: start!, when_limit: limit! }, this._limit);
       }
+      default:
+        throw new Error(`Unknown history mode '${mode}'`);
     }
   }
 

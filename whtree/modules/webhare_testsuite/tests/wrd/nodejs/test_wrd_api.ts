@@ -14,7 +14,7 @@ async function testCommitAndRollback() { //test the Co-HSVM
   await whdb.rollbackWork();
 
   test.eq(null, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTHSVMtest"), "shouldn't exist yet");
-  test.eq(null, await wrdschema.getFields("wrdPerson", personid, { ln: "wrdLastName" }));
+  test.eq(null, await wrdschema.getFields("wrdPerson", personid, { ln: "wrdLastName" }, { allowMissing: true }));
 
   await whdb.beginWork();
   const personid2 = (await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest", wrdContactEmail: "covmtest@beta.webhare.net" }));

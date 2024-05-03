@@ -1622,18 +1622,19 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                , historymode :=         "now"
                                , jsmode :=              FALSE
                                ], options);
-    RECORD ARRAY results := this->RunQuery( [ filters := [ [ field := tagname
-                                                           , match_type := "="
-                                                           , value := tagval
-                                                           , matchcase := options.matchcase
-                                                           , ignoreallowedvalues := options.ignoreallowedvalues
-                                                           ]
-                                                         ]
-                                            , outputcolumns := [ id := "WRD_ID" ]
-                                            , historymode := options.historymode
-                                            , resultlimit := 1
-                                            , jsmode := options.jsmode
-                                            ]);
+    RECORD query := [ filters := [ [ field := tagname
+                                   , match_type := "="
+                                   , value := tagval
+                                   , matchcase := options.matchcase
+                                   , ignoreallowedvalues := options.ignoreallowedvalues
+                                   ]
+                                 ]
+                   , outputcolumns := [ id := "WRD_ID" ]
+                   , historymode := options.historymode
+                   , resultlimit := 1
+                   , jsmode := options.jsmode
+                   ];
+    RECORD ARRAY results := this->RunQuery(query);
     RETURN Length(results) > 0 ? results[0].id : 0;
   }
 
