@@ -17,7 +17,7 @@ RECORD data := ReinstantiatePayment(GetWebVariable("pi"));
 BOOLEAN isnotification := DecryptForThisServer("wrd:payments.isnotification", GetWebVariable("notification"), [fallback := "" ]) = GetWebVariable("pi");
 RECORD notificationdone := isnotification ? data.payment->ProcessNotification() : DEFAULT RECORD;
 
-//If notificationdone, the response will have been printed and is ready to send. We just need to fianlize the payment update and commit
+//If notificationdone, the response will have been printed and is ready to send. We just need to finalize the payment update and commit
 
 /* originally we wouldn't reprocess if a payment as a whole was already 'approved'. but that's inconsistent as there may still
    be multiple payment attempts that get a status update, and are we really sure no chargeback will turn an approved into a failed through
