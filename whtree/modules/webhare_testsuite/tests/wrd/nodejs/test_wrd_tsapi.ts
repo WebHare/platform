@@ -205,6 +205,7 @@ async function testNewAPI() {
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "active" }));
+  test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "unfiltered" }));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGender", "male"));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdFirstName", "first"));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE"));
@@ -214,6 +215,7 @@ async function testNewAPI() {
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other"));
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "all" }));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "active" }));
+  test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "unfiltered" }));
 
   await whdb.beginWork();
   await schema.update("wrdPerson", secondperson, { wrdGender: null });
@@ -327,6 +329,7 @@ async function testNewAPI() {
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").execute());
   test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("all").execute());
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("active").execute());
+  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("unfiltered").execute());
   test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", now).execute());
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
@@ -824,9 +827,12 @@ async function testComparisons() {
             othervalue = [othervalue];
           const usehistory = currentPersonValue.wrdCreationDate === null ? "active" : "all";
           const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode(usehistory).execute();
+          const selectUnfiltered = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("unfiltered").execute();
           const expect = cmp(value, comparetype, othervalue);
+
           try {
             test.eq(expect, select.length === 1, `Testing select ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+            test.eq(expect, selectUnfiltered.length === 1, `Testing unfiltered select ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
             if (comparetype === "=") {
               const searchRes = await schema.search("wrdPerson", attr as any, othervalue, { historyMode: { mode: usehistory } });
               test.eq(expect, searchRes === newperson, `Testing search ${JSON.stringify(value)} ${comparetype} ${othervalue}`);

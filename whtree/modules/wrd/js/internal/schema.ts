@@ -28,7 +28,7 @@ interface SyncOptions {
 }
 
 interface GetFieldsOptions {
-  historyMode?: SimpleHistoryModes;
+  historyMode?: SimpleHistoryMode;
   allowMissing?: boolean;
 }
 
@@ -306,11 +306,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
   }
 
-  upsert<T extends keyof S & string>(type: T, keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryModes }): Promise<[number, boolean]> {
+  upsert<T extends keyof S & string>(type: T, keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
     return checkPromiseErrorsHandled(this.getType(type).upsert(keys, value, options));
   }
 
-  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryModes | HistoryModeData }): Promise<number | null> {
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
@@ -346,7 +346,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     mapping: Mapping,
     options: {
       rightOuterJoin?: RightOuterJoin;
-      historyMode?: SimpleHistoryModes | HistoryModeData;
+      historyMode?: SimpleHistoryMode | HistoryModeData;
     } = {}
   ): WRDEnrichResult<S, T, EnrichKey, DataRow, Mapping, RightOuterJoin> {
     return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
@@ -438,7 +438,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
-  async upsert(keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryModes }): Promise<[number, boolean]> {
+  async upsert(keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
@@ -468,7 +468,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return [newId, true];
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData | SimpleHistoryModes }): Promise<number | null> {
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData | SimpleHistoryMode }): Promise<number | null> {
     const historyMode = toHistoryData(options?.historyMode ?? "now");
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
       type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
@@ -506,7 +506,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     mapping: Mapping,
     options: {
       rightOuterJoin?: RightOuterJoin;
-      historyMode?: SimpleHistoryModes | HistoryModeData;
+      historyMode?: SimpleHistoryMode | HistoryModeData;
     } = {}
   ): WRDEnrichResult<
     S,
@@ -721,14 +721,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
  * all: Show all entities, including past and future - but no temporaries
  * active: Show all entities that are now visible plus any temporaries (the default for getFields).
  */
-export type SimpleHistoryModes = "now" | "all" | "active"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
-export type HistoryModeData = { mode: SimpleHistoryModes } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
+export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
+export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
 type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
 type HSWRDQuery = {
   outputcolumn?: string;
   outputcolumns?: object;
   filters?: object[];
-  historyMode?: SimpleHistoryModes | "at" | "range";
+  historyMode?: SimpleHistoryMode | "at" | "range";
   when?: Date;
   when_start?: Date;
   when_limit?: Date;
@@ -739,7 +739,7 @@ type HSWRDQuery = {
 type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
 type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;
 
-function toHistoryData(mode: SimpleHistoryModes | HistoryModeData): HistoryModeData {
+function toHistoryData(mode: SimpleHistoryMode | HistoryModeData): HistoryModeData {
   return typeof mode === "string" ? { mode } : mode;
 }
 
@@ -917,13 +917,14 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   }
 
   historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
-  historyMode(mode: "now" | "all" | "active"): WRDSingleQueryBuilder<S, T, O>;
+  historyMode(mode: "now" | "all" | "active" | "unfiltered"): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
 
-  historyMode(mode: "now" | "all" | "at" | "range" | "active", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+  historyMode(mode: SimpleHistoryMode | "at" | "range", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
     switch (mode) {
       case "now":
       case "active":
+      case "unfiltered":
       case "all": {
         return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode }, this._limit);
       }
