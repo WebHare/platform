@@ -1,5 +1,4 @@
-import { type CheckPaymentResult, type PaymentDriver, type PushPaymentResult, type WebHarePaymentPrecheckRequest, type WebHarePaymentRequest, type WebHarePaymentResult } from "@mod-wrd/js/internal/paymentbridge";
-import { createWebResponse, type WebRequest } from "@webhare/router";
+import { type PSPCheckResult, type PSPDriver, type PSPPushResult, type PSPPrecheckRequest, type PSPRequest, type PSPPayResult, type PSPWebRequest } from "@webhare/psp-base";
 import { createServerSession, getServerSession, updateServerSession } from "@webhare/services";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 
@@ -12,7 +11,7 @@ interface TestDriverPayMeta {
   paymentSession: string;
 }
 
-export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
+export class TestDriver implements PSPDriver<TestDriverPayMeta> {
   readonly config: TestDriverConfig;
 
   constructor(config: TestDriverConfig) {
@@ -31,7 +30,7 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
   }
 
   /** Run a new payment request */
-  async startPayment(request: WebHarePaymentRequest): Promise<WebHarePaymentResult<TestDriverPayMeta>> {
+  async startPayment(request: PSPRequest): Promise<PSPPayResult<TestDriverPayMeta>> {
     if (request.email?.match(/fraud/i) && request.method === "M1")
       return { errors: [{ field: "wrdContactEmail", error: request.lang === "nl" ? "Geblokkeerd mailadres" : "This emailaddres has been blocked", comment: "User with this email is not trusted" }] };
 
@@ -65,7 +64,7 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
     };
   }
 
-  async precheckPayment(request: WebHarePaymentPrecheckRequest) {
+  async precheckPayment(request: PSPPrecheckRequest) {
     if (request.email?.startsWith("precheckfail") && request.method === "M1") {
       return {
         errors: [
@@ -80,7 +79,7 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
     return {};
   }
 
-  translateStatus(sessinfo: Record<string, unknown>): CheckPaymentResult {
+  translateStatus(sessinfo: Record<string, unknown>): PSPCheckResult {
     if (sessinfo.approval === "yes")
       return { setStatus: "approved", cardIssuer: (sessinfo.cardissuer || "") as string, cardNumber: (sessinfo.cardnumber || "") as string };
     if (sessinfo.approval === "no")
@@ -92,7 +91,7 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
 
   }
 
-  async processReturn(paymeta: TestDriverPayMeta, req: WebRequest): Promise<CheckPaymentResult> {
+  async processReturn(paymeta: TestDriverPayMeta, req: PSPWebRequest): Promise<PSPCheckResult> {
     const sessinfo = await getServerSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo)
       throw new Error("Session has expired");
@@ -100,7 +99,7 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
     return this.translateStatus(sessinfo);
   }
 
-  async processPush(paymeta: TestDriverPayMeta, req: WebRequest): Promise<PushPaymentResult> {
+  async processPush(paymeta: TestDriverPayMeta, req: PSPWebRequest): Promise<PSPPushResult> {
     const sessinfo = await getServerSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo)
       throw new Error("Session has expired");
@@ -113,10 +112,13 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
       throw new Error("Missing 'approval' variable");
     }
 
-    return { ...this.translateStatus(sessinfo), response: createWebResponse("It is done", { headers: { "content-type": "text/plain" } }) };
+    return {
+      ...this.translateStatus(sessinfo),
+      response: new Response("It is done", { headers: { "content-type": "text/plain" } })
+    };
   }
 
-  async checkStatus(paymeta: TestDriverPayMeta): Promise<CheckPaymentResult> {
+  async checkStatus(paymeta: TestDriverPayMeta): Promise<PSPCheckResult> {
     const sessinfo = await getServerSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo || (sessinfo.expires && sessinfo.expires < new Date))
       return { setStatus: "failed" };

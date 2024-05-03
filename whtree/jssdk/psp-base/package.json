@@ -1,0 +1,20 @@
+{
+  "name": "@webhare/psp-base",
+  "version": "",
+  "description": "Base package for WebHare PSP integrations",
+  "main": "src/psp-base.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/psp-base.ts"
+    ]
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@webhare/env": "",
+    "@webhare/std": ""
+  },
+  "private": true
+}

@@ -176,6 +176,14 @@ class WebResponse implements SupportedResponseSubset {
   }
 }
 
+export async function createResponseInfoFromResponse(response: SupportedResponseSubset): Promise<WebResponseInfo> {
+  return {
+    status: response.status,
+    headers: Object.fromEntries([...response.headers.entries()]),
+    body: WebHareBlob.from(Buffer.from(await response.arrayBuffer()))
+  };
+}
+
 export function createWebResponseFromTransferData(data: WebResponseForTransfer): WebResponse {
   const result = new WebResponse(data.status, data.headers, { trace: data.trace });
   if (data.bodybuffer)
