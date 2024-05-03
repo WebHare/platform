@@ -202,9 +202,18 @@ STATIC OBJECTTYPE FormResultExporter
       rows := rows CONCAT lang.rows;
     }
 
-    rows := SELECT *, __rowmeta := [ setfields := __GetSetFields(__resultrow) ] FROM rows;
+    rows :=
+        SELECT *
+             , __rowmeta :=
+                 [ setfields := __GetSetFields(__resultrow)
+                 , extradata := CellExists(__resultrow, "__formmeta") AND CellExists(__resultrow.__formmeta, "extradata") ? __resultrow.__formmeta.extradata : DEFAULT RECORD
+                 , submittype := CellExists(__resultrow, "__formmeta") AND CellExists(__resultrow.__formmeta, "submittype") ? __resultrow.__formmeta.submittype : ""
+                 ]
+             , DELETE __resultrow
+             , DELETE __languagecode
+          FROM rows
+         ORDER BY when;
 
-    rows := SELECT *, DELETE __resultrow, DELETE __languagecode FROM rows ORDER BY when;
     IF (NOT this->showpendingresults)
       rows := SELECT *, DELETE __pending FROM rows;
     IF (NOT this->showexpiredresults)
@@ -454,9 +463,25 @@ STATIC OBJECTTYPE WHFSForm
     IF(existingresultid = 0)
       THROW NEW Exception(`Cannot cancel result ${guid}`);
 
+    RECORD match :=
+        SELECT results := ReadAnyFromDatabase(results, blobresults)
+          FROM publisher.formresults
+         WHERE id = existingresultid;
+
+    // Update the result's submit type
+    IF (CellExists(match.results, "__formmeta")
+        AND CellExists(match.results.__formmeta, "submittype")
+        AND match.results.__formmeta.submittype != "cancel")
+    {
+      match.results.__formmeta.submittype := "cancel";
+    }
+    RECORD storeresults := PrepareAnyForDatabase(match.results);
+
     UPDATE publisher.formresults
        SET status := 3
          , modified := GetCurrentDatetime()
+         , results := storeresults.stringpart
+         , blobresults := storeresults.blobpart
      WHERE id = existingresultid;
   }
 

@@ -52,12 +52,14 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                                , idfieldvalue := ""
                                , isedit := FALSE
                                , ispending := FALSE
+                               , __formsubmittype := ""
                                ], options);
 
     //We *always* store pagedata now, we can't optimize it out or would run the risk of crashing if someone ever creates a field named 'pagedata' with no guid.
     //Unless at some points we're confident that those storeresults would have expired
     RECORD storerow := [ __formmeta := CELL[ setfields := STRING[]
                                            , form->pagedata
+                                           , submittype := options.__formsubmittype
                                            ]
                        ];
 
