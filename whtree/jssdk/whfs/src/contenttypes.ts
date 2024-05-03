@@ -1,5 +1,4 @@
 import { Selectable, db, nextVal, sql } from "@webhare/whdb";
-import { pick } from "@webhare/std";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
 import { CSPContentType } from "./siteprofiles";
@@ -283,11 +282,11 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
 
-  private async getCurrentSettings(instanceId: number, topLevelMembers?: number[]) {
+  private async getCurrentSettings(instanceIds: number[], topLevelMembers?: number[]) {
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
-      .where("fs_instance", "=", instanceId);
+      .where("fs_instance", "=", sql`any(${instanceIds})`);
 
     if (topLevelMembers)
       query = query.where(qb => qb.where("fs_member", "=", sql`any(${topLevelMembers})`).orWhere("parent", "is not", null));
@@ -325,24 +324,49 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return retval;
   }
 
-  async get(id: number): Promise<ContentTypeStructure> {
+  private async getBulk(fsObjIds: number[], properties?: string[]): Promise<Map<number, unknown>> {
     const descr = await describeContentType(this.ns);
-    const instanceId = await this.getCurrentInstanceId(id, descr);
-    const cursettings = instanceId ? await this.getCurrentSettings(instanceId) : [];
-    const objInfo = await db<PlatformDB>().selectFrom("system.fs_objects").select("creationdate").where("id", "=", id).executeTakeFirstOrThrow();
-    const cc = getUnifiedCC(objInfo.creationdate);
+    const instanceIdMapping = await db<PlatformDB>()
+      .selectFrom("system.fs_instances")
+      .select(["id", "fs_object"])
+      .where("fs_type", "=", descr.id)
+      .where("fs_object", "=", sql`any(${fsObjIds})`)
+      .execute();
+    const instanceIds = instanceIdMapping.map(_ => _.id);
+    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds) : [];
+    const objInfos = await db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "creationdate"]).where("id", "=", sql`any(${fsObjIds})`).execute();
 
-    return await this.recurseGet(cursettings, descr.members, null, null, cc) as ContentTypeStructure;
+    const retval = new Map<number, unknown>();
+    for (const id of fsObjIds) {
+      const mapping = instanceIdMapping.find(_ => _.fs_object === id);
+      const settings = mapping ? cursettings.filter(_ => _.fs_instance === mapping.id) : [];
+      const objInfo = settings.length ? objInfos.find(_ => _.id === id) : null;
+      const cc = objInfo ? getUnifiedCC(objInfo.creationdate) : 0;
+      //TODO if settings is empty, we could straight away take or reuse the defaultinstance
+      const result = await this.recurseGet(settings, properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members, null, null, cc);
+      retval.set(id, result);
+    }
+
+    return retval;
+  }
+
+
+  async get(id: number): Promise<ContentTypeStructure> {
+    const bulkdata = await this.getBulk([id]);
+    return bulkdata.get(id) as ContentTypeStructure;
   }
 
   async enrich<
     DataRow extends { [K in EnrichKey]: number | null },
     EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
     AddKey extends keyof ContentTypeStructure = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<ContentTypeStructure, AddKey>>> {
-    //TODO optimize
+
+    const fsObjIds: number[] = data.map(_ => _[field] as number);
+    const bulkdata = await this.getBulk(fsObjIds, properties as string[]);
+
     const results: Array<DataRow & Pick<ContentTypeStructure, AddKey>> = [];
     for (const row of data) //@ts-ignore should be able to assume it works. besides we'll rewrite this API anyway to actually be efficient
-      results.push({ ...row, ...pick(await this.get(row[field]), properties) });
+      results.push({ ...row, ...bulkdata.get(row[field]) });
 
     return results;
   }
@@ -363,7 +387,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     //TODO bulk insert once we've prepared all settings
     const keysToSet = Object.keys(data);
     const topLevelMembers = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
-    const cursettings = instanceId && topLevelMembers.length ? await this.getCurrentSettings(instanceId, topLevelMembers) : [];
+    const cursettings = instanceId && topLevelMembers.length ? await this.getCurrentSettings([instanceId], topLevelMembers) : [];
 
     const setter = new RecursiveSetter(cursettings);
     await setter.recurseSetData(descr.members, data, null, null);
