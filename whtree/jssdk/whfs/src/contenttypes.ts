@@ -171,7 +171,7 @@ export interface InstanceDataAccessor<ContentTypeStructure extends object = Reco
 }
 
 interface InstanceSetOptions {
-  ///How to handle readonly fsobjects. fail (the default), skip or actually updat
+  ///How to handle readonly fsobjects. fail (the default), skip or actually update
   ifReadOnly?: "fail" | "skip" | "update";
 }
 
@@ -351,7 +351,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const descr = await describeContentType(this.ns);
     if (!descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
-    const objinfo = await openWHFSObject(0, id, undefined, false, "setInstanceData");
+    const objinfo = await openWHFSObject(0, id, undefined, false, "setInstanceData", false); //TODO should we derivce InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
     if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
       if (options?.ifReadOnly !== 'skip') //ie "fail"
         throw new Error(`Attempting to update instance data on non existing file #${id} `);

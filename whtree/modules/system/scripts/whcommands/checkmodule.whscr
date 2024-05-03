@@ -18,6 +18,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               , [ name := "color", type := "switch" ]
                               , [ name := "doc", type := "switch" ]
                               , [ name := "onlytids", type := "switch" ]
+                              , [ name := "sync", type := "switch" ]
                               , [ name := "async", type := "switch" ]
                               , [ name := "filemask", type := "stringopt" ]
                               , [ name := "onlypaths", type := "stringopt" ]
@@ -124,7 +125,7 @@ FOREVERY(STRING modname FROM checklist)
               ]);
   INSERT promise INTO promises AT END;
 
-  IF (NOT args."async")
+  IF (args."sync")
   {
     WaitForPromise(promise);
     Print("\n");
