@@ -240,7 +240,7 @@ STRING FUNCTION ExecuteCompiledTidText(VARIANT text, STRING ARRAY params, BOOLEA
         {
           STRING link := tok.link;
           IF(tok.linkparam > 0 AND tok.linkparam <= Length(params))
-            link := params[tok.linkparam - 1];
+            link := params[tok.linkparam - 1] ?? link;
 
           IF(link != "")
             output := output || `<a href="${EncodeValue(link)}">${sub}</a>`;
