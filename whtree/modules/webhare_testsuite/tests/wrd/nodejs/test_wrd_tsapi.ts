@@ -18,7 +18,6 @@ import { isChange } from "@mod-wrd/js/internal/schema";
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 
 
-
 function cmp(a: unknown, condition: string, b: unknown) {
   if (condition === "in") {
     return (b as unknown[]).some(e => compare(a as ComparableType, e as ComparableType) === 0);
@@ -205,6 +204,7 @@ async function testNewAPI() {
   ], selectres);
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
+  test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "active" }));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGender", "male"));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdFirstName", "first"));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE"));
@@ -213,6 +213,7 @@ async function testNewAPI() {
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", "female"));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other"));
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "all" }));
+  test.eq(null, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "active" }));
 
   await whdb.beginWork();
   await schema.update("wrdPerson", secondperson, { wrdGender: null });
@@ -301,11 +302,12 @@ async function testNewAPI() {
 
   await schema.close("whuserUnit", unit_id, { mode: "delete-closereferred" });
   test.assert((await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }, { historyMode: 'all' })).wrdLimitDate);
+  await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'active' }));
   test.eqPartial({ wrdId: unit_id }, await schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'all' }));
   await schema.close("whuserUnit", unit_id, { mode: "delete" });
-  test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }));
+  await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }));
   test.eq(null, await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }, { allowMissing: true }));
-  test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'all' }));
+  await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'all' }));
 
   await whdb.rollbackWork();
 
@@ -324,7 +326,7 @@ async function testNewAPI() {
   await new Promise(r => setTimeout(r, 1));
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").execute());
   test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("all").execute());
-  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("active").execute());
+  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("active").execute());
   test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", now).execute());
   test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
@@ -762,6 +764,7 @@ async function testComparisons() {
   await schema.update("wrdPerson", newperson, { wrdCreationDate: null, wrdLimitDate: null });
   test.eq([], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).execute());
   test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("active").execute());
+  test.eq([], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("all").execute());
 
   test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema
     .selectFrom("wrdPerson")
@@ -773,6 +776,7 @@ async function testComparisons() {
   test.eq({ email: "testWrdTsapi@beta.webhare.net" }, await schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: "active" }));
   test.eq({ email: "testWrdTsapi@beta.webhare.net" }, await schema.getFields("wrdPerson", newperson, { email: "testEmail" }));
   test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'now' }));
+  test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'all' }));
 
   await schema.update("wrdPerson", newperson, {
     wrdCreationDate: null,
@@ -799,28 +803,32 @@ async function testComparisons() {
   };
 
   // Delete other persons to make sure search can only find newperson
-  const otherPersons = await schema.selectFrom("wrdPerson").select("wrdId").where("wrdId", "!=", newperson).historyMode("active").execute();
+  const otherPersons = await schema.selectFrom("wrdPerson").select("wrdId").where("wrdId", "!=", newperson).historyMode("all").execute();
   await schema.delete("wrdPerson", otherPersons);
 
   const comparetypes = ["=", "!=", "<", "<=", ">", ">=", "in"] as const;
+  const currentPersonValue = await schema.getFields("wrdPerson", newperson, ["wrdCreationDate", "wrdLimitDate", "wrdDateOfBirth", "testDate", "testDatetime", "testEnum"]);
 
   // Test all comparisons
   for (const [attr, { values }] of Object.entries(tests)) {
     for (const value of values) {
       const entityval = { [attr]: value };
       await schema.update("wrdPerson", newperson, entityval);
+      //@ts-ignore -- it should be okay as we've matched the keys in const 'tests'.
+      currentPersonValue[attr] = value;
       for (let othervalue of values as unknown[])
         for (const comparetype of comparetypes) {
           if (/Enum/.test(attr) && [">", ">=", "<=", "<"].includes(comparetype))
             continue;
           if (comparetype === "in")
             othervalue = [othervalue];
-          const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("active").execute();
+          const usehistory = currentPersonValue.wrdCreationDate === null ? "active" : "all";
+          const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode(usehistory).execute();
           const expect = cmp(value, comparetype, othervalue);
           try {
             test.eq(expect, select.length === 1, `Testing select ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
             if (comparetype === "=") {
-              const searchRes = await schema.search("wrdPerson", attr as any, othervalue, { historyMode: { mode: "active" } });
+              const searchRes = await schema.search("wrdPerson", attr as any, othervalue, { historyMode: { mode: usehistory } });
               test.eq(expect, searchRes === newperson, `Testing search ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
             }
           } catch (e) {

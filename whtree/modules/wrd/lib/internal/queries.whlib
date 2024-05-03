@@ -462,7 +462,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
       FOREVERY (OBJECT single FROM this->singles)
       {
-        IF (single->history_mode = "now")
+        IF (single->history_mode IN ["now","active"])
         {
           // See the comment in MakeWRDQuery for the rationale for choosing this range
           single->when_start := execution_time;
@@ -737,7 +737,11 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         {
           query->AddConstraint(single->name || ".creationdate", "<", MAX_DATETIME); //filter out temporaries
         }
-        ELSE IF (single->history_mode NOT IN ["__getfields","active"]) //__getfields is used by getentityfield(s) to be able to select temporaries too
+        ELSE IF (single->history_mode = "active")
+        { //We'll need to do afterfiltering ..
+          all_handled := FALSE;
+        }
+        ELSE IF (single->history_mode != "__getfields") //__getfields is used by getentityfield(s) to be able to select temporaries too
         {
           query->AddConstraint(single->name || ".creationdate", "<", single->when_limit);
           query->AddConstraint(single->name || ".limitdate", ">", single->when_start);
@@ -1340,7 +1344,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
       FOREVERY (OBJECT single FROM partition->sources)
       {
         // Only filter when needed
-        IF (LENGTH(single->opt_children) = 0)
+        IF (LENGTH(single->opt_children) = 0 AND single->history_mode != "active")
           CONTINUE;
 
         // Get all the entity records for the current single.
@@ -1373,6 +1377,16 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         // Delete 0 id (for default record, no need to filter on it)
         IF (LENGTH(entity_ids) > 0 AND entity_ids[0] = 0)
           DELETE FROM entity_ids AT 0;
+
+        IF(single->history_mode = "active")
+        {
+          //postfilter on creationdate and limitdate
+          entity_ids := SELECT AS INTEGER ARRAY id
+                          FROM wrd.entities
+                         WHERE id IN entity_ids
+                               AND (creationdate = MAX_DATETIME //temp
+                                    OR (creationdate < single->when_limit AND limitdate > single->when_start));
+        }
 
         entity_ids := this->FilterEntities(single, single, entity_ids);
 
