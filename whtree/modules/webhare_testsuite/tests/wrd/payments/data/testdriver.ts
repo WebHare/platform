@@ -1,6 +1,5 @@
-import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import { type CheckPaymentResult, type PaymentDriver, type PushPaymentResult, type WebHarePaymentPrecheckRequest, type WebHarePaymentRequest, type WebHarePaymentResult } from "@mod-wrd/js/internal/paymentbridge";
-import { createWebResponse } from "@webhare/router";
+import { createWebResponse, type WebRequest } from "@webhare/router";
 import { createServerSession, getServerSession, updateServerSession } from "@webhare/services";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 
@@ -93,7 +92,7 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
 
   }
 
-  async processReturn(paymeta: TestDriverPayMeta, req: WebRequestInfo): Promise<CheckPaymentResult> {
+  async processReturn(paymeta: TestDriverPayMeta, req: WebRequest): Promise<CheckPaymentResult> {
     const sessinfo = await getServerSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo)
       throw new Error("Session has expired");
@@ -101,12 +100,12 @@ export class TestDriver implements PaymentDriver<TestDriverPayMeta> {
     return this.translateStatus(sessinfo);
   }
 
-  async processPush(paymeta: TestDriverPayMeta, req: WebRequestInfo): Promise<PushPaymentResult> {
+  async processPush(paymeta: TestDriverPayMeta, req: WebRequest): Promise<PushPaymentResult> {
     const sessinfo = await getServerSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo)
       throw new Error("Session has expired");
 
-    const params = new URLSearchParams(await req.body.text());
+    const params = new URLSearchParams(await req.text());
     if (params.get("approval")) {
       sessinfo.approval = params.get("approval");
       await runInWork(() => updateServerSession("wrd:testpayment", paymeta.paymentSession, sessinfo));

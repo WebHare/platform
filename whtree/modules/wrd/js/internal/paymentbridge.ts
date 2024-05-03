@@ -1,7 +1,8 @@
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { NavigateInstruction } from "@webhare/env";
-import type { WebResponse } from "@webhare/router/src/response";
+import type { WebRequest, WebResponse } from "@webhare/router";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { stringify, type Money } from "@webhare/std";
 
 type HsCheckInfo = {
@@ -163,9 +164,9 @@ export interface PaymentDriver<PayMetaType = unknown> {
   /** Starts the payment. If succesful we generally return a redirect to an external payment portal */
   startPayment(request: WebHarePaymentRequest): Promise<WebHarePaymentResult<PayMetaType>>;
   /** Process the user returning from the payment portal */
-  processReturn(paymeta: PayMetaType, req: WebRequestInfo): Promise<CheckPaymentResult>;
+  processReturn(paymeta: PayMetaType, req: WebRequest): Promise<CheckPaymentResult>;
   /** Process a push/notification directly from the payment portal */
-  processPush?(paymeta: PayMetaType, req: WebRequestInfo): Promise<PushPaymentResult>;
+  processPush?(paymeta: PayMetaType, req: WebRequest): Promise<PushPaymentResult>;
   /** Check the current status of the payment */
   checkStatus(paymeta: PayMetaType): Promise<CheckPaymentResult>;
 }
@@ -261,7 +262,7 @@ export async function processReturnURL(driver: string, configAsJSON: string, pay
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, req);
+  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, await newWebRequestFromInfo(req));
   return retval;
 }
 
@@ -273,7 +274,7 @@ export async function processPush(driver: string, configAsJSON: string, paymeta:
   if (!psp.processPush)
     return null;
 
-  const retval = await psp.processPush(paymeta ? JSON.parse(paymeta) : null, req);
+  const retval = await psp.processPush(paymeta ? JSON.parse(paymeta) : null, await newWebRequestFromInfo(req));
   return { ...retval, response: await retval.response.asWebResponseInfo() };
 }
 
