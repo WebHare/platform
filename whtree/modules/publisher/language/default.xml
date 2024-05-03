@@ -2075,9 +2075,11 @@
           <text tid="delaymailsending">Delay sending this mail</text>
           <text tid="editmailto">Edit mail to</text>
           <text tid="emailcontents">Email message</text>
+          <text tid="fieldname">Field</text>
           <text tid="file">File</text>
           <text tid="files">These files will be sent along the email as attachments</text>
           <text tid="fsobject">Choose an email template:</text>
+          <text tid="insertsubjectwittybutton">Insert merge field</text>
           <text tid="mailprops">E-mail properties</text>
           <text tid="mailto">Mail to</text>
           <text tid="mailwaitat">at</text>
@@ -2093,11 +2095,13 @@
           <text tid="replytoexplain">(using the visitor's e-mail address is recommended)</text>
           <text tid="replytofield">Reply to</text>
           <text tid="rtd">Email contents</text>
+          <text tid="selectwittyfield">Merge field</text>
           <text tid="sender">Sender address</text>
           <text tid="sendername">Sender name</text>
           <text tid="sendernameexplain">We recommend using the visitor's name</text>
           <text tid="sendernamefield">Sender name</text>
           <text tid="subject">Subject</text>
+          <text tid="subjectwitty">Allow merge fields in subject</text>
           <text tid="templatetype">Template type</text>
           <text tid="templatetype-rtd">Compose the email message below:</text>
         </textgroup>

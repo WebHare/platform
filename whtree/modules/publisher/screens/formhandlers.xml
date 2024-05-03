@@ -8,6 +8,9 @@
                  gid=".mailhandler"
                  implementation="lib"
                  lib="webtools/formhandlers/mailhandler.whlib">
+    <actions>
+      <action name="insertsubjectwitty" onexecute="doinsertsubjectwitty" title="" />
+    </actions>
     <insert position="settings" where="after">
       <heading tid=".mailto" />
       <arrayedit name="mailto" height="1pr" emptytid=".noreceivers" roweditscreen="#editmailto">
@@ -15,7 +18,12 @@
         <p:formconditioncolumn name="condition" />
       </arrayedit>
       <heading tid=".mailprops" />
-      <textedit name="subject" width="1pr" />
+      <textedit name="subject" width="1pr">
+        <button name="insertsubjectwittybutton"
+                action="insertsubjectwitty"
+                icon="tollium:buttonbar/insertobject"
+                visible="false" />
+      </textedit>
       <line>
         <select name="replytofield" type="pulldown">
           <option rowkey="" tid=".noreply" />
@@ -32,6 +40,9 @@
           <divider />
         </select>
         <textedit name="sendername" width="1pr" errorlabeltid=".sendername" title="" />
+      </line>
+      <line layout="left">
+        <checkbox name="subjectwitty" labeltid=".subjectwitty" onchange="onsubjectwittychange" title="" />
       </line>
     </insert>
     <newtab tid=".emailcontents">
@@ -60,17 +71,28 @@
                  gid=".mailhandler"
                  implementation="lib"
                  lib="webtools/formhandlers/mailhandler.whlib">
+    <actions>
+      <action name="insertsubjectwitty" onexecute="doinsertsubjectwitty" title="" />
+    </actions>
     <insert position="settings" where="after">
       <select name="receiverfield" type="pulldown" required="true">
         <option rowkey="" invalidselection="true" tid=".none" />
       </select>
       <textedit name="sendername" width="1pr" required="true" />
       <textedit name="sender" width="1pr" required="true" validationchecks="email-maysendfrom" />
-      <textedit name="subject" width="1pr" />
+      <textedit name="subject" width="1pr">
+        <button name="insertsubjectwittybutton"
+                action="insertsubjectwitty"
+                icon="tollium:buttonbar/insertobject"
+                visible="false" />
+      </textedit>
       <textedit name="bcc" width="1pr" validationchecks="emails-maysendto" />
       <text title="" valuetid=".bcc-desc" />
     </insert>
     <insert position="advanced" where="after">
+      <line layout="left">
+        <checkbox name="subjectwitty" labeltid=".subjectwitty" onchange="onsubjectwittychange" title="" />
+      </line>
       <heading name="delaymailsending" checkbox="true" onchange="ondelaymailsendingchange" />  <!-- FIXME  enablecomponents="mailwaitdays mailwaitat mailwaittimezone"  but both <time> and <webapis:timezoneedit> won't respond to it (Won't enable). oh well, it's 'advanced' anyway -->
       <line>
         <textedit name="mailwaitdays"
@@ -98,17 +120,30 @@
                  gid=".mailhandler"
                  implementation="lib"
                  lib="webtools/formhandlers/mailhandler.whlib">
+    <actions>
+      <action name="insertsubjectwitty" onexecute="doinsertsubjectwitty" title="" />
+    </actions>
     <insert position="settings" where="after">
       <select name="receiverfield" type="pulldown" required="true">
         <option rowkey="" invalidselection="true" tid=".none" />
       </select>
       <textedit name="sendername" width="1pr" required="true" />
       <textedit name="sender" width="1pr" required="true" validationchecks="email-maysendfrom" />
-      <textedit name="subject" width="1pr" />
+      <textedit name="subject" width="1pr">
+        <button name="insertsubjectwittybutton"
+                action="insertsubjectwitty"
+                icon="tollium:buttonbar/insertobject"
+                visible="false" />
+      </textedit>
       <textedit name="bcc" width="1pr" validationchecks="emails-maysendto" />
       <text title="" valuetid=".bcc-desc" />
       <line layout="left">
         <checkbox name="checkduplicates" labeltid=".checkduplicates" title="" />
+      </line>
+    </insert>
+    <insert position="advanced" where="after">
+      <line layout="left">
+        <checkbox name="subjectwitty" labeltid=".subjectwitty" onchange="onsubjectwittychange" title="" />
       </line>
     </insert>
     <newtab tid=".emailcontents">
@@ -155,5 +190,15 @@
       </arrayedit>
     </contents>
   </fragment>
+
+  <screen name="selectwittyfield"
+          footerbuttons="ok cancel"
+          gid=".mailhandler"
+          implementation="lib"
+          library="/lib/webtools/formhandlers/mailhandler.whlib">
+    <body>
+      <select name="fieldname" type="pulldown" />
+    </body>
+  </screen>
 
 </screens>

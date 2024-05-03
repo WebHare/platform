@@ -2074,9 +2074,11 @@
           <text tid="delaymailsending">Verstuur deze mail pas later</text>
           <text tid="editmailto">Wijzig mail naar</text>
           <text tid="emailcontents">E-mailbericht</text>
+          <text tid="fieldname">Veld</text>
           <text tid="file">Bestand</text>
           <text tid="files">Deze bestanden worden als bijlagen bij de e-mail meegezonden</text>
           <text tid="fsobject">Kies een sjabloon:</text>
+          <text tid="insertsubjectwittybutton">Samenvoegveld invoegen</text>
           <text tid="mailprops">E-maileigenschappen</text>
           <text tid="mailto">Mail naar</text>
           <text tid="mailwaitat">om</text>
@@ -2092,11 +2094,13 @@
           <text tid="replytoexplain">(kies bij voorkeur het e-mailadres van de bezoeker)</text>
           <text tid="replytofield">Antwoord aan</text>
           <text tid="rtd">E-mailinhoud</text>
+          <text tid="selectwittyfield">Samenvoegveld</text>
           <text tid="sender">Afzenderadres</text>
           <text tid="sendername">Afzendernaam</text>
           <text tid="sendernameexplain">kies bij voorkeur de naam van de bezoeker</text>
           <text tid="sendernamefield">Afzendernaam</text>
           <text tid="subject">Onderwerp</text>
+          <text tid="subjectwitty">Samenvoegvelden in onderwerp toestaan</text>
           <text tid="templatetype">Mailsjabloon</text>
           <text tid="templatetype-rtd">Stel hieronder het e-mailbericht op:</text>
         </textgroup>
