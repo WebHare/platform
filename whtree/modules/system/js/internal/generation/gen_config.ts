@@ -121,7 +121,12 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
 
   return {
     public: publicdata,
-    secrets: { cache: "", cookie: "", debug: "", gcm: "" },
+    secrets: {  //copy from oldconfig, ensure they were actually a string
+      cache: String(oldconfig?.secrets?.cache || ''),
+      cookie: String(oldconfig?.secrets?.cookie || ''),
+      debug: String(oldconfig?.secrets?.debug || ''),
+      gcm: String(oldconfig?.secrets?.gcm || '')
+    },
     ...pick(oldconfig, ["debugsettings"]),
     ...omit(nodbconfig, ["public"]),
   };
