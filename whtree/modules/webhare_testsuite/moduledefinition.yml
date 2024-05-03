@@ -13,7 +13,7 @@ backendHooks: # Where this extension hooks into the backend
     addActions:
       - title: "WH testsuite: Add export"
         category: export
-        onexecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport
+        onExecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport
   adduserrights2:
     screen: "platform:userrights"
     when:
@@ -21,7 +21,7 @@ backendHooks: # Where this extension hooks into the backend
     addActions:
     - title: "WH testsuite: testschema"
       category: export
-      onexecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport2
+      onExecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport2
   adduserrights3:
     screen: "platform:userrights"
     when:
@@ -29,9 +29,7 @@ backendHooks: # Where this extension hooks into the backend
     addActions:
     - title: "WH testsuite: usermgmt schema"
       category: export
-      onexecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport3
-
-
+      onExecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport3
 
 backendServices:
   demoservice:
