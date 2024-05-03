@@ -2134,6 +2134,7 @@
       <textgroup gid="results">   <!-- tolliumapps.formedit.results -->
         <text tid="confirmdeleteresult">Are you sure you want to delete the selected result ?</text>
         <text tid="confirmdeleteresults">Are you sure you want to delete <param p="1"/> selected results ?</text>
+        <text tid="confirmrerunhandler">Are you sure you want to rerun handler '<param p="1"/>' on <ifparam p="2" value="1">this result<else/>these <param p="2"/> results</ifparam>?</text>
         <text tid="exportresultsformigration">Export for migration</text>
         <text tid="exportresultswithattachments">Export with uploads</text>
         <text tid="importerror">Error while importing:<br/><br/><param p="1"/></text>
@@ -2144,6 +2145,7 @@
         <text tid="ipcountrycode">IP country code</text>
         <text tid="noresults">There are no results yet</text>
         <text tid="numresults">Number of results</text>
+        <text tid="rerun">Rerun handler</text>
         <text tid="results">Results</text>
         <text tid="showexpiredresults">Show expired results</text>
         <text tid="showpendingresults">Show unconfirmed results</text>

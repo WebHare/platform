@@ -2133,6 +2133,7 @@
       <textgroup gid="results">   <!-- tolliumapps.formedit.results -->
         <text tid="confirmdeleteresult">Weet u zeker dat u het geselecteerde resultaat wil verwijderen ?</text>
         <text tid="confirmdeleteresults">Weet u zeker dat u <param p="1"/> geselecteerde resultaten wil verwijderen ?</text>
+        <text tid="confirmrerunhandler">Weet u zeker dat u de afhandeling '<param p="1"/>' opnieuw wil uitvoeren voor <ifparam p="2" value="1">dit resultaat<else/>deze <param p="2"/> resultaten</ifparam>?</text>
         <text tid="exportresultsformigration">Exporteren voor migratie</text>
         <text tid="exportresultswithattachments">Exporteren met uploads</text>
         <text tid="importerror">Fout bij importeren:<br/><br/><param p="1"/></text>
@@ -2143,6 +2144,7 @@
         <text tid="ipcountrycode">IP-landcode</text>
         <text tid="noresults">Er zijn nog geen resultaten</text>
         <text tid="numresults">Aantal resultaten</text>
+        <text tid="rerun">Afhandeling opnieuw uitvoeren</text>
         <text tid="results">Resultaten</text>
         <text tid="showexpiredresults">Verlopen resultaten tonen</text>
         <text tid="showpendingresults">Onbevestigde resultaten tonen</text>

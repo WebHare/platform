@@ -623,6 +623,7 @@ PUBLIC MACRO RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECOR
       , formobj := formresults->__formdef
       , formresults
       , options.uselanguage
+      , rerunnablehandlers := RECORD[]
       , testablehandlers := RECORD[]
       , showpending := FALSE
       ]);

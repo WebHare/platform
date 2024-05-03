@@ -109,6 +109,11 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   {
     RETURN "";
   }
+  /** @short Return if this handler can be re-run on existing results */
+  PUBLIC BOOLEAN FUNCTION IsRerunnable()
+  {
+    RETURN FALSE;
+  }
   /** @short Return if this handler can be tested at result-level */
   PUBLIC BOOLEAN FUNCTION IsTestableForResults()
   {

@@ -21,7 +21,8 @@
     <menus>
       <menu name="resultsmenu">
         <item action="showresult" />
-        <item name="test" />
+        <item name="rerun" disablemode="hidden" />
+        <item name="test" disablemode="hidden" />
         <item action="inspect" />
         <divider />
         <item action="delete" />
@@ -37,6 +38,7 @@
         <cell width="1pr">
           <list name="results"
                 emptytid=".noresults"
+                flags="canrerun"
                 icons="tollium:buttonbar/plus tollium:buttonbar/minus"
                 openaction="showresult"
                 selectcontextmenu="resultsmenu"

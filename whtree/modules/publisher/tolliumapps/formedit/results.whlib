@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
 
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
@@ -71,6 +72,23 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
 
     IF(this->frame->flags.issupervisor)
     {
+      FOREVERY(RECORD rerunnableaction FROM data.rerunnablehandlers)
+      {
+        OBJECT menuitem := this->CreateTolliumComponent("menuitem");
+        menuitem->action := this->CreateTolliumComponent("action");
+        menuitem->title := rerunnableaction.title;
+
+        menuitem->action->onexecute := PTR this->ExecuteRerunAction(rerunnableaction);
+        menuitem->action->enableon := [[ source := ^results
+                                       , min := 1
+                                       , checkflags := [ "canrerun" ]
+                                      ]];
+
+        INSERT [ menuitem := menuitem
+               , isdivider := FALSE
+               ] INTO ^rerun->items AT END;
+      }
+
       FOREVERY(RECORD testaction FROM data.testablehandlers)
       {
         OBJECT menuitem := this->CreateTolliumComponent("menuitem");
@@ -88,6 +106,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
                ] INTO ^test->items AT END;
       }
     }
+    ^rerun->visible := Length(^rerun->items) > 0;
     ^test->visible := Length(^test->items) > 0;
   }
 
@@ -238,12 +257,42 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
     }
   }
 
+  MACRO ExecuteRerunAction(RECORD rerunaction)
+  {
+    IF (this->RunSimpleScreen("verify", this->GetTid(".confirmrerunhandler", rerunaction.title, ToString(Length(^results->selection)))) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      FOREVERY (RECORD result FROM ^results->selection)
+      {
+        STRING submittype := result.__rowmeta.submittype;
+
+        // Check if the handler is appropriate for the result's submit type
+        SWITCH (submittype)
+        {
+          CASE "pending" { IF (NOT rerunaction.handlerobject->IsConfirmationHandler()) CONTINUE; }
+          CASE "cancel"  { IF (NOT rerunaction.handlerobject->IsCancelHandler()) CONTINUE; }
+          DEFAULT        { IF (NOT rerunaction.handlerobject->IsSubmitHandler()) CONTINUE; }
+        }
+
+        ScheduleManagedTask(rerunaction.handlertask, CELL
+            [ formid := this->fsobjid
+            , formname := this->form->name
+            , formhandler := rerunaction.handlerguid
+            , resultsguid := result.guid
+            , submittype
+            ],
+            [ auxdata := CELL[ result.__rowmeta.extradata ] ]);
+      }
+      work->Finish();
+    }
+  }
+
   MACRO ExecuteTestAction(RECORD testaction)
   {
     RECORD result := this->formresults->GetSingleResultById(^results->selection.id);
-    testaction.handlerobj->RunTestResult(this, result, [ formresults := this->formresults
-                                                       , form := this->form
-                                                       ]);
+    testaction.handlerobject->RunTestResult(this, result, [ formresults := this->formresults
+                                                          , form := this->form
+                                                          ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -282,6 +331,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
         SELECT *
              , rowkey := id
              , style := CellExists(results, "__expired") AND __expired ? "expired" : CellExists(results, "__pending") AND __pending ? "pending" : ""
+             , canrerun := results.__rowmeta.submittype != "" // Rerun is only possible if the form submit type is stored with the result
           FROM this->exporter->ExportAllResults() AS results;
     FOREVERY (STRING col FROM this->boolean_columns)
       rows := SELECT AS RECORD ARRAY CellInsert(CellDelete(rows, col), col, GetCell(rows, col) ? 1 : 2) FROM rows;

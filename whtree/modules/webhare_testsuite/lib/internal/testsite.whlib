@@ -903,6 +903,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     mailhandler3->SetAttribute("sender","info@beta.webhare.net");
     mailhandler3->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
     mailhandler3->SetAttribute("subject", "Another communication about your Submission");
+    mailhandler3->SetAttribute("listlabel", "Another response to visitor");
 
 
     //Create a simple RTD response with an image

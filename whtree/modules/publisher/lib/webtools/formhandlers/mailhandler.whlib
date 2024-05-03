@@ -77,6 +77,10 @@ STATIC OBJECTTYPE MailHandler EXTEND FormHandlerBase
 <
   STRING handlertype;
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsRerunnable()
+  {
+    RETURN TRUE;
+  }
   UPDATE PUBLIC BOOLEAN FUNCTION IsTestableForResults()
   {
     RETURN TRUE;
