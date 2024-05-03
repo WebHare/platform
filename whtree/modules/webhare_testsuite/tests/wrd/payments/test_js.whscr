@@ -12,14 +12,12 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -649,7 +647,7 @@ ASYNC MACRO TestPaymentProvidersDialog()
   topscreen->providers->selection := rows[3];
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->deleteprovider->TolliumClick);
 
-  //Receate it TestNoIssuer, TestWithIssuer
+  //Receate it TestNoIssuer, TestWithIssuer - FIXME rebuild to actually use the JS TestDriver, not wrd:test
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   topscreen->methods->value := "wrd:test";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
@@ -752,13 +750,13 @@ MACRO TestPaymentOptions()
 
   OBJECT pm_2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #2"
-    , method := MakePaymentProviderValue("wrd:test")
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
     , wrd_ordering := 9
     ]);
 
   OBJECT pm_3 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #3"
-    , method := MakePaymentProviderValue("wrd:test")
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
     , wrd_ordering := 10
     ]);
 
@@ -774,7 +772,7 @@ MACRO TestPaymentOptions()
   TestEq(8, Length(SELECT DISTINCT paymentmethodtag FROM opts));
 
   //Want to be able to specify the option using just the method tag. using second-to-last as this should be a NoIssuser option
-  RECORD uselastpaymentoption := paymentapi->StartPayment(pd4->id, 16.61m, [ paymentmethodtag := opts[END-2].paymentmethodtag]);
+  RECORD uselastpaymentoption := paymentapi->StartPayment(pd4->id, 16.61m, [ paymentmethodtag := opts[END-2].paymentmethodtag, orderid := "PD4" ]);
   TestEq(FALSE, uselastpaymentoption.complete);
   TestEq(TRUE, RecordExists(uselastpaymentoption.submitinstruction));
 }
@@ -787,7 +785,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
 
   OBJECT pm_4 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #4"
-    , method := MakePaymentProviderValue("wrd:test")
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":1}`)
     , wrd_ordering := 11
     ]);
 
@@ -798,47 +796,42 @@ ASYNC MACRO TestFailedPaymentSucceeding()
 
   testfw->CommitWork();
 
-  RECORD paymentinstruction := paymentapi->StartPayment(pd5->id, 16.61m, [ paymentmethodtag := opts[END - 2].paymentmethodtag]);
+  RECORD paymentinstruction := paymentapi->StartPayment(pd5->id, 16.61m,
+    [ paymentmethodtag := opts[0].paymentmethodtag
+    , orderid := "PD5"
+    , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+    ]);
   STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
-
-  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
-  RECORD session := AWAIT runner->CreateSession();
-  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
-  OBJECT conn := AWAIT connector->ConnectToSession(session);
-  OBJECT pageobj := NEW Page(conn);
-  OBJECT navwatcher := NEW NavigationWatcher(conn);
-  OBJECT pageloadwaiter;
+  STRING testdriver_sessionid := GetVariableFromUrl(payurl, "s");
+  RECORD testdriver_sessioninfo := GetWebSessionData(testdriver_sessionid,"wrd:testpayment");
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       ], pd5->GetField("LOG").entries, "*");
 
-  AWAIT pageobj->Init();
-  AWAIT pageobj->Navigate(payurl);
+  TestEq(TRUE, testfw->browser->GotoWebPage(payurl));
 
   // Send a notification with rejection
-  pageloadwaiter := navwatcher->WaitForNavigation();
-  AWAIT (AWAIT WaitForChromeElement(conn, pageobj, "#notifyrejectpayment"))->Click();
-  //we'll be redirected..
-  AWAIT pageloadwaiter;
+  OBJECT result := FetchSync(testdriver_sessioninfo.pushurl, [
+    method := "POST",
+    headers := [ "content-type" := "application/x-www-form-urlencoded" ],
+    body := "approval=reject"
+    ]);
+  TestEq("text/plain", result->headers->get("content-type"));
+  TestEq("It is done", result->Text());
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
 
-  pageloadwaiter := navwatcher->WaitForNavigation();
-  AWAIT (AWAIT WaitForChromeElement(conn, pageobj, "#approvepayment"))->Click();
-  //we'll be redirected..
-  AWAIT pageloadwaiter;
+  PushWRDTestPaymentButton("approved");
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       , [ status := "approved", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
-
-  runner->CloseService();
 }
 
 ASYNC MACRO TestDashboard()

@@ -398,6 +398,12 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
   PUBLIC MACRO RunNotificationDonePage()
   {
   }
+
+  //return WebResponseInfo if handled. new entrypoint that allows earlier handling of notifications in return.shtml for the benefit of JS handlers
+  UPDATE PUBLIC RECORD FUNCTION ProcessNotification()
+  {
+    RETURN DEFAULT RECORD;
+  }
 >;
 
 

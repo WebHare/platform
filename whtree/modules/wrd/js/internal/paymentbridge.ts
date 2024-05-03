@@ -1,6 +1,7 @@
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { NavigateInstruction } from "@webhare/env";
+import type { WebResponse } from "@webhare/router/src/response";
 import { stringify, type Money } from "@webhare/std";
 
 type HsCheckInfo = {
@@ -147,6 +148,10 @@ export interface CheckPaymentResult {
   rejectReasonHTML?: string;
 }
 
+export interface PushPaymentResult extends CheckPaymentResult {
+  response: WebResponse;
+}
+
 /** Interface to be implemented by a payment driver
  * @typeParam PayMetaType - Data cached after sending a payment request to the API to be able to request the status later (eg a transaction id)
  */
@@ -157,8 +162,10 @@ export interface PaymentDriver<PayMetaType = unknown> {
   precheckPayment?(request: WebHarePaymentPrecheckRequest): Promise<WebHarePaymentPrecheckResult>;
   /** Starts the payment. If succesful we generally return a redirect to an external payment portal */
   startPayment(request: WebHarePaymentRequest): Promise<WebHarePaymentResult<PayMetaType>>;
-  /** Process the return (and/or notification requests) from the payment portal */
-  processReturn(paymeta: PayMetaType, req: WebRequestInfo, options: { isPush: boolean }): Promise<CheckPaymentResult>;
+  /** Process the user returning from the payment portal */
+  processReturn(paymeta: PayMetaType, req: WebRequestInfo): Promise<CheckPaymentResult>;
+  /** Process a push/notification directly from the payment portal */
+  processPush?(paymeta: PayMetaType, req: WebRequestInfo): Promise<PushPaymentResult>;
   /** Check the current status of the payment */
   checkStatus(paymeta: PayMetaType): Promise<CheckPaymentResult>;
 }
@@ -249,13 +256,25 @@ export async function runPaymentRequest(driver: string, configAsJSON: string, hs
   };
 }
 
-export async function processReturnURL(driver: string, configAsJSON: string, paymeta: string, isNotification: boolean, req: WebRequestInfo) {
+export async function processReturnURL(driver: string, configAsJSON: string, paymeta: string, req: WebRequestInfo) {
   const psp = await openPSP(driver, configAsJSON);
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, req, { isPush: isNotification });
+  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, req);
   return retval;
+}
+
+export async function processPush(driver: string, configAsJSON: string, paymeta: string, req: WebRequestInfo) {
+  const psp = await openPSP(driver, configAsJSON);
+  if ("error" in psp)
+    throw new Error(`Cannot initialize PSP - ${psp.error}`);
+
+  if (!psp.processPush)
+    return null;
+
+  const retval = await psp.processPush(paymeta ? JSON.parse(paymeta) : null, req);
+  return { ...retval, response: await retval.response.asWebResponseInfo() };
 }
 
 export async function checkStatus(driver: string, configAsJSON: string, paymeta: string) {

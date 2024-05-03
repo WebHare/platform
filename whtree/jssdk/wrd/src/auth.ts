@@ -7,7 +7,7 @@ import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicK
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
 import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
 import { NavigateInstruction } from "@webhare/env";
-import { closeSession, createSession, encryptForThisServer, getSession, updateSession } from "@webhare/services";
+import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, updateServerSession } from "@webhare/services";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "./wrdsupport";
 import { loadlib } from "@webhare/harescript";
@@ -460,7 +460,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     }).execute();
 
     if (closeSessionId)
-      await closeSession(closeSessionId);
+      await closeServerSession(closeSessionId);
 
     await commitWork();
 
@@ -551,7 +551,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!client[0].callbackUrls.find((cb) => cb.url === redirect_uri))
       return { error: "Unauthorized callback URL " + redirect_uri };
 
-    const returnInfo = await runInWork(() => createSession("wrd:openid.idpstate",
+    const returnInfo = await runInWork(() => createServerSession("wrd:openid.idpstate",
       { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, cbUrl: redirect_uri }));
 
     const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
@@ -573,7 +573,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
   async returnAuthorizeFlow(url: URL, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
     const sessionid = url.searchParams.get("tok") || '';
-    const returnInfo = await getSession("wrd:openid.idpstate", sessionid);
+    const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
     if (!returnInfo)
       return { error: "Session has expired" }; //TODO redirect the user to an explanatory page
 
@@ -586,13 +586,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       });
 
       if (redirect) {
-        await runInWork(() => closeSession(sessionid));
+        await runInWork(() => closeServerSession(sessionid));
         return { ...redirect, error: null };
       }
     }
 
     //Update session with user info
-    await runInWork(() => updateSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
+    await runInWork(() => updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
 
     const finalRedirectURI = new URL(returnInfo.cbUrl);
     if (returnInfo.state !== null)
@@ -643,7 +643,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: "Missing code" };
 
     //The code is the session id
-    const returnInfo = await getSession("wrd:openid.idpstate", sessionid);
+    const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
     if (!returnInfo || !returnInfo?.user || returnInfo.clientid !== client[0].wrdId)
       return { error: "Invalid or expired code" };
 

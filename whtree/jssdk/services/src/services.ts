@@ -23,7 +23,7 @@ export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
 export { applyConfiguration, createAppliedPromise } from "./applyconfig";
-export { createSession, getSession, closeSession, updateSession, createUploadSession, getUploadedFile } from "./sessions";
+export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";

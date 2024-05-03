@@ -39,11 +39,11 @@ export interface SessionOptions {
 }
 
 /** Create a new session
-    @param scope - Scope for session (must be unique for each createSession usage so users can't try to trick other getSession users to reveal data)
+    @param scope - Scope for session (must be unique for each createServerSession usage so users can't try to trick other getServerSession users to reveal data)
     @param data - Data to store (needs to be serializable to typed JSON)
     @returns Session id (base64url encoded string)
 */
-export async function createSession<S extends string>(scope: S, data: S extends keyof SessionScopes ? SessionScopes[S] : object, options?: SessionOptions): Promise<string> {
+export async function createServerSession<S extends string>(scope: S, data: S extends keyof SessionScopes ? SessionScopes[S] : object, options?: SessionOptions): Promise<string> {
   if (!isWorkOpen()) //HareScript would automanage the session for you for backwards compatibility, but it's better to show what happens
     throw new Error(`Can only manage sessions inside open work`);
   if (!scope)
@@ -53,7 +53,7 @@ export async function createSession<S extends string>(scope: S, data: S extends 
   const expires = convertWaitPeriodToDate(options?.expires || 60 * 1000 * 1000);
 
   if (options?.sessionId)
-    await closeSession(options.sessionId);
+    await closeServerSession(options.sessionId);
 
   const sessionid = options?.sessionId || generateRandomId();
   const store = await prepareSessionData(data);
@@ -66,10 +66,10 @@ export async function createSession<S extends string>(scope: S, data: S extends 
     @param sessionId - Session id. If this session was created in HareScript, make sure it has the json:true option set
     @returns Session data or null if session has expired
 */
-export function getSession<S extends keyof SessionScopes>(scope: S, sessionId: string): Promise<SessionScopes[S] | null>;
-export function getSession(scope: string, sessionId: string): Promise<object | null>;
+export function getServerSession<S extends keyof SessionScopes>(scope: S, sessionId: string): Promise<SessionScopes[S] | null>;
+export function getServerSession(scope: string, sessionId: string): Promise<object | null>;
 
-export async function getSession(scope: string, sessionId: string): Promise<object | null> {
+export async function getServerSession(scope: string, sessionId: string): Promise<object | null> {
   const sessdata = await db<PlatformDB>().selectFrom("system.sessions").select(["id", "expires", "data", "datablob", "scope"]).where("sessionid", "=", sessionId).executeTakeFirst();
   if (!sessdata || sessdata.expires < new Date())
     return null;
@@ -78,7 +78,7 @@ export async function getSession(scope: string, sessionId: string): Promise<obje
   return await readAnyFromDatabase(sessdata.data, sessdata.datablob);
 }
 
-export async function updateSession<S extends string>(scope: S, sessionId: string, data: S extends keyof SessionScopes ? SessionScopes[S] : object): Promise<void> {
+export async function updateServerSession<S extends string>(scope: S, sessionId: string, data: S extends keyof SessionScopes ? SessionScopes[S] : object): Promise<void> {
   if (!isWorkOpen())
     throw new Error(`Can only manage sessions inside open work`);
 
@@ -95,7 +95,7 @@ export async function updateSession<S extends string>(scope: S, sessionId: strin
 /** Close session
  * @param sessionId - Session id to close
  */
-export async function closeSession(sessionId: string) {
+export async function closeServerSession(sessionId: string) {
   if (!isWorkOpen())
     throw new Error(`Can only manage sessions inside open work`);
 
@@ -119,7 +119,7 @@ export interface UploadSessionOptions {
  * @param expires - Upload session expiry
 */
 export async function createUploadSession(manifest: UploadManifest, { chunkSize = DefaultChunkSize, expires = DefaultUploadExpiry }: UploadSessionOptions = {}): Promise<UploadInstructions> {
-  const sessid = await createSession("platform:uploadsession", { manifest, chunkSize }, { expires });
+  const sessid = await createServerSession("platform:uploadsession", { manifest, chunkSize }, { expires });
   return {
     baseUrl: "/.wh/common/upload/?session=" + sessid,
     sessionId: sessid,
@@ -171,7 +171,7 @@ export function getStorageFolderForSession(sessionId: string): string {
 export async function getUploadedFileDetails(token: string) {
   const [sessionId, fileIndexStr] = token.split("#");
   const fileIndex = parseInt(fileIndexStr);
-  const matchsession = await getSession("platform:uploadsession", sessionId);
+  const matchsession = await getServerSession("platform:uploadsession", sessionId);
   const matchfile = matchsession?.manifest.files[fileIndex];
   if (!matchfile)
     return null;

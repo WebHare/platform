@@ -7,6 +7,7 @@
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
@@ -14,6 +15,9 @@ LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
 OBJECT trans := OpenPrimary();
 RECORD data := ReinstantiatePayment(GetWebVariable("pi"));
 BOOLEAN isnotification := DecryptForThisServer("wrd:payments.isnotification", GetWebVariable("notification"), [fallback := "" ]) = GetWebVariable("pi");
+RECORD notificationdone := isnotification ? data.payment->ProcessNotification() : DEFAULT RECORD;
+
+//If notificationdone, the response will have been printed and is ready to send. We just need to finalize the payment update and commit
 
 /* originally we wouldn't reprocess if a payment as a whole was already 'approved'. but that's inconsistent as there may still
    be multiple payment attempts that get a status update, and are we really sure no chargeback will turn an approved into a failed through
@@ -22,12 +26,15 @@ BOOLEAN isnotification := DecryptForThisServer("wrd:payments.isnotification", Ge
    TODO but it's still nice if we can avoid double work if a notification comes just before the redirect ? */
 
 //TODO if this is not a notification but we recently got a notification, no need to recheck with the provider
-IF(NOT data.payment->ProcessReturnURL(GetRequestURL()))
+IF(NOT RecordExists(notificationdone) AND NOT data.payment->ProcessReturnURL(GetRequestURL()))
   THROW NEW Exception("Unable to process the return url");
 
 trans->BeginLockedWork("wrd:payments.payment:" || data.paymententity->id);
 ProcessUpdatedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
 trans->CommitWork();
+
+IF(RecordExists(notificationdone))
+  ExecuteWebResponse(notificationdone); //terminates
 
 IF(isnotification)
 {
