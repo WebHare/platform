@@ -57,4 +57,9 @@ input[type="checkbox"]:not(.wh-checkbox)
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
     background-repeat: repeat;
   }
+
+  .list__row__cell &
+  {
+    margin-top:3px;
+  }
 }
