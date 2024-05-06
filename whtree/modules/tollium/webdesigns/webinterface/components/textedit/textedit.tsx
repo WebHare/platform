@@ -82,7 +82,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   // Initialization
   //
   componenttype = "textedit";
-  lastreportedvalue = '';
+  lastreportedvalue = { value: '', selection: '' };
   reportchange_cb: NodeJS.Timeout | null = null;
   minlength = -1;
   maxlength = -1;
@@ -181,6 +181,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
     this.inputnode.addEventListener("blur", () => this._gotBlur());
     this.inputnode.addEventListener("input", () => this.onAnyChange());
+    this.inputnode.addEventListener("select", () => this.onAnyChange());
 
     this.setRequired(data.required);
     this.setEnabled(data.enabled);
@@ -220,10 +221,12 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     this.setDirty();
 
     // Get the current value, compare with last reported value
-    const currentvalue = this.getValue();
-    if (this.lastreportedvalue !== currentvalue && this.isEventUnmasked('change')) {
+    const value = this.getValue();
+    const selection = this.getSelection();
+    if ((this.lastreportedvalue.value !== value && this.isEventUnmasked('change'))
+      || (this.lastreportedvalue.selection !== selection && this.isEventUnmasked('select'))) {
       // Only update lastreportedvalue when we're actually reporting.
-      this.lastreportedvalue = currentvalue;
+      this.lastreportedvalue = { value, selection };
       this.transferState(false);
     }
   }
@@ -236,8 +239,13 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   getSubmitValue() {
     // Get value to report. Also update lastreportedvalue, the backend now knows our value
     const value = this.getValue();
-    this.lastreportedvalue = value;
-    return value;
+    const selection = this.getSelection();
+    this.lastreportedvalue = { value, selection };
+    return { value, selection };
+  }
+
+  getSelection() {
+    return this.inputnode?.selectionStart && this.inputnode.selectionEnd ? this.inputnode.value.substring(this.inputnode.selectionStart, this.inputnode.selectionEnd) : "";
   }
 
   getValue() {
@@ -252,7 +260,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     }
 
     // Always update the last reported value, this instruction came from the backend
-    this.lastreportedvalue = value;
+    this.lastreportedvalue = { value, selection: "" };
   }
 
   setRequired(value: boolean) {
@@ -391,5 +399,12 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       clearTimeout(this.reportchange_cb);
 
     this.reportchange_cb = setTimeout(() => this._reportChangesCallback(), 100);
+  }
+
+  onMsgReplaceSelection(data: { text: string }) {
+    if (this.inputnode?.selectionStart && this.inputnode.selectionEnd) {
+      this.inputnode.setRangeText(data.text, this.inputnode.selectionStart, this.inputnode.selectionEnd, "select");
+      this.onAnyChange();
+    }
   }
 }

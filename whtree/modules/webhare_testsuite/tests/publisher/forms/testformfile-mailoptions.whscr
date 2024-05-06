@@ -7,7 +7,6 @@ LOADLIB "wh::internet/mime.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/testframework.whlib";
-LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/webtools/formhandlers/mailhandler.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -41,7 +40,9 @@ MACRO AddExtraHandlers(RECORD forminfo)
   //Add a mail handler
   OBJECT mailhandler := forminfo.formdef->AddHandler("mailresultshandler");
   mailhandler->SetAttribute("receivers", "result1@beta.webhare.net");
-  mailhandler->SetAttribute("subject", "Your Form Was Filled");
+  //Insert first name into subject
+  mailhandler->SetAttribute("subject", "Your Form Was Filled By [firstname]");
+  mailhandler->SetAttribute("subjectwitty", "true");
   mailhandler->SetAttribute("addresults", "true");
   mailhandler->SetAttribute("sender", "mailfrom@beta.webhare.net");
   mailhandler->SetAttribute("sendername", "Mail From");
@@ -69,6 +70,7 @@ MACRO BuildForm()
   BuildWebtoolForm([ customformedits := PTR AddExtraHandlers
                    , addfeedbackattachments := TRUE
                    , addmailrestrictions := TRUE
+                   , subjectwitty := TRUE
                    , emailfieldname := "email"
                    ]);
 }
@@ -88,6 +90,8 @@ MACRO TestMailDelay()
 
   RECORD result1mail := testfw->ExtractAllMailFor("result1@beta.webhare.net", [ timeout := 60000, count := 1 ]);
   TestEq(TRUE, RecordExists(result1mail));
+  //Test if the first name is added to the subject
+  TestEq(`Your Form Was Filled By ${submitrec.firstname}`, result1mail.subject);
   TestEq(`Mail From <mailfrom@beta.webhare.net>`, (SELECT AS STRING value FROM result1mail.headers WHERE field="From"));
   TestEq(`<mailfrom@beta.webhare.net>`, result1mail.envelope_sender);
 
@@ -95,6 +99,8 @@ MACRO TestMailDelay()
 
   RECORD ARRAY feedbackmail := testfw->ExtractAllMailFor("testmails@beta.webhare.net", [ timeout := 0, count := 1 ]);
   TestEq(1, Length(feedbackmail));
+  //Test if the subject witty fields are filled
+  TestEq(`[testform] Hi ${submitrec.firstname}, About Your Submission For ${submitrec.email}`, feedbackmail[0].subject);
   RECORD part := GetEmailPrimaryMIMEPart(feedbackmail[0].toppart, "multipart/mixed");
   TestEq(TRUE, RecordExists(SELECT FROM part.subparts WHERE mimetype = 'image/jpeg; name="bob.jpg"'));
 

@@ -1257,6 +1257,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
         , isedit := FALSE
         , ispending := FALSE
         , extradata := DEFAULT RECORD
+        , __formsubmittype := ""
         ], options);
 
     IF(options.guid = "")

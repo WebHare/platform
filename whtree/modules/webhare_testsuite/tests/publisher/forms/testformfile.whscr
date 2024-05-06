@@ -572,6 +572,18 @@ ASYNC MACRO TestFormApp()
   //FIXME TestEq("Pietje", TT(":First name")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  // Remove all remaining mails from queue
+  RECORD ARRAY usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
+  TestEq(2,Length(usermail));
+
+  // Rerun the other visitor response handler and check if the mail is sent again
+  TestEq(3, Length(TT("rerun")->items));
+  TestEq("Another response to visitor", TT("rerun")->items[2].menuitem->title);
+  AWAIT ExpectScreenChange(+1, PTR TT("rerun")->items[2].menuitem->action->TolliumClick);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Yes"));
+  usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 60000, count := 1 ]);
+  TestEq(1,Length(usermail));
+
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Export"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
@@ -589,8 +601,8 @@ ASYNC MACRO TestFormApp()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
   TT("results")->selection := SELECT * FROM TT("results")->rows ORDER BY when DESC LIMIT 1;
 
-  TestEq("Send results depending on conditions", TT("test")->items[0].menuitem->title);
   TestEq(3, Length(TT("test")->items));
+  TestEq("Send results depending on conditions", TT("test")->items[0].menuitem->title);
   AWAIT ExpectScreenChange(+1, PTR TT("test")->items[0].menuitem->action->TolliumClick);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

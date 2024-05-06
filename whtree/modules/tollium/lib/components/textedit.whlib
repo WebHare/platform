@@ -157,6 +157,8 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
   /// Current text value
   STRING pvt_textvalue;
 
+  STRING pvt_selection;
+
 
   /** Record containing values
       @cell val Current value
@@ -229,6 +231,8 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
   /// Current value
   PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC PROPERTY selection(pvt_selection, SetSelection);
 
   /** Contains the type of state to save. Allowed states: 'value'.
   */
@@ -337,6 +341,9 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
   /// Called when value has changed
   PUBLIC FUNCTION PTR onchange;
+
+  /// Called when selection has changed
+  PUBLIC FUNCTION PTR onselect;
 
 
 
@@ -502,7 +509,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
                          , showcounter := this->showcounter
                          , value := this->textvalue
                          , hint := this->hint
-                         , unmasked_events := GetUnmask(this,["change"])
+                         , unmasked_events := GetUnmask(this,["change", "select"])
                          , placeholder := this->GeneratePlaceholder()
                          , autocomplete := this->pvt_autocomplete
                          , autosuggest := this->GetAutoSuggestSetting()
@@ -527,9 +534,16 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     TolliumComponentBase::TolliumWebRender();
   }
 
-  PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD indata)
   {
-    this->textvalue := indata;
+    this->textvalue := indata.value;
+    IF (indata.selection != this->pvt_selection)
+    {
+      this->pvt_selection := indata.selection;
+
+      IF (this->onselect != DEFAULT FUNCTION PTR)
+        this->onselect();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -634,6 +648,12 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     }
   }
 
+  MACRO SetSelection(STRING text)
+  {
+    IF(NOT this->IsValidValue(text))
+      THROW NEW TolliumException(this, "Textedit '" || this->name || "' of type '" || this->pvt_valuetype || "' received a value of type " || GetTypeName(TypeID(text)));
+    this->QueueOutboundMessage("ReplaceSelection", CELL[ text ]);
+  }
 
   MACRO SetPlaceholder(STRING placeholder)
   {
@@ -1210,6 +1230,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     this->pvt_round := def.round;
     this->pvt_validationchecks := def.validationchecks;
     this->onchange := def.onchange;
+    this->onselect := CellExists(def, "onselect") ? def.onselect : DEFAULT FUNCTION PTR; // Combobox doesn't have onselect
     this->placeholder := def.placeholder;
     this->savestate := def.savestate;
     this->autocomplete := def.autocomplete;

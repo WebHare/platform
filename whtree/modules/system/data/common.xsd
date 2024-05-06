@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns="http://www.webhare.net/xmlns/system/common"
-           targetNamespace="http://www.webhare.net/xmlns/system/common"
-           xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           elementFormDefault="qualified"
-           xml:lang="en">
+<xs:schema xmlns="http://www.webhare.net/xmlns/system/common" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.webhare.net/xmlns/system/common" elementFormDefault="qualified" xml:lang="en">
 
   <xs:simpleType name="InstanceId">
     <xs:restriction base="xs:string">
@@ -35,7 +31,7 @@
   <!-- ISO 639-2 language code, optionally followed by the ISO 3166-2 country code. Eg 'nl' or 'en-GB'. -->
   <xs:simpleType name="Locale">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[a-z][a-z](-[A-Z][A-Z])?" />
+      <xs:pattern value="[a-z][a-z](-[A-Z][A-Z])?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -73,14 +69,14 @@
   </xs:simpleType>
 
   <xs:simpleType name="ImageSrcList">
-    <xs:list itemType="ImageSrc" />
+    <xs:list itemType="ImageSrc"/>
   </xs:simpleType>
 
   <!-- A gid: ( modulename ":" (gid.)* gid | "."? gid ( "." gid )* | <empty> )
        See Tid explanation for more info -->
   <xs:simpleType name="Gid">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([-\w_]+:([^:. ]+\.)*[^:. ]+|\.?[^:. ]+(\.[^:. ]+)*)?" />
+      <xs:pattern value="([-\w_]+:([^:. ]+\.)*[^:. ]+|\.?[^:. ]+(\.[^:. ]+)*)?"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -106,7 +102,7 @@
       <xs:documentation>A pointer to a translateable text</xs:documentation>
     </xs:annotation>
     <xs:restriction base="xs:string">
-      <xs:pattern value="[-\w_]+:([^:. ]+\.)+[^:. ]+|[^:. ]*(\.[^:. ]+)+|~([^:. ]+\.)?[^:. ]+" />
+      <xs:pattern value="[-\w_]+:([^:. ]+\.)+[^:. ]+|[^:. ]*(\.[^:. ]+)+|~([^:. ]+\.)?[^:. ]+"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -114,7 +110,7 @@
     <xs:annotation>
       <xs:documentation>A pointer to a translateable rich text</xs:documentation>
     </xs:annotation>
-    <xs:restriction base="Tid" />
+    <xs:restriction base="Tid"/>
   </xs:simpleType>
 
   <!-- a list of '*' or '!*' masks. excluding all special characters for now except for the two globs, in case we want to add more complex patterns-->
@@ -122,7 +118,7 @@
     <xs:list>
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:pattern value="!?[-\w_*?:]+" /> <!-- note '-' must appear first, otherwise it looks like a range -->
+          <xs:pattern value="!?[-\w_*?:]+"/> <!-- note '-' must appear first, otherwise it looks like a range -->
         </xs:restriction>
       </xs:simpleType>
     </xs:list>
@@ -134,7 +130,7 @@
         A TidPtr is like a Tid, but without any intention to have a 'title' counterpart.
       </xs:documentation>
     </xs:annotation>
-    <xs:restriction base="Tid" />
+    <xs:restriction base="Tid"/>
   </xs:simpleType>
 
   <xs:attributeGroup name="TidOrTitle">
@@ -161,7 +157,7 @@
   </xs:simpleType>
 
   <xs:simpleType name="NameList">
-    <xs:list itemType="Name" />
+    <xs:list itemType="Name"/>
   </xs:simpleType>
 
   <xs:attributeGroup name="Required">
@@ -185,8 +181,8 @@
   </xs:attributeGroup>
 
   <xs:attributeGroup name="Placeholder">
-    <xs:attribute name="placeholder" type="xs:string" />
-    <xs:attribute name="placeholdertid"  type="Tid" />
+    <xs:attribute name="placeholder" type="xs:string"/>
+    <xs:attribute name="placeholdertid" type="Tid"/>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="Errorlabel">
@@ -360,30 +356,30 @@
 
   <!-- These are shared between groups and other components -->
   <xs:attributeGroup name="FormCommonAttributes">
-    <xs:attribute name="name" type="xs:string" />
-    <xs:attribute name="pins" type="FormComponentPins" />
-    <xs:attribute name="guid" type="xs:string" />
-    <xs:attributeGroup ref="TidOrTitle" />
-    <xs:attribute name="hidetitle" type="xs:boolean" />
-    <xs:attribute name="comment" type="xs:string" />
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="pins" type="FormComponentPins"/>
+    <xs:attribute name="guid" type="xs:string"/>
+    <xs:attributeGroup ref="TidOrTitle"/>
+    <xs:attribute name="hidetitle" type="xs:boolean"/>
+    <xs:attribute name="comment" type="xs:string"/>
 
-    <xs:attribute name="requiredconditionid" type="InstanceId" />
-    <xs:attribute name="enabledconditionid" type="InstanceId" />
-    <xs:attribute name="visibleconditionid" type="InstanceId" />
+    <xs:attribute name="requiredconditionid" type="InstanceId"/>
+    <xs:attribute name="enabledconditionid" type="InstanceId"/>
+    <xs:attribute name="visibleconditionid" type="InstanceId"/>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="FormGroupAttributes">
-    <xs:attributeGroup ref="FormCommonAttributes" />
+    <xs:attributeGroup ref="FormCommonAttributes"/>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="FormBaseAttributes">
-    <xs:attributeGroup ref="FormCommonAttributes" />
-    <xs:attributeGroup ref="Required" />
-    <xs:attribute name="enabled" type="xs:boolean" />
-    <xs:attribute name="visible" type="xs:boolean" />
-    <xs:attribute name="groupclasses" type="xs:string" />
-    <xs:attribute name="hideinresults" />
-    <xs:attribute name="infotextid" type="InstanceId" />
+    <xs:attributeGroup ref="FormCommonAttributes"/>
+    <xs:attributeGroup ref="Required"/>
+    <xs:attribute name="enabled" type="xs:boolean"/>
+    <xs:attribute name="visible" type="xs:boolean"/>
+    <xs:attribute name="groupclasses" type="xs:string"/>
+    <xs:attribute name="hideinresults"/>
+    <xs:attribute name="infotextid" type="InstanceId"/>
     <xs:attribute name="autocomplete">
       <xs:annotation>
         <xs:documentation>
@@ -395,11 +391,13 @@
   </xs:attributeGroup>
 
   <xs:attributeGroup name="FormHandlerAttributes">
-    <xs:attribute name="name" type="xs:string" />
-    <xs:attribute name="guid" type="xs:string" use="required" />
-    <xs:attribute name="pins" type="FormHandlerPins" />
-    <xs:attribute name="comment" type="xs:string" />
-    <xs:attribute name="conditionid" type="InstanceId" />
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="listlabel" type="xs:string"/>
+    <xs:attribute name="listlabeltid" type="xs:string"/>
+    <xs:attribute name="guid" type="xs:string" use="required"/>
+    <xs:attribute name="pins" type="FormHandlerPins"/>
+    <xs:attribute name="comment" type="xs:string"/>
+    <xs:attribute name="conditionid" type="InstanceId"/>
   </xs:attributeGroup>
 
   <xs:simpleType name="FormAddressOptions">
@@ -423,7 +421,7 @@
   </xs:simpleType>
 
   <xs:complexType name="AllowWidgetType">
-    <xs:attribute name="type" type="xs:anyURI" />
+    <xs:attribute name="type" type="xs:anyURI"/>
     <xs:attribute name="inherit" type="xs:boolean"/>
   </xs:complexType>
 
@@ -507,7 +505,7 @@
       </xs:documentation>
     </xs:annotation>
     <xs:restriction base="xs:string">
-      <xs:pattern value='(\d+px)|0'/>
+      <xs:pattern value="(\d+px)|0"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -544,13 +542,13 @@
       </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="none" />
-          <xs:enumeration value="fit" />
-          <xs:enumeration value="scale" />
-          <xs:enumeration value="fitcanvas" />
-          <xs:enumeration value="scalecanvas" />
-          <xs:enumeration value="fill" />
-          <xs:enumeration value="stretch" />
+          <xs:enumeration value="none"/>
+          <xs:enumeration value="fit"/>
+          <xs:enumeration value="scale"/>
+          <xs:enumeration value="fitcanvas"/>
+          <xs:enumeration value="scalecanvas"/>
+          <xs:enumeration value="fill"/>
+          <xs:enumeration value="stretch"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
@@ -562,9 +560,9 @@
       </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="image/png" />
-          <xs:enumeration value="image/jpeg" />
-          <xs:enumeration value="image/gif" />
+          <xs:enumeration value="image/png"/>
+          <xs:enumeration value="image/jpeg"/>
+          <xs:enumeration value="image/gif"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
@@ -598,7 +596,7 @@
   </xs:simpleType>
 
   <xs:attributeGroup name="ImageEditSettings">
-    <xs:attributeGroup ref="ImageResizeSettings" />
+    <xs:attributeGroup ref="ImageResizeSettings"/>
     <xs:attribute name="allowedactions" default="all">
       <xs:annotation>
         <xs:documentation>
@@ -610,11 +608,11 @@
         <xs:list>
           <xs:simpleType>
             <xs:restriction base="xs:string">
-              <xs:enumeration value="all" />
-              <xs:enumeration value="crop" />
-              <xs:enumeration value="rotate" />
-              <xs:enumeration value="filters" />
-              <xs:enumeration value="refpoint" />
+              <xs:enumeration value="all"/>
+              <xs:enumeration value="crop"/>
+              <xs:enumeration value="rotate"/>
+              <xs:enumeration value="filters"/>
+              <xs:enumeration value="refpoint"/>
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
@@ -724,20 +722,20 @@
   </xs:simpleType>
 
   <xs:simpleType name="OptionallyQualifiedWildcardedNameList">
-    <xs:list itemType="OptionallyQualifiedWildcardedName" />
+    <xs:list itemType="OptionallyQualifiedWildcardedName"/>
   </xs:simpleType>
 
   <xs:complexType name="Intercept">
-    <xs:attribute name="name" type="Name" use="required" />
-    <xs:attribute name="target" type="OptionallyQualifiedName" use="required" />
-    <xs:attribute name="runafter" type="OptionallyQualifiedWildcardedNameList" />
-    <xs:attribute name="runbefore" type="OptionallyQualifiedWildcardedNameList" />
+    <xs:attribute name="name" type="Name" use="required"/>
+    <xs:attribute name="target" type="OptionallyQualifiedName" use="required"/>
+    <xs:attribute name="runafter" type="OptionallyQualifiedWildcardedNameList"/>
+    <xs:attribute name="runbefore" type="OptionallyQualifiedWildcardedNameList"/>
 
-    <xs:attribute name="interceptfunction" type="xs:string" use="required" />
-    <xs:attributeGroup ref="ApplicabletoWebHare" />
+    <xs:attribute name="interceptfunction" type="xs:string" use="required"/>
+    <xs:attributeGroup ref="ApplicabletoWebHare"/>
   </xs:complexType>
 
   <!-- APPINFO -->
-  <xs:element name="deprecated" type="xs:string" />
+  <xs:element name="deprecated" type="xs:string"/>
 
 </xs:schema>

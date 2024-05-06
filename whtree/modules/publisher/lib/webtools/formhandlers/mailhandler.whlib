@@ -4,6 +4,7 @@
 */
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/smtp.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -76,6 +77,10 @@ STATIC OBJECTTYPE MailHandler EXTEND FormHandlerBase
 <
   STRING handlertype;
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsRerunnable()
+  {
+    RETURN TRUE;
+  }
   UPDATE PUBLIC BOOLEAN FUNCTION IsTestableForResults()
   {
     RETURN TRUE;
@@ -263,6 +268,7 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
         ^emailcontents->rtd->value := instance.data;
     }
     ^subject->value := this->node->GetAttribute("subject");
+    ^subjectwitty->value := ParseXSBoolean(this->node->GetAttribute("subjectwitty"));
 
     ^sender->value := this->node->GetAttribute("sender");
     ^sendername->value := this->node->GetAttribute("sendername");
@@ -371,6 +377,11 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
       ELSE
         this->node->RemoveAttribute("subject");
 
+      IF (^subjectwitty->value)
+        this->node->SetAttribute("subjectwitty", "true");
+      ELSE
+        this->node->RemoveAttribute("subjectwitty");
+
       IF (^emailcontents->applytemplate->value != "")
         this->node->SetAttribute("applytemplate", ^emailcontents->applytemplate->value);
       ELSE
@@ -417,6 +428,23 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
         this->node->SetAttribute("textid", instanceid);
       }
       this->node->SetAttribute("addresults", ^emailcontents->addresults->value ? "true" : "false");
+    }
+  }
+
+  MACRO OnSubjectWittyChange()
+  {
+    ^insertsubjectwittybutton->visible := ^subjectwitty->value;
+  }
+
+  MACRO DoInsertSubjectWitty()
+  {
+    STRING field;
+    IF (^subject->selection LIKE "[*]")
+      field := Substring(^subject->selection, 1, Length(^subject->selection) - 2);
+    field := this->owner->RunScreen("mod::publisher/screens/formhandlers.xml#selectwittyfield", CELL[ field ]);
+    IF (field != "")
+    {
+      ^subject->selection := `[${field}]`;
     }
   }
 >;
@@ -666,6 +694,23 @@ PUBLIC STATIC OBJECTTYPE MailResultsEditor EXTEND MailHandlerEditor
   }
 >;
 
+PUBLIC STATIC OBJECTTYPE SelectWittyField EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD ARRAY options;
+    FOREVERY (RECORD field FROM this->contexts->formcomponentapi->GetFieldsForTypes(["string"], [ scope := "backend" ]))
+      INSERT CELL[ rowkey := ToLowercase(field.name), title := GetTid(field.title) ] INTO options AT END;
+    ^fieldname->options := options;
+    ^fieldname->SetValueIfValid(data.field);
+  }
+
+  STRING FUNCTION Submit()
+  {
+    RETURN ^fieldname->value;
+  }
+>;
+
 
 ///////////////////////
 //
@@ -710,7 +755,18 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
                                                              ]) INTO mail->mergerecord;
 
   IF(settings.subject != "")
+  {
     mail->subject := settings.subject;
+    IF (settings.subjectwitty)
+    {
+      RECORD subjectmergefields;
+      FOREVERY (RECORD field FROM mailmergedata.allfields)
+        subjectmergefields := CellInsert(subjectmergefields, field.fieldname, field.text);
+      OBJECT subjectwitty := NEW WittyTemplate("TEXT");
+      subjectwitty->LoadCodeDirect(mail->subject);
+      mail->subject := subjectwitty->RunToString(subjectmergefields);
+    }
+  }
 
   SWITCH (handlertype)
   {
@@ -779,7 +835,20 @@ STATIC OBJECTTYPE MailHandlerTask EXTEND FormHandlerTaskBase
 
   UPDATE PUBLIC MACRO RunFormTask(RECORD results)
   {
-    OBJECT mail := GetTaskMail(this->settings, results, this->handlertype, this->formdefinition, this->formresults, this->GetExtraMergeData(results));
+    OBJECT mail;
+    TRY
+      mail := GetTaskMail(this->settings, results, this->handlertype, this->formdefinition, this->formresults, this->GetExtraMergeData(results));
+    CATCH (OBJECT<WittyParseException> e)
+    {
+      this->ResolveByFailure([ subject := this->settings.subject ], "Invalid subject witty: " || e->what);
+      RETURN;
+    }
+    CATCH (OBJECT<WittyRuntimeException> e)
+    {
+      this->ResolveByFailure([ subject := this->settings.subject ], "Subject witty field not found: " || e->what);
+      RETURN;
+    }
+
     IF(mail->mailfrom != "" AND NOT IsValidEmailAddress(mail->mailfrom))
     {
       this->ResolveByFailure([ sender := mail->mailfrom ], "Invalid sender");
@@ -845,6 +914,7 @@ RECORD FUNCTION ParseMailHandler(RECORD fielddef, OBJECT node, RECORD parseconte
                   , text             := DEFAULT RECORD
                   , addresults       := ParseXSBoolean(node->GetAttribute("addresults"))
                   , subject          := node->GetAttribute("subject")
+                  , subjectwitty     := ParseXSBoolean(node->GetAttribute("subjectwitty"))
                   , mailtemplate     := node->GetAttribute("mailtemplate")
                   , originaltemplate := node->GetAttribute("originaltemplate")
                   , applytemplate    := node->GetAttribute("applytemplate")

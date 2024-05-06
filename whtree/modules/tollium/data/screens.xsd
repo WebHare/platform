@@ -2289,6 +2289,16 @@ To change a <xs:attribute /> for adding descriptions
         <xs:list itemType="xs:string" />
       </xs:simpleType>
     </xs:attribute>
+    <xs:attribute name="onselect" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          The function to call when the text selection has changed.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="Image">

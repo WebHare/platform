@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl">
   <textgroup gid="backgroundtasks">   <!-- backgroundtasks -->
     <textgroup gid="archiver">   <!-- backgroundtasks.archiver -->
       <text tid="archivecorrupt">Kan dit archief niet uitpakken, het is waarschijnlijk corrupt of gedeeltelijk afgebroken.</text>
@@ -2055,6 +2055,7 @@
         <text tid="condition">Voorwaarde</text>
         <text tid="dependencies">Afhankelijkheden</text>
         <text tid="edithandler">Afhandeling aanpassen</text>
+        <text tid="listlabel">Titel in editor</text>
         <text tid="pins">Bescherming</text>
         <text tid="pins-existence">Bescherm tegen verwijderen</text>
         <text tid="settings">Instellingen</text>
@@ -2074,9 +2075,11 @@
           <text tid="delaymailsending">Verstuur deze mail pas later</text>
           <text tid="editmailto">Wijzig mail naar</text>
           <text tid="emailcontents">E-mailbericht</text>
+          <text tid="fieldname">Veld</text>
           <text tid="file">Bestand</text>
           <text tid="files">Deze bestanden worden als bijlagen bij de e-mail meegezonden</text>
           <text tid="fsobject">Kies een sjabloon:</text>
+          <text tid="insertsubjectwittybutton">Samenvoegveld invoegen</text>
           <text tid="mailprops">E-maileigenschappen</text>
           <text tid="mailto">Mail naar</text>
           <text tid="mailwaitat">om</text>
@@ -2092,11 +2095,13 @@
           <text tid="replytoexplain">(kies bij voorkeur het e-mailadres van de bezoeker)</text>
           <text tid="replytofield">Antwoord aan</text>
           <text tid="rtd">E-mailinhoud</text>
+          <text tid="selectwittyfield">Samenvoegveld</text>
           <text tid="sender">Afzenderadres</text>
           <text tid="sendername">Afzendernaam</text>
           <text tid="sendernameexplain">kies bij voorkeur de naam van de bezoeker</text>
           <text tid="sendernamefield">Afzendernaam</text>
           <text tid="subject">Onderwerp</text>
+          <text tid="subjectwitty">Samenvoegvelden in onderwerp toestaan</text>
           <text tid="templatetype">Mailsjabloon</text>
           <text tid="templatetype-rtd">Stel hieronder het e-mailbericht op:</text>
         </textgroup>
@@ -2128,6 +2133,7 @@
       <textgroup gid="results">   <!-- tolliumapps.formedit.results -->
         <text tid="confirmdeleteresult">Weet u zeker dat u het geselecteerde resultaat wil verwijderen ?</text>
         <text tid="confirmdeleteresults">Weet u zeker dat u <param p="1"/> geselecteerde resultaten wil verwijderen ?</text>
+        <text tid="confirmrerunhandler">Weet u zeker dat u de afhandeling '<param p="1"/>' opnieuw wil uitvoeren voor <ifparam p="2" value="1">dit resultaat<else/>deze <param p="2"/> resultaten</ifparam>?</text>
         <text tid="exportresultsformigration">Exporteren voor migratie</text>
         <text tid="exportresultswithattachments">Exporteren met uploads</text>
         <text tid="importerror">Fout bij importeren:<br/><br/><param p="1"/></text>
@@ -2138,6 +2144,7 @@
         <text tid="ipcountrycode">IP-landcode</text>
         <text tid="noresults">Er zijn nog geen resultaten</text>
         <text tid="numresults">Aantal resultaten</text>
+        <text tid="rerun">Afhandeling opnieuw uitvoeren</text>
         <text tid="results">Resultaten</text>
         <text tid="showexpiredresults">Verlopen resultaten tonen</text>
         <text tid="showpendingresults">Onbevestigde resultaten tonen</text>

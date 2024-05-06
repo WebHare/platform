@@ -9,6 +9,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/validation.whlib";
 LOADLIB "mod::webhare_testsuite/lib/publisher/formtests.whlib";
 
@@ -71,6 +72,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , iswidget := FALSE
                               , publish := TRUE
                               , custommergefields := FALSE
+                              , subjectwitty := FALSE
                               , embeddedresults := FALSE
                               , mailconfirmation := FALSE
                               , customformedits := DEFAULT MACRO PTR
@@ -842,7 +844,14 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   mailhandler2->SetAttribute("sendername","Pietje");
   mailhandler2->SetAttribute("sender","mailfeedbackhandler@beta.webhare.net");
   mailhandler2->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
-  mailhandler2->SetAttribute("subject", "About Your Submission");
+  IF (options.subjectwitty)
+  {
+    // Insert first name and email into the subject line, add escaped '[[' and witty comment for good measure
+    mailhandler2->SetAttribute("subject", `[[testform] [! This should be ignored !]Hi [${firstnamefield->GetAttribute("name") ?? FieldNameFromGuid(firstnamefield->GetAttribute("guid"))}], About Your Submission For [${options.emailfieldname ?? emailfield->GetAttribute("name") ?? FieldNameFromGuid(emailfield->GetAttribute("guid"))}]`);
+    mailhandler2->SetAttribute("subjectwitty", "true");
+  }
+  ELSE
+    mailhandler2->SetAttribute("subject", "About Your Submission");
   mailhandler2->SetAttribute("mailtemplate", formdefs->CreateLinkRef(mailtemplate->id));
   mailhandler2->SetAttribute("bcc", "mailresult+bcc@beta.webhare.net, mailresult+bcc2@beta.webhare.net");
   IF (options.addfeedbackattachments)
@@ -894,6 +903,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     mailhandler3->SetAttribute("sender","info@beta.webhare.net");
     mailhandler3->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
     mailhandler3->SetAttribute("subject", "Another communication about your Submission");
+    mailhandler3->SetAttribute("listlabel", "Another response to visitor");
 
 
     //Create a simple RTD response with an image
