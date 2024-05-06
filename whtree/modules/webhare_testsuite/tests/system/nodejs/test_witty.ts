@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services/src/services";
 import { encodeString } from "@webhare/std";
-import { WittyTemplate, EncodingStyles, WittyError, WittyErrorCode, WittyCallContext } from "@webhare/witty";
+import { WittyTemplate, WittyEncodingStyle, WittyError, WittyErrorCode, WittyCallContext } from "@webhare/witty";
 import { registerTexts, setTidLanguage } from "@mod-tollium/js/gettid";
 import { debugFlags } from "@webhare/env";
 
@@ -179,11 +179,11 @@ async function encodingSensitivity() {
   test.eq("<a href=\">'>&#10;", await witty.run({ test1: "\n" }));
 
   //Test other encodings
-  witty = new WittyTemplate("[test1]", { encoding: EncodingStyles.XML });
+  witty = new WittyTemplate("[test1]", { encoding: WittyEncodingStyle.XML });
   test.eq("&lt;", await witty.run({ test1: "<" }));
   test.eq("&#10;", await witty.run({ test1: "\n" }));
 
-  witty = new WittyTemplate("[test1]", { encoding: EncodingStyles.Text });
+  witty = new WittyTemplate("[test1]", { encoding: WittyEncodingStyle.Text });
   test.eq("<", await witty.run({ test1: "<" }));
   test.eq("\n", await witty.run({ test1: "\n" }));
 }

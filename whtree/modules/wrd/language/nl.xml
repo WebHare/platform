@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl">
   <textgroup gid="authobjects">   <!-- authobjects -->
     <text tid="deleteduser">verwijderde gebruiker #<param p="1"/></text>
     <text tid="nametoolong">De gekozen naam is te lang.</text>
@@ -421,7 +421,7 @@
     <text tid="confirmoldrestore">Weet u zeker dat u de 'oude' waarde van deze geschiedenisregel als huidige waarde wil instellen ?</text>
     <text tid="creation">nieuwe waarde</text>
     <text tid="entitychanges">Wijzigingen</text>
-    <text tid="keepinghistory">De wijzigsgeschiedenis wordt <param p="1"/> dag(en) bijgehouden</text>
+    <text tid="keepinghistory">De wijzigingsgeschiedenis wordt <param p="1"/> dag(en) bijgehouden</text>
     <text tid="newvalue">Nieuw</text>
     <text tid="notkeepinghistory">De wijzigingsgeschiedenis wordt momenteel niet bijgehouden</text>
     <text tid="oldvalue">Oud</text>

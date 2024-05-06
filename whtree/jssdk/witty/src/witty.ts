@@ -20,7 +20,7 @@ enum ParserStates {
   RawComponent
 }
 
-export enum EncodingStyles {
+export enum WittyEncodingStyle {
   Invalid = 0,
   Text,
   HTML,
@@ -37,10 +37,10 @@ enum ContentEncoding {
   Json
 }
 
-function GetNonquoteEncoding(encodingstyle: EncodingStyles): ContentEncoding {
-  if (encodingstyle === EncodingStyles.HTML)
+function GetNonquoteEncoding(encodingstyle: WittyEncodingStyle): ContentEncoding {
+  if (encodingstyle === WittyEncodingStyle.HTML)
     return ContentEncoding.Html;
-  else if (encodingstyle === EncodingStyles.XML)
+  else if (encodingstyle === WittyEncodingStyle.XML)
     return ContentEncoding.Value;
   else
     return ContentEncoding.None;
@@ -216,13 +216,13 @@ export type WittyData = WittyVar | WittyVar[] | {
 };
 
 export type WittyOptions = {
-  encoding?: EncodingStyles;
+  encoding?: WittyEncodingStyle;
   getTidModule?: string;
   loader?: WittyTemplateLoader;
 };
 
 export class WittyTemplate {
-  private encoding: EncodingStyles;
+  private encoding: WittyEncodingStyle;
   private parts: ParsedPart[] = [];
   private stringSource = "";
   private blockstack: ParsedPart[] = [];
@@ -241,7 +241,7 @@ export class WittyTemplate {
   //
 
   constructor(data: string, options?: WittyOptions & { _resource?: string }) {
-    this.encoding = options?.encoding || EncodingStyles.HTML;
+    this.encoding = options?.encoding || WittyEncodingStyle.HTML;
     this.loader = options?.loader;
     this.resource = options?._resource || "";
 
@@ -308,7 +308,7 @@ export class WittyTemplate {
   //
 
   private readWitty(data: string): boolean {
-    let state: ParserStates = this.encoding === EncodingStyles.Text ? ParserStates.Text : ParserStates.Content;
+    let state: ParserStates = this.encoding === WittyEncodingStyle.Text ? ParserStates.Text : ParserStates.Content;
 
     let inComment = false;
     let lineNum = 1, columnNum = 1;
@@ -760,7 +760,7 @@ export class WittyTemplate {
           this.blockstack.pop();
           start = commandEnd;
           if (state === ParserStates.RawComponent)
-            state = this.encoding === EncodingStyles.Text ? ParserStates.Text : ParserStates.Content;
+            state = this.encoding === WittyEncodingStyle.Text ? ParserStates.Text : ParserStates.Content;
           else if (state === ParserStates.Tag || state === ParserStates.TagSQuote || state === ParserStates.TagDQuote)
             state = ParserStates.Content;
           break;

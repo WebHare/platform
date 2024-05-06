@@ -8,9 +8,11 @@ export type LibraryData = {
   dynamicloader: boolean;
   directloads: string[];
   resources: string[];
+  resourceCallbacks?: Map<string, Array<() => void>>;
 };
 
 const libdata: Record<string, LibraryData | undefined> = {};
+const events: Array<{ when: Date; event: "invalidation" | "eviction"; path: string }> = [];
 
 function extractRealPathCache(): Map<string, string> {
   /* The commonJS loader has its own cache for realpath translation, which we
@@ -91,6 +93,20 @@ export function registerLoadedResource(mod: NodeModule, path: string) {
     console.log(`[hmr] register resource ${path} by module ${mod.id}`);
 }
 
+/** Register a loaded resource that can be invalided without the module being invalidated.
+ * When the module is invalidated, the callback will be discarded
+ */
+export function registerLoadedResourceWithCallback(mod: NodeModule, path: string, callback: () => void) {
+  let lib = libdata[mod.id];
+  if (!lib)
+    libdata[mod.id] = lib = { fixed: false, dynamicloader: false, directloads: [], resources: [] };
+  lib.resourceCallbacks ??= new Map<string, Array<() => void>>();
+  let callbacks = lib.resourceCallbacks.get(path);
+  if (!callbacks)
+    lib.resourceCallbacks.set(path, callbacks = []);
+  callbacks.push(callback);
+}
+
 let deferred: Set<string> | null = new Set<string>;
 
 /** Invalidate libraries in module cache
@@ -103,8 +119,12 @@ export function handleModuleInvalidation(path: string) {
     deferred.add(path);
     return;
   }
+
   if (debugFlags.hmr)
     console.log(`[hmr] handle invalidation of ${path}`);
+
+  events.push({ when: new Date(), event: "invalidation", path });
+
   const toinvalidate: string[] = Object.keys(require.cache).filter(key => {
     if (!key.startsWith(path))
       return false;
@@ -116,11 +136,19 @@ export function handleModuleInvalidation(path: string) {
     return true;
   });
 
+  const toInvalidateCallbacks = new Array<() => void>;
   for (const [key, lib] of Object.entries(libdata)) {
     if (lib?.resources.includes(path) && !toinvalidate.includes(key) && !lib?.fixed) {
       if (debugFlags.hmr)
-        console.log(`[hmr] resource ${path} was loaded as resource by module ${key}`);
+        console.log(`[hmr] resource ${path} was loaded as depending resource by module ${key}`);
       toinvalidate.push(key);
+    }
+    const callbacks = lib?.resourceCallbacks?.get(path);
+    if (callbacks && lib?.resourceCallbacks) {
+      if (debugFlags.hmr)
+        console.log(`[hmr] resource ${path} was loaded by module ${key} with invalidation callbacks`);
+      toInvalidateCallbacks.push(...callbacks);
+      lib.resourceCallbacks.delete(path);
     }
   }
 
@@ -146,12 +174,17 @@ export function handleModuleInvalidation(path: string) {
       console.log(`[hmr] evict module ${key} from the cache`);
     delete require.cache[key];
     delete libdata[key];
+    events.push({ when: new Date(), event: "eviction", path: key });
   }
 
   // Remove the invalidated libraries from the list of children of libraries that loaded them
   for (const mod of Object.values(require.cache))
     if (mod)
       mod.children = mod.children.filter(child => !toinvalidate.includes(child.id));
+
+  // Call the invalidation callbacks
+  for (const callback of toInvalidateCallbacks)
+    callback();
 
   if (debugFlags.hmr)
     console.log(`[hmr] Invalidation handled`);
@@ -206,6 +239,20 @@ export function handleSoftReset() {
     handleModuleInvalidation(key);
   }
 
+  // Gather all files with callbacks that have been invalidated
+  const toInvalidateCallbacks = new Array<() => void>;
+  for (const [key, lib] of Object.entries(libdata)) {
+    if (lib?.resourceCallbacks)
+      for (const [path, callbacks] of lib.resourceCallbacks) {
+        if (isInvalidPath(path)) {
+          if (debugFlags.hmr)
+            console.log(`[hmr] resource ${path} was loaded by module ${key} with invalidation callbacks`);
+          toInvalidateCallbacks.push(...callbacks);
+          lib.resourceCallbacks.delete(path);
+        }
+      }
+  }
+
   /* Remove all path cache entries that contain an outdated module path somewhere
      Format of an entry: { "lookuppath\x00list-of-lookup-paths.join("\x00"): "resolvedpath"}
   */
@@ -228,6 +275,10 @@ export function handleSoftReset() {
   for (const [key] of realpathcache_todelete) {
     realpathCache.delete(key);
   }
+
+  // Call the invalidation callbacks
+  for (const callback of toInvalidateCallbacks)
+    callback();
 }
 
 export function activate() {
@@ -244,6 +295,7 @@ export function activate() {
 export type State = {
   modulecache: Array<{ id: string; children: string[] }>;
   registrations: Array<{ id: string } & LibraryData>;
+  events: Array<{ when: Date; event: "invalidation" | "eviction"; path: string }>;
 };
 
 export function getState(): State {
@@ -254,6 +306,7 @@ export function getState(): State {
 
   return {
     modulecache: Array.from(Object.entries(require.cache)).map(([key, value]) => ({ id: key, children: value?.children.map(c => c.id) ?? [] })),
-    registrations
+    registrations,
+    events,
   };
 }

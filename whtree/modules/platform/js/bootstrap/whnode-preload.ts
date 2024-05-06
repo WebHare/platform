@@ -2,6 +2,7 @@
 
 import { addConfigUpdateHandler, backendConfig, getFullConfigFile } from '@mod-system/js/internal/configuration';
 import { debugFlags, initEnv, updateDebugConfig } from '@webhare/env/src/envbackend';
+import { setGetTidHooksFactory } from '@webhare/gettid/src/hooks';
 import { env } from "node:process";
 
 
@@ -14,3 +15,6 @@ addConfigUpdateHandler(() => updateDebugConfig(getFullConfigFile().debugsettings
 for (const flag of env.WEBHARE_DEBUG?.split(',') || [])
   if (flag)
     debugFlags[flag] = true;
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+setGetTidHooksFactory(() => require("@mod-tollium/js/internal/gettid_nodehooks.ts").getGetTidNodeHooks());

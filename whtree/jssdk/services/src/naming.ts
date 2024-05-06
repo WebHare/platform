@@ -28,7 +28,7 @@ export function isValidModuleScopedName(eventname: string): boolean {
 export function checkModuleScopedName(name: string): string[] {
   const split = splitModuleScopedName(name);
   if (!split)
-    throw new Error(`Invalid name for module-scoped resourced '${name}'`);
+    throw new Error(`Invalid name for module-scoped resource '${name}'`);
 
   return split;
 }

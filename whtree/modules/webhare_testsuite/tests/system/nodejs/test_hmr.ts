@@ -2,7 +2,7 @@ import { map } from "./hmrlibs/keeper";
 import * as test from "@webhare/test";
 import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { activate } from "@mod-system/js/internal/hmrinternal";
+import { registerLoadedResourceWithCallback, activate } from "@mod-system/js/internal/hmrinternal";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { toFSPath, backendConfig } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -93,6 +93,14 @@ async function testFileEdits() {
     "dep2.ts": 6,
     "static.ts": 7
   }, map);
+
+  // test callbacks
+  const stateTest = { count: 0 };
+  registerLoadedResourceWithCallback(module, path_resource, () => {
+    stateTest.count++;
+  });
+  await storeDiskFile(path_resource, fs.readFileSync(path_resource, "utf-8"), { overwrite: true });
+  await test.wait(() => stateTest.count === 1);
 }
 
 async function testModuleReplacement() {

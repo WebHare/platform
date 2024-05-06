@@ -240,7 +240,7 @@ STRING FUNCTION ExecuteCompiledTidText(VARIANT text, STRING ARRAY params, BOOLEA
         {
           STRING link := tok.link;
           IF(tok.linkparam > 0 AND tok.linkparam <= Length(params))
-            link := params[tok.linkparam - 1];
+            link := params[tok.linkparam - 1] ?? link;
 
           IF(link != "")
             output := output || `<a href="${EncodeValue(link)}">${sub}</a>`;
@@ -345,7 +345,7 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
 
   INTEGER modsep := SearchSubstring(tid,':');
   IF(modsep = -1)
-    RETURN WrapForMode(`(missing module name in tid '${tid}')`, rich);
+    RETURN WrapForMode(`(missing module name in tid: ${tid})`, rich);
 
   STRING module := Left(tid, modsep);
   IF(tid LIKE "* *") //spaces? map to underscore, but NOT the modulename.

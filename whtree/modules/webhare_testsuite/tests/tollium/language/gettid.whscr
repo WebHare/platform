@@ -40,6 +40,7 @@ MACRO TidCompilerTest()
   TestEq('Use this link to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam"));
   TestEq('Use <a href="http://www.webhare.net/">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam","http://www.webhare.net/"));
   TestEq('Use <a href="x-fallback:">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2"));
+  TestEq('Use <a href="x-fallback:">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2", "", "unused"));
   TestEq('Use <a href="x-test:a&#38;b">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2","x-test:a&b"));
 
   //Builtins
@@ -63,17 +64,17 @@ MACRO SetupTestModule_LanguageFiles()
   testfw->SetupTestModule();
 
   OBJECT srcwitty := LoadWittyLibrary("mod::webhare_testsuite/lib/system/testmodule.witty", "TEXT");
-  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/default.xml", srcwitty->RunComponentToBlob("language_default", RECORD[]), [ overwrite := TRUE ]);
-  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/nl.xml", srcwitty->RunComponentToBlob("language_nl", RECORD[]), [ overwrite := TRUE ]);
-  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xx.xml", srcwitty->RunComponentToBlob("language_xx", RECORD[]), [ overwrite := TRUE ]);
-  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xy.xml", srcwitty->RunComponentToBlob("language_xy", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/default.xml", srcwitty->RunComponentToBlob("language_default", CELL[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/nl.xml", srcwitty->RunComponentToBlob("language_nl", CELL[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xx.xml", srcwitty->RunComponentToBlob("language_xx", CELL[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xy.xml", srcwitty->RunComponentToBlob("language_xy", CELL[ modifiedtext := "v1" ]), [ overwrite := TRUE ]);
 }
 
 MACRO GetTidTest()
 {
   SetTidLanguage("en");
-  TestEq('(missing module name in tid \'notifications.messagefromthefuture\')', GetTid("notifications.messagefromthefuture"));
-  TestEq('(missing module name in tid \'notifications.messagefromthefuture\')', GetHTMLTid("notifications.messagefromthefuture"));
+  TestEq('(missing module name in tid: notifications.messagefromthefuture)', GetTid("notifications.messagefromthefuture"));
+  TestEq('(missing module name in tid: notifications.messagefromthefuture)', GetHTMLTid("notifications.messagefromthefuture"));
   TestEq("A message with underscores", GetTid("webhare_testsuite_temp:notifications.message_from_the_future"));
   TestEq("A message with underscores", GetTid("webhare_testsuite_temp:notifications.message from the future"));
   TestEq('(cannot find text: webhare testsuite temp:notifications.message_from_the_future)', GetTid("webhare testsuite temp:notifications.message from the future"));
