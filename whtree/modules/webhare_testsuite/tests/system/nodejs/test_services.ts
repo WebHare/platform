@@ -87,6 +87,8 @@ async function testServiceState() {
   const instance2 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
   const instance3 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance3"], { linger: true });
 
+  test.assert(!("emit" in instance1), "although close() is (re)defined, emit should never be visible");
+
   const instance1closed = new Promise<void>(resolve => instance1.addEventListener("close", () => resolve(), { once: true }));
   const instance3closed = new Promise<void>(resolve => instance3.addEventListener("close", () => resolve(), { once: true }));
 
