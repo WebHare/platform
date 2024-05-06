@@ -741,7 +741,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         { //We'll need to do afterfiltering ..
           all_handled := FALSE;
         }
-        ELSE IF (single->history_mode != "__getfields") //__getfields is used by getentityfield(s) to be able to select temporaries too
+        ELSE IF (single->history_mode NOT IN ["unfiltered","__getfields"]) //__getfields is used by getentityfield(s) to be able to select temporaries too - although JS uses the new 'active' filter for that
         {
           query->AddConstraint(single->name || ".creationdate", "<", single->when_limit);
           query->AddConstraint(single->name || ".limitdate", ">", single->when_start);
@@ -4316,7 +4316,7 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
                   - 'at': Return all entities that were valid at 'when'
                   - 'range': Return all entities that were valid in the range [ 'when_start', 'when_limit' ]
                   - 'all': Return all entities (excluding temporaries)
-                  - '__getfields': Return all entities (including temporaries)
+                  - 'unfiltered': Return all entities (including temporaries)
     @cell(datetime) querydata.sources.when For history mode 'at', date when entities must be valid to be returned
     @cell(datetime) querydata.sources.when_start For history mode 'range', start of the range where entities must have been valid in to be returned
     @cell(datetime) querydata.sources.when_limit For history mode 'range', limit of the range where entities must have been valid in to be returned
@@ -4460,10 +4460,10 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
       CASE "now"
         { // historymode "now" will be filled in at query execution start, instead of query construction
         }
-      CASE "all","__getfields","active" { }
+      CASE "all","__getfields","active","unfiltered" { }
       CASE "at"         { obj->when_start := source.when; obj->when_limit := source.when = MAX_DATETIME ? MAX_DATETIME : AddTimeToDate(1, source.when); }
       CASE "range"      { obj->when_start := source.when_start; obj->when_limit := source.when_limit; }
-      DEFAULT           { THROW NEW Exception(`Illegal historymode '${historymode}', acceptable modes are 'now', 'all', 'at', 'range'`); }
+      DEFAULT           { THROW NEW Exception(`Illegal historymode '${historymode}', acceptable modes are 'now', 'all', 'at', 'range', 'active', 'unfiltered`); }
     }
     obj->history_mode := historymode;
 
