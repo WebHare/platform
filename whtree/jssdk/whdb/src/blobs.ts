@@ -138,7 +138,7 @@ export const BlobType: DataType = {
   },
 
   isType(v: unknown): boolean {
-    return v instanceof WebHareBlob;
+    return WebHareBlob.isWebHareBlob(v);
   },
 };
 

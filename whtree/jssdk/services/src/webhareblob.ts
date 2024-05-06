@@ -4,19 +4,20 @@ import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
 import { Readable } from "node:stream";
+import { brandWebhareBlob } from "./symbols";
 
 
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
 export abstract class WebHareBlob {
   private readonly _size: number;
+  private [brandWebhareBlob] = true;
 
   constructor(size: number) {
     this._size = size;
   }
 
   static isWebHareBlob(thingy: unknown): thingy is WebHareBlob {
-    //TODO cross-realm/HMR support
-    return thingy instanceof WebHareBlob;
+    return Boolean((thingy as WebHareBlob)?.[brandWebhareBlob]);
   }
 
   /** Create a in-memory WebHareBlob from a string */

@@ -258,7 +258,7 @@ async function testHSON() {
   const encval_blob = encodeHSON(WebHareBlob.from("Ik ben een blob"));
   test.eq('hson:b"' + btoa("Ik ben een blob") + '"', encval_blob);
   const decoded_blob = decodeHSON(encval_blob);
-  test.assert(decoded_blob instanceof WebHareBlob);
+  test.assert(WebHareBlob.isWebHareBlob(decoded_blob));
   test.eq("Ik ben een blob", await decoded_blob.text());
 
   testHSONEnDeCode('hson:m -92233720.75808', new Money("-92233720.75808"));

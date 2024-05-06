@@ -388,7 +388,7 @@ export function determineType(value: unknown): VariableType {
     case "object": {
       if (value?.[Marshaller])
         return value[Marshaller].type;
-      if (value instanceof WebHareBlob)
+      if (WebHareBlob.isWebHareBlob(value))
         return VariableType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
         return VariableType.String;
