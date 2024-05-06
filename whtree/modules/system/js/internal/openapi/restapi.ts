@@ -264,7 +264,7 @@ export class RestAPI {
     return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
   }
 
-  close() {
+  [Symbol.dispose]() {
     this.workerPool.close();
   }
 }

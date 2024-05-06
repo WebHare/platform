@@ -32,7 +32,7 @@ export class BackendServiceConnection {
   }
 
   /** Invoke to close this connection. This will cause onClose to be invoked */
-  close() {
+  [Symbol.dispose]() {
     this.#link?.link.close();
   }
 

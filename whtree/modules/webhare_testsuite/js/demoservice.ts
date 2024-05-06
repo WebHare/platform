@@ -88,7 +88,7 @@ class ClusterTestLink extends ClusterTestLinkBase {
   closeConnection(name: string) {
     if (!this.mainobject?.connections.has(name))
       throw new Error("No such connection");
-    this.mainobject?.connections.get(name)?.close();
+    this.mainobject?.connections.get(name)?.[Symbol.dispose]();
   }
   onClose() {
     this.mainobject?.connections.delete(this.testdata);
@@ -98,8 +98,8 @@ class ClusterTestLink extends ClusterTestLinkBase {
   emit(event: string, data: unknown) {
     super.emit(event, data);
   }
-  close() {
-    super.close();
+  [Symbol.dispose]() {
+    super[Symbol.dispose]();
   }
 }
 
