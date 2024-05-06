@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="aaa">   <!-- aaa -->
     <textgroup gid="limitlanguage_en" limitlanguages="en">   <!-- aaa.limitlanguage_en -->
       <text tid="one">One</text>
@@ -71,6 +71,7 @@
     <text tid="beschikbaarheid-verkocht">Verkocht</text>
     <text tid="mainedit">Mainedit</text>
     <text tid="maxextras">Please note: max <param p="1"/> <ifparam p="1" value="1">person<else/>persons</ifparam></text>
+    <text tid="testencoding">english a&amp;b&lt;c</text>
     <text tid="yattab">Yet Another Tab</text>
     <textgroup gid="testgroup" keepemptyreason="Used for tid system tests">   <!-- test.testgroup -->
       <text tid="node">Node text</text>

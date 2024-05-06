@@ -97,6 +97,16 @@ async function testSiteResponseApplies() {
   test.eq("ps-AF", langPsAFDoc.documentElement.getAttribute("lang"));
 }
 
+async function testPublishedJSSite() {
+  const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
+  const jsrenderedfetch = await fetch(jsrendereddoc.link);
+  test.assert(jsrenderedfetch.ok);
+  const jsresultdoc = parseHTMLDoc(await jsrenderedfetch.text());
+  test.eq("nl", jsresultdoc.documentElement.getAttribute("lang"));
+  test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
+  test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
+}
+
 async function testCaptureJSDesign() {
   //Test capturing a JS WebDesign for reuse in a HareScript page
   const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/webtools/pollholder");
@@ -110,10 +120,16 @@ async function testCaptureJSRendered() {
   //Test capturing a JS Page rendered in a WHLIB design
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const resultpage = await captureJSPage(markdowndoc.id);
-  // console.log(resultpage.body);
 
   // Note that captureJSPage is designed to be invoked from HareScript therefore it returns a HS Blob
   test.eq(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, (await resultpage.body.text()).replaceAll("\n", " "));
+
+  const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
+  const jsresultpage = await captureJSPage(jsrendereddoc.id);
+  const jsresultdoc = parseHTMLDoc(await jsresultpage.body.text());
+  test.eq("nl", jsresultdoc.documentElement.getAttribute("lang"));
+  test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
+  test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
 }
 
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
@@ -134,6 +150,7 @@ async function testRouter_JSWebDesign() {
 test.run([
   testSiteResponse,
   testSiteResponseApplies,
+  testPublishedJSSite,
   testCaptureJSDesign,
   testCaptureJSRendered,
   testRouter_HSWebDesign,

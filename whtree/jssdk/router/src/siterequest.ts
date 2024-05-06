@@ -6,7 +6,7 @@
 import { openFolder, openSite, Site, WHFSFolder, WHFSObject } from "@webhare/whfs";
 import { SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { WebRequest } from "./request";
-import { buildPluginData, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { wrapHSWebdesign } from "./hswebdesigndriver";
 
@@ -21,6 +21,9 @@ class SiteRequest {
   readonly contentObject: WHFSObject;
   readonly navObject: WHFSObject;
 
+  #applyTester?: WHFSApplyTester;
+  #siteLanguage?: string;
+
   constructor(webRequest: WebRequest, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}) {
     this.webRequest = webRequest;
     this.targetSite = targetSite;
@@ -30,9 +33,17 @@ class SiteRequest {
     this.navObject = navObject ?? targetObject;
   }
 
+  async getSiteLanguage(): Promise<string> {
+    if (!this.#applyTester)
+      this.#applyTester = await getApplyTesterForObject(this.targetObject);
+    if (this.#siteLanguage === undefined)
+      this.#siteLanguage = await this.#applyTester.getSiteLanguage();
+    return this.#siteLanguage;
+  }
+
   async createComposer<T extends object = object>(options?: { __captureJSDesign?: boolean }): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
-    const applytester = await getApplyTesterForObject(this.targetObject);
-    const publicationsettings = await applytester.getWebDesignInfo();
+    const lang = await this.getSiteLanguage(); //Also sets #applytester
+    const publicationsettings = await this.#applyTester!.getWebDesignInfo();
     if (!publicationsettings.siteResponseFactory) {
       if (options?.__captureJSDesign) //prevent endless loop
         throw new Error(`Inconsistent siteprofiles - createComposer for ${this.targetObject.whfsPath} (#${this.targetObject.id}) wants to invoke a HS design but was invoked by captureJSDesign`);
@@ -44,7 +55,7 @@ class SiteRequest {
     settings.assetpack = publicationsettings.assetPack;
     settings.witty = publicationsettings.witty;
     settings.supportedlanguages = publicationsettings.supportedLanguages;
-    settings.lang = await applytester.getSiteLanguage();
+    settings.lang = lang;
 
     const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
     const composer = await factory(this, settings);

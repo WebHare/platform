@@ -5,6 +5,8 @@ import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { WebResponseInfo } from "@mod-system/js/internal/types";
 import { IncomingWebRequest } from "@webhare/router/src/request";
+import { CodeContext } from "@webhare/services/src/codecontexts";
+import { setTidLanguage } from "@webhare/gettid";
 
 export async function captureJSDesign(obj: number) {
   //Create a SiteRequest so we have context for a SiteResponse
@@ -21,6 +23,10 @@ export async function captureJSDesign(obj: number) {
 }
 
 export async function captureJSPage(obj: number, usecontent?: number): Promise<WebResponseInfo> {
+  //we are designed to be invoked as a function so we'll arrange for a context ourselves to scope language settings
+  using mycontext = new CodeContext(`captureJSPage ${obj}`);
+  void mycontext;
+
   const targetdoc = await whfs.openFile(obj);
   const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
   const target = await lookupPublishedTarget(req.url.toString()); //TODO can't we use 'obj' directly instead of going through a URL lookup?
@@ -31,6 +37,7 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
 
   const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction<WebHareWHFSRouter>(target.renderer);
   const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
+  setTidLanguage(await whfsreq.getSiteLanguage());
   const response = await renderer(whfsreq);
-  return response.asWebResponseInfo();
+  return await response.asWebResponseInfo();
 }

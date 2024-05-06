@@ -95,6 +95,11 @@
     <sitelanguage lang="nl" />
   </apply>
 
+  <apply>
+    <to type="file" pathmask="*-jsrendered*" />
+    <bodyrenderer renderer="pages/jsrendered.ts#renderJSPage" />
+  </apply>
+
   <!-- Other siteprofile imports (applysiteprofile) must always be at end of this primary siteprofile -->
   <applysiteprofile path="frontend/rtd/rtd.siteprl.xml" />
 
