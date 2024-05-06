@@ -7,8 +7,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
 import { runBackendService } from "@webhare/services";
-import { createVM, HSVMObject } from "@webhare/harescript";
-import { CallableVM } from "@webhare/harescript/src/machinewrapper";
+import { createVM, HSVMObject, type HSVMWrapper } from "@webhare/harescript";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
@@ -173,7 +172,7 @@ async function testEvents() {
   test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
 }
 
-async function runOpenPrimary(hsvm: CallableVM) {
+async function runOpenPrimary(hsvm: HSVMWrapper) {
   const database = hsvm.loadlib("mod::system/lib/database.whlib");
   const primary = await database.openPrimary();
   test.eq(1, await hsvm._getHSVM().__getNumRemoteUnmarshallables());
@@ -202,7 +201,7 @@ async function testHareScriptVM() {
   //TODO verify that if the hsvm is garbagecollected associated objects are gone too on the HS side?
 }
 
-async function runPrintCallbackTest(hsvm: CallableVM) {
+async function runPrintCallbackTest(hsvm: HSVMWrapper) {
   //Ensure we can setup simple 'callbacks' that just print placeholders
   const print_helloworld_callback = await hsvm._getHSVM().createPrintCallback(`Hello, world!`);
   const fileswhlib = hsvm.loadlib("wh::files.whlib");
