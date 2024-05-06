@@ -1,7 +1,8 @@
 import { WebHareRouter, WebRequest, WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
 
 export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
-  if (req.url.searchParams.get("type") === "debug")
+  const searchParams = new URL(req.url).searchParams;
+  if (searchParams.get("type") === "debug")
     return createJSONResponse(200, {
       debug: true,
       url: req.url.toString(),
@@ -11,7 +12,7 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
       text: await req.text()
     });
 
-  if (req.url.searchParams.get("type") === "redirect")
+  if (searchParams.get("type") === "redirect")
     return createRedirectResponse("https://www.webhare.dev/", 301);
 
   return createJSONResponse(400, { error: "Invalid request" });

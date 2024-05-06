@@ -202,7 +202,7 @@ export class RestAPI {
         };
 
         for (const method of SupportedMethods) {
-          const operation = comp[method];
+          const operation = comp[method.toLowerCase() as OpenAPIV3.HttpMethods];
           if (operation) {
             const handler = operation["x-webhare-implementation"] ? resolveResource(specresourcepath, operation["x-webhare-implementation"]) : null;
             const operation_authorization = operation["x-webhare-authorization"] ? resolveResource(specresourcepath, operation["x-webhare-authorization"]) : path_authorization;
@@ -389,13 +389,14 @@ export class WorkerRestAPIHandler {
     const params: DefaultRestParams = {};
     logger.timings.validation = 0;
 
-    if (endpoint.params)
+    if (endpoint.params) {
+      const searchParams = new URL(req.url).searchParams;
       for (const param of endpoint.params) {
         let paramValues: string[] = [];
         if (param.in === "path") { //we already extracted path parameters during matching:
           paramValues = [decodeURIComponent(match.params[param.name])];
         } else if (param.in === "query") {
-          paramValues = req.url.searchParams.getAll(param.name);
+          paramValues = searchParams.getAll(param.name);
           if (!paramValues.length && param.required)
             return await this.buildErrorResponse(HTTPErrorCode.BadRequest, `Missing required query parameter ${param.name}}`);
         } else if (param.in === "header") {
@@ -445,6 +446,7 @@ export class WorkerRestAPIHandler {
 
         params[param.name] = paramValue as typeof params[string];
       }
+    }
 
     let body = null;
     const bodyschema = endpoint.requestBody?.content["application/json"]?.schema;

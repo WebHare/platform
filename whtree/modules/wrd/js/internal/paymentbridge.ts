@@ -1,7 +1,8 @@
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
-import type { NavigateInstruction } from "@webhare/env";
-import type { WebResponse } from "@webhare/router/src/response";
+import type { PSPDriver, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
+import { createResponseInfoFromResponse } from "@webhare/router/src/response";
 import { stringify, type Money } from "@webhare/std";
 
 type HsCheckInfo = {
@@ -41,136 +42,7 @@ type HsPaymentInfo = HsCheckInfo & {
   orderid: string;
 };
 
-///WebHare TS address format
-interface AddressFormat {
-  //street name. may contain multiple lines if the address calls for it
-  street?: string;
-  //city
-  city?: string;
-  //house number and any suffix, if not included in street address
-  nrDetail?: string;
-  //ZIP code
-  zip?: string;
-  //State or province
-  state?: string;
-  //2 letter country code, uppercase
-  country: string;
-}
-
-interface OrderLine {
-  type: "" | "payment" | "shipping";
-  title: string;
-  sku: string;
-  quantity: number;
-  lineTotal: Money;
-  vatPercentage: Money;
-  vatTotal: Money;
-  ///Is vatTotal included in the lineTotal?
-  vatIncluded: boolean;
-}
-
-export interface WebHarePaymentPrecheckRequest {
-  /** The amount we'd like to be paid, includes vat if we expect that to be included in the payment */
-  toPay: Money;
-  /** Rowkey of the selected method */
-  method: string;
-
-  billingAddress?: AddressFormat;
-  shippingaddress?: AddressFormat;
-  /** User's language code, eg 'nl' or 'en-US */
-  lang?: string;
-  /** User's IP address */
-  ipAddress?: string;
-  /** User's customer id in our database */
-  customerId?: string;
-  /** Email address */
-  email?: string;
-  /** Personal info */
-  firstName?: string;
-  infix?: string;
-  lastName?: string;
-  /** TODO person fields, specify them */
-  /** Order contents */
-  orderLines?: OrderLine[];
-  /** Extra data */
-  extraPspData?: Record<string, unknown>; //this is an 'escape hatch' if the standard APIs do not (yet) give you the necessary fields
-}
-
-export interface WebHarePaymentRequest extends WebHarePaymentPrecheckRequest {
-  /** Order id/payment reference which should be unique in the scope of the relevant application for the payment requests (but shared over all payment attempts) */
-  orderId: string;
-  /** The end-to-end paymentuuid to track this payment attempt which should be globally unique */
-  paymentId: string;
-  /** URL the PSP should return to */
-  returnUrl: string;
-  /** URL the PSP should push notifications to */
-  pushUrl: string;
-}
-
-export interface WebHarePaymentPrecheckResult {
-  /// Any errors?
-  errors?: Array<{
-    /// Affected field field
-    field: "wrdContactEmail";
-    /// Error message for user
-    error: string;
-    /// Internal description
-    comment: string;
-  }>;
-}
-
-/** @typeParam PayMetaType - Data cached after sending a payment request to the API to be able to request the status later (eg a transaction id)
-*/
-export interface WebHarePaymentResult<PayMetaType = unknown> extends WebHarePaymentPrecheckResult {
-  /// If set, next step for user to take. Often a redirect
-  navigateTo?: NavigateInstruction;
-  /// Metadata to store to get payment details later
-  paymentMetadata?: PayMetaType;
-}
-
-export type PaymentRequirement = "ipAddress" | "wrdLastName" | "billingAddress";
-
-export type PaymentMethod = {
-  rowkey: string;
-  title: string;
-  requirements: PaymentRequirement[];
-};
-
-export interface PaymentSetup {
-  methods: PaymentMethod[];
-  isLive: boolean;
-}
-
-export interface CheckPaymentResult {
-  setStatus?: "approved" | "failed";
-  cardIssuer?: string;
-  cardNumber?: string;
-  rejectReasonHTML?: string;
-}
-
-export interface PushPaymentResult extends CheckPaymentResult {
-  response: WebResponse;
-}
-
-/** Interface to be implemented by a payment driver
- * @typeParam PayMetaType - Data cached after sending a payment request to the API to be able to request the status later (eg a transaction id)
- */
-export interface PaymentDriver<PayMetaType = unknown> {
-  /** Connect with the API, verify the configuration as passed to the constructor */
-  connect(): Promise<PaymentSetup | { error: string }>;
-  /** Precheck as much as we can before actually starting the payment. This is usally part of form validation before the actual payment starts */
-  precheckPayment?(request: WebHarePaymentPrecheckRequest): Promise<WebHarePaymentPrecheckResult>;
-  /** Starts the payment. If succesful we generally return a redirect to an external payment portal */
-  startPayment(request: WebHarePaymentRequest): Promise<WebHarePaymentResult<PayMetaType>>;
-  /** Process the user returning from the payment portal */
-  processReturn(paymeta: PayMetaType, req: WebRequestInfo): Promise<CheckPaymentResult>;
-  /** Process a push/notification directly from the payment portal */
-  processPush?(paymeta: PayMetaType, req: WebRequestInfo): Promise<PushPaymentResult>;
-  /** Check the current status of the payment */
-  checkStatus(paymeta: PayMetaType): Promise<CheckPaymentResult>;
-}
-
-async function openPSP(driver: string, configAsJSON: string): Promise<PaymentDriver | { error: string }> {
+async function openPSP(driver: string, configAsJSON: string): Promise<PSPDriver | { error: string }> {
   let config;
   try {
     config = JSON.parse(configAsJSON);
@@ -178,7 +50,7 @@ async function openPSP(driver: string, configAsJSON: string): Promise<PaymentDri
     return { error: "Invalid configuration" };
   }
 
-  return await makeJSObject(driver, config) as PaymentDriver;
+  return await makeJSObject(driver, config) as PSPDriver;
 }
 
 export async function connectPSP(driver: string, configAsJSON: string) {
@@ -198,8 +70,8 @@ export async function connectPSP(driver: string, configAsJSON: string) {
   }
 }
 
-function buildPaymentCheck(hsPaymentInfo: HsCheckInfo): WebHarePaymentPrecheckRequest {
-  const req: WebHarePaymentPrecheckRequest = {
+function buildPaymentCheck(hsPaymentInfo: HsCheckInfo): PSPPrecheckRequest {
+  const req: PSPPrecheckRequest = {
     toPay: hsPaymentInfo.amount_payable,
     method: hsPaymentInfo.paymentoptiontag,
     email: hsPaymentInfo.wrd_contact_email || undefined,
@@ -231,7 +103,7 @@ export async function precheckPaymentRequest(driver: string, configAsJSON: strin
 }
 
 export async function runPaymentRequest(driver: string, configAsJSON: string, hsPaymentInfo: HsPaymentInfo) {
-  const req: WebHarePaymentRequest = {
+  const req: PSPRequest = {
     ...buildPaymentCheck(hsPaymentInfo),
     orderId: hsPaymentInfo.orderid,
     paymentId: hsPaymentInfo.paymentuuid,
@@ -261,7 +133,7 @@ export async function processReturnURL(driver: string, configAsJSON: string, pay
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, req);
+  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, await newWebRequestFromInfo(req));
   return retval;
 }
 
@@ -273,8 +145,11 @@ export async function processPush(driver: string, configAsJSON: string, paymeta:
   if (!psp.processPush)
     return null;
 
-  const retval = await psp.processPush(paymeta ? JSON.parse(paymeta) : null, req);
-  return { ...retval, response: await retval.response.asWebResponseInfo() };
+  const retval = await psp.processPush(paymeta ? JSON.parse(paymeta) : null, await newWebRequestFromInfo(req));
+  return {
+    ...retval,
+    response: await createResponseInfoFromResponse(retval.response)
+  };
 }
 
 export async function checkStatus(driver: string, configAsJSON: string, paymeta: string) {

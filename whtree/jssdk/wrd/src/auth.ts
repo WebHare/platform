@@ -537,12 +537,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Start an oauth2/openid authorization flow */
-  async startAuthorizeFlow(url: URL, loginPage: string, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
-    const clientid = url.searchParams.get("client_id") || '';
-    const scopes = url.searchParams.get("scope")?.split(" ") || [];
-    const redirect_uri = url.searchParams.get("redirect_uri") || '';
-    const state = url.searchParams.get("state") || null;
-    const nonce = url.searchParams.get("nonce") || null;
+  async startAuthorizeFlow(url: string, loginPage: string, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
+    const searchParams = new URL(url).searchParams;
+    const clientid = searchParams.get("client_id") || '';
+    const scopes = searchParams.get("scope")?.split(" ") || [];
+    const redirect_uri = searchParams.get("redirect_uri") || '';
+    const state = searchParams.get("state") || null;
+    const nonce = searchParams.get("nonce") || null;
 
     const client = await this.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
     if (client.length !== 1)
@@ -571,8 +572,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return { type: "redirect", url: target.toString(), error: null };
   }
 
-  async returnAuthorizeFlow(url: URL, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
-    const sessionid = url.searchParams.get("tok") || '';
+  async returnAuthorizeFlow(url: string, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
+    const searchParams = new URL(url).searchParams;
+    const sessionid = searchParams.get("tok") || '';
     const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
     if (!returnInfo)
       return { error: "Session has expired" }; //TODO redirect the user to an explanatory page
