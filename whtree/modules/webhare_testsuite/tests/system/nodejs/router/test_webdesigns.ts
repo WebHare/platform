@@ -7,6 +7,7 @@ import { DOMParser } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
+import { getTidLanguage } from "@webhare/gettid";
 
 function parseHTMLDoc(html: string): Document {
   return new DOMParser({
@@ -117,6 +118,8 @@ async function testCaptureJSDesign() {
 }
 
 async function testCaptureJSRendered() {
+  test.eq("en", getTidLanguage(), "pre-condition: no reason for the language to have changed yet");
+
   //Test capturing a JS Page rendered in a WHLIB design
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const resultpage = await captureJSPage(markdowndoc.id);
@@ -130,6 +133,8 @@ async function testCaptureJSRendered() {
   test.eq("nl", jsresultdoc.documentElement.getAttribute("lang"));
   test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
   test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
+
+  test.eq("en", getTidLanguage(), "ensure captureJSPage didn't affect our language");
 }
 
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions

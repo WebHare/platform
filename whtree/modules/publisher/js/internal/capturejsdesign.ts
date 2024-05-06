@@ -25,19 +25,19 @@ export async function captureJSDesign(obj: number) {
 export async function captureJSPage(obj: number, usecontent?: number): Promise<WebResponseInfo> {
   //we are designed to be invoked as a function so we'll arrange for a context ourselves to scope language settings
   using mycontext = new CodeContext(`captureJSPage ${obj}`);
-  void mycontext;
+  return await mycontext.run(async () => {
+    const targetdoc = await whfs.openFile(obj);
+    const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
+    const target = await lookupPublishedTarget(req.url.toString()); //TODO can't we use 'obj' directly instead of going through a URL lookup?
+    if (!target?.renderer)
+      throw new Error(`This target does not require a JS renderer`); //can't fallback to HS webserver or we'd risk an infinite loop
 
-  const targetdoc = await whfs.openFile(obj);
-  const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
-  const target = await lookupPublishedTarget(req.url.toString()); //TODO can't we use 'obj' directly instead of going through a URL lookup?
-  if (!target?.renderer)
-    throw new Error(`This target does not require a JS renderer`); //can't fallback to HS webserver or we'd risk an infinite loop
+    const contentObject = usecontent && usecontent !== obj ? await whfs.openFile(usecontent) : target.targetObject;
 
-  const contentObject = usecontent && usecontent !== obj ? await whfs.openFile(usecontent) : target.targetObject;
-
-  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction<WebHareWHFSRouter>(target.renderer);
-  const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
-  setTidLanguage(await whfsreq.getSiteLanguage());
-  const response = await renderer(whfsreq);
-  return await response.asWebResponseInfo();
+    const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction<WebHareWHFSRouter>(target.renderer);
+    const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
+    setTidLanguage(await whfsreq.getSiteLanguage());
+    const response = await renderer(whfsreq);
+    return await response.asWebResponseInfo();
+  });
 }
