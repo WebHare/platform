@@ -20,12 +20,12 @@ function ensureHooks(): GetTidHooks {
   };
 }
 
-export function getTidLanguage() {
-  return ensureHooks().currentLanguage();
+export function getTidLanguage(): string {
+  return ensureHooks().currentLanguage() || defaultLanguage;
 }
 
-export function setTidLanguage(newLanguage: string) {
-  return ensureHooks().currentLanguage(newLanguage.toLowerCase());
+export function setTidLanguage(newLanguage: string): void {
+  ensureHooks().currentLanguage(newLanguage.toLowerCase());
 }
 
 const langFileCache: Record<string, CompiledLanguageFile> = {};
@@ -56,7 +56,7 @@ function getLanguageFile(module: string, langCode: string): CompiledLanguageFile
 }
 
 export function getTid(tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
-  return getTidForLanguage(getTidLanguage() || defaultLanguage, tid, p1, p2, p3, p4);
+  return getTidForLanguage(getTidLanguage(), tid, p1, p2, p3, p4);
 }
 
 export function getTidForLanguage(langcode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
@@ -74,7 +74,7 @@ export function getTidForLanguage(langcode: string, tid: string, p1: TidParam = 
 }
 
 export function getHTMLTid(tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
-  return getHTMLTidForLanguage(getTidLanguage() || defaultLanguage, tid, p1, p2, p3, p4);
+  return getHTMLTidForLanguage(getTidLanguage(), tid, p1, p2, p3, p4);
 }
 
 export function getHTMLTidForLanguage(langcode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {

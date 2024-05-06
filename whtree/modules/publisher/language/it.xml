@@ -1,29 +1,72 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="it" fallbacklanguage="en">
   <textgroup gid="site">   <!-- site -->
+    <textgroup gid="authormode">   <!-- site.authormode -->
+      <text tid="aboutdompointer">Indica l'elemento su cui desideri fornire un feedback</text>
+      <text tid="dontshowagain">Non mostrarlo più</text>
+      <text tid="feedback-general">Feedback generale</text>
+      <text tid="feedback-specific">Feedback specifico</text>
+      <text tid="feedbackerror">Purtroppo il caricamento del tuo feedback non è riuscito. Per favore riprova più tardi.</text>
+      <text tid="feedbackform">Feedback</text>
+      <text tid="feedbacksubmitted">Viene inviato il feedback</text>
+      <text tid="from">Da</text>
+      <text tid="hideauthormode">Nascondere gli strumenti di creazione</text>
+      <text tid="inspectmetadata">Ispezionare i metadati</text>
+      <text tid="openinwebhare">Aperto in WebHare</text>
+      <text tid="remarks">Descrizione</text>
+      <text tid="remarks-placeholder">Ti preghiamo di descrivere il problema nel modo più chiaro possibile</text>
+      <text tid="title">Azioni di condivisione web</text>
+      <text tid="topic">Argomento</text>
+      <text tid="topic-placeholder">Scegliere il tipo</text>
+    </textgroup>
     <textgroup gid="captcha">   <!-- site.captcha -->
       <text tid="explain">Seleziona la casella qui sotto</text>
       <text tid="title">Verifica</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="imgedit-groupelement-replace"><param p="1"/>, sostituire immagine</text>
+      <text tid="imgedit-groupelement-upload"><param p="1"/>, caricare immagine</text>
+      <text tid="imgedit-remove">Rimuovere immagine</text>
       <text tid="nextpage">Prossimo</text>
       <text tid="previouspage">Precedente</text>
       <text tid="selectfile">Seleziona il file</text>
+      <text tid="splitdatetime-day-arialabel">Giorno</text>
+      <text tid="splitdatetime-hours-arialabel">Ora</text>
+      <text tid="splitdatetime-minutes-arialabel">Minuto</text>
+      <text tid="splitdatetime-month-arialabel">Mese</text>
+      <text tid="splitdatetime-seconds-arialabel">Secondo</text>
+      <text tid="splitdatetime-year-arialabel">Anno</text>
       <text tid="starsrequired">* indica un campo richiesto</text>
       <text tid="submit">Invia</text>
+      <text tid="upload-emptytext">Nessun file scelto</text>
+      <text tid="upload-filename">Il file caricato è <param p="1"/></text>
+      <text tid="upload-remove">Rimuovere file</text>
+      <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
+        <text tid="address_not_found">Non è stato possibile trovare l'indirizzo.</text>
+        <text tid="invalid_nr_detail">Numero civico non valido.</text>
+        <text tid="invalid_zip">CAP o codice postale non valido.</text>
+        <text tid="zip_not_found">Combinazione sconosciuta di codice postale e numero civico.</text>
+      </textgroup>
       <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
         <text tid="alphanum">Questo valore deve essere di tipo alfanumerico.</text>
+        <text tid="badfiletype">Questo tipo di file non è consentito</text>
+        <text tid="cannotprocessfile">Questo file sembra sospetto e purtroppo non può essere caricato</text>
         <text tid="check">Devi scegliere tra <param p="1"/> e <param p="2"/> opzioni.</text>
+        <text tid="date">Questa non è una data valida</text>
         <text tid="default">Questo valore sembra essere non valido.</text>
         <text tid="digits">Questo valore deve essere di tipo numerico.</text>
         <text tid="email">Questo valore deve essere un indirizzo email valido.</text>
+        <text tid="email_baddomain">A causa di difficoltà con l'invio agli indirizzi email <param p="1"/>, lo richiediamo gentilmente</text>
+        <text tid="email_suggestion">Intendevi <param p="1"/>?</text>
         <text tid="equalto">Questo valore deve essere identico.</text>
         <text tid="integer">Questo valore deve essere un numero valido.</text>
         <text tid="length">La lunghezza di questo valore deve essere compresa fra <param p="1"/> e <param p="2"/> caratteri.</text>
         <text tid="max">Questo valore deve essere minore di <param p="1"/>.</text>
+        <text tid="maxarray">Puoi aggiungere al massimo <ifparam p="1" value="1">1 articolo<else/><param p="1"/> articoli</ifparam>.</text>
         <text tid="maxcheck">Devi scegliere al più <param p="1"/> opzioni.</text>
         <text tid="maxlength">Questo valore è troppo lungo. La lunghezza massima è di <param p="1"/> caratteri.</text>
         <text tid="min">Questo valore deve essere maggiore di <param p="1"/>.</text>
+        <text tid="minarray">Devi aggiungere almeno <ifparam p="1" value="1">1 articolo<else/><param p="1"/> articoli</ifparam>.</text>
         <text tid="mincheck">Devi scegliere almeno <param p="1"/> opzioni.</text>
         <text tid="minlength">Questo valore è troppo corto. La lunghezza minima è di <param p="1"/> caratteri.</text>
         <text tid="notblank">Questo valore non deve essere vuoto.</text>
@@ -31,7 +74,37 @@
         <text tid="pattern">Questo valore non è corretto.</text>
         <text tid="range">Questo valore deve essere compreso tra <param p="1"/> e <param p="2"/>.</text>
         <text tid="required">Questo valore è richiesto.</text>
+        <text tid="step1mismatch">Il valore deve essere un numero intero</text>
+        <text tid="stepmismatch">Il valore dovrebbe essere un multiplo di <param p="1"/>.</text>
+        <text tid="time">Questo non è un orario valido</text>
+        <text tid="unacceptableemail">Questo indirizzo email non è accettabile qui</text>
+        <text tid="upload_cannotcheck">Questo file non può essere caricato poiché al momento non siamo in grado di verificarlo</text>
+        <text tid="upload_suspicious">Questo file sembra sospetto e purtroppo non può essere caricato</text>
         <text tid="url">Questo valore deve essere un URL valido.</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="forum">   <!-- site.forum -->
+      <textgroup gid="comments">   <!-- site.forum.comments -->
+        <text tid="email">E-mail</text>
+        <text tid="email-placeholder-notshown">user@example.org (non mostrato)</text>
+        <text tid="message">Messaggio</text>
+        <text tid="name">Nome</text>
+        <text tid="respond-button">Rispondere</text>
+      </textgroup>
+      <textgroup gid="email">   <!-- site.forum.email -->
+        <textgroup gid="forumposting">   <!-- site.forum.email.forumposting -->
+          <text tid="receivedcomment">È stato pubblicato un commento</text>
+          <text tid="source">Fonte</text>
+          <text tid="subject">Un commento su <param p="1"/></text>
+          <text tid="url">URL</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="rtd">   <!-- site.rtd -->
+      <textgroup gid="embedvideo">   <!-- site.rtd.embedvideo -->
+        <text tid="playbutton-aria">Riprodurre il video</text>
+        <text tid="unrecognized">L'URL non è riconosciuto come URL del video supportato</text>
+        <text tid="videourl">Video URL</text>
       </textgroup>
     </textgroup>
   </textgroup>

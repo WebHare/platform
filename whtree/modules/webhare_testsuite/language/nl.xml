@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl">
   <textgroup gid="aaa">   <!-- aaa -->
     <textgroup gid="limitlanguage_en">   <!-- aaa.limitlanguage_en -->
     </textgroup>
@@ -60,6 +60,7 @@
     <text tid="beschikbaarheid-binnenkort">Binnenkort</text>
     <text tid="beschikbaarheid-verkocht">Verkocht</text>
     <text tid="mainedit">Mainedit</text>
+    <text tid="testencoding">dutch a&amp;b&lt;c</text>
     <text tid="yattab">Yet Another Tab</text>
   </textgroup>
   <textgroup gid="testfallback">   <!-- testfallback -->

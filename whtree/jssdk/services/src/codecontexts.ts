@@ -59,7 +59,7 @@ type CodeContextEvents = {
 
 /** Context for running async code.
  */
-export class CodeContext extends EventSource<CodeContextEvents>{
+export class CodeContext extends EventSource<CodeContextEvents> implements Disposable {
   readonly id: string;
   readonly title: string;
   readonly metadata: CodeContextMetadata;
@@ -68,7 +68,7 @@ export class CodeContext extends EventSource<CodeContextEvents>{
   readonly consoleLog: ConsoleLogItem[] = [];
   debugFlagsOverrides: DebugFlags[] = [{}];
 
-  constructor(title: string, metadata: CodeContextMetadata) {
+  constructor(title: string, metadata: CodeContextMetadata = {}) {
     super();
     this.id = `whcontext-${++contextcounter}: ${title}`;
     this.title = title;
