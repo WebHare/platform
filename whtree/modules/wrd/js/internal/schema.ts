@@ -16,6 +16,7 @@ import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/uti
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
+import whbridge from "@mod-system/js/internal/whmanager/bridge";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -23,7 +24,7 @@ const WRDCloseModes = ["close", "delete", "delete-closereferred", "delete-denyre
 type WRDCloseMode = typeof WRDCloseModes[number];
 
 interface SyncOptions {
-  /** What to dot with unmatched entities during a sync? Defauilts to 'keep' */
+  /** What to dot with unmatched entities during a sync? Defaults to 'keep' */
   unmatched?: WRDCloseMode | "keep";
 }
 
@@ -132,6 +133,90 @@ export function isChange(curval: any, setval: any) {
   return curval !== setval;
 }
 
+type Invalidation = { type: "schema"; id: number };
+
+function isSchemaDataInvalidatedBy(schemaData: SchemaData, invalidation: Invalidation) {
+  return invalidation.type === "schema" && schemaData.schema.id === invalidation.id;
+}
+
+class SchemaUpdateListener {
+  /** The collectors gather the schemadata during load, as the schema id isn't known when loading the schema but we should
+   * invalidate its data when an invalidation comes in during loading
+   */
+  collectors = new Set<SchemaDataInvalidationCollector>;
+
+  /** WeakMap to keep track of the schemas and their invalidation callbacks. Also the weakRef key used for the schemaDataMap, so that key is stable
+   * Keep the invalidation callback here, instead as reachable property
+   */
+  schemaWeakMap = new WeakMap<WRDSchema<any>, { weakRef: WeakRef<WRDSchema<any>>; invalidationCallback: () => void }>();
+  /// WeakMaps are not iterable, so we need to keep a separate map to be able to iterate over the schemas
+  schemaDataMap = new Map<WeakRef<WRDSchema<any>>, SchemaData>();
+
+  constructor() {
+    whbridge.on("event", (event) => {
+      // match wrd:schema.<id>.change events
+      const match = event.name.match(/^wrd:(schema)\.(\d+)\.(change)/);
+      if (!match)
+        return;
+      const invalidation: Invalidation = { type: "schema", id: parseInt(match[2]) };
+      // Send the invalidation to the invalidation collectors
+      for (const collector of this.collectors)
+        collector.invalidations.push(invalidation);
+
+      // Call the invalidation callback for all relevant schemas
+      for (const [schemaWeakPtr, schemaData] of this.schemaDataMap) {
+        const schema = schemaWeakPtr.deref();
+        if (!schema) {
+          // Schema was already garbage collected, remove it from the this.schemaDataMap
+          this.schemaDataMap.delete(schemaWeakPtr);
+        } else if (isSchemaDataInvalidatedBy(schemaData, invalidation)) {
+          // invalidate the schemadata, remove from the schemaDataMap
+          this.schemaWeakMap.get(schema)?.invalidationCallback();
+          this.schemaWeakMap.delete(schema);
+          this.schemaDataMap.delete(schemaWeakPtr);
+        }
+      }
+    });
+  }
+
+  /** Register the cached data for a schema */
+  addSchema(schema: WRDSchema<any>, schemaData: SchemaData, invalidations: Invalidation[], invalidationCallback: () => void) {
+    // check if the schema was invalidated during loading
+    const invalidated = invalidations.some(invalidation => isSchemaDataInvalidatedBy(schemaData, invalidation));
+    let weakData = this.schemaWeakMap.get(schema);
+    // invalidated during loading?
+    if (invalidated) {
+      invalidationCallback();
+      if (weakData)
+        this.schemaDataMap.delete(weakData.weakRef);
+    } else {
+      // register the schema in the schemaWeakMap and its invalidation callback
+      if (!weakData)
+        this.schemaWeakMap.set(schema, weakData = { weakRef: new WeakRef(schema), invalidationCallback });
+      else
+        weakData.invalidationCallback = invalidationCallback;
+      // register in the schemaDataMap
+      this.schemaDataMap.set(weakData.weakRef, schemaData);
+    }
+  }
+}
+
+/// Gathers a list of invalidations for a schema while running
+class SchemaDataInvalidationCollector {
+  listener: SchemaUpdateListener;
+  invalidations: Invalidation[] = [];
+  constructor(listener: SchemaUpdateListener) {
+    this.listener = listener;
+    listener.collectors.add(this);
+  }
+  [Symbol.dispose]() {
+    this.listener.collectors.delete(this);
+  }
+}
+
+let schemaUpdateListener: SchemaUpdateListener | null = null;
+
+
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
@@ -149,6 +234,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async getId(): Promise<number> {
+    if (this.schemaData)
+      return (await this.schemaData).schema.id;
     const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id"]).where("name", "=", this.tag).executeTakeFirst();
     if (dbschema)
       return dbschema.id;
@@ -156,8 +243,16 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       throw new Error(`WRD Schema ${this.tag} not found in the database`);
   }
 
-  /*private*/ __ensureSchemaData(): Promise<SchemaData> {
-    return this.schemaData ??= getSchemaData(this.tag);
+  /*private*/ async __ensureSchemaData(): Promise<SchemaData> {
+    if (this.schemaData) {
+      return this.schemaData;
+    }
+    schemaUpdateListener ??= new SchemaUpdateListener();
+    using invalidationCollector = new SchemaDataInvalidationCollector(schemaUpdateListener);
+    const data = getSchemaData(this.tag);
+    this.schemaData = data;
+    schemaUpdateListener.addSchema(this, await data, invalidationCollector.invalidations, () => this.schemaData = undefined);
+    return data;
   }
 
   /*private*/ async __toWRDTypeId(tag: string | undefined): Promise<number> {

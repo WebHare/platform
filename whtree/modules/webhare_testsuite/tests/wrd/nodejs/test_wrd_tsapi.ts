@@ -152,6 +152,9 @@ async function testNewAPI() {
   test.eq(false, await schema.hasType("WRD_PERSON"));
   test.eq(false, await schema.hasType("noSuchType"));
 
+  // Ensure schemaById loads its schema data before testJsonRequired is added
+  test.eq([], await schemaById.query("wrdPerson").select("wrdId").execute());
+
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
@@ -202,6 +205,15 @@ async function testNewAPI() {
       guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
     }
   ], selectres);
+
+  // wait until schemaById also knows testJsonRequired
+  console.log(`start wait`);
+  await test.wait(async () => {
+    try {
+      await schemaById.selectFrom("wrdPerson").select(["testJsonRequired"]).where("wrdFirstName", "=", "first").execute();
+      return true;
+    } catch (e) { return false; }
+  });
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "active" }));
