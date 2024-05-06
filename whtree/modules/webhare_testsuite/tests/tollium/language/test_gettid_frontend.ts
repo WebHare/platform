@@ -11,9 +11,9 @@ test.registerTests([
   // Test language
   "Tid language",
   function () {
-    test.eq(getTid.tidLanguage, "");
+    test.eq("en", getTid.tidLanguage);
     getTid.tidLanguage = "nl";
-    test.eq(getTid.tidLanguage, "nl");
+    test.eq("nl", getTid.tidLanguage);
   },
 
   // Test registration of texts
