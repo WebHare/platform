@@ -108,7 +108,7 @@ button
 
   box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.17);
 }
-:not(t-toolbar-buttongroup):not(buttongroup):not(t-textedit) > button:hover:not([aria-pressed=true]):not(.todd--disabled)
+t-buttongroup > button:hover:not([aria-pressed=true]):not(.todd--disabled)
 {
   background-image: linear-gradient(to bottom, #EBEBEB 0%, #FFFFFF 83%);
 }
