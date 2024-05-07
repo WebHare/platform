@@ -558,7 +558,7 @@ export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: 
       args.push(new BindParam(OID.FLOAT8, hsarg.getFloat()));
     else {
       const val = hsarg.getJSValue();
-      if (val instanceof WebHareBlob)
+      if (WebHareBlob.isWebHareBlob(val))
         await uploadBlob(val);
 
       args.push(val);
@@ -636,7 +636,7 @@ async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVa
 
       //We'll manually get the individual cells so we can retrieve binary data where needed
       const setvalue = column.flags & ColumnFlags.Binary ? cell.getStringAsBuffer() : cell.getJSValue();
-      if (setvalue instanceof WebHareBlob)
+      if (WebHareBlob.isWebHareBlob(setvalue))
         await uploadBlob(setvalue);
 
       if (setvalue instanceof Date && setvalue.getTime() === defaultDateTime.getTime())
