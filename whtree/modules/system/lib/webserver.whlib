@@ -515,7 +515,13 @@ STRING FUNCTION InTrans_CreateWebSession(STRING scope, RECORD sessdata, RECORD o
 
   TRY
   {
-    GetPrimary()->BeginWork();
+    /* HS wrdauth session recreation may be called multiple times in parallel by eg campusapp. wasn't a problem with webesrver-only storage but it is
+       when using the database. so lock when recreating. New JS wrdauth doesn't need to reestablish sessions so this won't be an issue in the future */
+    IF(options.sessionid != "")
+      GetPrimary()->BeginLockedWork("system:sessionrecreate");
+    ELSE
+      GetPrimary()->BeginWork();
+
     IF(options.sessionid != "")
       DELETE FROM system_internal.sessions WHERE sessions.sessionid = options.sessionid;
 
