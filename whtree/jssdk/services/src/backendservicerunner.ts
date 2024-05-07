@@ -30,8 +30,9 @@ export class BackendServiceConnection {
       this.#link.link.send({ event, data });
     }
   }
+
   /** Invoke to close this connection. This will cause onClose to be invoked */
-  close() {
+  [Symbol.dispose]() {
     this.#link?.link.close();
   }
 
@@ -62,12 +63,19 @@ export interface WebHareServiceOptions {
 //Describe a JS public interface in a HS compatible way
 export function describePublicInterface(inobj: object): WebHareServiceDescription {
   const methods = [];
+  const seenMethods = new Set<string>();
+
+  // Hide any names of the base class - prevents them from being exposed if also defined by the service
+  Object.getOwnPropertyNames(BackendServiceConnection.prototype).forEach(name => seenMethods.add(name));
 
   //iterate to top and discover all methods
-  for (; inobj !== Object.prototype && inobj !== BackendServiceConnection.prototype; inobj = Object.getPrototypeOf(inobj)) {
+  for (; inobj && !Object.hasOwn(inobj, setLink); inobj = Object.getPrototypeOf(inobj)) {
     for (const name of Object.getOwnPropertyNames(inobj)) {
-      if (name === 'constructor' || name[0] === '_' || name === 'onClose')
-        continue; //no need to explain the constructor, it's already been invoked. and skip 'private' functions
+      // Don't expose _-prefixed APIs (often 'internal' methods), anything we've already seen in higher classes, or BackendServiceConnection members (including 'constructor)
+      if (name[0] === '_' || seenMethods.has(name))
+        continue;
+
+      seenMethods.add(name); //We're ignoring the risk of only case-differing identifiers sent to HareScript and clashing there. Just don't.
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cleanup later, creating interfaces this way is ugly anyway
       const method = (inobj as any)[name];
@@ -147,7 +155,7 @@ export class ServiceHandlerBase {
 
         // We'll pass the state object through a global to BackendServiceConnection (if any)
         const handler = await this._factory(...initdata.message.__new);
-        if (!(setLink in handler))
+        if (!(setLink in handler)) //instanceof BackendServiceConnection is unsafe in case WebHare itself is hotfixed
           throw new Error(`Service handler (type ${Object.getPrototypeOf(handler).constructor.name}?) is not an instance of BackendServiceConnection`);
 
         if (!state.handler)

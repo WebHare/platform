@@ -11,7 +11,14 @@ class Controller implements BackendServiceController {
   }
 }
 
-class ClusterTestLink extends BackendServiceConnection {
+class ClusterTestLinkBase extends BackendServiceConnection {
+  //we're here to verify that overriding methods doesn't break anything
+  ping(arg1: unknown, arg2: unknown) {
+    return { arg2, arg1 };
+  }
+}
+
+class ClusterTestLink extends ClusterTestLinkBase {
   dummy = "42";
   mainobject: Controller | null;
   // null-likes completely broke interface description earlier, so test them specifically
@@ -81,10 +88,18 @@ class ClusterTestLink extends BackendServiceConnection {
   closeConnection(name: string) {
     if (!this.mainobject?.connections.has(name))
       throw new Error("No such connection");
-    this.mainobject?.connections.get(name)?.close();
+    this.mainobject?.connections.get(name)?.[Symbol.dispose]();
   }
   onClose() {
     this.mainobject?.connections.delete(this.testdata);
+  }
+
+  //Even defining these methods shouldn't expose them to the client
+  emit(event: string, data: unknown) {
+    super.emit(event, data);
+  }
+  [Symbol.dispose]() {
+    super[Symbol.dispose]();
   }
 }
 

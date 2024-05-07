@@ -123,12 +123,9 @@ export class RestService extends services.BackendServiceConnection {
     return result;
   }
 
-  close() {
-    this.restapi.close();
-  }
-
   [Symbol.dispose]() {
-    this.close();
+    this.restapi[Symbol.dispose]();
+    super[Symbol.dispose]();
   }
 }
 
