@@ -10,11 +10,6 @@ else
 fi
 
 if [ -z "$WEBHARE_NODE_BINARY" ]; then
-  if [ "$WEBHARE_PLATFORM" == "darwin" ] && [ -x "$(brew --prefix)/opt/node@20/bin/node" ]; then
-    # on macOS we require brew-installed node@20 for sass compatibility
-    WEBHARE_NODE_BINARY="$(brew --prefix)/opt/node@20/bin/node"
-  fi
-
   [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
 fi
 

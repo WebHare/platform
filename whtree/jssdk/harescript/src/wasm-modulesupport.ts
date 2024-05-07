@@ -8,6 +8,7 @@ import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/h
 import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
 import { mapHareScriptPath } from "./wasm-support";
+import { AsyncResource, executionAsyncId } from "node:async_hooks";
 
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;
@@ -438,6 +439,61 @@ export class WASMModule extends WASMModuleBase {
       const instance = await WebAssembly.instantiate(cachedWebAssemblyModule, imports);
       receiveInstance(instance);
     }
+  }
+
+  /** In node 21 and 22, a WebAssambly async function will resume without its AsyncStorage context (due to
+   * missing callbacks to node Async tracking in v8). See https://github.com/nodejs/node/issues/51832.
+   * Working around that by restoring the async context on every called imported JS function. The hooks to
+   * call the following functions are installed in the emcc compiled code by fix-emcc-output.js */
+
+  asyncResource: AsyncResource | undefined;
+
+  fixAsyncImportForAsyncStorage(func: (...args: unknown[]) => unknown) {
+    return (...args: unknown[]) => {
+      if (!executionAsyncId() && this.asyncResource) {
+        // Lost the correct async resource, restore it
+        return this.asyncResource.runInAsyncScope(() => func(...args));
+      } else
+        return func(...args);
+    };
+  }
+
+  fixSyncImportForAsyncStorage(func: (...args: unknown[]) => unknown) {
+    return (...args: unknown[]) => {
+      if (!executionAsyncId() && this.asyncResource) {
+        // Lost the correct async resource, restore it
+        return this.asyncResource.runInAsyncScope(() => func(...args));
+      } else
+        return func(...args);
+    };
+  }
+
+  fixAsyncExportForAsyncStorage(func: (...args: unknown[]) => unknown) {
+    return (...args: unknown[]) => {
+      const curExecutionAsyncId = executionAsyncId();
+      if (!this.asyncResource || this.asyncResource.asyncId() !== curExecutionAsyncId) {
+        // Create a new async resource for this call. safe the old to make sure recursive calls don't lose context
+        const orgAsyncResource = this.asyncResource;
+        this.asyncResource = new AsyncResource(`WASMModule`, { triggerAsyncId: curExecutionAsyncId });
+        try {
+          const retval = this.asyncResource.runInAsyncScope(() => func(...args));
+          if (typeof retval === "object" && retval && "then" in retval && typeof retval.then === "function") {
+            return retval.then((res: unknown) => {
+              this.asyncResource = orgAsyncResource;
+              return res;
+            });
+          }
+          this.asyncResource = orgAsyncResource;
+          return retval;
+        } catch (e) {
+          this.asyncResource = orgAsyncResource;
+          throw e;
+        }
+      } else {
+        // current executionAsyncId() is already correct, just run the function
+        return func(...args);
+      }
+    };
   }
 }
 
