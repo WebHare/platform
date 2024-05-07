@@ -402,7 +402,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   }
 
   onMsgReplaceSelection(data: { text: string }) {
-    if (this.inputnode?.selectionStart && this.inputnode.selectionEnd) {
+    if (this.inputnode && this.inputnode.selectionStart !== null && this.inputnode.selectionEnd !== null) {
       this.inputnode.setRangeText(data.text, this.inputnode.selectionStart, this.inputnode.selectionEnd, "select");
       this.onAnyChange();
     }

@@ -168,5 +168,13 @@ test.registerTests(
       // the replaced text should be selected
       test.eq(4, textedit.selectionStart);
       test.eq(7, textedit.selectionEnd);
+
+      // clear the value
+      textedit.value = "";
+      // set the selection
+      selection.value = JSON.stringify("zus");
+      test.click(test.compByName("writeselectionbutton"));
+      await test.wait(() => parseInt(test.compByName("onselectcount").textContent) === 3);
+      test.eq("zus", textedit.value);
     },
   ]);
