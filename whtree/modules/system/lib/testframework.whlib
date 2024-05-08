@@ -363,7 +363,7 @@ RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULT
                               , returnallmail := FALSE
                               , scanaheaduntil := DEFAULT DATETIME
                               ], options);
-  RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.scanaheaduntil, options.returnallmail);
+  RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.scanaheaduntil, options.returnallmail OR options.count = 0);
 }
 
 STATIC OBJECTTYPE TestFramework
