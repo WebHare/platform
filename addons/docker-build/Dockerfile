@@ -2,6 +2,8 @@
 FROM       ubuntu:20.04 AS builder
 MAINTAINER WebHare bv <info@webhare.com>
 
+ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
+
 # Environment variables
 ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
@@ -14,7 +16,8 @@ ENV LC_ALL=C \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
   WHBUILD_NODEPS=1 \
   WHBUILD_LTO=1 \
-  WHBUILD_WASMLTO=1
+  WHBUILD_WASMLTO=1 \
+  WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR
 
 # Base image setup
 RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
@@ -34,6 +37,8 @@ RUN --mount=type=tmpfs,target=/opt/whbuild \
 ################# STAGE 2 - application image
 FROM       ubuntu:20.04 AS appimage
 
+ARG WEBHARE_NODE_MAJOR # Depend on this setting to let imagebase.sh download the proper node
+
 # Environment variables
 ENV LC_ALL=C \
   WEBHARE_BASEPORT=13679 \
@@ -44,6 +49,7 @@ ENV LC_ALL=C \
   WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
+  WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
   PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

@@ -55,6 +55,9 @@ Our build/run platform. `linux` or `darwin`
 ### WEBHARE_NODE_BINARY
 Which process to invoke for 'node' (needed sometimes to lock in the proper version)
 
+### WEBHARE_NODE_MAJOR
+Major nodejs version for WebHare to use
+
 ## Tweaks
 
 ### WEBHARE_CHECKEDOUT_TO

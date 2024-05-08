@@ -51,6 +51,8 @@ if [ -n "$CI_COMMIT_SHA" ]; then
   fi
 fi
 
+wh_getnodeconfig
+
 get_finaltag
 list_finaltag
 
@@ -135,6 +137,10 @@ echo "Packaging source tree for the WebHare runner"
 # Enable noisier progress info, otherwise we can't actually see what the long-taking steps are ding
 DOCKERBUILDARGS+=(--progress)
 DOCKERBUILDARGS+=(plain)
+
+[ -n "$WEBHARE_NODE_MAJOR" ] || die "WEBHARE_NODE_MAJOR not set"
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR")
 
 # Record CI information so we can verify eg. if this image really matches the most recent build
 DOCKERBUILDARGS+=(--build-arg)

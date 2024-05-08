@@ -61,4 +61,11 @@ async function test() {
   console.log(await v1);
 }
 
-test();
+const nodeMajor = parseInt(process.env["WEBHARE_NODE_MAJOR"]);
+if (Number.isNaN(nodeMajor))
+  throw new Error(`WEBHARE_NODE_MAJOR not properly set`); //not using process.version as then we're not under WebHare build control
+
+if (nodeMajor < 21)
+  console.error(`Node version ${nodeMajor} too low, skipping test`);
+else
+  test();

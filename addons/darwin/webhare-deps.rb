@@ -20,7 +20,7 @@ class WebhareDeps < Formula
   depends_on "libpng"
   depends_on "libtiff"
   depends_on "make"
-  depends_on "node"
+  depends_on "node@" + ENV["HOMEBREW_WEBHARE_NODE_MAJOR"]
   depends_on "openssl"
   depends_on "pixman"
   depends_on "pkg-config"

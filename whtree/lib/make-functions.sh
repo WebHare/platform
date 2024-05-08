@@ -9,10 +9,6 @@ else
   WEBHARE_PLATFORM="linux"
 fi
 
-if [ -z "$WEBHARE_NODE_BINARY" ]; then
-  [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
-fi
-
 # We must have $WEBHARE_DIR, pointing to the 'whtree'.
 if [ -z "$WEBHARE_DIR" ]; then
   if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
@@ -86,10 +82,11 @@ setup_builddir()
 getwebhareversion()
 {
   [ -n "$WEBHARE_DIR" ] || die "WEBHARE_DIR not set - couldn't figure out where the WebHare tree is"
-  export WEBHARE_VERSION="$(grep ^version= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+  WEBHARE_VERSION="$(grep ^version= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+
   [ -n "$WEBHARE_VERSION" ] || die "Could not get version number from $WEBHARE_DIR/etc/platform.conf"
+  export WEBHARE_VERSION
 }
 
-
 export -f die setup_builddir getwebhareversion
-export WEBHARE_NODE_BINARY WEBHARE_PLATFORM
+export WEBHARE_PLATFORM
