@@ -25,17 +25,17 @@ const fix: boolean = program.opts().fix;
 async function main() {
   const axioms = await readAxioms();
 
+  const issues: Array<{
+    message: string;
+    toFix?: () => void;
+  }> = [];
+
   for (const pkg of await readdir(backendConfig.installationroot + "/jssdk", { withFileTypes: true })) {
     if (!pkg.isDirectory())
       continue;
 
     if (verbose)
       console.log(`Checking ${pkg.name}`);
-
-    const issues: Array<{
-      message: string;
-      toFix?: () => void;
-    }> = [];
 
     const pkgroot = join(backendConfig.installationroot, 'jssdk', pkg.name);
     const pkgjson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8"));
@@ -73,8 +73,13 @@ async function main() {
         await writeFile(join(pkgroot, "package.json"), JSON.stringify(pkgjson, null, 2) + "\n");
       }
     }
-
   }
+
+  if (!existsSync(backendConfig.installationroot + "node_modules/esbuild/bin/esbuild"))
+    issues.push({ message: "esbuild is not installed in our root" });
+  else if (existsSync(backendConfig.installationroot + "jssdk/tsrun/node_modules/esbuild/bin/esbuild"))
+    issues.push({ message: "tsrun has its own esbuild but there should be only one version around" });
+
   if (process.exitCode && !fix) //issues!
     console.log('Run `wh run mod::platform/scripts/platformdev/validate_jssdk.ts --fix` to attempt automatic fixes');
 }
