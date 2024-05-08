@@ -16,7 +16,6 @@
   ],
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
-    "@tsconfig/recommended": "^1.0.3",
     "@types/diff": "^5.2.1",
     "@types/eslint": "^8.56.1",
     "@types/jsonwebtoken": "^9.0.6",
