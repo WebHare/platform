@@ -31,6 +31,7 @@
     "commander": "^11.1.0",
     "country-list-js": "^3.1.8",
     "diff": "^5.1.0",
+    "esbuild": "^0.21.1",
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-tsdoc": "^0.2.17",
