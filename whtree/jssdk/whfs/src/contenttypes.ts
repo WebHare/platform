@@ -6,6 +6,7 @@ import { isReadonlyWHFSSpace } from "./support";
 import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
+import { mapGroupBy } from "@webhare/std";
 
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -328,22 +329,24 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const descr = await describeContentType(this.ns);
     const instanceIdMapping = await db<PlatformDB>()
       .selectFrom("system.fs_instances")
-      .select(["id", "fs_object"])
+      .innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object")
+      .select(["system.fs_instances.id", "fs_object", "system.fs_objects.creationdate"])
       .where("fs_type", "=", descr.id)
       .where("fs_object", "=", sql`any(${fsObjIds})`)
       .execute();
     const instanceIds = instanceIdMapping.map(_ => _.id);
+    const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));
     const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds) : [];
-    const objInfos = await db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "creationdate"]).where("id", "=", sql`any(${fsObjIds})`).execute();
+    const groupedSettings = mapGroupBy(cursettings, _ => _.fs_instance);
+    const getMembers = properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members;
 
     const retval = new Map<number, unknown>();
     for (const id of fsObjIds) {
-      const mapping = instanceIdMapping.find(_ => _.fs_object === id);
-      const settings = mapping ? cursettings.filter(_ => _.fs_instance === mapping.id) : [];
-      const objInfo = settings.length ? objInfos.find(_ => _.id === id) : null;
-      const cc = objInfo ? getUnifiedCC(objInfo.creationdate) : 0;
+      const mapping = instanceInfo.get(id);
+      const cc = mapping ? getUnifiedCC(mapping.creationdate) : 0;
+      const settings = groupedSettings.get(mapping?.id || 0) || [];
       //TODO if settings is empty, we could straight away take or reuse the defaultinstance
-      const result = await this.recurseGet(settings, properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members, null, null, cc);
+      const result = await this.recurseGet(settings, getMembers, null, null, cc);
       retval.set(id, result);
     }
 

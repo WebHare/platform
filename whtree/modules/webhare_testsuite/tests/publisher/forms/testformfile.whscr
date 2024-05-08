@@ -488,6 +488,7 @@ PUBLIC MACRO FillInForm()
 MACRO TestDirectFormSubmission()
 {
   //ensure no pending mail from previous tests
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ count := 0 ]);
 
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
