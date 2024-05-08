@@ -125,6 +125,11 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGE
   exit 1
 fi
 
+# it's just one of those days. v20.13.0 broke fetch. downgrade it, see https://github.com/nodejs/node/issues/52909
+if [ "$(node -v)" == "v20.13.0" ]; then
+  apt-get install -y --allow-downgrades nodejs=20.12.2-1nodesource1
+fi
+
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
 rm /etc/java-17-openjdk/accessibility.properties
 
