@@ -572,17 +572,26 @@ ASYNC MACRO TestFormApp()
   //FIXME TestEq("Pietje", TT(":First name")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  // Remove all remaining mails from queue
-  RECORD ARRAY usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
-  TestEq(2,Length(usermail));
+  // Remove all remaining outgoing mails from queue
+  testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ returnallmail := TRUE ]);
 
-  // Rerun the other visitor response handler and check if the mail is sent again
+  // Select the third result as well, for which the 'another' handler shouldn't run
+  TT("results")->selection := RECORD[ TT("results")->rows[0], TT("results")->rows[2] ];
+
+  // Rerun the other visitor response handler and check if the mail is only sent again for the first result
   TestEq(3, Length(TT("rerun")->items));
   TestEq("Another response to visitor", TT("rerun")->items[2].menuitem->title);
   AWAIT ExpectScreenChange(+1, PTR TT("rerun")->items[2].menuitem->action->TolliumClick);
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":Yes"));
-  usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 60000, count := 1 ]);
-  TestEq(1,Length(usermail));
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Yes"));
+  // Check for a 'handler rerun for 1 of 2 results' message
+  // Note: Cannot use ExpectAndAnswerMessageBox, as it expects a message screen to be opened (+1) instead of replaced (0)
+  AWAIT AnswerMessageBox("OK", [ messagemask := "*1 of 2*" ]);
+  testfw->FlushTasks([ "publisher:mailfeedback" ]); // Handle all feedback mail
+  RECORD usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 60000, count := 1 ]);
+  TestEq(TRUE, RecordExists(usermail));
+  // There should not be a second mail
+  usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ count := 0, returnallmail := TRUE ]);
+  TestEq(FALSE, RecordExists(usermail));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Export"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

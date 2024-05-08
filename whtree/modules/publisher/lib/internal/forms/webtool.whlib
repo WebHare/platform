@@ -202,7 +202,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   /** List the current form handlers */
   PUBLIC RECORD ARRAY FUNCTION ListHandlers()
   {
-    RETURN SELECT guid, handlertype, handlerobject, __handlertask := handlertask FROM this->formhandlers;
+    RETURN SELECT guid, handlertype, handlerobject, __handlertask := handlertask, __condition := condition FROM this->formhandlers;
   }
 
   /** Delete a handler by GUID. This will delete it for the current submission

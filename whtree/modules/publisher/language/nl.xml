@@ -2145,6 +2145,8 @@
         <text tid="noresults">Er zijn nog geen resultaten</text>
         <text tid="numresults">Aantal resultaten</text>
         <text tid="rerun">Afhandeling opnieuw uitvoeren</text>
+        <text tid="rerunhandlererror">De afhandeling kon niet opnieuw worden uitgevoerd.</text>
+        <text tid="rerunhandlerresult">De afhandeling is opnieuw uitgevoerd voor <param p="1"/> van <param p="2"/> <ifparam p="2" value="1">resultaat<else/>resultaten</ifparam>.</text>
         <text tid="results">Resultaten</text>
         <text tid="showexpiredresults">Verlopen resultaten tonen</text>
         <text tid="showpendingresults">Onbevestigde resultaten tonen</text>
