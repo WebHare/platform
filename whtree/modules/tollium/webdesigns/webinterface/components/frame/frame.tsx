@@ -234,7 +234,7 @@ export default class Frame extends ToddCompBase {
 
     // TODO dompack keyboard should not intercept Control+Enter on inputs ?  Or allow us to specify specific keys for captureunsafekeys
     this.keyboard2 = new KeyboardHandler(this.node, {
-      "Control+Enter": this.onDefault.bind(this)
+      "Accel+Enter": this.onDefault.bind(this)
     }, { stopmapped: true, captureunsafekeys: true });
 
     window.addEventListener("resize", this.onDesktopResized);
