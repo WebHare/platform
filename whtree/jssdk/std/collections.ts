@@ -30,35 +30,6 @@ export function emplace<T extends Map<any, any>>(map: T, key: T extends Map<infe
   return setvalue;
 }
 
-/** Group items into a map (implementation of proposed Map.groupBy)
- * @param items - Items to group
- * @param callbackfn - Function that calculates the key of an item
- * @returns - Map from a key to the list of items that generated that key
- * @see https://github.com/tc39/proposal-array-grouping/
- */
-export function mapGroupBy<Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
-  const retval = new Map<Key, Item[]>;
-  let idx = 0;
-  for (const item of items) {
-    const key = callbackfn(item, idx++);
-    let list = retval.get(key);
-    if (!list)
-      retval.set(key, list = []);
-    list.push(item);
-  }
-  return retval;
-}
-
-/** Group items into a record (implementation of proposed Object.groupBy)
- * @param items - Items to group
- * @param callbackfn - Function that calculates the key of an item
- * @returns - Object that maps from a key to the list of items that generated that key
- * @see https://github.com/tc39/proposal-array-grouping/
- */
-export function objectGroupBy<Item, Key extends string | number | symbol>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Record<Key, Item[]> {
-  return Object.fromEntries(mapGroupBy(items, callbackfn).entries()) as Record<Key, Item[]>;
-}
-
 /** Returns an object with a selection of properties
     @typeParam T - Type of the supplied object
     @typeParam K - Type of the property keys to return

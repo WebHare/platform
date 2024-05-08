@@ -14,3 +14,23 @@ Promise.withResolvers ||= function <T>(): PromiseWithResolvers<T> {
   // https://github.com/Microsoft/TypeScript/issues/30053)
   return { promise, resolve, reject };
 };
+
+// Polyfills for https://caniuse.com/?search=groupby - needed until we can assume safari 17.4 as global baseline
+if (!Map.groupBy)
+  Map.groupBy = function <Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
+    const retval = new Map<Key, Item[]>;
+    let idx = 0;
+    for (const item of items) {
+      const key = callbackfn(item, idx++);
+      let list = retval.get(key);
+      if (!list)
+        retval.set(key, list = []);
+      list.push(item);
+    }
+    return retval;
+  };
+
+if (!Object.groupBy)
+  Object.groupBy = function <Item, Key extends string | number | symbol>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Partial<Record<Key, Item[]>> {
+    return Object.fromEntries(Map.groupBy(items, callbackfn).entries()) as Partial<Record<Key, Item[]>>;
+  };

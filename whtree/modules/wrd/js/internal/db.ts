@@ -2,7 +2,6 @@ import { db, Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { WRDAttributeType, WRDBaseAttributeType, WRDMetaType } from "./types";
-import { mapGroupBy } from "@webhare/std/collections";
 
 const selectSchemaColumns = ["id"] as const;
 const selectTypeColumns = ["id", "tag", "metatype", "parenttype", "requiretype_left", "requiretype_right", "abstract", "keephistorydays"] as const;
@@ -161,11 +160,11 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       }
     }
   }
-  const typeAttrMap = mapGroupBy(allAttrs, (attr) => attr.type);
+  const typeAttrMap = Map.groupBy(allAttrs, (attr) => attr.type);
 
   for (const type of typeIdMap.values()) {
     const typeAttrs = typeAttrMap.get(type.id)!;
-    for (const [parent, childAttrs] of mapGroupBy(typeAttrs, attr => attr.parent))
+    for (const [parent, childAttrs] of Map.groupBy(typeAttrs, attr => attr.parent))
       type.parentAttrMap.set(parent, childAttrs);
     for (const attr of typeAttrs) {
       if (!attr.parent)

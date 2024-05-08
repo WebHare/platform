@@ -6,7 +6,6 @@ import { isReadonlyWHFSSpace } from "./support";
 import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
-import { mapGroupBy } from "@webhare/std";
 
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -337,7 +336,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const instanceIds = instanceIdMapping.map(_ => _.id);
     const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));
     const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds) : [];
-    const groupedSettings = mapGroupBy(cursettings, _ => _.fs_instance);
+    const groupedSettings = Map.groupBy(cursettings, _ => _.fs_instance);
     const getMembers = properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members;
 
     const retval = new Map<number, unknown>();
