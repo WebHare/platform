@@ -15,9 +15,6 @@ while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "--checkout" ]; then
     shift
     GITCHECKOUT=$1
-  elif [ "$1" == "--debug" ]; then
-    DOCKERBUILDARGS+=(--build-arg)
-    DOCKERBUILDARGS+=(DEBUG=1)
   elif [ "$1" == "--nopull" ]; then
     DOCKERPULLARG=""
   elif [ "$1" == "--podman" ]; then
