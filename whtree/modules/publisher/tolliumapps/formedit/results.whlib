@@ -262,8 +262,13 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
     IF (this->RunSimpleScreen("verify", this->GetTid(".confirmrerunhandler", rerunaction.title, ToString(Length(^results->selection)))) = "yes")
     {
       OBJECT work := this->BeginWork();
+      INTEGER numrerun;
       FOREVERY (RECORD result FROM ^results->selection)
       {
+        // Check if the handler should run for this result
+        IF (NOT this->formresults->MatchFormCondition(rerunaction.condition, this->formresults->GetSingleResultById(result.id)).success)
+          CONTINUE;
+
         STRING submittype := result.__rowmeta.submittype;
 
         // Check if the handler is appropriate for the result's submit type
@@ -282,8 +287,12 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
             , submittype
             ],
             [ auxdata := CELL[ result.__rowmeta.extradata ] ]);
+        numrerun := numrerun + 1;
       }
-      work->Finish();
+      IF (work->Finish())
+        this->RunSimpleScreen("info", this->GetTid(".rerunhandlerresult", ToString(numrerun), ToString(Length(^results->selection))));
+      ELSE
+        this->RunSimpleScreen("error", this->GetTid(".rerunhandlererror"));
     }
   }
 

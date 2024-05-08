@@ -1335,7 +1335,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     FOREVERY (OBJECT handler FROM this->curform->GetHandlers())
     {
       STRING handlerguid := handler->GetAttribute("guid");
-      RECORD formhandler := SELECT handlerobject, __handlertask FROM finalform->ListHandlers() WHERE guid = handlerguid;
+      RECORD formhandler := SELECT handlerobject, __handlertask, __condition FROM finalform->ListHandlers() WHERE guid = handlerguid;
 
       RECORD component :=
           SELECT *
@@ -1350,7 +1350,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
         title := RecordExists(component) ? component.title : handler->localname;
 
       IF(formhandler.handlerobject->IsRerunnable() AND formhandler.__handlertask != "")
-        INSERT CELL[ title, formhandler.handlerobject, handlertask := formhandler.__handlertask, handlerguid ] INTO this->rerunnablehandlers AT END;
+        INSERT CELL[ title, formhandler.handlerobject, handlertask := formhandler.__handlertask, condition := formhandler.__condition, handlerguid ] INTO this->rerunnablehandlers AT END;
       IF(formhandler.handlerobject->IsTestableForResults())
         INSERT CELL[ title, formhandler.handlerobject ] INTO this->testablehandlers AT END;
 

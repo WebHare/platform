@@ -2146,6 +2146,8 @@
         <text tid="noresults">There are no results yet</text>
         <text tid="numresults">Number of results</text>
         <text tid="rerun">Rerun handler</text>
+        <text tid="rerunhandlererror">The handler could not be rerun.</text>
+        <text tid="rerunhandlerresult">The handler has been rerun for <param p="1"/> of <param p="2"/> result<ifparam p="2" value="1"><else/>s</ifparam>.</text>
         <text tid="results">Results</text>
         <text tid="showexpiredresults">Show expired results</text>
         <text tid="showpendingresults">Show unconfirmed results</text>
