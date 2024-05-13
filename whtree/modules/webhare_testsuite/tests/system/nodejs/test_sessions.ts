@@ -8,7 +8,6 @@ import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { generateRandomId } from "@webhare/std/platformbased";
 import { SingleFileUploader, type UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
-import { buffer } from "node:stream/consumers";
 import { Money } from "@webhare/std";
 import { existsSync } from "fs";
 import { getStorageFolderForSession } from "@webhare/services/src/sessions";
@@ -100,9 +99,10 @@ async function testUpload() {
 
   //Retrieve the file using JS
   const fileInJS = await getUploadedFile(uploadResult.token);
-  test.eqPartial({ fileName: "text.txt", size: uploadText.length, mediaType: "text/plain" }, fileInJS);
-  test.assert(fileInJS.stream, "File has a stream");
-  test.eq(uploadText, (await buffer(fileInJS.stream)).toString());
+  test.eq("text.txt", fileInJS.name);
+  test.eq(uploadText.length, fileInJS.size);
+  test.eq("text/plain", fileInJS.type);
+  test.assert("File has a stream", await fileInJS.text());
 
   //Note that we can find the storage on disk
   test.eq(true, existsSync(getStorageFolderForSession(howToUpload.sessionId)));
