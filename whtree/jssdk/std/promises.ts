@@ -1,11 +1,7 @@
 import { WaitPeriod, convertWaitPeriodToDate } from "./datetime";
 
-/// A deferred promise with typed result value
-export type DeferredPromise<T> = {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason: Error) => void;
-};
+//TODO Deprecate once everyone is WH5.5+
+export type DeferredPromise<T> = PromiseWithResolvers<T>;
 
 /** A promise that sleeps for the specified number of milliseconds
  *  @param duration - Relative (milliseconds, but not Infinity) or absolute (Date) wait duration. May not be Infinity
@@ -23,18 +19,9 @@ export async function sleep(duration: WaitPeriod, options?: { signal?: AbortSign
   });
 }
 
-/** Create a promise together with resolve & reject functions
-
-    @typeParam T - expected type of Resolve
-    @returns Deferred promise
- */
-export function createDeferred<T>(): DeferredPromise<T> {
-  let resolve: (value: T | PromiseLike<T>) => void;
-  let reject: (reason: Error) => void;
-  const promise = new Promise<T>((_resolve, _reject) => { resolve = _resolve; reject = _reject; });
-  // @ts-ignore `resolve` and `reject` are assigned synchronously, which isn't picked up by the TypeScript compiler (see
-  // https://github.com/Microsoft/TypeScript/issues/30053)
-  return { promise, resolve, reject };
+//TODO Deprecate once everyone is WH5.5+
+export function createDeferred<T>(): PromiseWithResolvers<T> {
+  return Promise.withResolvers<T>();
 }
 
 /** Wrap a promise in a timeout
