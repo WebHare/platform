@@ -20,6 +20,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
           , configextensions := ""
           , payinfoscreen := ""
           , metadataoptions := DEFAULT RECORD
+          , metadataoptionsoptions := [ passthrough := TRUE ]
           ]
          ,[ tag := "wrd:ingenico"
           , title := ":Ingenico"
@@ -159,7 +160,7 @@ PUBLIC RECORD FUNCTION GetPSPInfo(STRING createtype)
 
   RECORD methodinfo := SELECT * FROM GetAvailablePSPs() WHERE ToUppercase(tag) = ToUppercase(VAR searchtype);
   IF(NOT RecordExists(methodinfo))
-    THROW NEW Exception("Unsupported payment type '" || createtype || "'");
+    methodinfo := SELECT * FROM GetAvailablePSPs() WHERE tag = "wrd:unavailable";
 
   RETURN CELL[ manual := ""
              , manuallanguages := ["en"]

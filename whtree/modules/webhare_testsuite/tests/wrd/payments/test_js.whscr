@@ -76,7 +76,8 @@ MACRO TestPaymentFields()
   TestThrowsLike("Type 'PAYMENTDATA' does not exist*", PTR GetPaymentAPI(wrdschema, [ providerfield := "PAYMENTDATA.PAYMENT", paymentfield := "PAYDATA.DATA" ]));
   TestThrowsLike("Invalid provider attribute 'PAYPROV.WRD_TITLE'", PTR GetPaymentAPI(wrdschema,   [ providerfield := "PAYPROV.WRD_TITLE", paymentfield := "PAYDATA.DATA" ]));
 
-  TestThrowsLike("*wrd:blabla*", PTR MakePaymentProviderValue("wrd:blabla", [ blabla := FALSE ]));
+  RECORD blabla := MakePaymentProviderValue("wrd:blabla", [ blabla := FALSE ]);
+  TestEqMembers([ __paymentprovider := [ type := "wrd:blabla", meta := [ blabla := FALSE ]]], blabla, '*');
   TestThrowsLike("*BLABLA*", PTR MakePaymentProviderValue("wrd:external", [ blabla := FALSE ]));
 
   TestThrowsLike("*required*", PTR testfw->wrdschema->^payprov->CreateEntity(
