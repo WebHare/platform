@@ -37,7 +37,7 @@ type RefTrackerEvents = {
   unref: void;
 };
 
-export class RefTracker extends EventSource<RefTrackerEvents>{
+export class RefTracker extends EventSource<RefTrackerEvents> {
   private locks = new Set<RefLock>();
   private initialref?: RefLock;
   private hasref: boolean;
