@@ -7,6 +7,6 @@ assetPacks:
     webharePolyfills: false #we shouldn't polyfill with this assetpack, we're loaded side-by-side to an existing one
     module: true
 
-webfeatures:
+webFeatures:
   savedurlhistory:
     siteProfile: webfeatures/savedurlhistory/savedurlhistory.siteprl.xml
