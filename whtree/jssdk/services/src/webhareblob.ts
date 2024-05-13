@@ -111,3 +111,18 @@ export class WebHareDiskBlob extends WebHareBlob {
     return readFileSync(this.path);
   }
 }
+
+/** Wraps a JS Blob as a WebHareBlob */
+export class WebHareNativeBlob extends WebHareBlob {
+  readonly blob: Blob;
+
+  constructor(blob: Blob) {
+    super(blob.size);
+    this.blob = blob;
+  }
+
+  async getStream(): Promise<ReadableStream<Uint8Array>> {
+    //@ts-ignore NodeJS is misunderstanding the types
+    return this.blob.stream();
+  }
+}

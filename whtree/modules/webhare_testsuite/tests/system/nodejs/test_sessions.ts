@@ -6,9 +6,8 @@ import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { generateRandomId } from "@webhare/std/platformbased";
-import { SingleFileUploader, type UploadInstructions } from "@webhare/frontend/src/upload";
+import { SingleFileUploader, type UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
-import { buffer } from "node:stream/consumers";
 import { Money } from "@webhare/std";
 import { existsSync } from "fs";
 import { getStorageFolderForSession } from "@webhare/services/src/sessions";
@@ -100,9 +99,10 @@ async function testUpload() {
 
   //Retrieve the file using JS
   const fileInJS = await getUploadedFile(uploadResult.token);
-  test.eqPartial({ fileName: "text.txt", size: uploadText.length, mediaType: "text/plain" }, fileInJS);
-  test.assert(fileInJS.stream, "File has a stream");
-  test.eq(uploadText, (await buffer(fileInJS.stream)).toString());
+  test.eq("text.txt", fileInJS.name);
+  test.eq(uploadText.length, fileInJS.size);
+  test.eq("text/plain", fileInJS.type);
+  test.assert("File has a stream", await fileInJS.text());
 
   //Note that we can find the storage on disk
   test.eq(true, existsSync(getStorageFolderForSession(howToUpload.sessionId)));
@@ -112,6 +112,12 @@ async function testUpload() {
 
   //Storage should be gone eventually (the cleanup is async in JS)
   await test.wait(() => !existsSync(getStorageFolderForSession(howToUpload.sessionId)));
+
+  //Ensure constructing as blob still gives us a Usable file
+  const uploaderBlob = new SingleFileUploader(new Blob([uploadText], { type: "text/plain" }));
+  test.eq(uploadText.length, uploaderBlob.file.size);
+  test.eq("upload", uploaderBlob.file.name);
+  test.eq("text/plain", uploaderBlob.file.type);
 }
 
 async function testUploadHSCompat() {

@@ -4,7 +4,7 @@ import { createDeferred } from "dompack";
 /* Note: you can't really build a FileList yourself, but FileList doesn't satisfy File[] and neither the reverse works. (noone is really happy with that though)
    So we'll just accept both types */
 
-type FileListLike = FileList | File[];
+type FileListLike = FileList | Blob[];
 
 declare global {
   interface GlobalEventHandlersEventMap {
@@ -30,12 +30,12 @@ export interface UploadProgressStatus {
   uploadSpeed: number;
 }
 
-interface UploadOptions {
+export interface UploadOptions {
   onProgress?: (progress: UploadProgressStatus) => void;
   signal?: AbortSignal;
 }
 
-interface UploadResult {
+export interface UploadResult {
   name: string;
   size: number;
   type: string;
@@ -70,12 +70,18 @@ export class MultiFileUploader implements UploaderBase {
     if (!files.length)
       throw new Error("No files to upload");
 
-    this.files = [...files];
-    this.manifest = { files: this.files.map(_ => ({ name: _.name, size: _.size, type: _.type })) };
+    this.files = [...files].map(_ => (_ as File)?.name ? _ as File : new File([_], "upload", { type: _.type || "application/octet-stream" }));
+    this.manifest = {
+      files: this.files.map(_ => ({
+        name: (_ as File)?.name ?? "upload",
+        size: _.size,
+        type: _.type
+      }))
+    };
   }
 
   async upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult[]> {
-    const outfiles = [];
+    const outfiles: UploadResult[] = [];
     let uploadedBytes = 0, uploadedFiles = 0;
     const totalBytes = this.files.reduce((acc, file) => acc + file.size, 0);
     const totalFiles = this.files.length;
@@ -149,7 +155,7 @@ export class MultiFileUploader implements UploaderBase {
         uploadedBytes += data.size;
       }
 
-      outfiles.push({ name: file.name, size: file.size, type: file.type, token: instructions.sessionId + '#' + idx });
+      outfiles.push({ ...this.manifest.files[idx], token: instructions.sessionId + '#' + idx });
       ++uploadedFiles;
       fireProgressEvent(0);
     }
@@ -169,7 +175,7 @@ export class SingleFileUploader implements UploaderBase {
     return this.uploader.files[0];
   }
 
-  constructor(file: File) {
+  constructor(file: Blob) {
     this.uploader = new MultiFileUploader([file]);
   }
 

@@ -1,9 +1,7 @@
-import type { UploadManifest, UploadInstructions } from "@webhare/frontend/src/upload";
+import type { UploadManifest, UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
-import { buffer } from "node:stream/consumers";
 import * as crypto from "node:crypto";
-import { pick } from "@webhare/std";
 import type { UploadSessionOptions } from "@webhare/services/src/sessions";
 
 function hash(data: Buffer): string {
@@ -22,8 +20,13 @@ export const testInvokeApi = {
 
   getFile: async (token: string) => {
     const file = await getUploadedFile(token);
-    const readable = file.stream ? await buffer(file.stream) : Buffer.from("");
-    const data = readable.length > 10 * 1024 ? `[${readable.length} bytes]` : readable.toString("utf8");
-    return { ...pick(file, ["fileName", "size", "mediaType"]), data, hash: hash(readable) };
+    const data = file.size > 10 * 1024 ? `[${file.size} bytes]` : await file.text();
+    return {
+      fileName: file.name,
+      size: file.size,
+      mediaType: file.type,
+      data,
+      hash: hash(Buffer.from(await file.arrayBuffer()))
+    };
   }
 };

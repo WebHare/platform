@@ -1,8 +1,7 @@
 import UploadDialogController from './dialogs/uploadcontroller';
 import ImgeditDialogController, { type ImageSettings, type RefPoint } from './dialogs/imgeditcontroller';
-import * as frontend from '@webhare/frontend';
 import type { ToddCompBase } from './componentbase';
-import { MultiFileUploader, type UploadRequestOptions } from '@webhare/frontend/src/upload';
+import { MultiFileUploader, requestFiles, type UploadInstructions, type UploadRequestOptions } from '@webhare/upload';
 import type { CurrentDragData } from './dragdrop';
 import { isTruthy } from '@webhare/std/collections';
 import { flagUIBusy } from '@webhare/dompack';
@@ -20,7 +19,7 @@ export type TolliumUploadedCallback = (files: Array<{
     calls processing callback that must close the progress dialog by callback.
 */
 export async function uploadFiles(component: ToddCompBase, uploadedcallback: TolliumUploadedCallback, options?: UploadRequestOptions) {
-  const uploader = await frontend.requestFiles(options);
+  const uploader = await requestFiles(options);
 
   if (!uploader) {
     uploadedcallback([], () => { });
@@ -41,7 +40,7 @@ async function uploadFilesWithPath(component: ToddCompBase, files: ItemWithFullp
 }
 
 async function runUpload(component: ToddCompBase, uploader: MultiFileUploader, uploadedcallback: TolliumUploadedCallback) {
-  const response = await component.asyncRequest<frontend.UploadInstructions>("canUpload", uploader.manifest);
+  const response = await component.asyncRequest<UploadInstructions>("canUpload", uploader.manifest);
   const aborter = new AbortController;
   const uploadcontroller = new UploadDialogController(component.owner, aborter);
   using lock = component.owner.lockScreen();

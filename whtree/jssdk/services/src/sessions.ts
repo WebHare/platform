@@ -3,9 +3,9 @@ import { SessionScopes, WebHareBlob, toFSPath } from "./services";
 import { convertWaitPeriodToDate, parseTyped, stringify, type WaitPeriod } from "@webhare/std";
 import { db, isWorkOpen, onFinishWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
-import type { UploadInstructions, UploadManifest } from "@webhare/frontend/src/upload";
+import type { UploadInstructions, UploadManifest } from "@webhare/upload";
 import * as fs from "node:fs/promises";
-import { ReadableStream, ReadableByteStreamController } from "node:stream/web";
+import { openAsBlob } from "node:fs";
 
 const DefaultChunkSize = 5 * 1024 * 1024;
 const DefaultUploadExpiry = "P1D";
@@ -127,7 +127,8 @@ export async function createUploadSession(manifest: UploadManifest, { chunkSize 
   };
 }
 
-function getUploadedStream(basePath: string, size: number, chunkSize: number): ReadableStream {
+/* not sure if we need it. it seems that returning a list of Blobs makes live a lot easier
+function getUploadedStream(basePath: string, size: number, chunkSize: number): ReadableStream<Uint8Array> {
   const numChunks = Math.ceil(size / chunkSize);
 
   let curChunk = 0;
@@ -138,7 +139,7 @@ function getUploadedStream(basePath: string, size: number, chunkSize: number): R
     pull: async (controller: ReadableByteStreamController) => {
       /* TODO fill byobRequest for zero-copy transfers. see also https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_byte_streams#underlying_pull_source_with_byte_reader
               tried that but rean into issues with curfile.read expecting a NodeJS.ArrayBufferView which is incompatible with ArrayBufferView  controller.byobRequest?.view
-         */
+         * /
       while (curChunk < numChunks) {
         if (!curFile)
           curFile = await fs.open(basePath + (curChunk * chunkSize) + '.dat');
@@ -162,6 +163,7 @@ function getUploadedStream(basePath: string, size: number, chunkSize: number): R
     }
   });
 }
+*/
 
 export function getStorageFolderForSession(sessionId: string): string {
   return toFSPath(`storage::platform/uploads/${sessionId}/`);
@@ -186,21 +188,14 @@ export async function getUploadedFileDetails(token: string) {
 }
 
 /** Retrieve an uploaded file by its token */
-export async function getUploadedFile(token: string): Promise<{
-  fileName: string;
-  size: number;
-  mediaType: string;
-  stream: ReadableStream<Uint8Array> | null;
-}> {
+export async function getUploadedFile(token: string): Promise<File> {
   const details = await getUploadedFileDetails(token);
   if (!details)
     throw new Error("File not found: " + token);
 
-  const stream = details.size ? getUploadedStream(details.basePath, details.size, details.chunkSize) : null;
-  return {
-    fileName: details.fileName,
-    size: details.size,
-    mediaType: details.mediaType,
-    stream
-  };
+  const parts: Blob[] = [];
+  for (let pos = 0; pos < details.size; pos += details.chunkSize)
+    parts.push(await openAsBlob(details.basePath + pos + ".dat"));
+
+  return new File(parts, details.fileName, { type: details.mediaType });
 }
