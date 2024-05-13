@@ -217,7 +217,7 @@ PUBLIC OBJECTTYPE EditType EXTEND TolliumScreenBase
       OBJECT lefttype := wrdschema->GetTypeById(this->wrdtype->linkfrom);
       IF(ObjectExists(lefttype))
       {
-        this->linkfrom->value := lefttype->title;
+        this->linkfrom->value := lefttype->tag;
         this->type_left  := this->wrdtype->linkfrom;
       }
     }
@@ -228,7 +228,7 @@ PUBLIC OBJECTTYPE EditType EXTEND TolliumScreenBase
       OBJECT righttype := wrdschema->GetTypeById(this->wrdtype->linkto);
       IF(ObjectExists(righttype))
       {
-        this->linkto->value := righttype->title;
+        this->linkto->value := righttype->tag;
         this->type_right  := this->wrdtype->linkto;
       }
     }
