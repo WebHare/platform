@@ -37,7 +37,7 @@ export function emplace<T extends Map<any, any>>(map: T, key: T extends Map<infe
     @param keys - Names of the properties to pick
     @returns Resulting object
 */
-export function pick<T extends object, K extends string & keyof T>(obj: T, keys: readonly K[]): Pick<T, K>;
+export function pick<T extends object, K extends string & NoInfer<keyof T>>(obj: T, keys: readonly K[]): Pick<T, K>;
 
 /** Returns an array with a selection of properties
     @typeParam T - Type of the supplied array
@@ -46,9 +46,9 @@ export function pick<T extends object, K extends string & keyof T>(obj: T, keys:
     @param keys - Names of the properties to pick
     @returns Resulting array
 */
-export function pick<T extends object, K extends string & keyof T>(arr: T[], keys: readonly K[]): Array<Pick<T, K>>;
+export function pick<T extends object, K extends string & NoInfer<keyof T>>(arr: T[], keys: readonly K[]): Array<Pick<T, K>>;
 
-export function pick<T extends object, K extends string & keyof T>(value: T | T[], keys: readonly K[]): Pick<T, K> | Array<Pick<T, K>> {
+export function pick<T extends object, K extends string & NoInfer<keyof T>>(value: T | T[], keys: readonly K[]): Pick<T, K> | Array<Pick<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => pick(elt, keys));
   const ret = {} as Pick<T, K>;
@@ -66,7 +66,7 @@ export function pick<T extends object, K extends string & keyof T>(value: T | T[
     @param keys - Names of the properties to remove
     @returns Resulting object
 */
-export function omit<T extends object, K extends string & keyof T>(obj: T, keys: readonly K[]): Omit<T, K>;
+export function omit<T extends object, K extends string & NoInfer<keyof T>>(obj: T, keys: readonly K[]): Omit<T, K>;
 
 /** Returns an array with a selection of properties left out
     @typeParam T - Type of the supplied array
@@ -75,9 +75,9 @@ export function omit<T extends object, K extends string & keyof T>(obj: T, keys:
     @param keys - Names of the properties to leave out
     @returns Resulting array
 */
-export function omit<T extends object, K extends string & keyof T>(arr: T[], keys: readonly K[]): Array<Omit<T, K>>;
+export function omit<T extends object, K extends string & NoInfer<keyof T>>(arr: T[], keys: readonly K[]): Array<Omit<T, K>>;
 
-export function omit<T extends object, K extends string & keyof T>(value: T | T[], keys: readonly K[]): Omit<T, K> | Array<Omit<T, K>> {
+export function omit<T extends object, K extends string & NoInfer<keyof T>>(value: T | T[], keys: readonly K[]): Omit<T, K> | Array<Omit<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => omit(elt, keys));
   const ret = {} as Omit<T, K>;
