@@ -35,7 +35,7 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 # nodesource key & repository
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${WEBHARE_NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
@@ -123,6 +123,11 @@ PACKAGES="certbot
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES ); then
   echo "APT-GET failed"
   exit 1
+fi
+
+# it's just one of those days. v20.13.0 broke fetch. downgrade it, see https://github.com/nodejs/node/issues/52909
+if [ "$(node -v)" == "v20.13.0" ]; then
+  apt-get install -y --allow-downgrades nodejs=20.12.2-1nodesource1
 fi
 
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot

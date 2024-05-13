@@ -27,6 +27,21 @@ testEq()
   fi
 }
 
+wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a servicemanager.ts, they will all inherit the discovered setting
+{
+  if [ -z "$WEBHARE_NODE_MAJOR" ]; then # Not locked in the (docker) environment
+    WEBHARE_NODE_MAJOR="$(grep ^node_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+    [ -n "$WEBHARE_NODE_MAJOR" ] || die "Could not set WEBHARE_NODE_MAJOR from $WEBHARE_DIR/etc/platform.conf"
+  fi
+
+  if [ "$WEBHARE_PLATFORM" == "darwin" ] && [ -x "$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node" ]; then
+    WEBHARE_NODE_BINARY="$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node"
+  fi
+  [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
+
+  export WEBHARE_NODE_MAJOR WEBHARE_NODE_BINARY
+}
+
 # run a JS/TS script, assumes the resolveplugin is ready for use
 wh_runjs()
 {
@@ -53,8 +68,10 @@ wh_runjs()
     NODE_OPTIONS="--require \"$WEBHARE_DIR/modules/system/js/internal/debug/retainers.js\" $NODE_OPTIONS"
   fi
 
+  [ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
-  "${RUNPREFIX[@]}" ${WEBHARE_NODE_BINARY} --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  "${RUNPREFIX[@]}" "${WEBHARE_NODE_BINARY}" --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"
@@ -589,6 +606,8 @@ setup_buildsystem()
     setup_builddir
   fi
 
+  getwebhareversion
+
   if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
       echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
@@ -604,7 +623,8 @@ setup_buildsystem()
 
       # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
       CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
-      if [ "$DEPSFILE" -nt "$CHECKFILE" ]; then
+      if [ "$DEPSFILE" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ]; then
+      export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR" # homebrew filters most env vars
         echo -n "Brew: "
         if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
         echo "$TODAY" > "$CHECKFILE"
@@ -716,4 +736,4 @@ load_postgres_settings()
 }
 
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
-export -f setup_buildsystem wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters
+export -f setup_buildsystem wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters wh_getnodeconfig
