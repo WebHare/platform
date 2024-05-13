@@ -3,7 +3,6 @@ import "./reset.css";
 export { frontendConfig } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
 import { navigateTo as envNavigateTo } from "@webhare/env";
-export { requestFile, requestFiles, type UploadProgressStatus, type UploaderBase, type UploadManifest, type UploadInstructions } from "./upload";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 
 /** @deprecated Use navigateTo from \@webhare/env */

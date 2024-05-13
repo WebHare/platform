@@ -1,9 +1,9 @@
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
 import DownloadManager from '@mod-system/js/compat/download';
-import * as frontend from '@webhare/frontend';
 
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
+import { requestFile } from "@webhare/upload";
 import ImgeditDialogController, { type RefPoint } from '@mod-tollium/web/ui/js/dialogs/imgeditcontroller';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
@@ -203,7 +203,7 @@ export default class ObjAction extends ActionForwardBase {
           using busylock = dompack.flagUIBusy();
           void busylock;
 
-          const uploader = await frontend.requestFile({ accept: this.mimetypes });
+          const uploader = await requestFile({ accept: this.mimetypes });
           if (uploader?.file)
             this.handleImageUploaded(data, uploader.file);
 

@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
 import { backendConfig } from "./config";
-import type { UploadManifest } from "@webhare/frontend/src/upload";
+import type { UploadManifest } from "@webhare/upload";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";

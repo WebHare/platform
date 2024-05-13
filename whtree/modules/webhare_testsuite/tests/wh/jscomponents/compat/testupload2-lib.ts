@@ -1,4 +1,4 @@
-import type { UploadManifest, UploadInstructions } from "@webhare/frontend/src/upload";
+import type { UploadManifest, UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
 import { buffer } from "node:stream/consumers";

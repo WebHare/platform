@@ -1,11 +1,10 @@
 import * as dompack from "@webhare/dompack";
-import * as frontend from "@webhare/frontend";
-import type { UploadRequestOptions } from "@webhare/frontend/src/upload";
+import { requestFile, requestFiles, type UploadProgressStatus, type UploadRequestOptions, type UploaderBase } from "@webhare/upload";
 import * as test from "@webhare/test-frontend";
 
 let aborter: AbortController | null;
 
-function onProgress(progress: frontend.UploadProgressStatus) {
+function onProgress(progress: UploadProgressStatus) {
   const fileprogress = dompack.qR<HTMLProgressElement>("#fileprogress");
   fileprogress.max = progress.totalFiles;
   fileprogress.value = progress.uploadedFiles;
@@ -20,7 +19,7 @@ function onProgress(progress: frontend.UploadProgressStatus) {
 
 }
 
-async function doActualUpload(onUpload: (options?: UploadRequestOptions) => Promise<frontend.UploaderBase | null>, options?: UploadRequestOptions): Promise<void> {
+async function doActualUpload(onUpload: (options?: UploadRequestOptions) => Promise<UploaderBase | null>, options?: UploadRequestOptions): Promise<void> {
   const chunkSize = parseInt(dompack.qR<HTMLInputElement>("#chunksize").value) || 0;
   aborter = new AbortController;
 
@@ -54,11 +53,11 @@ async function doActualUpload(onUpload: (options?: UploadRequestOptions) => Prom
 }
 
 async function runUpload(options?: UploadRequestOptions) { //upload button is clicked
-  return doActualUpload(frontend.requestFile, options);
+  return doActualUpload(requestFile, options);
 }
 
 async function runUploadMultiple(options?: UploadRequestOptions) { //upload button is clicked
-  return doActualUpload(frontend.requestFiles, options);
+  return doActualUpload(requestFiles, options);
 }
 
 function abortCurrentUpload() {

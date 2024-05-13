@@ -3,7 +3,7 @@ import { SessionScopes, WebHareBlob, toFSPath } from "./services";
 import { convertWaitPeriodToDate, parseTyped, stringify, type WaitPeriod } from "@webhare/std";
 import { db, isWorkOpen, onFinishWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
-import type { UploadInstructions, UploadManifest } from "@webhare/frontend/src/upload";
+import type { UploadInstructions, UploadManifest } from "@webhare/upload";
 import * as fs from "node:fs/promises";
 import { ReadableStream, ReadableByteStreamController } from "node:stream/web";
 

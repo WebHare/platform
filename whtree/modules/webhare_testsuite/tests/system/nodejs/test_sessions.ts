@@ -6,7 +6,7 @@ import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { generateRandomId } from "@webhare/std/platformbased";
-import { SingleFileUploader, type UploadInstructions } from "@webhare/frontend/src/upload";
+import { SingleFileUploader, type UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
 import { buffer } from "node:stream/consumers";
 import { Money } from "@webhare/std";

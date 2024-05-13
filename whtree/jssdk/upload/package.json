@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/upload",
+  "version": "",
+  "description": "",
+  "main": "src/upload.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/upload.ts"
+    ]
+  },
+  "private": true
+}
