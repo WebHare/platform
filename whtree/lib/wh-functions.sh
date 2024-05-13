@@ -608,6 +608,8 @@ setup_buildsystem()
 
   getwebhareversion
 
+  [ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+
   if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
       echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
