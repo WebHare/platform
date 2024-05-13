@@ -122,7 +122,7 @@ export class WebHareNativeBlob extends WebHareBlob {
   }
 
   async getStream(): Promise<ReadableStream<Uint8Array>> {
-    //@ts-ignore NodeJS is misunderstanding the typeswe
+    //@ts-ignore NodeJS is misunderstanding the types
     return this.blob.stream();
   }
 }
