@@ -9,6 +9,7 @@ import { createVM, loadlib } from "@webhare/harescript";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
+import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 
 async function cleanup() {
   await beginWork();
@@ -26,8 +27,15 @@ async function testQueries() {
 
   const goudvis = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
   const thisisablob = WebHareBlob.from("This is a blob");
+  const thisisastreamblob = new WebHareNativeBlob(new Blob(["This is a native blob"]));
+
+  //Ensure we can read this multiple times
+  test.eq("This is a native blob", await thisisastreamblob.text());
+  test.eq("This is a native blob", await thisisastreamblob.text());
+
   await uploadBlob(thisisablob);
   await uploadBlob(goudvis.resource);
+  await uploadBlob(thisisastreamblob);
 
   const thisisablob_id = __getBlobDatabaseId(thisisablob);
   test.assert(thisisablob_id);
@@ -35,25 +43,28 @@ async function testQueries() {
   test.eq(thisisablob_id, __getBlobDatabaseId(thisisablob), "Reupload should have no effect - we verify that by ensuring the databaseid is unchanged");
 
   const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
-  const moreids: number[] = await nextVals("webhare_testsuite.exporttest.id", 3);
-  test.eq(3, moreids.length);
+  const moreids: number[] = await nextVals("webhare_testsuite.exporttest.id", 4);
+  test.eq(4, moreids.length);
   test.assert(!moreids.includes(nextid));
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "This is a goldfish", datablob: goudvis.resource }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[0], text: "This is a text", datablob: thisisablob }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[1], text: "This is another text" }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[2], text: "This is an empty blob", datablob: emptyblob }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[3], text: "This is a native blob", datablob: thisisastreamblob }).execute();
   await commitWork();
 
   const tablecontents = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute();
-  test.eqProps([
+  test.eqPartial([
     { id: nextid, text: 'This is a goldfish' },
     { id: moreids[0], text: 'This is a text' },
     { id: moreids[1], text: 'This is another text' },
-    { id: moreids[2], text: 'This is an empty blob' }
+    { id: moreids[2], text: 'This is an empty blob' },
+    { id: moreids[3], text: 'This is a native blob' }
   ], tablecontents);
   test.assert(tablecontents[1].datablob);
   test.eq(14, tablecontents[1].datablob.size);
   test.eq("This is a blob", await tablecontents[1].datablob.text());
+  test.eq("This is a native blob", await tablecontents[4].datablob?.text());
   test.eq(null, tablecontents[2].datablob);
   test.eq(null, tablecontents[3].datablob);
   test.assert(isSameUploadedBlob(thisisablob, tablecontents[1].datablob));
