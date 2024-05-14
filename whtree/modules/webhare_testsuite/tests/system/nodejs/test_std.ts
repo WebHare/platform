@@ -473,22 +473,7 @@ async function testCollections() {
   const map2 = new Map<string | symbol, unknown>();
   test.eq("Horse", std.emplace(map2, Symbol(), { insert: () => "Horse" }));
 
-  // `Object.groupBy` groups items by arbitrary key.
-  // In this case, we're grouping by even/odd keys
   const array = [1, 2, 3, 4, 5];
-  test.eq({ odd: [1, 3, 5], even: [2, 4] }, std.objectGroupBy(array, (num, index) => {
-    return num % 2 === 0 ? 'even' : 'odd';
-  }));
-
-  // `Map.groupBy` returns items in a Map, and is useful for grouping
-  // using an object key.
-  const odd = { odd: true };
-  const even = { even: true };
-  test.eq([[odd, [1, 3, 5]], [even, [2, 4]]], [
-    ...std.mapGroupBy(array, (num, index) => {
-      return num % 2 === 0 ? even : odd;
-    }).entries()
-  ]);
 
   while (array[0] !== 5)
     std.shuffle(array);

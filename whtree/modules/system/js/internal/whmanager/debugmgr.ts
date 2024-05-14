@@ -14,7 +14,7 @@ type HandlerEvents = {
   processlist: void;
 };
 
-class DebuggerHandler extends EventSource<HandlerEvents>{
+class DebuggerHandler extends EventSource<HandlerEvents> {
 
   debugport: DebugIPCLinkType["Port"];
 

@@ -19,7 +19,7 @@ type WHManagerConnectionEvents = {
 
 export type WHManagerConnectionRefLock = RefLock;
 
-export class WHManagerConnection extends EventSource<WHManagerConnectionEvents>  {
+export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> {
   private connecting = false;
   private connected = false;
   private backoff_ms = 1;

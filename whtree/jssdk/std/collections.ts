@@ -30,35 +30,6 @@ export function emplace<T extends Map<any, any>>(map: T, key: T extends Map<infe
   return setvalue;
 }
 
-/** Group items into a map (implementation of proposed Map.groupBy)
- * @param items - Items to group
- * @param callbackfn - Function that calculates the key of an item
- * @returns - Map from a key to the list of items that generated that key
- * @see https://github.com/tc39/proposal-array-grouping/
- */
-export function mapGroupBy<Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
-  const retval = new Map<Key, Item[]>;
-  let idx = 0;
-  for (const item of items) {
-    const key = callbackfn(item, idx++);
-    let list = retval.get(key);
-    if (!list)
-      retval.set(key, list = []);
-    list.push(item);
-  }
-  return retval;
-}
-
-/** Group items into a record (implementation of proposed Object.groupBy)
- * @param items - Items to group
- * @param callbackfn - Function that calculates the key of an item
- * @returns - Object that maps from a key to the list of items that generated that key
- * @see https://github.com/tc39/proposal-array-grouping/
- */
-export function objectGroupBy<Item, Key extends string | number | symbol>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Record<Key, Item[]> {
-  return Object.fromEntries(mapGroupBy(items, callbackfn).entries()) as Record<Key, Item[]>;
-}
-
 /** Returns an object with a selection of properties
     @typeParam T - Type of the supplied object
     @typeParam K - Type of the property keys to return
@@ -66,7 +37,7 @@ export function objectGroupBy<Item, Key extends string | number | symbol>(items:
     @param keys - Names of the properties to pick
     @returns Resulting object
 */
-export function pick<T extends object, K extends string & keyof T>(obj: T, keys: readonly K[]): Pick<T, K>;
+export function pick<T extends object, K extends string & NoInfer<keyof T>>(obj: T, keys: readonly K[]): Pick<T, K>;
 
 /** Returns an array with a selection of properties
     @typeParam T - Type of the supplied array
@@ -75,9 +46,9 @@ export function pick<T extends object, K extends string & keyof T>(obj: T, keys:
     @param keys - Names of the properties to pick
     @returns Resulting array
 */
-export function pick<T extends object, K extends string & keyof T>(arr: T[], keys: readonly K[]): Array<Pick<T, K>>;
+export function pick<T extends object, K extends string & NoInfer<keyof T>>(arr: T[], keys: readonly K[]): Array<Pick<T, K>>;
 
-export function pick<T extends object, K extends string & keyof T>(value: T | T[], keys: readonly K[]): Pick<T, K> | Array<Pick<T, K>> {
+export function pick<T extends object, K extends string & NoInfer<keyof T>>(value: T | T[], keys: readonly K[]): Pick<T, K> | Array<Pick<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => pick(elt, keys));
   const ret = {} as Pick<T, K>;
@@ -95,7 +66,7 @@ export function pick<T extends object, K extends string & keyof T>(value: T | T[
     @param keys - Names of the properties to remove
     @returns Resulting object
 */
-export function omit<T extends object, K extends string & keyof T>(obj: T, keys: readonly K[]): Omit<T, K>;
+export function omit<T extends object, K extends string & NoInfer<keyof T>>(obj: T, keys: readonly K[]): Omit<T, K>;
 
 /** Returns an array with a selection of properties left out
     @typeParam T - Type of the supplied array
@@ -104,9 +75,9 @@ export function omit<T extends object, K extends string & keyof T>(obj: T, keys:
     @param keys - Names of the properties to leave out
     @returns Resulting array
 */
-export function omit<T extends object, K extends string & keyof T>(arr: T[], keys: readonly K[]): Array<Omit<T, K>>;
+export function omit<T extends object, K extends string & NoInfer<keyof T>>(arr: T[], keys: readonly K[]): Array<Omit<T, K>>;
 
-export function omit<T extends object, K extends string & keyof T>(value: T | T[], keys: readonly K[]): Omit<T, K> | Array<Omit<T, K>> {
+export function omit<T extends object, K extends string & NoInfer<keyof T>>(value: T | T[], keys: readonly K[]): Omit<T, K> | Array<Omit<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => omit(elt, keys));
   const ret = {} as Omit<T, K>;
@@ -138,4 +109,9 @@ export function shuffle<T>(array: T[]): T[] {
 // eslint-disable-next-line @typescript-eslint/ban-types
 export function isTruthy<T>(a: T): a is (T & {}) {
   return Boolean(a);
+}
+
+//TODO obsolete once all are WH5.5+
+export function mapGroupBy<Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
+  return Map.groupBy(items, callbackfn);
 }

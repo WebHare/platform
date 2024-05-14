@@ -66,7 +66,7 @@ export type MergeParameters<Parameters extends object> = Parameters extends obje
 /** Returns the contents responses cell of an operation, if it has one. If not, an empty object
  * @typeParam Operation - Operation object
 */
-export type GetOperationResponses<Operation extends object> = Operation extends { responses: infer Responses } ? Responses : object;
+export type GetOperationResponses<Operation extends object> = Operation extends { responses: infer Responses } ? Responses & object : object;
 
 /** Returns true if a mediatypes object contains "application/json", false if it contains anything else. Returns boolean (= true | false) if it contains application/json and something else.
  * @typeParam MediaTypes - Media types object (is contents of 'content' of a response)
@@ -124,7 +124,7 @@ export type GetParametersType<Operation extends object> = SquashObjectType<Opera
 /** Extracts the defaulterror type from the components, if it properly extends RestDefaultErrorBody
  * @typeParam Components - Components from generated openapi ts file
  */
-export type DefaultErrorType<Components extends ComponentsBase> = Components extends { schemas: { defaulterror: infer E extends object } } ? E : RestDefaultErrorBody;
+export type DefaultErrorType<Components extends ComponentsBase> = Components extends { schemas: { defaulterror: infer E extends RestDefaultErrorBody } } ? E : RestDefaultErrorBody;
 
 /** When the components of anp OpenAPI specification specify a defaulterror, it should extend from RestDefaultErrorBody
  */
