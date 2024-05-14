@@ -1,0 +1,78 @@
+<?wh
+// syntax: <schemamask>
+// short: Automatically fix tags in the specified schema (uppercase and convert dashes to underscores)
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+MACRO Main()
+{
+  RECORD ARRAY options := [
+    [ name := "fix", type := "switch" ],
+    [ name := "schemamask", type := "param", required := TRUE ]
+  ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+  IF(NOT RecordExists(cmdargs))
+  {
+    Print("Syntax: wh wrd:fixtags [--fix] <schemamask>\n");
+    TerminateScriptWithError("");
+  }
+
+  RECORD ARRAY todo := SELECT * FROM ListWRDSchemas() WHERE tag LIKE VAR cmdargs.schemamask;
+  IF(Length(todo) = 0)
+    TerminateScriptWithError(`No schema matches '${cmdargs.schemaname}`);
+
+  FOREVERY(RECORD act FROM todo)
+  {
+    GetPrimary()->BeginWork();
+    OBJECT wrdschema := OpenWRDSchema(act.tag);
+    RECORD ARRAY types := wrdschema->ListTypes();
+    FOREVERY(RECORD type FROM types)
+    {
+      OBJECT wrdtype := wrdschema->GetTypeById(type.id);
+      RECORD ARRAY tofix := wrdtype->RunQuery(
+        [ outputcolumns := CELL[ "wrd_guid", "wrd_id", "wrd_tag" ]
+        , filters := [ [ field := "wrd_tag", matchtype := "!=", value := ""] ]
+        ]
+      );
+      tofix := SELECT * FROM tofix WHERE NOT IsProperWRDTag(wrd_tag) ORDER BY wrd_id;
+
+      FOREVERY(RECORD fix FROM tofix)
+      {
+        STRING newtag := ToUppercase(Substitute(fix.wrd_tag, "-", "_"));
+        IF(NOT IsProperWRDTag(newtag))
+        {
+          Print(`Cannot fix ${act.tag}.${type.tag} #${fix.wrd_id}: '${fix.wrd_tag}' -> '${newtag}' is stil invalid\n`);
+          CONTINUE;
+        }
+
+        Print(`Fix ${act.tag}.${type.tag} #${fix.wrd_id}: ${fix.wrd_tag} -> ${newtag}\n`);
+        LogDebug("wrd:fixtags", CELL[wrdschema:=act.tag, wrdtype := type.tag, id := fix.wrd_id, guid := fix.wrd_Guid, oldtag := fix.wrd_tag, newtag := newtag, fix := cmdargs.fix]);
+        wrdtype->UpdateEntity(fix.wrd_id, [ wrd_tag := newtag ]);
+      }
+    }
+    IF(cmdargs.fix)
+      GetPrimary()->CommitWork();
+    ELSE
+      GetPrimary()->RollbackWork();
+  }
+
+  IF(cmdargs.fix)
+  {
+    GetPrimary()->BeginWork();
+    ScheduleTimedTask("system:autodeprecationscan");
+    GetPrimary()->CommitWork();
+  }
+  ELSE
+  {
+    Print("Add --fix to actually apply the updates\n");
+  }
+}
+
+OpenPrimary();
+Main();
