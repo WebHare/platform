@@ -784,7 +784,8 @@ STATIC OBJECTTYPE PaymentAPI
 PUBLIC RECORD FUNCTION MakePaymentProviderValue(STRING type, RECORD metadata DEFAULTSTO DEFAULT RECORD)
 {
   RECORD pspinfo := GetPSPInfo(type);
-  RECORD meta := ValidateOptions(pspinfo.metadataoptions, metadata);
+  RECORD metaoptionsoptions := CellExists(pspinfo, 'metadataoptionsoptions') ? pspinfo.metadataoptionsoptions : DEFAULT RECORD;
+  RECORD meta := ValidateOptions(pspinfo.metadataoptions, metadata, metaoptionsoptions);
   RETURN [ __paymentprovider := CELL[ type, meta ] ];
 }
 
