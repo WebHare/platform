@@ -1,6 +1,6 @@
 <?wh
 // syntax: <schemamask>
-// short: Automatically fix tags in the specified schema (uppercase and convewrt dashes to underscores)
+// short: Automatically fix tags in the specified schema (uppercase and convert dashes to underscores)
 
 LOADLIB "wh::os.whlib";
 
