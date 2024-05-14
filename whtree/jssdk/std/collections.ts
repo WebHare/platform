@@ -110,3 +110,8 @@ export function shuffle<T>(array: T[]): T[] {
 export function isTruthy<T>(a: T): a is (T & {}) {
   return Boolean(a);
 }
+
+//TODO obsolete once all are WH5.5+
+export function mapGroupBy<Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
+  return Map.groupBy(items, callbackfn);
+}
