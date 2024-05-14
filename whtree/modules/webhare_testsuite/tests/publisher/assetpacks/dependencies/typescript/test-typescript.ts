@@ -7,7 +7,7 @@ import * as std from '@webhare/std';
 ts2.hello();
 ts3.helloIndex();
 ts4.helloIndex();
-console.log(env.flags);
+console.log(env.debugFlags);
 std.sleep(1).then(() => console.log('done'));
 
 const test = 42;
