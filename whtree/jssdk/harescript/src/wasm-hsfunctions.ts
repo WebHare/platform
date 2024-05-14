@@ -682,7 +682,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
           const replyto = ++link.whmanagerMsgIdCounter;
           const msgid = ++link.whmanagerMsgIdCounter;
 
-          link.setLink(bridge.connect(data.port, { global: true }));
+          const newLink = bridge.connect(data.port, { global: true });
+          /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
+             ref to keep the link from stopping node from closing */
+          newLink.dropReference();
+          link.setLink(newLink);
           // TypeScript doesn't known that setLink updated the link property
           const connected = await link.activate();
           const res = {
@@ -740,6 +744,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!bridgelink)
       id_set.setInteger(0);
     else {
+      /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
+         ref to keep the link from stopping node from closing */
+      bridgelink.dropReference();
       const hslink = new HSIPCLink(vm, bridgelink);
       await hslink.activate();
       ipcContext(vm).links.set(hslink.id, hslink);
