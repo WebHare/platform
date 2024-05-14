@@ -8,7 +8,7 @@ import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
 import { debugFlags, isLive, navigateTo } from "@webhare/env";
 import { createDeferred, pick } from '@webhare/std';
-import { setFieldError } from "@mod-publisher/js/forms";
+import { setFieldError } from './internal/customvalidation';
 
 function getServiceSubmitInfo(formtarget: string) {
   return {
