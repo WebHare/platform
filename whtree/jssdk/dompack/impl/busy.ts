@@ -1,6 +1,5 @@
 import { debugFlags } from '@webhare/env';
 import * as domevents from '../../../modules/system/js/dompack/src/events';
-import { createDeferred, DeferredPromise } from "@webhare/std";
 import "@webhare/tsrun/src/polyfills";
 
 let locallocks: BusyLock[] = [];
@@ -112,7 +111,7 @@ class LockManager {
   locks: BusyLock[];
   busyframes: Set<Window> = new Set;
   busycounter: number;
-  deferreduipromise: DeferredPromise<boolean> | null;
+  deferreduipromise: PromiseWithResolvers<boolean> | null;
 
   //this object is not for external consumption
   constructor() {
@@ -155,7 +154,7 @@ class LockManager {
   }
   waitUIFree() {
     if (!this.deferreduipromise)
-      this.deferreduipromise = createDeferred();
+      this.deferreduipromise = Promise.withResolvers();
 
     scheduleCheckUIFree(); //ensures uiwait is released at next tick if no locks are present at all
     return this.deferreduipromise.promise;

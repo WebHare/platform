@@ -260,7 +260,7 @@ export class WRDAuthenticationProvider {
 
   startLogin(type, sp_tag, options) {
     options = options || {};
-    const defer = dompack.createDeferred();
+    const defer = Promise.withResolvers();
 
     this.loginservice.request('StartLogin'
       , [type, sp_tag, location.href, options]

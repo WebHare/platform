@@ -1,5 +1,4 @@
 import * as dompack from "@webhare/dompack";
-import { createDeferred } from "dompack";
 
 /* Note: you can't really build a FileList yourself, but FileList doesn't satisfy File[] and neither the reverse works. (noone is really happy with that though)
    So we'll just accept both types */
@@ -125,7 +124,7 @@ export class MultiFileUploader implements UploaderBase {
 
         // eslint-disable-next-line no-inner-declarations
         if (globalThis.XMLHttpRequest) { //let's hope by the time browsers drop XMLHttpRequest, fetch finally has proper progress
-          const defer = createDeferred<void>();
+          const defer = Promise.withResolvers<void>();
           const xmlhttp = new globalThis.XMLHttpRequest;
           xmlhttp.overrideMimeType("application/octet-stream");
           xmlhttp.upload.addEventListener('progress', ev => fireProgressEvent(ev.loaded));
@@ -185,7 +184,7 @@ export class SingleFileUploader implements UploaderBase {
 }
 
 async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise<FileListLike> {
-  const defer = createDeferred<FileListLike>();
+  const defer = Promise.withResolvers<FileListLike>();
   if (dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve } })) {
     const input = document.createElement('input');
     input.type = "file";

@@ -3,10 +3,8 @@
 
 import ExifParser from "exif-parser";
 
-import { createDeferred } from '@webhare/std';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { getTid } from '@mod-tollium/js/gettid';
-import * as $todd from "@mod-tollium/web/ui/js/support";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
@@ -45,7 +43,7 @@ function dataURItoBlob(dataURI) {
 
 
 class ImgeditDialogController {
-  defer = createDeferred<{
+  defer = Promise.withResolvers<{
     blob: Blob | null;
     settings: { refPoint: RefPoint } | null;
     editcallback: () => void;

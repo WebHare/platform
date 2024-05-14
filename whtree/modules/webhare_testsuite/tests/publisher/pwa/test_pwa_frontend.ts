@@ -61,7 +61,7 @@ test.registerTests(
 
     "get image",
     async function () {
-      const deferred = dompack.createDeferred();
+      const deferred = Promise.withResolvers();
       test.qS("#myimglink").onload = deferred.resolve;
       test.qS("#myimglink").src = test.qS("#myimglink").dataset.imglink;
       await deferred.promise;

@@ -36,7 +36,7 @@ export default class IframeTestRunner {
     };
     dompack.empty(this.testframeholder);
 
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
     this.testiframe = dompack.create("iframe", {
       width: options.width,
       height: options.height,

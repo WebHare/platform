@@ -22,7 +22,6 @@ import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } 
 import type ObjAction from '../action/action';
 import { debugFlags } from '@webhare/env';
 import "./frame.scss";
-import type { DeferredPromise } from '@webhare/std';
 import { toCamelCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
 
 // Give each frame a unique identifier
@@ -161,7 +160,7 @@ export default class Frame extends ToddCompBase {
   private innerFocusName: string | null = null;
 
   /** asyncRequests. we keep them at the frame level as components might be recreated and the new one can't deal with the response (and thus can't clear locks) */
-  pendingRequests = new Map<string, DeferredPromise<unknown>>;
+  pendingRequests = new Map<string, PromiseWithResolvers<unknown>>;
 
   private locks = new Set<ScreenLock>;
 

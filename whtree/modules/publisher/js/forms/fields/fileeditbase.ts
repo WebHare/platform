@@ -5,7 +5,6 @@ import * as formservice from '../internal/form.rpc.json';
 import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
 import { setFieldError } from '@mod-publisher/js/forms';
-import type { DeferredPromise } from '@webhare/std';
 import { isFormControl, type UIBusyLock } from '@webhare/dompack/dompack';
 
 function isAcceptableType(fileType: string, masks: string[]) {
@@ -24,7 +23,7 @@ export default abstract class FileEditBase {
   readonly node: HTMLElement;
   isrequired: boolean;
   busy = false;
-  deferredvalues = new Array<DeferredPromise<unknown>>();
+  deferredvalues = new Array<PromiseWithResolvers<unknown>>();
 
   constructor(node: HTMLElement) {
     this.node = node;
@@ -60,7 +59,7 @@ export default abstract class FileEditBase {
   }
   _updateEnabledStatus(nowenabled: boolean) {
   }
-  getValue(evt: CustomEvent<{ deferred: DeferredPromise<unknown> }>) {
+  getValue(evt: CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>) {
     evt.preventDefault();
     evt.stopPropagation();
 

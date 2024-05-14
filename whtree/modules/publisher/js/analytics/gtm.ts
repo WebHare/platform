@@ -4,7 +4,6 @@ import * as dompack from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
 import { onConsentChange, ConsentSettings } from "./consenthandler";
-import { createDeferred } from '@webhare/std';
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { frontendConfig } from '@webhare/frontend/src/init';
@@ -49,7 +48,7 @@ export function setVariables(vars: DataLayerVars) {
 
 /* Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms */
 export function sendEvent(event: string, vars: DataLayerVars = {}) {
-  const defer = createDeferred();
+  const defer = Promise.withResolvers();
   try {
     window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
     showDataLayerChanges();

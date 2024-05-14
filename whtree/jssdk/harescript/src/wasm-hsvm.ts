@@ -1,7 +1,7 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
-import { DeferredPromise, createDeferred, decodeString, isTruthy } from "@webhare/std";
+import { decodeString, isTruthy } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
@@ -201,7 +201,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   objectCache;
   mutexes: Array<Mutex | null> = [];
   currentgroup: string;
-  pipeWaiters = new Map<Ptr, DeferredPromise<number>>;
+  pipeWaiters = new Map<Ptr, PromiseWithResolvers<number>>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
@@ -601,7 +601,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
    */
   async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar): Promise<unknown> {
     //FIXME check if we really want to bother with HSMVars as currently its just a lot of extra cloning
-    const defer = createDeferred<unknown | undefined>();
+    const defer = Promise.withResolvers<unknown | undefined>();
     const id = ++this.syscallPromiseIdCounter;
     const object = objectid ? this.allocateVariableCopy(objectid) : null;
     this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, retvalStore, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });

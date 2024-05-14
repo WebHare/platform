@@ -6,7 +6,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, setCachedWebAssemblyModule } from "@webhare/harescript/src/wasm-modulesupport";
-import { createDeferred, generateRandomId, sleep } from "@webhare/std";
+import { generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
@@ -1286,7 +1286,7 @@ class HareScriptJob {
   loadedLibraries: null | LoadedLibrariesInfo = null;
   errors: MessageList = [];
   active = true;
-  doneDefer = createDeferred<void>();
+  doneDefer = Promise.withResolvers<void>();
 
   constructor(vm: HareScriptVM, script: string, link: IPCEndPoint, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null) {
     this.vm = vm;

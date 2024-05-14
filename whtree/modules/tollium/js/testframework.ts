@@ -383,7 +383,7 @@ function clickToddToolbarButton(buttonlabel, submenulabel?) {
 
 function waitForResult(fn) {
   const timeout = Date.now() + 15000;
-  const defer = dompack.createDeferred();
+  const defer = Promise.withResolvers();
 
   const waiter = () => {
     const result = fn();

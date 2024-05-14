@@ -267,7 +267,7 @@ async function testCodeContexts2() {
   let weak: WeakRef<CodeContext> | undefined;
 
   // eslint-disable-next-line no-inner-declarations
-  async function testContextGC(d: DeferredPromise<void>) {
+  async function testContextGC(d: PromiseWithResolvers<void>) {
     const gccontext = new CodeContext("test_whdb: testCodeContexts: gc test", {});
     weak = new WeakRef(gccontext);
 
@@ -284,7 +284,7 @@ async function testCodeContexts2() {
   }
 
   await (async () => {
-    const d = createDeferred<void>();
+    const d = Promise.withResolvers<void>();
     const p = testContextGC(d);
     test.assert(Boolean(weak!.deref()), "Should exist while the async function is running");
     await test.triggerGarbageCollection();

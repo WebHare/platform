@@ -26,7 +26,7 @@ export async function runSimpleScreen(app: ApplicationBase, options: SimpleScree
   using busylock = app.getTopScreen()?.lockScreen() ?? dompack.flagUIBusy();
   void busylock;
 
-  const defer = dompack.createDeferred();
+  const defer = Promise.withResolvers();
   try {
     await app.promiseComponentTypes(['panel', 'button', 'action', 'text']);
 

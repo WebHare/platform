@@ -1,6 +1,5 @@
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 import { type TypedMessagePort, getSingleMessage } from "@mod-system/js/internal/whmanager/transport";
-import { DeferredPromise, createDeferred } from "@webhare/std";
 import { describePublicInterface } from "./backendservicerunner";
 import { type WebHareServiceDescription } from "@mod-system/js/internal/types";
 import { type IPCExceptionMessage, encodeIPCException, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
@@ -49,7 +48,7 @@ export type LocalServiceResponse = {
 class LinkState {
   handler: LocalService | null;
   link: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>;
-  initDefer = createDeferred<boolean>();
+  initDefer = Promise.withResolvers<boolean>();
   ref: RefTracker;
 
   constructor(handler: LocalService | null, link: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>, unrefLink: boolean) {
@@ -192,7 +191,7 @@ export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
   name: string;
   description: WebHareServiceDescription | null;
   refs: RefTracker;
-  requests: Record<number, DeferredPromise<LocalServiceResponse>> = {};
+  requests: Record<number, PromiseWithResolvers<LocalServiceResponse>> = {};
   static counter = 0;
 
   constructor(
@@ -249,7 +248,7 @@ export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
 
   async remotingFunc(method: { name: string; transferList?: TransferListItem[] }, args: unknown[]) {
     const id = ++LocalServiceProxy.counter;
-    const deferred = createDeferred<LocalServiceResponse>();
+    const deferred = Promise.withResolvers<LocalServiceResponse>();
     this.requests[id] = deferred;
     const lock = this.refs.getLock(`call ${this.name}#${method.name}`);
     try {

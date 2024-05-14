@@ -57,7 +57,7 @@ export interface SerializeOptions {
 }
 
 class Coalescer<RetVal> {
-  private queue: Array<DeferredPromise<RetVal>> = [];
+  private queue: Array<PromiseWithResolvers<RetVal>> = [];
   private call: CallbackFunctionVariadic<RetVal> | null = null;
   private readonly fn: CallbackFunctionVariadic<RetVal>;
 
@@ -75,7 +75,7 @@ class Coalescer<RetVal> {
     if (!this.queue.length) //schedule a flush of the queue
       setTimeout(() => this.flush(), 0);
 
-    this.queue.push(createDeferred<RetVal>());
+    this.queue.push(Promise.withResolvers<RetVal>());
     return this.queue[this.queue.length - 1].promise;
   }
 

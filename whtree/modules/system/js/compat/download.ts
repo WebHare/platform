@@ -1,4 +1,3 @@
-import { createDeferred } from "@webhare/std";
 import * as dompack from "@webhare/dompack";
 
 class DownloadManager {
@@ -16,7 +15,7 @@ class DownloadManager {
     this.url = url;
     this.downloadid = (Math.random().toString().substr(2)) + (++DownloadManager.dlid);
     this.cookiename = "wh-download-" + this.downloadid;
-    this.defer = createDeferred<{
+    this.defer = Promise.withResolvers<{
       started: boolean;
       errorinfo: null | unknown;
     }>();

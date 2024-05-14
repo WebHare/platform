@@ -183,7 +183,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
       return;
     }
 
-    const imgdefer = dompack.createDeferred();
+    const imgdefer = Promise.withResolvers();
     const interfacelock = dompack.flagUIBusy();
 
     this.imgnode = dompack.create('img', {

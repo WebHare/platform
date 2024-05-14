@@ -3,7 +3,7 @@ import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
 import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, LogFileConfiguration } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
-import { createDeferred, DeferredPromise, pick } from "@webhare/std";
+import { pick } from "@webhare/std";
 import { IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, IPCLinkType } from "./ipc";
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, AnyTypedMessagePort } from './transport';
 import { RefTracker } from "./refs";
@@ -273,7 +273,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage> | null;
   requestcounter = 11000;
   systemconfig: Record<string, unknown>;
-  _ready: DeferredPromise<void>;
+  _ready: PromiseWithResolvers<void>;
   connected = false;
   reftracker: RefTracker;
 
@@ -299,7 +299,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
     this.id = initdata.id;
     this.port = initdata.port;
     this.systemconfig = {};
-    this._ready = createDeferred<void>();
+    this._ready = Promise.withResolvers<void>();
     if (this.port) {
       this.port.on("message", (message) => this.handleControlMessage(message));
       this.port.unref();
@@ -329,7 +329,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
           if (this.connected)
             this._ready.resolve();
           else
-            this._ready = createDeferred<void>();
+            this._ready = Promise.withResolvers<void>();
         }
         this.emit("systemconfig", this.systemconfig);
       } break;
@@ -633,7 +633,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   connectionactive = false;
   connectcounter = 0;
   localbridges = new Map<string, LocalBridgeData>;
-  _ready = createDeferred<void>();
+  _ready = Promise.withResolvers<void>();
   _conntimeout?: NodeJS.Timeout;
 
   ports = new Map<string, PortRegistration>;
@@ -655,7 +655,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   processcode = 0;
 
   /// Set when waiting for data to flush
-  waitunref?: DeferredPromise<void>;
+  waitunref?: PromiseWithResolvers<void>;
 
   debuglink?: DebugIPCLinkType["ConnectEndPoint"];
 
@@ -709,7 +709,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   gotConnectionClose() {
     // connection closed
     this.connectionactive = false;
-    this._ready = createDeferred<void>();
+    this._ready = Promise.withResolvers<void>();
     this._conntimeout = setTimeout(() => this.gotConnTimeout(), whmanager_connection_timeout).unref();
     for (const [, { port }] of this.links) {
       port.close();
@@ -721,7 +721,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   gotRef() {
-    this.waitunref = createDeferred();
+    this.waitunref = Promise.withResolvers();
   }
 
   gotUnref() {

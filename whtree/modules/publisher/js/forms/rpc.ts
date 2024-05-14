@@ -7,7 +7,7 @@ import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
 import { debugFlags, isLive, navigateTo } from "@webhare/env";
-import { createDeferred, pick } from '@webhare/std';
+import { pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 
 function getServiceSubmitInfo(formtarget: string) {
@@ -101,7 +101,7 @@ export default class RPCFormBase extends FormBase {
 
   //Invoke a function on the form on the server
   async _invokeRPC(background: boolean, methodname: string, args: unknown[]) {
-    const waiter = createDeferred<void>();
+    const waiter = Promise.withResolvers<void>();
 
     if (!background)
       this.onRPC(waiter.promise);
@@ -189,7 +189,7 @@ export default class RPCFormBase extends FormBase {
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
       throw new Error("The form is already being submitted");
 
-    const waiter = createDeferred<void>();
+    const waiter = Promise.withResolvers<void>();
     let insubmitrpc = false;
     this.onRPC(waiter.promise);
 

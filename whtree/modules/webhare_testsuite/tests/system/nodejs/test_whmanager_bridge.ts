@@ -1,13 +1,12 @@
 import * as test from "@webhare/test";
 
-import { createDeferred } from "@webhare/std";
 import { WebHareBlob } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 class FIFO<T> {
   queue: T[] = [];
   closed = false;
-  defer = createDeferred<void>();
+  defer = Promise.withResolvers<void>();
 
   push(t: T) {
     if (this.closed) {
@@ -29,7 +28,7 @@ class FIFO<T> {
       if (this.queue.length) {
         const retval = this.queue.shift();
         if (!this.queue.length && !this.closed)
-          this.defer = createDeferred<void>();
+          this.defer = Promise.withResolvers<void>();
         return retval;
       } else if (this.closed)
         return null;
@@ -60,7 +59,7 @@ async function testBridge() {
       await alink.activate();
     });
     await port.activate();
-    const defer = createDeferred<void>();
+    const defer = Promise.withResolvers<void>();
     clink.on("message", (evt) => {
       clink.close();
       defer.resolve();

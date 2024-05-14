@@ -51,7 +51,7 @@ class JSONRPC extends InternetRequester {
   }
 
   promiseRequest(method, params, options) {
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
     const req = this.request(method, params, deferred.resolve, (errorcode, errormsg, rpcid) => { deferred.reject(new Error(errormsg)); }, options);
     deferred.promise.__jsonrpcinfo = { deferred, req };
     return deferred.promise;

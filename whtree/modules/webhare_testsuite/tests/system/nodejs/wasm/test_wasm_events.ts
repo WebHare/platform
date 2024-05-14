@@ -1,6 +1,5 @@
 import bridge, { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import * as test from "@webhare/test";
-import { createDeferred } from "@webhare/std";
 import { createVM } from "@webhare/harescript/src/machinewrapper";
 
 
@@ -22,7 +21,7 @@ async function testWasmEventIntegration() {
   type Link = IPCLinkType<{ type: "register"; id: string }, { type: "continue" }>;
   const port = bridge.createPort<Link>("local:registration", { global: false });
   const registered = new Array<string>;
-  const allRegistered = createDeferred<void>();
+  const allRegistered = Promise.withResolvers<void>();
   port.on("accept", async link => {
     link.on("message", async packet => {
       if (packet.message.type === "register") {

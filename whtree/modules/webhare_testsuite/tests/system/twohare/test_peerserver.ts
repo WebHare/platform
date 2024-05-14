@@ -36,7 +36,7 @@ test.registerTests(
       await test.wait("ui");
       test.setTodd('peer', setupdata.peerserver);
 
-      const oauth_auth_wait = dompack.createDeferred();
+      const oauth_auth_wait = Promise.withResolvers();
       test.getWin().open = async url => {
         const overlay = test.getDoc().createElement("div");
         window.parent.overlay = overlay;

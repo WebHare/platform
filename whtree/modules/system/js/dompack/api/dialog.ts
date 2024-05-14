@@ -5,7 +5,6 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import KeyboardHandler from "dompack/extra/keyboard";
-import { DeferredPromise } from '@webhare/std';
 
 export type DialogOptions =
   {
@@ -56,7 +55,7 @@ export class DialogBase {
   private _borrowednext: Element | null = null;
   contentnode: Element | null; //FIXME a successor to DialogBase should not allow these to be | null. have our child inform us through super() about the contentnode and buttonsnode so we can ensure it's set
   buttonsnode: Element | null = null;
-  private _deferred: DeferredPromise<string | null>;
+  private _deferred: PromiseWithResolvers<string | null>;
   open: boolean;
   private _previousfocus: Element | null = null;
 
@@ -83,7 +82,7 @@ export class DialogBase {
       this.options.signal.addEventListener("abort", () => { this.resolve(null); });
 
     this.contentnode = null;
-    this._deferred = dompack.createDeferred();
+    this._deferred = Promise.withResolvers();
     this.open = false;
   }
 
