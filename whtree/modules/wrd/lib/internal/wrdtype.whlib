@@ -3239,7 +3239,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     RECORD entity_base_info;
     IF(NOT is_new)
-      entity_base_info := SELECT creationdate, limitdate FROM wrd.entities WHERE id=entityid;
+      entity_base_info := SELECT creationdate, limitdate, type FROM wrd.entities WHERE id=entityid;
 
     BOOLEAN is_temp := is_new ? options.temp : RecordExists(entity_base_info) AND entity_base_info.creationdate = MAX_DATETIME;
     BOOLEAN is_temp_coming_alive := is_temp AND NOT is_new AND entity_creation != DEFAULT DATETIME AND entity_creation != MAX_DATETIME;
@@ -3417,13 +3417,16 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         FOREVERY (RECORD setting FROM splitdata.settings)
           relevant_attrids := relevant_attrids CONCAT setting.attr.__selectattributeids;
 
-        //ADDME: Might have settings cached? safely with an invalidate-on-rollback bit ?
-        cursettings :=
-            SELECT *
-              FROM wrd.entity_settings
-             WHERE entity = result.entityid
-               AND attribute IN relevant_attrids
-          ORDER BY attribute, parentsetting;
+        IF (IsValueSet(relevant_attrids))
+        {
+          //ADDME: Might have settings cached? safely with an invalidate-on-rollback bit ?
+          cursettings :=
+              SELECT *
+                FROM wrd.entity_settings
+              WHERE entity = result.entityid
+                AND attribute IN relevant_attrids
+            ORDER BY attribute, parentsetting;
+        }
 
         // If changing the GUID, also update the corresponding authobject
         IF (CellExists(splitdata.entityrec, "GUID"))
@@ -3461,11 +3464,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           orgwhfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER64 ARRAY id FROM cursettings);
         }
 
-        RECORD currentinfo := orgentityrec ?? RECORD(SELECT type FROM wrd.entities WHERE id = result.entityid);
-        IF(NOT RecordExists(currentinfo))
+        IF(NOT RecordExists(entity_base_info))
           THROW NEW Exception(`Trying to update non-existing entity #${result.entityid}`);
-        ELSE IF(currentinfo.type != this->id AND currentinfo.type NOT IN this->__childtypeids)
-          THROW NEW Exception(`Trying to update entity #${result.entityid} of type #${currentinfo.type} but we are type #${this->id}`);
+        ELSE IF(entity_base_info.type != this->id AND entity_base_info.type NOT IN this->__childtypeids)
+          THROW NEW Exception(`Trying to update entity #${result.entityid} of type #${entity_base_info.type} but we are type #${this->id}`);
 
         UPDATE wrd.entities SET RECORD splitdata.entityrec WHERE id = result.entityid;
       }
