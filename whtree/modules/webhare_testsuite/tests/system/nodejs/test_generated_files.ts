@@ -15,14 +15,14 @@ async function testWebHareConfig() {
   await updateGeneratedFiles(["extract"], { verbose: true }); //regenerate, useful if you're currently developing a generator
   const assetpacks = getExtractedConfig("assetpacks");
   const basetestpack = assetpacks.find(_ => _.name === "webhare_testsuite:basetest");
-  test.eqProps({
+  test.eqPartial({
     entryPoint: "mod::webhare_testsuite/webdesigns/basetest/js/basetest",
     extraRequires: ["mod::webhare_testsuite/webdesigns/basetest/js/addtopack"],
     webHarePolyfills: true
   }, basetestpack);
 
   const authormodepack = assetpacks.find(_ => _.name === "publisher:authormode");
-  test.eqProps({
+  test.eqPartial({
     entryPoint: "mod::publisher/webdesigns/authormode/authormode.tsx",
     extraRequires: [],
     webHarePolyfills: false
@@ -30,17 +30,17 @@ async function testWebHareConfig() {
 
   const services = getExtractedConfig("services");
   const fetchpoolservice = services.backendServices.find(_ => _.name === "platform:fetchpool");
-  test.eqProps({
+  test.eqPartial({
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   }, fetchpoolservice);
 
   const testservice = services.openAPIServices.find(_ => _.name === "webhare_testsuite:testservice");
-  test.eqProps({
+  test.eqPartial({
     spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
   }, testservice);
 
   const testclient = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient");
-  test.eqProps({
+  test.eqPartial({
     spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
   }, testclient);
 }

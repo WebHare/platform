@@ -38,7 +38,7 @@ async function testRPCCaller() {
 
   //TODO - *with* `etr` debugflag, the error message should be revealed. But we can't set that flag yet in JS tests
   //test.eq({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
-  test.eqProps({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
+  test.eqPartial({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
 
   const debugCookieData = getSignedWHDebugOptions({ debugFlags: { etr: true } });
   test.assert(debugCookieData);
@@ -48,7 +48,7 @@ async function testRPCCaller() {
   callres = await JSONAPICall(servicedef, request);
   test.eq(500, callres.status);
   let resultBody = JSON.parse(await callres.body.text());
-  test.eqProps({ id: 77, error: { code: -32000, message: `this is a server crash`, data: {} }, result: null }, resultBody);
+  test.eqPartial({ id: 77, error: { code: -32000, message: `this is a server crash`, data: {} }, result: null }, resultBody);
   test.eq("TestNoAuthJS.serverCrash", resultBody.error.data.trace[0].func);
 
   // See if console logs are also recorded with the 'etr' flag
@@ -87,7 +87,7 @@ async function testTypedClient() {
 
   const serviceWithHeaders = myservice1.withOptions({ headers: { "Authorization": "grizzly bearer" } });
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
-  test.eqProps({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
+  test.eqPartial({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
 
   initEnv(DTAPStage.Development, save_backend_setting); //restore it just in case future tests rely on it
 }

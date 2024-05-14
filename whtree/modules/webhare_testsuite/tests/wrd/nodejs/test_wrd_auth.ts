@@ -21,7 +21,7 @@ async function testLowLevelAuthAPIs() {
 
   let token = await createJWT(key, "1234", "urn::rabbit-union", "PieterBunny", null, null);
   let decoded = await verifyJWT(key, "urn::rabbit-union", token);
-  test.eqProps({ iss: 'urn::rabbit-union', sub: "PieterBunny" }, decoded);
+  test.eqPartial({ iss: 'urn::rabbit-union', sub: "PieterBunny" }, decoded);
   // test.assert("nonce" in decoded); //FIXME only add a nonce if we *asked* for it! it's a way for a client to validate
   test.assert(!("exp" in decoded));
 
@@ -29,11 +29,11 @@ async function testLowLevelAuthAPIs() {
 
   token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", null, null, { scopes: ["meadow", "burrow"], audiences: ["api"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
-  test.eqProps({ scope: "meadow burrow", aud: "api" }, decoded);
+  test.eqPartial({ scope: "meadow burrow", aud: "api" }, decoded);
 
   token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", null, null, { scopes: ["meadow"], audiences: ["api", "user"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
-  test.eqProps({ scope: "meadow", aud: ["api", "user"] }, decoded);
+  test.eqPartial({ scope: "meadow", aud: ["api", "user"] }, decoded);
 
   token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", new Date, convertWaitPeriodToDate("P90D"), { scopes: ["meadow"], audiences: ["api", "user"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);

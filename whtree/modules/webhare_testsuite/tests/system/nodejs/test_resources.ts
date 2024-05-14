@@ -162,7 +162,7 @@ async function testResourceDescriptors() {
   {
     const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png" });
     test.eq(75125, fish.resource.size);
-    test.eqProps({
+    test.eqPartial({
       mediaType: "image/png",
       hash: null,
       width: null,
@@ -173,7 +173,7 @@ async function testResourceDescriptors() {
   {
     const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true });
     test.eq(75125, fish.resource.size);
-    test.eqProps({
+    test.eqPartial({
       mediaType: "application/octet-stream",
       hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
       width: null,
@@ -183,7 +183,7 @@ async function testResourceDescriptors() {
 
   {
     const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
-    test.eqProps({
+    test.eqPartial({
       mediaType: "image/png",
       hash: null,
       mirrored: null,
@@ -196,7 +196,7 @@ async function testResourceDescriptors() {
 
   {
     const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getDominantColor: true });
-    test.eqProps({
+    test.eqPartial({
       mediaType: "image/png",
       hash: null,
       width: 385, //implied by getDmoinantColor
@@ -208,7 +208,7 @@ async function testResourceDescriptors() {
   {
     const landscape = await services.ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_7.jpg", { getImageMetadata: true });
     test.eq(140645, landscape.resource.size);
-    test.eqProps({
+    test.eqPartial({
       mediaType: "image/jpeg",
       hash: null,
       mirrored: true,
@@ -247,7 +247,7 @@ async function testGIFs() {
   //TODO decide whether this is really the desired way to deal with in-memory info, and not arraybuffers or views
   const parsedgif = await services.ResourceDescriptor.from(dummygif, { getHash: true, getDominantColor: true });
   test.eq(43, parsedgif.resource.size);
-  test.eqProps({
+  test.eqPartial({
     mediaType: "image/gif",
     hash: "hy_6nckd_mgbm-gsu0HLzcCYXnerJ-FYPjjYThVDy3Q",
     mirrored: null,
@@ -262,7 +262,7 @@ async function testGIFs() {
   const brokenparsedgif = await services.ResourceDescriptor.from(brokengif, { getHash: true, getDominantColor: true });
   test.eq(30, brokenparsedgif.resource.size);
 
-  test.eqProps({
+  test.eqPartial({
     mediaType: "application/octet-stream",
     hash: "HSYfiL-sB6VV2_nfkPTR_IxepvNXb1oBbJ0rzvrwmgM",
     mirrored: null,

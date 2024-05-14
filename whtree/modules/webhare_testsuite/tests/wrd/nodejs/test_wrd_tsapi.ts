@@ -139,7 +139,7 @@ async function testNewAPI() {
   test.eq(schema.tag, schemaById.tag);
   test.eq(null, await openWRDSchemaById(999999999));
 
-  test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
+  test.eqPartial([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
   await whdb.beginWork();
   await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: WRDAttributeType.Free });

@@ -79,7 +79,7 @@ async function testBridge() {
     globallink.on("close", () => gl_fifo.close());
     const sendres = globallink.send({ type: "sendreply" });
     await globallink.activate();
-    test.eqProps({
+    test.eqPartial({
       message: { type: "reply" },
       replyto: sendres
     }, await gl_fifo.asyncShift());

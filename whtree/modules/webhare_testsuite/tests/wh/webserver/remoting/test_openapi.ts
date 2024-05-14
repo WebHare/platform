@@ -56,7 +56,7 @@ async function testService() {
   test.eq(HTTPSuccessCode.Created, res.status);
 
   const resbody = JSON.parse(await res.body.text());
-  test.eqProps({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, resbody);
+  test.eqPartial({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, resbody);
   test.assert(resbody.id > 0);
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify({ firstName: "Klaasje" })), headers: jsonheader }, "users");
@@ -274,7 +274,7 @@ async function testLogFile() {
 
   const authtestcalls = loglines.filter(_ => _.service === 'webhare_testsuite:authtests' && _.status >= 200 && _.status < 300);
   test.eq(3, authtestcalls.length);
-  test.eqProps([
+  test.eqPartial([
     { authorized: { lastchar: 't' } },
     { authorized: { lastchar: 't' } },
     { authorized: { lastchar: '2' } }
