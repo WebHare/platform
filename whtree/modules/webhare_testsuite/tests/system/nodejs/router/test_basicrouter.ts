@@ -84,7 +84,7 @@ async function testHSWebserver() {
 
   response = await result.json() as GetRequestDataResponse;
   test.eq("POST", response.method);
-  test.eqProps([{ name: 'a', value: '1' }, { name: 'b', value: '2' }], response.webvars);
+  test.eqPartial([{ name: 'a', value: '1' }, { name: 'b', value: '2' }], response.webvars);
 
   //Get a binary file
   result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "rangetestfile.jpg"));

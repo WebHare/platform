@@ -2,7 +2,7 @@ import { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { registerAsNonReloadableLibrary } from "@webhare/services";
 import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";
-import { DeferredPromise, createDeferred } from "@webhare/std/promises";
+
 
 
 export async function openLocalLockService(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
@@ -21,7 +21,7 @@ type LockQueueEntry = {
 type HSLock = {
   lockId: number;
   name: string;
-  lockWaiter: DeferredPromise<boolean>;
+  lockWaiter: PromiseWithResolvers<boolean>;
   processData: LocalLockService;
 };
 
@@ -280,7 +280,7 @@ export class LocalLockService extends LocalService {
     const hslock = {
       lockId: ++lockIdCounter,
       name,
-      lockWaiter: createDeferred<boolean>(),
+      lockWaiter: Promise.withResolvers<boolean>(),
       processData: this
     };
 

@@ -1,4 +1,3 @@
-import { createDeferred } from '@webhare/std';
 import { createClient } from '@webhare/jsonrpc-client';
 
 let requestbarrier: Promise<void> | undefined; //TODO replace with serialize (or wait until we have it as a decorator)
@@ -45,7 +44,7 @@ export async function getIPInfo(options?: GetIPInfoOptions): Promise<{ countryco
   if (requestbarrier)
     await requestbarrier; //first let parallel requests complete and set _wh.geoinfo
 
-  const barrier = createDeferred<void>();
+  const barrier = Promise.withResolvers<void>();
   requestbarrier = barrier.promise;
 
   let geoinfo;

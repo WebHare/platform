@@ -201,7 +201,7 @@ export async function waitUIFree() {
 
 //wait until 'func' returns true
 export function waitUntil(func) {
-  const defer = dompack.createDeferred();
+  const defer = Promise.withResolvers();
   requestAnimationFrame(() => testWaitUntil(func, defer));
   return defer.promise;
 }

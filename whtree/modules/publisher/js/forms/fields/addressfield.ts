@@ -1,6 +1,6 @@
 import * as dompack from "@webhare/dompack";
 import FormBase from "../formbase";
-import { flags } from "@webhare/env";
+import { debugFlags } from "@webhare/env";
 import { verifyAddress, AddressValidationResult, AddressValue, AddressChecks } from "@webhare/forms";
 
 function orThrow(error: string): never {
@@ -194,10 +194,10 @@ export default class AddressField {
     if (this._getCurState().lookupkey !== curstate.lookupkey)
       return; //abandon this _checkValidity call, the field has already changed.
 
-    if (flags.fhv)
+    if (debugFlags.fhv)
       console.log(`[fhv] Validation result for address '${this.fieldName}': ${result.status}`);
 
-    if (flags.fdv) {
+    if (debugFlags.fdv) {
       if (["different_citystreet", "incomplete"].includes(result.status))
         console.warn(`[fdv] Address validation was performed, processing incomplete address (status: '${result.status}')`);
       else {

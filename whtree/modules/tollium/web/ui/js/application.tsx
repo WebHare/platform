@@ -124,7 +124,7 @@ export class ApplicationBase {
     this.isdebugpaused = false;
     this.appmenu = [];
 
-    this._apploaddeferred = dompack.createDeferred();
+    this._apploaddeferred = Promise.withResolvers();
     this._apploadlock = dompack.flagUIBusy();
 
     if (options) {
@@ -713,8 +713,8 @@ export class BackendApplication extends ApplicationBase {
     this.appcomm.register(this.shell.transportmgr);
 
     // Wait for both link close & metamessage to close application
-    this.deferred_close = dompack.createDeferred();
-    this.deferred_metamessage = dompack.createDeferred();
+    this.deferred_close = Promise.withResolvers();
+    this.deferred_metamessage = Promise.withResolvers();
 
     this.deferred_close.promise
       .then(function () { return this.deferred_metamessage.promise; }.bind(this)) // wait for metamessage and adopt the value

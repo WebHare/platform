@@ -1,5 +1,4 @@
 import EventSource from "../eventsource";
-import { createDeferred, DeferredPromise } from "@webhare/std";
 import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
 import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from './transport';
 import { RefTracker } from "./refs";
@@ -130,7 +129,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
 
   /** List of pending requests */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed because requests can all have different response types
-  private requests = new Map<bigint, DeferredPromise<any>>;
+  private requests = new Map<bigint, PromiseWithResolvers<any>>;
 
   /** Indicator if closed */
   closed = false;
@@ -146,7 +145,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   private mode: "direct" | "connecting" | "accepting";
 
   /** Defer used to wait for connection results */
-  private defer?: DeferredPromise<void>;
+  private defer?: PromiseWithResolvers<void>;
 
   /** Set to true when connected (defer.promise has been resolved, not rejected) */
   private connected = false;
@@ -173,7 +172,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
 
     // If this is a link created by 'connect', init a defer that waits on the connection result
     if (mode === "connecting")
-      this.defer = createDeferred<void>();
+      this.defer = Promise.withResolvers<void>();
   }
 
   checkForEventsSync(): void {
@@ -327,7 +326,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     if (this.closed)
       throw new Error(`IPC link has already been closed`);
     const msgid = this.send(message);
-    const defer = createDeferred<CalcResponseType<SendType, ReceiveType, T>>();
+    const defer = Promise.withResolvers<CalcResponseType<SendType, ReceiveType, T>>();
     this.requests.set(msgid, defer);
     const error = new Error(); //FIXME avoid generating a stack trace for every request!  this should be eg behind a debug flag
     const lock = this.refs.getLock("request");
@@ -431,7 +430,7 @@ export interface IPCPort<SendType extends object | null = IPCMarshallableRecord,
 export class IPCPortImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCPortEvents<SendType, ReceiveType>> implements IPCPort<SendType, ReceiveType> {
   name: string;
   port: TypedMessagePort<never, IPCPortControlMessage>;
-  defer = createDeferred<void>();
+  defer = Promise.withResolvers<void>();
   queue: Array<IPCEndPointImpl<SendType, ReceiveType>> | null = [];
   closed = false;
   emitting = false;

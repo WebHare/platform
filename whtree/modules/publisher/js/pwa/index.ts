@@ -11,7 +11,7 @@ const appbase = location.href.split('?')[0];
 let didinit;
 
 //set up a promise we'll use to signal succesful offline mode
-const offlinedeferred = dompack.createDeferred();
+const offlinedeferred = Promise.withResolvers();
 let swregistration;
 
 function getAppName() {

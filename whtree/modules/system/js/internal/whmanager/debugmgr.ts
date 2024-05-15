@@ -1,5 +1,5 @@
 import EventSource from "../eventsource";
-import { createDeferred, DeferredPromise, isTruthy } from "@webhare/std";
+import { isTruthy } from "@webhare/std";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
 import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, ForwardByRequestType } from "./debug";
 
@@ -102,7 +102,7 @@ class DebugMgrClient {
   subscribedprocesslist = false;
   gotvalidprocesslist = false;
   processlistcb = 0;
-  processlistwaits = new Set<DeferredPromise<void>>();
+  processlistwaits = new Set<PromiseWithResolvers<void>>();
 
   constructor(link: DebugMgrClientLink["AcceptEndPoint"]) {
     this.link = link;
@@ -139,7 +139,7 @@ class DebugMgrClient {
     }
 
     for (; ;) {
-      const defer = createDeferred<void>();
+      const defer = Promise.withResolvers<void>();
       this.processlistwaits.add(defer);
 
       const processlist = await bridge.getProcessList();

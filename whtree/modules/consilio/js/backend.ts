@@ -14,7 +14,7 @@ export default class ConsilioBackend {
     if (this._currentresolve) //if we need to "abort" previous calls...
       this._currentresolve(null);
 
-    const defer = dompack.createDeferred();
+    const defer = Promise.withResolvers();
     this._currentresolve = defer.resolve;
     backendrpc.autoSuggest(this._consiliotoken, words).then(response => {
       defer.resolve(response.suggestions);

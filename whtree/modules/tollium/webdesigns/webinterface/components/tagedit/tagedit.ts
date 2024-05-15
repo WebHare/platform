@@ -137,7 +137,7 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
     ++this.validatequerycounter;
     this.queueMessage('validatetags', { tags: tags, msgid: this.validatequerycounter }, true);
 
-    const defer = dompack.createDeferred();
+    const defer = Promise.withResolvers();
     this.validatequeries.push({ msgid: this.validatequerycounter, defer: defer });
     return defer.promise;
   }

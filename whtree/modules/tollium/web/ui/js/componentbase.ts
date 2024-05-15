@@ -4,7 +4,6 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import { createDeferred, type DeferredPromise } from '@webhare/std';
 import { SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-tollium/web/ui/js/support";
 import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
@@ -333,8 +332,8 @@ export class ToddCompBase {
 
     //TODO register our pending promise somewhere and autocancel if the app/screen is killed. is there any impl to share as this I/O pattern is extremely common
     const promiseid = generateRandomId();
-    const defer = createDeferred<ReturnType>();
-    this.owner.pendingRequests.set(promiseid, defer as DeferredPromise<unknown>);
+    const defer = Promise.withResolvers<ReturnType>();
+    this.owner.pendingRequests.set(promiseid, defer as PromiseWithResolvers<unknown>);
     this.asyncMessage("asyncRequest", { type, data: toSnakeCase(data), promiseid });
     return await defer.promise;
   }

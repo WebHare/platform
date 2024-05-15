@@ -335,7 +335,7 @@ export function prepareUploadTest(node: unknown, files: MockUploadFile[], doneca
 }
 
 export async function prepareUpload(files: MockUploadFile[]): Promise<void> {
-  const deferred = dompack.createDeferred<void>();
+  const deferred = Promise.withResolvers<void>();
   const uploadclass = new FakeUploadSession(files, function () { deferred.resolve(); });
   window.top.wh_testapi_fakeupload = (el: HTMLInputElement) => uploadclass.runUpload(el);
   await deferred.promise;
@@ -618,7 +618,7 @@ export function pasteHTML(content) {
 }
 
 export async function getFileFromURL(url: string, filename: string): Promise<Blob> {
-  const defer = dompack.createDeferred<Blob>();
+  const defer = Promise.withResolvers<Blob>();
   const xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
 

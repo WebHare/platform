@@ -706,7 +706,7 @@ export function selectFiles(options?: {
   multiple?: boolean;
 }): Promise<FileList> { //TODO return our own objects, not a FileList, so we can provide userdata in the interface
   options = { ...options };
-  const uploaddefer = dompack.createDeferred<FileList>();
+  const uploaddefer = Promise.withResolvers<FileList>();
 
   const inputOptions = {
     type: "file",
@@ -740,7 +740,7 @@ export function selectFiles(options?: {
   });
 
   type FileListLike = FileList | File[];
-  const defer = dompack.createDeferred<FileListLike>();
+  const defer = Promise.withResolvers<FileListLike>();
   if (!dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve } })) {
     // upload intercepted
     return defer.promise;
@@ -807,7 +807,7 @@ export class UploadSession extends EventTarget {
   }
 
   upload(): Promise<UploadedFile[]> {
-    const uploaddefer = dompack.createDeferred<UploadedFile[]>();
+    const uploaddefer = Promise.withResolvers<UploadedFile[]>();
     this.started = true;
     if (!this.group) //empty file list - like an abort, but never send the events
     {

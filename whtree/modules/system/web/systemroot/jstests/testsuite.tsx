@@ -97,7 +97,7 @@ class TestFramework {
     }
     window.__testframework = this;
 
-    this.stoppromise = dompack.createDeferred();
+    this.stoppromise = Promise.withResolvers();
 
     const params = new URL(location.href).searchParams;
     if (params.get("waittimeout"))
@@ -285,7 +285,7 @@ class TestFramework {
   async runAllTests(startposition) {
     this.currenttest = startposition - 1;
     this.stop = false;
-    this.stoppromise = dompack.createDeferred();
+    this.stoppromise = Promise.withResolvers();
     document.getElementById('stoptests').disabled = false;
     document.getElementById('skiptest').disabled = true;
 
@@ -363,7 +363,7 @@ class TestFramework {
   /** Loads the iframe with the test source
   */
   loadTestIframe() {
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
 
     const test = this.tests[this.currenttest];
 
@@ -371,7 +371,7 @@ class TestFramework {
     node_teststatus.textContent = "loading...";
     node_teststatus.scrollIntoView({ block: "nearest" });
 
-    this.wait4setuptests = dompack.createDeferred();
+    this.wait4setuptests = Promise.withResolvers();
 
     // Create a script - THEN add events. Might fail if not done in this order
     // No removing of events, this iframe will be thrown away on the next test
@@ -659,7 +659,7 @@ class TestFramework {
   */
   waitForPageFrameLoad(framerec, options) {
     //var iframe = this.getFrameRecord().iframe;
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
     if (!framerec.iframe)
       return deferred.promise;
 
@@ -812,7 +812,7 @@ class TestFramework {
 
   /// Executes the step.test or test.wait functions
   executeStepTestFunction(step) {
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
 
     const func = step.test || step.wait;
 
@@ -870,7 +870,7 @@ class TestFramework {
   }
 
   repeatedFunctionTest(step, func) {
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
 
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
@@ -916,7 +916,7 @@ class TestFramework {
       return promise.finally(this.executeWaitFinish.bind(this));
     }
 
-    const deferred = dompack.createDeferred();
+    const deferred = Promise.withResolvers();
     if (dompack.debugflags.bus)
       deferred.promise = deferred.promise.then(function (x) { console.debug("Finished wait for '" + item + "'"); return x; });
 

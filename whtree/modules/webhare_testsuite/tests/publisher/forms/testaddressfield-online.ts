@@ -29,62 +29,62 @@ test.registerTests(
     async function () {
 
       const verifyAddress = (test.getWin() as unknown as { formrpc_validateAddress: typeof VerifyAddressAPI }).formrpc_validateAddress;
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: ["city"], message: /address.*not.*found/ }],
         corrections: null
       }, await verifyAddress({ country: "GH", city: "15" }));
 
       //Test all well known valiadtion paths
-      test.eqProps({
+      test.eqPartial({
         status: "ok",
         errors: [],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7521 AM", nr_detail: "296", street: "Hengelosestraat", city: "Enschede" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "unknown",
         errors: [],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "1" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: ["zip", "nr_detail"], message: "Unknown combination of postal code and house number." }],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "2" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: [], message: "The address could not be found." }],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "3" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: [], message: "Het adres kon niet worden gevonden." }],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "3" }, { lang: "nl" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "unknown",
         errors: [],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "4" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: [], message: "The address could not be found." }],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "4" }, { checks: ["nl-zip-force"] }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: ["zip"], message: "Invalid ZIP or postal code." }],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "5" }));
 
-      test.eqProps({
+      test.eqPartial({
         status: "error",
         errors: [{ fields: ["zip"], message: "Invalid ZIP or postal code." }],
         corrections: { city: "DO NOT SHIP - NIET VERZENDEN", street: "PDOK (Publieke Dienstverlening Op de Kaart)" }

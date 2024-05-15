@@ -241,20 +241,20 @@ async function testCodeContexts() {
   //prove the transactions are running in parallel:
   test.eq("inserted 40", (await c1.next()).value);
   test.eq("inserted 41", (await c2.next()).value);
-  test.eqProps([{ id: 41, harescript: false }], (await c2.next()).value, [], "context2 sees only 41");
-  test.eqProps([{ id: 40, harescript: false }], (await c1.next()).value, [], "context1 sees only 40");
-  test.eqProps([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, [], "context1 sees only 40");
-  test.eqProps([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, [], "context2 sees only 41");
+  test.eqPartial([{ id: 41, harescript: false }], (await c2.next()).value, [], "context2 sees only 41");
+  test.eqPartial([{ id: 40, harescript: false }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqPartial([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqPartial([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, [], "context2 sees only 41");
 
   //Now HS will update it, then JS will return it
-  test.eqProps([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, [], "context1 sees only 40");
-  test.eqProps([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, [], "context2 sees only 41");
+  test.eqPartial([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqPartial([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, [], "context2 sees only 41");
 
   //and that, once committed, they see each other's changes:
   test.eq("committed", (await c1.next()).value);
   test.eq("committed", (await c2.next()).value);
-  test.eqProps([{ id: 40 }, { id: 41 }], (await c1.next()).value, [], "context1 sees both now");
-  test.eqProps([{ id: 40 }, { id: 41 }], (await c2.next()).value, [], "context2 sees both now");
+  test.eqPartial([{ id: 40 }, { id: 41 }], (await c1.next()).value, [], "context1 sees both now");
+  test.eqPartial([{ id: 40 }, { id: 41 }], (await c2.next()).value, [], "context2 sees both now");
   context1.close();
   context2.close();
 }
@@ -267,7 +267,7 @@ async function testCodeContexts2() {
   let weak: WeakRef<CodeContext> | undefined;
 
   // eslint-disable-next-line no-inner-declarations
-  async function testContextGC(d: DeferredPromise<void>) {
+  async function testContextGC(d: PromiseWithResolvers<void>) {
     const gccontext = new CodeContext("test_whdb: testCodeContexts: gc test", {});
     weak = new WeakRef(gccontext);
 
@@ -284,7 +284,7 @@ async function testCodeContexts2() {
   }
 
   await (async () => {
-    const d = createDeferred<void>();
+    const d = Promise.withResolvers<void>();
     const p = testContextGC(d);
     test.assert(Boolean(weak!.deref()), "Should exist while the async function is running");
     await test.triggerGarbageCollection();

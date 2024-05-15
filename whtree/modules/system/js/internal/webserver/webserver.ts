@@ -119,7 +119,7 @@ class WebServerPort {
   handleException(e: unknown, req: http.IncomingMessage, res: http.ServerResponse) {
     //TODO log error
     res.statusCode = 500;
-    if (!env.flags.etr) {
+    if (!env.debugFlags.etr) {
       res.setHeader("content-type", "text/html");
       res.end("<p>Internal server error");
       return; //and that's all you need to know without 'etr' ...

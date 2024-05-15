@@ -8,7 +8,7 @@ import "./internal/form.lang.json";
 import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
-import { DeferredPromise, createDeferred, generateRandomId } from '@webhare/std';
+import { generateRandomId } from '@webhare/std';
 import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getErrorForValidity, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 
@@ -43,7 +43,7 @@ declare global {
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
     "wh:form-require": CustomEvent<{ required: boolean }>;
-    "wh:form-getvalue": CustomEvent<{ deferred: DeferredPromise<unknown> }>;
+    "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>;
   }
 }
@@ -148,7 +148,7 @@ interface ValidationResult {
 interface ValidationQueueElement {
   limitset?: LimitSet;
   options?: ValidationOptions;
-  defer: DeferredPromise<ValidationResult>;
+  defer: PromiseWithResolvers<ValidationResult>;
 }
 
 interface PageState {
@@ -1235,7 +1235,7 @@ export default class FormBase {
   async getFieldValue(field: HTMLElement) {
     if (field.hasAttribute('data-wh-form-name') || field.whUseFormGetValue) {
       //create a deferred promise for the field to fulfill
-      const deferred = createDeferred<unknown>();
+      const deferred = Promise.withResolvers<unknown>();
       //if cancelled, we'll assume the promise is taken over
       if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
         return deferred.promise;
@@ -1515,7 +1515,7 @@ export default class FormBase {
     }
 
     //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fields as failed.
-    const defer = createDeferred<ValidationResult>();
+    const defer = Promise.withResolvers<ValidationResult>();
     this.validationqueue.push({ defer, limitset, options });
     if (this.validationqueue.length === 1)
       this._executeNextValidation(); //we're first on the queue so process it

@@ -92,7 +92,7 @@ test.registerTests(
     async function () {
       const target = test.getDoc().documentElement.dataset.rpcformtarget;
       let result = await test.getWin().formrpc_submitForm(target, {});
-      test.eqProps([{ message: "This value is required.", name: "requiredpulldownfield" }], result.errors);
+      test.eqPartial([{ message: "This value is required.", name: "requiredpulldownfield" }], result.errors);
       test.eq(false, result.success);
 
       result = await test.getWin().formrpc_submitForm(target, { requiredpulldownfield: "yes", nosuchfield: 42 });

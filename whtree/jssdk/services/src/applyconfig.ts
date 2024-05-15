@@ -2,7 +2,6 @@ import { isWorkOpen, onFinishWork, FinishHandler } from "@webhare/whdb";
 import { openBackendService } from "./backendservice";
 import { ConfigClient } from "@mod-platform/js/configure/configservice";
 import { ApplyConfigurationOptions, ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
-import { createDeferred } from "@webhare/std";
 
 const finishHandlerSymbol = Symbol("ApplyConfig FinishHandler");
 
@@ -21,7 +20,7 @@ export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
 class ApplyFinishHandler implements FinishHandler {
   private subsystems = new Set<ConfigurableSubsystem | "all">();
   private sources = new Set<string>();
-  private defer = createDeferred<void>();
+  private defer = Promise.withResolvers<void>();
   private applying = false;
 
   constructor() {

@@ -1,10 +1,9 @@
 import "@mod-platform/web/wh-common/feedback/styles.css";
 
 import * as dompack from "@webhare/dompack";
-import { createDeferred, DeferredPromise } from "@webhare/std";
 import type { PointOptions, PointResult, HighlightCallback } from "./index";
 
-let deferred: DeferredPromise<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
+let deferred: PromiseWithResolvers<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
 
 export function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<PointResult | null> {
   if (deferred)
@@ -12,7 +11,7 @@ export function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<
 
   highlightCallback = options?.highlightCallback || null;
 
-  deferred = createDeferred();
+  deferred = Promise.withResolvers();
   if (!highlighter)
     highlighter = <div class="wh-feedback__dompointer"></div>;
 

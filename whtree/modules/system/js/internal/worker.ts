@@ -2,7 +2,6 @@ import { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkR
 import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { parseIPCException } from "./whmanager/ipc";
 import { Worker, TransferListItem } from "node:worker_threads";
-import { DeferredPromise, createDeferred } from "@webhare/std/promises";
 import { RefTracker } from "./whmanager/refs";
 import bridge, { initializedWorker } from "./whmanager/bridge";
 import { ConvertLocalServiceInterfaceToClientInterface, buildLocalServiceProxy } from "@webhare/services/src/localservice";
@@ -29,7 +28,7 @@ type AsyncWorkerEvents = {
 export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   private worker: Worker;
   private port: TypedMessagePort<WorkerControlLinkRequest, WorkerControlLinkResponse>;
-  private requests: Record<string, DeferredPromise<WorkerControlLinkResponse | WorkerServiceLinkResponse>> = {};
+  private requests: Record<string, PromiseWithResolvers<WorkerControlLinkResponse | WorkerServiceLinkResponse>> = {};
   private refs: RefTracker;
   private closed = false;
   private error: Error | undefined;
@@ -92,7 +91,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     this.checkClosed();
     const options = typeof func === "string" ? { ref: func } : func;
     const id = ++counter;
-    const deferred = createDeferred<WorkerControlLinkResponse>();
+    const deferred = Promise.withResolvers<WorkerControlLinkResponse>();
     this.requests[id] = deferred;
     const lock = this.refs.getLock(`instantiate ${func}`);
     try {
@@ -133,7 +132,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     this.checkClosed();
     const options = typeof func === "string" ? { ref: func } : func;
     const id = ++counter;
-    const deferred = createDeferred<WorkerControlLinkResponse>();
+    const deferred = Promise.withResolvers<WorkerControlLinkResponse>();
     this.requests[id] = deferred;
     const lock = this.refs.getLock(`instantiate ${options.ref}`);
     try {

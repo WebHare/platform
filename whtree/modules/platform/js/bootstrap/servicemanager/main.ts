@@ -17,7 +17,7 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, logError } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
-import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
+import { generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { BackendServiceConnection, runBackendService } from "@webhare/services/src/backendservicerunner";
@@ -117,7 +117,7 @@ class ProcessManager {
   stderr = "";
   running = false;
   toldToStop = false;
-  stopDefer = createDeferred();
+  stopDefer = Promise.withResolvers();
   killTimeout: NodeJS.Timeout | null = null;
   started: number | null = null;
   startDelay;

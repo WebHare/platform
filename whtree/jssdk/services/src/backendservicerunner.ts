@@ -1,5 +1,4 @@
 import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
-import { createDeferred } from "@webhare/std";
 import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from '@mod-system/js/internal/types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
@@ -109,7 +108,7 @@ interface ServiceConnection {
 class LinkState {
   handler: BackendServiceConnection | null;
   link: WebHareServiceIPCLinkType["AcceptEndPoint"];
-  initdefer = createDeferred<boolean>();
+  initdefer = Promise.withResolvers<boolean>();
 
   constructor(handler: BackendServiceConnection | null, link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     this.handler = handler;

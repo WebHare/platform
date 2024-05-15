@@ -2,14 +2,13 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
-import { createDeferred } from "dompack";
 
 let socket;
 
 let deferrederrorpromise;
 
 function expectMessage(expect) {
-  const deferred = createDeferred();
+  const deferred = Promise.withResolvers();
   const func = function (event) {
     socket.removeEventListener('message', func);
     if (event.data !== expect) {
@@ -44,10 +43,10 @@ test.registerTests(
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
         socket = new WebSocket(url.toString());
 
-        deferrederrorpromise = createDeferred();
-        socket.addEventListener('error', function () { deferrederrorpromise.reject(); deferrederrorpromise = createDeferred(); });
+        deferrederrorpromise = Promise.withResolvers();
+        socket.addEventListener('error', function () { deferrederrorpromise.reject(); deferrederrorpromise = Promise.withResolvers(); });
 
-        const deferred = createDeferred();
+        const deferred = Promise.withResolvers();
         socket.addEventListener('open', deferred.resolve);
         return Promise.race([deferred.promise, deferrederrorpromise.promise]);
       }

@@ -35,14 +35,14 @@ async function testMockedTypes() {
   test.eq("http://www.webhare.net/xmlns/publisher/htmlfile", htmltype.namespace);
 
   const rtdtype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  test.eqProps({ name: "data", type: "richDocument" }, rtdtype.members.find(_ => _.name === "data"));
+  test.eqPartial({ name: "data", type: "richDocument" }, rtdtype.members.find(_ => _.name === "data"));
   test.assert(!rtdtype.members.find(_ => !_.id), "All members should have an id");
 
   //verify some corner cases
   await test.throws(/No such type/, () => whfs.describeContentType("", { allowMissing: true }));
   test.eq(null, await whfs.describeContentType(0, { allowMissing: true }));
   await test.throws(/No such type/, () => whfs.describeContentType("", { allowMissing: true, metaType: "fileType" }));
-  test.eqProps({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeContentType(777777777777, { allowMissing: true, metaType: "fileType" }));
+  test.eqPartial({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeContentType(777777777777, { allowMissing: true, metaType: "fileType" }));
 
   //verify scopedtypenames
   const scopedtype = await whfs.describeContentType("webhare_testsuite:global.genericTestType");
@@ -59,7 +59,7 @@ async function testInstanceData() {
   const fileids = [tmpfolder.id, testfile.id];
 
   const testtype = whfs.openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
-  test.eqProps({ int: 0, yesNo: false }, await testtype.get(testfile.id));
+  test.eqPartial({ int: 0, yesNo: false }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 0);
 
   //Test basic get/set
@@ -67,14 +67,14 @@ async function testInstanceData() {
     int: 15,
     yesNo: true
   });
-  test.eqProps({ int: 15, yesNo: true }, await testtype.get(testfile.id));
+  test.eqPartial({ int: 15, yesNo: true }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 2);
 
   await testtype.set(testfile.id, {
     int: 20,
     yesNo: false
   });
-  test.eqProps({ int: 20, yesNo: false }, await testtype.get(testfile.id));
+  test.eqPartial({ int: 20, yesNo: false }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 1);
 
   //Test the rest of the primitive types
@@ -96,7 +96,7 @@ async function testInstanceData() {
   });
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 13);
 
-  test.eqProps({
+  test.eqPartial({
     int: 20,
     str: "String",
     price: Money.fromNumber(2.5),
@@ -144,9 +144,9 @@ async function testInstanceData() {
   const val = await hs_generictype.getInstanceData(testfile.id);
   test.eq(Money.fromNumber(2.5), val.price);
   test.eq({ price: Money.fromNumber(2.5) }, { price: val.price });
-  test.eqProps({ price: Money.fromNumber(2.5) }, { price: val.price });
+  test.eqPartial({ price: Money.fromNumber(2.5) }, { price: val.price });
 
-  test.eqProps({
+  test.eqPartial({
     int: 20,
     str: "String",
     price: Money.fromNumber(2.5),
@@ -193,7 +193,7 @@ async function testInstanceData() {
     ]
   });
 
-  test.eqProps({
+  test.eqPartial({
     anArray: [
       { aSubArray: [{ subIntMember: 42 }, { subIntMember: 41 }, { subIntMember: 40 }] },
       { aSubArray: [] },

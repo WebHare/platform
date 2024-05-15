@@ -1,6 +1,6 @@
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
-import { convertWaitPeriodToDate, createDeferred, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, onFinishWork, sql } from "@webhare/whdb";
 import { openBackendService } from "@webhare/services";
 
@@ -141,7 +141,7 @@ export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod,
 /// Handles cancelling running tasks after the commit
 class TaskCancelHandler {
   static uniqueTag = Symbol("system:tasks.TaskCancelHandler");
-  deferred = createDeferred<void>();
+  deferred = Promise.withResolvers<void>();
 
   async onCommit() {
     try {

@@ -402,7 +402,7 @@ async function testLogs() {
 
   const logreader = services.readLogLines("webhare_testsuite:test", { start: test.startTime, limit: new Date(Date.now() + 1) });
   const logline = await logreader.next();
-  test.eqProps({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
+  test.eqPartial({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
   test.assert(logline.value["@timestamp"] instanceof Date);
 
   const hardlogline = await logreader.next();
@@ -431,12 +431,12 @@ async function testLogs() {
   services.logNotice("info", "Ter info");
 
   const mydebug = (await readLog("system:debug")).filter(_ => _.source === 'webhare_testsuite:services_test');
-  test.eqProps([{ data: { test: 42 } }], mydebug);
+  test.eqPartial([{ data: { test: 42 } }], mydebug);
 
   const mygroupid = mydebug[0].groupid;
 
   const mynotices = (await readLog("system:notice")).filter(_ => _.groupid === mygroupid);
-  test.eqProps([
+  test.eqPartial([
     {
       message: 'Broken',
       browser: { name: 'nodejs' },

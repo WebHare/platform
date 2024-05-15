@@ -96,7 +96,7 @@ async function testCalls() {
   test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
   const err = await test.throws(/We're throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowIt());
   const parsed = stacktrace_parser.parse(err.stack!);
-  test.eqProps({ file: /testwasmlib\.whlib$/, methodName: "THROWIT" }, parsed[0]); //TODO we still return mod:: paths or should it just be a full path ?
+  test.eqPartial({ file: /testwasmlib\.whlib$/, methodName: "THROWIT" }, parsed[0]); //TODO we still return mod:: paths or should it just be a full path ?
 
   //test the VM is still operating after the throw:
   test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
@@ -141,7 +141,7 @@ async function testCalls() {
 
   //test whether a ResourceDescriptor properly transforms into a WrappedBlob on the HS Side
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getDominantColor: true, getImageMetadata: true });
-  test.eqProps({
+  test.eqPartial({
     mimetype: 'image/png',
     width: 385,
     height: 236,

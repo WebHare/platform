@@ -1,5 +1,6 @@
 import { systemConfigSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { callHareScript, scheduleTimedTask, writeRegistryKey } from "@webhare/services";
+import { omit } from "@webhare/std";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 
@@ -43,7 +44,7 @@ async function testCheckAPI() {
   ], { openPrimary: true });
 
   const checks1 = await listTestChecks("webhare_testsuite:checks");
-  test.eqProps([
+  test.eqPartial([
     { type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed", history: [{ event: "start", messageText: "Test #0 failed" }], wrdLimitDate: null },
     { type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed", history: [{ event: "start", messageText: "Test #1 failed" }], wrdLimitDate: null },
     { type: "webhare_testsuite:check2", metadata: null, messageText: "Test #2 failed", history: [{ event: "start", messageText: "Test #2 failed" }], wrdLimitDate: null }
@@ -62,7 +63,7 @@ async function testCheckAPI() {
   ], { openPrimary: true });
 
   const checks2 = await listTestChecks("webhare_testsuite:checks");
-  test.eqProps([
+  test.eqPartial([
     {
       type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed", history:
         [
@@ -92,7 +93,7 @@ async function testCheckAPI() {
   ], { openPrimary: true });
 
   const checks3 = await listTestChecks("webhare_testsuite:checks");
-  test.eqProps([
+  test.eqPartial([
     { type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed" },
     {
       type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed", history:
@@ -119,7 +120,7 @@ async function testCheckAPI() {
   ], { openPrimary: true });
 
   const checks4 = await listTestChecks("webhare_testsuite:checks");
-  test.eqProps([
+  test.eqPartial([
     {
       type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 refailed", history:
         [
@@ -142,7 +143,7 @@ async function testCheckAPI() {
   ], { openPrimary: true, autoCommit: true });
 
   const checks5 = await listTestChecks("webhare_testsuite:checks");
-  test.eqProps([
+  test.eqPartial([
     {
       type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 refailed", history:
         [
@@ -156,7 +157,7 @@ async function testCheckAPI() {
 
   //cancel snooze
   await callHareScript("mod::system/lib/checks.whlib#UnsnoozeIssue", [checks4[0].wrdId], { openPrimary: true, autoCommit: true });
-  test.eqProps(checks4, await listTestChecks("webhare_testsuite:checks"), ["wrdModificationDate"]);
+  test.eqPartial(omit(checks4, ["wrdModificationDate"]), await listTestChecks("webhare_testsuite:checks"));
 }
 
 async function listTestSuiteIntervalIssues() {

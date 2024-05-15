@@ -2,10 +2,9 @@ import * as dompack from 'dompack';
 import * as dialogapi from 'dompack/api/dialog';
 import "./__captcha.css";
 import { CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
-import { DeferredPromise, createDeferred } from '@webhare/std';
 
 //recaptcha API: https://developers.google.com/recaptcha/docs/display
-let recaptchaload: DeferredPromise<void> | undefined;
+let recaptchaload: PromiseWithResolvers<void> | undefined;
 
 declare global {
   interface Window {
@@ -22,7 +21,7 @@ window.$wh__ongooglerecaptchaloaded = function () {
 };
 
 function makeRecaptchaLoadPromise() {
-  recaptchaload = createDeferred<void>();
+  recaptchaload = Promise.withResolvers<void>();
   document.querySelector<HTMLElement>("head,body")!.append(<script src="https://www.google.com/recaptcha/api.js?onload=$wh__ongooglerecaptchaloaded&amp;render=explicit" />);
   return recaptchaload.promise;
 }
@@ -65,11 +64,11 @@ export async function runRecaptcha(sitekey: string, settings: CaptchaSettings) {
   if (!settings.injectInto)
     return runRecaptchaDialog(sitekey, settings); //legacy implementation, remove once all pre-5.4s have been republished at least once
 
-  const injectinto = settings.injectInto as typeof settings.injectInto & { [captchaDefer]?: DeferredPromise<string> };
+  const injectinto = settings.injectInto as typeof settings.injectInto & { [captchaDefer]?: PromiseWithResolvers<string> };
   if (injectinto[captchaDefer])
     return injectinto[captchaDefer].promise;
 
-  const defer = createDeferred<string>();
+  const defer = Promise.withResolvers<string>();
   const lock = dompack.flagUIBusy({ modal: true });
   try {
     await (recaptchaload ? recaptchaload.promise : makeRecaptchaLoadPromise());

@@ -1,7 +1,6 @@
 import * as dompack from 'dompack';
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 import { DocEvent, addDocEventListener } from '@webhare/dompack';
-import { DeferredPromise } from '@webhare/std';
 import { SetFieldErrorData } from '../internal/customvalidation';
 import FormBase from '../formbase';
 
@@ -14,7 +13,7 @@ export default class CaptchaField {
     addDocEventListener(this.node, 'wh:form-getvalue', evt => this._getValue(evt));
     addDocEventListener(this.node, 'wh:form-setfielderror', evt => this._setFieldError(evt));
   }
-  _getValue(evt: DocEvent<CustomEvent<{ deferred: DeferredPromise<unknown> }>>) {
+  _getValue(evt: DocEvent<CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>>) {
     dompack.stop(evt);
     evt.detail.deferred.resolve(this.response);
   }
