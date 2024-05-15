@@ -205,7 +205,7 @@ async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise
 }
 
 export async function requestFiles(options?: UploadRequestOptions): Promise<MultiFileUploader | null> {
-  const files = await getFilelistFromUser(options?.multiple === false, options?.accept || []);
+  const files = await getFilelistFromUser(!(options?.multiple === false), options?.accept || []);
   if (!files.length)
     return null;
 
