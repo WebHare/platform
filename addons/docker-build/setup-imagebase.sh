@@ -125,8 +125,8 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGE
   exit 1
 fi
 
-# it's just one of those days. v20.13.0 broke fetch. downgrade it, see https://github.com/nodejs/node/issues/52909
-if [ "$(node -v)" == "v20.13.0" ]; then
+# it's just one of those days. v20.13.0 broke fetch. downgrade it, see https://github.com/nodejs/node/issues/52909 - still broken in v20.13.1, extend this regex to cover it
+if [[ $(node -v) =~ ^v20.1[3-9] ]]; then
   apt-get install -y --allow-downgrades nodejs=20.12.2-1nodesource1
 fi
 
