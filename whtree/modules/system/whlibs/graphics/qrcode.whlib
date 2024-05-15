@@ -1453,15 +1453,9 @@ PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEF
     // Get the size of the square to put the logo in
     logosize := INTEGER(Sqrt(lm));
   }
-  IF (logosize > 0)
-  {
-    // To center the logo, make sure the QR code and logo sizes are both odd or even
-    IF ((count_ / 2 * 2 != count_) != (logosize / 2 * 2 != logosize))
-      logosize := logosize - 1;
-    // We want a border of 1 module around the logo, so we need at least 3 modules in size
-    IF (logosize < 3)
-      logosize := 0;
-  }
+  // We want a border of 1 module around the logo, so we need at least 3 modules in size
+  IF (logosize < 3)
+    logosize := 0;
 
   // Read and resize the logo
   OBJECT logo;
@@ -1514,7 +1508,7 @@ PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEF
   // Draw the logo
   IF (ObjectExists(logo))
   {
-    canvas->DrawCanvas(logo, (logostart + options.margin + 1) * size, (logostart + options.margin + 1) * size);
+    canvas->DrawCanvas(logo, (logostart + options.margin) * size + (logosize * size - logo->width) / 2, (logostart + options.margin) * size + (logosize * size - logo->height) / 2);
     logo->Close();
   }
 
