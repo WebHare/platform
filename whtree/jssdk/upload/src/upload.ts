@@ -8,8 +8,9 @@ type FileListLike = FileList | Blob[];
 declare global {
   interface GlobalEventHandlersEventMap {
     "wh:requestfiles": CustomEvent<{
+      /** Callback to invoke with the list of files to upload */
       resolve: (files: FileListLike) => void;
-    }>;
+    } & Required<UploadRequestOptions>>;
   }
 }
 
@@ -185,7 +186,7 @@ export class SingleFileUploader implements UploaderBase {
 
 async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise<FileListLike> {
   const defer = Promise.withResolvers<FileListLike>();
-  if (dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve } })) {
+  if (dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve, multiple, accept } })) {
     const input = document.createElement('input');
     input.type = "file";
     input.multiple = multiple;
@@ -197,11 +198,14 @@ async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise
     input.showPicker();
   }
 
-  return defer.promise;
+  const list = await defer.promise;
+  if (!multiple && list.length > 1)
+    throw new Error(`wh:requestfiles intercepter selected multiple files, but only one was requested`);
+  return list;
 }
 
 export async function requestFiles(options?: UploadRequestOptions): Promise<MultiFileUploader | null> {
-  const files = await getFilelistFromUser(options?.multiple === false, options?.accept || []);
+  const files = await getFilelistFromUser(!(options?.multiple === false), options?.accept || []);
   if (!files.length)
     return null;
 
