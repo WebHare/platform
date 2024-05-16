@@ -74,6 +74,17 @@ test.registerTests([
     test.eq("true", emailfield.getAttribute("aria-invalid"));
     errornode = test.qR(emailgroup, '.wh-form__error');
     test.eq(errornode.id, emailfield.getAttribute("aria-describedby"));
+
+    // Set a correct email again
+    test.fill('#coretest-email', 'advocado@beta.webhare.net');
+    await test.wait('ui');
+    test.eq('', test.qR(emailgroup, '.wh-form__error').textContent);
+
+    // And now set an email *not* accepted by our isValidEmail, but accepted by the browser
+    test.fill('#coretest-email', 'email@a.a');
+    await test.pressKey('Tab');
+    test.eq('Dit is geen geldig e-mailadres.', test.qR(emailgroup, '.wh-form__error').textContent);
+
   },
 
   'Test required/focus behavior of additional fields inside radio groups',
