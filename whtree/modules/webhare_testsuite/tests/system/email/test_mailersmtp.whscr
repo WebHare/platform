@@ -185,6 +185,7 @@ MACRO MailNewComposerSendTest()
   outmail->errorsto := "errorsto@sender.beta.webhare.net";
   outmail->AddAttachment(StringToBlob("Hi Everybody!"), [ filename := "drnick.txt", mimetype := "text/x-doctorsnote" ]);
   outmail->AddAttachment(outmail->ExportAsEML());
+  INSERT [ field := "X-Test", value := "headervalue" ] INTO outmail->headers AT END;
 
   BLOB agendaitem := StringToBlob("FIXME TRUE ICS FILE");
   outmail->AddAlternative(agendaitem, [ filename := "afspraak.ics", mimetype := "text/calendar; charset=\"utf-8\"; method=REQUEST" ]);
@@ -196,9 +197,13 @@ MACRO MailNewComposerSendTest()
 
   RetrieveManagedTaskResult(mailid, MAX_DATETIME);
   STRING ARRAY rawoutput := Tokenize(Substitute(BlobToString(mailserverobject->messages[0].data),"\r",""),"\n");
+
   STRING subject := SELECT AS STRING line FROM ToRecordArray(rawoutput,"line") WHERE ToUppercase(line) LIKE "SUBJECT:*";
   //ensure no double encoding
   TestEq("Subject: =?ISO-8859-1?Q?Mail_subj=E9ct?=", subject);
+
+  STRING xtest := SELECT AS STRING line FROM ToRecordArray(rawoutput,"line") WHERE ToUppercase(line) LIKE "X-TEST:*";
+  Testeq("X-Test: headervalue", xtest);
 }
 
 ASYNC MACRO TestInspectMailqueue()
