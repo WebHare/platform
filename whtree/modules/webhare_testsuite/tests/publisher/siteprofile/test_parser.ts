@@ -22,7 +22,11 @@ types:
         members:
           [
             { name: 'number_field', type: CSPMemberType.Integer, title: "webhare_testsuite:base.gid.number_field" },
-            { name: 'other_field', type: CSPMemberType.String, title: ":My other field" }
+            { name: 'other_field', type: CSPMemberType.String, title: ":My other field" },
+            {
+              name: 'array_field', type: CSPMemberType.Array, children:
+                [{ name: 'sub_field', type: CSPMemberType.String, title: "webhare_testsuite:base.gid.sub_field" }]
+            }
           ]
       },
       {
@@ -45,6 +49,11 @@ types:
       otherField:
         type: string
         title: My other field
+      arrayField:
+        type: array
+        members:
+          subField:
+            type: string
   testType2:
     gid: .tt2
     members:

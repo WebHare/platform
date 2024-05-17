@@ -31,12 +31,15 @@ definitions:
       tid:
         type: string
       members:
-        type: object
+        $ref: "#/definitions/TypeMembers"
+
+  TypeMembers:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
+        $ref: "#/definitions/TypeMember"
         additionalProperties: false
-        patternProperties:
-          "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
-            $ref: "#/definitions/TypeMember"
-            additionalProperties: false
 
   TypeMember:
     type: object
@@ -50,7 +53,24 @@ definitions:
           - string
           - integer
           - datetime
+          - file
+          - boolean
+          - float
+          - money
+          - whfsref
+          - array
+          - whfsrefarray
+          - stringarray
+          - richdocument
+          - intextlink
+          - instance
+          - url
+          - composeddocument
+          - record
+          # - formcondition  FIXME is this really declarable?
       tid:
         type: string
       title:
         type: string
+      members: # TODO limit to arrays only
+        $ref: "#/definitions/TypeMembers"

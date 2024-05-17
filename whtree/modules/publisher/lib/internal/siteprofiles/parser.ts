@@ -27,7 +27,22 @@ export type ParsedSiteProfile = {
 const YamlTypeMapping: { [type in TypeMember["type"]]: CSPMemberType } = {
   "string": CSPMemberType.String,
   "integer": CSPMemberType.Integer,
-  "datetime": CSPMemberType.DateTime
+  "datetime": CSPMemberType.DateTime,
+  "file": CSPMemberType.File,
+  "boolean": CSPMemberType.Boolean,
+  "float": CSPMemberType.Float,
+  "money": CSPMemberType.Money,
+  "whfsref": CSPMemberType.WHFSRef,
+  "array": CSPMemberType.Array,
+  "whfsrefarray": CSPMemberType.WHFSRefArray,
+  "stringarray": CSPMemberType.StringArray,
+  "richdocument": CSPMemberType.RichDocument,
+  "intextlink": CSPMemberType.IntExtLink,
+  "instance": CSPMemberType.Instance,
+  "url": CSPMemberType.URL,
+  "composeddocument": CSPMemberType.ComposedDocument,
+  "record": CSPMemberType.Record,
+  //"formcondition": CSPMemberType.FormCondition,
 };
 
 function parseMembers(gid: string, members: { [key: string]: TypeMember }): CSPMember[] {
@@ -41,7 +56,7 @@ function parseMembers(gid: string, members: { [key: string]: TypeMember }): CSPM
     const addmember: CSPMember = {
       name: toHSSnakeCase(name),
       type,
-      children: [],
+      children: member.type === "array" ? parseMembers(gid, member.members || {}) : [],
       title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
