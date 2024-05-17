@@ -1,0 +1,53 @@
+typeGroup: global
+types:
+  genericTestType:
+    #  The general idea:
+    #   - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
+    #   - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
+    #   - This import: `import { globalTypes } from "wh:whfs/webhare_testsuite"`
+    #   - To get: `const mydata = globalTypes.genericTestType.get(fileId)`
+    members:
+      str:
+        type: string
+      emptyStr:
+        type: string
+      int:
+        type: integer
+      blub:
+        type: file
+      price:
+        type: money
+      rich:
+        type: richdocument
+      yesNo:
+        type: boolean
+      aFloat:
+        type: float
+      aDateTime:
+        type: datetime
+      anInstance:
+        type: instance
+      strArray:
+        type: stringarray
+      url:
+        type: url
+      aRecord:
+        type: record
+      anArray:
+        type: array
+        members:
+          richMember:
+            type: richdocument
+          intMember:
+            type: integer
+          aSubArray:
+            type: array
+            members:
+              subRichMember:
+                type: richdocument
+              subIntMember:
+                type: integer
+      myWhfsRef:
+        type: whfsref
+      myWhfsRefArray:
+        type: whfsrefarray

@@ -252,21 +252,11 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   RECORD FUNCTION ParseScopedType(OBJECT node)
   {
     RECORD retval := [ scopedtype := "", namespace := "" ];
-    IF(node->HasAttribute("scopedtype"))
-    {
-      IF(node->HasAttribute("namespace") OR node->HasAttribute("typedef"))
-        THROW NEW Exception(`Conflicting namespace definition. Do not combine scopedtype= with namespace=/typedef=`);
+    BOOLEAN uses_namespace := node->HasAttribute("namespace");
+    retval.namespace := uses_namespace ? node->GetAttribute("namespace") : node->GetAttribute("typedef"); //typedef is the 'old' name before we merged contenttype with filetype
+    IF(retval.namespace = "")
+      THROW NEW Exception(`No namespace set on <${node->localname}>`);
 
-      retval.scopedtype := this->module || ":" || node->GetAttribute("scopedtype");
-      retval.namespace := ScopedTypeToNameSpace(retval.scopedtype, FALSE);
-    }
-    ELSE
-    {
-      BOOLEAN uses_namespace := node->HasAttribute("namespace");
-      retval.namespace := uses_namespace ? node->GetAttribute("namespace") : node->GetAttribute("typedef"); //typedef is the 'old' name before we merged contenttype with filetype
-      IF(retval.namespace = "")
-        THROW NEW Exception(`No namespace set on <${node->localname}>`);
-    }
     RETURN retval;
   }
 
