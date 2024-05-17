@@ -86,6 +86,7 @@ export default class ObjPanel extends ComponentBase {
   /****************************************************************************************************************************
   * Initialization
   */
+  visibleons = [];
 
   constructor(parentcomp, data) {
     super(parentcomp, data);

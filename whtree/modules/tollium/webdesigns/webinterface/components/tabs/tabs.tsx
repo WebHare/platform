@@ -5,8 +5,10 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import ObjText from '../text/text';
 
-const menuapi = require('@mod-tollium/web/ui/components/basecontrols/menu');
+import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
 import * as domscroll from 'dompack/browserfix/scroll';
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type ObjPanel from '../panel/panel';
 
 /****************************************************************************************************************************
 * Global tabs settings
@@ -21,20 +23,46 @@ const tab_labelanimation_timeout = 20;
 
 const regulartab_overheadx = 20;
 
+interface TabsAttributes extends ComponentStandardAttributes {
+  tabtype: "regular" | "stacked" | "server";
+  pages: string[];
+  selected: string;
+}
+
+interface TabItem {
+  name: string;
+  comp: ObjPanel;
+  titlecomp?: ObjText;
+  dynamicvisible: boolean;
+  num: number;
+  labelnode?: HTMLElement;
+  savetabdisplay?: string;
+  menunode?: HTMLElement;
+  contentnode?: HTMLElement;
+}
+
 export default class ObjTabs extends ComponentBase {
+  componenttype = "tabs";
+  pendingselect?: TabItem;
+  selected?: TabItem;
+  tabtype: TabsAttributes["tabtype"];
+  pages = new Array<TabItem>;
+  visibletabs = 0;
+  navscroll?: {
+    timer: NodeJS.Timeout | null;
+    left: number;
+  };
+
   /****************************************************************************************************************************
   * Initialization
   */
 
-  constructor(parentcomp, data) {
+  constructor(parentcomp: ToddCompBase, data: TabsAttributes) {
     super(parentcomp, data);
-    this.componenttype = "tabs";
-    this.pendingselect = null;
-
     this.tabtype = data.tabtype;
     this.pages = [];
     data.pages.forEach((page, idx) => {
-      const pagecomp = this.owner.addComponent(this, page);
+      const pagecomp = this.owner.addComponent(this, page, { allowMissing: false });
 
       let titlecomp;
       if (this.tabtype !== "server") {
@@ -48,15 +76,14 @@ export default class ObjTabs extends ComponentBase {
         });
       }
 
-      const item = {
+      const item: TabItem = {
         name: page,
-        comp: pagecomp,
+        comp: pagecomp as ObjPanel,
         titlecomp: titlecomp,
         dynamicvisible: true,
         num: idx
       };
       this.pages.push(item);
-      pagecomp.parenttabsitem = item;
     });
 
     this.buildNode();
@@ -88,13 +115,11 @@ export default class ObjTabs extends ComponentBase {
 
       if (this.tabtype !== 'server') {
         //        console.log(this.pages[i]);
-        if (newshow && !this.pages[i].dynamicvisible) //Make the tab visible?
-        {
+        if (newshow && !this.pages[i].dynamicvisible) { //Make the tab visible?
           this.pages[i].labelnode.style.display = this.pages[i].savetabdisplay;
           if (this.pages[i].menunode)
             this.pages[i].menunode.style.display = "";
-        } else if (!newshow && this.pages[i].dynamicvisible) //Make the tab invisible?
-        {
+        } else if (!newshow && this.pages[i].dynamicvisible) {//Make the tab invisible?
           this.pages[i].savetabdisplay = this.pages[i].labelnode.style.display;
           //ADDME?          this.pages[i].comp.OnHide();
           this.pages[i].labelnode.style.display = 'none';
@@ -157,13 +182,12 @@ export default class ObjTabs extends ComponentBase {
   * Component management
   */
 
-  readdComponent(comp) {
-    // Replace the offending component
-    if (!comp.parenttabsitem)
-      return console.error('Child ' + comp.name + ' not inside the tabs is trying to replace itself');
+  readdComponent(comp: ToddCompBase) {
+    const item = this.pages.find(_ => _.comp === comp);
+    if (!item)
+      throw new Error(`Cannot find item to replace`);
 
-    const item = comp.parenttabsitem;
-    const newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name, { allowMissing: false }) as ObjPanel;
 
     // If already rendered, live replace
     item.comp.getNode().replaceWith(newcomp.getNode());
@@ -172,10 +196,6 @@ export default class ObjTabs extends ComponentBase {
       item.titlecomp.setValue(item.comp.title, false);
     if (item.menunode)
       item.menunode.textContent = item.comp.title;
-
-    newcomp.parenttabsitem = item;
-    if (!this.node)
-      return;
   }
 
 
@@ -192,7 +212,7 @@ export default class ObjTabs extends ComponentBase {
     return this.pendingselect || this.selected;
   }
 
-  setSelected(value, sendevents) {
+  setSelected(value: string, sendevents: boolean) {
     if (value === this.getSubmitValue())
       return;
 
@@ -264,7 +284,7 @@ export default class ObjTabs extends ComponentBase {
 
       // Send a select event
       if (sendevents && this.isEventUnmasked("select")) {
-        this.transferState();
+        this.transferState(false);
       }
       this.selected.comp.setVisible(true);
       if (prevselected) {
@@ -505,10 +525,8 @@ export default class ObjTabs extends ComponentBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
-    dompack.setStyles(this.node, {
-      width: Math.max(this.width.min, this.width.set),
-      height: Math.max(this.height.min, this.height.set)
-    });
+    this.node.style.width = Math.max(this.width.min, this.width.set) + 'px';
+    this.node.style.height = Math.max(this.height.min, this.height.set) + 'px';
 
     if (this.nodes.nav) {
       this.nodes.nav.parentNode.style.width = this.width.set + 'px';
@@ -567,7 +585,7 @@ export default class ObjTabs extends ComponentBase {
     });
   }
 
-  selectTab(evt, tabname) {
+  selectTab(evt: MouseEvent | null, tabname: string) {
     if (evt)
       dompack.stop(evt);
     this.setSelected(tabname, true);
@@ -587,7 +605,7 @@ export default class ObjTabs extends ComponentBase {
 
   onNavMenuClick(event) {
     // ADDME: let the menu component handle keeping the list in view and making it scrollable
-    menuapi.openAt(this.nodes.pagesmenu, this.nodes["nav-tabs"], { direction: 'down', align: 'right' });
+    menus.openAt(this.nodes.pagesmenu, this.nodes["nav-tabs"], { direction: 'down', align: 'right' });
   }
 
   /****************************************************************************************************************************

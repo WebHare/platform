@@ -379,18 +379,25 @@ export default class Frame extends ToddCompBase {
     return msg;
   }
 
-  // Add a component from the server response
-  // @param name The name of the component to initialize
-  // @param response Server response containing the component (for tollium components only)
-  // @return The requested component, created if necessary
-  addComponent(parentcomp: ToddCompBase, name: string) {
+  /** Add a component from the server response
+     @param name - The name of the component to initialize
+     @param response -Server response containing the component (for tollium components only)
+      @returns The requested component, created if necessary
+  */
+  addComponent(parentcomp: ToddCompBase, name: string, options: { allowMissing: false }): ToddCompBase;
+  addComponent(parentcomp: ToddCompBase, name: string, options?: { allowMissing?: boolean }): null | ToddCompBase;
+
+  addComponent(parentcomp: ToddCompBase, name: string, { allowMissing = true } = {}): null | ToddCompBase {
+    //TODO perahps alllowMissing = false should be the default
     const existingcomp = this.getComponent(name);
     const newcomp = this.getPendingComponent(name); //in current response? (either new or being updated)
 
     if (!newcomp) {
       //Hmm, xmlcomponent's not there :(  Perhaps we have it already?
       if (!existingcomp) {
-        //console.warn('addComponent: component ' + name + ' not found in response (requested by ' + this.screenname + '.' + parentcomp.name + ')');
+        if (!allowMissing)
+          throw new Error(`addComponent: component '${name}' not found in response (requested by '${this.screenname}.${parentcomp.name}')`);
+
         return null;
       }
       //
