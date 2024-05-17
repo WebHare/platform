@@ -124,28 +124,22 @@
     </setlibrary>
   </apply>
 
-  <contenttype scopedtype="basetest.siteSettings">
-    <string name="mode" />
-    <string name="setting" />
-    <datetime name="when" />
-  </contenttype>
-
   <apply>
-    <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+    <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
 
     <userdata key="webhare_testsuite:setting" value='{"dogName":"bluey"}' />
   </apply>
 
   <apply>
-    <testdata member="setting" value="red" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+    <testdata member="setting" value="red" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
 
     <userdata key="webhare_testsuite:setting" value='{"sisterName":"bingo"}' />
   </apply>
 
   <apply>
     <and>
-      <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
-      <testdata member="when" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.basetest.site_settings" />
+      <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
+      <testdata member="when" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
     </and>
     <userdata key="webhare_testsuite:setting" value='{"isDateSet":false}' />
   </apply>

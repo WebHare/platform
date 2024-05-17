@@ -24,9 +24,10 @@ export type ParsedSiteProfile = {
   rules: CSPApplyRule[];
 };
 
-const YamlTypeMapping: { [type: string]: CSPMemberType } = {
+const YamlTypeMapping: { [type in TypeMember["type"]]: CSPMemberType } = {
   "string": CSPMemberType.String,
-  "integer": CSPMemberType.Integer
+  "integer": CSPMemberType.Integer,
+  "datetime": CSPMemberType.DateTime
 };
 
 function parseMembers(gid: string, members: { [key: string]: TypeMember }): CSPMember[] {
@@ -77,8 +78,8 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
       throw new Error(`Siteprofile ${resource} does not have a typeGroup`);
 
     const typeGid = resolveGid(spGid, settings.gid || '');
-    const scopedtype = `${module}.${toHSSnakeCase(sp.typeGroup)}.${toHSSnakeCase(type)}`;
-    const ns = `x-webhare-scopedtype:${scopedtype}`;
+    const scopedtype = `${module}:${sp.typeGroup}.${type}`;
+    const ns = `x-webhare-scopedtype:${module}.${toHSSnakeCase(sp.typeGroup)}.${toHSSnakeCase(type)}`;
     const ctype: CSPContentType = {
       cloneoncopy: true, //FIXME more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
       dynamicexecution: null,

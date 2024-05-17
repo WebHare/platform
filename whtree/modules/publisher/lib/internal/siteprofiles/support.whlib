@@ -24,14 +24,14 @@ PUBLIC STRING FUNCTION ScopedTypeToNamespace(STRING scopedtype, BOOLEAN isrefere
 
   //This is a heuristic which we expected to work in the field.. you can escape
   //The regex must match ScopedType in siteprofile.xsd (without the module prefix)
-  RECORD ARRAY split := NEW RegEx("^([a-z][a-z0-9_]+):([a-z][a-z0-9_]+)\.([a-z][a-zA-Z0-9]+)")->Exec(scopedtype);
+  RECORD ARRAY split := NEW RegEx("^([a-z][a-z0-9_]+):([a-z][a-zA-Z0-9]+)\.([a-z][a-zA-Z0-9]+)")->Exec(scopedtype);
   IF(Length(split) != 4)
   {
     IF(isreference)
       RETURN scopedtype;
     THROW NEW Exception(`Invalid scoped type "${scopedtype}"`);
   }
-  RETURN `x-webhare-scopedtype:${split[1].value}.${split[2].value}.${ToSnakeCase(split[3].value)}`;
+  RETURN `x-webhare-scopedtype:${split[1].value}.${ToSnakeCase(split[2].value)}.${ToSnakeCase(split[3].value)}`;
 }
 
 

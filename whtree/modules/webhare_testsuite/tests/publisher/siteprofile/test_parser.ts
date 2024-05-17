@@ -16,7 +16,7 @@ types:
     contenttypes: [
       {
         namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type',
-        scopedtype: 'webhare_testsuite.my_types.test_type',
+        scopedtype: 'webhare_testsuite:myTypes.testType',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.test_type",
         members:
@@ -27,7 +27,7 @@ types:
       },
       {
         namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type2',
-        scopedtype: 'webhare_testsuite.my_types.test_type2',
+        scopedtype: 'webhare_testsuite:myTypes.testType2',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.tt2.test_type2",
         members:

@@ -49,6 +49,7 @@ definitions:
         enum:
           - string
           - integer
+          - datetime
       tid:
         type: string
       title:

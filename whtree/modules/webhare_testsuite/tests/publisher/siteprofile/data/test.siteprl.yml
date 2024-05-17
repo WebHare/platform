@@ -1,0 +1,11 @@
+gid: siteprofiles.pagesettings
+typeGroup: test
+types:
+  myYamlType:
+    members:
+      stringField:
+        type: string
+        tid: .string
+      numberField:
+        type: integer
+        #TODO component

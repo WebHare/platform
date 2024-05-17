@@ -138,10 +138,10 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       existingpos := Length(this->siteprofiles);
 
       loaded := GetParsedSiteProfile(name);
-      this->result.errors := this->result.errors CONCAT loaded.errors;
-      this->result.warnings := this->result.warnings CONCAT loaded.warnings;
-      this->contenttypes := this->contenttypes CONCAT loaded.contenttypes;
-      this->grouptypes := this->grouptypes CONCAT loaded.grouptypes;
+      this->result.errors := this->result.errors CONCAT RECORD ARRAY(loaded.errors);
+      this->result.warnings := this->result.warnings CONCAT RECORD ARRAY(loaded.warnings);
+      this->contenttypes := this->contenttypes CONCAT RECORD ARRAY(loaded.contenttypes);
+      this->grouptypes := this->grouptypes CONCAT RECORD ARRAY(loaded.grouptypes);
 
       INSERT [ resourcename := name
              , siteprofileids := siteprofileids

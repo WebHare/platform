@@ -1,0 +1,10 @@
+typeGroup: baseTest
+types:
+  siteSettings:
+    members:
+      mode:
+        type: string
+      setting:
+        type: string
+      when:
+        type: datetime
