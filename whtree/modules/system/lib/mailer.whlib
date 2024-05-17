@@ -1146,6 +1146,8 @@ STATIC OBJECTTYPE WittyMailComposer
   PUBLIC MACRO PTR prerestructurehook;
   ///Hook that is invoked by mail generators (ExportAsEML, QueueMailInWork) after any mail-restructuring takes place
   PUBLIC MACRO PTR postrestructurehook;
+  ///Additional mail headers
+  PUBLIC RECORD ARRAY headers;
 
   ///Mail recipients.
   PUBLIC PROPERTY mailto(__mailto, SetMailTo);
@@ -1435,7 +1437,7 @@ STATIC OBJECTTYPE WittyMailComposer
   PUBLIC RECORD FUNCTION CreateMailing()
   {
     RECORD prep := this->__PrepareContent();
-    RECORD ARRAY headers :=
+    RECORD ARRAY headers := this->headers CONCAT
       [ [ field := "MIME-Version",   value := "1.0" ]
       , [ field := "Date",           value := FormatDatetime("%a, %d %b %Y %H:%M:%S +0000", GetCurrentDatetime()) ]
       , [ field := "Subject",        value := EncodeMIMEWords(prep.subject) ]
