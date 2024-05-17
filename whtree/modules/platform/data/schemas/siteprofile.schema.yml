@@ -7,6 +7,8 @@ title: Site profile
 type: object
 additionalProperties: false
 properties:
+  gid:
+    type: string
   typeGroup:
     type: string
   types:
@@ -22,6 +24,12 @@ definitions:
     type: object
     additionalProperties: false
     properties:
+      gid:
+        type: string
+      title:
+        type: string
+      tid:
+        type: string
       members:
         type: object
         additionalProperties: false
@@ -42,4 +50,6 @@ definitions:
           - string
           - integer
       tid:
+        type: string
+      title:
         type: string

@@ -4,6 +4,7 @@ import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
 import { CSPMemberType, type CSPApplyRule, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
+import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 
 export type ParserMessage = {
   col: number;
@@ -28,7 +29,7 @@ const YamlTypeMapping: { [type: string]: CSPMemberType } = {
   "integer": CSPMemberType.Integer
 };
 
-function parseMembers(members: { [key: string]: TypeMember }): CSPMember[] {
+function parseMembers(gid: string, members: { [key: string]: TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
   for (const [name, member] of Object.entries(members)) {
@@ -39,7 +40,8 @@ function parseMembers(members: { [key: string]: TypeMember }): CSPMember[] {
     const addmember: CSPMember = {
       name: toHSSnakeCase(name),
       type,
-      children: []
+      children: [],
+      title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
     cspmembers.push(addmember);
@@ -65,6 +67,8 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
 
   const content = options?.content ?? readFileSync(toFSPath(resource), 'utf8');
   const sp = decodeYAML<SiteProfile>(content);
+  const spGid = resolveGid(module + ':', sp.gid || '');
+
   for (const [type, settings] of Object.entries(sp.types || {})) {
     //TODO siteprl.xml is not perfectly in sync with this, it keeps some parts in snakecase. that needs to be fixed there or just removed from XML
     // - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
@@ -72,6 +76,7 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
     if (!sp.typeGroup)
       throw new Error(`Siteprofile ${resource} does not have a typeGroup`);
 
+    const typeGid = resolveGid(spGid, settings.gid || '');
     const scopedtype = `${module}.${toHSSnakeCase(sp.typeGroup)}.${toHSSnakeCase(type)}`;
     const ns = `x-webhare-scopedtype:${scopedtype}`;
     const ctype: CSPContentType = {
@@ -85,13 +90,13 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
       isembeddedobjecttype: false,
       isrtdtype: false,
       line: 0, //TODO need to use the more sophisticated yaml parser for this
-      members: parseMembers(settings.members || {}),
+      members: parseMembers(typeGid, settings.members || {}),
       namespace: ns,
       orphan: false,
       previewcomponent: "",
       scopedtype,
       siteprofile: resource,
-      title: "FIXME",
+      title: resolveTid(typeGid, { name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
       tolliumicon: "",
       type: "contenttype",
       wittycomponent: ""

@@ -25,6 +25,8 @@ export interface CSPMember {
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
+  /** Member title. (YAML only) */
+  title?: string;
 }
 
 export interface CSPContentType {
