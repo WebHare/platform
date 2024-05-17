@@ -1,6 +1,7 @@
 import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@mod-tollium/js/gettid";
 import formservice, { EmailValidationResult } from "@webhare/forms/src/formservice";
+import { isValidEmail } from '@webhare/std';
 
 const cache:
   {
@@ -32,6 +33,11 @@ export async function validateField(form: FormBase, field: HTMLInputElement) {
   const checkvalue: string = field.value;
   if (!checkvalue || !mayValidateField(field))
     return true; //not a problem
+
+  if (!isValidEmail(checkvalue)) {
+    field.propWhValidationError = getTid("publisher:site.forms.commonerrors.email");
+    return false;
+  }
 
   //user is 'done' with email field apparently. remotely validate it
   const key = "e_" + checkvalue; //e_ prefix protects against funny people using 'constructor' etc. TODO just switch to a Map<> or similar
