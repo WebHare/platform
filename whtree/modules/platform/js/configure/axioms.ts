@@ -1,5 +1,5 @@
+import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { readFile } from "fs/promises";
-import YAML from "yaml";
 
 interface Axioms {
   publishPackages: string[];
@@ -7,5 +7,5 @@ interface Axioms {
 }
 
 export async function readAxioms(): Promise<Axioms> {
-  return YAML.parse(await readFile(__dirname + "/../../data/facts/axioms.yml", "utf8")) as Axioms;
+  return decodeYAML<Axioms>(await readFile(__dirname + "/../../data/facts/axioms.yml", "utf8"));
 }
