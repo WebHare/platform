@@ -24,6 +24,9 @@ definitions:
     type: object
     additionalProperties: false
     properties:
+      namespace:
+        type: string
+        description: "The namespace assigned to the type. If not set, it will be `x-webhare-scopedtype:module.type_group.type` (snake-cased)"
       gid:
         type: string
       title:

@@ -253,6 +253,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       Look at MakeBasicTypeInfo, GetBaseFolderTypeRecord and GetBaseFiletypeRecord to find out where these fields are in suppliedcontenttypes
       */
       RECORD fstype := CELL[ ctype.cloneoncopy
+                           , ctype.scopedtype
                            , isfiletype := RecordExists(ctype.filetype)
                            , isfoldertype := RecordExists(ctype.foldertype)
                            , isdynamicexecution := RecordExists(ctype.dynamicexecution)
@@ -309,6 +310,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
           INSERT CELL[ ...ctype.toupdate
                      , ctype.id
                      , ctype.namespace
+                     , ctype.scopedtype
                      ] INTO system.fs_types;
         }
         ELSE IF(RecordExists(ctype.toupdate))

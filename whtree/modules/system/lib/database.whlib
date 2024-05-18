@@ -255,6 +255,7 @@ PUBLIC SCHEMA
     , BOOLEAN "ispublishable"
     , BOOLEAN "generatepreview"
     , BOOLEAN "capturesubpaths"
+    , STRING "scopedtype"
     ; KEY id
     > fs_types
   , TABLE

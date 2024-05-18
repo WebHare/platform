@@ -1833,7 +1833,8 @@ PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
   {
     whfstypeid := type->id;
 
-    UPDATE system.fs_types SET isfoldertype := makefoldertype OR isfoldertype
+    UPDATE system_internal.fs_types
+                           SET isfoldertype := makefoldertype OR isfoldertype
                              , isfiletype := makefiletype OR isfiletype
                              , cloneoncopy := makecloneoncopy OR cloneoncopy
                              , isdynamicexecution := makedynamicexecution OR isdynamicexecution
@@ -1877,7 +1878,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSTypeById(INTEGER getid)
     DELETE FROM whfscache_loadedwhfstypes WHERE id=getid;
   }
 
-  entry := SELECT * FROM system.fs_types WHERE id = getid;
+  entry := SELECT * FROM system_internal.fs_types WHERE id = getid;
   RETURN FinalizeWHFSType(entry);
 }
 OBJECT FUNCTION FinalizeWHFSType(RECORD entry)
@@ -1908,6 +1909,8 @@ OBJECT FUNCTION FinalizeWHFSType(RECORD entry)
 PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ openorphans := FALSE ], options);
+  IF(getnamespace = "")
+    THROW NEW Exception(`Invalid OpenWHFSType for an empty namespace`); //make sure we don't match empty scopedtypes
 
   BOOLEAN isnormalfolder := getnamespace = "http://www.webhare.net/xmlns/publisher/normalfolder";
   BOOLEAN isunknownfile := getnamespace = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -1926,9 +1929,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
 
   CheckWHFSCache();
 
-  getnamespace := ScopedTypeToNamespace(getnamespace, TRUE);
-
-  RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace;
+  RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace OR scopedtype = getnamespace;
   IF(RecordExists(entry))
   {
     OBJECT whfstype := OBJECT(entry.obj);
@@ -1936,10 +1937,14 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
       RETURN whfstype;
 
     //lost the reference. delete it from cache
-    DELETE FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace;
+    DELETE FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace OR scopedtype = getnamespace;
+    entry := DEFAULT RECORD;
   }
 
-  entry := SELECT * FROM system.fs_types WHERE namespace = getnamespace;
+  IF(getnamespace LIKE "?*:?*.?*" AND getnamespace NOT LIKE "*://*") //might be a scoped type
+    entry := SELECT * FROM system_internal.fs_types WHERE scopedtype = getnamespace;
+  IF(NOT RecordExists(entry))
+    entry := SELECT * FROM system_internal.fs_types WHERE namespace = getnamespace;
 
   OBJECT obj := FinalizeWHFSType(entry);
   IF(NOT ObjectExists(obj))

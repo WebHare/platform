@@ -94,7 +94,7 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
 
     const typeGid = resolveGid(spGid, settings.gid || '');
     const scopedtype = `${module}:${sp.typeGroup}.${type}`;
-    const ns = `x-webhare-scopedtype:${module}.${toHSSnakeCase(sp.typeGroup)}.${toHSSnakeCase(type)}`;
+    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${toHSSnakeCase(sp.typeGroup)}.${toHSSnakeCase(type)}`;
     const ctype: CSPContentType = {
       cloneoncopy: true, //FIXME more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
       dynamicexecution: null,

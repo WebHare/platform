@@ -1036,6 +1036,9 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:boolean name="isfoldertype">
         <d:documentation>Whether to allow creation of a folder with this type in the Publisher</d:documentation>
       </d:boolean>
+      <d:varchar name="scopedtype" maxlength="256"> <!-- FIXME mark as unique=true as soon as our PG driver supports uniqe NULLS (*or* we should be assigning random scopedtypes to existing types?) -->
+      <d:documentation>JavaScript short name</d:documentation>
+    </d:varchar>
       <d:varchar name="namespace" maxlength="256" nullable="false" unique="true">
         <d:documentation>The human readable name through which you can refer to this contenttype.
           Guidelines:          <br />
