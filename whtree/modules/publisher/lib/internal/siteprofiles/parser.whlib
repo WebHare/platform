@@ -902,7 +902,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               RECORD applynode := [ contenttype := contenttype
                                   , requireright := node->GetAttribute("requireright")
                                   , extension := extension ?? apply.siteprofile || "#" || node->GetAttribute("name")
-                                  , mask := node->GetAttribute("mask")
                                   ];
               INSERT applynode INTO apply.extendproperties AT END;
               CONTINUE;
