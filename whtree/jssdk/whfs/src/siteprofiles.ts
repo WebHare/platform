@@ -135,7 +135,6 @@ export interface CSPApplyToTo {
   parenttype: string;
   pathmask: string;
   pathregex: string;
-  prebuiltmasks: any[];
   sitetype: string;
   typeneedstemplate: boolean;
   webfeatures: any[];
@@ -188,7 +187,6 @@ export interface CSPApplyRule {
   modifyfiletypes: any[];
   modifyfoldertypes: any[];
   plugins: CSPPlugin[];
-  prebuiltpages: any[];
   preview?: any;
   priority: number;
   republishes: any[];

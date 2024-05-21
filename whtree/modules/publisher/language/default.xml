@@ -829,7 +829,6 @@
     <text tid="multimedia">Multimedia File</text>
     <text tid="pdf">PDF File</text>
     <text tid="plaintext">Plain Text File</text>
-    <text tid="prebuiltpage">Prebuilt page</text>
     <text tid="profile">Profile</text>
     <text tid="richdocumentfile">Rich text document</text>
     <text tid="semidynamic">Semi-dynamic Content File</text>

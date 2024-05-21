@@ -397,17 +397,6 @@
             tid="publisher:filetypes.shtmlwithdesign"
             webhare_builtintypeid="38" />
 
-  <filetype namespace="http://www.webhare.net/xmlns/publisher/prebuiltpage"
-            kind="virtualfile"
-            icon="tollium:files/application_x-webhare-whscript"
-            tid="publisher:filetypes.prebuiltpage"
-            webhare_builtintypeid="39">
-    <members>
-      <string name="prebuilttag" />
-    </members>
-    <usepublishtemplate script="mod::publisher/scripts/internal/publishwebdesign.whscr" />
-  </filetype>
-
   <filetype namespace="http://www.webhare.net/xmlns/publisher/wittyfile"
             blobiscontent="true"
             extensions=".witty"
@@ -703,11 +692,6 @@
     <foldersettings ordering="none" />
   </apply>
 
-  <!-- ======================================================================
-
-       Prebuilt pages
-
-  ==== -->
   <!-- ======================================================================
 
        Make sure we can ALWAYS change site root folders back to "normalfolder"
