@@ -19,6 +19,10 @@ function testStrings() {
   test.eq(true, isLike("testje", "*je"));
   test.eq(true, isLike("testje", "****"));
   test.eq(true, isLike("testje", "t?stj?"));
+  test.eq(false, isLike("testje", "test"));
+  test.eq(true, isLike("testje", "testje"));
+  test.eq(false, isLike("testje", "est*"));
+  test.eq(true, isLike("testje", "*est*"));
   test.eq(true, isLike("a", "?*"));
   test.eq(false, isLike("", "?*"));
 
@@ -28,6 +32,10 @@ function testStrings() {
   test.eq(false, isNotLike("testje", "*je"));
   test.eq(false, isNotLike("testje", "****"));
   test.eq(false, isNotLike("testje", "t?stj?"));
+  test.eq(true, isNotLike("testje", "test"));
+  test.eq(false, isNotLike("testje", "testje"));
+  test.eq(true, isNotLike("testje", "est*"));
+  test.eq(false, isNotLike("testje", "*est*"));
   test.eq(false, isNotLike("a", "?*"));
   test.eq(true, isNotLike("", "?*"));
 }
