@@ -53,7 +53,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   STRING filename;
   OBJECT siteprof;
   OBJECT parameters;
-  STRING toplevelgid;
+  PUBLIC STRING toplevelgid;
   STRING module;
   RECORD ARRAY assetpacks;
   PUBLIC RECORD ARRAY contenttypes;
@@ -1429,6 +1429,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
                          , contenttypes := DEFAULT RECORD ARRAY
                          , grouptypes := DEFAULT RECORD ARRAY
                          , rules := RECORD[]
+                         , gid := ""
                          ];
 
   RECORD ARRAY errors, warnings, hints, icons;
@@ -1458,6 +1459,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     siteprofcontext->ReadContentTypes();
     siteprofcontext->ParseFolderTypes();
     siteprofcontext->ParseFileTypes();
+    siteprofdata.gid := siteprofcontext->toplevelgid;
 
     siteprofdata.rules := (SELECT *, ruletype := "apply" FROM siteprofcontext->ImportApplies())
                           CONCAT

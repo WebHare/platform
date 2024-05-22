@@ -2,10 +2,12 @@
 
 */
 
+import type { ParsedSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import { parseWHDBDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { PublicParsedWRDSchemaDef, getModuleWRDSchemas, parseWRDDefinitionFile } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext, listAllGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
+import { loadlib } from "@webhare/harescript";
 import { backendConfig, toResourcePath } from "@webhare/services";
 import { pick } from "@webhare/std";
 
@@ -54,6 +56,11 @@ export async function getWRDDefs({ module }: { module: string }) {
     });
 
   return { schemas, importPath: getImportPath(defs.library) };
+}
+
+export async function getParsedSiteProfile(res: string): Promise<ParsedSiteProfile> {
+  const parsed = await loadlib("mod::publisher/lib/internal/siteprofiles/parser.whlib").GetParsedSiteProfile(res) as ParsedSiteProfile;
+  return parsed;
 }
 
 export function getBuiltinModules(): string[] {

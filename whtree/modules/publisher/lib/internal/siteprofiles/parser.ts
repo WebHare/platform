@@ -26,6 +26,7 @@ export type ParsedSiteProfile = {
   hints: ParserMessage[];
   warnings: ParserMessage[];
   rules: Array<ParsedApplyRule | ParsedSiteSetting>;
+  gid: string;
 };
 
 const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: CSPMemberType } = {
@@ -205,7 +206,8 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
     icons: [],
     hints: [],
     warnings: [],
-    rules: []
+    rules: [],
+    gid: ""
   };
 
   const module = parseResourcePath(resource)?.module;
@@ -215,6 +217,8 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
   const content = options?.content ?? readFileSync(toFSPath(resource), 'utf8');
   const sp = decodeYAML<Sp.SiteProfile>(content);
   const spGid = resolveGid(module + ':', sp.gid || '');
+  result.gid = spGid;
+
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}` : null;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
