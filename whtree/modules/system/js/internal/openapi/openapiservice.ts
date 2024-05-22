@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import YAML from "yaml";
 import * as env from "@webhare/env";
 import * as services from "@webhare/services";
-import { loadWittyResource, log, toFSPath } from "@webhare/services";
+import { WebHareBlob, loadWittyResource, log, toFSPath } from "@webhare/services";
 import { LogInfo, RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse, HTTPSuccessCode } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
@@ -11,6 +11,7 @@ import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
 import { pick } from "@webhare/std";
+import { handleCrossOriginResourceSharing } from "../webserver/cors";
 
 // A REST service supporting an OpenAPI definition
 export class RestService extends services.BackendServiceConnection {
@@ -29,7 +30,23 @@ export class RestService extends services.BackendServiceConnection {
     const logger = new LogInfo(req.sourceip, req.method.toLowerCase());
     try {
       const webreq = await newWebRequestFromInfo(req);
-      const response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
+      const accessControl = handleCrossOriginResourceSharing(webreq, { crossdomainOrigins: this.restapi.crossdomainOrigins });
+      let response: WebResponseInfo;
+      // If this is a preflight request, just return the result
+      if (accessControl?.preflight) {
+        response = {
+          status: accessControl.success ? 200 : 405,
+          headers: accessControl.headers,
+          body: WebHareBlob.from("")
+        };
+      } else {
+        response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
+        // Add access control headers, if any
+        if (accessControl) {
+          for (const [header, value] of Object.entries(accessControl.headers))
+            response.headers[header] = value;
+        }
+      }
       //TODO It's a bit ugly to be working with a HareScriptBlob here (`body.size`) as this is still JS code, but it's a quick workaround for not having to JSON.stringify twice
       this.logRequest(logger, response.status, response.body.size, start);
       return response;
