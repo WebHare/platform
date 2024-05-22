@@ -111,19 +111,19 @@ async function testAuthorization() {
   test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
   test.eq({ error: "Dude where's my key?" }, JSON.parse(await res.body.text()));
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret"', await res.body.text());
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret"', await res.body.text());
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret2" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret2" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret2"', await res.body.text());
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
   test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(await res.body.text()));
 }
@@ -188,7 +188,7 @@ async function verifyPublicParts() {
 
   const deniedcall = await fetch(authtestsroot + "dummy");
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
-  test.eq("X-Key", deniedcall.headers.get("www-authenticate"));
+  test.eq("Authorization", deniedcall.headers.get("www-authenticate"));
   test.eq({ error: "Dude where's my key?" }, await deniedcall.json());
 
   // Test decoding of encoded variables
