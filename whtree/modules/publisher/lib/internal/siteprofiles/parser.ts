@@ -1,4 +1,4 @@
-import type { SiteProfile, TypeMember } from "@mod-platform/generated/schema/siteprofile";
+import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
@@ -24,7 +24,7 @@ export type ParsedSiteProfile = {
   rules: CSPApplyRule[];
 };
 
-const YamlTypeMapping: { [type in TypeMember["type"]]: CSPMemberType } = {
+const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: CSPMemberType } = {
   "string": CSPMemberType.String,
   "integer": CSPMemberType.Integer,
   "datetime": CSPMemberType.DateTime,
@@ -45,7 +45,7 @@ const YamlTypeMapping: { [type in TypeMember["type"]]: CSPMemberType } = {
   //"formcondition": CSPMemberType.FormCondition,
 };
 
-function parseMembers(gid: string, members: { [key: string]: TypeMember }): CSPMember[] {
+function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
   for (const [name, member] of Object.entries(members)) {
@@ -55,6 +55,7 @@ function parseMembers(gid: string, members: { [key: string]: TypeMember }): CSPM
 
     const addmember: CSPMember = {
       name: toHSSnakeCase(name),
+      jsname: name,
       type,
       children: member.type === "array" ? parseMembers(gid, member.members || {}) : [],
       title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
@@ -82,7 +83,7 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
     throw new Error(`parseSiteProfile only supports siteprofiles inside a module`);
 
   const content = options?.content ?? readFileSync(toFSPath(resource), 'utf8');
-  const sp = decodeYAML<SiteProfile>(content);
+  const sp = decodeYAML<Sp.SiteProfile>(content);
   const spGid = resolveGid(module + ':', sp.gid || '');
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
@@ -115,7 +116,8 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
       title: resolveTid(typeGid, { name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
       tolliumicon: "",
       type: "contenttype",
-      wittycomponent: ""
+      wittycomponent: "",
+      yaml: true
     };
 
     result.contenttypes.push(ctype);

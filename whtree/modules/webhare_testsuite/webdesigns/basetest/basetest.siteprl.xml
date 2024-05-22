@@ -149,7 +149,7 @@
                  implementation="lib"
                  library="lib/basetest.whlib">
     <newtab title="BaseTestProps">
-      <textedit composition="contentdata" cellname="anyfield" title="anyfield" />
+      <textedit composition="contentdata" cellname="any_field" title="anyfield" />
       <p:managedtagedit composition="contentdata" cellname="taxonomy" taglibrary="temp" title="Taxonomy" />
       <p:managedtagedit composition="contentdata"
                         cellname="folksonomy"

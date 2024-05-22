@@ -25,8 +25,10 @@ export interface CSPMember {
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
-  /** Member title. (YAML only) */
+  /** Member title (YAML siteprofiles only) */
   title?: string;
+  /** Case preserved name (YAML siteprofiles only) */
+  jsname?: string;
 }
 
 export interface CSPContentType {
@@ -63,6 +65,7 @@ export interface CSPContentType {
   tolliumicon: string;
   type: string;
   wittycomponent: string;
+  yaml?: true;
 }
 
 export interface CSPPluginDataRow {

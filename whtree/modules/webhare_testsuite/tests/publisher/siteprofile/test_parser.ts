@@ -19,13 +19,14 @@ types:
         scopedtype: 'webhare_testsuite:myTypes.testType',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.test_type",
+        yaml: true,
         members:
           [
-            { name: 'number_field', type: CSPMemberType.Integer, title: "webhare_testsuite:base.gid.number_field" },
+            { name: 'number_field', jsname: "numberField", type: CSPMemberType.Integer, title: "webhare_testsuite:base.gid.number_field" },
             { name: 'other_field', type: CSPMemberType.String, title: ":My other field" },
             {
               name: 'array_field', type: CSPMemberType.Array, children:
-                [{ name: 'sub_field', type: CSPMemberType.String, title: "webhare_testsuite:base.gid.sub_field" }]
+                [{ name: 'sub_field', jsname: "subField", type: CSPMemberType.String, title: "webhare_testsuite:base.gid.sub_field" }]
             }
           ]
       },
