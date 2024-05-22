@@ -12,6 +12,7 @@
 #include <blex/datetime.h>
 #include <blex/path.h>
 #include <iostream>
+#include <poll.h>
 #ifndef __EMSCRIPTEN__
 #include "hsvm_processmgr.h"
 #include "hsvm_debugger.h"
@@ -147,15 +148,46 @@ struct DllInterfaceContextData
 typedef Blex::Context<DllInterfaceContextData, 11, void> DllInterfaceContext;
 typedef Blex::Context<DllInterfaceExternalOutputContextData, 19, void> DllInterfaceExternalOutputContext;
 
-int StandardWriter(void *opaque_ptr, int numbytes, void const *data, int /*allow_partial*/, int *error_code)
+int StandardWriter(int fd, int numbytes, void const *data)
 {
-        if(opaque_ptr)
+        int totalwritten = 0;
+
+        while(numbytes > 0)
         {
-                std::cout.write(static_cast<const char*>(data),numbytes);
-                std::cout.flush();
+                ssize_t byteswritten = write(fd, data, numbytes); //stdout = 1
+                if(byteswritten > 0)
+                {
+                        data = static_cast<uint8_t const *>(data) + byteswritten;
+                        numbytes -= byteswritten;
+                        totalwritten += byteswritten;
+                }
+                else if (byteswritten < 0 && errno == EWOULDBLOCK)
+                {
+                        //poll fd until we can write it:
+                        struct pollfd fds;
+                        fds.fd = fd;
+                        fds.events = POLLOUT;
+                        fds.revents = 0;
+                        poll(&fds, 1, -1); //-1 is infinite timeout
+                }
+                else
+                {
+                        break;
+                }
         }
-        *error_code = 0;
-        return numbytes; //ADDME: Report # of bytes really writen
+        return totalwritten;
+}
+
+int StdoutWriter(void */*opaque_ptr*/, int numbytes, void const *data, int /*allow_partial*/, int *error_code)
+{
+        *error_code=0;
+        return StandardWriter(1, numbytes, data);
+}
+
+int StderrWriter(void */*opaque_ptr*/, int numbytes, void const *data, int /*allow_partial*/, int *error_code)
+{
+        *error_code=0;
+        return StandardWriter(2, numbytes, data);
 }
 
 //ADDME: Hopelijk kan deze buffer weer weg zodra we ComplexFS-en voor harescript
@@ -165,10 +197,10 @@ unsigned DllInterfaceContextData::TempFile::Write(void const *data, unsigned buf
 }
 
 DllInterfaceExternalOutputContextData::DllInterfaceExternalOutputContextData()
-: output_opaque_ptr(this)
-, output_func(StandardWriter)
-, error_opaque_ptr(NULL)
-, error_func(StandardWriter)
+: output_opaque_ptr(nullptr)
+, output_func(StdoutWriter)
+, error_opaque_ptr(nullptr)
+, error_func(StderrWriter)
 , write_to_buffer(false)
 {
 }
@@ -1582,7 +1614,7 @@ void HSVM_SetOutputCallback(struct HSVM *vm, void *opaque_ptr, HSVM_IOWriter out
         START_CATCH_VMEXCEPTIONS
         DllInterfaceExternalOutputContext dlloutput(VM.GetContextKeeper());
         dlloutput->output_opaque_ptr = opaque_ptr;
-        dlloutput->output_func = outputfunction ? outputfunction : StandardWriter;
+        dlloutput->output_func = outputfunction ? outputfunction : StdoutWriter;
         END_CATCH_VMEXCEPTIONS
 }
 void HSVM_SetErrorCallback(struct HSVM *vm, void *opaque_ptr, HSVM_IOWriter outputfunction)
@@ -1590,7 +1622,7 @@ void HSVM_SetErrorCallback(struct HSVM *vm, void *opaque_ptr, HSVM_IOWriter outp
         START_CATCH_VMEXCEPTIONS
         DllInterfaceExternalOutputContext dlloutput(VM.GetContextKeeper());
         dlloutput->error_opaque_ptr = opaque_ptr;
-        dlloutput->error_func = outputfunction ? outputfunction : StandardWriter;
+        dlloutput->error_func = outputfunction ? outputfunction : StderrWriter;
         END_CATCH_VMEXCEPTIONS
 }
 void HSVM_SetOutputBuffering(struct HSVM *vm, int do_buffer)
