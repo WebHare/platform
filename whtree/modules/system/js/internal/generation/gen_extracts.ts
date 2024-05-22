@@ -36,6 +36,7 @@ export interface OpenAPIDescriptor {
   merge?: string;
   inputValidation?: OpenAPIValidationMode;
   outputValidation?: OpenAPIValidationMode;
+  crossdomainOrigins?: string[];
 }
 
 export interface Services {
@@ -218,6 +219,7 @@ export function generateServices(context: GenerateContext): string {
         ...(mergeAttr ? { merge: resolveResource(mod.resourceBase, mergeAttr) } : {}),
         ...(inputValidation?.length ? { inputValidation: inputValidation } : {}),
         ...(outputValidation?.length ? { outputValidation: outputValidation } : {}),
+        crossdomainOrigins: getAttr(openapiservice, "crossdomainorigins")?.split(" "),
       });
     }
 

@@ -159,10 +159,13 @@ export class RestAPI {
   handlers = new WeakMap<AsyncWorker, Handler>();
   inputValidation: OpenAPIValidationMode | null = null;
   outputValidation: OpenAPIValidationMode | null = null;
+  crossdomainOrigins: string[] = [];
 
-  async init(def: object, specresourcepath: string, { merge, inputValidation, outputValidation }: { merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode } = {}) {
+  async init(def: object, specresourcepath: string, { merge, inputValidation, outputValidation, crossdomainOrigins }: { merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[] } = {}) {
     this.inputValidation = inputValidation || null;
     this.outputValidation = outputValidation || null;
+    if (crossdomainOrigins)
+      this.crossdomainOrigins = crossdomainOrigins;
 
     // Bundle all external files into one document
     const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WHOpenAPIDocument, {});
