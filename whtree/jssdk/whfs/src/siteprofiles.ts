@@ -128,6 +128,7 @@ export interface CSPApplyToTestData {
 
 export interface CSPApplyToTo {
   type: "to";
+  whfstype?: string;
   contentfiletype: string;
   filetype: string;
   foldertype: string;
@@ -169,12 +170,27 @@ interface CSPBodyRendererRule {
   renderer: string;
 }
 
+type CSPBaseProperties = {
+  title: boolean;
+  description: boolean;
+  keywords: boolean;
+  striprtdextension: boolean;
+  seotab: boolean;
+  seotabrequireright: string;
+  noindex: boolean;
+  nofollow: boolean;
+  noarchive: boolean;
+  seotitle: boolean;
+};
+
 export interface CSPApplyRule {
   tos: CSPApplyTo[];
+  /** Set by apply rules sourced from YAML */
+  yaml?: true;
 
   applyindex: number;
-  applynodetype: string;
-  baseproperties?: any;
+  applynodetype: "apply" | "filetype" | "foldertype" | "widgettype";
+  baseproperties?: (CSPBaseProperties & { haslist: Array<keyof CSPBaseProperties> }) | null;
   bodyrenderer?: CSPBodyRendererRule;
   col: number;
   contentlisting?: any;
@@ -182,7 +198,13 @@ export interface CSPApplyRule {
   defaultsettings: any[];
   disablelegacysitesettings: boolean;
   disabletemplateprofile: boolean;
-  extendproperties: any[];
+  extendproperties: Array<{
+    contenttype: string;
+    extension: string;
+    requireright: string;
+    name: string;
+    members?: string[]; //limits and orders which fields to offer to edit
+  }>;
   folderindex?: any;
   foldersettings?: any;
   formdefinitions: any[];
@@ -195,7 +217,7 @@ export interface CSPApplyRule {
   preview?: any;
   priority: number;
   republishes: any[];
-  rtddoc: CSPRtddoc;
+  rtddoc: CSPRtddoc | null;
   schedulemanagedtasks: any[];
   scheduletasknows: any[];
   setlibrary: any[];

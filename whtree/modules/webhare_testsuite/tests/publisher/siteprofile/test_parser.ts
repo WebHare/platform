@@ -61,6 +61,49 @@ types:
       stringField:
         type: string
 `));
+
+  test.eqPartial({
+    contenttypes: [
+      {
+        scopedtype: 'webhare_testsuite:myTypes.testType',
+      }
+    ],
+    rules: [
+      {
+        tos: [{ filetype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
+        applyindex: 0,
+        baseproperties: { description: false, seotitle: true, haslist: ["description", "seotitle", "keywords", "seotab", "striprtdextension", "seotabrequireright"] },
+        yaml: true,
+        extendproperties: [
+          {
+            contenttype: 'webhare_testsuite:myTypes.testType',
+            members: ['anyField', 'folksonomy']
+          }
+        ]
+      }
+    ]
+
+  }, await parseSP(`---
+typeGroup: myTypes
+types:
+  testType:
+    members:
+      anyField:
+        type: integer
+      folksonomy:
+        type: whfsrefarray
+apply:
+- to:
+    fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
+  baseProps: [seotitle]
+  editProps:
+    - type: testType
+      members: [anyField, folksonomy]
+`));
+
+  //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type
+  //     for backwardscompat/clarity no harm in separating old filetype/foldertype matching from new scopedtype matching,
+  //     especially as reusing old types also requires matching their wildcard/glob rules
 }
 
 test.run([testSPYaml]);

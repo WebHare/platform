@@ -150,6 +150,10 @@ MACRO TestApplyRuleTester()
   tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
   TestEq([ dogname := "bluey", sistername := "bingo" ], tester->GetUserData("webhare_testsuite:setting"));
   testfw->RollbackWork();
+
+  tester := GetApplyTesterForObject(OpenTestsuiteJSSite()->OpenByPath("testpages/staticpage")->id);
+  //yaml baseProps is allowed to reset most settings
+  TestEqMembers([ title := TRUE, description := FALSE, seotitle := TRUE ], GetBaseProperties(tester),'*');
 }
 
 MACRO SiteSettingsTester()

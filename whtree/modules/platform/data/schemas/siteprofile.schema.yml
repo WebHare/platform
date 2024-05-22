@@ -18,6 +18,10 @@ properties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase. TODO allow URIs too
         $ref: "#/definitions/Type"
         additionalProperties: false
+  apply:
+    type: array
+    items:
+      $ref: "#/definitions/Apply"
 
 definitions:
   Type:
@@ -77,3 +81,55 @@ definitions:
         type: string
       members: # TODO limit to arrays only
         $ref: "#/definitions/TypeMembers"
+
+  Apply:
+    type: object
+    additionalProperties: false
+    required:
+      - to
+    properties:
+      to:
+        $ref: "#/definitions/ApplyTo"
+      baseProps:
+        $ref: "#/definitions/ApplyBaseProps"
+      editProps:
+        $ref: "#/definitions/ApplyEditProps"
+
+  ApplyTo:
+    anyOf:
+      - type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type: # should map to scopedType and be resolved
+            type: string
+          fileType: #'legacy' types - note that these in HS matching also support wildcards
+            type: string
+          folderType: #'legacy' types - note that these in HS matching also support wildcards
+            type: string
+      - type: string
+        enum:
+          - "all"
+
+  ApplyBaseProps:
+    type: array
+    items:
+      type: string
+      enum:
+        - description
+        - keywords
+        - seotitle
+
+  ApplyEditProps:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+        members:
+          type: array
+          items:
+            type: string

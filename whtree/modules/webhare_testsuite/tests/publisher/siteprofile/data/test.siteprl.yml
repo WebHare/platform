@@ -9,3 +9,8 @@ types:
       numberField:
         type: integer
         #TODO component
+
+apply:
+  - to:
+      type: http://www.webhare.net/xmlns/publisher/richdocumentfile
+    baseProps: [seotitle]
