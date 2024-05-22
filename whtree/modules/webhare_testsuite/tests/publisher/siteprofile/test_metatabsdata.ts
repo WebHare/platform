@@ -3,6 +3,14 @@ import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { openFile } from "@webhare/whfs";
 import { describeMetaTabs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
 
+async function testIgnoreMetatabsForOldContent() {
+  //watches for global triggers of new metadata screens. we need to avoid that for now, don't surprise existing users
+  const richdocfile = await openFile("site::webhare_testsuite.testsite/testpages/staticpage");
+  const applyester = await getApplyTesterForObject(richdocfile);
+  const metatabs = await describeMetaTabs(applyester);
+  test.eq(null, metatabs);
+}
+
 async function testMetadataReader() {
   const richdocfile = await openFile("site::webhare_testsuite.testsitejs/testpages/staticpage");
   const applyester = await getApplyTesterForObject(richdocfile);
@@ -27,4 +35,7 @@ async function testMetadataReader() {
   }, metatabs);
 }
 
-test.run([testMetadataReader]);
+test.run([
+  testIgnoreMetatabsForOldContent,
+  testMetadataReader
+]);

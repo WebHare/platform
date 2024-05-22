@@ -46,5 +46,8 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     }
   }
 
+  if (!metasettings.types.length)
+    return null; //do not trigger any new functionality
+
   return metasettings;
 }
