@@ -22,7 +22,7 @@ types:
         yaml: true,
         members:
           [
-            { name: 'number_field', jsname: "numberField", type: CSPMemberType.Integer, title: "webhare_testsuite:base.gid.number_field" },
+            { name: 'number_field', jsname: "numberField", type: CSPMemberType.Integer, title: "webhare_testsuite:base.gid.number_field", comment: "Got a comment" },
             { name: 'other_field', type: CSPMemberType.String, title: ":My other field" },
             {
               name: 'array_field', type: CSPMemberType.Array, children:
@@ -47,6 +47,7 @@ types:
     members:
       numberField:
         type: integer
+        comment: Got a comment
       otherField:
         type: string
         title: My other field

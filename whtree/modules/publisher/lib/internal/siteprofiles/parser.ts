@@ -66,6 +66,9 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
       title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
+    if (member.comment)
+      addmember.comment = member.comment;
+
     cspmembers.push(addmember);
   }
   return cspmembers;

@@ -466,6 +466,9 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         ELSE IF(memberinfo.name IN seennames)
           this->AddError(node, `Duplicate member '${memberinfo.name}'`);
 
+        IF(node->HasAttribute("comment"))
+          INSERT CELL comment := node->GetAttribute("comment") INTO memberinfo;
+
         INSERT memberinfo.name INTO seennames AT END;
 
         IF(ToUppercase(memberinfo.name) LIKE "WHFS*")

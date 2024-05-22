@@ -79,6 +79,9 @@ definitions:
         type: string
       title:
         type: string
+      comment:
+        type: string
+        description: "A developer's comment on this type. Not shown to non-prviileged WebHare users."
       members: # TODO limit to arrays only
         $ref: "#/definitions/TypeMembers"
 

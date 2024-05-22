@@ -25,6 +25,7 @@ export interface CSPMember {
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
+  comment?: string;
   /** Member title (YAML siteprofiles only) */
   title?: string;
   /** Case preserved name (YAML siteprofiles only) */
