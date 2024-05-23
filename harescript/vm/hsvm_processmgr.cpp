@@ -260,12 +260,14 @@ bool JobManager::DoRun(VMGroup *group)
         }
         catch (VMRuntimeError &e)
         {
+                HSVM_FlushOutputBuffer(*group->mainvm);
                 PM_PRINT("Script generated VMRuntime exception: " << e.what());
                 group->GetCurrentVM()->PrepareStackTrace(&e);
                 group->GetCurrentVM()->GetErrorHandler().AddMessage(e);
         }
         catch(std::exception &e)
         {
+                HSVM_FlushOutputBuffer(*group->mainvm);
                 PM_PRINT("Script generated exception: " << e.what());
                 VMRuntimeError msg(Error::CustomError,std::string("Exception in HareScript internal call: " ) + e.what(),"");
                 group->GetCurrentVM()->PrepareStackTrace(&msg);
