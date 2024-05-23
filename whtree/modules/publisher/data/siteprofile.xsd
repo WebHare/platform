@@ -626,14 +626,23 @@
     </xs:choice>
   </xs:complexType>
 
-  <xs:complexType name="SimpleMember">
+  <xs:attributeGroup name="MemberAttributes">
     <xs:attribute name="name" type="Name" use="required"/>
+    <xs:attribute name="comment" type="xs:string">
+       <xs:annotation>
+        <xs:documentation>A developer's comment on this type. Not shown to non-prviileged WebHare users. Allows easier porting to YAML</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:complexType name="SimpleMember">
+    <xs:attributeGroup ref="MemberAttributes" />
   </xs:complexType>
 
   <xs:complexType name="RecordMember">
     <xs:complexContent>
       <xs:extension base="Members">
-        <xs:attribute name="name" type="Name" use="required"/>
+        <xs:attributeGroup ref="MemberAttributes" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -642,7 +651,7 @@
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="value">
         <xs:complexType>
-          <xs:attribute name="name" type="xs:string" use="required" />
+          <xs:attributeGroup ref="MemberAttributes" />
         </xs:complexType>
       </xs:element>
       <xs:element name="member" type="Member">
@@ -652,7 +661,7 @@
         </xs:unique>
       </xs:element>
     </xs:choice>
-    <xs:attribute name="name" type="Name" use="required"/>
+    <xs:attributeGroup ref="MemberAttributes" />
     <xs:attribute name="type" type="MemberTypes" use="required" />
   </xs:complexType>
 
