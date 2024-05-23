@@ -19,7 +19,7 @@ export function resolveGid(parentGid: string, localGid: string): string {
  * @param parentGid - The parent gid. Set to 'module:' when oarsing a top level gid
  * @param name - The name to use as base for a tid
  * @param tid - The local tid value
- * @param title - A directly set 'title' avlue
+ * @param title - A directly set 'title' value
  * @returns Resolved tid or title-as-tid
  */
 export function resolveTid(parentGid: string, parts: {
