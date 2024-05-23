@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_langjson.ts" />
+  <test script="test_gettid_parsers.ts" />
   <test script="gettid.whscr" />
   <jstest file="test_gettid_frontend.ts" />
   <test script="test_gettid_backend.ts" />

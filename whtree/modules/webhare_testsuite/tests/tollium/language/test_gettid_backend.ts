@@ -54,7 +54,6 @@ async function tidCompilerTest() {
 
   // register texts
   registerTexts("__testmodule", "en", { testtext: "v1" });
-  debugger;
   test.eq("v1", getTid("__testmodule:testtext"));
   registerTexts("__testmodule", "en", { testtext: "v2" });
   test.eq("v2", getTid("__testmodule:testtext"));
