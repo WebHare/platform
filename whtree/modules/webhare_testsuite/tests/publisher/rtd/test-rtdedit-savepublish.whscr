@@ -3,9 +3,10 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -30,6 +31,8 @@ ASYNC MACRO TestMetaTab()
       , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
       , publish := TRUE
       ]);
+  testfile->SetInstanceData("webhare_testsuite:baseTest.baseTestProps",
+    [ number_field := 42 ]);
 
   testfw->CommitWork();
 
@@ -38,6 +41,27 @@ ASYNC MACRO TestMetaTab()
   OBJECT anumberfield :=  TT(":A number field");
   TestAssert(ObjectExists(anumberfield));
   TestEq("integer", anumberfield->valuetype);
+  TestEq(42, anumberfield->value);
+
+  // Update and save props
+  anumberfield->value := 43;
+  anumberfield->SetDirty(); //pretend the client did it
+
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies disrtylisteners are connected");
+
+  TTClick(":Save");
+
+  RECORD ARRAY autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
+  TestEq(1,Length(autosaves));
+  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(autosaves[0].id), "*");
+  TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
+  TestEq(RECORD[], autosaves);
+
+  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
