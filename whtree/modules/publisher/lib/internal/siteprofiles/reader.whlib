@@ -1417,7 +1417,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     //ADDME: Gettext the error messages!
     RECORD retval := [ propertyeditors := DEFAULT RECORD ARRAY
                      , errors := DEFAULT STRING ARRAY
-                     , hidestandardfields := DEFAULT RECORD ARRAY
                      ];
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("EXTENDPROPERTIES"))

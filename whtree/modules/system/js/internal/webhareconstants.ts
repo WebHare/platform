@@ -154,7 +154,6 @@ export const whconstant_whfstypes_invalidtemplate = [
   1, //external folder (does not make sense to duplicate)
   2, //system folder (does not make sense to duplicate, it would be invisible after duplication)
   18, 19, 20, //int, ext, contentlinks (unsure)
-  39, //prebuiltpage (unsure)
   24, //contentlisting
   26, //witty (unsure)
   29, //conversion profile (deprecated)

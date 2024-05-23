@@ -188,8 +188,6 @@ export class WHFSApplyTester {
           return false; //FIXME: AND NOT this -> MatchType(this -> GetContentType(), element.contentfiletype, FALSE))
         if (element.typeneedstemplate && !this.isTypeNeedsTemplate())
           return false;
-        if (element.prebuiltmasks?.length)
-          return false; //These will probably never be suported by JS implementations as HS already deprecated them
         if (element.webfeatures?.length && !this.matchWebFeatures(element.webfeatures))
           return false;
 

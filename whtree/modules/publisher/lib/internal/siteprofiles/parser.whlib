@@ -702,12 +702,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               this->ValidateRegex(crit, applyto.parentregex, "parentregex");
             IF(applyto.whfspathregex != "")
               this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
-            IF(crit->HasAttribute("prebuiltmasks"))
-            {
-              this->AddError(crit, "<prebuiltpage> support has been removed - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
-              CONTINUE;
-            }
-
             IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
             {
               this->AddError(crit, "Apply <to> rule is trying to match a file type, but is not set to apply to files");
@@ -803,7 +797,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                       , contentfiletype := ""
                       , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
                       , typeneedstemplate := FALSE
-                      , prebuiltmasks := STRING[]
                       , webfeatures  := STRING[]
                       ]
                      ];
@@ -902,7 +895,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               RECORD applynode := [ contenttype := contenttype
                                   , requireright := node->GetAttribute("requireright")
                                   , extension := extension ?? apply.siteprofile || "#" || node->GetAttribute("name")
-                                  , mask := node->GetAttribute("mask")
                                   ];
               INSERT applynode INTO apply.extendproperties AT END;
               CONTINUE;
@@ -1190,15 +1182,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 apply.foldersettings.contentslisthandler := [ objectname := this->ParseFunctionRef(contentslisthandler, "library", "objectname", "4.31.0")
                                                             ];
               }
-              CONTINUE;
-            }
-            CASE "prebuiltpage"
-            {
-              STRING ARRAY haslist := GetHasList(node, ["type","title","capturesubpaths"]) CONCAT ["dynexecute"];
-              IF("title" NOT IN haslist AND node->HasAttribute("tid"))
-                INSERT "title" INTO haslist AT END;
-
-              this->AddError(node, "<prebuiltpage> support has been removed - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
               CONTINUE;
             }
             CASE "mailtemplate"
