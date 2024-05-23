@@ -2,7 +2,7 @@ import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src
 import { getType } from "@webhare/whfs/src/contenttypes";
 import { openFileOrFolder } from "@webhare/whfs";
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
-import { mergeConstraints } from "@mod-platform/js/tollium/valueconstraints";
+import { mergeConstraints, suggestTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
 
 interface MetaTabs {
   types: Array<{
@@ -12,6 +12,7 @@ interface MetaTabs {
       name: string;
       title: string;
       constraints: ValueConstraints | null;
+      component: Record<string, unknown>;
     }>;
   }>;
 }
@@ -31,18 +32,23 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
         continue;
 
       //gather the members to display
-      const members = [];
+      const members: MetaTabs["types"][0]["members"] = [];
       for (const member of extend.layout ?? []) { //we keep them in definition order
+        //TODO store/give warnings/errors about components we failed to add
         const match = matchtype.members.find(_ => _.jsname === member);
         if (!match)
           continue;
 
         const override = overrides[member];
+        const constraints = mergeConstraints(match.constraints ?? null, override?.constraints ?? null);
+        const suggestion = constraints && suggestTolliumComponent(constraints);
+        const component = suggestion?.component ?? { text: { error: suggestion?.error ?? 'Unable to suggest a component' } };
 
         members.push({
           name: member,
           title: match.title || member,
-          constraints: mergeConstraints(match.constraints ?? null, override?.constraints ?? null)
+          constraints,
+          component
         });
       }
 

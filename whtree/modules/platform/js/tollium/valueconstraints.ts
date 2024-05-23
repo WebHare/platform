@@ -25,3 +25,19 @@ export function mergeConstraints(lhs: Readonly<ValueConstraints> | null, rhs: Re
 
   return mergedConstraints;
 }
+
+type AnyTolliumComponent = Record<string, unknown>;
+
+export function suggestTolliumComponent(constraints: Readonly<ValueConstraints>): { component?: AnyTolliumComponent; error?: string } {
+  if (constraints.valueType === "string") {
+    return { component: { textEdit: { valueConstraints: constraints } } };
+  }
+  if (constraints.valueType === "integer") {
+    return { component: { textEdit: { valueConstraints: constraints, valueType: "integer" } } };
+  }
+
+  if (!constraints.valueType)
+    return { error: `Unable to suggest a component without a valueType` };
+
+  return { error: `Unable to suggest a component for valueType: ${constraints.valueType}` };
+}

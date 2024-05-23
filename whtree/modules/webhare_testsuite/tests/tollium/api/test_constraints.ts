@@ -1,4 +1,4 @@
-import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
+import { mergeConstraints, suggestTolliumComponent, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 import * as test from "@webhare/test";
 
 function testConstraintMerge(expect: ValueConstraints | null, lhs: ValueConstraints | null, rhs: ValueConstraints | null) {
@@ -22,4 +22,12 @@ function testValueConstraints() {
   testConstraintMerge({ maxBytes: 2048 }, { maxBytes: 4096 }, { maxBytes: 2048 });
 }
 
-test.run([testValueConstraints]);
+function testTolliumMapping() {
+  test.eqPartial({ component: { textEdit: { valueConstraints: { required: true } } } }, suggestTolliumComponent({ valueType: "string", required: true }));
+  test.eqPartial({ error: /without a valueType/ }, suggestTolliumComponent({}));
+}
+
+test.run([
+  testValueConstraints,
+  testTolliumMapping
+]);

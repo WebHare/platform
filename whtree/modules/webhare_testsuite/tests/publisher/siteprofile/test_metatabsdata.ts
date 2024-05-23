@@ -24,14 +24,16 @@ async function testMetadataReader() {
         members: [
           {
             name: "anyField",
-            title: ":Any field"
+            title: ":Any field",
+            component: { textEdit: {} }
           }, {
             name: "numberField",
             constraints: {
               valueType: "integer",
               minValue: 0,
               maxValue: 100
-            }
+            },
+            component: { textEdit: { valueType: 'integer' } }
           }, {
             name: "folksonomy"
           }
