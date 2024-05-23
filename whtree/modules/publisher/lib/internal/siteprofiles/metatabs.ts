@@ -1,5 +1,8 @@
-import type { WHFSApplyTester } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { getType } from "@webhare/whfs/src/contenttypes";
+import { openFileOrFolder } from "@webhare/whfs";
+import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
+import { mergeConstraints } from "@mod-platform/js/tollium/valueconstraints";
 
 interface MetaTabs {
   types: Array<{
@@ -8,6 +11,7 @@ interface MetaTabs {
     members: Array<{
       name: string;
       title: string;
+      constraints: ValueConstraints | null;
     }>;
   }>;
 }
@@ -20,6 +24,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
 
   for (const rule of cf.extendprops) {
     for (const extend of rule.extendproperties) {
+      const overrides = extend.override ? Object.fromEntries(extend.override) : {};
 
       const matchtype = await getType(extend.contenttype);
       if (!matchtype?.yaml)
@@ -32,9 +37,12 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
         if (!match)
           continue;
 
+        const override = overrides[member];
+
         members.push({
           name: member,
           title: match.title || member,
+          constraints: mergeConstraints(match.constraints ?? null, override?.constraints ?? null)
         });
       }
 
@@ -50,4 +58,9 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     return null; //do not trigger any new functionality
 
   return metasettings;
+}
+
+export async function describeMetaTabsById(objectid: number): Promise<MetaTabs | null> {
+  const applytester = await getApplyTesterForObject(await openFileOrFolder(objectid));
+  return applytester ? await describeMetaTabs(applytester) : null;
 }

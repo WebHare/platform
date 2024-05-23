@@ -20,6 +20,10 @@ LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
+CONSTANT RECORD sp_translations := //JSON key spelling. Must match siteprofiles.ts CachedSiteProfiles and any used types
+  CELL[ //valueConstraints
+        "minValue","maxValue","valueType","itemType"
+      ];
 
 PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
 {
@@ -502,7 +506,7 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
   STRING configpath := GetModuleStorageRoot("system") || "config";
   UpdateSiteProfileRefs(result); //will also generate the needed directories
   CreateDiskDirectoryRecursive(configpath, TRUE);
-  StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result), [ overwrite := TRUE ]);
+  StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result, sp_translations), [ overwrite := TRUE ]);
   StoreDiskFile(configpath || "/siteprofiles.bin", blobdata, [ overwrite := TRUE ]);
 }
 

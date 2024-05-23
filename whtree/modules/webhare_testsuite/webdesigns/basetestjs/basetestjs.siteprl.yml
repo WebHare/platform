@@ -17,6 +17,11 @@ types:
       anyField:
         type: string
         title: Any field
+      numberField:
+        type: integer
+        title: A number field
+        constraints:
+          minValue: 0
       taxonomy:
         type: whfsrefarray
         title: Taxonomy tags
@@ -30,4 +35,8 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: baseTestProps
-        layout: [anyField, folksonomy]
+        layout: [anyField, numberField, folksonomy]
+        override:
+          numberField:
+            constraints:
+              maxValue: 100

@@ -210,7 +210,7 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
     if (prop.layout)
       rule.layout = prop.layout;
     if (prop.override)
-      rule.override = prop.override;
+      rule.override = Object.entries(prop.override); //encode to entries to survive HS<>JS bridges
 
     rules.push(rule);
   }

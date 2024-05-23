@@ -26,8 +26,14 @@ async function testMetadataReader() {
             name: "anyField",
             title: ":Any field"
           }, {
+            name: "numberField",
+            constraints: {
+              valueType: "integer",
+              minValue: 0,
+              maxValue: 100
+            }
+          }, {
             name: "folksonomy"
-
           }
         ]
       }

@@ -144,14 +144,14 @@ apply:
         extendproperties: [
           {
             contenttype: 'webhare_testsuite:myTypes.testType',
-            override: {
+            override: Object.entries({
               'numberField': {
                 constraints: {
                   //NOTE the parser doesn't merge constraints between editProps and Type yet, they may be in different files
                   maxValue: 100
                 }
               }
-            }
+            })
           }
         ]
       }

@@ -215,7 +215,7 @@ export interface CSPApplyRule {
     /* Limits and orders which fields to offer to edit */
     layout?: string[];
     /* Specific field level overrides */
-    override?: Record<string, CSPMemberOverride>;
+    override?: Array<[string, CSPMemberOverride]>;
   }>;
   folderindex?: any;
   foldersettings?: any;
