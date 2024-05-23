@@ -97,7 +97,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     obj,
     site,
     parent: obj.parentSite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
-      : obj.parent ? (await openFolder(obj.parent)) : null,
+      : obj.parent ? (await openFolder(obj.parent, { allowHistoric: true })) : null,
     isfile: obj.isFile,
     isfake: false,
     typeneedstemplate

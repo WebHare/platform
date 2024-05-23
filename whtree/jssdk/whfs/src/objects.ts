@@ -563,18 +563,18 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
 
   if (!dbrecord) {
     if (!allowmissing)
-      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)} ${failcontext}`);
+      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);
     return null;
   }
 
   if (isHistoricWHFSSpace(dbrecord.whfspath) && !allowHistoric) {
     if (!allowmissing)
-      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)} ${failcontext} - it is a recycled of versioned version`);
+      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""} - it is a recycled or historic object`);
     return null;
   }
 
   if (findfile !== undefined && dbrecord.isfolder !== !findfile)
-    throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)} ${failcontext}`);
+    throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);
 
   const matchtype = await getType(dbrecord.type || 0, dbrecord.isfolder ? "folderType" : "fileType"); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
   const typens = matchtype?.namespace ?? "#" + dbrecord.type;

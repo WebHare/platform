@@ -117,7 +117,7 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
 }
 
 export async function describeMetaTabsForHS(objectid: number): Promise<MetaTabsForHS | null> {
-  const applytester = await getApplyTesterForObject(await openFileOrFolder(objectid));
+  const applytester = await getApplyTesterForObject(await openFileOrFolder(objectid, { allowHistoric: true }));
   if (!applytester)
     return null;
 
