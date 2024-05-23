@@ -85,6 +85,44 @@ definitions:
       members: # TODO limit to arrays only
         $ref: "#/definitions/TypeMembers"
 
+  ValueConstraints: # TODO we need to share this with Tollium components
+    type: object
+    description: Record constraints for a Tollium component value
+    properties:
+      valueType:
+        description: Type of value used
+        type: string
+        enum:
+          - string
+          - integer
+          - float
+          - money
+          - boolean
+          - datetime
+          - resourceDescriptor
+          - fsobjectid
+          - array
+      itemType:
+        description: Type of value used in an array
+        type: string
+        enum:
+          - string
+          - integer
+          - float
+          - money
+          - boolean
+          - datetime
+          - resourceDescriptor
+          - fsobjectid
+      maxBytes:
+        type: integer
+      minValue:
+        description: Minimum value
+        type: integer #TODO float?
+      maxValue:
+        description: Maximum value
+        type: integer #TODO float?
+
   Apply:
     type: object
     additionalProperties: false

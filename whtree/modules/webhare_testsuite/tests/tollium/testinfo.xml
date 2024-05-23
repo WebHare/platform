@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
 
+  <test path="api/" />
   <test path="comm/" />
 
   <test script="test-tollium-testframework.whscr" />
