@@ -5,6 +5,8 @@ import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofil
 import { mergeConstraints, suggestTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
 import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
 import { nameToSnakeCase } from "@webhare/hscompat/types";
+import type { CSPApplyRule, CSPContentType, CSPMember } from "@webhare/whfs/src/siteprofiles";
+import { isTruthy } from "@webhare/std/collections";
 
 interface MetaTabs {
   types: Array<{
@@ -17,6 +19,16 @@ interface MetaTabs {
       component: Record<string, unknown>;
     }>;
   }>;
+}
+
+type ExtendProperties = CSPApplyRule["extendproperties"][0];
+
+function determineLayout(matchtype: CSPContentType, extend: ExtendProperties): CSPMember[] {
+  //if explicitly set, use that
+  if (extend.layout)
+    return extend.layout.map(name => matchtype.members.find(_ => _.jsname === name)).filter(isTruthy);
+
+  return matchtype.members;
 }
 
 export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<MetaTabs | null> {
@@ -35,14 +47,9 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
 
       //gather the members to display
       const members: MetaTabs["types"][0]["members"] = [];
-      for (const member of extend.layout ?? []) { //we keep them in definition order
-        //TODO store/give warnings/errors about components we failed to add
-        const match = matchtype.members.find(_ => _.jsname === member);
-        if (!match)
-          continue;
-
-        const override = overrides[member];
-        const constraints = mergeConstraints(match.constraints ?? null, override?.constraints ?? null);
+      for (const member of determineLayout(matchtype, extend)) {
+        const override = overrides[member.jsname!]; //has to exist as we wouldn't be processing non-yaml types
+        const constraints = mergeConstraints(member.constraints ?? null, override?.constraints ?? null);
         const suggestion = constraints && suggestTolliumComponent(constraints);
         const component = suggestion?.component ?? {
           text: {
@@ -52,8 +59,8 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
         };
 
         members.push({
-          name: member,
-          title: match.title || member,
+          name: member.jsname!,
+          title: member.title || member.jsname!,
           constraints,
           component
         });
