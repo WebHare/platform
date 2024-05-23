@@ -13,9 +13,17 @@ PUBLIC OBJECT FUNCTION OpenTestsuiteSite()
 {
   RETURN OpenSiteByName("webhare_testsuite.testsite");
 }
+PUBLIC OBJECT FUNCTION OpenTestsuiteJSSite()
+{
+  RETURN OpenSiteByName("webhare_testsuite.testsitejs");
+}
 PUBLIC OBJECT FUNCTION GetTestsuiteTempFolder()
 {
-  RETURN OpenSiteByName("webhare_testsuite.testsite")->OpenByPath("tmp");
+  RETURN OpenTestsuiteSite()->OpenByPath("tmp");
+}
+PUBLIC OBJECT FUNCTION GetTestsuiteJSTempFolder()
+{
+  RETURN OpenTestsuiteJSSite()->OpenByPath("tmp");
 }
 
 PUBLIC OBJECT FUNCTION OpenTestsuiteAltSite()

@@ -1391,13 +1391,16 @@ STATIC OBJECTTYPE TestFramework
         OpenWHFSObject(id)->RecycleSelf();
     }
 
-    OBJECT testsite := OpenSiteByName("webhare_testsuite.testsite"); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
-    IF(ObjectExists(testsite))
+    FOREVERY(STRING site FROM [ "webhare_testsuite.testsite","webhare_testsuite.testsitejs" ])
     {
-      OBJECT tmpfolder := testsite->OpenByPath("tmp");
-      IF(ObjectExists(tmpfolder))
-        FOREVERY(RECORD obj FROM SELECT id FROM system.fs_objects WHERE parent = tmpfolder->id)
-          OpenWHFSObject(obj.id)->RecycleSelf();
+      OBJECT testsite := OpenSiteByName(site); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
+      IF(ObjectExists(testsite))
+      {
+        OBJECT tmpfolder := testsite->OpenByPath("tmp");
+        IF(ObjectExists(tmpfolder))
+          FOREVERY(RECORD obj FROM SELECT id FROM system.fs_objects WHERE parent = tmpfolder->id)
+            OpenWHFSObject(obj.id)->RecycleSelf();
+      }
     }
   }
 
