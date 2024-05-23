@@ -111,21 +111,165 @@ async function testAuthorization() {
   test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
   test.eq({ error: "Dude where's my key?" }, JSON.parse(await res.body.text()));
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret"', await res.body.text());
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret"', await res.body.text());
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret2" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret2" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret2"', await res.body.text());
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
   test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(await res.body.text()));
+}
+
+async function testCORS() {
+  using instance = await getServiceInstance("webhare_testsuite:authtests");
+  void instance;
+
+  // Test if crossdomain origins are read from the service definition
+  test.eq(["example.*", "https://webhare.dev:1234"], instance.restapi.crossdomainOrigins);
+
+  // Fake preflight requests
+  let res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "DELETE", // invalid method
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "http://localhost",
+    }
+  }, "dummy");
+  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  test.eq(/Cannot match request method 'DELETE'/, res.headers["X-WebHare-CORS-Error"]);
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "My-Custom-Header", // invalid header
+      "Origin": "http://localhost",
+    }
+  }, "dummy");
+  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  test.eq(/Cannot match request header 'My-Custom-Header'/, res.headers["X-WebHare-CORS-Error"]);
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "http://webhare.nl", // invalid origin
+    }
+  }, "dummy");
+  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  test.eq(/Cannot match origin 'http:\/\/webhare.nl'/, res.headers["X-WebHare-CORS-Error"]);
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "http://webhare.dev:1234", // invalid protocol
+    }
+  }, "dummy");
+  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  test.eq(/Cannot match origin 'http:\/\/webhare.dev:1234'/, res.headers["X-WebHare-CORS-Error"]);
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "https://webhare.dev", // invalid port
+    }
+  }, "dummy");
+  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  test.eq(/Cannot match origin 'https:\/\/webhare.dev'/, res.headers["X-WebHare-CORS-Error"]);
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "https://webhare.dev:1234",
+      "Authorization": "secreta",
+    }
+  }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq("https://webhare.dev:1234", res.headers["Access-Control-Allow-Origin"]);
+  test.eq(/GET/, res.headers["Access-Control-Allow-Methods"]); // preflight header
+  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "http://example.org", // protocol and tld don't matter for example.*
+      "Authorization": "secretb",
+    }
+  }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq("http://example.org", res.headers["Access-Control-Allow-Origin"]);
+  test.eq(/POST/, res.headers["Access-Control-Allow-Methods"]); // preflight header
+  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "https://example.com", // protocol and tld don't matter for example.*
+      "Authorization": "secretc",
+    }
+  }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq("https://example.com", res.headers["Access-Control-Allow-Origin"]);
+  test.eq(/authorization/, res.headers["Access-Control-Allow-Headers"]); // preflight header
+  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "https://www.example.com", // subdomain not allowed for example.*
+      "Authorization": "secretd",
+    }
+  }, "dummy");
+  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  test.eq(/Cannot match origin 'https:\/\/www.example.com'/, res.headers["X-WebHare-CORS-Error"]);
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+      "Origin": "http://localhost", // requested url matches origin, so it's allowed
+      "Authorization": "secrete",
+    }
+  }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq("http://localhost", res.headers["Access-Control-Allow-Origin"]);
+  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+
+  // Direct calls
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: {
+      "Origin": "http://localhost", // requested url matches origin, so it's allowed
+      "Authorization": "secretf",
+    }
+  }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq("http://localhost", res.headers["Access-Control-Allow-Origin"]);
+  test.assert(res.headers["Access-Control-Allow-Methods"] === undefined); // direct call doesn't contain preflight headers
+  test.assert(res.headers["Access-Control-Allow-Headers"] === undefined); // direct call doesn't contain preflight headers
+  test.eq('"secretf"', await res.body.text());
+
+  res = await instance.APICall({
+    ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: {
+      "Origin": "http://webhare.nl", // invalid origin
+      "Authorization": "secretg",
+    }
+  }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.assert(res.headers["Access-Control-Allow-Origin"] === undefined);
+  test.eq('"secretg"', await res.body.text());
 }
 
 async function testOverlappingCalls() {
@@ -188,7 +332,7 @@ async function verifyPublicParts() {
 
   const deniedcall = await fetch(authtestsroot + "dummy");
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
-  test.eq("X-Key", deniedcall.headers.get("www-authenticate"));
+  test.eq("Authorization", deniedcall.headers.get("www-authenticate"));
   test.eq({ error: "Dude where's my key?" }, await deniedcall.json());
 
   // Test decoding of encoded variables
@@ -273,12 +417,18 @@ async function testLogFile() {
   test.eq(2, usercalls.length);
 
   const authtestcalls = loglines.filter(_ => _.service === 'webhare_testsuite:authtests' && _.status >= 200 && _.status < 300);
-  test.eq(3, authtestcalls.length);
+  test.eq(9, authtestcalls.length); // 3 from testAuthorization, 6 from testCORS
   test.eqPartial([
     { authorized: { lastchar: 't' } },
     { authorized: { lastchar: 't' } },
-    { authorized: { lastchar: '2' } }
-  ], authtestcalls, [], "Ensure all 3 calls had an authorized (even if we cache in the future!");
+    { authorized: { lastchar: '2' } },
+    { authorized: undefined }, // preflight calls
+    { authorized: undefined }, // preflight calls
+    { authorized: undefined }, // preflight calls
+    { authorized: undefined }, // preflight calls
+    { authorized: { lastchar: 'f' } },
+    { authorized: { lastchar: 'g' } },
+  ], authtestcalls, "Ensure all 9 calls had an authorized (even if we cache in the future!");
 }
 
 async function testGeneratedClient() {
@@ -305,6 +455,7 @@ async function testGeneratedClient() {
 test.run([
   testService,
   testAuthorization,
+  testCORS,
   testOverlappingCalls,
   verifyPublicParts,
   testInternalTypes,

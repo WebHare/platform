@@ -2590,6 +2590,16 @@
               </xs:union>
             </xs:simpleType>
           </xs:attribute>
+          <xs:attribute name="crossdomainorigins">
+            <xs:annotation>
+              <xs:documentation>
+                Allow cross-domain requests for the given origins, or specify "*" for all origins.
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:list itemType="xs:string"/>
+            </xs:simpleType>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
 
