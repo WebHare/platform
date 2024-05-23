@@ -1,0 +1,44 @@
+<?wh
+
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+// Base class for a property editor. Preparing to share common code with objectprops
+PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
+<
+  // Metatabs config as received from describeMetaTabsForHS
+  RECORD metatabsconfig;
+
+  BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid)
+  {
+    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", objectid);
+    IF(NOT RecordExists(this->metatabsconfig))
+      RETURN FALSE; //nothing to do
+
+    ^metapart->visible := TRUE;
+    this->AddTypesTabs();
+
+    RETURN TRUE;
+  }
+
+  MACRO AddTypesTabs()
+  {
+    //TODO also take care of the SEO props on tab 1 to generalize the logic
+
+    INTEGER insertpos := 1;
+    FOREVERY(RECORD type FROM this->metatabsconfig.types)
+    {
+      OBJECT newtab := ^metatabs->InsertTabAt(insertpos, GetTid(type.title));
+      insertpos := insertpos + 1;
+      FOREVERY(RECORD field FROM type.members)
+      {
+        OBJECT newcomp := this->CreateCustomComponent(field.component.ns, field.component.component);
+        newcomp->SetYamlProps(field.component.yamlprops);
+        newcomp->title := GetTid(field.title);
+        newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
+      }
+    }
+  }
+
+>;

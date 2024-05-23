@@ -21,11 +21,32 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
   RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
 }
 
+ASYNC MACRO TestMetaTab()
+{
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "testmetatab.rtd"
+      , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , publish := TRUE
+      ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  OBJECT anumberfield :=  TT(":A number field");
+  TestAssert(ObjectExists(anumberfield));
+  TestEq("integer", anumberfield->valuetype);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestRevert()
 {
   testfw->BeginWork();
 
-  OBJECT  testfile := GetTestsuiteTempFolder()->CreateFile(
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile(
       [ name :=   "testrevert.rtd"
       , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
       , publish := TRUE
@@ -89,7 +110,8 @@ ASYNC MACRO TestSaveToUnpublishedSite()
 }
 
 RunTestFramework(
-    [ PTR TestRevert
+    [ PTR TestMetaTab
+    , PTR TestRevert
     , PTR TestSaveToUnpublishedSite
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

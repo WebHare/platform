@@ -138,6 +138,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   RECORD ARRAY __userattributes;
 
+  RECORD yamlprops;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -262,6 +264,12 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
     this->componenttype := "component";
   }
+
+  PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    this->yamlprops := CELL[ ...this->yamlprops, ...props];
+  }
+
   PUBLIC MACRO __tollium_afternew()
   {
     //we call this here, to ensure we get the proper implementations of overriden functions

@@ -3,6 +3,8 @@ import { getType } from "@webhare/whfs/src/contenttypes";
 import { openFileOrFolder } from "@webhare/whfs";
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 import { mergeConstraints, suggestTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
+import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
+import { nameToSnakeCase } from "@webhare/hscompat/types";
 
 interface MetaTabs {
   types: Array<{
@@ -66,7 +68,50 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
   return metasettings;
 }
 
-export async function describeMetaTabsById(objectid: number): Promise<MetaTabs | null> {
+interface MetaTabsForHS {
+  types: Array<{
+    namespace: string;
+    title: string;
+    members: Array<{
+      name: string;
+      title: string;
+      constraints: ToSnakeCase<ValueConstraints> | null;
+      component: {
+        ns: string;
+        component: string;
+        yamlprops: unknown;
+      };
+    }>;
+  }>;
+}
+
+export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
+  const translated: MetaTabsForHS = {
+    types: metatabs.types.map(type => ({
+      ...type,
+      members: type.members.map(member => ({
+        ...member,
+        name: nameToSnakeCase(member.name),
+        constraints: toSnakeCase(member.constraints),
+        component: {
+          ns: "http://www.webhare.net/xmlns/tollium/screens",
+          component: Object.keys(member.component)[0].toLowerCase(),
+          yamlprops: toSnakeCase(Object.values(member.component)[0])
+        }
+      }))
+    }))
+  };
+  return translated;
+}
+
+export async function describeMetaTabsForHS(objectid: number): Promise<MetaTabsForHS | null> {
   const applytester = await getApplyTesterForObject(await openFileOrFolder(objectid));
-  return applytester ? await describeMetaTabs(applytester) : null;
+  if (!applytester)
+    return null;
+
+  const metatabs = await describeMetaTabs(applytester);
+  if (!metatabs)
+    return null;
+
+  return remapForHs(metatabs);
 }

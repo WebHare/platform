@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-backend";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { openFile } from "@webhare/whfs";
-import { describeMetaTabs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
+import { describeMetaTabs, remapForHs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
 
 async function testIgnoreMetatabsForOldContent() {
   //watches for global triggers of new metadata screens. we need to avoid that for now, don't surprise existing users
@@ -25,7 +25,7 @@ async function testMetadataReader() {
           {
             name: "anyField",
             title: ":Any field",
-            component: { textEdit: {} }
+            component: { textEdit: { valueConstraints: { maxBytes: 4096 } } }
           }, {
             name: "numberField",
             constraints: {
@@ -41,6 +41,40 @@ async function testMetadataReader() {
       }
     ]
   }, metatabs);
+
+  test.eqPartial({
+    types: [
+      {
+        namespace: 'http://www.webhare.net/xmlns/webhare_testsuite/basetestprops',
+        title: ':WTS base test',
+        members: [
+          {
+            name: "any_field",
+            title: ":Any field",
+            component: {
+              ns: "http://www.webhare.net/xmlns/tollium/screens",
+              component: "textedit",
+              yamlprops: { value_constraints: { max_bytes: 4096 } }
+            }
+          }, {
+            name: "number_field",
+            constraints: {
+              value_type: "integer",
+              min_value: 0,
+              max_value: 100
+            },
+            component: {
+              ns: "http://www.webhare.net/xmlns/tollium/screens",
+              component: "textedit",
+              yamlprops: { value_type: "integer", value_constraints: { max_value: 100 } }
+            }
+          }, {
+            name: "folksonomy"
+          }
+        ]
+      }
+    ]
+  }, remapForHs(metatabs!));
 }
 
 test.run([

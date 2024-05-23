@@ -91,6 +91,7 @@ definitions:
   ValueConstraints: # TODO we need to share this with Tollium components
     type: object
     description: Record constraints for a Tollium component value
+    additionalProperties: false
     properties:
       valueType:
         description: Type of value used

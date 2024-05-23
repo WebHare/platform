@@ -22,7 +22,7 @@ LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 CONSTANT RECORD sp_translations := //JSON key spelling. Must match siteprofiles.ts CachedSiteProfiles and any used types
   CELL[ //valueConstraints
-        "minValue","maxValue","valueType","itemType"
+        "minValue","maxValue","maxBytes","valueType","itemType"
       ];
 
 PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
