@@ -20,11 +20,11 @@
       </line>
       <grid height="1pr">
         <cell width="1pr">
-          <list name="indices" selectmode="multiple" onselect="updatefooterrows">
+          <list name="indices" onselect="updatefooterrows" selectmode="multiple" sortcolumn="catalog">
             <column name="name" type="text" width="3pr" iconname="health" tid="~name" />
-            <column name="catalog" type="text" width="2pr" tid="common.terms.catalog" />
+            <column name="catalog" type="text" width="2pr" sortkeyname="catalog_sort" tid="common.terms.catalog" />
             <column name="docs" type="text" width="12x" align="right" />
-            <column name="size" type="text" width="16x" align="right" sortkeyname="size_sort"/>
+            <column name="size" type="text" width="16x" align="right" sortkeyname="size_sort" />
             <column name="shards" type="integer" width="10x" align="right" />
           </list>
         </cell>

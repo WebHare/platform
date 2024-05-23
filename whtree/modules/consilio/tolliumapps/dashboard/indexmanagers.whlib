@@ -82,6 +82,7 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 
       ^indices->rows :=
           SELECT *
+               , catalog_sort := (catalog = "" ? "1" : "0") || catalog // sort connected indices first
                , rawhealth := health
                , rawdocs := docs
                , rawsize := size
