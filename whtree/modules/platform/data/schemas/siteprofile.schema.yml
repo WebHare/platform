@@ -45,6 +45,7 @@ definitions:
     additionalProperties: false
     patternProperties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
+                             # TODO we could consider mapping underscores to double-underscores when snake-casing and then even allow them in camelcaps names?
         $ref: "#/definitions/TypeMember"
         additionalProperties: false
 
@@ -84,6 +85,8 @@ definitions:
         description: "A developer's comment on this type. Not shown to non-prviileged WebHare users."
       members: # TODO limit to arrays only
         $ref: "#/definitions/TypeMembers"
+      constraints:
+        $ref: "#/definitions/ValueConstraints"
 
   ValueConstraints: # TODO we need to share this with Tollium components
     type: object
@@ -170,7 +173,18 @@ definitions:
       properties:
         type:
           type: string
-        members:
+        layout:
           type: array
           items:
             type: string
+        override:
+          type: object
+          additionalProperties:
+            $ref: "#/definitions/ApplyEditMember"
+
+  ApplyEditMember:
+    type: object
+    additionalProperties: false
+    properties:
+      constraints:
+        $ref: "#/definitions/ValueConstraints"

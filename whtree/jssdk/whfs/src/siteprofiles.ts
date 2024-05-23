@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- FIXME a lot of siteprofile rules are still any[] */
 
+import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
+
 export enum CSPMemberType {
   String = 2,
   DateTime = 4,
@@ -30,6 +32,8 @@ export interface CSPMember {
   title?: string;
   /** Case preserved name (YAML siteprofiles only) */
   jsname?: string;
+  /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
+  constraints?: ValueConstraints;
 }
 
 export interface CSPContentType {
@@ -184,6 +188,10 @@ type CSPBaseProperties = {
   seotitle: boolean;
 };
 
+export interface CSPMemberOverride {
+  constraints?: ValueConstraints;
+}
+
 export interface CSPApplyRule {
   tos: CSPApplyTo[];
   /** Set by apply rules sourced from YAML */
@@ -204,7 +212,10 @@ export interface CSPApplyRule {
     extension: string;
     requireright: string;
     name: string;
-    members?: string[]; //limits and orders which fields to offer to edit
+    /* Limits and orders which fields to offer to edit */
+    layout?: string[];
+    /* Specific field level overrides */
+    override?: Record<string, CSPMemberOverride>;
   }>;
   folderindex?: any;
   foldersettings?: any;

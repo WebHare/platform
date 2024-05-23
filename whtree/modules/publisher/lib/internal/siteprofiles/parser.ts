@@ -5,6 +5,7 @@ import { toHSSnakeCase } from "@webhare/services/src/naming";
 import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
+import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 
 export type ParserMessage = {
   col: number;
@@ -29,24 +30,94 @@ export type ParsedSiteProfile = {
   gid: string;
 };
 
-const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: CSPMemberType } = {
-  "string": CSPMemberType.String,
-  "integer": CSPMemberType.Integer,
-  "datetime": CSPMemberType.DateTime,
-  "file": CSPMemberType.File,
-  "boolean": CSPMemberType.Boolean,
-  "float": CSPMemberType.Float,
-  "money": CSPMemberType.Money,
-  "whfsref": CSPMemberType.WHFSRef,
-  "array": CSPMemberType.Array,
-  "whfsrefarray": CSPMemberType.WHFSRefArray,
-  "stringarray": CSPMemberType.StringArray,
-  "richdocument": CSPMemberType.RichDocument,
-  "intextlink": CSPMemberType.IntExtLink,
-  "instance": CSPMemberType.Instance,
-  "url": CSPMemberType.URL,
-  "composeddocument": CSPMemberType.ComposedDocument,
-  "record": CSPMemberType.Record,
+interface MemberTypeInfo {
+  dbtype: CSPMemberType;
+  constraints?: ValueConstraints;
+}
+
+const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
+  "string": {
+    dbtype: CSPMemberType.String,
+    constraints: {
+      valueType: "string",
+      maxBytes: 4096
+    }
+  },
+  "integer": {
+    dbtype: CSPMemberType.Integer,
+    constraints: {
+      valueType: "integer",
+      minValue: -217483648,
+      maxValue: 217483647
+    }
+  },
+  "datetime": {
+    dbtype: CSPMemberType.DateTime,
+    constraints: {
+      valueType: "datetime"
+    }
+  },
+  "file": {
+    dbtype: CSPMemberType.File,
+    constraints: {
+      valueType: "resourceDescriptor"
+    }
+  },
+  "boolean": {
+    dbtype: CSPMemberType.Boolean,
+    constraints: {
+      valueType: "boolean"
+    }
+  },
+  "float": {
+    dbtype: CSPMemberType.Float,
+    constraints: {
+      valueType: "float"
+    }
+  },
+  "money": {
+    dbtype: CSPMemberType.Money,
+    constraints: {
+      valueType: "money"
+    }
+  },
+  "whfsref": {
+    dbtype: CSPMemberType.WHFSRef,
+    constraints: {
+      valueType: "fsobjectid"
+    }
+  },
+  "array": {
+    dbtype: CSPMemberType.Array
+  },
+  "whfsrefarray": {
+    dbtype: CSPMemberType.WHFSRefArray,
+    constraints: {
+      valueType: "array",
+      itemType: "fsobjectid"
+    }
+  },
+  "stringarray": {
+    dbtype: CSPMemberType.StringArray
+  },
+  "richdocument": {
+    dbtype: CSPMemberType.RichDocument
+  },
+  "intextlink": {
+    dbtype: CSPMemberType.IntExtLink
+  },
+  "instance": {
+    dbtype: CSPMemberType.Instance
+  },
+  "url": {
+    dbtype: CSPMemberType.URL
+  },
+  "composeddocument": {
+    dbtype: CSPMemberType.ComposedDocument
+  },
+  "record": {
+    dbtype: CSPMemberType.Record
+  },
   //"formcondition": CSPMemberType.FormCondition,
 };
 
@@ -61,13 +132,16 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
     const addmember: CSPMember = {
       name: toHSSnakeCase(name),
       jsname: name,
-      type,
+      type: type.dbtype,
       children: member.type === "array" ? parseMembers(gid, member.members || {}) : [],
       title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
     if (member.comment)
       addmember.comment = member.comment;
+
+    if (type.constraints || member.constraints)
+      addmember.constraints = mergeConstraints(type.constraints || null, member.constraints || null)!;
 
     cspmembers.push(addmember);
   }
@@ -133,8 +207,11 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
       requireright: "", //TODO
       name: ""
     };
-    if (prop.members)
-      rule.members = prop.members;
+    if (prop.layout)
+      rule.layout = prop.layout;
+    if (prop.override)
+      rule.override = prop.override;
+
     rules.push(rule);
   }
   return rules;

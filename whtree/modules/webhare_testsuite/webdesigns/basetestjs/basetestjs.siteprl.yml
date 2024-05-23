@@ -30,4 +30,4 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: baseTestProps
-        members: [anyField, folksonomy]
+        layout: [anyField, folksonomy]

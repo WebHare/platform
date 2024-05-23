@@ -27,7 +27,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
 
       //gather the members to display
       const members = [];
-      for (const member of extend.members ?? []) { //we keep them in definition order
+      for (const member of extend.layout ?? []) { //we keep them in definition order
         const match = matchtype.members.find(_ => _.jsname === member);
         if (!match)
           continue;

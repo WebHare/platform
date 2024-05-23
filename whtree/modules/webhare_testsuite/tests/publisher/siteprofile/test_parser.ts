@@ -22,7 +22,18 @@ types:
         yaml: true,
         members:
           [
-            { name: 'number_field', jsname: "numberField", type: CSPMemberType.Integer, title: "webhare_testsuite:base.gid.number_field", comment: "Got a comment" },
+            {
+              name: 'number_field',
+              jsname: "numberField",
+              type: CSPMemberType.Integer,
+              title: "webhare_testsuite:base.gid.number_field",
+              comment: "Got a comment",
+              constraints: {
+                valueType: "integer",
+                minValue: -217483648,
+                maxValue: 217483647
+              }
+            },
             { name: 'other_field', type: CSPMemberType.String, title: ":My other field" },
             {
               name: 'array_field', type: CSPMemberType.Array, children:
@@ -63,6 +74,7 @@ types:
         type: string
 `));
 
+  // Test basic extendproperties
   test.eqPartial({
     contenttypes: [
       {
@@ -78,7 +90,7 @@ types:
         extendproperties: [
           {
             contenttype: 'webhare_testsuite:myTypes.testType',
-            members: ['anyField', 'folksonomy']
+            layout: ['folksonomy', 'numberField']
           }
         ]
       }
@@ -89,7 +101,7 @@ typeGroup: myTypes
 types:
   testType:
     members:
-      anyField:
+      numberField:
         type: integer
       folksonomy:
         type: whfsrefarray
@@ -99,8 +111,73 @@ apply:
   baseProps: [seotitle]
   editProps:
     - type: testType
-      members: [anyField, folksonomy]
+      layout: [folksonomy,numberField]
 `));
+
+  // Test input constraint merging
+  test.eqPartial({
+    contenttypes: [
+      {
+        scopedtype: 'webhare_testsuite:myTypes.testType',
+        members:
+          [
+            {
+              jsname: "numberField",
+              type: CSPMemberType.Integer,
+              constraints: {
+                valueType: "integer",
+                minValue: 0
+              }
+            },
+            {
+              jsname: "folksonomy"
+            }
+          ]
+      }
+    ],
+    rules: [
+      {
+        tos: [{ filetype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
+        applyindex: 0,
+        baseproperties: { description: false, seotitle: true, haslist: ["description", "seotitle", "keywords", "seotab", "striprtdextension", "seotabrequireright"] },
+        yaml: true,
+        extendproperties: [
+          {
+            contenttype: 'webhare_testsuite:myTypes.testType',
+            override: {
+              'numberField': {
+                constraints: {
+                  //NOTE the parser doesn't merge constraints between editProps and Type yet, they may be in different files
+                  maxValue: 100
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }, await parseSP(`---
+typeGroup: myTypes
+types:
+  testType:
+    members:
+      numberField:
+        type: integer
+        constraints:
+          minValue: 0
+      folksonomy:
+        type: whfsrefarray
+apply:
+- to:
+    fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
+  baseProps: [seotitle]
+  editProps:
+    - type: testType
+      override:
+         numberField:
+          constraints:
+            maxValue: 100
+      `));
 
   //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type
   //     for backwardscompat/clarity no harm in separating old filetype/foldertype matching from new scopedtype matching,
