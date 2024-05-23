@@ -44,7 +44,12 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
         const override = overrides[member];
         const constraints = mergeConstraints(match.constraints ?? null, override?.constraints ?? null);
         const suggestion = constraints && suggestTolliumComponent(constraints);
-        const component = suggestion?.component ?? { text: { error: suggestion?.error ?? 'Unable to suggest a component' } };
+        const component = suggestion?.component ?? {
+          text: {
+            value: suggestion?.error ?? 'Unable to suggest a component',
+            enabled: false
+          }
+        };
 
         members.push({
           name: member,

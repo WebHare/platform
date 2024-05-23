@@ -119,6 +119,14 @@ PUBLIC OBJECTTYPE TolliumText EXTEND TolliumComponentBase
     this->readonly := TRUE;
   }
 
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    IF(CellExists(props,'value'))
+      this->value := props.value;
+
+    TolliumComponentBase::SetYamlProps(CELL[ ...props, DELETE value ]);
+  }
+
   UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
   {
     RETURN this->wordwrap OR this->ellipsis ? "1pr" : "";

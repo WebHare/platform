@@ -267,7 +267,10 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
   {
-    this->yamlprops := CELL[ ...this->yamlprops, ...props];
+    IF(CellExists(props,'enabled'))
+      this->enabled := props.enabled;
+
+    this->yamlprops := CELL[ ...this->yamlprops, ...props, DELETE enabled];
   }
 
   PUBLIC MACRO __tollium_afternew()
