@@ -203,7 +203,7 @@ PUBLIC MACRO FillInForm()
   TestEq(TRUE, RecordExists(submitted.response.address));
   TestEq("NL", submitted.response.address.country);
   TestEq("Hengelosestraat", submitted.response.address.street);
-  TestEq(FALSE, CellExists(submitted.response.address, "state")); // State is only used for CA
+  TestEq(TRUE, CellExists(submitted.response.address, "state"), "Verify 'state' is always there, even for NL (records must be consistent)");
   TestEq((13*60+45)*60000, submitted.response.time);
 
   TestEq(STRING[], webtoolresults->ListResultKeys(res.result.resultsguid));
@@ -286,7 +286,6 @@ PUBLIC MACRO FillInForm()
   TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", witty.field.address.text);
   TestEq("NL", witty.field.address.raw.country);
   TestEq("7521 AM", witty.field.address.raw.zip);
-  TestEq(FALSE, CellExists(witty.field.address.raw, "state"));
 
   //Another, simpler submission
   submitrec := CELL[ radio := ["opt"]
@@ -318,7 +317,6 @@ PUBLIC MACRO FillInForm()
   TestEq("No", witty.field.checkboxfield.text);
   TestEq("Bahnhofstraße 1\n48599 Gronau\nGermany", witty.field.address.text);
   TestEq("1", witty.field.address.raw.nr_detail); // Should be cleared by new address
-  TestEq(FALSE, CellExists(witty.field.address.raw, "state")); // State is only used for CA
   TestEq("", witty.field.time.text);
   TestEq(-1, witty.field.time.raw);
 
