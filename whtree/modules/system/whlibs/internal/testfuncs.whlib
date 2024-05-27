@@ -712,6 +712,8 @@ PUBLIC MACRO TestAssert(BOOLEAN to_assert, STRING annotation DEFAULTSTO "") __AT
       IF (IsValueSet(lines))
         annotation := `Assertion: ${SubString(lines[0], caller.col - 1)}`;
     }
+
+    Print("\nAnnotation: " || annotation || "\n");
     ReportError("Assertion failed", DEFAULT RECORD ARRAY, annotation);
   }
 }
