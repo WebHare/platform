@@ -149,6 +149,15 @@ export class WHFSObject {
       await obj.RecycleSelf();
   }
 
+  /** Open the parent folder for this object
+   *  @throws Error if this is a root subfolder
+  */
+  async openParent(): Promise<WHFSFolder> {
+    if (!this.parent)
+      throw new Error(`Can't open parent of root subfolder`); //FIXME openWHFSRootFolder?
+    return await openWHFSObject(this.id, this.parent, false, false, `parent of '${this.whfsPath}'`, false);
+  }
+
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
     const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data"]); //we need to upcast to be able to remove 'data'
     if (metadata.type) {
@@ -538,6 +547,10 @@ export interface OpenWHFSObjectOptions {
   allowHistoric?: boolean;
 }
 
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: true, allowmissing: false, failcontext: string, allowHistoric: boolean): Promise<WHFSFile>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: false, allowmissing: false, failcontext: string, allowHistoric: boolean): Promise<WHFSFolder>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: true, allowmissing: true, failcontext: string, allowHistoric: boolean): Promise<WHFSFile | null>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: false, allowmissing: true, failcontext: string, allowHistoric: boolean): Promise<WHFSFolder | null>;
 export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string, allowHistoric: boolean): Promise<WHFSFile | WHFSFolder>;
 export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean): Promise<WHFSFile | WHFSFolder | null>;
 
