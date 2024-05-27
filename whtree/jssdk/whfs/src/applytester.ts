@@ -35,10 +35,10 @@ function matchPathRegex(pattern: string, path: string): boolean {
 
 interface BaseInfo extends SiteApplicabilityInfo {
   site: Selectable<PlatformDB, "system.sites"> | null;
-  obj: WHFSObject;
-  parent: WHFSFolder | null;
+  obj: WHFSObject | null;
+  parent: WHFSFolder;
   isfile: boolean;
-  isfake: boolean;
+  type: string;
   typeneedstemplate: boolean;
 }
 
@@ -78,6 +78,27 @@ export function getWRDPlugindata(data: Record<string, unknown> | null) {
   };
 }
 
+export async function getBaseInfoForFutureApplyCheck(parent: WHFSFolder, isFolder: boolean, type: string): Promise<BaseInfo> {
+  const siteapply = await getSiteApplicabilityInfo(parent.parentSite);
+  let site: Selectable<PlatformDB, "system.sites"> | null = null;
+  if (parent.parentSite) {
+    site = await db<PlatformDB>().selectFrom("system.sites").selectAll().where("id", "=", parent.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
+  }
+
+  const typeneedstemplate = !isFolder && ((await describeContentType(type, { allowMissing: true }))?.isWebPage ?? false);
+
+  return {
+    ...siteapply,
+    obj: null,
+    site,
+    parent,
+    isfile: !isFolder,
+    type,
+    typeneedstemplate
+  };
+}
+
+
 export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInfo> {
   // RECORD fsobjinfo := SELECT id, parent, parentsite, type, filelink, fullpath, whfspath, indexdoc, isfolder, url FROM system.fs_objects WHERE id = fsobjectid;
   // IF(NOT RecordExists(fsobjinfo))
@@ -90,16 +111,18 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
   }
 
   const typeneedstemplate = obj.isFile && ((await describeContentType(obj.type, { allowMissing: true }))?.isWebPage ?? false);
+  if (!obj.parent && obj.isFile)
+    throw new Error(`File ${obj.id} has no parent folder`);
 
   //TODO don't actually open the objects if we can avoid it.
   return {
     ...siteapply,
     obj,
     site,
-    parent: obj.parentSite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
-      : obj.parent ? (await openFolder(obj.parent, { allowHistoric: true })) : null,
+    parent: obj.parentSite === obj.id || !obj.parent ? (obj as WHFSFolder) //a root *has* to be a folder
+      : (await openFolder(obj.parent, { allowHistoric: true })),
     isfile: obj.isFile,
-    isfake: false,
+    type: obj.type,
     typeneedstemplate
   };
 }
@@ -150,7 +173,7 @@ export class WHFSApplyTester {
       case "testdata": { /* TODO can we git rid of <testdata> ? it's one of the few reasons why
                             we are async and have to be able to reach out to the DB (and implement caching which is also gets
                             flaky very fast... just see the <testdata> tests in HS) */
-        const totest = element.target === "parent" ? folder && folder.id : element.target === "root" ? site?.id || 0 : this.objinfo.obj.id;
+        const totest = element.target === "parent" ? folder && folder.id : element.target === "root" ? site?.id || 0 : this.objinfo.obj?.id || 0;
         if (!totest)
           return false;
 
@@ -174,16 +197,19 @@ export class WHFSApplyTester {
       case "to": {
         if (element.match_file && !this.objinfo.isfile)
           return false;
-        if (element.match_index && (!folder || folder.indexDoc !== this.objinfo.obj.id))
+        if (element.match_index && (!folder || folder.indexDoc !== this.objinfo.obj?.id))
           return false;
         if (element.match_folder && this.objinfo.isfile)
           return false;
-        //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
-        const numerictype = (this.objinfo.obj as unknown as { dbrecord: Selectable<PlatformDB, "system.fs_objects"> }).dbrecord.type;
-        if (element.foldertype && !this.matchType(numerictype, element.foldertype, true))
-          return false;
-        if (element.filetype && !this.matchType(numerictype, element.filetype, false))
-          return false;
+        if (element.foldertype || element.filetype) {
+          if (!this.objinfo.obj)
+            return false;
+
+          if (element.foldertype && (this.objinfo.isfile || !isLike(this.objinfo.type, element.foldertype)))
+            return false;
+          if (element.filetype && (!this.objinfo.isfile || !isLike(this.objinfo.type, element.filetype)))
+            return false;
+        }
         if (element.contentfiletype)
           return false; //FIXME: AND NOT this -> MatchType(this -> GetContentType(), element.contentfiletype, FALSE))
         if (element.typeneedstemplate && !this.isTypeNeedsTemplate())
@@ -207,8 +233,14 @@ export class WHFSApplyTester {
     return true;
   }
 
+  private getPath(which: "whfsPath" | "fullPath") {
+    if (this.objinfo.obj)
+      return this.objinfo.obj[which].toUpperCase();
+    return `${this.objinfo.parent.fullPath.toUpperCase()}new object${this.objinfo.isfile ? "" : "/"}`;
+  }
+
   testPathConstraint(rec: CSPApplyToTo, site: Selectable<PlatformDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
-    if (rec.pathmask && isNotLike(this.objinfo.obj.fullPath.toUpperCase(), rec.pathmask.toUpperCase()))
+    if (rec.pathmask && isNotLike(this.getPath("fullPath"), rec.pathmask.toUpperCase()))
       return false;
     if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullPath.toUpperCase(), rec.parentmask.toUpperCase())))
       return false;
@@ -219,13 +251,13 @@ export class WHFSApplyTester {
       return false;
     if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))
       return false; //Implement this, but we'll need to gather more info during baseobj info OR become async too
-    if (rec.whfspathmask && !isNotLike(this.objinfo.obj.whfsPath.toUpperCase(), rec.whfspathmask.toUpperCase()))
+    if (rec.whfspathmask && !isNotLike(this.getPath("whfsPath"), rec.whfspathmask.toUpperCase())) //TOOD well we could 'fake'
       return false;
     if (rec.sitetype !== "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
       return false;
-    if (rec.pathregex && !matchPathRegex(rec.pathregex, this.objinfo.obj.fullPath))
+    if (rec.pathregex && !matchPathRegex(rec.pathregex, this.getPath("fullPath")))
       return false;
-    if (rec.whfspathregex && !matchPathRegex(rec.whfspathregex, this.objinfo.obj.whfsPath))
+    if (rec.whfspathregex && !matchPathRegex(rec.whfspathregex, this.getPath("whfsPath")))
       return false;
     if (rec.parentregex && (!parentitem || !matchPathRegex(rec.parentregex, parentitem.fullPath)))
       return false;
@@ -433,6 +465,10 @@ export class WHFSApplyTester {
 
 export async function getApplyTesterForObject(obj: WHFSObject) {
   return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj));
+}
+
+export async function getApplyTesterForNewObject(parent: WHFSFolder, isFolder: boolean, type: string) {
+  return new WHFSApplyTester(await getBaseInfoForFutureApplyCheck(parent, isFolder, type)); //TODO root object support
 }
 
 export async function getApplyTesterForURL(url: string) {
