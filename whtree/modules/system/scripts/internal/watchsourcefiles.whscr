@@ -73,7 +73,7 @@ OBJECT trans := OpenPrimary();
 */
 RECORD ARRAY actions :=
     [ [ name :=       "Regenerate compiled module siteprofiles"
-      , masks :=      [ "mod::*.siteprl", "mod::*.siteprl.xml", "mod::*/moduledefinition.xml" ]
+      , masks :=      [ "mod::*.siteprl", "mod::*.siteprl.xml", "mod::*.siteprl.yml", "mod::*/moduledefinition.xml" ]
       , skipmasks :=  DEFAULT STRING ARRAY
       , execute :=    PTR DoSiteProfileRecompile()
       , cb :=         0
