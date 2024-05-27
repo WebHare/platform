@@ -66,6 +66,12 @@ MACRO TestParsing()
   TestEq(TRUE, RecordExists(test3type.foldertype));
   TestEq(FALSE, RecordExists(test3type.filetype));
 
+  //NOTE actual parsing is tested in test_parser.ts, this is just superficial integration testing
+  res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml");
+  TestEqMembers([ yaml := TRUE ], RECORD(SELECT * FROM res.contenttypes WHERE namespace="x-webhare-scopedtype:webhare_testsuite.test.my_yaml_type"), '*');
+  TestEqMembers([ yaml := TRUE ], res.rules[0], '*');
+
+  //verifies the major siteprofile doesn't crash:
   res := GetParsedSiteProfile("mod::publisher/data/publisher.siteprl.xml");
 }
 

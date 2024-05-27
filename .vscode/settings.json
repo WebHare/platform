@@ -15,6 +15,7 @@
   //YAML settings (see https://github.com/redhat-developer/vscode-yaml#extension-settings)
   "yaml.schemas": {
     //Specify schemas for our YML files
-    "./whtree/modules/platform/data/schemas/moduledefinition.schema.yml": "moduledefinition.yml"
+    "./whtree/modules/platform/data/schemas/moduledefinition.schema.yml": "moduledefinition.yml",
+    "./whtree/modules/platform/data/schemas/siteprofile.schema.yml": "*.siteprl.yml"
   }
 }

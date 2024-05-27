@@ -35,6 +35,9 @@ async function testDevBridge() {
   // console.log(test_whts_files);
   test.eqPartial({ importPath: 'wh:wrd/webhare_testsuite' }, test_whts_files.find(_ => _.type === "wrd"));
   test.eqPartial({ importPath: 'wh:whdb/webhare_testsuite' }, test_whts_files.find(_ => _.type === "whdb"));
-}
 
+  const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
+  test.eq("publisher:siteprofile.shorturl", parseresult.gid);
+
+}
 test.run([testDevBridge]);

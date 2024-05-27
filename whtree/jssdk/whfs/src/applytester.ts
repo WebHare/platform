@@ -97,7 +97,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     obj,
     site,
     parent: obj.parentSite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
-      : obj.parent ? (await openFolder(obj.parent)) : null,
+      : obj.parent ? (await openFolder(obj.parent, { allowHistoric: true })) : null,
     isfile: obj.isFile,
     isfake: false,
     typeneedstemplate
@@ -279,19 +279,27 @@ export class WHFSApplyTester {
   /** List all matching apply rules
    * @param propname -- Only return rules that have this property set
    */
-  private async getMatchingRules<Prop extends keyof CSPApplyRule>(propname: Prop) {
+  private async getMatchingRules<Prop extends keyof CSPApplyRule>(propname: Prop, yamlonly = false) {
     const siteprofs = getExtractedHSConfig("siteprofiles");
     //Mark the Prop as never null or we wouldn't have returned it
     const resultset: Array<{ [key in Prop]: NonNullable<CSPApplyRule[Prop]> } & Omit<CSPApplyRule, Prop>> = [];
     for (const rule of siteprofs.applies) {
       const propvalue = (rule as unknown as { [key: string]: unknown })[propname];
-      if (!propvalue || (Array.isArray(propvalue) && !propvalue.length))
+      if (!propvalue || (Array.isArray(propvalue) && !propvalue.length) || (yamlonly && !rule.yaml))
         continue; //even if it matches, this rule wouldn't be interesting
 
       if (await this.applyIsMatch(rule))
         resultset.push(rule);
     }
     return resultset;
+  }
+
+  //TODO should we just expose getMatchingRules instead?
+  async __getCustomFields() {
+    return {
+      baseprops: await this.getMatchingRules('baseproperties', true),
+      extendprops: await this.getMatchingRules('extendproperties', true)
+    };
   }
 
   async getPluginData(namespace: string, name: string): Promise<Omit<CSPPluginDataRow, '__attributes' | '__location'> | null> {

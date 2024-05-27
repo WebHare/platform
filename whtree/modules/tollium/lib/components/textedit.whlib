@@ -36,6 +36,14 @@ PUBLIC OBJECTTYPE __TolliumAutoSuggestableBase EXTEND TolliumComponentBase
     this->minimumsuggestlength := def.minimumsuggestlength;
   }
 
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    IF(CellExists(props,'value_type'))
+      this->valuetype := props.value_type;
+
+    TolliumComponentBase::SetYamlProps(CELL[ ...props, DELETE value_type ]);
+  }
+
   RECORD FUNCTION GetAutoSuggestSetting()
   {
     RECORD autosuggest;

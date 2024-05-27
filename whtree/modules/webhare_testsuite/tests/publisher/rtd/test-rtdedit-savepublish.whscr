@@ -3,9 +3,10 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -21,11 +22,61 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
   RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
 }
 
+ASYNC MACRO TestMetaTab()
+{
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "testmetatab.rtd"
+      , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , publish := TRUE
+      ]);
+  testfile->SetInstanceData("webhare_testsuite:baseTest.baseTestProps",
+    [ number_field := 42,
+      wh_user := testfw->GetUserObject("sysop")->entity->guid ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  OBJECT anumberfield :=  TT(":A number field");
+  TestAssert(ObjectExists(anumberfield));
+  TestEq("integer", anumberfield->valuetype);
+  TestEq(42, anumberfield->value);
+
+  // Update and save props
+  anumberfield->value := 43;
+  anumberfield->SetDirty(); //pretend the client did it
+
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies disrtylisteners are connected");
+
+  OBJECT selectuserfield :=  TT(":WH User"); //note that this finds the embedded textedit
+  TestAssert(ObjectExists(selectuserfield));
+  TestEq(FALSE, selectuserfield->enabled);
+  TestEq('Sysop McTestsuite', selectuserfield->value);
+
+  TTClick(":Save");
+
+  RECORD ARRAY autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
+  TestEq(1,Length(autosaves));
+  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(autosaves[0].id), "*");
+  TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
+  TestEq(RECORD[], autosaves);
+
+  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestRevert()
 {
   testfw->BeginWork();
 
-  OBJECT  testfile := GetTestsuiteTempFolder()->CreateFile(
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile(
       [ name :=   "testrevert.rtd"
       , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
       , publish := TRUE
@@ -89,7 +140,8 @@ ASYNC MACRO TestSaveToUnpublishedSite()
 }
 
 RunTestFramework(
-    [ PTR TestRevert
+    [ PTR TestMetaTab
+    , PTR TestRevert
     , PTR TestSaveToUnpublishedSite
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

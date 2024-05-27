@@ -221,6 +221,7 @@ PUBLIC SCHEMA
     , BOOLEAN "generatepreview"
     , BOOLEAN "capturesubpaths"
     , DATETIME "orphansince"
+    , STRING "scopedtype"
     ; KEY id
     > fs_types
   , TABLE

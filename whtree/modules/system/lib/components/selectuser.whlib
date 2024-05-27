@@ -46,6 +46,7 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
   MACRO NEW()
   {
     EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
     this->pvt_invisibletitle := TRUE;
     this->pvt_inputkind := "WRD_ID";
     this->person_type := this->contexts->userapi->wrdschema->^wrd_person;
@@ -61,6 +62,29 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
     this->required := def.required;
     this->enabled := def.enabled;
     this->readonly := def.readonly;
+  }
+
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    IF(CellExists(props,'input_kind'))
+      SWITCH(props.input_kind)
+      {
+        CASE "wrdGuid"
+        {
+          this->inputkind := "wrd_guid";
+        }
+        CASE "wrdId"
+        {
+          this->inputkind := "wrd_id";
+        }
+        DEFAULT
+        {
+          THROW NEW Exception(`Unrecogized inputKind '${props.input_kind}'`);
+        }
+      }
+
+
+    TolliumFragmentBase::SetYamlProps(CELL[ ...props, DELETE input_kind ]);
   }
 
   UPDATE MACRO PreInitComponent()
@@ -156,42 +180,49 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
     RETURN TRUE;
   }
 
-  MACRO SetValue(VARIANT newvalue)
+  BOOLEAN FUNCTION SetValue(VARIANT newvalue)
   {
     OBJECT curvalue := this->pvt_user;
     OBJECT value;
     IF(TypeID(newvalue) = TypeID(OBJECT))
     {
       IF(NOT ObjectExists(newvalue))
-        RETURN;/// Ignore: Invalid value, we should not accept that.
+        RETURN FALSE;/// Ignore: Invalid value, we should not accept that. Or no change
 
       value := newvalue;
     }
     ELSE IF(TypeID(newvalue) = TypeID(INTEGER))/// WRD_ID or AUTHOBJECT_ID
     {
       IF(newvalue <= 0)
-        RETURN;/// Ignore: Invalid value, we should not accept that.
+        RETURN FALSE;/// Ignore: Invalid value, we should not accept that.
 
       value := this->contexts->userapi->GetObjectByAuthObjectId(newvalue);
       IF(NOT ObjectExists(value))
         value := this->contexts->userapi->GetUser(newvalue);
       IF(NOT ObjectExists(value))
-        RETURN;/// Ignore: Invalid value, we should not accept that.
+        RETURN FALSE;/// Ignore: Invalid value, we should not accept that.
     }
     ELSE IF(TypeID(newvalue) = TypeID(STRING))/// WRD_GUID
     {
       IF(newvalue = "")
-        RETURN;/// Ignore: Invalid value, we should not accept that.
+        RETURN FALSE;/// Ignore: Invalid value, we should not accept that.
 
       INTEGER wrd_id := this->person_type->Search("WRD_GUID", newvalue);
       value := this->contexts->userapi->GetUser(wrd_id);
     }
 
+    INTEGER curid := ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0;
+    INTEGER newid := ObjectExists(value) ? value->entityid : 0;
+    IF(curid = newid)
+      RETURN FALSE;
+
     this->pvt_user := value;
     this->username->value := this->GetDisplayValue();
 
-    IF(ObjectExists(value) AND (NOT ObjectExists(curvalue) OR value->entityid != curvalue->entityid) AND this->onchange != DEFAULT FUNCTION PTR)
+    IF(this->onchange != DEFAULT FUNCTION PTR)
       this->onchange();
+
+    RETURN TRUE;
   }
 
   MACRO SetInputKind(STRING inputkind)
@@ -225,13 +256,20 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
     OBJECT screen := this->owner->LoadScreen("system:userrights/dialogs.selectuserrole");
     screen->filterontype := 1;
     screen->selectmode := "single";
-    IF(screen->RunModal() = "ok" AND screen->value != DEFAULT OBJECT)
+    IF(screen->RunModal() = "ok" AND screen->value != DEFAULT OBJECT AND screen->value != this->value)
+    {
       this->value := screen->value;
+      this->SetDirty();
+    }
   }
 
   MACRO DoClear()
   {
-    this->pvt_user := DEFAULT OBJECT;
-    this->username->value := "";
+    IF(this->pvt_user != DEFAULT OBJECT)
+    {
+      this->pvt_user := DEFAULT OBJECT;
+      this->username->value := "";
+      this->SetDirty();
+    }
   }
 >;

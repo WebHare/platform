@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- FIXME a lot of siteprofile rules are still any[] */
 
+import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
+
 export enum CSPMemberType {
   String = 2,
   DateTime = 4,
@@ -25,6 +27,19 @@ export interface CSPMember {
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
+  comment?: string;
+  /** Member title (YAML siteprofiles only) */
+  title?: string;
+  /** Case preserved name (YAML siteprofiles only) */
+  jsname?: string;
+  /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
+  constraints?: ValueConstraints;
+  /** Customized component */
+  component?: {
+    ns: string;
+    component: string;
+    yamlprops: Record<string, unknown>;
+  };
 }
 
 export interface CSPContentType {
@@ -61,6 +76,7 @@ export interface CSPContentType {
   tolliumicon: string;
   type: string;
   wittycomponent: string;
+  yaml?: true;
 }
 
 export interface CSPPluginDataRow {
@@ -123,6 +139,7 @@ export interface CSPApplyToTestData {
 
 export interface CSPApplyToTo {
   type: "to";
+  whfstype?: string;
   contentfiletype: string;
   filetype: string;
   foldertype: string;
@@ -164,12 +181,31 @@ interface CSPBodyRendererRule {
   renderer: string;
 }
 
+type CSPBaseProperties = {
+  title: boolean;
+  description: boolean;
+  keywords: boolean;
+  striprtdextension: boolean;
+  seotab: boolean;
+  seotabrequireright: string;
+  noindex: boolean;
+  nofollow: boolean;
+  noarchive: boolean;
+  seotitle: boolean;
+};
+
+export interface CSPMemberOverride {
+  constraints?: ValueConstraints;
+}
+
 export interface CSPApplyRule {
   tos: CSPApplyTo[];
+  /** Set by apply rules sourced from YAML */
+  yaml?: true;
 
   applyindex: number;
-  applynodetype: string;
-  baseproperties?: any;
+  applynodetype: "apply" | "filetype" | "foldertype" | "widgettype";
+  baseproperties?: (CSPBaseProperties & { haslist: Array<keyof CSPBaseProperties> }) | null;
   bodyrenderer?: CSPBodyRendererRule;
   col: number;
   contentlisting?: any;
@@ -177,7 +213,16 @@ export interface CSPApplyRule {
   defaultsettings: any[];
   disablelegacysitesettings: boolean;
   disabletemplateprofile: boolean;
-  extendproperties: any[];
+  extendproperties: Array<{
+    contenttype: string;
+    extension: string;
+    requireright: string;
+    name: string;
+    /* Limits and orders which fields to offer to edit */
+    layout?: string[];
+    /* Specific field level overrides */
+    override?: Array<[string, CSPMemberOverride]>;
+  }>;
   folderindex?: any;
   foldersettings?: any;
   formdefinitions: any[];
@@ -190,7 +235,7 @@ export interface CSPApplyRule {
   preview?: any;
   priority: number;
   republishes: any[];
-  rtddoc: CSPRtddoc;
+  rtddoc: CSPRtddoc | null;
   schedulemanagedtasks: any[];
   scheduletasknows: any[];
   setlibrary: any[];

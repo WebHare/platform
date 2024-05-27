@@ -20,6 +20,10 @@ LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
+CONSTANT RECORD sp_translations := //JSON key spelling. Must match siteprofiles.ts CachedSiteProfiles and any used types
+  CELL[ //valueConstraints
+        "minValue","maxValue","maxBytes","valueType","itemType"
+      ];
 
 PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
 {
@@ -138,10 +142,10 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       existingpos := Length(this->siteprofiles);
 
       loaded := GetParsedSiteProfile(name);
-      this->result.errors := this->result.errors CONCAT loaded.errors;
-      this->result.warnings := this->result.warnings CONCAT loaded.warnings;
-      this->contenttypes := this->contenttypes CONCAT loaded.contenttypes;
-      this->grouptypes := this->grouptypes CONCAT loaded.grouptypes;
+      this->result.errors := this->result.errors CONCAT RECORD ARRAY(loaded.errors);
+      this->result.warnings := this->result.warnings CONCAT RECORD ARRAY(loaded.warnings);
+      this->contenttypes := this->contenttypes CONCAT RECORD ARRAY(loaded.contenttypes);
+      this->grouptypes := this->grouptypes CONCAT RECORD ARRAY(loaded.grouptypes);
 
       INSERT [ resourcename := name
              , siteprofileids := siteprofileids
@@ -253,6 +257,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       Look at MakeBasicTypeInfo, GetBaseFolderTypeRecord and GetBaseFiletypeRecord to find out where these fields are in suppliedcontenttypes
       */
       RECORD fstype := CELL[ ctype.cloneoncopy
+                           , ctype.scopedtype
                            , isfiletype := RecordExists(ctype.filetype)
                            , isfoldertype := RecordExists(ctype.foldertype)
                            , isdynamicexecution := RecordExists(ctype.dynamicexecution)
@@ -309,6 +314,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
           INSERT CELL[ ...ctype.toupdate
                      , ctype.id
                      , ctype.namespace
+                     , ctype.scopedtype
                      ] INTO system.fs_types;
         }
         ELSE IF(RecordExists(ctype.toupdate))
@@ -500,7 +506,7 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
   STRING configpath := GetModuleStorageRoot("system") || "config";
   UpdateSiteProfileRefs(result); //will also generate the needed directories
   CreateDiskDirectoryRecursive(configpath, TRUE);
-  StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result), [ overwrite := TRUE ]);
+  StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result, sp_translations), [ overwrite := TRUE ]);
   StoreDiskFile(configpath || "/siteprofiles.bin", blobdata, [ overwrite := TRUE ]);
 }
 

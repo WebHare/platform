@@ -38,11 +38,6 @@
       <xs:pattern value="...+:.+" />
     </xs:restriction>
   </xs:simpleType>
-  <xs:simpleType name="ScopedType"> <!-- must match ScopedTypeToNamespace in support.whlib (without module prefix) -->
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-z][a-z0-9_]+\.[a-z][a-zA-Z0-9]+" />
-    </xs:restriction>
-  </xs:simpleType>
 
   <xs:element name="siteprofile">
     <xs:complexType>
@@ -94,7 +89,6 @@
       <xs:extension base="Members">
         <xs:attribute name="namespace" type="xs:anyURI" />
         <xs:attribute name="cloneoncopy" type="xs:boolean" default="true" />
-        <xs:attribute name="scopedtype" type="ScopedType" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -701,7 +695,6 @@
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="typedef" type="xs:anyURI" />  <!-- Pre-4.28, deprecate -->
-    <xs:attribute name="scopedtype" type="ScopedType" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="icon" type="xs:string" /> <!-- Pre-4.28, deprecate -->
     <xs:attribute name="tolliumicon" type="sc:ImageSrc" /> <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->

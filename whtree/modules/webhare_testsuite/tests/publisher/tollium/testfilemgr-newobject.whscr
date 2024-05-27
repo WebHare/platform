@@ -125,7 +125,7 @@ ASYNC MACRO CreateUsingTemplates()
 
   created := GetTestsuiteTempFolder()->OpenByName("index.rtd");
   testfw->BeginWork();
-  created->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", [ anyfield := "TestDuplication" ]);
+  created->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", [ any_field := "TestDuplication" ]);
   created->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", [ idfield := "Unique identifier" ]);
   testfw->CommitWork();
   TestEq(TRUE, ObjectExists(created));
@@ -151,7 +151,7 @@ ASYNC MACRO CreateUsingTemplates()
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
   TestEq("index-2.rtd", TT("name")->value);
-  TestEq("TestDuplication", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", "anyfield")->value);
+  TestEq("TestDuplication", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", "any_field")->value);
   // The 'nocopyprops' properties (having cloneoncopy set to false) should not have been copied
   TestEq("", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", "idfield")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
@@ -177,4 +177,3 @@ RunTestframework([ PTR DynFolderIndex
                  , PTR CreateUsingTemplates
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);
-

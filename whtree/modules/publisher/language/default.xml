@@ -1681,6 +1681,7 @@
         <text tid="inspectautosave">Inspect autosave</text>
         <text tid="inspectdraft">Inspect draft</text>
         <text tid="inspectfinal">Inspect final</text>
+        <text tid="metadata">Metadata</text>
         <text tid="preview">View</text>
         <text tid="previewcurrentcontent">My changes</text>
         <text tid="previewdraft">Saved draft</text>

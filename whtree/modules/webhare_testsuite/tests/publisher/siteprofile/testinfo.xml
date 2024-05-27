@@ -1,5 +1,7 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_parser.ts" />
   <test script="test_compiler.whscr"/>
   <test script="test_siteprofile_reader.whscr"/>
   <test script="test_siteprofile_webrules.whscr" />
+  <test script="test_metatabsdata.ts" />
 </group>

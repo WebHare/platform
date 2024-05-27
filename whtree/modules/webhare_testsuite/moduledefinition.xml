@@ -299,6 +299,7 @@
 
   <publisher>
     <siteprofile path="data/webhare_testsuite.siteprl.xml" />
+    <siteprofile path="data/wts.siteprl.yml" />
     <siteprofile path="tests/consilio/data/consiliotests.siteprl.xml" />
 
     <virtualfs name="beta_tests" objectname="lib/myvirtualfs.whlib#BetaFS">

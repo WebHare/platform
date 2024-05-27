@@ -95,6 +95,9 @@ MACRO TestWHFSType()
   TestEq("tollium:folders/photoalbum", photoalbum.tolliumicon); //no icon is (yet?) set
   TestEq("contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting", photoalbum.indexfile);
   TestEq(TRUE, photoalbum.protectindexfile);
+
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->namespace);
+  TestEq(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops")->id, OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->id);
 }
 
 MACRO TestApplyRuleTester()
@@ -127,26 +130,30 @@ MACRO TestApplyRuleTester()
   testfw->RollbackWork();
 
   testfw->BeginWork();
-  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:basetest.siteSettings",  OpenWHFStype("webhare_testsuite:basetest.siteSettings")->defaultinstance);
+  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:baseTest.siteSettings",  OpenWHFStype("webhare_testsuite:baseTest.siteSettings")->defaultinstance);
   testfw->CommitWork(); //to trigger flush of siteprofile apply caches
 
   testfw->BeginWork();
   tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
   TestEq(DEFAULT RECORD, tester->GetUserData("webhare_testsuite:setting"));
 
-  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:basetest.siteSettings", [ mode := "blue" ]);
+  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:baseTest.siteSettings", [ mode := "blue" ]);
   testfw->CommitWork();  //to trigger flush of siteprofile apply caches
 
   testfw->BeginWork();
   tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
   TestEq([ dogname := "bluey", isdateset := FALSE ], tester->GetUserData("webhare_testsuite:setting"));
-  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:basetest.siteSettings", [ setting := "red", when := MakeDate(2024,1,1) ]);
+  OpenTestsuiteSite()->rootobject->SetInstanceData("webhare_testsuite:baseTest.siteSettings", [ setting := "red", when := MakeDate(2024,1,1) ]);
   testfw->CommitWork();  //to trigger flush of siteprofile apply caches
 
   testfw->BeginWork();
   tester := GetApplyTesterForObject(OpenTestsuiteSite()->OpenByPath("testpages")->id);
   TestEq([ dogname := "bluey", sistername := "bingo" ], tester->GetUserData("webhare_testsuite:setting"));
   testfw->RollbackWork();
+
+  tester := GetApplyTesterForObject(OpenTestsuiteJSSite()->OpenByPath("testpages/staticpage")->id);
+  //yaml baseProps is allowed to reset most settings
+  TestEqMembers([ title := TRUE, description := FALSE, seotitle := TRUE ], GetBaseProperties(tester),'*');
 }
 
 MACRO SiteSettingsTester()

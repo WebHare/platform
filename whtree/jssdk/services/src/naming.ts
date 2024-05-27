@@ -1,5 +1,7 @@
 /* Various 'how to name' things API */
 
+import { nameToSnakeCase } from "@webhare/hscompat/types";
+
 /** Split a module scoped name
  *  @param name - Name to split
  *  @returns [module, name] or null if not a valid module scoped name
@@ -50,4 +52,16 @@ export function splitFileReference(ref: string): { file: string; name: string } 
 /** Prefix a name with a module name if it has no prefix yet */
 export function addModule(module: string, name: string) {
   return name && !name.includes(":") ? `${module}:${name}` : name;
+}
+
+/** Convert a name to HS compatible snake casing.. Reject any names that are ambigous to encode (eg contain underscores, start with a letter) */
+export function toHSSnakeCase(tag: string): string {
+  if (!tag.match(/^[a-z][a-zA-Z0-9]*$/))
+    throw new Error(`Name '${tag}' cannot be unambigously converted to a HareScript snake case name`);
+
+  const result = nameToSnakeCase(tag);
+  if (result.length > 63)
+    throw new Error(`Name '${tag}' is too long`);
+
+  return result;
 }

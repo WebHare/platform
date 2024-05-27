@@ -1,0 +1,59 @@
+typeGroup: baseTest
+types:
+  siteSettings:
+    title: WTS Site Settings
+    members:
+      mode:
+        type: string
+      setting:
+        type: string
+      when:
+        type: datetime
+
+  baseTestProps:
+    namespace: http://www.webhare.net/xmlns/webhare_testsuite/basetestprops
+    title: WTS base test
+    members:
+      anyField:
+        type: string
+        title: Any field
+      numberField:
+        type: integer
+        title: A number field
+        constraints:
+          minValue: 0
+      taxonomy:
+        type: whfsrefarray
+        title: Taxonomy tags
+      folksonomy:
+        type: whfsrefarray
+        title: Folksonomy tags
+      complexField:
+        type: array
+        title: Complex field
+        members:
+          complexRecord:
+            type: record
+            title: Complex record
+            members:
+              complexField1:
+                type: string
+                title: Complex field 1
+      whUser:
+        type: string
+        title: WH User
+        component:
+          "http://www.webhare.net/xmlns/system/components#selectuser":
+            inputKind: wrdGuid
+
+apply:
+  - to:
+      type: http://www.webhare.net/xmlns/publisher/richdocumentfile
+    baseProps: [seotitle]
+    editProps:
+      - type: baseTestProps
+        layout: [anyField, numberField, folksonomy, whUser]
+        override:
+          numberField:
+            constraints:
+              maxValue: 100

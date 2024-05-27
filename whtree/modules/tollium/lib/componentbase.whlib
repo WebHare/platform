@@ -138,6 +138,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   RECORD ARRAY __userattributes;
 
+  RECORD yamlprops;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -262,6 +264,15 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
     this->componenttype := "component";
   }
+
+  PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    IF(CellExists(props,'enabled'))
+      this->enabled := props.enabled;
+
+    this->yamlprops := CELL[ ...this->yamlprops, ...props, DELETE enabled];
+  }
+
   PUBLIC MACRO __tollium_afternew()
   {
     //we call this here, to ensure we get the proper implementations of overriden functions
@@ -1915,7 +1926,7 @@ PUBLIC OBJECTTYPE TolliumIsDirtyable
     this->dirtylistener := DEFAULT OBJECT;
   }
 
-  MACRO SetDirty()
+  PUBLIC MACRO SetDirty()
   {
     IF (Objectexists(this->pvt_dirtylistener))
       this->pvt_dirtylistener->SetDirtyComponent(this);

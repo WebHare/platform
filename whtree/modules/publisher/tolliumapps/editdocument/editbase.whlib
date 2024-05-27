@@ -1,0 +1,78 @@
+<?wh
+
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+// Base class for a property editor. Preparing to share common code with objectprops
+PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
+<
+  // Metatabs config as received from describeMetaTabsForHS
+  RECORD metatabsconfig;
+  // Controllers for the metadata. For now we'll rely on compositions
+  RECORD ARRAY metacontrollers;
+
+  BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid)
+  {
+    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", objectid);
+    IF(NOT RecordExists(this->metatabsconfig))
+      RETURN FALSE; //nothing to do
+
+    ^metapart->visible := TRUE;
+    this->AddTypesTabs();
+
+    RETURN TRUE;
+  }
+
+  MACRO LoadMetadata(OBJECT sourceobject)
+  {
+    FOREVERY(RECORD controller FROM this->metacontrollers)
+    {
+      controller.fsinstance->value := controller.type->GetInstanceData(sourceobject->id);
+    }
+  }
+
+  MACRO SaveMetadata(OBJECT sourceobject)
+  {
+    //FIXME ensure any specific validation rule *and* all valueConstraints are honored
+    FOREVERY(RECORD controller FROM this->metacontrollers)
+    {
+      //broken fields (eg due to incompatible data/vaueConstraints) should be able to opt out, IsUpdateValue ?
+      controller.type->SetInstanceData(sourceobject->id, controller.fsinstance->GetUpdateValue());
+    }
+  }
+
+  MACRO AddTypesTabs()
+  {
+    //TODO also take care of the SEO props on tab 1 to generalize the logic
+
+    INTEGER insertpos := 1;
+    FOREVERY(RECORD type FROM this->metatabsconfig.types)
+    {
+      OBJECT fsinstance := this->CreateTolliumComponent("record");
+
+      OBJECT newtab := ^metatabs->InsertTabAt(insertpos, GetTid(type.title));
+      insertpos := insertpos + 1;
+      FOREVERY(RECORD field FROM type.members)
+      {
+        OBJECT newcomp := this->CreateCustomComponent(field.component.ns, field.component.component);
+        IF(MemberExists(newcomp, 'composition'))
+          newcomp->composition := fsinstance;
+        IF(MemberExists(newcomp, 'cellname'))
+          newcomp->cellname := field.name;
+        IF(MemberExists(newcomp, 'dirtylistener'))
+          newcomp->dirtylistener := ^dirtylistener;
+
+        newcomp->SetYamlProps(field.component.yamlprops);
+        newcomp->title := GetTid(field.title);
+        newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
+      }
+
+      INSERT CELL [ fsinstance, type := OpenWHFSType(type.namespace) ] INTO this->metacontrollers AT END;
+      INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
+    }
+  }
+
+>;

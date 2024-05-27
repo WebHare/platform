@@ -1,0 +1,193 @@
+---
+# yaml-language-server: $schema=http://json-schema.org/draft-07/schema#
+# (To update derived the TypeScript interfaces: wh update-generated-files --only=schema - TODO generate TS for us)
+# TODO we leave some parts open now to allow for custom elements... but we should be able to compile to a complete schema allowing only supported elements
+"$schema": http://json-schema.org/draft-07/schema#
+title: Site profile
+type: object
+additionalProperties: false
+properties:
+  gid:
+    type: string
+  typeGroup:
+    type: string
+  types:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase. TODO allow URIs too
+        $ref: "#/definitions/Type"
+        additionalProperties: false
+  apply:
+    type: array
+    items:
+      $ref: "#/definitions/Apply"
+
+definitions:
+  Type:
+    type: object
+    additionalProperties: false
+    properties:
+      namespace:
+        type: string
+        description: "The namespace assigned to the type. If not set, it will be `x-webhare-scopedtype:module.type_group.type` (snake-cased)"
+      gid:
+        type: string
+      title:
+        type: string
+      tid:
+        type: string
+      members:
+        $ref: "#/definitions/TypeMembers"
+
+  TypeMembers:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
+                             # TODO we could consider mapping underscores to double-underscores when snake-casing and then even allow them in camelcaps names?
+        $ref: "#/definitions/TypeMember"
+        additionalProperties: false
+
+  TypeMember:
+    type: object
+    additionalProperties: false
+    required:
+      - "type"
+    properties:
+      type:
+        type: string
+        enum:
+          - string
+          - integer
+          - datetime
+          - file
+          - boolean
+          - float
+          - money
+          - whfsref
+          - array
+          - whfsrefarray
+          - stringarray
+          - richdocument
+          - intextlink
+          - instance
+          - url
+          - composeddocument
+          - record
+          # - formcondition  FIXME is this really declarable?
+      tid:
+        type: string
+      title:
+        type: string
+      comment:
+        type: string
+        description: "A developer's comment on this type. Not shown to non-prviileged WebHare users."
+      members: # TODO limit to arrays only
+        $ref: "#/definitions/TypeMembers"
+      constraints:
+        $ref: "#/definitions/ValueConstraints"
+      component:
+        type: object # Can't validate Tollium components in a static schema definition
+
+  ValueConstraints: # TODO we need to share this with Tollium components
+    type: object
+    description: Record constraints for a Tollium component value
+    additionalProperties: false
+    properties:
+      valueType:
+        description: Type of value used
+        type: string
+        enum:
+          - string
+          - integer
+          - float
+          - money
+          - boolean
+          - datetime
+          - resourceDescriptor
+          - fsobjectid
+          - array
+      itemType:
+        description: Type of value used in an array
+        type: string
+        enum:
+          - string
+          - integer
+          - float
+          - money
+          - boolean
+          - datetime
+          - resourceDescriptor
+          - fsobjectid
+      maxBytes:
+        type: integer
+      minValue:
+        description: Minimum value
+        type: integer #TODO float?
+      maxValue:
+        description: Maximum value
+        type: integer #TODO float?
+
+  Apply:
+    type: object
+    additionalProperties: false
+    required:
+      - to
+    properties:
+      to:
+        $ref: "#/definitions/ApplyTo"
+      baseProps:
+        $ref: "#/definitions/ApplyBaseProps"
+      editProps:
+        $ref: "#/definitions/ApplyEditProps"
+
+  ApplyTo:
+    anyOf:
+      - type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type: # should map to scopedType and be resolved
+            type: string
+          fileType: #'legacy' types - note that these in HS matching also support wildcards
+            type: string
+          folderType: #'legacy' types - note that these in HS matching also support wildcards
+            type: string
+      - type: string
+        enum:
+          - "all"
+
+  ApplyBaseProps:
+    type: array
+    items:
+      type: string
+      enum:
+        - description
+        - keywords
+        - seotitle
+
+  ApplyEditProps:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+        layout:
+          type: array
+          items:
+            type: string
+        override:
+          type: object
+          additionalProperties:
+            $ref: "#/definitions/ApplyEditMember"
+
+  ApplyEditMember:
+    type: object
+    additionalProperties: false
+    properties:
+      constraints:
+        $ref: "#/definitions/ValueConstraints"
