@@ -57,3 +57,14 @@ apply:
           numberField:
             constraints:
               maxValue: 100
+
+  - to:
+      pathMatch: metaoverride1
+    baseProps: [seotitle]
+    editProps:
+      - type: baseTestProps
+        override:
+          whUser:
+            title: WH Usertje
+            component:
+              textarea:

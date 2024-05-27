@@ -23,23 +23,13 @@ export enum CSPMemberType {
   FormCondition = 22
 }
 
-export interface CSPMember {
+export interface CSPMember extends CSPMemberOverride {
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
   comment?: string;
-  /** Member title (YAML siteprofiles only) */
-  title?: string;
   /** Case preserved name (YAML siteprofiles only) */
   jsname?: string;
-  /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
-  constraints?: ValueConstraints;
-  /** Customized component */
-  component?: {
-    ns: string;
-    component: string;
-    yamlprops: Record<string, unknown>;
-  };
 }
 
 export interface CSPContentType {
@@ -195,7 +185,18 @@ type CSPBaseProperties = {
 };
 
 export interface CSPMemberOverride {
+  /** Member title (YAML siteprofiles only) */
+  title?: string;
+  /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
   constraints?: ValueConstraints;
+  /** Customized component */
+  component?: {
+    ns: string;
+    component: string;
+    yamlprops: Record<string, unknown>;
+  };
+  /* Specific field level overrides  */
+  override?: Record<string, unknown>;
 }
 
 export interface CSPApplyRule {

@@ -2,6 +2,13 @@ import * as test from "@webhare/test-backend";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { openFile } from "@webhare/whfs";
 import { describeMetaTabs, remapForHs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
+import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
+import { getTestSiteJSTemp } from "@mod-webhare_testsuite/js/testsupport";
+import { loadlib } from "@webhare/harescript/src/contextvm";
+
+async function prep() {
+  await loadlib("mod::system/lib/testframework.whlib").runTestFramework([]);
+}
 
 async function testIgnoreMetatabsForOldContent() {
   //watches for global triggers of new metadata screens. we need to avoid that for now, don't surprise existing users
@@ -89,7 +96,52 @@ async function testMetadataReader() {
   }, remapForHs(metatabs!));
 }
 
+async function testOverrides() {
+  await beginWork();
+  const tmpfolder = await getTestSiteJSTemp();
+  const metaoverride1 = await tmpfolder.createFile("metaoverride1", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await commitWork();
+
+  { //metaoverride1
+    const applyester = await getApplyTesterForObject(metaoverride1);
+    const metatabs = await describeMetaTabs(applyester);
+
+    test.eqPartial({
+      types: [
+        {
+          namespace: 'http://www.webhare.net/xmlns/webhare_testsuite/basetestprops',
+          title: ':WTS base test',
+          members: [
+            {
+              name: "anyField",
+              title: ":Any field",
+              component: { textedit: { valueConstraints: { maxBytes: 4096 } } }
+            }, {
+              name: "numberField",
+              constraints: {
+                valueType: "integer",
+                minValue: 0,
+                maxValue: 100
+              },
+              component: { textedit: { valueType: 'integer' } }
+            }, {
+              name: "folksonomy"
+            }, {
+              name: "whUser",
+              title: ":WH Usertje",
+              component: { textarea: {} }
+            }
+          ]
+        }
+      ]
+    }, metatabs);
+  } //end metaoverride1
+
+}
+
 test.run([
+  prep,
   testIgnoreMetatabsForOldContent,
-  testMetadataReader
+  testMetadataReader,
+  testOverrides
 ]);

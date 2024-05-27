@@ -7,6 +7,9 @@ import { openFileOrFolder, openFolder } from "@webhare/whfs";
 export async function getTestSiteTemp() {
   return await openFolder("site::webhare_testsuite.testsite/tmp");
 }
+export async function getTestSiteJSTemp() {
+  return await openFolder("site::webhare_testsuite.testsitejs/tmp");
+}
 
 export async function getTestSiteHS() {
   return await whfs.openSite("webhare_testsuite.testsite");
