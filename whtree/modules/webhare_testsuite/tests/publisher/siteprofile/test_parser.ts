@@ -179,6 +179,70 @@ apply:
             maxValue: 100
       `));
 
+
+  // Test explicit components
+  test.eqPartial({
+    contenttypes: [
+      {
+        scopedtype: 'webhare_testsuite:myTypes.testType',
+        members:
+          [
+            {
+              jsname: "whUser",
+              type: CSPMemberType.String,
+              component: {
+                ns: "http://www.webhare.net/xmlns/system/components",
+                component: "selectuser",
+                yamlprops: { input_kind: "wrdGuid" }
+              }
+            }
+          ]
+      }
+    ],
+    rules: [
+      {
+        tos: [{ filetype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
+        applyindex: 0,
+        baseproperties: { description: false, seotitle: true, haslist: ["description", "seotitle", "keywords", "seotab", "striprtdextension", "seotabrequireright"] },
+        yaml: true,
+        extendproperties: [
+          {
+            contenttype: 'webhare_testsuite:myTypes.testType',
+            override: Object.entries({
+              'numberField': {
+                constraints: {
+                  //NOTE the parser doesn't merge constraints between editProps and Type yet, they may be in different files
+                  maxValue: 100
+                }
+              }
+            })
+          }
+        ]
+      }
+    ]
+  }, await parseSP(`---
+typeGroup: myTypes
+types:
+  testType:
+    members:
+      whUser:
+        type: string
+        title: WH User
+        component:
+          "http://www.webhare.net/xmlns/system/components#selectuser":
+            inputKind: wrdGuid
+apply:
+- to:
+    fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
+  baseProps: [seotitle]
+  editProps:
+    - type: testType
+      override:
+         numberField:
+          constraints:
+            maxValue: 100
+      `));
+
   //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type
   //     for backwardscompat/clarity no harm in separating old filetype/foldertype matching from new scopedtype matching,
   //     especially as reusing old types also requires matching their wildcard/glob rules

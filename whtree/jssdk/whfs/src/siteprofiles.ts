@@ -34,6 +34,12 @@ export interface CSPMember {
   jsname?: string;
   /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
   constraints?: ValueConstraints;
+  /** Customized component */
+  component?: {
+    ns: string;
+    component: string;
+    yamlprops: Record<string, unknown>;
+  };
 }
 
 export interface CSPContentType {

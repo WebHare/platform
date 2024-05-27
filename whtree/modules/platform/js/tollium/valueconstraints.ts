@@ -26,14 +26,14 @@ export function mergeConstraints(lhs: Readonly<ValueConstraints> | null, rhs: Re
   return mergedConstraints;
 }
 
-type AnyTolliumComponent = Record<string, unknown>;
+export type AnyTolliumComponent = Record<string, unknown>;
 
 export function suggestTolliumComponent(constraints: Readonly<ValueConstraints>): { component?: AnyTolliumComponent; error?: string } {
   if (constraints.valueType === "string") {
-    return { component: { textEdit: { valueConstraints: constraints } } };
+    return { component: { textedit: { valueConstraints: constraints } } };
   }
   if (constraints.valueType === "integer") {
-    return { component: { textEdit: { valueConstraints: constraints, valueType: "integer" } } };
+    return { component: { textedit: { valueConstraints: constraints, valueType: "integer" } } };
   }
 
   if (!constraints.valueType)

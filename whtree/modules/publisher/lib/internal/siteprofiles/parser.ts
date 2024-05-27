@@ -6,6 +6,7 @@ import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPContentType,
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
+import { toSnakeCase } from "@webhare/hscompat/types";
 
 export type ParserMessage = {
   col: number;
@@ -121,6 +122,22 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   //"formcondition": CSPMemberType.FormCondition,
 };
 
+export function parseYamlComponent(comp: NonNullable<Sp.TypeMember["component"]>) {
+  const compentries = Object.entries(comp);
+
+  if (!compentries.length)
+    throw new Error(`Component is empty`); //TODO better error message
+  if (compentries.length > 1)
+    throw new Error(`Component may contain only one component`);
+
+  const compname = compentries[0][0];
+  const nameparts = compname.split('#');
+  const ns = nameparts.length === 1 ? "http://www.webhare.net/xmlns/tollium/screens" : nameparts[0];
+  const component = nameparts.length === 1 ? nameparts[0] : nameparts[1];
+
+  return { ns, component, yamlprops: toSnakeCase(compentries[0][1]) as Record<string, unknown> };
+}
+
 function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
@@ -142,6 +159,9 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
 
     if (type.constraints || member.constraints)
       addmember.constraints = mergeConstraints(type.constraints || null, member.constraints || null)!;
+
+    if (member.component)
+      addmember.component = parseYamlComponent(member.component);
 
     cspmembers.push(addmember);
   }

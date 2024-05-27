@@ -23,7 +23,7 @@ function testValueConstraints() {
 }
 
 function testTolliumMapping() {
-  test.eqPartial({ component: { textEdit: { valueConstraints: { required: true } } } }, suggestTolliumComponent({ valueType: "string", required: true }));
+  test.eqPartial({ component: { textedit: { valueConstraints: { required: true } } } }, suggestTolliumComponent({ valueType: "string", required: true }));
   test.eqPartial({ error: /without a valueType/ }, suggestTolliumComponent({}));
 }
 

@@ -87,6 +87,8 @@ definitions:
         $ref: "#/definitions/TypeMembers"
       constraints:
         $ref: "#/definitions/ValueConstraints"
+      component:
+        type: object # Can't validate Tollium components in a static schema definition
 
   ValueConstraints: # TODO we need to share this with Tollium components
     type: object

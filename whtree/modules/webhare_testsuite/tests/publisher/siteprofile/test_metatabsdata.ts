@@ -25,7 +25,7 @@ async function testMetadataReader() {
           {
             name: "anyField",
             title: ":Any field",
-            component: { textEdit: { valueConstraints: { maxBytes: 4096 } } }
+            component: { textedit: { valueConstraints: { maxBytes: 4096 } } }
           }, {
             name: "numberField",
             constraints: {
@@ -33,9 +33,13 @@ async function testMetadataReader() {
               minValue: 0,
               maxValue: 100
             },
-            component: { textEdit: { valueType: 'integer' } }
+            component: { textedit: { valueType: 'integer' } }
           }, {
             name: "folksonomy"
+          }, {
+            name: "whUser",
+            title: ":WH User",
+            component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
           }
         ]
       }
@@ -70,6 +74,14 @@ async function testMetadataReader() {
             }
           }, {
             name: "folksonomy"
+          }, {
+            name: "wh_user",
+            title: ":WH User",
+            component: {
+              ns: "http://www.webhare.net/xmlns/system/components",
+              component: "selectuser",
+              yamlprops: { input_kind: "wrdGuid", value_constraints: { value_type: "string" } }
+            }
           }
         ]
       }

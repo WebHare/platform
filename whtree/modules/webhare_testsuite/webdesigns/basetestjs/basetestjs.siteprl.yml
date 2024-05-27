@@ -28,6 +28,12 @@ types:
       folksonomy:
         type: whfsrefarray
         title: Folksonomy tags
+      whUser:
+        type: string
+        title: WH User
+        component:
+          "http://www.webhare.net/xmlns/system/components#selectuser":
+            inputKind: wrdGuid
 
 apply:
   - to:
@@ -35,7 +41,7 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: baseTestProps
-        layout: [anyField, numberField, folksonomy]
+        layout: [anyField, numberField, folksonomy, whUser]
         override:
           numberField:
             constraints:

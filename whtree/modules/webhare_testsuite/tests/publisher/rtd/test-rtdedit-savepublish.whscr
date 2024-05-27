@@ -32,7 +32,8 @@ ASYNC MACRO TestMetaTab()
       , publish := TRUE
       ]);
   testfile->SetInstanceData("webhare_testsuite:baseTest.baseTestProps",
-    [ number_field := 42 ]);
+    [ number_field := 42,
+      wh_user := testfw->GetUserObject("sysop")->entity->guid ]);
 
   testfw->CommitWork();
 
@@ -48,6 +49,11 @@ ASYNC MACRO TestMetaTab()
   anumberfield->SetDirty(); //pretend the client did it
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies disrtylisteners are connected");
+
+  OBJECT selectuserfield :=  TT(":WH User"); //note that this finds the emedded textedit
+  TestAssert(ObjectExists(selectuserfield));
+  TestEq(FALSE, selectuserfield->enabled);
+  TestEq('Sysop McTestsuite', selectuserfield->value);
 
   TTClick(":Save");
 

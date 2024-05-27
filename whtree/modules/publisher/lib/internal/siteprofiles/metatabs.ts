@@ -2,11 +2,12 @@ import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src
 import { getType } from "@webhare/whfs/src/contenttypes";
 import { openFileOrFolder } from "@webhare/whfs";
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
-import { mergeConstraints, suggestTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
+import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
 import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
-import { nameToSnakeCase } from "@webhare/hscompat/types";
+import { nameToSnakeCase, toCamelCase } from "@webhare/hscompat/types";
 import type { CSPApplyRule, CSPContentType, CSPMember } from "@webhare/whfs/src/siteprofiles";
 import { isTruthy } from "@webhare/std/collections";
+import { parseYamlComponent } from "./parser";
 
 interface MetaTabs {
   types: Array<{
@@ -31,6 +32,24 @@ function determineLayout(matchtype: CSPContentType, extend: ExtendProperties): C
   return matchtype.members;
 }
 
+function determineComponent(constraints: ValueConstraints | null, setComponent: CSPMember["component"]): AnyTolliumComponent {
+  if (setComponent) {
+    const props = { ...toCamelCase(setComponent.yamlprops), valueConstraints: constraints };
+    if (setComponent.ns === "http://www.webhare.net/xmlns/tollium/screens")
+      return { [setComponent.component]: props };
+    else
+      return { [`${setComponent.ns}#${setComponent.component}`]: props };
+  }
+
+  const suggestion = constraints && suggestTolliumComponent(constraints);
+  return suggestion?.component ?? {
+    text: {
+      value: suggestion?.error ?? 'Unable to suggest a component',
+      enabled: false
+    }
+  };
+}
+
 export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<MetaTabs | null> {
   const cf = await applytester.__getCustomFields();
   const metasettings: MetaTabs = {
@@ -50,13 +69,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
       for (const member of determineLayout(matchtype, extend)) {
         const override = overrides[member.jsname!]; //has to exist as we wouldn't be processing non-yaml types
         const constraints = mergeConstraints(member.constraints ?? null, override?.constraints ?? null);
-        const suggestion = constraints && suggestTolliumComponent(constraints);
-        const component = suggestion?.component ?? {
-          text: {
-            value: suggestion?.error ?? 'Unable to suggest a component',
-            enabled: false
-          }
-        };
+        const component = determineComponent(constraints, member.component); //FIXME support override
 
         members.push({
           name: member.jsname!,
@@ -105,11 +118,7 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
         ...member,
         name: nameToSnakeCase(member.name),
         constraints: toSnakeCase(member.constraints),
-        component: {
-          ns: "http://www.webhare.net/xmlns/tollium/screens",
-          component: Object.keys(member.component)[0].toLowerCase(),
-          yamlprops: toSnakeCase(Object.values(member.component)[0])
-        }
+        component: parseYamlComponent(member.component)
       }))
     }))
   };
