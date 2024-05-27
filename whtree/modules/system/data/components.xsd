@@ -81,6 +81,7 @@
       <xs:attributeGroup ref="tc:Required" />
       <xs:attributeGroup ref="sc:Errorlabel" />
       <xs:attributeGroup ref="tc:OnChange" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
       <xs:attribute name="inputkind" default="wrd_id">
         <xs:annotation>
           <xs:documentation>
