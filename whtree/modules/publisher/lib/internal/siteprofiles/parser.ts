@@ -150,7 +150,7 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
       name: toHSSnakeCase(name),
       jsname: name,
       type: type.dbtype,
-      children: member.type === "array" ? parseMembers(gid, member.members || {}) : [],
+      children: ["array", "record"].includes(member.type) ? parseMembers(gid, member.members || {}) : [],
       title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 

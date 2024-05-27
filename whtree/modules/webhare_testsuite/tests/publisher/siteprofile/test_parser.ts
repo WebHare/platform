@@ -37,7 +37,29 @@ types:
             { name: 'other_field', type: CSPMemberType.String, title: ":My other field" },
             {
               name: 'array_field', type: CSPMemberType.Array, children:
-                [{ name: 'sub_field', jsname: "subField", type: CSPMemberType.String, title: "webhare_testsuite:base.gid.sub_field" }]
+                [
+                  {
+                    name: 'sub_field',
+                    jsname: "subField",
+                    type: CSPMemberType.String,
+                    title: "webhare_testsuite:base.gid.sub_field"
+                  }, {
+                    name: 'record_field',
+                    jsname: "recordField",
+                    type: CSPMemberType.Record,
+                    title: "webhare_testsuite:base.gid.record_field",
+                    children: [
+                      { jsname: "subImageField", type: CSPMemberType.File, title: "webhare_testsuite:base.gid.sub_image_field" },
+                      {
+                        jsname: "subArrayField", type: CSPMemberType.Array, children: [
+                          {
+                            jsname: "subRecordField", children: [{ jsname: "subSubString" }]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
             }
           ]
       },
@@ -67,6 +89,19 @@ types:
         members:
           subField:
             type: string
+          recordField:
+            type: record
+            members:
+              subImageField:
+                type: file
+              subArrayField:
+                type: array
+                members:
+                  subRecordField:
+                    type: record
+                    members:
+                      subSubString:
+                        type: string
   testType2:
     gid: .tt2
     members:

@@ -28,6 +28,17 @@ types:
       folksonomy:
         type: whfsrefarray
         title: Folksonomy tags
+      complexField:
+        type: array
+        title: Complex field
+        members:
+          complexRecord:
+            type: record
+            title: Complex record
+            members:
+              complexField1:
+                type: string
+                title: Complex field 1
       whUser:
         type: string
         title: WH User
