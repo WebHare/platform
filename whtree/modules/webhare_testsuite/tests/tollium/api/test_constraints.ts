@@ -10,6 +10,13 @@ function testConstraintMerge(expect: ValueConstraints | null, lhs: ValueConstrai
   test.eq(expect, mergeConstraints(expect, rhs));
   test.eq(expect, mergeConstraints(lhs, expect));
   test.eq(expect, mergeConstraints(rhs, expect));
+
+  //see if we properly deal with undefined
+  if (expect) {
+    const allkeys = new Set([...Object.keys(lhs || {}), ...Object.keys(rhs || {})]);
+    const allundefined = Object.fromEntries([...allkeys].map(keyName => [keyName, undefined]));
+    test.eq(expect, mergeConstraints({ ...allundefined, ...lhs }, { ...allundefined, ...rhs }));
+  }
 }
 
 function testValueConstraints() {
@@ -20,6 +27,7 @@ function testValueConstraints() {
   testConstraintMerge({ maxValue: 2048 }, { maxValue: 4096 }, { maxValue: 2048 });
   testConstraintMerge({ maxBytes: 2048 }, null, { maxBytes: 2048 });
   testConstraintMerge({ maxBytes: 2048 }, { maxBytes: 4096 }, { maxBytes: 2048 });
+  testConstraintMerge({ maxBytes: 4096, required: true }, { required: true }, { maxBytes: 4096 });
 }
 
 function testTolliumMapping() {

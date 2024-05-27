@@ -128,6 +128,9 @@ definitions:
       maxValue:
         description: Maximum value
         type: integer #TODO float?
+      required:
+        description: Require a value to be set
+        type: boolean
 
   Apply:
     type: object

@@ -12,16 +12,26 @@ export function mergeConstraints(lhs: Readonly<ValueConstraints> | null, rhs: Re
   if (rhs === null)
     return lhs;
 
-  //Now neither will be null
-  const mergedConstraints = { ...lhs, ...rhs };
+  //Now neither will be null. Merge them together
+  const mergedConstraints = { ...rhs };
 
   //Any value in both constraints will have been set to the one in rhs. So now copy any lhs values where needed
-  if (lhs.minValue !== undefined && lhs.minValue > mergedConstraints.minValue!)
+  if (lhs.minValue !== undefined && (mergedConstraints.minValue === undefined || lhs.minValue > mergedConstraints.minValue))
     mergedConstraints.minValue = lhs.minValue;
-  if (lhs.maxValue !== undefined && lhs.maxValue < mergedConstraints.maxValue!)
+  if (lhs.maxValue !== undefined && (mergedConstraints.maxValue === undefined || lhs.maxValue < mergedConstraints.maxValue))
     mergedConstraints.maxValue = lhs.maxValue;
-  if (lhs.maxBytes !== undefined && lhs.maxBytes < mergedConstraints.maxBytes!)
+  if (lhs.maxBytes !== undefined && (mergedConstraints.maxBytes === undefined || lhs.maxBytes < mergedConstraints.maxBytes))
     mergedConstraints.maxBytes = lhs.maxBytes;
+
+  if (lhs.valueType) {
+    if (!mergedConstraints.valueType)
+      mergedConstraints.valueType = lhs.valueType;
+    else if (lhs.valueType !== mergedConstraints.valueType)
+      throw new Error(`Conflicting valueType constraint: '${lhs.valueType}' vs '${mergedConstraints.valueType}'`);
+  }
+
+  if (lhs.required)
+    mergedConstraints.required = true;
 
   return mergedConstraints;
 }
