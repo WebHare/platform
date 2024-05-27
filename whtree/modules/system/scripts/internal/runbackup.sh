@@ -28,7 +28,7 @@ else
   RSYNCOPTS="--info=progress2"
 fi
 
-mkdir -p "$BACKUPDEST"
+mkdir -p -- "$BACKUPDEST" # creates the target, usually "$WEBHARE_DATAROOT"/preparedbackup
 
 rm -rf -- "$BACKUPDEST/dbase" "$BACKUPDEST/postgresql" "$BACKUPDEST/backup" "$BACKUPDEST/blob"
 mkdir -p -- "$BACKUPDEST/backup" "$BACKUPDEST/blob"

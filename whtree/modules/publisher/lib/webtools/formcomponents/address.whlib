@@ -506,11 +506,19 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
     IF (country = "")
       RETURN DEFAULT RECORD;
 
-    RECORD value;
+    RECORD value :=  //WH5.4 address format
+        [ country :=       ""
+        , street :=         ""
+        , nr_detail :=      ""
+        , zip :=            ""
+        , city :=           ""
+        , state :=          ""
+        ];
+
     FOREVERY (RECORD field FROM this->allfields)
     {
       IF (#field = 0 OR country IN field.countries)
-        value := CellInsert(value, field.tag, field.fieldobj->value);
+        value := CellUpdate(value, field.tag, field.fieldobj->value);
     }
     RETURN value;
   }

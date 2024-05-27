@@ -61,7 +61,7 @@ PUBLIC MACRO TestAddressField()
       ], (SELECT * FROM formresult.errors ORDER BY name), "*");
 
   // Only NL fields?
-  TestEQ([ country := "NL", city := "", nr_detail := "", street := "", zip := "" ], formresult.result.address);
+  TestEQ([ country := "NL", city := "", nr_detail := "", street := "", zip := "", state := "" ], formresult.result.address);
 
   // no errors when invisible
   INSERT CELL visiblefields := VARIANT[] INTO fields;
@@ -108,6 +108,7 @@ PUBLIC MACRO TestAddressField()
       , nr_detail :=  "296"
       , zip :=        "7521 AM"
       , city :=       "Enschede"
+      , state :=      ""
       ], formresult.result.address);
 
   // Regression: The 'address' field has the 'nl-zip-force' option activated, so street and city are not editable. They
@@ -126,7 +127,27 @@ PUBLIC MACRO TestAddressField()
       , nr_detail :=  "296"
       , zip :=        "7521 AM"
       , city :=       "Enschede"
+      , state :=      ""
       ], formresult.result.address);
+
+  // Regression: PL address missing nr_detail
+  // should be update however if zip and nr_detail have changed.
+  fields := [ "address2.country" :=    "PL"
+            , "address2.street" :=     "In Polen"
+            , "address2.zip" :=        "12-345"
+            , "address2.city" :=       "Warsaw"
+            ];
+
+  formresult := tester->SubmitForm(fields);
+  dumpvalue(formresult.result);
+  TestEQ(
+      [ country :=    "PL"
+      , street :=     "In Polen"
+      , nr_detail :=  ""
+      , zip :=        "12-345"
+      , city :=       "Warsaw"
+      , state :=      ""
+      ], formresult.result.value.address2);
 
   // zip not found error
   fields :=  [ "address.country" :=    "NL"

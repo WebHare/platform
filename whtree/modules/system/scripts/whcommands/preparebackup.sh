@@ -5,5 +5,4 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
 fi
 
 rm -rf -- "$WEBHARE_DATAROOT"/preparedbackup
-mkdir -p -- "$WEBHARE_DATAROOT"/preparedbackup
 exec "$WEBHARE_DIR"/modules/system/scripts/internal/runbackup.sh "$WEBHARE_DATAROOT"/preparedbackup
