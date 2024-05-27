@@ -1,6 +1,6 @@
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 
-//As long as we get away with exactly copying the definition in the futureit guarantees some consistency..
+//As long as we get away with exactly copying the definition in the future it guarantees some consistency..
 export type { ValueConstraints };
 
 export function mergeConstraints(lhs: Readonly<ValueConstraints>, rhs: Readonly<ValueConstraints>): ValueConstraints;

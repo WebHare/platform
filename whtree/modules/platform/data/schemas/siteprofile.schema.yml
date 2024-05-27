@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=http://json-schema.org/draft-07/schema#
 # (To update derived the TypeScript interfaces: wh update-generated-files --only=schema - TODO generate TS for us)
-# TODO we leave some parts open now to allow for custom elements... but we should be able to compile to a copmlete schema allowing only supported elements
+# TODO we leave some parts open now to allow for custom elements... but we should be able to compile to a complete schema allowing only supported elements
 "$schema": http://json-schema.org/draft-07/schema#
 title: Site profile
 type: object

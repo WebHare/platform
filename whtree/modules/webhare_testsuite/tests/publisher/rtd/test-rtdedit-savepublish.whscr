@@ -50,7 +50,7 @@ ASYNC MACRO TestMetaTab()
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies disrtylisteners are connected");
 
-  OBJECT selectuserfield :=  TT(":WH User"); //note that this finds the emedded textedit
+  OBJECT selectuserfield :=  TT(":WH User"); //note that this finds the embedded textedit
   TestAssert(ObjectExists(selectuserfield));
   TestEq(FALSE, selectuserfield->enabled);
   TestEq('Sysop McTestsuite', selectuserfield->value);
