@@ -1,6 +1,6 @@
-import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForNewObject, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { getType } from "@webhare/whfs/src/contenttypes";
-import { openFileOrFolder } from "@webhare/whfs";
+import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
 import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
@@ -145,8 +145,10 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
   return translated;
 }
 
-export async function describeMetaTabsForHS(objectid: number): Promise<MetaTabsForHS | null> {
-  const applytester = await getApplyTesterForObject(await openFileOrFolder(objectid, { allowHistoric: true }));
+export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number }): Promise<MetaTabsForHS | null> {
+  const typens = getType(obj.type)?.namespace ?? '';
+  const applytester = obj.objectid ? await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }))
+    : await getApplyTesterForNewObject(await openFolder(obj.parent), obj.isfolder, typens);
   if (!applytester)
     return null;
 

@@ -29,6 +29,7 @@
 
     <compositions>
       <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
+      <dirtylistener name="dirtylistener" /> <!-- added for editapi compatibility, not used yet -->
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">

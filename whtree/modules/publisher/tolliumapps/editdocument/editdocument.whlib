@@ -263,7 +263,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
 
     this->contexts->applytester := applytester;
-    IF(this->SetupMetaTabs(objectid)) //tabs appeared!
+    IF(this->SetupMetaTabs(objectid, 0, FALSE, 0)) //don't bother with the extra setings until we actually support true New File
     {
       ^metapart->visible := TRUE;
     }
@@ -290,7 +290,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     applytester->RunSiteprofileHookTarget("publisher:documenteditor", [ contexts := this->contexts
                                                                       , objectid := objectid
                                                                       ]);
-    ^metatabs->RunExtensionsPostInit();
+    ^maintabs->RunExtensionsPostInit();
   }
 
   MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
@@ -754,7 +754,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       }
 
       this->contexts->editdocumentapi->__FlushInstanceData(this->currentautosave->fsobject);
-      this->SaveMetadata(this->currentautosave->fsobject);
+      this->SaveMetadata(this->currentautosave->fsobject->id);
     }
     ELSE IF (ObjectExists(this->currentautosave))
     {
