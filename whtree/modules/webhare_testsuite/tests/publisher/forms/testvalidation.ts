@@ -145,6 +145,19 @@ test.registerTests([
     test.eq(errornode.id, field.getAttribute("aria-describedby"));
   },
 
+  'Test text area',
+  async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
+
+    //test proper textarea validation
+    //minLength & maxLength don't trigger validation issues if no userinteraction happened yet, so we'll enable required manually
+    test.qR('#coretest-textarea').required = true;
+    test.click('#coretest-textarea');
+    await test.pressKey('Tab');
+    test.eq("true", test.qR('#coretest-textarea').getAttribute("aria-invalid"));
+    test.eq('Dit veld is verplicht.', test.qR('#coretest-textarea').closest('.wh-form__fieldgroup')?.querySelector(".wh-form__error")?.textContent);
+  },
+
   'Test radio visiblity and checks',
   async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
