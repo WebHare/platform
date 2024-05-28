@@ -77,7 +77,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   {
     //DumpValue(GetStackTrace(), [ name := "BE DIRTY!"]);
     this->editscreen->^dirtylistener->SetDirty();
-    this->editscreen->RefreshState();
   }
 
   PUBLIC RECORD FUNCTION GetMetadata()

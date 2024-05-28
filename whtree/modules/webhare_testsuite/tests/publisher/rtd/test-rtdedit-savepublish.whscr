@@ -60,9 +60,13 @@ ASYNC MACRO TestMetaTab()
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
 
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+  TestEq(FALSE, topscreen->frame->flags.canpublish);
+
   AWAIT TestMetaFields(1);
 
-  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies disrtylisteners are connected");
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
+  TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
 
   TTClick(":Save");
 
