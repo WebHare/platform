@@ -38,16 +38,26 @@ export function mergeConstraints(lhs: Readonly<ValueConstraints> | null, rhs: Re
 
 export type AnyTolliumComponent = Record<string, unknown>;
 
-export function suggestTolliumComponent(constraints: Readonly<ValueConstraints>): { component?: AnyTolliumComponent; error?: string } {
-  if (constraints.valueType === "string") {
-    return { component: { textedit: { valueConstraints: constraints } } };
+export function suggestTolliumComponent(valueConstraints: Readonly<ValueConstraints>): { component?: AnyTolliumComponent; error?: string } {
+  if (valueConstraints.valueType === "string") {
+    return { component: { textedit: { valueConstraints } } };
   }
-  if (constraints.valueType === "integer") {
-    return { component: { textedit: { valueConstraints: constraints, valueType: "integer" } } };
+  if (valueConstraints.valueType === "integer") {
+    return { component: { textedit: { valueConstraints, valueType: "integer" } } };
+  }
+  if (valueConstraints.valueType === "datetime") {
+    if (valueConstraints.precision === "day")
+      return { component: { datetime: { valueConstraints, type: "date", storeUTC: true } } };
+
+    const datetime = { valueConstraints, type: "datetime", storeUTC: true };
+    if (!valueConstraints.precision)
+      datetime.valueConstraints = { ...datetime.valueConstraints, precision: "millisecond" };
+
+    return { component: { datetime } };
   }
 
-  if (!constraints.valueType)
+  if (!valueConstraints.valueType)
     return { error: `Unable to suggest a component without a valueType` };
 
-  return { error: `Unable to suggest a component for valueType: ${constraints.valueType}` };
+  return { error: `Unable to suggest a component for valueType: ${valueConstraints.valueType}` };
 }
