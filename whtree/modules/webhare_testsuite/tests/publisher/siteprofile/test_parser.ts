@@ -292,4 +292,96 @@ apply:
   //     especially as reusing old types also requires matching their wildcard/glob rules
 }
 
-test.run([testSPYaml]);
+async function testComplexTo() {
+  // Test explicit components
+  test.eqPartial({
+    rules: [
+      {
+        yaml: true,
+        tos: [
+          {
+            type: "and",
+            criteria: [
+              {
+                type: "to",
+                match_file: true,
+              }, {
+                type: "not",
+                criteria: [
+                  {
+                    type: "and",
+                    criteria: [
+                      {
+                        type: "to",  //isIndex
+                        match_file: true,
+                        match_index: true
+                      }, {
+                        type: "to", //parenPath /
+                        parentmask: "/"
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "not",
+                criteria: [
+                  {
+                    type: "or",
+                    criteria: [
+                      {
+                        type: "to",
+                        whfstype: "https://example.nl/innovations"
+                      },
+                      {
+                        type: "to",
+                        parenttype: "https://example.nl/programfolder"
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "not",
+                criteria: [
+                  {
+                    type: "testdata",
+                    typedef: "https://example.nl/page",
+                    target: "self",
+                    membername: "header_content_per_slide",
+                    value: "true"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        userdata: [{ key: "webhare_testsuite:match_first", value: "Yes" }]
+      },
+    ]
+  }, await parseSP(`---
+apply:
+- to:
+    and:
+    - isFile
+    - not:
+        and:
+        - isIndex
+        - parentPath: /
+    - not:
+        or:
+        - type: https://example.nl/innovations
+        - parentType: https://example.nl/programfolder
+    - not:
+        testSetting:
+          target: self
+          type: https://example.nl/page
+          member: headerContentPerSlide
+          value: "true"
+  userData:
+    matchFirst: "Yes"
+`));
+}
+
+test.run([
+  testSPYaml,
+  testComplexTo
+]);

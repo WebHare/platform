@@ -125,7 +125,7 @@ export interface CSPApplyToTestData {
   typedef: string;
   target: "parent" | "root" | "self";
   membername: string;
-  value?: string;
+  value?: unknown;
 }
 
 export interface CSPApplyToTo {

@@ -2,11 +2,11 @@ import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPContentType, type CSPMember, type CSPMemberOverride } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPContentType, type CSPMember, type CSPMemberOverride } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
-import { toSnakeCase } from "@webhare/hscompat/types";
+import { nameToSnakeCase, toSnakeCase } from "@webhare/hscompat/types";
 
 export type ParserMessage = {
   col: number;
@@ -171,9 +171,61 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
   return cspmembers;
 }
 
+//set the required fields for a TO rule not to make HareScript crash. based on ParseApplyTosRecurse
+const baseApplyToRule: CSPApplyToTo = {
+  type: "to",
+  match_all: false,
+  match_file: false,
+  match_folder: false,
+  match_index: false,
+  pathmask: "",
+  pathregex: "",
+  whfspathmask: "",
+  whfspathregex: "",
+  parentmask: "",
+  parentregex: "",
+  parenttype: "",
+  withintype: "",
+  sitetype: "",
+  filetype: "",
+  contentfiletype: "",
+  foldertype: "",
+  typeneedstemplate: false,
+  webfeatures: []
+};
+
+const builtinRules: Record<string, CSPApplyTo> = {
+  "isFile": { ...baseApplyToRule, match_file: true },
+  "isFolder": { ...baseApplyToRule, match_folder: true },
+  "isIndex": { ...baseApplyToRule, match_file: true, match_index: true },
+};
+
 function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
-  if (apply === "all") //TODO not sure if we want this - and exactly this way? need a test too..
-    throw new Error(`YAML siteprofiles don't support 'all' in applyTo: yet`);
+  if (typeof apply === "string") {
+    const rule = builtinRules[apply];
+    if (!rule)
+      throw new Error(`Unknown applyTo rule '${apply}'`);
+
+    return [rule];
+  }
+
+  if ("and" in apply)
+    return [{ type: "and", criteria: apply.and.map(parseApplyTo).flat() }];
+  if ("or" in apply)
+    return [{ type: "or", criteria: apply.or.map(parseApplyTo).flat() }];
+  if ("not" in apply)
+    return [{ type: "not", criteria: parseApplyTo(apply.not) }];
+
+  if (apply.testSetting) {
+    const tester: CSPApplyToTestData = {
+      type: "testdata",
+      membername: nameToSnakeCase(apply.testSetting.member),
+      target: apply.testSetting.target,
+      typedef: apply.testSetting.type,
+      value: apply.testSetting.value
+    };
+    return [tester];
+  }
 
   //Not sure if we want to support wildcards AT ALL, or only support regexes (but a regex for a URL ain't pretty..), or perhaps move to 'kind's
   if (apply.fileType && (apply.fileType.includes('?') || apply.fileType.includes('*')))
@@ -181,32 +233,17 @@ function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
   if (apply.folderType && (apply.folderType.includes('?') || apply.folderType.includes('*')))
     throw new Error(`YAML siteprofiles don't support wildcards in folderType:`);
 
-  const to: CSPApplyTo = {
-    type: "to",
-    //ugh, HS currently wants a lot of noise..
-    contentfiletype: "",
+  const to: CSPApplyToTo = {
+    ...baseApplyToRule,
     filetype: apply.fileType || '',
     foldertype: apply.folderType || '',
-    match_all: false,
-    match_file: false,
-    match_folder: false,
-    match_index: false,
-    parentmask: "",
-    parentregex: "",
-    parenttype: "",
-    pathmask: "",
     pathregex: apply.pathMatch || "",
-    sitetype: "",
-    typeneedstemplate: false,
-    webfeatures: [],
-    whfspathmask: "",
-    whfspathregex: "",
-    withintype: "",
-    sitename: "",
-    sitemask: "",
-    siteregex: "",
-    webrootregex: "",
+    parenttype: apply.parentType || "",
+    parentmask: apply.parentPath || ""
   };
+
+  if (apply.type)
+    to.whfstype = apply.type;
 
   return [to];
 }
@@ -275,7 +312,7 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
   };
 }
 
-function parseApply(siteprofile: string, baseScope: string | null, apply: Sp.Apply): ParsedApplyRule {
+function parseApply(module: string, siteprofile: string, baseScope: string | null, apply: Sp.Apply): ParsedApplyRule {
   const rule: ParsedApplyRule = {
     ruletype: "apply",
     tos: parseApplyTo(apply.to),
@@ -312,6 +349,11 @@ function parseApply(siteprofile: string, baseScope: string | null, apply: Sp.App
 
   if (apply.baseProps)
     rule.baseproperties = parseBaseProps(apply.baseProps);
+  if (apply.userData)
+    rule.userdata = Object.entries(apply.userData).map(([key, value]) => ({
+      key: key.includes(':') ? nameToSnakeCase(key) : module + ':' + nameToSnakeCase(key),
+      value
+    })); //TODO generic module name resolve function ?
 
   return rule;
 }
@@ -378,7 +420,7 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
   }
 
   for (const apply of sp.apply || []) {
-    result.rules.push(parseApply(resource, baseScope, apply));
+    result.rules.push(parseApply(module, resource, baseScope, apply));
   }
 
   return result;

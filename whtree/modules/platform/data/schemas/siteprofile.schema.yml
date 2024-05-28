@@ -154,9 +154,33 @@ definitions:
         $ref: "#/definitions/ApplyBaseProps"
       editProps:
         $ref: "#/definitions/ApplyEditProps"
+      userData:
+        $ref: "#/definitions/ApplyUserData"
 
   ApplyTo:
-    anyOf:
+    oneOf:
+      - type: object
+        additionalProperties: false
+        required: ['and']
+        properties:
+          and:
+            type: array
+            items:
+              $ref: "#/definitions/ApplyTo"
+      - type: object
+        additionalProperties: false
+        required: ['or']
+        properties:
+          or:
+            type: array
+            items:
+              $ref: "#/definitions/ApplyTo"
+      - type: object
+        additionalProperties: false
+        required: ['not']
+        properties:
+          not:
+            $ref: "#/definitions/ApplyTo"
       - type: object
         additionalProperties: false
         properties:
@@ -168,10 +192,33 @@ definitions:
             type: string
           pathMatch:
             type: string
-
+          parentPath:
+            type: string
+          parentType:
+            type: string
+          testSetting:
+            $ref: "#/definitions/ApplyToTestSetting"
       - type: string
         enum:
           - "all"
+          - "isFile"
+          - "isFolder"
+          - "isIndex"
+
+  ApplyToTestSetting:
+    type: object
+    additionalProperties: false
+    required: [target,type,member,value]
+    properties:
+      target:
+        type: string
+        enum:
+        - "self"
+      type:
+        type: string
+      member:
+        type: string
+      value: {}
 
   ApplyBaseProps:
     type: array
@@ -210,3 +257,8 @@ definitions:
         type: string
       constraints:
         $ref: "#/definitions/ValueConstraints"
+
+  ApplyUserData:
+    type: object
+    additionalProperties:
+      type: string  # TODO A future version of YAML may open up this type (eg allow all JS primitves) but for HS compatibility we'll limit this to strings for now
