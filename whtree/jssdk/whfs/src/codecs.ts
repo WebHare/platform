@@ -23,8 +23,9 @@ export type MemberType = "string" // 2
   | "instance" //18
   | "url" //19
   | "composedDocument" //20
-  | "record" //21
-  | "formCondition"; //22
+  | "hson" //21 (record in HareScript)
+  | "formCondition" //22
+  | "record"; //23 (typedrecord in HareScript)
 
 type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 
@@ -146,7 +147,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       return settings[0]?.setting || "";
     }
   },
-  "record": {
+  "hson": {
     //FIXME Overlong record support (TODO record automatically triggers blob download and parsing, so any future "JSON" type should be smarter than that)
     /*
               IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(RECORD)))

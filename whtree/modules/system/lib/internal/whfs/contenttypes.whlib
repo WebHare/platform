@@ -416,6 +416,11 @@ STATIC OBJECTTYPE WHFSType
             INSERT rec INTO newval AT END;
           }
         }
+        CASE 23 //TYPEDRECORD
+        {
+          IF(NOT isgetstructure AND Length(curset) > 0)
+            newval := this->__RecurseGetInstanceData(memberrec.id, curset[0].id, cursettings, remapper, orphansvisible, limit_to_members, FALSE);
+        }
         CASE 3,14 //Multiple choice, String Array
         {
           newval := SELECT AS STRING ARRAY setting FROM curset ORDER BY ordering;
@@ -601,13 +606,13 @@ STATIC OBJECTTYPE WHFSType
     FOREVERY(RECORD memberrec FROM (SELECT * FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE)))
     {
       IF(NOT CellExists(newdata, memberrec.name) AND curmember = 0)
-        CONTINUE; //not being updated
+        CONTINUE; //not being updated (not mentioning a top level member in SetInstanceData leaves the data alone)
 
       RECORD ARRAY current_member_settings;
       RECORD pos := RecordLowerBound(cursettings, [ parent := cursetting, fs_member := memberrec.id ], [ "PARENT", "FS_MEMBER" ]);
       IF (pos.found)
         current_member_settings := cursettings[pos.position].settings;
-      IF(NOT CellExists(newdata, memberrec.name)) //resetting!
+      IF(NOT CellExists(newdata, memberrec.name)) //resetting! (at lower levels we do remove data of unmentioned members)
       {
         killsettings := killsettings CONCAT current_member_settings;
         CONTINUE;
@@ -816,12 +821,12 @@ STATIC OBJECTTYPE WHFSType
             }
           }
         }
-        CASE 12 //Array
+        CASE 12,23 //Array, TypedRecord
         {
           // Get list of existing ids for the array in the DB
           INTEGER64 ARRAY unmatched_ids := SELECT AS INTEGER64 ARRAY id FROM current_member_settings;
 
-          FOREVERY (RECORD el FROM newval)
+          FOREVERY (RECORD el FROM (memberrec.type = 12 ? newval : RecordExists(newval) ? RECORD[newval] : RECORD[]))
           {
             // Try to match the element ot a unmatched element in the DB
             INTEGER64 elt_id := CellExists(el, "FS_SETTINGID") ? el.fs_settingid : 0i64;
@@ -1438,7 +1443,7 @@ STATIC OBJECTTYPE WHFSType
 
         // This is a new directly selected member
         INSERT memberrec.id INTO selectmembers AT END;
-        IF (memberrec.type = 12)
+        IF (memberrec.type IN [12,23]) //Array, TypedRecord
           INSERT memberrec.id INTO expandarrays AT END;
         ELSE IF (memberrec.type IN [ 15, 18, 20 ])
           have_instances := TRUE;
@@ -1452,7 +1457,7 @@ STATIC OBJECTTYPE WHFSType
       FOREVERY (RECORD memberrec FROM members)
       {
         INSERT memberrec.id INTO selectmembers AT END;
-        IF (memberrec.type = 12) // schedule expansion within this loop (dynamic end condition!)
+        IF (memberrec.type IN [12,23]) //Array, TypedRecord. schedule expansion within this loop (dynamic end condition!)
           INSERT memberrec.id INTO expandarrays AT END;
         ELSE IF (memberrec.type IN [ 15, 18, 20 ])
           have_instances := TRUE;
@@ -2041,7 +2046,7 @@ PUBLIC RECORD FUNCTION ApplyCTMembersRecurse(RECORD ARRAY inmembers, INTEGER cur
     IF (UpdateMember(memberid, memberinfo, oldversion))
       INSERT memberid INTO retval.updatedmembers AT END;
 
-    IF(memberinfo.type = 12)
+    IF(memberinfo.type IN [12,23]) //array, typedrecord
     {
       RECORD subres := ApplyCTMembersRecurse(memberinfo.children, curtype, memberid, orphans, allcurmembers);
       retval.updatedmembers := retval.updatedmembers CONCAT subres.updatedmembers;

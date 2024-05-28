@@ -116,10 +116,13 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "composeddocument": {
     dbtype: CSPMemberType.ComposedDocument
   },
+  "hson": {
+    dbtype: CSPMemberType.HSON
+  },
+  //"formcondition": CSPMemberType.FormCondition,
   "record": {
     dbtype: CSPMemberType.Record
   },
-  //"formcondition": CSPMemberType.FormCondition,
 };
 
 export function parseYamlComponent(comp: NonNullable<Sp.TypeMember["component"]>) {

@@ -13,7 +13,7 @@ export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfo
 
 //positioned list to convert database ids:
 const membertypenames: Array<MemberType | null> =
-  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "record", "formCondition"];
+  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", "formCondition", "record"];
 
 type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
@@ -103,6 +103,15 @@ function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null)
   }));
 }
 
+//Given a flat array of members and the toplevel members we want, only return those members and their children
+function getMemberIds(members: ContentTypeMember[], topLevelMembers: Readonly<string[]>): number[] {
+  function getIds(member: ContentTypeMember): number[] {
+    return [member.id, ...(member.children?.length ? member.children.map(getIds) : []).flat()];
+  }
+
+  return members.filter(_ => topLevelMembers.includes(_.name)).map(getIds).flat();
+}
+
 /** Returns the configuration of a content type
  * @param type - Namespace of the content type
  * @param options - Options:
@@ -184,15 +193,18 @@ class RecursiveSetter {
     this.cursettings = cursettings;
   }
 
-  async setArray(matchmember: ContentTypeMember, value: unknown, elementSettingId: number | null) {
-    if (!Array.isArray(value))
-      throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+  private async setArrayRecord(matchmember: ContentTypeMember, value: object[] | object, elementSettingId: number | null, isArray: boolean) {
+    if (Array.isArray(value) !== isArray)
+      if (isArray)
+        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+      else
+        throw new Error(`Incorrect type. Wanted an object, got an array`);
 
     //FIXME reuse existing row ids/databse rows, avoid updating unchanged settings
     let rownum = 1;
-    for (const row of value) {
+    for (const row of (isArray ? value as object[] : [value])) {
       const rowsettingid = await nextVal("system.fs_settings.id");
-      this.toinsert.push({ id: rowsettingid, fs_member: matchmember.id, parent: elementSettingId, ordering: ++rownum });
+      this.toinsert.push({ id: rowsettingid, fs_member: matchmember.id, parent: elementSettingId, ordering: rownum++ });
       await this.recurseSetData(matchmember.children!, row, matchmember, rowsettingid);
     }
   }
@@ -213,10 +225,11 @@ class RecursiveSetter {
         throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
 
       const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
-
       try {
-        if (matchmember.type === "array")  //Arrays are too complex for the current encoder setup
-          return this.setArray(matchmember, value, elementSettingId);
+        if (matchmember.type === "array" || matchmember.type === "record") { //Array/recordss are too complex for the current encoder setup
+          await this.setArrayRecord(matchmember, value, elementSettingId, matchmember.type === "array");
+          continue;
+        }
 
         const mynewsettings = new Array<Partial<FSSettingsRow>>;
         if (!codecs[matchmember.type])
@@ -270,6 +283,7 @@ class RecursiveSetter {
   }
 }
 
+
 class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements InstanceDataAccessor<ContentTypeStructure> {
   private readonly ns: string;
 
@@ -281,15 +295,14 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
-
-  private async getCurrentSettings(instanceIds: number[], topLevelMembers?: number[]) {
+  private async getCurrentSettings(instanceIds: Readonly<number[]>, descr: ContentTypeInfo, keysToSet?: Readonly<string[]>) {
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
       .where("fs_instance", "=", sql`any(${instanceIds})`);
 
-    if (topLevelMembers)
-      query = query.where(qb => qb.where("fs_member", "=", sql`any(${topLevelMembers})`).orWhere("parent", "is not", null));
+    if (keysToSet)
+      query = query.where(qb => qb.where("fs_member", "=", sql`any(${getMemberIds(descr.members, keysToSet)})`));
 
     const dbsettings = await query.execute();
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
@@ -307,6 +320,8 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
           setval = [];
           for (const row of settings)
             setval.push(await this.recurseGet(cursettings, member.children!, member, row.id, cc));
+        } else if (member.type === "record") {
+          setval = settings.length ? await this.recurseGet(cursettings, member.children!, member, settings[0].id, cc) : null;
         } else if (!codecs[member.type]) {
           setval = { FIXME: member.type }; //FIXME just throw }
           // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
@@ -335,7 +350,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .execute();
     const instanceIds = instanceIdMapping.map(_ => _.id);
     const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));
-    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds) : [];
+    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, descr, properties) : [];
     const groupedSettings = Map.groupBy(cursettings, _ => _.fs_instance);
     const getMembers = properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members;
 
@@ -388,8 +403,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
 
     //TODO bulk insert once we've prepared all settings
     const keysToSet = Object.keys(data);
-    const topLevelMembers = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
-    const cursettings = instanceId && topLevelMembers.length ? await this.getCurrentSettings([instanceId], topLevelMembers) : [];
+    const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], descr, keysToSet) : [];
 
     const setter = new RecursiveSetter(cursettings);
     await setter.recurseSetData(descr.members, data, null, null);

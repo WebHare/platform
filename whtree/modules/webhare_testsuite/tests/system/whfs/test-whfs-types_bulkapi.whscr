@@ -55,6 +55,12 @@ MACRO TestBulkApi()
                            ]
                          ]
           ]
+      , a_typed_record :=
+          [ int_member := 13331
+          , rich_member :=
+              [ htmltext :=   StringToBlob("htmltext typedecord")
+              ]
+          ]
       , an_array :=
           [ [ int_member := 1
             , rich_member :=
@@ -198,6 +204,14 @@ MACRO TestBulkApi()
   TestEq('str11-1', results[0].an_array[0].a_sub_array[0].sub_rich_member.instances[0].data.str1);
   TestEq(FALSE, CellExists(results[0].an_array[0], "int_member"));
   TestEq(FALSE, CellExists(results[0].an_array[0].a_sub_array[0], "sub_int_member"));
+
+  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "a_typed_record"]);
+  TestEq(13331, results[0].a_typed_record.int_member);
+  TestEqLike("*htmltext*", BlobToString(results[0].a_typed_record.rich_member.htmltext));
+
+  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "a_typed_record.rich_member"]);
+  TestEq(FALSE, CellExists(results[0].a_typed_record,'int_member'));
+  TestEqLike("*htmltext*", BlobToString(results[0].a_typed_record.rich_member.htmltext));
 
   testfw->RollbackWork();
 }
