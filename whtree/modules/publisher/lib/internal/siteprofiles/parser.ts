@@ -211,10 +211,13 @@ function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
 function resolveType(baseScope: string | null, type: string) {
   if (!type)
     return '';
-  if (type.includes('.') || type.includes(':'))
-    throw new Error(`Cannot resolve type '${type}'`);
+
+  if (type.includes(':'))  //looks like a XML namespace kind of type or a module:ref
+    return type;
   if (!baseScope)
     throw new Error(`Cannot resolve type '${type}' without a baseScope`);
+  if (type.includes('.'))  //guessing it's module scoped
+    return baseScope.split(':')[0] + ':' + type;
   return `${baseScope}.${type}`;
 }
 
