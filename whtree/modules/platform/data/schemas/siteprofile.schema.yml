@@ -257,6 +257,8 @@ definitions:
         type: string
       constraints:
         $ref: "#/definitions/ValueConstraints"
+      props:
+        type: object
 
   ApplyUserData:
     type: object

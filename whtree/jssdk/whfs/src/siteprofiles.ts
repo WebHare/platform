@@ -24,7 +24,20 @@ export enum CSPMemberType {
   Record = 23
 }
 
-export interface CSPMember extends CSPMemberOverride {
+export interface CSPMemberBasics {
+  /** Member title (YAML siteprofiles only) */
+  title?: string;
+  /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
+  constraints?: ValueConstraints;
+  /** Customized component */
+  component?: {
+    ns: string;
+    component: string;
+    yamlprops: Record<string, unknown>;
+  };
+}
+
+export interface CSPMember extends CSPMemberBasics {
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
@@ -185,19 +198,9 @@ type CSPBaseProperties = {
   seotitle: boolean;
 };
 
-export interface CSPMemberOverride {
-  /** Member title (YAML siteprofiles only) */
-  title?: string;
-  /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
-  constraints?: ValueConstraints;
-  /** Customized component */
-  component?: {
-    ns: string;
-    component: string;
-    yamlprops: Record<string, unknown>;
-  };
+export interface CSPMemberOverride extends CSPMemberBasics {
   /* Specific field level overrides  */
-  override?: Record<string, unknown>;
+  props?: Record<string, unknown>;
 }
 
 export interface CSPApplyRule {

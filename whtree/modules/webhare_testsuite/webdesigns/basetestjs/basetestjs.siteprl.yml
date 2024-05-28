@@ -57,6 +57,9 @@ apply:
           numberField:
             constraints:
               maxValue: 100
+            props:
+              suffix: "kg"
+              emptyValue: 1
 
   - to:
       pathMatch: metaoverride1
@@ -64,6 +67,9 @@ apply:
     editProps:
       - type: baseTestProps
         override:
+          numberField:
+            props:
+              emptyValue: 2
           whUser:
             title: WH Usertje
             component:

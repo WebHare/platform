@@ -81,8 +81,24 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     for (const extend of extendproperties) {
       if (extend.layout)
         lastlayout = extend.layout;
-      if (extend.override)
-        Object.assign(overrides, Object.fromEntries(extend.override));
+
+      if (extend.override) //can't blindly assign, need to go through each member ...
+        for (const [name, override] of extend.override) {
+          if (!overrides[name]) {
+            overrides[name] = structuredClone(override);
+            continue; //just copy, no erride yet
+          }
+
+          if (override.component) //and overwrite / merge what we see there
+            overrides[name].component = override.component;
+          if (override.props)
+            overrides[name].props = { ...overrides[name].props, ...override.props };
+          if (override.title !== undefined)
+            overrides[name].title = override.title;
+          if (override.constraints)
+            overrides[name].constraints = overrides[name].constraints ? mergeConstraints(overrides[name].constraints!, override.constraints) : override.constraints;
+        }
+
     }
 
     //gather the members to display
@@ -90,7 +106,12 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     for (const member of determineLayout(matchtype, lastlayout)) {
       const override = overrides[member.jsname!]; //has to exist as we wouldn't be processing non-yaml types
       const constraints = mergeConstraints(member.constraints ?? null, override?.constraints ?? null);
-      const component = override?.component ? toYamlComponent(override.component, constraints) : determineComponent(constraints, member.component); //FIXME support override
+
+      const component = determineComponent(constraints, override?.component ?? member.component);
+      if (override?.props) {
+        const compname: string = Object.keys(component)[0];
+        component[compname] = { ...component[compname]!, ...toCamelCase(override.props) };
+      }
 
       members.push({
         name: member.jsname!,

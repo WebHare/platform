@@ -257,7 +257,8 @@ apply:
                 constraints: {
                   //NOTE the parser doesn't merge constraints between editProps and Type yet, they may be in different files
                   maxValue: 100
-                }
+                },
+                props: { "empty_value": 5 }
               }
             })
           }
@@ -285,6 +286,8 @@ apply:
          numberField:
           constraints:
             maxValue: 100
+          props:
+            emptyValue: 5
       `));
 
   //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type

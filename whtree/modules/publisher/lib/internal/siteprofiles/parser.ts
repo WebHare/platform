@@ -282,6 +282,8 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
           override.constraints = updates.constraints;
         if (updates.component)
           override.component = parseYamlComponent(updates.component);
+        if (updates.props)
+          override.props = toSnakeCase(updates.props);
         if (updates.title)
           override.title = ":" + updates.title; //TODO resolveTid(typeGid, { name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
         rule.override.push([name, override]);
