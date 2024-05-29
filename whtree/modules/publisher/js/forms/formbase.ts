@@ -10,7 +10,7 @@ import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId } from '@webhare/std';
 import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getErrorForValidity, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
+import { getErrorForValidity, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
 
 declare global {
   interface HTMLElement {
@@ -1482,7 +1482,7 @@ export default class FormBase {
 
     //browser checks go first, any additional checks are always additive (just disable browserchecks you don't want to apply)
     field.propWhFormNativeError = false;
-    if (!alreadyfailed && supportsValidity(field) && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
+    if (!alreadyfailed && isFormControl(field) && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
       const validitystatus = field.checkValidity();
 
       //we need a separate prop for our errors, as we shouldn't clear explicit errors

@@ -2,7 +2,7 @@
 
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
-import { isFormControl } from "@webhare/dompack";
+import { isFormControl, type FormControlElement } from "@webhare/dompack";
 
 export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
   return field instanceof HTMLInputElement && ["radio", "checkbox"].includes(field.type);
@@ -13,11 +13,7 @@ export function isValidFormFieldTarget(field: Element): field is HTMLElement {
   return isFormControl(field) || Boolean(field instanceof HTMLElement && field.dataset.whFormName);
 }
 
-export function supportsValidity(field: Element): field is HTMLSelectElement | HTMLInputElement {
-  return field instanceof HTMLInputElement || field instanceof HTMLSelectElement;
-}
-
-export function getErrorForValidity(field: HTMLSelectElement | HTMLInputElement) {
+export function getErrorForValidity(field: FormControlElement) {
   const validity = field.validity;
   if (validity.customError && field.validationMessage)
     return field.validationMessage;

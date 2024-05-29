@@ -2,7 +2,6 @@ import * as dompack from '@webhare/dompack';
 import "./form.lang.json";
 import { FieldErrorOptions } from '../formbase';
 import { debugFlags } from '@webhare/env';
-import { supportsValidity } from '@webhare/forms/src/domsupport';
 
 ///Fired at nodes to apply error
 export type SetFieldErrorData = {
@@ -68,7 +67,7 @@ export function setFieldError(field: Element, error: string, options?: Partial<F
   }
 
   //fallback to HTML5 validation
-  if (supportsValidity(field)) {
+  if (dompack.isFormControl(field)) {
     field.setCustomValidity(error || "");
     if (options?.reportimmediately)
       field.reportValidity(); //report
