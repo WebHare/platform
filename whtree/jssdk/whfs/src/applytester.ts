@@ -185,9 +185,9 @@ export class WHFSApplyTester {
         if (typeof field === "number")
           return field === (element?.value ? Number(element.value) : 0);
         if (typeof field === "boolean")
-          return field === (element?.value ? element.value === "true" : false);
+          return field === (element?.value ? element.value === "true" || element.value === true : false);
         if (field instanceof Date && element?.value)
-          return field.getTime() === new Date(element.value).getTime(); //new Date("invalid").getTime() === nan
+          return field.getTime() === new Date(String(element.value)).getTime(); //new Date("invalid").getTime() === nan
         else if (field === null) //just like HS <testdata> is very limited, we'll assume null is a DEFAULT DATETIME. in practice that's tested for using value="" so..
           return !element.value;
 

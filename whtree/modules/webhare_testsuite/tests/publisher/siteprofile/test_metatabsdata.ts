@@ -40,7 +40,7 @@ async function testMetadataReader() {
               minValue: 0,
               maxValue: 100
             },
-            component: { textedit: { valueType: 'integer' } }
+            component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 1 } }
           }, {
             name: "folksonomy"
           }, {
@@ -123,7 +123,7 @@ async function testOverrides() {
                 minValue: 0,
                 maxValue: 100
               },
-              component: { textedit: { valueType: 'integer' } }
+              component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 2 } }
             }, {
               name: "folksonomy"
             }, {
