@@ -217,9 +217,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   /// Whether we're editing the public draft
   BOOLEAN editingdraft;
 
-  /// Id of edited object, 0 for new or duplicate objects
-  INTEGER itemid;
-
   /// Record definition of current (or new) type for the object
   RECORD curtype;
 
