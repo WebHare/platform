@@ -6,6 +6,7 @@ import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
+import { isHistoricWHFSSpace } from "./objects";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -40,6 +41,8 @@ interface BaseInfo extends SiteApplicabilityInfo {
   isfile: boolean;
   type: string;
   typeneedstemplate: boolean;
+  /** Name, set for mocked objects */
+  name?: string;
 }
 
 function isResourceMatch(rule_siteprofileids: number[], test_siteprofileids: number[]) {
@@ -94,15 +97,29 @@ export async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolde
     parent,
     isfile: !isFolder,
     type,
-    typeneedstemplate
+    typeneedstemplate,
+    name
   };
 }
 
+async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
+  const recycleinfo = await db<PlatformDB>().selectFrom("system.fs_history").
+    select(["fs_object", "currentname", "currentparent"]).
+    where("fs_object", "=", obj.id).
+    where("type", "=", 0).
+    execute();
+
+  if (recycleinfo.length !== 1 || !recycleinfo[0].currentparent)
+    throw new Error(`No recycle info found for ${obj.id}`);
+
+  //TODO chase parents that are already deleted/historic
+  const origparent = await openFolder(recycleinfo[0].currentparent!);
+  return getBaseInfoForMockedApplyCheck(origparent, obj.isFolder, obj.type, recycleinfo[0].currentname);
+}
 
 export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInfo> {
-  // RECORD fsobjinfo := SELECT id, parent, parentsite, type, filelink, fullpath, whfspath, indexdoc, isfolder, url FROM system.fs_objects WHERE id = fsobjectid;
-  // IF(NOT RecordExists(fsobjinfo))
-  // RETURN DEFAULT RECORD;
+  if (isHistoricWHFSSpace(obj.whfsPath))
+    return await getHistoricBaseInfo(obj);
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
   let site: Selectable<PlatformDB, "system.sites"> | null = null;
@@ -120,7 +137,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     obj,
     site,
     parent: obj.parentSite === obj.id || !obj.parent ? (obj as WHFSFolder) //a root *has* to be a folder
-      : (await openFolder(obj.parent, { allowHistoric: true })),
+      : (await openFolder(obj.parent)),
     isfile: obj.isFile,
     type: obj.type,
     typeneedstemplate
@@ -202,9 +219,6 @@ export class WHFSApplyTester {
         if (element.match_folder && this.objinfo.isfile)
           return false;
         if (element.foldertype || element.filetype) {
-          if (!this.objinfo.obj)
-            return false;
-
           if (element.foldertype && (this.objinfo.isfile || !isLike(this.objinfo.type, element.foldertype)))
             return false;
           if (element.filetype && (!this.objinfo.isfile || !isLike(this.objinfo.type, element.filetype)))
@@ -237,7 +251,7 @@ export class WHFSApplyTester {
     if (this.objinfo.obj)
       return this.objinfo.obj[which].toUpperCase();
     // We mock the name to be 'NEW OBJECT'. Have to do 'something' in the path..
-    return `${this.objinfo.parent.fullPath.toUpperCase()}NEW OBJECT${this.objinfo.isfile ? "" : "/"}`;
+    return `${(this.objinfo.parent.fullPath + this.objinfo.name).toUpperCase()}${this.objinfo.isfile ? "" : "/"}`;
   }
 
   testPathConstraint(rec: CSPApplyToTo, site: Selectable<PlatformDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {

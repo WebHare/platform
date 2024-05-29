@@ -57,7 +57,22 @@ async function testSiteProfiles() {
     const tester = await getApplyTesterForObject(testobj);
     test.eq({ dogName: "bluey", sisterName: "bingo" }, await tester.getUserData("webhare_testsuite:setting"));
     test.eq(false, tester.isMocked());
+    test.eq("/TestPages/", testobj.fullPath);
+    test.eq({ nameIsTestpage: true }, await tester.getUserData("webhare_testsuite:nameinfo"));
   }
+
+  {
+    //If we recycle a file the applytester should see throufg hthis
+    await whdb.beginWork();
+    await testobj.recycle();
+    const tester = await getApplyTesterForObject(await whfs.openFolder(testobj.id, { allowHistoric: true }));
+    test.eq(true, tester.isMocked());
+
+    test.eq({ nameIsTestpage: true }, await tester.getUserData("webhare_testsuite:nameinfo"));
+    test.eq({ dogName: "bluey", sisterName: "bingo" }, await tester.getUserData("webhare_testsuite:setting")); //not sure if we need t oreload
+    await whdb.rollbackWork();
+  }
+
 }
 
 async function testSiteUpdates() {

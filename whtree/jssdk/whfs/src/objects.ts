@@ -107,7 +107,7 @@ export interface UpdateFolderMetadata extends CreateFolderMetadata {
   name?: string;
 }
 
-function isHistoricWHFSSpace(path: string) {
+export function isHistoricWHFSSpace(path: string) {
   path = path.toUpperCase();
   if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
     || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/")

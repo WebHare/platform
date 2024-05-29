@@ -20,7 +20,6 @@ LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editapi.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 
-LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 
@@ -73,9 +72,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   /// Whether or not to show the draft bar during this session
   BOOLEAN showdraftbar;
 
-  /// Whether to assume the user has write access
-  BOOLEAN assumewriteaccess;
-
   // Versioning policy for the current site
   OBJECT siteversioningpolicy;
 
@@ -83,9 +79,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   INTEGER filetype;
 
   RECORD filetypeinfo;
-
-  /// If the user only has read-only access to this file (fs_browse)
-  BOOLEAN readonly;
 
   // ---------------------------------------------------------------------------
   //
@@ -349,13 +342,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
     this->LoadMetadata(this->GetInstanceObject());
     this->RefreshState();
-  }
-
-  MACRO RefreshReadonly(OBJECT fsobj)
-  {
-    this->readonly := (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
-                      OR (NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
-
   }
 
   MACRO RefreshState()

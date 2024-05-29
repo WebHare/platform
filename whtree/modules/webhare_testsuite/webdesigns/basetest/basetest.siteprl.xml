@@ -144,6 +144,11 @@
     <userdata key="webhare_testsuite:setting" value='{"isDateSet":false}' />
   </apply>
 
+  <apply>
+    <to type="folder" pathmask="*/testpages/" />
+    <userdata key="webhare_testsuite:nameinfo" value='{"nameIsTestpage":true}' />
+  </apply>
+
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
                  name="basetestprops"
                  implementation="lib"

@@ -168,14 +168,18 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
 
 export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number }): Promise<MetaTabsForHS | null> {
   const typens = getType(obj.type)?.namespace ?? '';
-  const applytester = obj.objectid ? await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }))
-    : await getApplyTesterForMockedObject(await openFolder(obj.parent), obj.isfolder, typens);
-  if (!applytester)
-    return null;
+  try {
+    const applytester = obj.objectid ? await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }))
+      : await getApplyTesterForMockedObject(await openFolder(obj.parent), obj.isfolder, typens);
 
-  const metatabs = await describeMetaTabs(applytester);
-  if (!metatabs)
-    return null;
+    const metatabs = await describeMetaTabs(applytester);
+    if (!metatabs)
+      return null;
 
-  return remapForHs(metatabs);
+    return remapForHs(metatabs);
+  } catch (e) {
+    if ((e as Error)?.message.startsWith('No recycle info found for'))
+      return null; //Fixes system.whfs.test-whfs-history-v4 and allows versioning to ignore metatabs for now. We want to finish metatabs first and *then* worry about how versioning ties into metatabs, if at all
+    throw e;
+  }
 }

@@ -2,6 +2,8 @@
 
 LOADLIB "wh::javascript.whlib";
 
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -16,6 +18,26 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   RECORD metatabsconfig;
   // Controllers for the metadata. For now we'll rely on compositions
   RECORD ARRAY metacontrollers;
+  /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
+  BOOLEAN assumewriteaccess;
+  /// If the user only has read-only access to this file (fs_browse)
+  BOOLEAN readonly;
+
+  MACRO RefreshReadonly(OBJECT fsobj)
+  {
+    BOOLEAN setreadonly := (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
+                            OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+    IF(this->readonly = setreadonly)
+      RETURN;
+
+    this->readonly := setreadonly;
+    this->OnReadonlyChange();
+  }
+
+  MACRO OnReadonlyChange()
+  {
+    this->RefreshMetaTabsReadonly();
+  }
 
   BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
   {
@@ -25,6 +47,12 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 
     this->AddTypesTabs();
     RETURN TRUE;
+  }
+
+  MACRO RefreshMetaTabsReadonly()
+  {
+    FOREVERY(RECORD controller FROM this->metacontrollers)
+      controller.fsinstance->enabled := NOT this->readonly;
   }
 
   MACRO LoadMetadata(OBJECT sourceobject)
@@ -75,6 +103,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
       IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
         INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
     }
+
+    this->RefreshMetaTabsReadonly();
   }
 
 >;
