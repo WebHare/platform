@@ -86,7 +86,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
         for (const [name, override] of extend.override) {
           if (!overrides[name]) {
             overrides[name] = structuredClone(override);
-            continue; //just copy, no erride yet
+            continue; //just copy, no override yet
           }
 
           if (override.component) //and overwrite / merge what we see there
