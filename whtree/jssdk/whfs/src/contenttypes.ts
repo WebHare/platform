@@ -226,7 +226,7 @@ class RecursiveSetter {
 
       const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
       try {
-        if (matchmember.type === "array" || matchmember.type === "record") { //Array/recordss are too complex for the current encoder setup
+        if (matchmember.type === "array" || matchmember.type === "record") { //Array/records are too complex for the current encoder setup
           await this.setArrayRecord(matchmember, value, elementSettingId, matchmember.type === "array");
           continue;
         }
