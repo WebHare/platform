@@ -78,7 +78,7 @@ RECORD FUNCTION GetCacheableMembers(INTEGER typedefid)
       {
         emptyval := DEFAULT RECORD ARRAY;
       }
-      CASE 15, 16, 18, 20, 21, 22 //RTD, intextlink, instance, composeddocument, record, formcondition
+      CASE 15, 16, 18, 20, 21, 22, 23 //RTD, intextlink, instance, composeddocument, record, formcondition, typedrecord
       {
         emptyval := DEFAULT RECORD;
       }

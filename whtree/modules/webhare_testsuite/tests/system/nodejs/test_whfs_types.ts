@@ -59,7 +59,7 @@ async function testInstanceData() {
   const fileids = [tmpfolder.id, testfile.id];
 
   const testtype = whfs.openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
-  test.eqPartial({ int: 0, yesNo: false }, await testtype.get(testfile.id));
+  test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 0);
 
   //Test basic get/set
@@ -77,6 +77,9 @@ async function testInstanceData() {
   test.eqPartial({ int: 20, yesNo: false }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 1);
 
+  //Test record validation
+  await test.throws(/for the non-existing cell 'bad'/, () => testtype.set(testfile.id, { aTypedRecord: { bad: 42 } }));
+
   //Test the rest of the primitive types
   await testtype.set(testfile.id, {
     str: "String",
@@ -85,16 +88,17 @@ async function testInstanceData() {
     aDateTime: new Date("2023-09-28T21:04:35Z"),
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
+    aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 10);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 12);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 13);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 15);
 
   test.eqPartial({
     int: 20,
@@ -105,6 +109,7 @@ async function testInstanceData() {
     strArray: ["a", "b", "c"],
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
+    aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids
   }, await testtype.get(testfile.id));
@@ -120,7 +125,7 @@ async function testInstanceData() {
   await testtype.set(testfile.id, {
     blub: goldfish
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 14);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 16);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
@@ -132,7 +137,7 @@ async function testInstanceData() {
     rich: inRichdoc
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 15);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 17);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());

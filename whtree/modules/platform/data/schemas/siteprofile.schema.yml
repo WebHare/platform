@@ -74,6 +74,7 @@ definitions:
           - instance
           - url
           - composeddocument
+          - hson
           - record
           # - formcondition  FIXME is this really declarable?
       tid:

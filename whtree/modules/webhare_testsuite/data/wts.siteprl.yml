@@ -32,7 +32,14 @@ types:
       url:
         type: url
       aRecord:
+        type: hson
+      aTypedRecord:
         type: record
+        members:
+          richMember:
+            type: richdocument
+          intMember:
+            type: integer
       anArray:
         type: array
         members:

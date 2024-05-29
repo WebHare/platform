@@ -19,8 +19,9 @@ export enum CSPMemberType {
   Instance = 18,
   URL = 19,
   ComposedDocument = 20,
-  Record = 21,
-  FormCondition = 22
+  HSON = 21,
+  FormCondition = 22,
+  Record = 23
 }
 
 export interface CSPMember extends CSPMemberOverride {

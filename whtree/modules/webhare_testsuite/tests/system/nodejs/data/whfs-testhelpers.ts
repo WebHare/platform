@@ -30,7 +30,7 @@ export async function verifyNumSettings(objid: number, ns: string, expect: numbe
 
   if (settings.length !== expect) {
     console.table(settings);
-    throw new Error(`Expected ${expect} settings but got ${settings.length} fs_settinsg for type ${type.id} and object ${objid}`);
+    throw new Error(`Expected ${expect} settings but got ${settings.length} fs_settings for type ${type.id} and object ${objid}`);
   }
 }
 
