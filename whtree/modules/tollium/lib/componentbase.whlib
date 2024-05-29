@@ -138,8 +138,6 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   RECORD ARRAY __userattributes;
 
-  RECORD yamlprops;
-
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -269,8 +267,6 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   {
     IF(CellExists(props,'enabled'))
       this->enabled := props.enabled;
-
-    this->yamlprops := CELL[ ...this->yamlprops, ...props, DELETE enabled];
   }
 
   PUBLIC MACRO __tollium_afternew()

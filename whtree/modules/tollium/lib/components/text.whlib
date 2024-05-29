@@ -124,7 +124,7 @@ PUBLIC OBJECTTYPE TolliumText EXTEND TolliumComponentBase
     IF(CellExists(props,'value'))
       this->value := props.value;
 
-    TolliumComponentBase::SetYamlProps(CELL[ ...props, DELETE value ]);
+    TolliumComponentBase::SetYamlProps(props);
   }
 
   UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()

@@ -41,7 +41,7 @@ PUBLIC OBJECTTYPE __TolliumAutoSuggestableBase EXTEND TolliumComponentBase
     IF(CellExists(props,'value_type'))
       this->valuetype := props.value_type;
 
-    TolliumComponentBase::SetYamlProps(CELL[ ...props, DELETE value_type ]);
+    TolliumComponentBase::SetYamlProps(props);
   }
 
   RECORD FUNCTION GetAutoSuggestSetting()
