@@ -107,7 +107,7 @@
         <part name="doceditor" width="2pr" />
         <part name="metapart" width="1pr" visible="false">
           <tabs name="filetabs" height="1pr">
-            <tab tid=".metadata"  vscroll="true">
+            <tab tid=".metadata" vscroll="true">
               <tabs name="maintabs" type="stacked" height="1pr">
               </tabs>
             </tab>
