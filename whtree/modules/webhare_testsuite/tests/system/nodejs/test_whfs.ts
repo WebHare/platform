@@ -104,6 +104,9 @@ async function testWHFS() {
   test.eq(11, await wittytestfile.data.resource.size);
   test.eq(`[wittytest]`, await wittytestfile.data.resource.text());
 
+  test.eq(testpagesfolder.id, (await wittytestfile.openParent()).id);
+  test.eq(testpagesfolder.parent!, (await testpagesfolder.openParent()).id);
+
   const imgfile = await testpagesfolder.openFile("imgeditfile.jpeg");
   test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', imgfile.data.hash);
   test.eq('image/jpeg', imgfile.data.mediaType);

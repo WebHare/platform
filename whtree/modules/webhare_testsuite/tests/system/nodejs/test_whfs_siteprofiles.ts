@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
-import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForNewObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getTestSiteHS, getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
 async function getApplyTester(path: string) {
@@ -24,6 +24,9 @@ async function testSiteProfiles() {
   test.eq("currentsite::/portal1/", wrdauth.loginPage);
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
   test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#AuthCustomizer', wrdauth.customizer);
+
+  const wrdauthFromMock = await (await getApplyTesterForNewObject(await testsitefile.openParent(), true, testsitefile.type)).getWRDAuth();
+  test.eq(wrdauth, wrdauthFromMock);
 
   const testsite = await getTestSiteHS();
   const testobj = await testsite.openFolder("testpages");

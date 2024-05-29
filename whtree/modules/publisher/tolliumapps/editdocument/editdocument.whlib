@@ -263,7 +263,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
 
     this->contexts->applytester := applytester;
-    IF(this->SetupMetaTabs(objectid)) //tabs appeared!
+    IF(this->SetupMetaTabs(objectid, 0, FALSE, 0)) //don't bother with the extra setings until we actually support true New File
     {
       ^metapart->visible := TRUE;
     }
@@ -290,7 +290,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     applytester->RunSiteprofileHookTarget("publisher:documenteditor", [ contexts := this->contexts
                                                                       , objectid := objectid
                                                                       ]);
-    ^metatabs->RunExtensionsPostInit();
+    ^maintabs->RunExtensionsPostInit();
   }
 
   MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
@@ -365,18 +365,18 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   {
     // Do we have a published version?
     OBJECT fsobj := OpenWHFSObject(this->fileid);
+    BOOLEAN ispublishabletoweb := ObjectExists(fsobj) AND fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND this->filetypeinfo.ispublishable AND this->contexts->editdocumentapi->canpublish;
     this->RefreshReadonly(fsobj);
     IF (ObjectExists(fsobj))
     {
-      BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND this->filetypeinfo.ispublishable;
       IF (this->contexts->editdocumentapi->oncanpreview != DEFAULT MACRO PTR)
         this->frame->flags.canpreview := this->contexts->editdocumentapi->oncanpreview(fsobj);
       ELSE
-        this->frame->flags.canpreview := canpublish;
+        this->frame->flags.canpreview := ispublishabletoweb;
       IF (this->contexts->editdocumentapi->oncanview != DEFAULT MACRO PTR)
         this->frame->flags.canview := this->contexts->editdocumentapi->oncanview(fsobj);
       ELSE
-        this->frame->flags.canview := GetOncePublishedFromPublished(fsobj->published) AND canpublish;
+        this->frame->flags.canview := GetOncePublishedFromPublished(fsobj->published) AND ispublishabletoweb;
     }
     ELSE
     {
@@ -412,11 +412,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       ^draftbar->visible := FALSE;
 
     STRING savemode := this->GetSaveMode();
+    BOOLEAN allowpublish;
     IF (savemode = "versioned-locked")
     {
       this->contexts->editdocumentapi->onsetenabled(FALSE);
       this->frame->flags.canedit := FALSE;
-      this->frame->flags.canpublish := FALSE;
 
       STRING basetext := this->readonly ? this->GetTid(".request-for-approval-readonly") : this->GetTid(".request-for-approval");
       ^draftbar->visible := TRUE;
@@ -428,7 +428,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     {
       this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
       this->frame->flags.canedit := NOT this->readonly;
-      this->frame->flags.canpublish := FALSE;
 
       ^draftbar->visible := TRUE;
       STRING basetext := this->readonly ? this->GetTid(".request-for-approval-editlive-readonly") : this->GetTid(".request-for-approval-editlive");
@@ -440,7 +439,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     {
       this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
       this->frame->flags.canedit := NOT this->readonly;
-      this->frame->flags.canpublish := NOT this->readonly AND this->filetypeinfo.ispublishable AND this->contexts->editdocumentapi->canpublish;
 
       IF (savemode IN [ "versioned-editdraft", "versioned-editlive" ])
       {
@@ -486,8 +484,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       // Get published file FS object
       IF (ObjectExists(fsobj))
       {
-        BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
-
         INTEGER published := fsobj->published;
         IF (fsobj->lastpublishdate > AddTimeToDate(-1000, GetCurrentDateTime()))
         {
@@ -496,7 +492,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
         }
 
         STRING publishedat := this->tolliumuser->FormatDateTime(fsobj->modificationdate, "minutes", TRUE, TRUE);
-        state := GetFileStatusFromPublished(published, canpublish, publishedat, DEFAULT RECORD);
+        state := GetFileStatusFromPublished(published, ispublishabletoweb, publishedat, DEFAULT RECORD);
       }
       ELSE
       {
@@ -505,7 +501,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     }
 
     BOOLEAN havesomethingtopublish := ObjectExists(this->currentdraft) OR (ObjectExists(fsobj) AND NOT fsobj->publish);
-    this->publish->enabled := this->frame->flags.isdirty OR havesomethingtopublish;
+    //We do not care about ispublishabletoweb for the publish button as we let the Publish button act as 'publish when site goes online' button
+    this->frame->flags.canpublish := this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish;
     this->frame->flags.havesomethingtopublish := havesomethingtopublish;
 
     this->filestatusicon->SetImageSrc(state.icon);
@@ -754,7 +751,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       }
 
       this->contexts->editdocumentapi->__FlushInstanceData(this->currentautosave->fsobject);
-      this->SaveMetadata(this->currentautosave->fsobject);
+      this->SaveMetadata(this->currentautosave->fsobject->id);
     }
     ELSE IF (ObjectExists(this->currentautosave))
     {
@@ -825,6 +822,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   MACRO GotDirty()
   {
     this->frame->flags.isdirty := ^dirtylistener->dirty;
+    this->RefreshState();
   }
 
   MACRO GotScreenStolen()

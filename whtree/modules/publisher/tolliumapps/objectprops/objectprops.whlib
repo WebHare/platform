@@ -28,6 +28,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 LOADLIB "mod::publisher/tolliumapps/objectprops/tasks.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -160,7 +161,7 @@ OBJECTTYPE ObjectPropsAPI
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -1036,19 +1037,33 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     // If the item is not deleted and if the user has edit rights, setup site profile fields
     //ADDME: Just hiding these fields for now, a better solution would probably involve readonly compositions
 
+    BOOLEAN hasmetatabs;
+
     IF (this->CanWriteCurrentItem())
     {
       INTEGER parentfolderid := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
       this->SetupObjectProps();
 
       this->sp_customfields := this->contexts->applytester->GetCustomFields(this->tolliumuser, this->tolliumuser->language);
+      hasmetatabs := Length(SELECT * FROM this->sp_customfields.propertyeditors WHERE tabsextension = "" AND contenttype != "") > 0;
+      DELETE FROM this->sp_customfields.propertyeditors WHERE tabsextension = "";
       this->pending_errors := this->pending_errors CONCAT this->sp_customfields.errors;
       this->SetupSiteProfileExtensions(this->startdata.faultypropeditors);
+
+      //For now we'll just append metatabs (assuming existing tabs are for eg. folders too and thus perserve order?), but we could attempt to insert them at the original positions
+      IF(hasmetatabs)
+      {
+        this->SetupMetaTabs(this->startdata.fsobj, parentfolderid, NOT this->isfolder, this->curtype.id);
+      }
+
       IF(this->isnew = FALSE AND this->isinrecyclebin)
         this->MarkSiteProfileExtensionsReadonly();
 
       IF(ObjectExists(this->sourceitem))
+      {
         this->FillSiteprofExtensions();
+        this->LoadMetadata(this->sourceitem);
+      }
       ELSE
         this->ResetSiteprofExtensions(parentfolderid, this->startdata.type);
     }
@@ -1543,6 +1558,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       IF (ObjectExists(extendprop.instance)) // <tabsextention> ??
         this->WriteInstanceData(work, extendprop.instance, objid, draftid, versioned_contenttypes);
     }
+
+    this->SaveMetadata(objid);
   }
 
   MACRO WriteInstanceData(OBJECT work, OBJECT instance, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)

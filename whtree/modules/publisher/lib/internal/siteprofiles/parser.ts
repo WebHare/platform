@@ -2,7 +2,7 @@ import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPContentType, type CSPMember, type CSPMemberOverride } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
@@ -192,7 +192,7 @@ function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
     parentregex: "",
     parenttype: "",
     pathmask: "",
-    pathregex: "",
+    pathregex: apply.pathMatch || "",
     sitetype: "",
     typeneedstemplate: false,
     webfeatures: [],
@@ -223,14 +223,27 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
       contenttype: resolveType(baseScope, prop.type),
-      extension: "", //TODO
+      extension: "", //TODO? DocumentEditor can't support this, so what exactly happens if you do this? eg. overwrites only objectprops?
       requireright: "", //TODO
       name: ""
     };
+
     if (prop.layout)
       rule.layout = prop.layout;
-    if (prop.override)
-      rule.override = Object.entries(prop.override); //encode to entries to survive HS<>JS bridges
+
+    if (prop.override) {
+      rule.override = [];
+      for (const [name, updates] of Object.entries(prop.override)) {
+        const override: CSPMemberOverride = {};
+        if (updates.constraints)
+          override.constraints = updates.constraints;
+        if (updates.component)
+          override.component = parseYamlComponent(updates.component);
+        if (updates.title)
+          override.title = ":" + updates.title; //TODO resolveTid(typeGid, { name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
+        rule.override.push([name, override]);
+      }
+    }
 
     rules.push(rule);
   }

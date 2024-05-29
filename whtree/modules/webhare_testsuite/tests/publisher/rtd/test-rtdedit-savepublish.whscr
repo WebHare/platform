@@ -3,6 +3,8 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -22,6 +24,25 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
   RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
 }
 
+ASYNC FUNCTION TestMetaFields(INTEGER round) //shared MetaTabs and ObjectProps stuff
+{
+  OBJECT anumberfield :=  TT(":A number field");
+  TestAssert(ObjectExists(anumberfield));
+  TestEq("integer", anumberfield->valuetype);
+  TestEq(42 + round - 1, anumberfield->value);
+
+  // Update and save props
+  anumberfield->value := anumberfield->value + 1;
+  anumberfield->SetDirty(); //pretend the client did it
+
+  OBJECT selectuserfield := TT(":WH User"); //note that this finds the embedded textedit
+  TestAssert(ObjectExists(selectuserfield));
+  TestEq(FALSE, selectuserfield->enabled);
+  TestEq('Sysop McTestsuite', selectuserfield->value);
+
+  RETURN CELL [anumberfield];
+}
+
 ASYNC MACRO TestMetaTab()
 {
   testfw->BeginWork();
@@ -39,21 +60,13 @@ ASYNC MACRO TestMetaTab()
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
 
-  OBJECT anumberfield :=  TT(":A number field");
-  TestAssert(ObjectExists(anumberfield));
-  TestEq("integer", anumberfield->valuetype);
-  TestEq(42, anumberfield->value);
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+  TestEq(FALSE, topscreen->frame->flags.canpublish);
 
-  // Update and save props
-  anumberfield->value := 43;
-  anumberfield->SetDirty(); //pretend the client did it
+  AWAIT TestMetaFields(1);
 
-  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies disrtylisteners are connected");
-
-  OBJECT selectuserfield :=  TT(":WH User"); //note that this finds the embedded textedit
-  TestAssert(ObjectExists(selectuserfield));
-  TestEq(FALSE, selectuserfield->enabled);
-  TestEq('Sysop McTestsuite', selectuserfield->value);
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
+  TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
 
   TTClick(":Save");
 
@@ -70,6 +83,13 @@ ASYNC MACRO TestMetaTab()
   TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
+  AWAIT TestMetaFields(2);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
 }
 
 ASYNC MACRO TestRevert()

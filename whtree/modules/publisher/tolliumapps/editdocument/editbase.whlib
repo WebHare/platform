@@ -14,15 +14,13 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   // Controllers for the metadata. For now we'll rely on compositions
   RECORD ARRAY metacontrollers;
 
-  BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid)
+  BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
   {
-    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", objectid);
+    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type] );
     IF(NOT RecordExists(this->metatabsconfig))
       RETURN FALSE; //nothing to do
 
-    ^metapart->visible := TRUE;
     this->AddTypesTabs();
-
     RETURN TRUE;
   }
 
@@ -34,13 +32,13 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     }
   }
 
-  MACRO SaveMetadata(OBJECT sourceobject)
+  MACRO SaveMetadata(INTEGER targetobject)
   {
     //FIXME ensure any specific validation rule *and* all valueConstraints are honored
     FOREVERY(RECORD controller FROM this->metacontrollers)
     {
       //broken fields (eg due to incompatible data/vaueConstraints) should be able to opt out, IsUpdateValue ?
-      controller.type->SetInstanceData(sourceobject->id, controller.fsinstance->GetUpdateValue());
+      controller.type->SetInstanceData(targetobject, controller.fsinstance->GetUpdateValue());
     }
   }
 
@@ -53,7 +51,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     {
       OBJECT fsinstance := this->CreateTolliumComponent("record");
 
-      OBJECT newtab := ^metatabs->InsertTabAt(insertpos, GetTid(type.title));
+      OBJECT newtab := ^maintabs->InsertTabAt(insertpos, GetTid(type.title));
       insertpos := insertpos + 1;
       FOREVERY(RECORD field FROM type.members)
       {
@@ -71,7 +69,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
       }
 
       INSERT CELL [ fsinstance, type := OpenWHFSType(type.namespace) ] INTO this->metacontrollers AT END;
-      INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
+      IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
+        INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
     }
   }
 

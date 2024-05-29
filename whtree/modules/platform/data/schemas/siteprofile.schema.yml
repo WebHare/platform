@@ -146,7 +146,6 @@ definitions:
     anyOf:
       - type: object
         additionalProperties: false
-        required: [type]
         properties:
           type: # should map to scopedType and be resolved
             type: string
@@ -154,6 +153,9 @@ definitions:
             type: string
           folderType: #'legacy' types - note that these in HS matching also support wildcards
             type: string
+          pathMatch:
+            type: string
+
       - type: string
         enum:
           - "all"
@@ -189,5 +191,9 @@ definitions:
     type: object
     additionalProperties: false
     properties:
+      component:
+        type: object
+      title:
+        type: string
       constraints:
         $ref: "#/definitions/ValueConstraints"
