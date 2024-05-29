@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
-import { getApplyTesterForNewObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getTestSiteHS, getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
 async function getApplyTester(path: string) {
@@ -25,7 +25,7 @@ async function testSiteProfiles() {
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
   test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#AuthCustomizer', wrdauth.customizer);
 
-  const wrdauthFromMock = await (await getApplyTesterForNewObject(await testsitefile.openParent(), true, testsitefile.type)).getWRDAuth();
+  const wrdauthFromMock = await (await getApplyTesterForMockedObject(await testsitefile.openParent(), true, testsitefile.type)).getWRDAuth();
   test.eq(wrdauth, wrdauthFromMock);
 
   const testsite = await getTestSiteHS();
@@ -56,6 +56,7 @@ async function testSiteProfiles() {
   {
     const tester = await getApplyTesterForObject(testobj);
     test.eq({ dogName: "bluey", sisterName: "bingo" }, await tester.getUserData("webhare_testsuite:setting"));
+    test.eq(false, tester.isMocked());
   }
 }
 

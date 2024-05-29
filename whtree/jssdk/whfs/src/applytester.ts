@@ -78,7 +78,7 @@ export function getWRDPlugindata(data: Record<string, unknown> | null) {
   };
 }
 
-export async function getBaseInfoForFutureApplyCheck(parent: WHFSFolder, isFolder: boolean, type: string): Promise<BaseInfo> {
+export async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: boolean, type: string, name = "new object"): Promise<BaseInfo> {
   const siteapply = await getSiteApplicabilityInfo(parent.parentSite);
   let site: Selectable<PlatformDB, "system.sites"> | null = null;
   if (parent.parentSite) {
@@ -264,6 +264,10 @@ export class WHFSApplyTester {
       return false;
 
     return true;
+  }
+
+  isMocked() {
+    return !this.objinfo.obj;
   }
 
   isTypeNeedsTemplate() {
@@ -468,8 +472,8 @@ export async function getApplyTesterForObject(obj: WHFSObject) {
   return new WHFSApplyTester(await getBaseInfoForApplyCheck(obj));
 }
 
-export async function getApplyTesterForNewObject(parent: WHFSFolder, isFolder: boolean, type: string) {
-  return new WHFSApplyTester(await getBaseInfoForFutureApplyCheck(parent, isFolder, type)); //TODO root object support
+export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder: boolean, type: string, name = "new object") {
+  return new WHFSApplyTester(await getBaseInfoForMockedApplyCheck(parent, isFolder, type, name)); //TODO root object support
 }
 
 export async function getApplyTesterForURL(url: string) {
