@@ -1,7 +1,7 @@
 import { omit, pick } from "@webhare/std";
 import { executeEnrichment, freezeRecursive, Merge, OptionalKeys, RecursivePartial, RequiredKeys, Simplify } from "@mod-system/js/internal/util/algorithms";
 import * as test from "@webhare/test";
-import { RecursiveReadOnly } from "@webhare/js-api-tools";
+import { RecursiveReadonly } from "@webhare/js-api-tools";
 
 
 function testPick() {
@@ -34,7 +34,7 @@ function testFreezeRecursive() {
 }
 
 function testTypes() {
-  test.typeAssert<test.Equals<{ readonly a: ReadonlyArray<{ readonly b: number }> }, RecursiveReadOnly<{ a: Array<{ b: number }> }>>>();
+  test.typeAssert<test.Equals<{ readonly a: ReadonlyArray<{ readonly b: number }> }, RecursiveReadonly<{ a: Array<{ b: number }> }>>>();
 
   test.typeAssert<test.Equals<{ a?: Array<{ b?: number }> }, RecursivePartial<{ a: Array<{ b: number }> }>>>();
 
