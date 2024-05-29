@@ -236,7 +236,8 @@ export class WHFSApplyTester {
   private getPath(which: "whfsPath" | "fullPath") {
     if (this.objinfo.obj)
       return this.objinfo.obj[which].toUpperCase();
-    return `${this.objinfo.parent.fullPath.toUpperCase()}new object${this.objinfo.isfile ? "" : "/"}`;
+    // We mock the name to be 'NEW OBJECT'. Have to do 'something' in the path..
+    return `${this.objinfo.parent.fullPath.toUpperCase()}NEW OBJECT${this.objinfo.isfile ? "" : "/"}`;
   }
 
   testPathConstraint(rec: CSPApplyToTo, site: Selectable<PlatformDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
