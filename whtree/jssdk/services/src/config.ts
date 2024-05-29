@@ -1,6 +1,6 @@
 //Types as stored in the backend configuratio
 import { DTAPStage } from "@webhare/env/src/concepts";
-import type { RecursiveReadOnly } from "@webhare/js-api-tools";
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 export { backendConfig } from "@mod-system/js/internal/configuration";
 
 export interface ModuleData {
@@ -49,5 +49,5 @@ export type ConfigFile = {
   };
 };
 
-export type WebHareBackendConfiguration = RecursiveReadOnly<BackendConfiguration>;
-export type WebHareConfigFile = RecursiveReadOnly<ConfigFile>;
+export type WebHareBackendConfiguration = RecursiveReadonly<BackendConfiguration>;
+export type WebHareConfigFile = RecursiveReadonly<ConfigFile>;

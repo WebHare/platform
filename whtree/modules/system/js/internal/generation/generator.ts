@@ -34,7 +34,7 @@ import { whconstant_builtinmodules } from "../webhareconstants";
 import { DOMParser } from '@xmldom/xmldom';
 import { ModuleData } from "@webhare/services/src/config";
 import { listAllExtracts } from "./gen_extracts";
-import { RecursiveReadOnly } from "@webhare/js-api-tools/src/utility-types";
+import { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";
 import { listAllSchemas } from "./gen_schema";
 import { ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
 
@@ -74,7 +74,7 @@ export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
   return [...await listOtherGeneratedFiles(), ...fixFilePaths(await listAllExtracts())];
 }
 
-async function loadModuleDefs(name: string, mod: RecursiveReadOnly<ModuleData>): Promise<LoadedModuleDefs> {
+async function loadModuleDefs(name: string, mod: RecursiveReadonly<ModuleData>): Promise<LoadedModuleDefs> {
   const resourceBase = `mod::${name}/`;
   let modXml: Document | null = null;
   try {

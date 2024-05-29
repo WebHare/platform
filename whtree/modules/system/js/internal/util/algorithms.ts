@@ -1,4 +1,4 @@
-import { RecursiveReadOnly } from "@webhare/js-api-tools";
+import { RecursiveReadonly } from "@webhare/js-api-tools";
 
 export { pick, omit } from "@webhare/std";
 
@@ -26,7 +26,7 @@ export function mapObject<T extends object, N extends (v: T[keyof T], k?: keyof 
 /** Recursively freezes a value
  * @param value - Value to freeze
  */
-export function freezeRecursive<T>(value: T): RecursiveReadOnly<T> {
+export function freezeRecursive<T>(value: T): RecursiveReadonly<T> {
   if (Array.isArray(value)) {
     Object.freeze(value);
     for (const elt of value)
@@ -36,7 +36,7 @@ export function freezeRecursive<T>(value: T): RecursiveReadOnly<T> {
     for (const v of Object.values(value))
       freezeRecursive(v);
   }
-  return value as RecursiveReadOnly<T>;
+  return value as RecursiveReadonly<T>;
 }
 
 /** Recursively apply `Partial<>`  on records in a type

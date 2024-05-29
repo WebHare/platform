@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config";
 import { freezeRecursive } from "./util/algorithms";
 import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
-import type { RecursiveReadOnly } from "@webhare/js-api-tools";
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
@@ -56,7 +56,7 @@ export function addConfigUpdateHandler(handler: () => void): void {
   updateHandlers.push(handler);
 }
 
-export function getFullConfigFile(): RecursiveReadOnly<ConfigFile> {
+export function getFullConfigFile(): RecursiveReadonly<ConfigFile> {
   return configfile;
 }
 

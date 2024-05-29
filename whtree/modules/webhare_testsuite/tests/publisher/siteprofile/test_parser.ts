@@ -126,6 +126,12 @@ types:
           {
             contenttype: 'webhare_testsuite:myTypes.testType',
             layout: ['folksonomy', 'numberField']
+          }, {
+            contenttype: 'http://www.webhare.net/xmlns/example/somelegacytype',
+          }, {
+            contenttype: 'mymod:global.type',
+          }, {
+            contenttype: 'webhare_testsuite:thismod.type',
           }
         ]
       }
@@ -147,6 +153,9 @@ apply:
   editProps:
     - type: testType
       layout: [folksonomy,numberField]
+    - type: http://www.webhare.net/xmlns/example/somelegacytype
+    - type: mymod:global.type
+    - type: thismod.type
 `));
 
   // Test input constraint merging
