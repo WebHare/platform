@@ -20,7 +20,6 @@ LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editapi.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 
-LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 
@@ -55,9 +54,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   // Variables
   //
 
-  /// Id of the file we're editing
-  INTEGER fileid;
-
   /// Last modificationdate of the published version (inited when opened)
   DATETIME lastmod;
 
@@ -76,9 +72,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   /// Whether or not to show the draft bar during this session
   BOOLEAN showdraftbar;
 
-  /// Whether to assume the user has write access
-  BOOLEAN assumewriteaccess;
-
   // Versioning policy for the current site
   OBJECT siteversioningpolicy;
 
@@ -86,9 +79,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   INTEGER filetype;
 
   RECORD filetypeinfo;
-
-  /// If the user only has read-only access to this file (fs_browse)
-  BOOLEAN readonly;
 
   // ---------------------------------------------------------------------------
   //
@@ -109,17 +99,17 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       this->assumewriteaccess := data.assumewriteaccess;
 
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
-    this->fileid := data.id;
+    this->itemid := data.id;
 
-    OBJECT fsobject := OpenWHFSObject(this->fileid);
+    OBJECT fsobject := OpenWHFSObject(this->itemid);
     this->RefreshReadonly(fsobject);
 
-    IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->fileid)) //not even browse access?
+    IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
     {
       this->tolliumresult := "cancel";
       RETURN;
     }
-    IF (NOT this->GetExclusiveAccess([ id := this->fileid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
+    IF (NOT this->GetExclusiveAccess([ id := this->itemid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
       RETURN;
 
     this->showdraftbar := TRUE;
@@ -137,7 +127,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     this->filetypeinfo := DescribeContentTypeById(fsobject->type, [ isfolder := FALSE, mockifmissing := TRUE ]);
 
     //Loads the extensions for the file type and invokes additional editor hooks
-    this->SetupForFileEdit(this->fileid, data.objeditor);
+    this->SetupForFileEdit(this->itemid, data.objeditor);
 
     this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
     this->frame->title := this->filedata.name;
@@ -354,17 +344,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     this->RefreshState();
   }
 
-  MACRO RefreshReadonly(OBJECT fsobj)
-  {
-    this->readonly := (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
-                      OR (NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid));
-
-  }
-
   MACRO RefreshState()
   {
     // Do we have a published version?
-    OBJECT fsobj := OpenWHFSObject(this->fileid);
+    OBJECT fsobj := OpenWHFSObject(this->itemid);
     BOOLEAN ispublishabletoweb := ObjectExists(fsobj) AND fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND this->filetypeinfo.ispublishable AND this->contexts->editdocumentapi->canpublish;
     this->RefreshReadonly(fsobj);
     IF (ObjectExists(fsobj))
@@ -523,7 +506,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
   OBJECT FUNCTION GetBaseSourceObject()
   {
-    RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : OpenWHFSObject(this->fileid);
+    RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : OpenWHFSObject(this->itemid);
   }
 
   MACRO OnDraftmodeclick(STRING link)
@@ -549,13 +532,13 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     IF (NOT ObjectExists(this->siteversioningpolicy))
     {
       this->frame->flags.cancancelrequest := FALSE;
-      IF (SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = this->fileid)
+      IF (SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = this->itemid)
         RETURN "unversioned-published";
       ELSE
         RETURN "unversioned-unpublished";
     }
 
-    RECORD data := SELECT id, isfolder, parent, published FROM system.fs_objects WHERE id = this->fileid;
+    RECORD data := SELECT id, isfolder, parent, published FROM system.fs_objects WHERE id = this->itemid;
     data := this->siteversioningpolicy->EnrichWithObjectPolicy([ data ], [ returnpolicyafteraccept := TRUE ])[0];
 
     RECORD fields := data.policy->GetFields();
@@ -582,7 +565,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   BOOLEAN FUNCTION ExecuteSave(BOOLEAN withpublish, RECORD approval_metadata)
   {
     this->UpdateAutosave();
-    IF(NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid))
+    IF(NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid))
     {
       Print("save aborted - not privileged\n");
       RETURN FALSE; //FIXME report
@@ -641,7 +624,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
         {
           // Ensure the public draft exists if we're actually saving something
           IF (NOT ObjectExists(this->currentdraft))
-            this->currentdraft := CreateDraft(OpenWHFSObject(this->fileid), this->currentautosave->id, TRUE);
+            this->currentdraft := CreateDraft(OpenWHFSObject(this->itemid), this->currentautosave->id, TRUE);
 
           this->currentautosave->SaveToPublicDraft(
               [ basefields :=   [ "DATA" ]
@@ -671,7 +654,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       {
         IF (savemode IN [ "unversioned-unpublished", "unversioned-published" ])
         {
-          OBJECT fsobj := OpenWHFSObject(this->fileid);
+          OBJECT fsobj := OpenWHFSObject(this->itemid);
           //Warn if publishing to an unpublished site (but not if publishing outside a site)
           IF(fsobj->parentsite !=0 AND OpenSite(fsobj->parentsite)->outputweb = 0)
             work->AddWarning(this->GetTid(".sitenotpublished"));
@@ -682,7 +665,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
         ELSE IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
         {
           // Make sure there is a draft to submit.
-          OBJECT fsobj := OpenWHFSObject(this->fileid);
+          OBJECT fsobj := OpenWHFSObject(this->itemid);
           IF (NOT ObjectExists(this->currentdraft))
             this->currentdraft := GetPublicDraft(fsobj->id) ?? CreateDraft(fsobj, fsobj->id, TRUE);
 
@@ -747,7 +730,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       IF (NOT ObjectExists(this->currentautosave))
       {
         //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
-        this->currentautosave := CreateDraft(OpenWHFSObject(this->fileid), ObjectExists(this->currentdraft) ? this->currentdraft->id : this->fileid, FALSE);
+        this->currentautosave := CreateDraft(OpenWHFSObject(this->itemid), ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, FALSE);
       }
 
       this->contexts->editdocumentapi->__FlushInstanceData(this->currentautosave->fsobject);
@@ -773,7 +756,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
   OBJECT FUNCTION GetBaseFSObject()
   {
-    RETURN OpenWHFSObject(this->fileid);
+    RETURN OpenWHFSObject(this->itemid);
   }
 
   // ---------------------------------------------------------------------------
@@ -811,7 +794,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     BOOLEAN have_change;
     FOREVERY (RECORD event FROM events)
     {
-      IF (RecordLowerBound(event.data.files, [ file := this->fileid ], [ "FILE" ]).found)
+      IF (RecordLowerBound(event.data.files, [ file := this->itemid ], [ "FILE" ]).found)
         have_change := TRUE;
     }
 
@@ -848,7 +831,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   {
     RECORD metadata;
     STRING savemode := this->GetSaveMode();
-    OBJECT targetfile := OpenWHFSObject(this->fileid);
+    OBJECT targetfile := OpenWHFSObject(this->itemid);
     IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
     {
       metadata := GetSubmitRequestApprovalMetadata(this, targetfile);
@@ -900,7 +883,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   {
     this->UpdateAutosave();
 
-    RETURN CreatePreviewLink(validuntil, password, this->fileid, this->GetPreviewObject(autosave)->id);
+    RETURN CreatePreviewLink(validuntil, password, this->itemid, this->GetPreviewObject(autosave)->id);
   }
 
   MACRO DoPreviewCurrentContent(OBJECT openhandler)
@@ -932,9 +915,9 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   MACRO DoViewPublished(OBJECT openhandler)
   {
     IF (this->contexts->editdocumentapi->onview != DEFAULT MACRO PTR)
-      this->contexts->editdocumentapi->onview(openhandler, OpenWHFSObject(this->fileid));
+      this->contexts->editdocumentapi->onview(openhandler, OpenWHFSObject(this->itemid));
     ELSE
-      openhandler->SendURL(OpenWHFSObject(this->fileid)->url);
+      openhandler->SendURL(OpenWHFSObject(this->itemid)->url);
   }
 
   BOOLEAN FUNCTION Cancel()
@@ -947,7 +930,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   {
     IF (this->frame->flags.isdirty)
     {
-      STRING res := this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.editdocument.messageboxes.savebeforeclose", OpenWHFSObject(this->fileid)->name), [ buttons := ["yes","no","cancel"]]);
+      STRING res := this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.editdocument.messageboxes.savebeforeclose", OpenWHFSObject(this->itemid)->name), [ buttons := ["yes","no","cancel"]]);
       SWITCH (res)
       {
         CASE "yes"
@@ -958,7 +941,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
         CASE "no"
         {
           OBJECT work := this->BeginUnvalidatedWork();
-          CleanupMyPrivateDrafts(this->fileid);
+          CleanupMyPrivateDrafts(this->itemid);
           this->currentautosave := DEFAULT OBJECT;
           work->Finish();
 
@@ -1033,7 +1016,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
   MACRO DoOpenInPublisher()
   {
-    RunPublisherFileManager(this, this->fileid);
+    RunPublisherFileManager(this, this->itemid);
   }
 
   MACRO DoInspectAutosave()
@@ -1052,7 +1035,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   }
   MACRO DoInspectFinal()
   {
-    RunFSObjectInspectDialog(this, this->fileid);
+    RunFSObjectInspectDialog(this, this->itemid);
   }
 >;
 

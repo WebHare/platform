@@ -24,21 +24,30 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
   RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
 }
 
-ASYNC FUNCTION TestMetaFields(INTEGER round) //shared MetaTabs and ObjectProps stuff
+ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs and ObjectProps stuff
 {
   OBJECT anumberfield :=  TT(":A number field");
   TestAssert(ObjectExists(anumberfield));
   TestEq("integer", anumberfield->valuetype);
   TestEq(42 + round - 1, anumberfield->value);
 
-  // Update and save props
-  anumberfield->value := anumberfield->value + 1;
-  anumberfield->SetDirty(); //pretend the client did it
-
   OBJECT selectuserfield := TT(":WH User"); //note that this finds the embedded textedit
   TestAssert(ObjectExists(selectuserfield));
   TestEq(FALSE, selectuserfield->enabled);
   TestEq('Sysop McTestsuite', selectuserfield->value);
+
+  IF(readonly)
+  {
+    TestEq(FALSE, anumberfield->enabled);
+    TestEq(FALSE, selectuserfield->enabled);
+  }
+  ELSE
+  {
+    // Update and save props
+    anumberfield->value := anumberfield->value + 1;
+    anumberfield->SetDirty(); //pretend the client did it
+  }
+
 
   RETURN CELL [anumberfield];
 }
@@ -63,7 +72,7 @@ ASYNC MACRO TestMetaTab()
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   TestEq(FALSE, topscreen->frame->flags.canpublish);
 
-  AWAIT TestMetaFields(1);
+  AWAIT TestMetaFields(1, FALSE);
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
   TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
@@ -86,7 +95,7 @@ ASYNC MACRO TestMetaTab()
 
   //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
-  AWAIT TestMetaFields(2);
+  AWAIT TestMetaFields(2, FALSE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
@@ -159,10 +168,26 @@ ASYNC MACRO TestSaveToUnpublishedSite()
   Testeq(TRUE, OpenWHFSObject(testfile->id)->publish);
 }
 
+ASYNC MACRO TestReopenDeletedFile()
+{
+  //TODO also test History at some point
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteJSTempFolder()->OpenByNAme("testmetatab.rtd");
+  testfile->RecycleSelf();
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  AWAIT TestMetaFields(3, TRUE);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object
+}
+
 RunTestFramework(
     [ PTR TestMetaTab
     , PTR TestRevert
     , PTR TestSaveToUnpublishedSite
+    , PTR TestReopenDeletedFile
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]
