@@ -250,7 +250,7 @@ export class WHFSApplyTester {
   private getPath(which: "whfsPath" | "fullPath") {
     if (this.objinfo.obj)
       return this.objinfo.obj[which].toUpperCase();
-    // We mock the name to be 'NEW OBJECT'. Have to do 'something' in the path..
+    // We generate a path based on the parent path and the name of the mocked object. HareScript would always use "NEW OBJECT" as a name
     return `${(this.objinfo.parent.fullPath + this.objinfo.name).toUpperCase()}${this.objinfo.isfile ? "" : "/"}`;
   }
 
