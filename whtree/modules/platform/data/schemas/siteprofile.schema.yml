@@ -90,6 +90,14 @@ definitions:
         $ref: "#/definitions/ValueConstraints"
       component:
         type: object # Can't validate Tollium components in a static schema definition
+      layout:
+        $ref: "#/definitions/FieldLayout"
+
+  FieldLayout:
+    type: string
+    enum:
+    - section
+    - block
 
   ValueConstraints: # TODO we need to share this with Tollium components
     type: object
@@ -286,6 +294,8 @@ definitions:
         $ref: "#/definitions/ValueConstraints"
       props:
         type: object
+      layout:
+        $ref: "#/definitions/FieldLayout"
 
   ApplyUserData:
     type: object

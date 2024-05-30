@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- FIXME a lot of siteprofile rules are still any[] */
 
+import type { FieldLayout } from "@mod-platform/generated/schema/siteprofile";
 import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 
 export enum CSPMemberType {
@@ -35,6 +36,8 @@ export interface CSPMemberBasics {
     component: string;
     yamlprops: Record<string, unknown>;
   };
+  /** Field layout */
+  layout?: FieldLayout;
 }
 
 export interface CSPMember extends CSPMemberBasics {

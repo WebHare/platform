@@ -28,6 +28,7 @@ types:
       folksonomy:
         type: whfsrefarray
         title: Folksonomy tags
+        layout: section
       rtd:
         type: richdocument
         title: Rich text document

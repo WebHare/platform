@@ -34,7 +34,13 @@ types:
                 maxValue: 217483647
               }
             },
-            { name: 'other_field', type: CSPMemberType.String, title: ":My other field" },
+            {
+              name: 'other_field',
+              jsname: 'otherField',
+              type: CSPMemberType.String,
+              title: ":My other field",
+              layout: 'section'
+            },
             {
               name: 'array_field', type: CSPMemberType.Array, children:
                 [
@@ -84,6 +90,7 @@ types:
       otherField:
         type: string
         title: My other field
+        layout: section
       arrayField:
         type: array
         members:
@@ -286,7 +293,8 @@ apply:
                   //NOTE the parser doesn't merge constraints between editProps and Type yet, they may be in different files
                   maxValue: 100
                 },
-                props: { "empty_value": 5 }
+                props: { "empty_value": 5 },
+                layout: 'section' as const
               }
             })
           }
@@ -311,7 +319,8 @@ apply:
   editProps:
     - type: testType
       override:
-         numberField:
+        numberField:
+          layout: section
           constraints:
             maxValue: 100
           props:

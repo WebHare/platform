@@ -20,6 +20,7 @@ types:
         type: money
       rich:
         type: richdocument
+        layout: section
       yesNo:
         type: boolean
       aFloat:
