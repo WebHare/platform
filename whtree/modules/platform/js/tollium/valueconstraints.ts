@@ -39,8 +39,15 @@ export function mergeConstraints(lhs: Readonly<ValueConstraints> | null, rhs: Re
 export type AnyTolliumComponent = Record<string, unknown>;
 
 export function suggestTolliumComponent(valueConstraints: Readonly<ValueConstraints>): { component?: AnyTolliumComponent; error?: string } {
+  if (valueConstraints.maxLength !== undefined && !(valueConstraints.maxLength >= 0))
+    throw new Error(`maxLength should be a positive number, got ${valueConstraints.maxLength}`);
+
   if (valueConstraints.valueType === "string") {
-    return { component: { textedit: { valueConstraints } } };
+    const textedit = {
+      valueConstraints,
+      width: valueConstraints.maxLength! < 30 ? (valueConstraints.maxLength! + 1) + 'x' : "1pr"
+    };
+    return { component: { textedit } };
   }
   if (valueConstraints.valueType === "integer") {
     return { component: { textedit: { valueConstraints, valueType: "integer" } } };

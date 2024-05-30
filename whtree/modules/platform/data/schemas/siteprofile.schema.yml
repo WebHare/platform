@@ -121,14 +121,18 @@ definitions:
           - datetime
           - resourceDescriptor
           - fsobjectid
-      maxBytes:
-        type: integer
       minValue:
         description: Minimum value
         type: integer #TODO float?
       maxValue:
         description: Maximum value
         type: integer #TODO float?
+      maxBytes:
+        description: Maximum data length in (UTF-8) bytes
+        type: integer
+      maxLength:
+        description: Maximum data length in UTF-16 'code units' (ie JavaScript String.length)
+        type: integer
       required:
         description: Require a value to be set
         type: boolean
