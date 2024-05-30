@@ -102,7 +102,10 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
     dbtype: CSPMemberType.StringArray
   },
   "richdocument": {
-    dbtype: CSPMemberType.RichDocument
+    dbtype: CSPMemberType.RichDocument,
+    constraints: {
+      valueType: "richDocument"
+    }
   },
   "intextlink": {
     dbtype: CSPMemberType.IntExtLink
@@ -111,7 +114,11 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
     dbtype: CSPMemberType.Instance
   },
   "url": {
-    dbtype: CSPMemberType.URL
+    dbtype: CSPMemberType.URL,
+    constraints: {
+      valueType: "string",
+      validation: ["url"]
+    }
   },
   "composeddocument": {
     dbtype: CSPMemberType.ComposedDocument

@@ -109,6 +109,7 @@ definitions:
           - resourceDescriptor
           - fsobjectid
           - array
+          - richDocument
       itemType:
         description: Type of value used in an array
         type: string
@@ -121,6 +122,24 @@ definitions:
           - datetime
           - resourceDescriptor
           - fsobjectid
+      validation:
+        description: Validation checks to apply on the input
+        type: array
+        itemType:
+          type: string
+          enum:
+            - "email"
+            - "email-maysendfrom"
+            - "email-maysendto"
+            - "emails"
+            - "emails-maysendto"
+            - "url"
+            - "url-plus-relative"
+            - "http-url"
+            - "secure-url"
+            - "insecure-url"
+            - "hostname"
+            - "whfsname"
       minValue:
         description: Minimum value
         type: integer #TODO float?

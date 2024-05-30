@@ -109,6 +109,30 @@ types:
         type: string
 `));
 
+  // Test no attempted tid generation if no base gids given
+  test.eqPartial({
+    contenttypes: [
+      {
+        namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type',
+        title: "",
+        members:
+          [
+            {
+              jsname: "numberField",
+              title: ""
+            }
+          ]
+      }
+    ]
+  }, await parseSP(`---
+typeGroup: myTypes
+types:
+  testType:
+    members:
+      numberField:
+        type: integer
+`));
+
   // Test basic extendproperties
   test.eqPartial({
     contenttypes: [

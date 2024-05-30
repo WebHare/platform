@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-backend";
-import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { openFile } from "@webhare/whfs";
+import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { openFile, openFolder } from "@webhare/whfs";
 import { describeMetaTabs, remapForHs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 import { getTestSiteJSTemp } from "@mod-webhare_testsuite/js/testsupport";
@@ -136,12 +136,30 @@ async function testOverrides() {
       ]
     }, metatabs);
   } //end metaoverride1
+}
 
+async function getMockTestApplyTester(name: string) {
+  const testpages = await openFolder("site::webhare_testsuite.testsitejs/testpages");
+  return await getApplyTesterForMockedObject(testpages, false, "http://www.webhare.net/xmlns/publisher/richdocumentfile", name);
+}
+
+async function testAllTypes() {
+  const metatabs = await describeMetaTabs(await getMockTestApplyTester("allprops"));
+  test.eq([":WTS base test", ":WTS Generic"], metatabs?.types.map(_ => _.title));
+
+  const wtsgenerictab = metatabs!.types[1];
+  test.eqPartial({ title: ":str" }, wtsgenerictab.members.find(_ => _.name === 'str'));
+  test.eqPartial({ component: { fileedit: {} } }, wtsgenerictab.members.find(_ => _.name === 'blub')); //TODO but shouldn't it actually be an image?
+
+  const missingSuggestions = wtsgenerictab.members.filter(_ => _.component?.text?.value && _.component?.text?.enabled === false);
+  //TODO can we solve these all? at least prevent more from appearing
+  test.eq(["aRecord", "aTypedRecord", "anArray", "anInstance", "strArray"], missingSuggestions.map(_ => _.name).sort());
 }
 
 test.run([
   prep,
   testIgnoreMetatabsForOldContent,
   testMetadataReader,
-  testOverrides
+  testOverrides,
+  testAllTypes
 ]);
