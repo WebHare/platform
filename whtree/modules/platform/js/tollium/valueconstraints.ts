@@ -38,26 +38,80 @@ export function mergeConstraints(lhs: Readonly<ValueConstraints> | null, rhs: Re
 
 export type AnyTolliumComponent = Record<string, unknown>;
 
+function suggestByArrayItemType(valueConstraints: Readonly<ValueConstraints>): AnyTolliumComponent | string {
+  switch (valueConstraints.itemType) {
+    case "fsObjectId": {
+      return { "http://www.webhare.net/xmlns/publisher/components#browseforobjectarray": { valueConstraints } };
+    }
+  }
+
+  return `Unable to suggest a component for array itemType: ${valueConstraints.itemType}`;
+}
+
+function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTolliumComponent | string {
+  //Valuetype handling
+  switch (valueConstraints.valueType) {
+    case "string": {
+      const textedit = {
+        valueConstraints,
+        width: valueConstraints.maxLength! < 30 ? (valueConstraints.maxLength! + 1) + 'x' : "1pr"
+      };
+      return { textedit };
+    }
+
+    case "integer":
+      return { textedit: { valueConstraints, valueType: "integer" } };
+
+
+    case "float":
+      return { textedit: { valueConstraints, valueType: "float" } };
+
+
+    case "boolean":
+      return { checkbox: { valueConstraints } };
+
+    case "money":
+      return { textedit: { valueConstraints, valueType: "money" } };
+
+
+    case "dateTime": {
+      if (valueConstraints.precision === "day")
+        return { datetime: { valueConstraints, type: "date", storeUTC: true } };
+
+      const datetime = { valueConstraints, type: "datetime", storeUTC: true };
+      if (!valueConstraints.precision)
+        datetime.valueConstraints = { ...datetime.valueConstraints, precision: "millisecond" };
+
+      return { datetime };
+    }
+
+    case "resourceDescriptor":
+      return { fileedit: { valueConstraints } };
+
+    case "fsObjectId":
+      return { "http://www.webhare.net/xmlns/publisher/components#browseforobject": { valueConstraints } };
+
+    case "richDocument":
+      return { "richdocument": { valueConstraints } };
+
+    case "array":
+      return suggestByArrayItemType(valueConstraints);
+  }
+
+  return `Unable to suggest a component for valueType: ${valueConstraints.valueType}`;
+}
+
 export function suggestTolliumComponent(valueConstraints: Readonly<ValueConstraints>): { component?: AnyTolliumComponent; error?: string } {
-  if (valueConstraints.valueType === "string") {
-    return { component: { textedit: { valueConstraints } } };
-  }
-  if (valueConstraints.valueType === "integer") {
-    return { component: { textedit: { valueConstraints, valueType: "integer" } } };
-  }
-  if (valueConstraints.valueType === "datetime") {
-    if (valueConstraints.precision === "day")
-      return { component: { datetime: { valueConstraints, type: "date", storeUTC: true } } };
-
-    const datetime = { valueConstraints, type: "datetime", storeUTC: true };
-    if (!valueConstraints.precision)
-      datetime.valueConstraints = { ...datetime.valueConstraints, precision: "millisecond" };
-
-    return { component: { datetime } };
-  }
+  //Global checks
+  if (valueConstraints.maxLength !== undefined && !(valueConstraints.maxLength >= 0))
+    throw new Error(`maxLength should be a positive number, got ${valueConstraints.maxLength}`);
 
   if (!valueConstraints.valueType)
     return { error: `Unable to suggest a component without a valueType` };
 
-  return { error: `Unable to suggest a component for valueType: ${valueConstraints.valueType}` };
+
+  const suggestion = suggestByType(valueConstraints);
+  if (typeof suggestion === "string")
+    return { error: suggestion };
+  return { component: suggestion };
 }

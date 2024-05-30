@@ -1,11 +1,12 @@
 typeGroup: global
 types:
-  genericTestType:
+  genericTestType: # webhare_testsuite:global.genericTestType
     #  The general idea:
     #   - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
     #   - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
     #   - This import: `import { globalTypes } from "wh:whfs/webhare_testsuite"`
     #   - To get: `const mydata = globalTypes.genericTestType.get(fileId)`
+    title: WTS Generic
     members:
       str:
         type: string

@@ -55,7 +55,7 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "datetime": {
     dbtype: CSPMemberType.DateTime,
     constraints: {
-      valueType: "datetime"
+      valueType: "dateTime"
     }
   },
   "file": {
@@ -85,7 +85,7 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "whfsref": {
     dbtype: CSPMemberType.WHFSRef,
     constraints: {
-      valueType: "fsobjectid"
+      valueType: "fsObjectId"
     }
   },
   "array": {
@@ -95,14 +95,17 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
     dbtype: CSPMemberType.WHFSRefArray,
     constraints: {
       valueType: "array",
-      itemType: "fsobjectid"
+      itemType: "fsObjectId"
     }
   },
   "stringarray": {
     dbtype: CSPMemberType.StringArray
   },
   "richdocument": {
-    dbtype: CSPMemberType.RichDocument
+    dbtype: CSPMemberType.RichDocument,
+    constraints: {
+      valueType: "richDocument"
+    }
   },
   "intextlink": {
     dbtype: CSPMemberType.IntExtLink
@@ -111,7 +114,11 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
     dbtype: CSPMemberType.Instance
   },
   "url": {
-    dbtype: CSPMemberType.URL
+    dbtype: CSPMemberType.URL,
+    constraints: {
+      valueType: "string",
+      validation: ["url"]
+    }
   },
   "composeddocument": {
     dbtype: CSPMemberType.ComposedDocument

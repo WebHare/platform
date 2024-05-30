@@ -105,10 +105,11 @@ definitions:
           - float
           - money
           - boolean
-          - datetime
+          - dateTime
           - resourceDescriptor
-          - fsobjectid
+          - fsObjectId
           - array
+          - richDocument
       itemType:
         description: Type of value used in an array
         type: string
@@ -118,17 +119,39 @@ definitions:
           - float
           - money
           - boolean
-          - datetime
+          - dateTime
           - resourceDescriptor
-          - fsobjectid
-      maxBytes:
-        type: integer
+          - fsObjectId
+      validation:
+        description: Validation checks to apply on the input
+        type: array
+        itemType:
+          type: string
+          enum:
+            - "email"
+            - "email-maysendfrom"
+            - "email-maysendto"
+            - "emails"
+            - "emails-maysendto"
+            - "url"
+            - "url-plus-relative"
+            - "http-url"
+            - "secure-url"
+            - "insecure-url"
+            - "hostname"
+            - "whfsname"
       minValue:
         description: Minimum value
         type: integer #TODO float?
       maxValue:
         description: Maximum value
         type: integer #TODO float?
+      maxBytes:
+        description: Maximum data length in (UTF-8) bytes
+        type: integer
+      maxLength:
+        description: Maximum data length in UTF-16 'code units' (ie JavaScript String.length)
+        type: integer
       required:
         description: Require a value to be set
         type: boolean

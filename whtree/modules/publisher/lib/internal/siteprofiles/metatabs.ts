@@ -18,7 +18,7 @@ interface MetaTabs {
       name: string;
       title: string;
       constraints: ValueConstraints | null;
-      component: Record<string, unknown>;
+      component: Record<string, unknown> & { text?: { value?: string; enabled?: boolean } }; //failed suggestions are converted to text: { value: { "Unable..."}, enabled: false}
     }>;
   }>;
 }
@@ -115,7 +115,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
 
       members.push({
         name: member.jsname!,
-        title: override?.title || member.title || member.jsname!,
+        title: override?.title || member.title || (":" + member.jsname!),
         constraints,
         component
       });

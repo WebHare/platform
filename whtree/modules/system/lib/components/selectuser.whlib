@@ -84,7 +84,7 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
       }
 
 
-    TolliumFragmentBase::SetYamlProps(CELL[ ...props, DELETE input_kind ]);
+    TolliumFragmentBase::SetYamlProps(props);
   }
 
   UPDATE MACRO PreInitComponent()

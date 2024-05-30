@@ -35,12 +35,19 @@ function testTolliumMapping() {
   //valueConstraints shouldn't directly appear as explicit properties to assign to the component, as the user might overwrite them anyway
   test.eqPartial({ component: { textedit: { valueConstraints: { required: true } }, required: undefined } }, suggestTolliumComponent({ valueType: "string", required: true }));
 
+  //textedit '30x' default width may be considered a mistake in retrospect? but we can change the default for YAML profiles
+  test.eqPartial({ component: { textedit: { width: "1pr" } } }, suggestTolliumComponent({ valueType: "string" }));
+  //tollium generally assumed 'setting witdh to maxLength + 1x, up to 30, is a good default'. we'll follow the same line except that at 30+ we'll go straight to 1pr widths
+  test.eqPartial({ component: { textedit: { width: "21x" } } }, suggestTolliumComponent({ valueType: "string", maxLength: 20 }));
+  test.eqPartial({ component: { textedit: { width: "30x" } } }, suggestTolliumComponent({ valueType: "string", maxLength: 29 }));
+  test.eqPartial({ component: { textedit: { width: "1pr" } } }, suggestTolliumComponent({ valueType: "string", maxLength: 30 }));
+
   //date precisions default to millisecond (as that's the least constraint)
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "millisecond" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "second" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "second" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "minute" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "minute" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "hour" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "hour" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "day" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "day" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "millisecond" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "second" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "second" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "minute" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "minute" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "hour" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "hour" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "day" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "day" }));
 
   test.eqPartial({ error: /without a valueType/ }, suggestTolliumComponent({}));
 }
