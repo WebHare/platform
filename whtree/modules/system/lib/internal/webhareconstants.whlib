@@ -65,7 +65,7 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs := 24;
 PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs_snapshots := 25;
 
 //Default key expiry warning (days)
-PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 45;
+PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 30;
 
 //Default key expiry warning (days) for automatically renewed keys
 PUBLIC CONSTANT INTEGER whconstant_autorenewed_warnexpirydays := 21;
