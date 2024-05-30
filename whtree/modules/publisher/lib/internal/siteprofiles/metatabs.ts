@@ -1,7 +1,7 @@
 import { getApplyTesterForMockedObject, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { getType } from "@webhare/whfs/src/contenttypes";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
-import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
+import type { FieldLayout, ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
 import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
 import { nameToSnakeCase, toCamelCase } from "@webhare/hscompat/types";
@@ -9,17 +9,21 @@ import type { CSPApplyRule, CSPContentType, CSPMember, CSPMemberOverride, Custom
 import { isTruthy } from "@webhare/std/collections";
 import { parseYamlComponent } from "./parser";
 
+interface MetadataSection {
+  title: string;
+  fields: Array<{
+    name: string;
+    title: string;
+    constraints: ValueConstraints | null;
+    component: Record<string, unknown> & { text?: { value?: string; enabled?: boolean } }; //failed suggestions are converted to text: { value: { "Unable..."}, enabled: false}
+    layout?: FieldLayout;
+  }>;
+}
 interface MetaTabs {
   types: Array<{
     namespace: string;
-    title: string;
     layout?: string[];
-    members: Array<{
-      name: string;
-      title: string;
-      constraints: ValueConstraints | null;
-      component: Record<string, unknown> & { text?: { value?: string; enabled?: boolean } }; //failed suggestions are converted to text: { value: { "Unable..."}, enabled: false}
-    }>;
+    sections: MetadataSection[];
   }>;
 }
 
@@ -104,7 +108,12 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
       continue; //no layout received, nothing to show
 
     //gather the members to display
-    const members: MetaTabs["types"][0]["members"] = [];
+    const mainsection: MetadataSection = {
+      title: matchtype.title || matchtype.scopedtype || matchtype.namespace,
+      fields: []
+    };
+    const addsections: MetadataSection[] = [];
+
     for (const member of determineLayout(matchtype, lastlayout)) {
       const override = overrides[member.jsname!]; //has to exist as we wouldn't be processing non-yaml types
       const constraints = mergeConstraints(member.constraints ?? null, override?.constraints ?? null);
@@ -115,9 +124,19 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
         component[compname] = { ...component[compname]!, ...toCamelCase(override.props) };
       }
 
-      members.push({
+      const fieldTitle = override?.title || member.title || (":" + member.jsname!);
+      const useLayout = override?.layout || member.layout;
+      let addtoSection = mainsection;
+
+      if (useLayout === 'section') {
+        addtoSection = { title: fieldTitle, fields: [] };
+        addsections.push(addtoSection);
+      }
+
+      addtoSection.fields.push({
         name: member.jsname!,
         title: override?.title || member.title || (":" + member.jsname!),
+        layout: useLayout,
         constraints,
         component
       });
@@ -125,8 +144,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
 
     metasettings.types.push({
       namespace: matchtype.namespace,
-      title: matchtype.title || matchtype.scopedtype || matchtype.namespace,
-      members,
+      sections: [...(mainsection.fields.length ? [mainsection] : []), ...addsections]
     });
   }
 
@@ -139,16 +157,18 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
 interface MetaTabsForHS {
   types: Array<{
     namespace: string;
-    title: string;
-    members: Array<{
-      name: string;
+    sections: Array<{
       title: string;
-      constraints: ToSnakeCase<ValueConstraints> | null;
-      component: {
-        ns: string;
-        component: string;
-        yamlprops: unknown;
-      };
+      fields: Array<{
+        name: string;
+        title: string;
+        constraints: ToSnakeCase<ValueConstraints> | null;
+        component: {
+          ns: string;
+          component: string;
+          yamlprops: unknown;
+        };
+      }>;
     }>;
   }>;
 }
@@ -157,11 +177,14 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
   const translated: MetaTabsForHS = {
     types: metatabs.types.map(type => ({
       ...type,
-      members: type.members.map(member => ({
-        ...member,
-        name: nameToSnakeCase(member.name),
-        constraints: toSnakeCase(member.constraints),
-        component: parseYamlComponent(member.component)
+      sections: type.sections.map(section => ({
+        title: section.title,
+        fields: section.fields.map(field => ({
+          ...field,
+          name: nameToSnakeCase(field.name),
+          constraints: toSnakeCase(field.constraints),
+          component: parseYamlComponent(field.component)
+        }))
       }))
     }))
   };

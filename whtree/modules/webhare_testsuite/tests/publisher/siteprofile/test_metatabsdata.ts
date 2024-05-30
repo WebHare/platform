@@ -27,27 +27,36 @@ async function testMetadataReader() {
     types: [
       {
         namespace: 'http://www.webhare.net/xmlns/webhare_testsuite/basetestprops',
-        title: ':WTS base test',
-        members: [
+        sections: [
           {
-            name: "anyField",
-            title: ":Any field",
-            component: { textedit: { valueConstraints: { maxBytes: 4096 } } }
+            title: ':WTS base test',
+            fields: [
+              {
+                name: "anyField",
+                title: ":Any field",
+                component: { textedit: { valueConstraints: { maxBytes: 4096 } } }
+              }, {
+                name: "numberField",
+                constraints: {
+                  valueType: "integer",
+                  minValue: 0,
+                  maxValue: 100
+                },
+                component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 1 } }
+              }, {
+                name: "whUser",
+                title: ":WH User",
+                component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
+              }
+            ]
           }, {
-            name: "numberField",
-            constraints: {
-              valueType: "integer",
-              minValue: 0,
-              maxValue: 100
-            },
-            component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 1 } }
-          }, {
-            name: "folksonomy"
-          }, {
-            name: "whUser",
-            title: ":WH User",
-            component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
-          }
+            title: ":Folksonomy tags",
+            fields: [
+              {
+                name: "folksonomy"
+              }
+            ]
+          },
         ]
       }
     ]
@@ -57,38 +66,47 @@ async function testMetadataReader() {
     types: [
       {
         namespace: 'http://www.webhare.net/xmlns/webhare_testsuite/basetestprops',
-        title: ':WTS base test',
-        members: [
+        sections: [
           {
-            name: "any_field",
-            title: ":Any field",
-            component: {
-              ns: "http://www.webhare.net/xmlns/tollium/screens",
-              component: "textedit",
-              yamlprops: { value_constraints: { max_bytes: 4096 } }
-            }
+            title: ':WTS base test',
+            fields: [
+              {
+                name: "any_field",
+                title: ":Any field",
+                component: {
+                  ns: "http://www.webhare.net/xmlns/tollium/screens",
+                  component: "textedit",
+                  yamlprops: { value_constraints: { max_bytes: 4096 } }
+                }
+              }, {
+                name: "number_field",
+                constraints: {
+                  value_type: "integer",
+                  min_value: 0,
+                  max_value: 100
+                },
+                component: {
+                  ns: "http://www.webhare.net/xmlns/tollium/screens",
+                  component: "textedit",
+                  yamlprops: { value_type: "integer", value_constraints: { max_value: 100 } }
+                }
+              }, {
+                name: "wh_user",
+                title: ":WH User",
+                component: {
+                  ns: "http://www.webhare.net/xmlns/system/components",
+                  component: "selectuser",
+                  yamlprops: { input_kind: "wrdGuid", value_constraints: { value_type: "string" } }
+                }
+              }
+            ]
           }, {
-            name: "number_field",
-            constraints: {
-              value_type: "integer",
-              min_value: 0,
-              max_value: 100
-            },
-            component: {
-              ns: "http://www.webhare.net/xmlns/tollium/screens",
-              component: "textedit",
-              yamlprops: { value_type: "integer", value_constraints: { max_value: 100 } }
-            }
-          }, {
-            name: "folksonomy"
-          }, {
-            name: "wh_user",
-            title: ":WH User",
-            component: {
-              ns: "http://www.webhare.net/xmlns/system/components",
-              component: "selectuser",
-              yamlprops: { input_kind: "wrdGuid", value_constraints: { value_type: "string" } }
-            }
+            title: ":Folksonomy tags",
+            fields: [
+              {
+                name: "folksonomy"
+              }
+            ]
           }
         ]
       }
@@ -110,27 +128,31 @@ async function testOverrides() {
       types: [
         {
           namespace: 'http://www.webhare.net/xmlns/webhare_testsuite/basetestprops',
-          title: ':WTS base test',
-          members: [
+          sections: [
             {
-              name: "anyField",
-              title: ":Any field",
-              component: { textedit: { valueConstraints: { maxBytes: 4096 } } }
+              title: ':WTS base test',
+              fields: [
+                {
+                  name: "anyField",
+                  title: ":Any field",
+                  component: { textedit: { valueConstraints: { maxBytes: 4096 } } }
+                }, {
+                  name: "numberField",
+                  constraints: {
+                    valueType: "integer",
+                    minValue: 0,
+                    maxValue: 100
+                  },
+                  component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 2 } }
+                }, {
+                  name: "whUser",
+                  title: ":WH Usertje",
+                  component: { textarea: {} }
+                }
+              ]
             }, {
-              name: "numberField",
-              constraints: {
-                valueType: "integer",
-                minValue: 0,
-                maxValue: 100
-              },
-              component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 2 } }
-            }, {
-              name: "folksonomy"
-            }, {
-              name: "whUser",
-              title: ":WH Usertje",
-              component: { textarea: {} }
-            }
+              title: ":Folksonomy tags",
+            },
           ]
         }
       ]
@@ -145,13 +167,13 @@ async function getMockTestApplyTester(name: string) {
 
 async function testAllTypes() {
   const metatabs = await describeMetaTabs(await getMockTestApplyTester("allprops"));
-  test.eq([":WTS base test", ":WTS Generic"], metatabs?.types.map(_ => _.title));
+  test.eq([":WTS base test", ":Folksonomy tags", ":WTS Generic", ":rich"], metatabs?.types.map(t => t.sections.map(s => s.title)).flat());
 
-  const wtsgenerictab = metatabs!.types[1];
-  test.eqPartial({ title: ":str" }, wtsgenerictab.members.find(_ => _.name === 'str'));
-  test.eqPartial({ component: { fileedit: {} } }, wtsgenerictab.members.find(_ => _.name === 'blub')); //TODO but shouldn't it actually be an image?
+  const wtsgenerictab = metatabs!.types[1].sections[0];
+  test.eqPartial({ title: ":str" }, wtsgenerictab.fields.find(_ => _.name === 'str'));
+  test.eqPartial({ component: { fileedit: {} } }, wtsgenerictab.fields.find(_ => _.name === 'blub')); //TODO but shouldn't it actually be an image?
 
-  const missingSuggestions = wtsgenerictab.members.filter(_ => _.component?.text?.value && _.component?.text?.enabled === false);
+  const missingSuggestions = wtsgenerictab.fields.filter(_ => _.component?.text?.value && _.component?.text?.enabled === false);
   //TODO can we solve these all? at least prevent more from appearing
   test.eq(["aRecord", "aTypedRecord", "anArray", "anInstance", "strArray"], missingSuggestions.map(_ => _.name).sort());
 }
