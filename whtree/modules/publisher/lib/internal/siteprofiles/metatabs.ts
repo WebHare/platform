@@ -5,7 +5,7 @@ import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofil
 import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
 import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
 import { nameToSnakeCase, toCamelCase } from "@webhare/hscompat/types";
-import type { CSPApplyRule, CSPContentType, CSPMember, CSPMemberOverride } from "@webhare/whfs/src/siteprofiles";
+import type { CSPApplyRule, CSPContentType, CSPMember, CSPMemberOverride, CustomFieldsLayout } from "@webhare/whfs/src/siteprofiles";
 import { isTruthy } from "@webhare/std/collections";
 import { parseYamlComponent } from "./parser";
 
@@ -25,12 +25,12 @@ interface MetaTabs {
 
 type ExtendProperties = CSPApplyRule["extendproperties"][0];
 
-function determineLayout(matchtype: CSPContentType, layout?: string[]): CSPMember[] {
-  //if explicitly set, use that
-  if (layout)
-    return layout.map(name => matchtype.members.find(_ => _.jsname === name)).filter(isTruthy);
+function determineLayout(matchtype: CSPContentType, layout: CustomFieldsLayout): CSPMember[] {
+  if (layout === "all")
+    return matchtype.members;
 
-  return matchtype.members;
+  //if explicitly set, use that
+  return layout.map(name => matchtype.members.find(_ => _.jsname === name)).filter(isTruthy);
 }
 
 function toYamlComponent(comp: NonNullable<CSPMember["component"]>, constraints: ValueConstraints | null): AnyTolliumComponent {
@@ -75,7 +75,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     if (!matchtype?.yaml)
       continue;
 
-    let lastlayout: string[] | undefined;
+    let lastlayout: CustomFieldsLayout | undefined;
     const overrides: Record<string, CSPMemberOverride> = {};
 
     for (const extend of extendproperties) {
@@ -98,8 +98,10 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
           if (override.constraints)
             overrides[name].constraints = overrides[name].constraints ? mergeConstraints(overrides[name].constraints!, override.constraints) : override.constraints;
         }
-
     }
+
+    if (!lastlayout)
+      continue; //no layout received, nothing to show
 
     //gather the members to display
     const members: MetaTabs["types"][0]["members"] = [];

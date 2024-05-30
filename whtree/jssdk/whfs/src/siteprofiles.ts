@@ -203,6 +203,8 @@ export interface CSPMemberOverride extends CSPMemberBasics {
   props?: Record<string, unknown>;
 }
 
+export type CustomFieldsLayout = string[] | "all";
+
 export interface CSPApplyRule {
   tos: CSPApplyTo[];
   /** Set by apply rules sourced from YAML */
@@ -223,8 +225,8 @@ export interface CSPApplyRule {
     extension: string;
     requireright: string;
     name: string;
-    /* Limits and orders which fields to offer to edit */
-    layout?: string[];
+    /* Sets and orders which fields to offer to edit */
+    layout?: CustomFieldsLayout;
     /* Specific field level overrides */
     override?: Array<[string, CSPMemberOverride]>;
   }>;

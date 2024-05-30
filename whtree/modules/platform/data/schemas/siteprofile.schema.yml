@@ -262,9 +262,13 @@ definitions:
         type:
           type: string
         layout:
-          type: array
-          items:
-            type: string
+          oneOf:
+            - type: string
+              enum:
+                - all
+            - type: array
+              items:
+                type: string
         override:
           type: object
           additionalProperties:

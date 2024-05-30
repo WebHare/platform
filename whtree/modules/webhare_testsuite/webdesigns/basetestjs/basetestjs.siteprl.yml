@@ -28,6 +28,9 @@ types:
       folksonomy:
         type: whfsrefarray
         title: Folksonomy tags
+      rtd:
+        type: richdocument
+        title: Rich text document
       complexField:
         type: array
         title: Complex field
@@ -79,3 +82,4 @@ apply:
       pathMatch: allprops
     editProps:
       - type: global.genericTestType
+        layout: all

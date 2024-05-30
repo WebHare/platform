@@ -152,10 +152,13 @@ types:
             layout: ['folksonomy', 'numberField']
           }, {
             contenttype: 'http://www.webhare.net/xmlns/example/somelegacytype',
+            layout: "all"
           }, {
             contenttype: 'mymod:global.type',
+            layout: undefined
           }, {
             contenttype: 'webhare_testsuite:thismod.type',
+            layout: undefined
           }
         ]
       }
@@ -178,6 +181,7 @@ apply:
     - type: testType
       layout: [folksonomy,numberField]
     - type: http://www.webhare.net/xmlns/example/somelegacytype
+      layout: all
     - type: mymod:global.type
     - type: thismod.type
 `));
