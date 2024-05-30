@@ -89,6 +89,15 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
         insertpos := insertpos + 1;
         FOREVERY(RECORD field FROM section.fields)
         {
+          STRING title := GetTid(field.title);
+          STRING layout := CellExists(field, 'layout') ? field.layout : "inline";
+          IF(title != "" AND layout = "block") //put it in the H1 above.
+          {
+            OBJECT heading := this->CreateTolliumComponent("heading");
+            heading->title := title;
+            newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
+          }
+
           OBJECT newcomp := this->CreateCustomComponent(field.component.ns, field.component.component);
           IF(MemberExists(newcomp, 'composition'))
             newcomp->composition := fsinstance;
@@ -98,7 +107,9 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
             newcomp->dirtylistener := ^dirtylistener;
 
           newcomp->SetYamlProps(field.component.yamlprops);
-          newcomp->title := GetTid(field.title);
+          newcomp->title := layout = "inline" ? title : "";
+          newcomp->errorlabel := title;
+          newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
           newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
         }
 

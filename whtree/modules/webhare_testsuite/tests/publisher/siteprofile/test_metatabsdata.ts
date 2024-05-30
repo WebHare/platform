@@ -47,6 +47,8 @@ async function testMetadataReader() {
                 name: "whUser",
                 title: ":WH User",
                 component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
+              }, {
+                name: "rtd"
               }
             ]
           }, {
@@ -98,6 +100,8 @@ async function testMetadataReader() {
                   component: "selectuser",
                   yamlprops: { input_kind: "wrdGuid", value_constraints: { value_type: "string" } }
                 }
+              }, {
+                name: "rtd"
               }
             ]
           }, {
@@ -148,6 +152,8 @@ async function testOverrides() {
                   name: "whUser",
                   title: ":WH Usertje",
                   component: { textarea: {} }
+                }, {
+                  name: "rtd"
                 }
               ]
             }, {
