@@ -105,9 +105,9 @@ definitions:
           - float
           - money
           - boolean
-          - datetime
+          - dateTime
           - resourceDescriptor
-          - fsobjectid
+          - fsObjectId
           - array
           - richDocument
       itemType:
@@ -119,9 +119,9 @@ definitions:
           - float
           - money
           - boolean
-          - datetime
+          - dateTime
           - resourceDescriptor
-          - fsobjectid
+          - fsObjectId
       validation:
         description: Validation checks to apply on the input
         type: array

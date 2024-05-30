@@ -43,11 +43,11 @@ function testTolliumMapping() {
   test.eqPartial({ component: { textedit: { width: "1pr" } } }, suggestTolliumComponent({ valueType: "string", maxLength: 30 }));
 
   //date precisions default to millisecond (as that's the least constraint)
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "millisecond" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "second" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "second" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "minute" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "minute" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "hour" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "hour" }));
-  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "day" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "datetime", precision: "day" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "millisecond" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "second" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "second" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "minute" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "minute" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "hour" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "hour" }));
+  test.eqPartial({ component: { datetime: { valueConstraints: { precision: "day" }, storeUTC: true } } }, suggestTolliumComponent({ valueType: "dateTime", precision: "day" }));
 
   test.eqPartial({ error: /without a valueType/ }, suggestTolliumComponent({}));
 }
