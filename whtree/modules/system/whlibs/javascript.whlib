@@ -26,6 +26,14 @@ PUBLIC STRING FUNCTION ToSnakeCase(STRING camelcasetext)
   RETURN NEW RegEx("[A-Z]","g")->ReplaceCallback(camelcasetext, PTR SnakeIt);
 }
 
+STRING FUNCTION CamelCaseIt(STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+  RETURN ToUppercase(Substring(match,1));
+}
+PUBLIC STRING FUNCTION ToCamelCase(STRING camelcasetext)
+{
+  RETURN NEW RegEx("_[a-z]","g")->ReplaceCallback(camelcasetext, PTR CamelCaseIt);
+}
 
 OBJECTTYPE ImportedLibrary
 <

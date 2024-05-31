@@ -19,6 +19,23 @@ PUBLIC STATIC OBJECTTYPE FieldScope EXTEND YamlScope
     this->editor := editor;
     this->controller := controller;
   }
+  UPDATE PUBLIC OBJECT FUNCTION ResolveComponentRef(OBJECT forcomp, STRING name)
+  {
+    IF(name LIKE "$type.*")
+    {
+      STRING ARRAY toks := Tokenize(name, '.');
+      OBJECT match := this->controller.fsinstance->GetComponent(ToSnakeCase(toks[1]));
+      IF(NOT ObjectExists(match))
+      {
+        STRING ARRAY availablerefs := SELECT AS STRING ARRAY ToCamelCase(compname) FROM ToRecordArray(this->controller.fsinstance->GetComponents(),'compname');
+        THROW NEW TolliumException(forcomp, `No such field '${toks[1]}' available in type '${this->controller.type->namespace}'. Available: ${Detokenize(availablerefs, ', ')}`);
+      }
+      IF(Length(toks) > 2)
+        THROW NEW TolliumException(forcomp, `No subfield support yet`);
+      RETURN match;
+    }
+    RETURN YamlsCope::ResolveComponentRef(forcomp, name);
+  }
 >;
 
 // Base class for a property editor. Preparing to share common code with objectprops

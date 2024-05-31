@@ -77,6 +77,11 @@ types:
                 enabledOn:
                   field: hasNum2
                   value: true
+      checkIt:
+        type: boolean
+        title: Check it
+      extControlledField:
+        type: string
 
 apply:
   - to:
@@ -84,7 +89,7 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: baseTestProps
-        layout: [anyField, numberField, folksonomy, whUser, rtd, multiField]
+        layout: [anyField, numberField, folksonomy, whUser, rtd, multiField, checkIt, extControlledField]
         override:
           numberField:
             constraints:
@@ -92,6 +97,11 @@ apply:
             props:
               suffix: "kg"
               emptyValue: 1
+          extControlledField:
+            props:
+              enabledOn:
+                field: $type.checkIt
+                value: true
 
   - to:
       pathMatch: metaoverride1

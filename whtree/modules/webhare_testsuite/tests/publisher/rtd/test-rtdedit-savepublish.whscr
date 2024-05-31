@@ -72,6 +72,8 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs
     multifieldline.items[2].obj->SetDirty(); //pretend the client did it
   }
 
+  TestEq(TT(":Check it"), TT(":extControlledField")->enabled_on_condition.field, 'extControlledField should point to Check it for enabling');
+
   RETURN CELL [anumberfield];
 }
 

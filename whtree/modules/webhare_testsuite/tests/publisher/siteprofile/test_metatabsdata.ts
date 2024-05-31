@@ -51,6 +51,10 @@ async function testMetadataReader() {
                 name: "rtd"
               }, {
                 name: "multiField"
+              }, {
+                name: "checkIt"
+              }, {
+                name: "extControlledField"
               }
             ]
           }, {
@@ -106,6 +110,10 @@ async function testMetadataReader() {
                 name: "rtd"
               }, {
                 name: "multi_field"
+              }, {
+                name: "check_it"
+              }, {
+                name: "ext_controlled_field"
               }
             ]
           }, {
@@ -160,6 +168,10 @@ async function testOverrides() {
                   name: "rtd"
                 }, {
                   name: "multiField"
+                }, {
+                  name: "checkIt"
+                }, {
+                  name: "extControlledField"
                 }
               ]
             }, {
