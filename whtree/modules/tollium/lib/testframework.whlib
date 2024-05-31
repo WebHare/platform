@@ -3,7 +3,6 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";

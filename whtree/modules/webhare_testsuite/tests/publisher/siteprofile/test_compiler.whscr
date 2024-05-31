@@ -1,10 +1,9 @@
 <?wh
-LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

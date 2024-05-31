@@ -2,8 +2,7 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/yaml.whlib";
-
-LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib"; //TODO move ToSnakeCase to a more general location
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 

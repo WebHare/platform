@@ -1,15 +1,7 @@
 <?wh
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-
-STRING FUNCTION SnakeIt(STRING match, STRING ARRAY params, INTEGER pos, STRING input)
-{
-  RETURN "_" || ToLowercase(match);
-}
-PUBLIC STRING FUNCTION ToSnakeCase(STRING camelcasetext)
-{
-  RETURN NEW RegEx("[A-Z]","g")->ReplaceCallback(camelcasetext, PTR SnakeIt);
-}
 
 ///Convert scopedtype to classic namespace. Throws if invalid format (unless allowclassicnamespace is set).
 PUBLIC STRING FUNCTION ScopedTypeToNamespace(STRING scopedtype, BOOLEAN isreference)
