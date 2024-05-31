@@ -218,6 +218,8 @@ export class WHFSApplyTester {
           return false;
         if (element.match_folder && this.objinfo.isfile)
           return false;
+        if (element.whfstype && !isLike(this.objinfo.type, element.whfstype))
+          return false;
         if (element.foldertype || element.filetype) {
           if (element.foldertype && (this.objinfo.isfile || !isLike(this.objinfo.type, element.foldertype)))
             return false;
