@@ -50,6 +50,25 @@ types:
         component:
           "http://www.webhare.net/xmlns/system/components#selectuser":
             inputKind: wrdGuid
+      multiField:
+        type: record
+        title: Mullti field
+        members:
+          num1:
+            type: integer
+          num2:
+            type: integer
+        lines:
+        - line:
+            parts:
+            - textedit:
+                name: num1
+                valueType: integer
+            - text:
+                value: " to "
+            - textedit:
+                name: num2
+                valueType: integer
 
 apply:
   - to:
@@ -57,7 +76,7 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: baseTestProps
-        layout: [anyField, numberField, folksonomy, whUser, rtd]
+        layout: [anyField, numberField, folksonomy, whUser, rtd, multiField]
         override:
           numberField:
             constraints:

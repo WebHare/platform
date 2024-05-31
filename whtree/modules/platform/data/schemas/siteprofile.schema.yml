@@ -89,7 +89,11 @@ definitions:
       constraints:
         $ref: "#/definitions/ValueConstraints"
       component:
-        type: object # Can't validate Tollium components in a static schema definition
+        $ref: "#/definitions/Component"
+      line:
+        $ref: "#/definitions/ComponentLine"
+      lines:
+        $ref: "#/definitions/ComponentLines"
       layout:
         $ref: "#/definitions/FieldLayout"
 
@@ -288,7 +292,11 @@ definitions:
     additionalProperties: false
     properties:
       component:
-        type: object
+        $ref: "#/definitions/Component"
+      line:
+        $ref: "#/definitions/ComponentLine"
+      lines:
+        $ref: "#/definitions/ComponentLines"
       title:
         type: string
       constraints:
@@ -302,3 +310,25 @@ definitions:
     type: object
     additionalProperties:
       type: string  # TODO A future version of YAML may open up this type (eg allow all JS primitves) but for HS compatibility we'll limit this to strings for now
+
+  Component:
+    type: object
+    not: # forbid 'line' or 'lines' as a component
+      required:
+        - line
+
+  ComponentLine:
+    type: array
+    item:
+      $ref: "#/definitions/Component" # TODO We should also permit line: but
+
+  ComponentLines:
+    type: array
+    item:
+      oneOf:
+        - type: object
+          required: [line]
+          properties:
+            line:
+              $ref: "#/definitions/ComponentLine"
+        - $ref: "#/definitions/Component"

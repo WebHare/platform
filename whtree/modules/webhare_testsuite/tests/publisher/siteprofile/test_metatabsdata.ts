@@ -49,6 +49,8 @@ async function testMetadataReader() {
                 component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
               }, {
                 name: "rtd"
+              }, {
+                name: "multiField"
               }
             ]
           }, {
@@ -102,6 +104,8 @@ async function testMetadataReader() {
                 }
               }, {
                 name: "rtd"
+              }, {
+                name: "multi_field"
               }
             ]
           }, {
@@ -154,6 +158,8 @@ async function testOverrides() {
                   component: { textarea: {} }
                 }, {
                   name: "rtd"
+                }, {
+                  name: "multiField"
                 }
               ]
             }, {

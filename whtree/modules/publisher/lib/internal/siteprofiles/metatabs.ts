@@ -183,7 +183,7 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
           ...field,
           name: nameToSnakeCase(field.name),
           constraints: toSnakeCase(field.constraints),
-          component: parseYamlComponent(field.component)
+          component: parseYamlComponent(field)! //here we only use it to convert 'component', never line(s)
         }))
       }))
     }))
