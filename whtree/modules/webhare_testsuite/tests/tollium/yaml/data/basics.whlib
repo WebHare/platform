@@ -1,0 +1,15 @@
+<?wh
+
+MACRO AddToEventList(OBJECT event, STRING addwhat)
+{
+  OBJECT eventsfield := event->GetComponent("events");
+  IF(eventsfield->value = "")
+    eventsfield->value := addwhat;
+  ELSE
+    eventsfield->value := eventsfield->value || ", " || addwhat;
+}
+
+PUBLIC MACRO OnShowTimeSet(OBJECT event)
+{
+  AddToEventList(event, "showtime-set");
+}

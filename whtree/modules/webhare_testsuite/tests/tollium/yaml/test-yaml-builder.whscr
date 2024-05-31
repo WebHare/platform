@@ -26,6 +26,10 @@ ASYNC MACRO TestConditions()
   TestEq(TRUE, TT("cb_text_edit")->value);
   TT("cb_text_edit")->value := FALSE;
   TestEq(FALSE, TT(":Text edit")->AllowExternalUpdates());
+
+  //Verify events
+  TestEq("showtime-set", TT(":Events")->value, "showtime-set should have fired for screen init, even if no explicit value was set");
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
