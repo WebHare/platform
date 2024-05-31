@@ -95,7 +95,7 @@ definitions:
 
   FieldLayout:
     type: string
-    description: "Force fields to be presented as a block or sparate section"
+    description: "Force fields to be presented as a block or separate section"
     enum:
     - section
     - block
