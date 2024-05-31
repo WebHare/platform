@@ -74,6 +74,9 @@ types:
             - textedit:
                 name: num2
                 valueType: integer
+                enabledOn:
+                  field: hasNum2
+                  value: true
 
 apply:
   - to:

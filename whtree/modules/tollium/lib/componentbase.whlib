@@ -58,6 +58,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   PUBLIC BOOLEAN pvt_havepreshown;
 
+  //Overrides name based lookups
+  PUBLIC OBJECT yamlscope;
+
   /** Keeps whether the preinit for this component has already been called
   */
   BOOLEAN pvt_havepreinited;
@@ -270,11 +273,13 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   OBJECT FUNCTION ResolveYamlComponentRef(STRING name)
   {
-    //Likely going to override this for Metatabs
-    OBJECT match_owner := GetMember(__HS_INTERNAL_MakeObjectReferencePrivileged(this->owner), "^" || ToSnakeCase(name));
-    IF(NOT ObjectExists(match_owner))
+    IF(this->yamlscope != DEFAULT OBJECT)
+      RETURN this->yamlscope->ResolveComponentRef(this, name);
+
+    STRING membername := "^" || ToSnakeCase(name);
+    IF(NOT MemberExists(this->owner, membername))
       THROW NEW TolliumException(this, `Unable to resolve reference to component '${name}'`);
-    RETURN match_owner;
+    RETURN GetMember(__HS_INTERNAL_MakeObjectReferencePrivileged(this->owner), membername);
   }
 
   RECORD FUNCTION GetYAMLConditionJSON(RECORD condition)

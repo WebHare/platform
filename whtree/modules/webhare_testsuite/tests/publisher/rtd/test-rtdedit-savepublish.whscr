@@ -52,6 +52,9 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs
   TestAssert(RecordExists(multifieldline));
   TestEq(3, Length(multifieldline.items));
   TestEq(10 + round*2, multifieldline.items[0].obj->value);
+  TestEq(round % 2 = 1, multifieldline.items[1].obj->value); //Cbox is initally off, then toggles each round
+  TestEq(multifieldline.items[1].obj, multifieldline.items[2].obj->enabled_on_condition.field, 'textedit should point to cbox for enabling');
+  TestEq(round % 2 = 1, multifieldline.items[2].obj->AllowExternalUpdates(), 'allowexternal upates should match cbox state!');
   TestEq(20 + round*3, multifieldline.items[2].obj->value);
 
   IF(readonly)
@@ -63,6 +66,7 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs
   {
     // Update and save props
     multifieldline.items[0].obj->value := multifieldline.items[0].obj->value + 2;
+    multifieldline.items[1].obj->value := NOT multifieldline.items[1].obj->value;
     multifieldline.items[2].obj->value := multifieldline.items[2].obj->value + 3;
     multifieldline.items[0].obj->SetDirty(); //pretend the client did it
     multifieldline.items[2].obj->SetDirty(); //pretend the client did it

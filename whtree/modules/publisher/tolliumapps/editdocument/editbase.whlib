@@ -9,6 +9,17 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
 
+PUBLIC STATIC OBJECTTYPE FieldScope EXTEND YamlScope
+<
+  OBJECT editor;
+  RECORD controller;
+
+  MACRO NEW(OBJECT editor, RECORD controller)
+  {
+    this->editor := editor;
+    this->controller := controller;
+  }
+>;
 
 // Base class for a property editor. Preparing to share common code with objectprops
 PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
@@ -19,7 +30,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   // Metatabs config as received from describeMetaTabsForHS
   RECORD metatabsconfig;
   // Controllers for the metadata. For now we'll rely on compositions
-  RECORD ARRAY metacontrollers;
+  PUBLIC RECORD ARRAY metacontrollers;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
   /// If the user only has read-only access to this file (fs_browse)
@@ -83,6 +94,9 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     FOREVERY(RECORD type FROM this->metatabsconfig.types)
     {
       OBJECT fsinstance := this->CreateTolliumComponent("record");
+      RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
+      fsinstance->yamlscope := NEW FieldScope(fsinstance, controller);
+      INSERT controller INTO this->metacontrollers AT END;
 
       FOREVERY(RECORD section FROM type.sections)
       {
@@ -100,11 +114,10 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
             newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
           }
 
-
-
           OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
                                                                        , cellname := field.name
                                                                        , dirtylistener := ^dirtylistener
+                                                                       , yamlscope := fsinstance->yamlscope
                                                                        ]);
 
           newcomp->title := layout = "inline" ? title : "";
@@ -113,7 +126,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
           newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
         }
 
-        INSERT CELL [ fsinstance, type := OpenWHFSType(type.namespace) ] INTO this->metacontrollers AT END;
         IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
           INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
       }
