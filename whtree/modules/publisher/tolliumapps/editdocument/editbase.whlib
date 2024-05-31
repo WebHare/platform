@@ -7,6 +7,8 @@ LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
+
 
 // Base class for a property editor. Preparing to share common code with objectprops
 PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
@@ -98,15 +100,13 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
             newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
           }
 
-          OBJECT newcomp := this->CreateCustomComponent(field.component.ns, field.component.component);
-          IF(MemberExists(newcomp, 'composition'))
-            newcomp->composition := fsinstance;
-          IF(MemberExists(newcomp, 'cellname'))
-            newcomp->cellname := field.name;
-          IF(MemberExists(newcomp, 'dirtylistener'))
-            newcomp->dirtylistener := ^dirtylistener;
 
-          newcomp->SetYamlProps(field.component.yamlprops);
+
+          OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
+                                                                       , cellname := field.name
+                                                                       , dirtylistener := ^dirtylistener
+                                                                       ]);
+
           newcomp->title := layout = "inline" ? title : "";
           newcomp->errorlabel := title;
           newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use

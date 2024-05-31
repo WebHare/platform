@@ -1,0 +1,21 @@
+<?wh
+
+PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, RECORD context)
+{
+  context := ValidateOptions(CELL[ composition := DEFAULT OBJECT
+                                 , dirtylistener := DEFAULT OBJECT
+                                 , cellname := ""
+                                 ], context,[ title := "context"]);
+
+
+  OBJECT newcomp := targetscreen->CreateCustomComponent(compdef.ns, compdef.component);
+  IF(MemberExists(newcomp, 'composition'))
+    newcomp->composition := context.composition;
+  IF(MemberExists(newcomp, 'cellname'))
+    newcomp->cellname := context.cellname;
+  IF(MemberExists(newcomp, 'dirtylistener'))
+    newcomp->dirtylistener := context.dirtylistener;
+
+  newcomp->SetYamlProps(compdef.yamlprops);
+  RETURN newcomp;
+}
