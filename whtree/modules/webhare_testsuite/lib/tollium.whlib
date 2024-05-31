@@ -2,6 +2,7 @@
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
 
 PUBLIC MACRO RunScreen(OBJECT controller, RECORD data)
 {
@@ -10,6 +11,17 @@ PUBLIC MACRO RunScreen(OBJECT controller, RECORD data)
   IF(NOT IsAbsoluteResourcePath(screenpath))
     screenpath := "webhare_testsuite:" || screenpath;
   controller->LoadScreen(screenpath, [ params := ArraySlice(data.params, 1) ])->RunModal();
+}
+
+PUBLIC MACRO RunYamlScreenApp(OBJECT controller, RECORD data)
+{
+  controller->user->timezone := "CET";
+  STRING screenpath := data.params[0];
+  IF(screenpath NOT LIKE "*/*") //just a name, not path at all!
+    screenpath := "mod::webhare_testsuite/tests/tollium/yaml/data/basics.screens.yml#" || screenpath;
+
+  VARIANT result := RunYamlScreen(controller, screenpath);
+  REFLECT(result);
 }
 
 PUBLIC RECORD ARRAY FUNCTION UpdateDashboardMenu(RECORD ARRAY appmenu, RECORD context)

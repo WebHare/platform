@@ -1,0 +1,24 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
+
+ASYNC MACRO TestYamlInlineScreens()
+{
+   RECORD retval := AWAIT ExpectScreenChange(+1, PTR RunYamlInlineScreen(GetTestController(),
+     CELL[ body_lines :=
+           [[ textedit :=
+               [ title := "My textedit", value := "Hello, world!" ]]]
+         ]));
+
+  TestEq("Hello, world!", TT(":My textedit")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+}
+
+RuntestFramework([
+  PTR TestYamlInlineScreens
+  ]);

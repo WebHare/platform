@@ -1,0 +1,26 @@
+screens:
+  # https://my.webhare.dev/?app=webhare_testsuite:runyamlscreen(textfield)
+  textfield:
+    title: Test screen
+    footerButtons: [ok, cancel]
+    bodyLines:
+      - textedit:
+          title: I'm a textedit
+          value: with a set value
+      - textarea:
+          title: I'm a textarea
+          value: with a set value
+      - hr:
+      - text:
+          value: "Testing lines:"
+      - line:
+          parts:
+          - textedit:
+              title: "Area 1"
+              value: "Value 1"
+          - textedit:
+              title: "Area 2"
+              value: "Value 2"
+          - textedit:
+              title: "Area 3"
+              value: "Value 3"

@@ -1,0 +1,147 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/yaml.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib"; //TODO move ToSnakeCase to a more general location
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+// LOADLIB "mod::wrd/lib/components/entity.whlib";
+
+//TODO Would be nice if the SP parser/meta tabs describer already decoded this further for us
+RECORD FUNCTION ResolveYamlComponent(RECORD compdef)
+{
+  RECORD ARRAY compinfo := UnpackRecord(compdef);
+  IF(Length(compinfo) != 1)
+    THROW NEW Exception(`Components should have exactly one key, got: ${Detokenize((SELECT AS STRING ARRAY ToLowercase(name) FROM compinfo ORDER BY name),', ')}`);
+
+  STRING compname := ToLowercase(compinfo[0].name);
+  STRING ARRAY compnametoks := Tokenize(compname,'#');
+  RETURN [ component := compnametoks[END-1]
+         , ns := Length(compnametoks) = 1 ? "http://www.webhare.net/xmlns/tollium/screens" : compnametoks[0]
+         , yamlprops := compinfo[0].value
+  ];
+}
+
+PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, RECORD context DEFAULTSTO DEFAULT RECORD)
+{
+  context := ValidateOptions(CELL[ composition := DEFAULT OBJECT
+                                 , dirtylistener := DEFAULT OBJECT
+                                 , cellname := ""
+                                 ], context,[ title := "context"]);
+
+  OBJECT newcomp;
+  IF(compdef.component = "__yamlholder")
+  {
+    STRING name := targetscreen->tolliumscreenmanager->CreateAnonymousName("__yamlholder");
+    newcomp := targetscreen->tolliumscreenmanager->CreateComponent(Resolve("#YamlHolder"), name, -1, DEFAULT OBJECT, "", "", "__yamlholder");
+  }
+  ELSE
+  {
+    newcomp := targetscreen->CreateCustomComponent(compdef.ns, compdef.component);
+  }
+  IF(MemberExists(newcomp, 'composition'))
+    newcomp->composition := context.composition;
+  IF(MemberExists(newcomp, 'cellname'))
+    newcomp->cellname := context.cellname;
+  IF(MemberExists(newcomp, 'dirtylistener'))
+    newcomp->dirtylistener := context.dirtylistener;
+
+  newcomp->SetYamlProps(compdef.yamlprops);
+  RETURN newcomp;
+}
+
+/* A YAML holder is a container for multiline yaml components and is used whenever 'lines' or 'line' appears in a SP field(override))
+*/
+PUBLIC OBJECTTYPE YamlHolder EXTEND TolliumCompositionBase
+<
+  BOOLEAN didinit;
+  RECORD ARRAY comps;
+
+  MACRO NEW()
+  {
+    // EXTEND THIS BY TolliumIsDirtyable;
+  }
+
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props)
+  {
+    //TODO decide whether we'll be a Section or a Block or a bunch of Lines ?
+    IF(CellExists(props,'lines'))
+    {
+      IF(this->didinit)
+        THROW NEW Exception("Cannot set lines on a YamlHolder that has already been initialized");
+      this->didinit := TRUE;
+
+      FOREVERY(RECORD line FROM RECORD ARRAY(props.lines))
+      {
+        //Expect either a component or another line
+        RECORD ARRAY buildparts;
+        IF(CellExists(line,'line'))
+        {
+          buildparts := line.line.parts;
+        }
+        ELSE
+        {
+          buildparts := [line];
+        }
+
+        FOREVERY(RECORD part FROM buildparts)
+        {
+          OBJECT comp := CreateYamlComponent(this->owner, ResolveYamlComponent(part),
+            [ composition := this
+            , dirtylistener := this->dirtylistener
+            , cellname := CellExists(part,'name') ? part.name : ""
+            ]);
+          INSERT CELL[ comp, breakafter := #part = 0 ] INTO this->comps AT END;
+        }
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO RecursiveUpdateIsNowVisible()
+  { //invoked we're InsertComponent-ed.
+    IF(ObjectExists(this->parent))
+    {
+      //Flush the comps
+      FOREVERY(RECORD comp FROM this->comps) //TODO set layout
+        this->parent->InsertComponentAfter(comp.comp, DEFAULT OBJECT, comp.breakafter);
+
+      this->comps := RECORD[];
+    }
+
+    TolliumCompositionBase::RecursiveUpdateIsNowVisible();
+  }
+>;
+
+PUBLIC VARIANT FUNCTION RunYamlInlineScreen(OBJECT controller, RECORD screencontents)
+{
+  OBJECT basescreen := controller->LoadScreen("mod::tollium/screens/components/yaml.xml", CELL[screencontents]);
+  RETURN basescreen->RunModal();
+}
+PUBLIC VARIANT FUNCTION RunYamlScreen(OBJECT controller, STRING screenpath)
+{
+  STRING ARRAY toks := Tokenize(screenpath,'#');
+  RECORD filecontents := DecodeYAML(BlobToString(GetWebhareResource(toks[0])), [ tosnakecase := TRUE ]);
+  RETURN RunYamlInlineScreen(controller, GetCell(filecontents.screens, tosnakecase(toks[1])));
+}
+
+PUBLIC STATIC OBJECTTYPE YamlScreen EXTEND TolliumScreenBase
+<
+  OBJECT bodyholder;
+
+  MACRO Init(RECORD data)
+  {
+    // reflect(data.screencontents);
+
+    this->bodyholder := CreateYamlComponent(this, CELL[ component := "__yamlholder", yamlprops := [ lines := data.screencontents.body_lines ] ]);
+    ^body->InsertComponentAfter(this->bodyholder, DEFAULT OBJECT, TRUE);
+
+    IF(CellExists(data.screencontents,'footer_buttons'))
+      this->frame->footerbuttons := STRING ARRAY(data.screencontents.footer_buttons);
+  }
+>;
