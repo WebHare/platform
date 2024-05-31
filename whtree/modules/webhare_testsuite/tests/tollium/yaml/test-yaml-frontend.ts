@@ -7,7 +7,10 @@ async function testConditions() {
   await tt.loadYamlScreen("conditions");
 
   test.eq(true, tt.comp("cbTextEdit").getValue());
-  test.eq(false, tt.comp("controlledTextEdit").querySelector("input")?.disabled);
+  test.eq(false, tt.comp("controlledTextEdit").querySelector("input")?.readOnly);
+
+  test.click(tt.comp("cbTextEdit").node);
+  test.eq(true, tt.comp("controlledTextEdit").querySelector("input")?.readOnly);
 }
 
 test.run([testConditions]);

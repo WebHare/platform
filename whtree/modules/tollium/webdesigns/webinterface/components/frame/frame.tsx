@@ -437,8 +437,8 @@ export default class Frame extends ToddCompBase {
     return createdcomp;
   }
 
-  getComponent(name: string) {
-    return this.objectmap[name];
+  getComponent<T extends ToddCompBase>(name: string) {
+    return this.objectmap[name] as T;
   }
 
   registerComponent(comp: ToddCompBase) {
@@ -550,6 +550,7 @@ export default class Frame extends ToddCompBase {
       special.checkEnabled();
     });
     this.tabcontrols.forEach(tabcontrol => tabcontrol.checkVisibleTabs());
+    this.getVisibleChildren().forEach(child => child.checkActionEnablers());
 
     if ($todd.IsDebugTypeEnabled("actionenabler"))
       console.groupEnd();

@@ -41,6 +41,10 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
     return this.getValue();
   }
 
+  getValueForCondition(): unknown {
+    return this.node.checked;
+  }
+
   getValue() {
     return {
       indeterminate: this.node.indeterminate,

@@ -277,6 +277,13 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN match_owner;
   }
 
+  RECORD FUNCTION GetYAMLConditionJSON(RECORD condition)
+  {
+    IF(CellExists(condition,'field'))
+      condition := CELL[ ...condition, field := GetComponentName(condition.field) ];
+    RETURN condition;
+  }
+
   RECORD FUNCTION LoadYamlCondition(RECORD condition)
   {
     IF(CellExists(condition,'field'))
@@ -303,6 +310,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       ELSE
         THROW NEW TolliumException(this, `SetYamlProps: Trying to set a value on a component not supporting values`);
     }
+
+    this->ExtUpdatedComponent();
   }
 
   PUBLIC MACRO __tollium_afternew()
@@ -1738,6 +1747,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
                      , enabled := this->enabled
                      , title := this->title
                      ];
+
+    IF(RecordExists(this->enabled_on))
+      retval := CELL[ ...retval, enabled_on := this->GetYAMLConditionJSON(this->enabled_on) ];
 
     //bare components should not require any width/height
     IF(type!="component")
