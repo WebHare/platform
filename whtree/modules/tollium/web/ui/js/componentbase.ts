@@ -367,7 +367,7 @@ export class ToddCompBase {
   }
 
   // Check enableon rules
-  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
+  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     this.debugLog("actionenabler", "does not support enabling actions");
     return false;
   }

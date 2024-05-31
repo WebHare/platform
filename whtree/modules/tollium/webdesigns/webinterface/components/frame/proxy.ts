@@ -58,11 +58,11 @@ export default class Proxy extends ComponentBase {
   */
 
   // Check enableon rules
-  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
+  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     if (this.passthrough) {
       const comp = this.owner.getComponent(this.passthrough);
       $todd.DebugTypedLog("actionenabler", "- proxy passthrough to " + this.passthrough + ": " + (comp ? comp.componenttype : "n/a"));
-      return comp && comp.enabledOn(checkflags, min, max, selectionmatch);
+      return comp && comp.isEnabledOn(checkflags, min, max, selectionmatch);
     }
 
     let flags = [];

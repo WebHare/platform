@@ -555,7 +555,7 @@ export default class Frame extends ToddCompBase {
       console.groupEnd();
   }
 
-  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: "all" | "any") {
+  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: "all" | "any") {
     $todd.DebugTypedLog("actionenabler", "- Checking action enabled for windowroot " + this.name + ".'" + checkflags + "' (" + selectionmatch + ")");
     return $todd.checkEnabledFlags(this.flags, checkflags, min, max, selectionmatch);
   }
@@ -663,7 +663,7 @@ export default class Frame extends ToddCompBase {
           continue;
         }
 
-        if (type.frameflags.length >= 1 && !this.enabledOn(type.frameflags, 1, 1, "all")) {
+        if (type.frameflags.length >= 1 && !this.isEnabledOn(type.frameflags, 1, 1, "all")) {
           $todd.DebugTypedLog("actionenabler", '  droptype #' + r + ' frameflags mismatch', type.frameflags, this.flags);
           continue;
         }
@@ -771,14 +771,14 @@ export default class Frame extends ToddCompBase {
         continue;
       }
 
-      if (enableon.frameflags.length >= 1 && !this.enabledOn(enableon.frameflags, 1, 1, "all")) {
+      if (enableon.frameflags.length >= 1 && !this.isEnabledOn(enableon.frameflags, 1, 1, "all")) {
         $todd.DebugTypedLog("actionenabler", "- - Selection does not meet Frame constraints");
         continue;
       }
 
       // Check whether the selection meets the constraints
-      $todd.DebugTypedLog("actionenabler", `- - Invoke sourceobj.enabledOn("${enableon.checkflags.join(",")}", ${enableon.min}, ${enableon.max}, ${enableon.selectionmatch}) on `, sourceobj);
-      if (!sourceobj.enabledOn(enableon.checkflags, enableon.min, enableon.max, enableon.selectionmatch)) {
+      $todd.DebugTypedLog("actionenabler", `- - Invoke sourceobj.isEnabledOn("${enableon.checkflags.join(",")}", ${enableon.min}, ${enableon.max}, ${enableon.selectionmatch}) on `, sourceobj);
+      if (!sourceobj.isEnabledOn(enableon.checkflags, enableon.min, enableon.max, enableon.selectionmatch)) {
         $todd.DebugTypedLog("actionenabler", "- - Selection does not meet Source constraints - skipping rule");
         continue;
       }
