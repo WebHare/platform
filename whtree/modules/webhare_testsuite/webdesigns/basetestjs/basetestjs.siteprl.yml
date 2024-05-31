@@ -52,7 +52,9 @@ types:
             inputKind: wrdGuid
       multiField:
         type: record
-        title: Mullti field
+        constraints:
+          required: true
+        title: Multi field
         members:
           num1:
             type: integer

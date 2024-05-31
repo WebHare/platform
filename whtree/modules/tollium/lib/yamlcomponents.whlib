@@ -65,7 +65,7 @@ PUBLIC OBJECTTYPE YamlHolder EXTEND TolliumCompositionBase
 
   MACRO NEW()
   {
-    // EXTEND THIS BY TolliumIsDirtyable;
+    EXTEND THIS BY TolliumIsComposable;
   }
 
   UPDATE PUBLIC MACRO SetYamlProps(RECORD props)
@@ -92,15 +92,30 @@ PUBLIC OBJECTTYPE YamlHolder EXTEND TolliumCompositionBase
 
         FOREVERY(RECORD part FROM buildparts)
         {
-          OBJECT comp := CreateYamlComponent(this->owner, ResolveYamlComponent(part),
+          RECORD resolved := ResolveYamlComponent(part);
+          OBJECT comp := CreateYamlComponent(this->owner, resolved,
             [ composition := this
             , dirtylistener := this->dirtylistener
-            , cellname := CellExists(part,'name') ? part.name : ""
+            , cellname := CellExists(resolved.yamlprops,'name') ? resolved.yamlprops.name : ""
             ]);
           INSERT CELL[ comp, breakafter := #part = 0 ] INTO this->comps AT END;
         }
       }
     }
+
+    TolliumCompositionBase::SetYamlProps(props);
+  }
+
+  UPDATE MACRO SetTitle(STRING title)
+  {
+    TolliumCompositionBase::SetTitle(title);
+    IF(Length(this->comps) > 0)
+      this->comps[0].comp->title := this->title;
+  }
+
+  UPDATE MACRO SetValue(RECORD contents)
+  {
+    TolliumCompositionBase::SetValue(Contents);
   }
 
   UPDATE PUBLIC MACRO RecursiveUpdateIsNowVisible()

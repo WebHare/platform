@@ -128,12 +128,17 @@ PUBLIC OBJECTTYPE TolliumLinesContainerBase EXTEND TolliumComponentBase
   // Constructor & tollium admin stuff
   //
 
+  PUBLIC RECORD ARRAY FUNCTION __ExplainLines()
+  {
+    RETURN ExplainLines(this, this->lines);
+  }
+
   // Called recursively for panels with screen contents
   PUBLIC RECORD ARRAY FUNCTION TolliumWebDoLines()
   {
     RECORD ARRAY outlines;
 
-    FOREVERY(RECORD line FROM ExplainLines(this, this->lines))
+    FOREVERY(RECORD line FROM this->__ExplainLines())
     {
       RECORD outline := [ layout   := line.isblock ? "block" : line.layout
                         , title    := ObjectExists(line.linelabelfor) ? line.linetitle : ""
