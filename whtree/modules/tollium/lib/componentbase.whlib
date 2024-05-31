@@ -267,6 +267,16 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   {
     IF(CellExists(props,'enabled'))
       this->enabled := props.enabled;
+    IF(CellExists(props,'title'))
+      this->title := props.title;
+
+    IF(CellExists(props,'value'))
+    {
+      IF(MemberExists(this, 'value'))
+        this->value := props.value;
+      ELSE
+        THROW NEW TolliumException(this, `SetYamlProps: Trying to set a value on a component not supporting values`);
+    }
   }
 
   PUBLIC MACRO __tollium_afternew()
@@ -2093,7 +2103,7 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     IF (obj NOT IN this->pvt_cells)
     {
       INSERT obj INTO this->pvt_cells AT END;
-      IF (ObjectExists(this->dirtylistener))
+      IF (ObjectExists(this->dirtylistener) AND MemberExists(obj,'dirtylistener'))
         obj->dirtylistener := this->dirtylistener;
     }
   }

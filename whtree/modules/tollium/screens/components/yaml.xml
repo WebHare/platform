@@ -1,0 +1,8 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="/lib/yamlcomponents.whlib">
+
+  <screen name="yamlscreen">
+    <body name="body">
+    </body>
+  </screen>
+
+</screens>

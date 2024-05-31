@@ -3,11 +3,15 @@ LOADLIB "wh::javascript.whlib";
 
 PUBLIC VARIANT FUNCTION DecodeYAML(STRING input, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ wrapobjects := FALSE ], options);
+  options := ValidateOptions([ wrapobjects := FALSE, tosnakecase := FALSE, translations := DEFAULT RECORD ], options);
 
-  VARIANT result := CallJS("mod::system/js/internal/validation/yaml.ts#decodeYAML", input, [ json := options.wrapobjects ]);
-  IF(options.wrapobjects)
-    RETURN DecodeJSON(result, DEFAULT RECORD, [ wrapobjects := TRUE ]);
-  ELSE
-    RETURN result;
+  IF(options.tosnakecase)
+  {
+    IF(options.wrapobjects OR RecordExists(options.translations))
+      THROW NEW Exception("Cannot use 'tosnakecase' with 'wrapobjects' or 'translations'");
+    RETURN CallJS("mod::system/js/internal/validation/yaml.ts#__decodeForHareScript", input, "snakecase");
+  }
+
+  STRING result := CallJS("mod::system/js/internal/validation/yaml.ts#__decodeForHareScript", input, "json");
+  RETURN DecodeJSON(result, options.translations, CELL[ options.wrapobjects ]);
 }
