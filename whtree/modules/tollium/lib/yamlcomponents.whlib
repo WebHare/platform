@@ -32,6 +32,7 @@ PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, 
   context := ValidateOptions(CELL[ composition := DEFAULT OBJECT
                                  , dirtylistener := DEFAULT OBJECT
                                  , cellname := ""
+                                 , assign_names := FALSE //create fields under their requested name
                                  ], context,[ title := "context"]);
 
   OBJECT newcomp;
@@ -39,10 +40,15 @@ PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, 
   {
     STRING name := targetscreen->tolliumscreenmanager->CreateAnonymousName("__yamlholder");
     newcomp := targetscreen->tolliumscreenmanager->CreateComponent(Resolve("#YamlHolder"), name, -1, DEFAULT OBJECT, "", "", "__yamlholder");
+    newcomp->assign_names := context.assign_names;
+    INSERT CELL __originaltargetscreen := targetscreen INTO compdef.yamlprops; //forwards PRIVATE THIS if available
   }
   ELSE
   {
-    newcomp := targetscreen->CreateCustomComponent(compdef.ns, compdef.component);
+    STRING name := context.assign_names AND CellExists(compdef.yamlprops,'name') ? ToSnakeCase(compdef.yamlprops.name) : "";
+    newcomp := targetscreen->CreateCustomComponent(compdef.ns, compdef.component, CELL [ name ]);
+    IF(name != "")
+      MemberInsert(targetscreen, "^" || name, TRUE, newcomp);
   }
   IF(MemberExists(newcomp, 'composition'))
     newcomp->composition := context.composition;
@@ -61,6 +67,8 @@ PUBLIC OBJECTTYPE YamlHolder EXTEND TolliumCompositionBase
 <
   BOOLEAN didinit;
   RECORD ARRAY comps;
+  PUBLIC BOOLEAN assign_names;
+  OBJECT originaltargetscreen;
 
   MACRO NEW()
   {
@@ -69,6 +77,8 @@ PUBLIC OBJECTTYPE YamlHolder EXTEND TolliumCompositionBase
 
   UPDATE PUBLIC MACRO SetYamlProps(RECORD props)
   {
+    this->originaltargetscreen := props.__originaltargetscreen;
+
     //TODO decide whether we'll be a Section or a Block or a bunch of Lines ?
     IF(CellExists(props,'lines'))
     {
@@ -92,10 +102,11 @@ PUBLIC OBJECTTYPE YamlHolder EXTEND TolliumCompositionBase
         FOREVERY(RECORD part FROM buildparts)
         {
           RECORD resolved := ResolveYamlComponent(part);
-          OBJECT comp := CreateYamlComponent(this->owner, resolved,
+          OBJECT comp := CreateYamlComponent(this->originaltargetscreen, resolved,
             [ composition := this
             , dirtylistener := this->dirtylistener
-            , cellname := CellExists(resolved.yamlprops,'name') ? resolved.yamlprops.name : ""
+            , cellname := CellExists(resolved.yamlprops,'name') ? ToSnakeCase(resolved.yamlprops.name) : ""
+            , assign_names := this->assign_names
             ]);
           INSERT CELL[ comp, breakafter := #part = 0 ] INTO this->comps AT END;
         }
@@ -141,7 +152,30 @@ PUBLIC VARIANT FUNCTION RunYamlScreen(OBJECT controller, STRING screenpath)
 {
   STRING ARRAY toks := Tokenize(screenpath,'#');
   RECORD filecontents := DecodeYAML(BlobToString(GetWebhareResource(toks[0])), [ tosnakecase := TRUE ]);
-  RETURN RunYamlInlineScreen(controller, GetCell(filecontents.screens, tosnakecase(toks[1])));
+  STRING screenname := tosnakecase(toks[1]);
+  IF(NOT CellExists(filecontents.screens, screenname))
+    THROW NEW Exception(`Screen '${screenname}' not found in ${screenpath}`);
+  RETURN RunYamlInlineScreen(controller, GetCell(filecontents.screens, screenname));
+}
+
+PUBLIC MACRO ApplyYAMLPropsDirectly(OBJECT target, RECORD source, RECORD mapping)
+{
+  FOREVERY(RECORD tofix FROM UnpackRecord(mapping))
+  {
+    IF(tofix.value LIKE "*_*")
+      THROW NEW TolliumException(target, `Invalid mapping source '${tofix.value}' - we expect camelCased not snakeCase YAML property names`);
+    IF(NOT MemberExists(target, tofix.name))
+      THROW NEW TolliumException(target, `Invalid mapping target '${ToLowercase(tofix.name)}' - this member does not exist in the source`);
+
+    STRING snake := ToSnakeCase(tofix.value);
+    IF(NOT CellExists(source, snake))
+      CONTINUE;
+
+    IF(NOT CanCastTypeTo(TYPEID(GetCell(source, snake)), TYPEID(GetMember(target, tofix.name))))
+      THROW NEW TolliumException(target, `Invalid mapping target '${ToLowercase(tofix.name)}' - cannot cast target ${GetTypeName(TYPEID(GetCell(source, snake)))} to ${GetTypeName(TYPEID(GetMember(target, tofix.name)))}`);
+
+    MemberUpdate(target, tofix.name, GetCell(source, snake));
+  }
 }
 
 PUBLIC STATIC OBJECTTYPE YamlScreen EXTEND TolliumScreenBase
@@ -152,10 +186,11 @@ PUBLIC STATIC OBJECTTYPE YamlScreen EXTEND TolliumScreenBase
   {
     // reflect(data.screencontents);
 
-    this->bodyholder := CreateYamlComponent(this, CELL[ component := "__yamlholder", yamlprops := [ lines := data.screencontents.body_lines ] ]);
-    ^body->InsertComponentAfter(this->bodyholder, DEFAULT OBJECT, TRUE);
-
-    IF(CellExists(data.screencontents,'footer_buttons'))
-      this->frame->footerbuttons := STRING ARRAY(data.screencontents.footer_buttons);
+    IF(CellExists(data.screencontents,'body_lines'))
+    {
+      this->bodyholder := CreateYamlComponent(PRIVATE this, CELL[ component := "__yamlholder", yamlprops := [ lines := data.screencontents.body_lines ] ], CELL[ assign_names := TRUE ]);
+      ^body->InsertComponentAfter(this->bodyholder, DEFAULT OBJECT, TRUE);
+    }
+    ApplyYAMLPropsDirectly(this->frame, data.screencontents, CELL["title","minHeight","minWidth","footerButtons","allowResize"]);
   }
 >;

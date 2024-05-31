@@ -267,6 +267,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   {
     IF(CellExists(props,'enabled'))
       this->enabled := props.enabled;
+    IF(CellExists(props,'required'))
+      this->required := props.required;
     IF(CellExists(props,'title'))
       this->title := props.title;
 

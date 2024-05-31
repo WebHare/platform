@@ -7,7 +7,7 @@ LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
 
 ASYNC MACRO TestYamlInlineScreens()
 {
-   RECORD retval := AWAIT ExpectScreenChange(+1, PTR RunYamlInlineScreen(GetTestController(),
+  AWAIT ExpectScreenChange(+1, PTR RunYamlInlineScreen(GetTestController(),
      CELL[ body_lines :=
            [[ textedit :=
                [ title := "My textedit", value := "Hello, world!" ]]]
@@ -16,9 +16,18 @@ ASYNC MACRO TestYamlInlineScreens()
   TestEq("Hello, world!", TT(":My textedit")->value);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
+ASYNC MACRO TestConditions()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunYamlScreen(GetTestController(), Resolve("data/basics.screens.yml#conditions")));
+
+  TestEq(TRUE, TT(":Text edit")->AllowExternalUpdates());
+  TestEq(TRUE, TT("cb_text_edit")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RuntestFramework([
-  PTR TestYamlInlineScreens
+  PTR TestYamlInlineScreens,
+  PTR TestConditions
   ]);

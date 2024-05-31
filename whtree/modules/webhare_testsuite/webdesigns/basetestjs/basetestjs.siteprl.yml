@@ -58,6 +58,8 @@ types:
         members:
           num1:
             type: integer
+          hasNum2:
+            type: boolean
           num2:
             type: integer
         lines:
@@ -66,8 +68,9 @@ types:
             - textedit:
                 name: num1
                 valueType: integer
-            - text:
-                value: " to "
+            - checkbox:
+                name: hasNum2
+                label: "and up to:"
             - textedit:
                 name: num2
                 valueType: integer
