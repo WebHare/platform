@@ -24,6 +24,8 @@ ASYNC MACRO TestConditions()
 
   TestEq(TRUE, TT(":Text edit")->AllowExternalUpdates());
   TestEq(TRUE, TT("cb_text_edit")->value);
+  TT("cb_text_edit")->value := FALSE;
+  TestEq(FALSE, TT(":Text edit")->AllowExternalUpdates());
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 

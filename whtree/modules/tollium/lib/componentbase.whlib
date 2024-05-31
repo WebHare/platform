@@ -2,6 +2,7 @@
 /** @topic tollium-components/base */
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -193,6 +194,10 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   /// @type(boolean) Whether this component is enabled
   PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
 
+  RECORD enabled_on; //enabledOn condition
+
+  PUBLIC PROPERTY enabled_on_condition(enabled_on, -);
+
   /// @type(boolean) Whether this component is visible
   PUBLIC PROPERTY visible(pvt_visible, SetVisible);
 
@@ -263,10 +268,29 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     this->componenttype := "component";
   }
 
+  OBJECT FUNCTION ResolveYamlComponentRef(STRING name)
+  {
+    //Likely going to override this for Metatabs
+    OBJECT match_owner := GetMember(__HS_INTERNAL_MakeObjectReferencePrivileged(this->owner), "^" || ToSnakeCase(name));
+    IF(NOT ObjectExists(match_owner))
+      THROW NEW TolliumException(this, `Unable to resolve reference to component '${name}'`);
+    RETURN match_owner;
+  }
+
+  RECORD FUNCTION LoadYamlCondition(RECORD condition)
+  {
+    IF(CellExists(condition,'field'))
+      condition := CELL[ ...condition, field := this->ResolveYamlComponentRef(condition.field) ];
+
+    RETURN condition;
+  }
+
   PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
   {
     IF(CellExists(props,'enabled'))
       this->enabled := props.enabled;
+    IF(CellExists(props,'enabled_on'))
+      this->enabled_on := this->LoadYamlCondition(props.enabled_on);
     IF(CellExists(props,'required'))
       this->required := props.required;
     IF(CellExists(props,'title'))
@@ -986,10 +1010,28 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN this->pvt_visible;
   }
 
+  BOOLEAN FUNCTION EvaluateCondition(RECORD condition)
+  {
+    IF(CellExists(condition,'field'))
+    {
+      IF(NOT CellExists(condition, 'value'))
+        THROW NEW TolliumException(this, "Condition field is missing value, seeing fields: " || Detokenize((SELECT AS STRING ARRAY ToLowercase(name) FROM UnpackRecord(condition)),', '));
+
+      RETURN condition.field->value = condition.value;
+    }
+    ELSE
+    {
+      THROW NEW TolliumException(this, "Unknown condition type, seeing fields: " || Detokenize((SELECT AS STRING ARRAY ToLowercase(name) FROM UnpackRecord(condition)),', '));
+    }
+  }
+
   /** Should this component accept external input? */
   PUBLIC BOOLEAN FUNCTION AllowExternalUpdates()
   //ADDME: Todd should simply not parse for disabled items and do recursive checking
   {
+    IF(RecordExists(this->enabled_on_condition) AND NOT this->EvaluateCondition(this->enabled_on_condition))
+      RETURN FALSE;
+
     RETURN this->enabled AND NOT this->readonly AND this->isnowvisible;
   }
 
