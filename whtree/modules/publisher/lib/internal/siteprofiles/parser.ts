@@ -167,6 +167,9 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
     if (member.comment)
       addmember.comment = member.comment;
 
+    if (member.layout)
+      addmember.layout = member.layout;
+
     if (type.constraints || member.constraints)
       addmember.constraints = mergeConstraints(type.constraints || null, member.constraints || null)!;
 
@@ -287,6 +290,8 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
         const override: CSPMemberOverride = {};
         if (updates.constraints)
           override.constraints = updates.constraints;
+        if (updates.layout)
+          override.layout = updates.layout;
         if (updates.component)
           override.component = parseYamlComponent(updates.component);
         if (updates.props)

@@ -82,26 +82,41 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     {
       OBJECT fsinstance := this->CreateTolliumComponent("record");
 
-      OBJECT newtab := ^maintabs->InsertTabAt(insertpos, GetTid(type.title));
-      insertpos := insertpos + 1;
-      FOREVERY(RECORD field FROM type.members)
+      FOREVERY(RECORD section FROM type.sections)
       {
-        OBJECT newcomp := this->CreateCustomComponent(field.component.ns, field.component.component);
-        IF(MemberExists(newcomp, 'composition'))
-          newcomp->composition := fsinstance;
-        IF(MemberExists(newcomp, 'cellname'))
-          newcomp->cellname := field.name;
-        IF(MemberExists(newcomp, 'dirtylistener'))
-          newcomp->dirtylistener := ^dirtylistener;
+        //TODO restore tab merging - or have metatabsconfig calculate this for us?
+        OBJECT newtab := ^maintabs->InsertTabAt(insertpos, GetTid(section.title));
+        insertpos := insertpos + 1;
+        FOREVERY(RECORD field FROM section.fields)
+        {
+          STRING title := GetTid(field.title);
+          STRING layout := CellExists(field, 'layout') ? field.layout : "inline";
+          IF(title != "" AND layout = "block") //put it in the H1 above.
+          {
+            OBJECT heading := this->CreateTolliumComponent("heading");
+            heading->title := title;
+            newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
+          }
 
-        newcomp->SetYamlProps(field.component.yamlprops);
-        newcomp->title := GetTid(field.title);
-        newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
+          OBJECT newcomp := this->CreateCustomComponent(field.component.ns, field.component.component);
+          IF(MemberExists(newcomp, 'composition'))
+            newcomp->composition := fsinstance;
+          IF(MemberExists(newcomp, 'cellname'))
+            newcomp->cellname := field.name;
+          IF(MemberExists(newcomp, 'dirtylistener'))
+            newcomp->dirtylistener := ^dirtylistener;
+
+          newcomp->SetYamlProps(field.component.yamlprops);
+          newcomp->title := layout = "inline" ? title : "";
+          newcomp->errorlabel := title;
+          newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
+          newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
+        }
+
+        INSERT CELL [ fsinstance, type := OpenWHFSType(type.namespace) ] INTO this->metacontrollers AT END;
+        IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
+          INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
       }
-
-      INSERT CELL [ fsinstance, type := OpenWHFSType(type.namespace) ] INTO this->metacontrollers AT END;
-      IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
-        INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
     }
 
     this->RefreshMetaTabsReadonly();

@@ -90,6 +90,15 @@ definitions:
         $ref: "#/definitions/ValueConstraints"
       component:
         type: object # Can't validate Tollium components in a static schema definition
+      layout:
+        $ref: "#/definitions/FieldLayout"
+
+  FieldLayout:
+    type: string
+    description: "Force fields to be presented as a block or separate section"
+    enum:
+    - section
+    - block
 
   ValueConstraints: # TODO we need to share this with Tollium components
     type: object
@@ -262,9 +271,13 @@ definitions:
         type:
           type: string
         layout:
-          type: array
-          items:
-            type: string
+          oneOf:
+            - type: string
+              enum:
+                - all
+            - type: array
+              items:
+                type: string
         override:
           type: object
           additionalProperties:
@@ -282,6 +295,8 @@ definitions:
         $ref: "#/definitions/ValueConstraints"
       props:
         type: object
+      layout:
+        $ref: "#/definitions/FieldLayout"
 
   ApplyUserData:
     type: object
