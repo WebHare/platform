@@ -9,6 +9,7 @@ import { getCurrentScreen, getTestScreen } from "./testframework";
 
 import * as test from "@webhare/test-frontend";
 import { changeValue, isFormControl, qSA } from "@webhare/dompack";
+import { nameToSnakeCase } from "@webhare/hscompat/types";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
@@ -27,12 +28,20 @@ class ComponentProxy implements CastableToElement {
     this.node.click();
   }
 
+  /** Obtain the 'natural' value for this component's form control */
+  getValue() {
+    if (this.node.matches("input[type=checkbox], input[type=radio]"))
+      return Boolean((this.node as HTMLInputElement).checked);
+
+    throw new Error(`Don't know how to getValue yet for node '${this.node.dataset.name}'`);
+  }
+
+  /** Obtain the text value for this component's form control */
   getTextValue() {
-    //obtain the text value for this component's form control
     if (this.node.matches("t-textarea"))
       return this.node.querySelector("textarea")!.value;
 
-    throw new Error(`Don't know how to getTextValue from node '${this.node.dataset.name}'`);
+    throw new Error(`Don't know how to getTextValue yet for node '${this.node.dataset.name}'`);
   }
 
   /** Set a value, allowing events to trigger */
@@ -105,8 +114,9 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
 
 export function comp(name: string, options?: { allowMissing: boolean }): ComponentProxy | null {
   const screen = getCurrentScreen();
+  const snakeName = nameToSnakeCase(name);
   const candidates = (screen.qSA('*[data-name]')! as HTMLElement[]).filter(
-    el => el.dataset.name === `${screen.win.screenname}:${name}`
+    el => el.dataset.name === `${screen.win.screenname}:${snakeName}`
       || (name.startsWith(':') && matchesLabel(el, name.substring(1))));
 
   if (candidates.length > 1) {

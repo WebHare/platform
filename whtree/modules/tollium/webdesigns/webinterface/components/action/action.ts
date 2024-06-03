@@ -159,7 +159,7 @@ export default class ObjAction extends ActionForwardBase {
       return -1;
     }
 
-    const checked = this.frameflags.length === 0 || this.owner.enabledOn(this.frameflags, 1, 1, "all");
+    const checked = this.frameflags.length === 0 || this.owner.isEnabledOn(this.frameflags, 1, 1, "all");
     if (!checked) {
       this.debugLog("actionenabler", "- Action is disabled by frameflags");
       return -1;

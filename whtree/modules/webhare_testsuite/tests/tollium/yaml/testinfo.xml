@@ -1,4 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test-yaml-builder.whscr" />
-
+  <jstest file="test-yaml-frontend.ts" />
 </group>

@@ -2,7 +2,7 @@ import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPContentType, type CSPMember, type CSPMemberOverride } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPContentType, type CSPMember, type CSPMemberOverride, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
@@ -132,8 +132,20 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   },
 };
 
-export function parseYamlComponent(comp: NonNullable<Sp.TypeMember["component"]>) {
-  const compentries = Object.entries(comp);
+type YamlCompnentHolder = Pick<Sp.TypeMember, "component" | "lines" | "line">;
+
+export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDefinition | null {
+  if ((holder.line ? 1 : 0) + (holder.lines ? 1 : 0) + (holder.component ? 1 : 0) > 1)
+    throw new Error(`Component may contain only one of line, lines or component`);
+
+  if (holder.line)
+    return parseYamlComponent({ lines: [{ line: holder.line }] });
+  if (holder.lines)
+    return parseYamlComponent({ component: { __yamlholder: { lines: holder.lines } } });
+  if (!holder.component)
+    return null;
+
+  const compentries = Object.entries(holder.component);
 
   if (!compentries.length)
     throw new Error(`Component is empty`); //TODO better error message
@@ -173,8 +185,9 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
     if (type.constraints || member.constraints)
       addmember.constraints = mergeConstraints(type.constraints || null, member.constraints || null)!;
 
-    if (member.component)
-      addmember.component = parseYamlComponent(member.component);
+    const comp = parseYamlComponent(member);
+    if (comp)
+      addmember.component = comp;
 
     cspmembers.push(addmember);
   }
@@ -292,8 +305,9 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
           override.constraints = updates.constraints;
         if (updates.layout)
           override.layout = updates.layout;
-        if (updates.component)
-          override.component = parseYamlComponent(updates.component);
+        const comp = parseYamlComponent(updates);
+        if (comp)
+          override.component = comp;
         if (updates.props)
           override.props = toSnakeCase(updates.props);
         if (updates.title)

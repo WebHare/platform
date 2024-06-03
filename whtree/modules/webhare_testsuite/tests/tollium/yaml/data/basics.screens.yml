@@ -15,12 +15,32 @@ screens:
           value: "Testing lines:"
       - line:
           parts:
-          - textedit:
-              title: "Area 1"
-              value: "Value 1"
-          - textedit:
-              title: "Area 2"
-              value: "Value 2"
-          - textedit:
-              title: "Area 3"
-              value: "Value 3"
+            - textedit:
+                title: "Area 1"
+                value: "Value 1"
+            - textedit:
+                title: "Area 2"
+                value: "Value 2"
+            - textedit:
+                title: "Area 3"
+                value: "Value 3"
+
+  # https://my.webhare.dev/?app=webhare_testsuite:runyamlscreen(conditions)
+  conditions:
+    minWidth: 80x
+    minHeight: 20gr
+    title: Test conditions
+    bodyLines:
+      - line:
+          - parts:
+              - checkbox:
+                  name: cbTextEdit
+                  title: ""
+                  value: true
+              - textedit:
+                  title: "Text edit"
+                  name: controlledTextEdit
+                  required: true
+                  enabledOn: # TODO we can consider defining shorter variants - eg leaving out value would test against non- default and specifying a string instead of object would imply 'field: ...'
+                    field: cbTextEdit
+                    value: true

@@ -27,7 +27,7 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
   // Communications
   //
 
-  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
+  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     return (min > 0 && max !== 0 && this.getValue().value)
       || (min <= 0 && max === 0 && !this.getValue().value);
   }
@@ -39,6 +39,10 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
 
   getSubmitValue() {
     return this.getValue();
+  }
+
+  getValueForCondition(): unknown {
+    return this.node.checked;
   }
 
   getValue() {

@@ -327,6 +327,67 @@ apply:
             emptyValue: 5
       `));
 
+  // Test explicit components - <line>
+  test.eqPartial({
+    contenttypes: [
+      {
+        members:
+          [
+            {
+              jsname: "multiField",
+              type: CSPMemberType.Record,
+              title: ":Mullti field",
+              children: [
+                { jsname: "num1", type: CSPMemberType.Integer },
+                { jsname: "num2", type: CSPMemberType.Integer }
+              ],
+              component: {
+                component: "__yamlholder",
+                yamlprops: {
+                  lines: [
+                    {
+                      line: {
+                        parts: [
+                          { textedit: { name: "num1", value_type: "integer" } },
+                          { text: { value: " to " } },
+                          { textedit: { name: "num2", value_type: "integer" } }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+      }
+    ]
+  }, await parseSP(`---
+typeGroup: myTypes
+types:
+  testType:
+    members:
+      multiField:
+        type: record
+        title: Mullti field
+        members:
+          num1:
+            type: integer
+          num2:
+            type: integer
+        lines:
+        - line:
+            parts:
+            - textedit:
+                name: num1
+                valueType: integer
+            - text:
+                value: " to "
+            - textedit:
+                name: num2
+                valueType: integer
+      `));
+
+
   //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type
   //     for backwardscompat/clarity no harm in separating old filetype/foldertype matching from new scopedtype matching,
   //     especially as reusing old types also requires matching their wildcard/glob rules

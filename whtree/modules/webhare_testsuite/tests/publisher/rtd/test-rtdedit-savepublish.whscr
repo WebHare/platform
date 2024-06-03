@@ -29,7 +29,7 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs
   OBJECT anumberfield :=  TT(":A number field");
   TestAssert(ObjectExists(anumberfield));
   TestEq("integer", anumberfield->valuetype);
-  TestEq(42 + round - 1, anumberfield->value);
+  TestEq(42 + round, anumberfield->value);
 
   OBJECT selectuserfield := TT(":WH User"); //note that this finds the embedded textedit
   TestAssert(ObjectExists(selectuserfield));
@@ -48,6 +48,31 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs
     anumberfield->SetDirty(); //pretend the client did it
   }
 
+  RECORD multifieldline := SELECT * FROM anumberfield->parent->__ExplainLines() WHERE linetitle = "Multi field";
+  TestAssert(RecordExists(multifieldline));
+  TestEq(3, Length(multifieldline.items));
+  TestEq(10 + round*2, multifieldline.items[0].obj->value);
+  TestEq(round % 2 = 1, multifieldline.items[1].obj->value); //Cbox is initally off, then toggles each round
+  TestEq(multifieldline.items[1].obj, multifieldline.items[2].obj->enabled_on_condition.field, 'textedit should point to cbox for enabling');
+  TestEq(round % 2 = 1, multifieldline.items[2].obj->AllowExternalUpdates(), 'allowexternal upates should match cbox state!');
+  TestEq(20 + round*3, multifieldline.items[2].obj->value);
+
+  IF(readonly)
+  {
+    TestEq(FALSE, multifieldline.items[0].obj->enabled);
+    TestEq(FALSE, multifieldline.items[2].obj->enabled);
+  }
+  ELSE
+  {
+    // Update and save props
+    multifieldline.items[0].obj->value := multifieldline.items[0].obj->value + 2;
+    multifieldline.items[1].obj->value := NOT multifieldline.items[1].obj->value;
+    multifieldline.items[2].obj->value := multifieldline.items[2].obj->value + 3;
+    multifieldline.items[0].obj->SetDirty(); //pretend the client did it
+    multifieldline.items[2].obj->SetDirty(); //pretend the client did it
+  }
+
+  TestEq(TT(":Check it"), TT(":extControlledField")->enabled_on_condition.field, 'extControlledField should point to Check it for enabling');
 
   RETURN CELL [anumberfield];
 }
@@ -63,7 +88,9 @@ ASYNC MACRO TestMetaTab()
       ]);
   testfile->SetInstanceData("webhare_testsuite:baseTest.baseTestProps",
     [ number_field := 42,
-      wh_user := testfw->GetUserObject("sysop")->entity->guid ]);
+      wh_user := testfw->GetUserObject("sysop")->entity->guid,
+      multi_field := [ num1 := 10, num2 := 20 ]
+      ]);
 
   testfw->CommitWork();
 
@@ -72,7 +99,7 @@ ASYNC MACRO TestMetaTab()
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   TestEq(FALSE, topscreen->frame->flags.canpublish);
 
-  AWAIT TestMetaFields(1, FALSE);
+  AWAIT TestMetaFields(0, FALSE);
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
   TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
@@ -95,7 +122,7 @@ ASYNC MACRO TestMetaTab()
 
   //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
-  AWAIT TestMetaFields(2, FALSE);
+  AWAIT TestMetaFields(1, FALSE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
@@ -177,7 +204,7 @@ ASYNC MACRO TestReopenDeletedFile()
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
-  AWAIT TestMetaFields(3, TRUE);
+  AWAIT TestMetaFields(2, TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object

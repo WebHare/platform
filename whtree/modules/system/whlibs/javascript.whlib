@@ -11,10 +11,29 @@ LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
+LOADLIB "wh::regex.whlib";
 
 RECORD FUNCTION GetDiskFileProperties(STRING filename) __ATTRIBUTES__(EXTERNAL);
 
 RECORD ARRAY libcache; //cache opened instances
+
+STRING FUNCTION SnakeIt(STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+  RETURN "_" || ToLowercase(match);
+}
+PUBLIC STRING FUNCTION ToSnakeCase(STRING camelcasetext)
+{
+  RETURN NEW RegEx("[A-Z]","g")->ReplaceCallback(camelcasetext, PTR SnakeIt);
+}
+
+STRING FUNCTION CamelCaseIt(STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+  RETURN ToUppercase(Substring(match,1));
+}
+PUBLIC STRING FUNCTION ToCamelCase(STRING camelcasetext)
+{
+  RETURN NEW RegEx("_[a-z]","g")->ReplaceCallback(camelcasetext, PTR CamelCaseIt);
+}
 
 OBJECTTYPE ImportedLibrary
 <

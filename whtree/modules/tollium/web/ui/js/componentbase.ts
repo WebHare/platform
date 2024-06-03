@@ -8,10 +8,12 @@ import { SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-toll
 import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
-import type { SelectionMatch } from './types';
+import type { SelectionMatch, TolliumCondition } from './types';
 import type { BackendApplication } from './application';
 import { generateRandomId } from '@webhare/std/platformbased';
 import { toSnakeCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
+import type ObjAction from '@mod-tollium/webdesigns/webinterface/components/action/action';
+import type ObjForward from '@mod-tollium/webdesigns/webinterface/components/action/forward';
 
 // Allow components to set propTodd as a backwards pointer to their code
 declare global {
@@ -37,6 +39,8 @@ export interface ComponentStandardAttributes extends $todd.XMLWidthAttributes, $
   visible?: boolean;
   hint?: string;
   shortcut?: string;
+  enabled_on?: TolliumCondition;
+
   //not tranmistted by tollium harescript, used internally:
   destroywithparent?: boolean;
 }
@@ -80,6 +84,7 @@ export class ToddCompBase {
 
   listeningtoactions: string[] = []; //names of actions for which we're listeninn
   enablecomponents: string[] = [];
+  enabledOn: TolliumCondition | null = null;
 
   node: HTMLElement | null = null;
   nodes: Record<string, HTMLElement> = {};
@@ -147,7 +152,8 @@ export class ToddCompBase {
       throw new Error("Please ensure all components have a name ('target' field)"); //uniquely numbered components leak very easily in the objectmap[]...
 
     this.unmasked_events = data.unmasked_events;
-    this.enablecomponents = data.enablecomponents ? data.enablecomponents : [];
+    this.enablecomponents = data.enablecomponents || [];
+    this.enabledOn = data.enabled_on || null;
     this.xml_enabled = data.enabled === true;
     this.visible = data.visible !== false;
 
@@ -181,6 +187,9 @@ export class ToddCompBase {
   }
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
+  }
+  getValueForCondition(): unknown {
+    return this.getValue();
   }
   getValue(): unknown {
     return this.value;
@@ -240,6 +249,20 @@ export class ToddCompBase {
         retval.push(this.nodes[i]);
 
     return retval;
+  }
+
+  /** Evaluate a TolliumCondition */
+  evaluateCondition(cond: TolliumCondition): boolean {
+    if (cond.field) {
+      const field = this.owner.getComponent(cond.field);
+      if (!field) {
+        console.warn(`Missing feld '${cond.field}' in condition`, cond);
+        return false;
+      }
+      return field.getValueForCondition() === cond.value;
+    }
+    console.warn("Unrecognized condition", cond);
+    return false;
   }
 
   initializeSizes(data: $todd.XMLWidthAttributes & $todd.XMLHeightAttributes) {
@@ -367,7 +390,7 @@ export class ToddCompBase {
   }
 
   // Check enableon rules
-  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
+  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     this.debugLog("actionenabler", "does not support enabling actions");
     return false;
   }
@@ -505,6 +528,10 @@ export class ToddCompBase {
   setMinToAbs(sizeprop) {
     if (!sizeprop.servermin && isFixedSize(sizeprop.serverset))
       sizeprop.servermin = sizeprop.serverset;
+  }
+  /** invoked when focus/action/eanbleons may have changed */
+  checkActionEnablers() {
+    this.getVisibleChildren().forEach(child => child.checkActionEnablers());
   }
   calculateDimension(horizontal) {
     //beginWidth|Height
@@ -937,12 +964,12 @@ export class ActionableComponent extends ToddCompBase {
 
   getEnabled() {
     // Check if the action is already available
-    const action = this.action ? this.owner.getComponent(this.action) : null;
+    const action = this.action ? this.owner.getComponent<ObjAction | ObjForward>(this.action) : null;
     // The button is enabled if it hasn't been disabled directly and it either has an enabled action or no action at all
     return this.enabled && (action ? action.isEnabled() : !this.action);
   }
 
-  setEnabled(value) {
+  setEnabled(value: boolean) {
     this.enabled = value;
     this.node.setAttribute("tabindex", this.getEnabled() && this.canBeFocusable() ? '0' : '-1');
     this.onActionUpdated();

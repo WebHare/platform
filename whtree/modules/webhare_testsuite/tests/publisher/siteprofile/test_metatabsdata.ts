@@ -49,6 +49,12 @@ async function testMetadataReader() {
                 component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
               }, {
                 name: "rtd"
+              }, {
+                name: "multiField"
+              }, {
+                name: "checkIt"
+              }, {
+                name: "extControlledField"
               }
             ]
           }, {
@@ -102,6 +108,12 @@ async function testMetadataReader() {
                 }
               }, {
                 name: "rtd"
+              }, {
+                name: "multi_field"
+              }, {
+                name: "check_it"
+              }, {
+                name: "ext_controlled_field"
               }
             ]
           }, {
@@ -154,6 +166,12 @@ async function testOverrides() {
                   component: { textarea: {} }
                 }, {
                   name: "rtd"
+                }, {
+                  name: "multiField"
+                }, {
+                  name: "checkIt"
+                }, {
+                  name: "extControlledField"
                 }
               ]
             }, {

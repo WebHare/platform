@@ -50,6 +50,38 @@ types:
         component:
           "http://www.webhare.net/xmlns/system/components#selectuser":
             inputKind: wrdGuid
+      multiField:
+        type: record
+        constraints:
+          required: true
+        title: Multi field
+        members:
+          num1:
+            type: integer
+          hasNum2:
+            type: boolean
+          num2:
+            type: integer
+        lines:
+        - line:
+            parts:
+            - textedit:
+                name: num1
+                valueType: integer
+            - checkbox:
+                name: hasNum2
+                label: "and up to:"
+            - textedit:
+                name: num2
+                valueType: integer
+                enabledOn:
+                  field: hasNum2
+                  value: true
+      checkIt:
+        type: boolean
+        title: Check it
+      extControlledField:
+        type: string
 
 apply:
   - to:
@@ -57,7 +89,7 @@ apply:
     baseProps: [seotitle]
     editProps:
       - type: baseTestProps
-        layout: [anyField, numberField, folksonomy, whUser, rtd]
+        layout: [anyField, numberField, folksonomy, whUser, rtd, multiField, checkIt, extControlledField]
         override:
           numberField:
             constraints:
@@ -65,6 +97,11 @@ apply:
             props:
               suffix: "kg"
               emptyValue: 1
+          extControlledField:
+            props:
+              enabledOn:
+                field: $type.checkIt
+                value: true
 
   - to:
       pathMatch: metaoverride1

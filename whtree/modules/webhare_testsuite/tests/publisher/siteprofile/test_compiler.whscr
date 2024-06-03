@@ -1,10 +1,9 @@
 <?wh
-LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -19,6 +18,7 @@ OBJECTTYPE FakeContext < > ;
 MACRO TestParsing()
 {
   TestEq("this_is_a_snake", ToSnakeCase("thisIsASnake"));
+  TestEq("thisIsASnake", ToCamelCase("this_is_a_snake"));
 
   TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("webhare_testsuite:global.genericTestType", FALSE));
   TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", TRUE));

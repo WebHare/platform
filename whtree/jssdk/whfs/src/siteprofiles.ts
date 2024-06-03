@@ -25,17 +25,19 @@ export enum CSPMemberType {
   Record = 23
 }
 
+export interface YamlComponentDefinition {
+  ns: string;
+  component: string;
+  yamlprops: Record<string, unknown>;
+}
+
 export interface CSPMemberBasics {
   /** Member title (YAML siteprofiles only) */
   title?: string;
   /** Value constraints (YAML siteprofiles only), includes type: constraints for now (TODO we could compress those away and re-merge them when metatabs are rendered) */
   constraints?: ValueConstraints;
   /** Customized component */
-  component?: {
-    ns: string;
-    component: string;
-    yamlprops: Record<string, unknown>;
-  };
+  component?: YamlComponentDefinition;
   /** Field layout */
   layout?: FieldLayout;
 }

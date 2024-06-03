@@ -687,7 +687,7 @@ export default class ObjTable extends ComponentBase {
     this.updateSelection(newselection);
   }
 
-  enabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
+  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
     if (this.selectmode !== "none") {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(',') + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
 

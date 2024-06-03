@@ -39,3 +39,9 @@ export type AcceptType = {
   noloops: boolean;
   acceptmultiple: boolean;
 };
+
+export type TolliumCondition = {
+  field: string;
+  //TODO optional non default matchtype
+  value: boolean; //TODO | string | integer | ... ?
+};
