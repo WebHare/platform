@@ -1624,7 +1624,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       CASE "click", "change", "select", "windowmove", "windowsavestate", "interval"
       {
         IF(action="change")
-          this->DispatchYamlEvents("set");
+          this->DispatchYamlEvents("onSet");
         this->owner->tolliumscreenmanager->QueueEvent(this, action, DEFAULT RECORD);
       }
       CASE "clicklink"
