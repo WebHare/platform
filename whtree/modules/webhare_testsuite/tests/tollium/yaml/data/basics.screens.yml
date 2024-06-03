@@ -54,6 +54,7 @@ screens:
                   label: "Show time"
                   # FIXME onSet: basics.whlib#onShowTimeSet
                   onSet: mod::webhare_testsuite/tests/tollium/yaml/data/basics.whlib#onShowTimeSet
+                  name: cBox
               - datetime:
                   title: "Event start"
                   name: eventStart

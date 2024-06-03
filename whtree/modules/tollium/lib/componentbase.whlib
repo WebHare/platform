@@ -1598,6 +1598,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       }
       CASE "change"
       {
+        this->DispatchYamlEvents("onSet");
         IF(this->onchange != DEFAULT FUNCTION PTR)
           this->onchange();
       }
@@ -1622,6 +1623,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     {
       CASE "click", "change", "select", "windowmove", "windowsavestate", "interval"
       {
+        IF(action="change")
+          this->DispatchYamlEvents("set");
         this->owner->tolliumscreenmanager->QueueEvent(this, action, DEFAULT RECORD);
       }
       CASE "clicklink"
@@ -1770,6 +1773,22 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   UPDATE RECORD FUNCTION GetExtraDirtyFlags()
   {
     RETURN DEFAULT RECORD;
+  }
+
+  /** List events to unmask
+      @param directevents - handlers linked to OnXXX members (XML tollium)
+      @param yamlmap - a dict of YAML event handlers listing the events to unmask if this handler is attached */
+  STRING ARRAY FUNCTION GetUnmaskedEvents(STRING ARRAY directevents, RECORD yamlmap)
+  {
+    STRING ARRAY unmask := GetUnmask(this, directevents);
+    IF(RecordExists(yamlmap) AND Length(this->yamleventhandlers) > 0)
+      FOREVERY(RECORD map FROM UnpackRecord(yamlmap))
+        IF(RecordExists(SELECT FROM this->yamleventhandlers WHERE ToLowercase(eventtype) = ToLowercase(map.name)))
+          FOREVERY(STRING tounmask FROM map.value)
+            IF(tounmask NOT IN unmask)
+              INSERT tounmask INTO unmask AT END;
+
+    RETURN unmask;
   }
 
   PUBLIC MACRO TolliumWebRender()

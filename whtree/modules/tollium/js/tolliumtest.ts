@@ -41,6 +41,10 @@ class ComponentProxy implements CastableToElement {
     if (this.node.matches("t-textarea"))
       return this.node.querySelector("textarea")!.value;
 
+    const input = this.node.querySelector("input");
+    if (input)
+      return input.value;
+
     throw new Error(`Don't know how to getTextValue yet for node '${this.node.dataset.name}'`);
   }
 
