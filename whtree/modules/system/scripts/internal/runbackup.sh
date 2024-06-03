@@ -45,18 +45,14 @@ function control_c()
 # TODO: make sure no blobs are deleted during the backup - this now happens based on timing (blobs aren't deleted for the first few hours) but still contains a race
 
 [ "$VERBOSE" == "1" ] && echo "Making copy of the blobs"
-for BLOBBASEFOLDER in blob ; do
-  if [ -d "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" ]; then
-    mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-    rsync -av $RSYNCOPTS --link-dest "$WEBHARE_DATABASEPATH/" "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+mkdir -p "$BLOBDEST/blob/"
+rsync -av $RSYNCOPTS --link-dest "$WEBHARE_DATABASEPATH/" "$WEBHARE_DATABASEPATH/blob" "$BLOBDEST/"
 
-    RSYNCRETVAL="$?"
-    if [ "$RSYNCRETVAL" != "0" ]; then
-      echo "First rsync with error code $RSYNCRETVAL"
-      exit 1
-    fi
-  fi
-done
+RSYNCRETVAL="$?"
+if [ "$RSYNCRETVAL" != "0" ]; then
+  echo "First rsync with error code $RSYNCRETVAL"
+  exit 1
+fi
 
 [ "$VERBOSE" == "1" ] && echo "Make database backup"
 PSROOT="${WEBHARE_DATAROOT}postgresql"
