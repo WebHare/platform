@@ -67,7 +67,7 @@ test.registerTests(
       test.click('.wh-wrdauth-passwordchange__changebutton');
       test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
       await test.wait('ui');
-      test.eq(/The passwords you entered did not match/i, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
+      test.eq(/The passwords you entered did not match/i, test.qR('[data-wh-form-group-for="passwordrepeat"] .wh-form__error').textContent);
 
       test.fill('#passwordchange-passwordrepeat', 'secret3$');
 

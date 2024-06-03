@@ -149,19 +149,9 @@ STATIC OBJECTTYPE PasswordFormBase EXTEND FormBase
 <
   MACRO CheckPasswordUpdate(OBJECT work, INTEGER entityid)
   {
-    OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
-    STRING validationchecks := GetWRDSetting(wrdschema, "password_validation_checks");
-    IF(validationchecks != "")
-    {
-      //Get current password (or ideally, full auth settings) as
-      VARIANT authenticationsettings := wrdschema->accounttype->GetEntityField(entityid, wrdschema->accountpasswordtag);
-      IF (TypeID(authenticationsettings) = TypeID(STRING))
-        authenticationsettings := CreateAuthenticationSettingsFromPasswordHash(authenticationsettings, [ validfrom := DEFAULT DATETIME ]);
-
-      RECORD rec := CheckPassword(validationchecks, ^passwordnew->value, CELL[ authenticationsettings ]);
-      IF (NOT rec.success)
-        work->AddErrorFor(^passwordnew, rec.message);
-    }
+    RECORD result := this->formcontext->GetWRDAuthPlugin()->CheckPasswordUpdate(entityid, ^passwordnew->value);
+    IF(NOT result.success)
+      work->AddErrorFor(^passwordnew, result.message);
   }
 >;
 
@@ -178,24 +168,13 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase
   {
     OBJECT work := this->BeginWork();
 
-    this->CheckPasswordUpdate(work, this->verifyresult.entityid);
+    IF(^passwordnew->value != ^passwordrepeat->value) //mark the 2nd password as failed immediately
+      work->AddErrorFor(^passwordrepeat, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
 
-    // Re-process verification link at submit, don't want it to be used twice.
-    this->verifyresult := this->formcontext->GetWRDAuthPlugin()->ProcessVerificationLink(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"));
-    IF(NOT this->verifyresult.success)
-      work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.linkexpired"));
-
-    IF(NOT work->HasFailed() AND ^passwordnew->value != ^passwordrepeat->value)
-      work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
-
-    IF(NOT work->HasFailed())
-    {
-      OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
-      OBJECT userentity := wrdschema->accounttype->GetEntity(this->verifyresult.entityid);
-      userentity->UpdatePassword(wrdschema->accountpasswordtag, ^passwordnew->value);
-
-      this->formcontext->GetWRDAuthPlugin()->MarkVerificationLinkUsed(this->verifyresult.entityid, this->verifyresult);
-    }
+    //We'll still check your new password though as it's nicer to dismiss it immediately if unusable, and not after repeating it right
+    RECORD updateres := this->formcontext->GetWRDAuthPlugin()->ExecutePasswordReset(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"), ^passwordnew->value, [ dryrun := work->HasFailed() ]);
+    IF(NOT updateres.success)
+      work->AddErrorFor(^passwordnew, updateres.error);
 
     IF(work->Finish())
       this->formcontext->GetWRDAuthPlugin()->LoginById(this->verifyresult.entityid, FALSE);
@@ -338,14 +317,16 @@ PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase
     OBJECT work := this->BeginWork();
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
 
-    this->CheckPasswordUpdate(work, authplugin->GetLoggedinEntity());
-
     IF(NOT authplugin->VerifyCurrentPassword(^currentpassword->value))
       work->AddErrorFor(^currentpassword, GetTid("wrd:site.forms.authpages.incorrectpassword"));
-    IF(NOT work->HasFailed() AND ^passwordnew->value != ^passwordrepeat->value)
-      work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
+    IF(^passwordnew->value != ^passwordrepeat->value) //mark the 2nd password as failed immediately
+      work->AddErrorFor(^passwordrepeat, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
 
-    authplugin->UpdateCurrentUserPassword(^passwordnew->value);
+    //We'll still check your new password though as it's nicer to dismiss it immediately if unusable, and not after repeating it right
+    RECORD updateres := authplugin->ExecutePasswordSet(^passwordnew->value, [ dryrun := work->HasFailed() ]);
+    IF(NOT updateres.success)
+      work->AddErrorFor(^passwordnew, updateres.message);
+
     work->Finish();
     RETURN DEFAULT RECORD;
   }

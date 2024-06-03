@@ -28,6 +28,8 @@ LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
@@ -38,6 +40,7 @@ LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 RECORD FUNCTION GetCacheableExternalUserAccounts(INTEGER uselist)
 {
@@ -2026,5 +2029,60 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         THROW NEW Exception(`Unhandled logintype ${EncodeJSON(logintype)}`);
       }
     }
+  }
+
+  PUBLIC RECORD FUNCTION CheckPasswordUpdate(INTEGER entityid, STRING newpassword)
+  {
+    OBJECT wrdschema := this->wrdschema;
+    STRING validationchecks := GetWRDSetting(wrdschema, "password_validation_checks");
+    IF(validationchecks != "")
+    {
+      //Get current password (or ideally, full auth settings) as
+      VARIANT authenticationsettings := this->accounttype->GetEntityField(entityid, this->wrdschema->accountpasswordtag);
+      IF (TypeID(authenticationsettings) = TypeID(STRING))
+        authenticationsettings := CreateAuthenticationSettingsFromPasswordHash(authenticationsettings, [ validfrom := DEFAULT DATETIME ]);
+
+      RECORD rec := CheckPassword(validationchecks, newpassword, CELL[ authenticationsettings ]);
+      IF (NOT rec.success)
+        RETURN CELL[ success := FALSE, message := rec.message ];
+    }
+
+    RETURN CELL[ success := TRUE ];
+  }
+
+  PUBLIC RECORD FUNCTION ExecutePasswordSet(STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ dryrun := FALSE ], options);
+
+    RECORD checkresult := this->CheckPasswordUpdate(this->GetLoggedinEntity(), newpassword);
+    IF(NOT checkresult.success)
+      RETURN checkresult;
+
+    IF(NOT options.dryrun)
+      this->UpdateCurrentUserPassword(newpassword);
+
+    RETURN [ success := TRUE ];
+  }
+
+  PUBLIC RECORD FUNCTION ExecutePasswordReset(STRING _ed, STRING verifier, STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ dryrun := FALSE ], options);
+
+    RECORD verifyresult := this->ProcessVerificationLink(_ed, verifier);
+    IF(NOT verifyresult.success)
+      RETURN [ success := FALSE, message := GetTid("wrd:site.forms.authpages.linkexpired") ];
+
+    RECORD checkresult := this->CheckPasswordUpdate(verifyresult.entityid, newpassword);
+    IF(NOT checkresult.success)
+      RETURN checkresult;
+
+    IF(NOT options.dryrun)
+    {
+      OBJECT userentity := this->accounttype->GetEntity(verifyresult.entityid);
+      userentity->UpdatePassword(this->wrdschema->accountpasswordtag, newpassword);
+      this->MarkVerificationLinkUsed(verifyresult.entityid, verifyresult);
+    }
+
+    RETURN [ success := TRUE, entityid := verifyresult.entityid ];
   }
 >;
