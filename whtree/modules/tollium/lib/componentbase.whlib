@@ -26,21 +26,42 @@ PUBLIC RECORD __pvt_nextcomponentinfo;
 
 INTEGER nexteventnr := 1;
 
-STATIC OBJECTTYPE YamlEvent
+PUBLIC STATIC OBJECTTYPE YamlEvent
 <
   OBJECT pvt_target;
 
   PUBLIC PROPERTY target(pvt_target,-);
+  PUBLIC PROPERTY contexts(GetContexts,-);
 
   MACRO NEW(OBJECT target)
   {
     this->pvt_target := target;
   }
 
+  OBJECT FUNCTION GetContexts()
+  {
+    RETURN this->pvt_target->contexts;
+  }
+
+  /** Resolve a component relative to the target's scope (ie YAML lookup that can find peer components through $type and local subcomponents which have set a `name:`) */
   PUBLIC OBJECT FUNCTION GetComponent(STRING name)
   {
     RETURN this->pvt_target->__ResolveYamlComponentRef(name);
   }
+
+  /** Run a screen */
+  PUBLIC VARIANT FUNCTION RunScreen(STRING screen, RECORD initdata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD) //moved to YamlEvent so users aren't tempted too much by ->contexts->
+  {
+    IF(screen NOT LIKE "*::*")
+      THROW NEW Exception("RunScreen requires a full path to a screen");
+
+    OBJECT screenobject := this->contexts->opener->LoadScreen(screen, initdata, options);
+    IF(NOT ObjectExists(screenobject))
+      THROW NEW Exception(`The screen '${screen}' could not be loaded`);
+
+    RETURN screenobject->__TolliumRunScreen();
+  }
+
 >;
 
 /** @short AutoSuggest handler object
