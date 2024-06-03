@@ -546,10 +546,14 @@ HERE
 
   "fixbuild")
     check_webhare_not_running
+
+    # Force brew to update
+    touch "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
+
     setup_buildsystem
 
     # Cannot build a target for this in the makefile, we want to serialise these steps
-    for P in clean-icu-provider clean-libs postuninstall install; do
+    for P in postuninstall clean install; do
       "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" $P
     done
     exit
