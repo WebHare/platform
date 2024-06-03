@@ -783,8 +783,18 @@ export class ResourceDescriptor implements ResourceMetaData {
     if ("sourceFile" in options)
       this.metadata.sourceFile = options.sourceFile;
 
-    if ((options?.getImageMetadata || options?.getDominantColor)) //FIXME don't rerun if we already have this data (how to verify?)
+    if (options.fileName !== undefined)
+      this.metadata.fileName = options.fileName;
+
+    if (options.mediaType !== undefined)
+      this.metadata.mediaType = options.mediaType;
+
+    if ((options?.getImageMetadata || options?.getDominantColor)) { //FIXME don't rerun if we already have this data (how to verify?)
+      if (options.mediaType !== undefined)
+        throw new Error("Cannot update the mediaType of an image when getting the image metadata or dominant color");
+
       Object.assign(this.metadata, await analyzeImage(this._resource, options?.getDominantColor || false));
+    }
 
     if (options?.getHash && !this.metadata.hash)
       this.metadata.hash = await hashStream(await this._resource.getStream());
