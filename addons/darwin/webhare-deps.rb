@@ -27,7 +27,6 @@ class WebhareDeps < Formula
   depends_on "postgresql@13"
   depends_on "rapidjson"
   depends_on "opensearch"
-  depends_on "emscripten"
 
   def install
     # Note that we can't have the file have any of the usual meta filenames eg. README

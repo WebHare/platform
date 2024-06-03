@@ -28,6 +28,17 @@ if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$WHBUILD_ALLOW" ]; then
   die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
 fi
 
+# Is emsdk installed?
+if [ -z "$WEBHARE_IN_DOCKER" ]; then
+  [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || git -C "$WEBHARE_CHECKEDOUT_TO" submodule update --init --recursive
+  [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || die "Submodule vendor/emsdk not present"
+  # TODO skip if already activated. need to support version checks then
+  # TODO can we ensure wasm-clean is invoked (ideally set a proper dep) whenever emsdk is updated?
+  "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" install 3.1.60
+  "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" activate 3.1.60
+  source "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk_env.sh"
+fi
+
 # Update/regenerate platformconf.h
 getwebhareversion
 

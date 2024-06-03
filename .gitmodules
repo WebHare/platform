@@ -4,3 +4,6 @@
 [submodule "whtree/jssdk/whdb/vendor/postgresql-client"]
 	path = whtree/jssdk/whdb/vendor/postgresql-client
 	url = https://github.com/WebHare/postgresql-client.git
+[submodule "vendor/emsdk"]
+	path = vendor/emsdk
+	url = https://github.com/emscripten-core/emsdk.git
