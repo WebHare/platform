@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/textedit.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
 PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
@@ -54,6 +55,12 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     this->maxlength := -1;
     this->lengthmeasure := "characters";
     this->__hiderequiredifdisabled := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    SetTextSharedYamlProps(this, props);
+    TolliumComponentBase::SetYamlProps(props);
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)

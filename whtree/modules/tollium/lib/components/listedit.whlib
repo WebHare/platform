@@ -6,7 +6,7 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
-LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
+LOADLIB "mod::tollium/lib/yamlbase.whlib";
 
 CONSTANT STRING ARRAY supportedbuttons := ["add","edit","delete","view"];
 CONSTANT STRING ARRAY defaultbuttons := ["add","edit","delete"];
