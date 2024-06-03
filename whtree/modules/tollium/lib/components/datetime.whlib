@@ -86,6 +86,38 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
     this->savestate := def.savestate;
   }
 
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props)
+  {
+    this->storeutc := CellExists(props, 'store_u_t_c') ? props.store_u_t_c : TRUE; //default to utc
+
+    IF(CellExists(props, 'value_constraints'))
+    {
+      IF(CellExists(props.value_constraints, 'precision'))
+      {
+        SWITCH(props.value_constraints.precision)
+        {
+          CASE "day"
+          {
+            this->type := "date";
+          }
+          CASE "hour"
+          {
+            this->precision := "hours";
+          }
+          CASE "minute"
+          {
+            this->precision := "minutes";
+          }
+          CASE "second"
+          {
+            this->precision := "seconds";
+          }
+        }
+      }
+    }
+    TolliumComponentBase::SetYamlProps(props);
+  }
+
   MACRO SetStoreUTC(BOOLEAN newutc)
   {
     IF(this->pvt_storeutc=newutc)
@@ -122,14 +154,11 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
 
   DATETIME FUNCTION GetLocalTZValue()
   {
-    IF (this->pvt_storeutc AND this->type = "date")
-      THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
+    //we allow storeutc with dates again.. and we just want UTC Midnight then
     RETURN this->pvt_storeutc ? this->owner->tolliumuser->UTCToLocal(this->value) : this->value;
   }
   MACRO SetLocalTZValue(DATETIME newval)
   {
-    IF (this->pvt_storeutc AND this->type = "date")
-      THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
     this->value := this->pvt_storeutc ? this->owner->tolliumuser->LocalToUTC(newval) : newval;
   }
 

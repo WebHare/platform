@@ -36,14 +36,6 @@ PUBLIC OBJECTTYPE __TolliumAutoSuggestableBase EXTEND TolliumComponentBase
     this->minimumsuggestlength := def.minimumsuggestlength;
   }
 
-  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
-  {
-    IF(CellExists(props,'value_type'))
-      this->valuetype := props.value_type;
-
-    TolliumComponentBase::SetYamlProps(props);
-  }
-
   RECORD FUNCTION GetAutoSuggestSetting()
   {
     RECORD autosuggest;
@@ -1189,6 +1181,14 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
   /** The buttons within the textedit
   */
   PUBLIC PROPERTY buttons(pvt_buttons, SetButtons);
+
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    IF(CellExists(props,'value_type'))
+      this->valuetype := props.value_type;
+
+    __TolliumAutoSuggestableBase::SetYamlProps(props);
+  }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {

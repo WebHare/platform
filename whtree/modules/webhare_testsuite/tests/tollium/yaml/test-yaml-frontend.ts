@@ -6,11 +6,14 @@ import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 async function testConditions() {
   await tt.loadYamlScreen("conditions");
 
+  test.eq("showtime-set", tt.comp(":Events").getTextValue());
+
   test.eq(true, tt.comp("cbTextEdit").getValue());
   test.eq(false, tt.comp("controlledTextEdit").querySelector("input")?.readOnly);
 
-  test.click(tt.comp("cbTextEdit").node);
-  test.eq(true, tt.comp("controlledTextEdit").querySelector("input")?.readOnly);
+  test.click(tt.comp("cBox").node);
+  await test.waitForUI();
+  test.eq("showtime-set, showtime-set", tt.comp(":Events").getTextValue());
 }
 
 test.run([testConditions]);
