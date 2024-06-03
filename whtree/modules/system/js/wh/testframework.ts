@@ -13,6 +13,7 @@ import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/do
 import * as whtest from '@webhare/test';
 import * as test from 'dompack/testframework';
 import * as pointer from 'dompack/testframework/pointer';
+import { type ValidElementTarget } from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import { Annotation } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
