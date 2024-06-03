@@ -179,6 +179,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   PUBLIC STRING formfieldtype;
 
+  PUBLIC BOOLEAN __yaml;
+
   /// List of components this component controls
   PUBLIC PROPERTY subcomponents(GetSubComponents, -);
 
@@ -344,6 +346,11 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
     IF(CellExists(props,'on_set'))
       this->AddYamlEventHandler('onSet', props.on_set);
+    IF(CellExists(props,'on_init'))
+      this->AddYamlEventHandler('onInit', props.on_init);
+
+    this->ExtUpdatedComponent();
+    this->EnsurePreinit();
 
     IF(CellExists(props,'value'))
     {
@@ -353,7 +360,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         THROW NEW TolliumException(this, `SetYamlProps: Trying to set a value on a component not supporting values`);
     }
 
-    this->ExtUpdatedComponent();
+    this->__yaml := TRUE;
   }
 
   PUBLIC MACRO __tollium_afternew()
@@ -514,6 +521,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     {
       this->pvt_havepreinited:=TRUE;
       this->PreInitComponent();
+      /* onInit is the 'followup' to SetYamlProperties (except value). It should be preparing the component to receive
+         its first value, but otherwise expects the component to be usable. */
+      this->DispatchYamlEvents("onInit");
     }
 
     FOREVERY(OBJECT comp FROM this->GetChildComponents())

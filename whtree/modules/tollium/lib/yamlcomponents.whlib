@@ -80,6 +80,8 @@ PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, 
     newcomp->dirtylistener := context.dirtylistener;
 
   newcomp->SetYamlProps(compdef.yamlprops);
+  IF(NOT newcomp->__yaml)
+    THROW NEW Exception(`Component '${compdef.ns}#${compdef.component} has overridden SetYamlProps but not invoked its parent methods.`);
   RETURN newcomp;
 }
 

@@ -23,16 +23,17 @@ ASYNC MACRO TestConditions()
   AWAIT ExpectScreenChange(+1, PTR RunYamlScreen(GetTestController(), Resolve("data/basics.screens.yml#conditions")));
 
   TestEq(TRUE, TT(":Text edit")->AllowExternalUpdates());
+  TestEq("green", TT("pulldown")->value);
   TestEq(TRUE, TT("cb_text_edit")->value);
   TT("cb_text_edit")->value := FALSE;
   TestEq(FALSE, TT(":Text edit")->AllowExternalUpdates());
 
   //Verify events
-  TestEq("showtime-set", TT(":Events")->value, "showtime-set should have fired for screen init, even if no explicit value was set");
+  TestEq("showtime-init, color-init, showtime-set", TT(":Events")->value, "showtime-set should have fired for screen init, even if no explicit value was set");
   TestEq(FALSE, TT("c_box")->value);
   TT("c_box")->value := TRUE;
 
-  TestEq("showtime-set, showtime-set", TT(":Events")->value);
+  TestEq("showtime-init, color-init, showtime-set, showtime-set", TT(":Events")->value);
 
   //TOOD test corner cases where a field, during init, sets a future or past field. ensure that enough OnSets get fired
 

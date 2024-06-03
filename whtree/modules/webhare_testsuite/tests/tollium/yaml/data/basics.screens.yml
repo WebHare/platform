@@ -53,8 +53,15 @@ screens:
               - checkbox:
                   label: "Show time"
                   # FIXME onSet: basics.whlib#onShowTimeSet
+                  onInit: mod::webhare_testsuite/tests/tollium/yaml/data/basics.whlib#onShowTimeInit
                   onSet: mod::webhare_testsuite/tests/tollium/yaml/data/basics.whlib#onShowTimeSet
                   name: cBox
               - datetime:
                   title: "Event start"
                   name: eventStart
+      - select:
+          type: pulldown
+          name: pulldown
+          title: "Choose"
+          onInit: mod::webhare_testsuite/tests/tollium/yaml/data/basics.whlib#fillWithColor
+          value: green

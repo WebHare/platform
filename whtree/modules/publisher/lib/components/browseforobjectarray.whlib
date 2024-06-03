@@ -96,7 +96,7 @@ PUBLIC OBJECTTYPE PublisherBrowseForObjectArray EXTEND TolliumComponentBase
     //this->mybox := this->CreateSubComponent("box");
   }
 
-  UPDATE MACRO PreInitComponent()
+  UPDATE MACRO PreShowComponent()
   {
     IF(NOT ObjectExists(this->listview))
       this->CreateMyGrid();
