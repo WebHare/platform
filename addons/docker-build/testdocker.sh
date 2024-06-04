@@ -377,7 +377,7 @@ echo
 # List our configuration
 echo "Test environment variables:"
 # not listing CI_, lots of noise and usually not really relevant anymore at this point. Just look at the BUILD setup if you want these
-set | egrep '^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS=)' | sort
+set | grep -e '^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS=)' | sort
 set | grep ^TESTSECRET_|sed -e '/=.*/s//=xxxxx/' | sort
 echo ""
 
@@ -388,17 +388,17 @@ if [ "$NOPULL" != "1" ]; then
   # If an alternate registry is set, prefer to use that one. Try to avoid dockerhub, it seems slower and is rate limited
   if [[ $WEBHAREIMAGE =~ docker.io/webhare/platform:.* ]] && [ -n "$WH_CI_ALTERNATEREGISTRY" ] ; then
     if [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] ; then
-      echo $WH_CI_ALTERNATEREGISTRY_PASSWORD | docker login -u $WH_CI_ALTERNATEREGISTRY_LOGIN --password-stdin $WH_CI_ALTERNATEREGISTRY
+      echo "$WH_CI_ALTERNATEREGISTRY_PASSWORD" | docker login -u "$WH_CI_ALTERNATEREGISTRY_LOGIN" --password-stdin "$WH_CI_ALTERNATEREGISTRY"
     fi
 
     ALTERNATEIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:27}  # 27 is the length of 'docker.io/webhare/platform:'
 
     if RunDocker pull "$ALTERNATEIMAGE" ; then
-      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout $WH_CI_ALTERNATEREGISTRY
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout "$WH_CI_ALTERNATEREGISTRY"
       WEBHAREIMAGE="$ALTERNATEIMAGE"
     else
-      echo "Failed to pull image from alternate registry"
-      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout $WH_CI_ALTERNATEREGISTRY
+      echo "Failed to pull image from alternate registry using the WH_CI_ALTERNATEREGISTRY credentials"
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout "$WH_CI_ALTERNATEREGISTRY"
 
       if ! RunDocker pull "$WEBHAREIMAGE" ; then
         exit_failure_sh "Failed to pull image"
