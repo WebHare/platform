@@ -119,7 +119,6 @@
                             width="1pr"
                             maxlength="256"
                             dirtylistener="dirtylistener"
-                            enabled="false"
                             tid="~name"
                             validationchecks="whfsname" />
                   <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />

@@ -193,9 +193,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       @{
   */
 
-  /// Whether this is a new file/folder or a duplicate
-  BOOLEAN isnew;
-
   /// Whether this is specifically a duplication action
   BOOLEAN isduplicate;
 
@@ -611,7 +608,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     IF (ObjectExists(this->sourceitem))
     {
       // Calculate unique name for duplicate of file
-      ^name->value := this->parentfolder->GenerateUniqueName(^name->value);
+      ^name->value := this->parentfolder->GenerateUniqueName(this->sourceitem->name);
     }
     ELSE
     {

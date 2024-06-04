@@ -25,6 +25,8 @@ interface MetaTabs {
     layout?: string[];
     sections: MetadataSection[];
   }>;
+  /** Is this a new object (ie lives in autosave space, not original that's added to a public WHFS folder yet) */
+  isNew: boolean;
 }
 
 type ExtendProperties = CSPApplyRule["extendproperties"][0];
@@ -71,7 +73,8 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     }
 
   const metasettings: MetaTabs = {
-    types: []
+    types: [],
+    isNew: applytester.isNew()
   };
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {
@@ -171,6 +174,7 @@ interface MetaTabsForHS {
       }>;
     }>;
   }>;
+  is_new: boolean;
 }
 
 export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
@@ -186,7 +190,8 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
           component: parseYamlComponent(field)! //here we only use it to convert 'component', never line(s)
         }))
       }))
-    }))
+    })),
+    is_new: metatabs.isNew
   };
   return translated;
 }

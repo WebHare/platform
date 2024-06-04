@@ -56,6 +56,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   BOOLEAN readonly;
   /// Whether the edited (or new) object is a folder
   BOOLEAN isfolder;
+  /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rule sthere)
+  BOOLEAN isnew;
 
   RECORD basesettings;
 
@@ -110,6 +112,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     IF(NOT RecordExists(this->metatabsconfig))
       RETURN FALSE; //nothing to do
 
+    this->isnew := this->metatabsconfig.is_new;
     this->AddTypesTabs();
     RETURN TRUE;
   }
@@ -128,6 +131,12 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   {
     FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
     {
+      IF(field="name" AND this->isnew)
+      {
+        ^name->value := "";
+        CONTINUE; //don't fill field
+      }
+
       OBJECT fieldobj := GetMember(this, "^" || field);
       fieldobj->value := GetMember(sourceobject, field);
     }
@@ -149,6 +158,15 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
       //broken fields (eg due to incompatible data/vaueConstraints) should be able to opt out, IsUpdateValue ?
       controller.type->SetInstanceData(targetobject, controller.fsinstance->GetUpdateValue());
     }
+
+    RECORD updates;
+    IF(^title->enabled AND ^title->visible)
+      updates := CELL[...updates, title := ^title->value ];
+    IF(^description->enabled AND ^description->visible)
+      updates := CELL[...updates, description := ^description->value ];
+
+    IF(RecordExists(updates))
+      OpenWHFSObject(targetobject)->UpdateMetadata(updates);
   }
 
   MACRO AddTypesTabs()

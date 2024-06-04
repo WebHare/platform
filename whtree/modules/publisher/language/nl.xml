@@ -1665,6 +1665,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->
+      <text tid="newdocument">Nieuw document</text>
       <textgroup gid="editdocumentapp">   <!-- tolliumapps.editdocument.editdocumentapp -->
         <text tid="canceldraft">terugzetten naar de gepubliceerde versie</text>
         <text tid="canceldraftmenu">Concept annuleren</text>
@@ -1681,6 +1682,7 @@
         <text tid="inspectdraft">Inspecteer concept</text>
         <text tid="inspectfinal">Inspecteer definitieve versie</text>
         <text tid="metadata">Metadata</text>
+        <text tid="missingtitleorname">Je moet een titel of naam opgeven</text>
         <text tid="preview">Bekijken</text>
         <text tid="previewcurrentcontent">Mijn wijzigingen</text>
         <text tid="previewdraft">Opgeslagen concept</text>
