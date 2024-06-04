@@ -38,6 +38,8 @@ ASYNC MACRO TestCreateNew()
   TestEq(TRUE, topscreen->frame->flags.canpublish);
   TestEq("New document", topscreen->frame->title);
 
+  TestEq("http://www.webhare.dev/xmlns/basetestjs/defaultrtdtype", rte()->appliedsettings.namespace, "Verify RTD looks configured (HS applytester is looking at the right thing");
+
   TestEq("", TT(":Name")->value);
   TestEq("", TT(":Title")->value);
 

@@ -245,21 +245,15 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
   MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
   {
-    OBJECT applytester := GetApplyTesterForObject(objectid);
-    IF(NOT ObjectExists(applytester))
-      THROW NEW Exception("Unable to build an applytester");
-
     IF(objecteditor.documenteditor = "")
       objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
 
-    this->contexts->applytester := applytester;
-    this->SetupBaseSettings();
-    IF(this->SetupMetaTabs(objectid, 0, FALSE, 0)) //don't bother with the extra setings until we actually support true New File
+    IF(this->SetupMetaTabs(objectid, 0, FALSE, 0))
     {
       ^metapart->visible := TRUE;
     }
 
-    this->siteversioningpolicy := applytester->GetVersioningPolicy();
+    this->siteversioningpolicy := this->contexts->applytester->GetVersioningPolicy();
 
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
 
@@ -278,9 +272,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       this->MergeIntoMainMenu(this->frame->menubar, this->doceditor->contents->frame->menubar->items);
 
     // Apply editor hooks. We do this after setting up the main screen (which will already have hooked into the EditDocumentAPI at this point)
-    applytester->RunSiteprofileHookTarget("publisher:documenteditor", [ contexts := this->contexts
-                                                                      , objectid := objectid
-                                                                      ]);
+    this->contexts->applytester->RunSiteprofileHookTarget("publisher:documenteditor",
+        [ contexts := this->contexts
+        , objectid := objectid
+        ]);
+
     ^maintabs->RunExtensionsPostInit();
   }
 

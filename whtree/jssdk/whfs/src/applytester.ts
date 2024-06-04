@@ -301,6 +301,16 @@ export class WHFSApplyTester {
     return true;
   }
 
+  __getHSInfo() {
+    return {
+      ismocked: this.isMocked(),
+      objectid: this.objinfo.obj?.id ?? 0,
+      parentfolder: this.objinfo.parent?.id ?? 0,
+      type: this.objinfo.type,
+      name: this.objinfo.name || ''
+    };
+  }
+
   isMocked() {
     return !this.objinfo.obj;
   }

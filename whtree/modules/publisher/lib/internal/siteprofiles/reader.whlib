@@ -1770,6 +1770,28 @@ PUBLIC OBJECT FUNCTION GetApplyTesterForFakeObject(INTEGER parentfolder, BOOLEAN
   RETURN NEW ApplyRuleTester(objinfo);
 }
 
+PUBLIC OBJECT FUNCTION GetApplyTesterForHSInfo(RECORD __hsinfo)
+{
+  /* see __getHSInfo
+      ismocked:
+      objectid:
+      parentfolder:
+      type:
+      name:
+
+    TODO: Get a full Baseinfo object from TS so we don't have to rescan CSP
+*/
+  IF(__hsinfo.ismocked)
+  {
+    OBJECT targettype := OpenWHFSType(__hsinfo.type);
+    RETURN GetApplyTesterForFakeObject(__hsinfo.parentfolder, targettype->filetype, targettype->id); //TODO also consider 'name"?
+  }
+  ELSE
+  {
+    RETURN GetApplyTesterForObject(__hsinfo.objectid);
+  }
+}
+
 RECORD FUNCTION GetCacheableRTDType(STRING typename)
 {
   RECORD csp := GetcachedSiteProfiles();

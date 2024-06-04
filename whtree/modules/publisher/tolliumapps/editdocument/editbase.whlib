@@ -90,7 +90,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
       this->basesettings.seotab := FALSE;
     }
 
-
     ^title->visible := this->basesettings.title;
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
@@ -109,12 +108,14 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
   {
     this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type] );
-    IF(NOT RecordExists(this->metatabsconfig))
-      RETURN FALSE; //nothing to do
+    this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
+    IF(NOT ObjectExists(this->contexts->applytester))
+      THROW NEW TolliumException(this, "No applytester found for this object");
 
-    this->isnew := this->metatabsconfig.is_new;
+    this->SetupBaseSettings();
+    this->isnew := RecordExists(this->metatabsconfig) AND this->metatabsconfig.is_new;
     this->AddTypesTabs();
-    RETURN TRUE;
+    RETURN RecordExists(this->metatabsconfig) AND Length(this->metatabsconfig.types) > 0;
   }
 
   MACRO RefreshMetaTabsReadonly()
@@ -172,7 +173,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   MACRO AddTypesTabs()
   {
     INTEGER insertpos := 1;
-    FOREVERY(RECORD type FROM this->metatabsconfig.types)
+    IF(RecordExists(this->metatabsconfig))
+      FOREVERY(RECORD type FROM this->metatabsconfig.types)
     {
       OBJECT fsinstance := this->CreateTolliumComponent("record");
       RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
