@@ -29,6 +29,8 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY inputkind(pvt_inputkind, SetInputKind);
 
+  UPDATE PUBLIC PROPERTY title(^username->title, ^username->title);
+
   UPDATE PUBLIC PROPERTY required(pvt_required, SetRequired);
 
   UPDATE PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
@@ -85,11 +87,6 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
 
 
     TolliumFragmentBase::SetYamlProps(props);
-  }
-
-  UPDATE MACRO PreInitComponent()
-  {
-    this->username->title := this->title;
   }
 
   UPDATE MACRO SetEnabled(BOOLEAN newstate)

@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
+LOADLIB "mod::tollium/lib/yamlbase.whlib";
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib" EXPORT TolliumException;
 LOADLIB "mod::tollium/lib/internal/components.whlib";
@@ -25,23 +26,6 @@ LOADLIB "mod::tollium/lib/internal/screenparser.whlib" EXPORT ReadBoolAttr, Read
 PUBLIC RECORD __pvt_nextcomponentinfo;
 
 INTEGER nexteventnr := 1;
-
-STATIC OBJECTTYPE YamlEvent
-<
-  OBJECT pvt_target;
-
-  PUBLIC PROPERTY target(pvt_target,-);
-
-  MACRO NEW(OBJECT target)
-  {
-    this->pvt_target := target;
-  }
-
-  PUBLIC OBJECT FUNCTION GetComponent(STRING name)
-  {
-    RETURN this->pvt_target->__ResolveYamlComponentRef(name);
-  }
->;
 
 /** @short AutoSuggest handler object
     @long Extend this objecttype and update the GetValues function for autosuggestion support in a textedit component.
@@ -194,6 +178,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   PUBLIC STRING componenttype;
 
   PUBLIC STRING formfieldtype;
+
+  PUBLIC BOOLEAN __yaml;
 
   /// List of components this component controls
   PUBLIC PROPERTY subcomponents(GetSubComponents, -);
@@ -353,16 +339,18 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
   {
-    IF(CellExists(props,'enabled'))
-      this->enabled := props.enabled;
+    ApplyYAMLPropsDirectly(this, props, CELL["enabled", 'required', 'title', 'width', 'height']);
+
     IF(CellExists(props,'enabled_on'))
       this->enabled_on := this->LoadYamlCondition(props.enabled_on);
-    IF(CellExists(props,'required'))
-      this->required := props.required;
-    IF(CellExists(props,'title'))
-      this->title := props.title;
+
     IF(CellExists(props,'on_set'))
       this->AddYamlEventHandler('onSet', props.on_set);
+    IF(CellExists(props,'on_init'))
+      this->AddYamlEventHandler('onInit', props.on_init);
+
+    this->ExtUpdatedComponent();
+    this->EnsurePreinit();
 
     IF(CellExists(props,'value'))
     {
@@ -372,7 +360,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         THROW NEW TolliumException(this, `SetYamlProps: Trying to set a value on a component not supporting values`);
     }
 
-    this->ExtUpdatedComponent();
+    this->__yaml := TRUE;
   }
 
   PUBLIC MACRO __tollium_afternew()
@@ -533,6 +521,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     {
       this->pvt_havepreinited:=TRUE;
       this->PreInitComponent();
+      /* onInit is the 'followup' to SetYamlProperties (except value). It should be preparing the component to receive
+         its first value, but otherwise expects the component to be usable. */
+      this->DispatchYamlEvents("onInit");
     }
 
     FOREVERY(OBJECT comp FROM this->GetChildComponents())

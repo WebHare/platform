@@ -6,12 +6,39 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/yamlbase.whlib";
 
 CONSTANT STRING ARRAY supportedbuttons := ["add","edit","delete","view"];
 CONSTANT STRING ARRAY defaultbuttons := ["add","edit","delete"];
 
 //TIDs don't change while a VM is running, so we'll save time in most cases if we cache ~edit and ~view
 RECORD cachetexts;
+
+STATIC OBJECTTYPE YamlRowEvent EXTEND YamlEvent
+<
+  RECORD pvt_row;
+
+  PUBLIC PROPERTY row(pvt_row, -);
+
+  MACRO NEW(OBJECT target, RECORD row) : YamlEvent(target)
+  {
+    this->pvt_target := target;
+    this->pvt_row := row;
+  }
+>;
+
+STATIC OBJECTTYPE YamlRowsEvent EXTEND YamlEvent
+<
+  RECORD ARRAY pvt_rows;
+
+  PUBLIC PROPERTY rows(pvt_rows, -);
+
+  MACRO NEW(OBJECT target, RECORD ARRAY rows) : YamlEvent(target)
+  {
+    this->pvt_target := target;
+    this->pvt_rows := rows;
+  }
+>;
 
 PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
@@ -139,6 +166,33 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   {
     EXTEND this BY TolliumIsDirtyable;
     this->__buttons := defaultbuttons;
+  }
+
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props)
+  {
+    ApplyYAMLPropsDirectly(this, props, CELL["columnHeaders"]);
+    IF(CellExists(props,'columns'))
+    {
+      RECORD ARRAY setcolumns; //need to set it in one go
+      FOREVERY(RECORD col FROM props.columns)
+      {
+        IF(NOT CellExists(col,'name'))
+          THROW NEW TolliumException(this, `Missing column name`);
+        IF(NOT CellExists(col,'type'))
+          THROW NEW TolliumException(this, `Missing column type`);
+
+        RECORD outcol := CELL[ name := col.name
+                             , title := CellExists(col, 'title') ? col.title : ""
+                             , type := col.type
+                             , width := CellExists(col, 'width') ? col.width : ""
+                             ];
+        INSERT outcol INTO setcolumns AT END;
+      }
+      this->columns := setcolumns;
+    }
+
+
+    TolliumFragmentBase::SetYamlProps(props);
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD description)
@@ -757,6 +811,29 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   {
     EXTEND this BY TolliumIsComposable;
     this->__isarrayedit := TRUE;
+  }
+
+  RECORD FUNCTION InvokeYamlRowEventCallback(MACRO PTR callback, RECORD row)
+  {
+    OBJECT evt := NEW YamlRowEvent(this, row);
+    RETURN callback(evt);
+  }
+
+  RECORD ARRAY FUNCTION InvokeYamlRowsEventCallback(MACRO PTR callback, RECORD ARRAY rows)
+  {
+    OBJECT evt := NEW YamlRowsEvent(this, rows);
+    RETURN callback(evt);
+  }
+
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props)
+  {
+    ApplyYAMLPropsDirectly(this, props, CELL["orderable"]);
+    IF(CellExists(props,'on_edit_row'))
+      this->onrowedit := PTR this->InvokeYamlRowEventCallback(MakeFunctionptr(props.on_edit_row), #1);
+    IF(CellExists(props,'on_map_rows'))
+      this->onmaprows := PTR this->InvokeYamlRowsEventCallback(MakeFunctionptr(props.on_map_rows), #1);
+
+    ArrayListEditBase::SetYamlProps(props);
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD description)

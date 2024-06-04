@@ -8,9 +8,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-
-
-// LOADLIB "mod::wrd/lib/components/entity.whlib";
+LOADLIB "mod::tollium/lib/yamlbase.whlib";
 
 //TODO Would be nice if the SP parser/meta tabs describer already decoded this further for us
 RECORD FUNCTION ResolveYamlComponent(RECORD compdef)
@@ -82,6 +80,8 @@ PUBLIC OBJECT FUNCTION CreateYamlComponent(OBJECT targetscreen, RECORD compdef, 
     newcomp->dirtylistener := context.dirtylistener;
 
   newcomp->SetYamlProps(compdef.yamlprops);
+  IF(NOT newcomp->__yaml)
+    THROW NEW Exception(`Component '${compdef.ns}#${compdef.component} has overridden SetYamlProps but not invoked its parent methods.`);
   RETURN newcomp;
 }
 
@@ -181,26 +181,6 @@ PUBLIC VARIANT FUNCTION RunYamlScreen(OBJECT controller, STRING screenpath)
   IF(NOT CellExists(filecontents.screens, screenname))
     THROW NEW Exception(`Screen '${screenname}' not found in ${screenpath}`);
   RETURN RunYamlInlineScreen(controller, GetCell(filecontents.screens, screenname));
-}
-
-PUBLIC MACRO ApplyYAMLPropsDirectly(OBJECT target, RECORD source, RECORD mapping)
-{
-  FOREVERY(RECORD tofix FROM UnpackRecord(mapping))
-  {
-    IF(tofix.value LIKE "*_*")
-      THROW NEW TolliumException(target, `Invalid mapping source '${tofix.value}' - we expect camelCased not snakeCase YAML property names`);
-    IF(NOT MemberExists(target, tofix.name))
-      THROW NEW TolliumException(target, `Invalid mapping target '${ToLowercase(tofix.name)}' - this member does not exist in the source`);
-
-    STRING snake := ToSnakeCase(tofix.value);
-    IF(NOT CellExists(source, snake))
-      CONTINUE;
-
-    IF(NOT CanCastTypeTo(TYPEID(GetCell(source, snake)), TYPEID(GetMember(target, tofix.name))))
-      THROW NEW TolliumException(target, `Invalid mapping target '${ToLowercase(tofix.name)}' - cannot cast target ${GetTypeName(TYPEID(GetCell(source, snake)))} to ${GetTypeName(TYPEID(GetMember(target, tofix.name)))}`);
-
-    MemberUpdate(target, tofix.name, GetCell(source, snake));
-  }
 }
 
 PUBLIC STATIC OBJECTTYPE YamlScreen EXTEND TolliumScreenBase

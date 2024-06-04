@@ -9,7 +9,21 @@ MACRO AddToEventList(OBJECT event, STRING addwhat)
     eventsfield->value := eventsfield->value || ", " || addwhat;
 }
 
+PUBLIC MACRO OnShowTimeInit(OBJECT event)
+{
+  AddToEventList(event, "showtime-init");
+}
 PUBLIC MACRO OnShowTimeSet(OBJECT event)
 {
   AddToEventList(event, "showtime-set");
+}
+
+PUBLIC MACRO FillWithColor(OBJECT event)
+{
+  event->target->options :=
+    [ [ rowkey := "red", title := "Red"]
+    , [ rowkey := "green", title := "Green"]
+    , [ rowkey := "blue", title := "Blue"]
+    ];
+  AddToEventList(event, "color-init");
 }

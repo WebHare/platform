@@ -5,9 +5,15 @@ LOADLIB "wh::money.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/yamlbase.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC MACRO SetTextSharedYamlProps(OBJECT comp, RECORD props)
+{
+  ApplyYAMLPropsDirectly(comp, props, CELL["maxLength","minLength","showCounter"]);
+}
 
 //FIXME merge combobox/textedit staticinit as much as possible
 //      allow same properties in compparser/xsd
@@ -1184,6 +1190,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
   UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
   {
+    SetTextSharedYamlProps(this, props);
     IF(CellExists(props,'value_type'))
       this->valuetype := props.value_type;
 

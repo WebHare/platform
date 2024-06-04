@@ -167,6 +167,16 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->UpdateMoreInfoVisibility();
   }
 
+  UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
+  {
+    IF(CellExists(props,'ref_point')) //refPoint
+    {
+      this->imgsize := CELL[ method := "none", allowedactions := props.ref_point?['all','refpoint'] : ['all']];
+    }
+
+    TolliumFragmentBase::SetYamlProps(props);
+  }
+
   UPDATE PUBLIC MACRO PreInitComponent()
   {
     this->act_upload->mimetypes := [ "image/*" ];
