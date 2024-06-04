@@ -77,6 +77,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   BOOLEAN isfolder;
   /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rule sthere)
   BOOLEAN isnew;
+  /// Parent folder of the new/edited object
+  OBJECT parentfolder;
 
   // Versioning policy for the current site
   OBJECT siteversioningpolicy;
@@ -95,6 +97,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     BOOLEAN setreadonly := this->IsReadOnly(fsobj);
     this->readonly := setreadonly;
     this->OnReadonlyChange();
+  }
+
+  BOOLEAN FUNCTION CanWriteCurrentItem()
+  {
+    RETURN this->isnew OR (NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
   }
 
   MACRO OnReadonlyChange()
@@ -126,6 +133,17 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
                ] INTO this->metacontrollers AT END;
   }
 
+  RECORD FUNCTION UpdatePinned()
+  {
+    //Do not honor 'pinned' for new objects... then it should apply only AFTER we finalize the dialog. Also ensures valid-whfsname validation still happens
+    BOOLEAN pinned := (^pinobject->value OR RecordExists(this->recyclebininfo)) AND NOT this->isnew;
+    BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
+
+    ^name->enabled := NOT pinned AND parentfullaccess AND NOT this->readonly;
+
+    RETURN CELL [pinned, parentfullaccess];
+  }
+
   BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
   {
     this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type] );
@@ -133,6 +151,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     IF(NOT ObjectExists(this->contexts->applytester))
       THROW NEW TolliumException(this, "No applytester found for this object");
 
+    this->parentfolder := OpenWHFSObject(this->contexts->applytester->objparent);
     this->SetupBaseSettings();
     this->isnew := RecordExists(this->metatabsconfig) AND this->metatabsconfig.is_new;
     this->AddTypesTabs();
@@ -147,15 +166,16 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
-    ^name->enabled := NOT this->readonly;
     ^title->enabled := NOT this->readonly AND ^title->visible;
     ^description->enabled := NOT this->readonly AND ^description->visible;
     ^keywords->enabled := NOT this->readonly AND ^keywords->visible;
+    this->UpdatePinned();
   }
 
   MACRO LoadBaseData(OBJECT sourceobject)
   {
     this->recyclebininfo := IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
+    ^pinobject->value := sourceobject->ispinned AND NOT this->isnew;
 
     IF(this->isnew)
       ^name->value := "";

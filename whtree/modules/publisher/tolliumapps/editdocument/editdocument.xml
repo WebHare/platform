@@ -140,6 +140,7 @@
                             showcounter="true"
                             tid="~description" />
                   <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
+                  <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
                 </tab>
               </tabs>
             </tab>

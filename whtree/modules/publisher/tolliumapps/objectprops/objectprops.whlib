@@ -177,9 +177,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   /// Whether this is specifically a duplication action
   BOOLEAN isduplicate;
 
-  /// Parent folder of the new/edited object
-  OBJECT parentfolder;
-
   /// system.sites record for the parentsite of the parentfolder
   RECORD parentsite;
 
@@ -219,9 +216,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       @cell(object) instance Instance object for tab extensions
   */
   RECORD ARRAY extendprops;
-
-  /// Whether the item is in the recycle bin and has a history record
-  BOOLEAN isdeleted;
 
   /** Messageboxes that need to be shown in the next submit round
   */
@@ -713,7 +707,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     RECORD info := this->recyclebininfo;
 
     STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
-    this->isdeleted := TRUE;
 
     STRING deletioninfo := this->GetTid(".deletedtext"
                                   ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
@@ -733,24 +726,18 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     ^keywords->visible := this->basesettings.keywords;
   }
 
-  BOOLEAN FUNCTION CanWriteCurrentItem()
+  UPDATE RECORD FUNCTION UpdatePinned()
   {
-    RETURN this->isnew OR (NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
-  }
+    RECORD basepinsettings := PublisherEditorBase::UpdatePinned();
 
-  MACRO UpdatePinned()
-  {
-    //Do not honor 'pinned' for new objects... then it should apply only AFTER we finalize the dialog. Also ensures valid-whfsname validation still happens
-    BOOLEAN pinned := (^pinobject->value OR this->isdeleted) AND NOT this->isnew;
-    BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
-
-    this->frame->flags.ispinned := pinned;
-    ^name->enabled := NOT pinned AND parentfullaccess;
-    ^publish->enabled := NOT pinned AND this->CanWriteCurrentItem();
-    ^makeindex->enabled := NOT pinned AND parentfullaccess;
+    this->frame->flags.ispinned := basepinsettings.pinned;
+    ^publish->enabled := NOT basepinsettings.pinned AND this->CanWriteCurrentItem();
+    ^makeindex->enabled := NOT basepinsettings.pinned AND basepinsettings.parentfullaccess;
 
     this->ApplyVersioningPolicy();
-    this->contexts->objectpropsapi->__UpdateOnPinned(pinned);
+    this->contexts->objectpropsapi->__UpdateOnPinned(basepinsettings.pinned);
+
+    RETURN basepinsettings;
   }
 
   /** Initializes type settings for the current type. Initializes this->curtype, and visibility for the 'url', 'path' and 'size' components
