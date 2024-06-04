@@ -220,9 +220,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   /// Record definition of current (or new) type for the object
   RECORD curtype;
 
-  /// Whether the edited (or new) object is a folder
-  BOOLEAN isfolder;
-
   /// Whether the edited object is in the recycle bin
   BOOLEAN isinrecyclebin;
 
@@ -257,8 +254,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   // is the sidetabs experiment activated?
   BOOLEAN sidetabs;
-
-  RECORD basesettings;
 
   // ---------------------------------------------------------------------------
   //
@@ -592,7 +587,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
 
     //configure settings that depend on the applytester
-    this->basesettings := GetBaseProperties(this->contexts->applytester);
+    this->SetupBaseSettings();
   }
 
   // ---------------------------------------------------------------------------
@@ -643,14 +638,15 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   MACRO FillBaseFields()
   {
-    STRING ARRAY versioned_fields := this->editingdraft AND ObjectExists(this->objectpolicy)
-                                         ? this->objectpolicy->GetFields().versioned_fields
-                                         : DEFAULT STRING ARRAY;
-    FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
+    IF(ObjectExists(this->sourceitem))
+      this->LoadBaseData(this->sourceitem);
+
+    IF(this->editingdraft AND ObjectExists(this->objectpolicy) AND (ObjectExists(this->sourceitem))) //Run the old versioned fields code after our shared version has run so versioning behavior won't change (we're still not sure whether to keep versionin)
     {
-      OBJECT fieldobj := GetMember(this, "^" || field);
-      IF (ObjectExists(this->sourceitem))
+      STRING ARRAY versioned_fields := this->objectpolicy->GetFields().versioned_fields;
+      FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
       {
+        OBJECT fieldobj := GetMember(this, "^" || field);
         // If this is a versioned field within the current object policy, read its data from the draft item (or draft
         // metadata in case of the 'name' field), otherwise read from the source item
         IF (field IN versioned_fields)
@@ -660,11 +656,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
           ELSE
             fieldobj->value := GetMember(this->draftitem, field);
         }
-        ELSE
-          fieldobj->value := GetMember(this->sourceitem, field);
       }
-      ELSE
-        fieldobj->value := "";
     }
 
     INTEGER64 filesize := ObjectExists(this->draftitem) AND NOT this->isfolder ? Length64(this->draftitem->data) : 0i64;
@@ -1102,9 +1094,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
                                                 ? this->objectpolicy->GetFields().versioned_contenttypes
                                                 : DEFAULT INTEGER ARRAY;
-
-    ^seosettings->basefsobject := ^seosettings->type->id IN versioned_contenttypes ? this->draftitem : this->sourceitem;
-    ^seosettings->ReadInstanceFromFSObject();
 
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
@@ -1544,7 +1533,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   MACRO WriteExtensionData(OBJECT work, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
   {
     //Grab siteprofile stuff
-    this->WriteInstanceData(work, ^seosettings, objid, draftid, versioned_contenttypes);
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
       IF (extendprop.contenttype="") // FIXME: all <propertyeditor>'s ?
@@ -2334,15 +2322,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   MACRO InitSeoSettings()
   {
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
-    //As these are published, only files that go through a webdesign can show something useful
-    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
 
     //we delayed setting the title so other extending tabs don't merge into us
     IF(NOT this->sidetabs)
     {
-      IF(NOT (this->basesettings.seotab
-               AND (this->isfolder OR needstemplate)
-               AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))))
+      IF(NOT (this->basesettings.seotab AND (this->isfolder OR needstemplate)))
       {
         ^seotab->visible := FALSE;
         RETURN;

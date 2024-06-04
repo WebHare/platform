@@ -2,6 +2,8 @@
 
 LOADLIB "wh::javascript.whlib";
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -52,13 +54,21 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   BOOLEAN assumewriteaccess;
   /// If the user only has read-only access to this file (fs_browse)
   BOOLEAN readonly;
+  /// Whether the edited (or new) object is a folder
+  BOOLEAN isfolder;
+
+  RECORD basesettings;
+
+  BOOLEAN FUNCTION IsReadOnly(OBJECT fsobj)
+  {
+    RETURN (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
+           OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+
+  }
 
   MACRO RefreshReadonly(OBJECT fsobj)
   {
-    BOOLEAN setreadonly := (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
-                            OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
-    IF(this->readonly = setreadonly)
-      RETURN;
+    BOOLEAN setreadonly := this->IsReadOnly(fsobj);
 
     this->readonly := setreadonly;
     this->OnReadonlyChange();
@@ -67,6 +77,31 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   MACRO OnReadonlyChange()
   {
     this->RefreshMetaTabsReadonly();
+  }
+
+  MACRO SetupBaseSettings()
+  {
+    this->basesettings := GetBaseProperties(this->contexts->applytester);
+    IF(this->basesettings.seotabrequireright != "" AND NOT this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))
+    {
+      this->basesettings.seotitle := FALSE;
+      this->basesettings.seotab := FALSE;
+    }
+
+
+    ^title->visible := this->basesettings.title;
+    ^description->visible := this->basesettings.description;
+    ^keywords->visible := this->basesettings.keywords;
+
+    //FIXME restore seotabrequireright. see objectprops.whlib
+    BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
+    //As these are published, only files that go through a webdesign can show something useful
+    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
+
+    //TODO generalize further so metadata.ts also managed SEO settings, but keep in mind that SetupMetaTabs is currently not always invoked.
+    INSERT CELL[ type := ^seosettings->type
+               , fsinstance := ^seosettings
+               ] INTO this->metacontrollers AT END;
   }
 
   BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
@@ -83,6 +118,19 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   {
     FOREVERY(RECORD controller FROM this->metacontrollers)
       controller.fsinstance->enabled := NOT this->readonly;
+
+    BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
+    //As these are published, only files that go through a webdesign can show something useful
+    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
+  }
+
+  MACRO LoadBaseData(OBJECT sourceobject)
+  {
+    FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
+    {
+      OBJECT fieldobj := GetMember(this, "^" || field);
+      fieldobj->value := GetMember(sourceobject, field);
+    }
   }
 
   MACRO LoadMetadata(OBJECT sourceobject)
@@ -105,8 +153,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 
   MACRO AddTypesTabs()
   {
-    //TODO also take care of the SEO props on tab 1 to generalize the logic
-
     INTEGER insertpos := 1;
     FOREVERY(RECORD type FROM this->metatabsconfig.types)
     {
@@ -142,11 +188,12 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
           newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
           newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
         }
-
-        IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
-          INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
       }
     }
+
+    IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
+      FOREVERY(RECORD controller FROM this->metacontrollers)
+        INSERT controller.type->namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
 
     this->RefreshMetaTabsReadonly();
   }

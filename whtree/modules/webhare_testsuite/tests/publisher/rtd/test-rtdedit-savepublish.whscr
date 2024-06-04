@@ -24,8 +24,25 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
   RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
 }
 
-ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly) //shared MetaTabs and ObjectProps stuff
+ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly, BOOLEAN isprops) //shared MetaTabs and ObjectProps stuff
 {
+  IF(NOT readonly) /* TODO also make this work in recyclebin (readonly) mode, but
+                      - objectprops needs some reordering of code so we can figure out isrecyclebin and set the name at the right place
+                      - setbaseproperties uses the HS applytester which doesn't deal with recyclebin yet. it should just have metadata.ts
+                        figure uot baseprops (and perhaps metatabs can even generalize ^seosettings further) BUT SetupMetaTabs currently
+                        come too late in the setup*/
+  {
+    //naming is inconsistent here
+    STRING metatitletitle := isprops ? ":SEO Title" : ":Meta title";
+    TestEq("testmetatab.rtd", TT(":Name")->value);
+    TestEq("My document", TT(":Title")->value);
+    TestEq(TRUE,  TTIsVisible(metatitletitle));
+
+    // TestEq(FALSE,  TTIsVisible(":Description")); //FIXME TTISVISIBLE doesn't work? But if I don't make it invisible, it does find it.
+    // TestEq(FALSE,  TTIsVisible(":Keywords"));
+    TestEq("Se-o, se-e-e-e-o!", TT(metatitletitle)->value);
+  }
+
   OBJECT anumberfield :=  TT(":A number field");
   TestAssert(ObjectExists(anumberfield));
   TestEq("integer", anumberfield->valuetype);
@@ -84,6 +101,7 @@ ASYNC MACRO TestMetaTab()
   OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
       [ name :=   "testmetatab.rtd"
       , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , title := "My document"
       , publish := TRUE
       ]);
   testfile->SetInstanceData("webhare_testsuite:baseTest.baseTestProps",
@@ -91,6 +109,7 @@ ASYNC MACRO TestMetaTab()
       wh_user := testfw->GetUserObject("sysop")->entity->guid,
       multi_field := [ num1 := 10, num2 := 20 ]
       ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ seotitle := "Se-o, se-e-e-e-o!" ]);
 
   testfw->CommitWork();
 
@@ -99,7 +118,7 @@ ASYNC MACRO TestMetaTab()
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   TestEq(FALSE, topscreen->frame->flags.canpublish);
 
-  AWAIT TestMetaFields(0, FALSE);
+  AWAIT TestMetaFields(0, FALSE, FALSE);
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
   TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
@@ -122,7 +141,7 @@ ASYNC MACRO TestMetaTab()
 
   //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
-  AWAIT TestMetaFields(1, FALSE);
+  AWAIT TestMetaFields(1, FALSE, TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
@@ -204,7 +223,7 @@ ASYNC MACRO TestReopenDeletedFile()
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
-  AWAIT TestMetaFields(2, TRUE);
+  AWAIT TestMetaFields(2, TRUE, FALSE);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object

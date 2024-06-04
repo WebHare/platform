@@ -102,9 +102,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     this->itemid := data.id;
 
     OBJECT fsobject := OpenWHFSObject(this->itemid);
-    this->RefreshReadonly(fsobject);
 
-    IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
+    IF(this->IsReadOnly(fsobject) AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
     {
       this->tolliumresult := "cancel";
       RETURN;
@@ -128,6 +127,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
     //Loads the extensions for the file type and invokes additional editor hooks
     this->SetupForFileEdit(this->itemid, data.objeditor);
+    this->RefreshReadonly(fsobject);
 
     this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
     this->frame->title := this->filedata.name;
@@ -253,6 +253,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
 
     this->contexts->applytester := applytester;
+    this->SetupBaseSettings();
     IF(this->SetupMetaTabs(objectid, 0, FALSE, 0)) //don't bother with the extra setings until we actually support true New File
     {
       ^metapart->visible := TRUE;
@@ -340,6 +341,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     IF(this->tolliumresult != "") //onloaddata may have cancelled us
       RETURN;
 
+    this->LoadBaseData(this->GetBaseFSObject()); //TODO should be instance object once versioning works
     this->LoadMetadata(this->GetInstanceObject());
     this->RefreshState();
   }
