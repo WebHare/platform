@@ -5,11 +5,28 @@ LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
+
+RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
+{
+  RECORD res;
+
+  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = 0 AND fs_history.fs_object = objectid ORDER BY when DESC;
+  IF(NOT RecordExists(historyinfo))
+    RETURN DEFAULT RECORD;
+
+   RETURN [ deletionuser := historyinfo.user
+          , deletiondate := historyinfo.when
+          , origlocation := historyinfo.currentparent
+          , originalpath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=historyinfo.currentparent)
+          , origname :=     historyinfo.currentname
+          ];
+}
 
 PUBLIC STATIC OBJECTTYPE FieldScope EXTEND YamlScope
 <
@@ -52,12 +69,17 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   PUBLIC RECORD ARRAY metacontrollers;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
+  /// Whether the edited object is in the recycle bin, and if so, what the original name etc was
+  RECORD recyclebininfo;
   /// If the user only has read-only access to this file (fs_browse)
   BOOLEAN readonly;
   /// Whether the edited (or new) object is a folder
   BOOLEAN isfolder;
   /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rule sthere)
   BOOLEAN isnew;
+
+  // Versioning policy for the current site
+  OBJECT siteversioningpolicy;
 
   RECORD basesettings;
 
@@ -71,7 +93,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   MACRO RefreshReadonly(OBJECT fsobj)
   {
     BOOLEAN setreadonly := this->IsReadOnly(fsobj);
-
     this->readonly := setreadonly;
     this->OnReadonlyChange();
   }
@@ -126,18 +147,25 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
+    ^name->enabled := NOT this->readonly;
+    ^title->enabled := NOT this->readonly AND ^title->visible;
+    ^description->enabled := NOT this->readonly AND ^description->visible;
+    ^keywords->enabled := NOT this->readonly AND ^keywords->visible;
   }
 
   MACRO LoadBaseData(OBJECT sourceobject)
   {
-    FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
-    {
-      IF(field="name" AND this->isnew)
-      {
-        ^name->value := "";
-        CONTINUE; //don't fill field
-      }
+    this->recyclebininfo := IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
 
+    IF(this->isnew)
+      ^name->value := "";
+    ELSE IF(RecordExists(this->recyclebininfo))
+      ^name->value := this->recyclebininfo.origname;
+    ELSE
+      ^name->value := sourceobject->name;
+
+    FOREVERY (STRING field FROM ["title", "description", "keywords" ])
+    {
       OBJECT fieldobj := GetMember(this, "^" || field);
       fieldobj->value := GetMember(sourceobject, field);
     }
@@ -166,7 +194,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     IF(^description->enabled AND ^description->visible)
       updates := CELL[...updates, description := ^description->value ];
 
-    IF(RecordExists(updates))
+    IF(RecordExists(updates) AND NOT ObjectExists(this->siteversioningpolicy))
       OpenWHFSObject(targetobject)->UpdateMetadata(updates);
   }
 

@@ -26,22 +26,15 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
 
 ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly, BOOLEAN isprops) //shared MetaTabs and ObjectProps stuff
 {
-  IF(NOT readonly) /* TODO also make this work in recyclebin (readonly) mode, but
-                      - objectprops needs some reordering of code so we can figure out isrecyclebin and set the name at the right place
-                      - setbaseproperties uses the HS applytester which doesn't deal with recyclebin yet. it should just have metadata.ts
-                        figure uot baseprops (and perhaps metatabs can even generalize ^seosettings further) BUT SetupMetaTabs currently
-                        come too late in the setup*/
-  {
-    //naming is inconsistent here
-    STRING metatitletitle := isprops ? ":SEO Title" : ":Meta title";
-    TestEq("testmetatab.rtd", TT(":Name")->value);
-    TestEq("My document", TT(":Title")->value);
-    TestEq(TRUE,  TTIsVisible(metatitletitle));
+  //naming is inconsistent here
+  STRING metatitletitle := isprops ? ":SEO Title" : ":Meta title";
+  TestEq("testmetatab.rtd", TT(":Name")->value);
+  TestEq("My document", TT(":Title")->value);
+  TestEq(TRUE,  TTIsVisible(metatitletitle));
 
-    // TestEq(FALSE,  TTIsVisible(":Description")); //FIXME TTISVISIBLE doesn't work? But if I don't make it invisible, it does find it.
-    // TestEq(FALSE,  TTIsVisible(":Keywords"));
-    TestEq("Se-o, se-e-e-e-o!", TT(metatitletitle)->value);
-  }
+  // TestEq(FALSE,  TTIsVisible(":Description")); //FIXME TTISVISIBLE doesn't work? But if I don't make it invisible, it does find it.
+  // TestEq(FALSE,  TTIsVisible(":Keywords"));
+  TestEq("Se-o, se-e-e-e-o!", TT(metatitletitle)->value);
 
   OBJECT anumberfield :=  TT(":A number field");
   TestAssert(ObjectExists(anumberfield));

@@ -73,9 +73,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   /// Whether or not to show the draft bar during this session
   BOOLEAN showdraftbar;
 
-  // Versioning policy for the current site
-  OBJECT siteversioningpolicy;
-
   /// Type of the file being edited
   INTEGER filetype;
 

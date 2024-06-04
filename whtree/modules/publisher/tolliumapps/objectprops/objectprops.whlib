@@ -40,22 +40,6 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
 
-RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
-{
-  RECORD res;
-
-  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = 0 AND fs_history.fs_object = objectid ORDER BY when DESC;
-  IF(NOT RecordExists(historyinfo))
-    RETURN DEFAULT RECORD;
-
-   RETURN [ deletionuser := historyinfo.user
-          , deletiondate := historyinfo.when
-          , origlocation := historyinfo.currentparent
-          , originalpath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=historyinfo.currentparent)
-          , origname :=     historyinfo.currentname
-          ];
-}
-
 OBJECTTYPE ObjectPropsAPI
 < // ---------------------------------------------------------------------------
   //
@@ -171,9 +155,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   */
   RECORD startdata;
 
-  /// Versioning policy for the current site
-  OBJECT siteversioningpolicy;
-
   ///Show development options
   BOOLEAN autotitles;
 
@@ -216,9 +197,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   /// Record definition of current (or new) type for the object
   RECORD curtype;
-
-  /// Whether the edited object is in the recycle bin
-  BOOLEAN isinrecyclebin;
 
   /// Versioning policy for this specific object
   OBJECT objectpolicy;
@@ -340,7 +318,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     {
       ^pinobject->value := this->draftitem->ispinned;
 
-      IF (this->isinrecyclebin)
+      IF (RecordExists(this->recyclebininfo))
         this->InitFieldsForItemInRecycleBin();
 
       canschedule := canschedule AND this->sourceitem->isactive;
@@ -477,7 +455,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     IF (this->isfolder)
       RETURN [ acceptableindex := FALSE, canedit := FALSE ];
 
-    BOOLEAN canedit := NOT this->isinrecyclebin AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
+    BOOLEAN canedit := NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
 
     IF (this->curtype.id = 20) // contentlink
     {
@@ -523,7 +501,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
           THROW NEW Exception("No such file/folder " || this->startdata.fsobj);
 
         this->isfolder := this->sourceitem->isfolder;
-        this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
       }
 
       this->draftitem := this->sourceitem;
@@ -542,7 +519,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         THROW NEW Exception("No such file/folder " || this->startdata.fsobj);
 
       this->isfolder := this->sourceitem->isfolder;
-      this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
 
       IF(this->sourceitem->parent != 0)
       {
@@ -571,7 +547,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       this->RetrieveApplyBaseInfo(this->startdata.fsobj, this->sourceitem->parentsite);
 
       this->isfolder := this->sourceitem->isfolder;
-      this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
 
       IF (this->isfolder)
         this->cursite := SELECT * FROM system.sites WHERE root = this->itemid;
@@ -700,7 +675,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
 
     // If the item is deleted or if the user has no edit rights, setup the dialog as information window
-    IF (NOT this->isnew AND (this->isinrecyclebin OR NOT this->CanWriteCurrentItem()))
+    IF (NOT this->isnew AND (RecordExists(this->recyclebininfo) OR NOT this->CanWriteCurrentItem()))
     {
       ^name->readonly := TRUE;
       IF (^title->value = "")
@@ -735,22 +710,20 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   MACRO InitFieldsForItemInRecycleBin()
   {
-    RECORD info := GetRecycledObjectInfo(this->tolliumuser, this->itemid);
-    IF(RecordExists(info))
-    {
-      STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
-      this->isdeleted := TRUE;
+    RECORD info := this->recyclebininfo;
 
-      STRING deletioninfo := this->GetTid(".deletedtext"
-                                   ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
-                                   ,deletionuser);
-      ^deleted->value := deletioninfo;
-      ^deleted->visible := TRUE;
-      ^name->value := info.origname;
+    STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
+    this->isdeleted := TRUE;
 
-      ^originallocation->value := info.originalpath;
-      ^originallocation->visible := TRUE;
-    }
+    STRING deletioninfo := this->GetTid(".deletedtext"
+                                  ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
+                                  ,deletionuser);
+    ^deleted->value := deletioninfo;
+    ^deleted->visible := TRUE;
+    ^name->value := info.origname;
+
+    ^originallocation->value := info.originalpath;
+    ^originallocation->visible := TRUE;
   }
 
   MACRO SetupObjectProps()
@@ -762,7 +735,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   BOOLEAN FUNCTION CanWriteCurrentItem()
   {
-    RETURN this->isnew OR (NOT this->isinrecyclebin AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+    RETURN this->isnew OR (NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
   }
 
   MACRO UpdatePinned()
@@ -1042,7 +1015,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         this->SetupMetaTabs(this->startdata.fsobj, parentfolderid, NOT this->isfolder, this->curtype.id);
       }
 
-      IF(this->isnew = FALSE AND this->isinrecyclebin)
+      IF(this->isnew = FALSE AND RecordExists(this->recyclebininfo))
         this->MarkSiteProfileExtensionsReadonly();
 
       IF(ObjectExists(this->sourceitem))
