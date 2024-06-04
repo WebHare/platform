@@ -209,7 +209,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     IF(props.type IN ["radio","checkbox","pulldown"])
       ApplyYAMLPropsDirectly(this, props, CELL["type"]);
     ELSE
-      THROW NEW Exception(`Unimplemented YAML type '${props.type}'`); //TODO camelcase them. but some may require reconsideration to reduce select complexity (eg checkboxlist which causes us to be unceratin whether we're block or inline
+      THROW NEW Exception(`Unimplemented YAML type '${props.type}'`); //TODO camelcase them. but some may require reconsideration to reduce select complexity (eg checkboxlist which causes us to be uncertain whether we're block or inline
 
     TolliumComponentBase::SetYamlProps(props);
   }
