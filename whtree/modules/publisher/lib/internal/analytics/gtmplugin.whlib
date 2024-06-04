@@ -9,16 +9,22 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
   STRING pvt_account;
   STRING pvt_integration;
   STRING pvt_launch;
+  STRING pvt_script;
+  STRING pvt_pixel;
 
   PUBLIC PROPERTY account(pvt_account, SetAccount);
   PUBLIC PROPERTY integration(pvt_integration, SetIntegration);
   PUBLIC PROPERTY launch(pvt_launch, SetLaunch);
+  PUBLIC PROPERTY script(pvt_script, SetScript);
+  PUBLIC PROPERTY pixel(pvt_pixel, SetPixel);
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
     RETURN [ account := node->GetAttribute("account")
            , integration := node->GetAttribute("integration") ?? "script"
            , launch := node->GetAttribute("launch") ?? "pagerender"
+           , script := node->GetAttribute("script")
+           , pixel := node->GetAttribute("pixel")
            ];
   }
 
@@ -35,6 +41,11 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
     this->pvt_account := config.account;
     this->pvt_integration := config.integration;
     this->pvt_launch := config.launch;
+    IF(CellExists(config,'script')) //5.5/5.6: in case we *just* upgraded and still need to recompile CSP
+    {
+      this->pvt_script := config.script;
+      this->pvt_pixel := config.pixel;
+    }
   }
 
   UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)
@@ -62,10 +73,14 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
 
   MACRO SetupPluginConfig()
   {
+    RECORD settings;
     IF((this->pvt_integration != "script" OR this->pvt_launch != "pagerender") AND this->pvt_account != "")
-      this->webdesign->SetJSPluginConfig("socialite:gtm", [ a := this->pvt_account, h := this->pvt_integration = "selfhosted", m := this->pvt_launch = "manual" ]);
-    ELSE
-      this->webdesign->SetJSPluginConfig("socialite:gtm", DEFAULT RECORD);
+    {
+      settings := [ a := this->pvt_account, h := this->pvt_integration = "selfhosted", m := this->pvt_launch = "manual" ];
+      IF(this->pvt_script != "")
+        INSERT CELL s := this->pvt_script INTO settings;
+    }
+    this->webdesign->SetJSPluginConfig("socialite:gtm", settings);
   }
   MACRO SetAccount(STRING newaccount)
   {
@@ -91,6 +106,22 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
     this->pvt_launch := newlaunch;
     this->SetupPluginConfig();
   }
+  MACRO SetScript(STRING newscript)
+  {
+    IF(this->webdesign->startedrendering)
+      THROW NEW Exception("The GTM integration cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    this->pvt_script := newscript;
+    this->SetupPluginConfig();
+  }
+  MACRO SetPixel(STRING newpixel)
+  {
+    IF(this->webdesign->startedrendering)
+      THROW NEW Exception("The GTM integration cannot be modified when the page has started rendering - update should have been done in the prepare phase");
+
+    this->pvt_pixel := newpixel;
+    this->SetupPluginConfig();
+  }
 
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
@@ -110,8 +141,9 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
       RETURN;
 
     BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
+    STRING script := this->pvt_script ?? "//www.googletagmanager.com/gtm.js";
     STRING code := "<script>";
-    code := code || "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','" || EncodeJava(this->pvt_account)|| "');";
+    code := code || `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='${EncodeJava(script)}?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${EncodeJava(this->pvt_account)}');`;
     code := code || "</script>" || (compact?'':'\n');
     Print(code);
   }
@@ -122,7 +154,8 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
 
     //The noscript code is probably always useful. no need to intercept it
     BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
-    STRING code := '<noscript><iframe src="//www.googletagmanager.com/ns.html?id=' || EncodeURL(this->pvt_account) || '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' || (compact?'':'\n');
+    STRING pixel := this->pvt_pixel ?? "//www.googletagmanager.com/ns.html";
+    STRING code := `<noscript><iframe src="${EncodeJava(pixel)}?id=${EncodeURL(this->pvt_account)}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` || (compact?'':'\n');
     Print(code);
   }
 

@@ -19,7 +19,7 @@ declare global {
 }
 
 let seen = 0;
-const gtmsettings = frontendConfig["socialite:gtm"] as { a: string; h?: boolean; m?: boolean } | undefined;
+const gtmsettings = frontendConfig["socialite:gtm"] as { a: string; h?: boolean; m?: boolean; s?: string } | undefined;
 let didinit: undefined | true;
 let eventname: undefined | string; //event name used for form submission
 
@@ -86,8 +86,7 @@ export async function init() {
       //fallback to loading GTM's version
     }
   }
-
-  const gtmsrc = "https://www.googletagmanager.com/gtm.js?id=" + gtmsettings.a;
+  const gtmsrc = (gtmsettings.s ?? "https://www.googletagmanager.com/gtm.js") + "?id=" + gtmsettings.a;
   loadScript(gtmsrc);
 }
 
