@@ -75,7 +75,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   BOOLEAN readonly;
   /// Whether the edited (or new) object is a folder
   BOOLEAN isfolder;
-  /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rule sthere)
+  /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rules there)
   BOOLEAN isnew;
   /// Parent folder of the new/edited object
   OBJECT parentfolder;

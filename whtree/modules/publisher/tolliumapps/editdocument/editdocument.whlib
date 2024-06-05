@@ -631,7 +631,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
         IF(savetarget NOT IN ["draft","live"])
           THROW NEW Exception(`Invalid savetarget '${savetarget}' for new document`);
 
-        //New items, even *unpublished*, when created through objectprops, always live in their final folder. WE basically simulate that: move the autosave to the final location
+        //New items, even *unpublished*, when created through objectprops, always live in their final folder. We basically simulate that: move the autosave to the final location
         RECORD draftmeta := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->itemid);
         IF(draftmeta.parent = 0)
           THROW NEW Exception(`Missing parent for new document #${this->itemid}`);
