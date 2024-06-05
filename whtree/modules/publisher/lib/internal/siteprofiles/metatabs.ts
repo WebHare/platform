@@ -19,13 +19,24 @@ interface MetadataSection {
     layout?: FieldLayout;
   }>;
 }
+
+const hsinfo = Symbol("hsinfo");
+
 interface MetaTabs {
   types: Array<{
     namespace: string;
     layout?: string[];
     sections: MetadataSection[];
   }>;
+  /** Is this a new object (ie lives in autosave space, not original that's added to a public WHFS folder yet) */
+  isNew: boolean;
 }
+
+interface MetaTabsWithHSInfo extends MetaTabs {
+  //harescript info, used for HS metadata only
+  [hsinfo]: unknown;
+}
+
 
 type ExtendProperties = CSPApplyRule["extendproperties"][0];
 
@@ -58,7 +69,7 @@ function determineComponent(constraints: ValueConstraints | null, setComponent: 
   };
 }
 
-export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<MetaTabs | null> {
+export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<MetaTabs> {
   const cf = await applytester.__getCustomFields();
 
   const pertype: Record<string, ExtendProperties[]> = {};
@@ -70,8 +81,10 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
       pertype[extend.contenttype].push(extend);
     }
 
-  const metasettings: MetaTabs = {
-    types: []
+  const metasettings: MetaTabsWithHSInfo = {
+    types: [],
+    isNew: applytester.isNew(),
+    [hsinfo]: applytester.__getHSInfo()
   };
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {
@@ -148,9 +161,6 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
     });
   }
 
-  if (!metasettings.types.length)
-    return null; //do not trigger any new functionality
-
   return metasettings;
 }
 
@@ -171,6 +181,8 @@ interface MetaTabsForHS {
       }>;
     }>;
   }>;
+  is_new: boolean;
+  __hsinfo: unknown;
 }
 
 export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
@@ -186,7 +198,9 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
           component: parseYamlComponent(field)! //here we only use it to convert 'component', never line(s)
         }))
       }))
-    }))
+    })),
+    is_new: metatabs.isNew,
+    __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo]
   };
   return translated;
 }
@@ -198,9 +212,6 @@ export async function describeMetaTabsForHS(obj: { objectid: number; parent: num
       : await getApplyTesterForMockedObject(await openFolder(obj.parent), obj.isfolder, typens);
 
     const metatabs = await describeMetaTabs(applytester);
-    if (!metatabs)
-      return null;
-
     return remapForHs(metatabs);
   } catch (e) {
     if ((e as Error)?.message.startsWith('No recycle info found for'))

@@ -2,12 +2,31 @@
 
 LOADLIB "wh::javascript.whlib";
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
+
+RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
+{
+  RECORD res;
+
+  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = 0 AND fs_history.fs_object = objectid ORDER BY when DESC;
+  IF(NOT RecordExists(historyinfo))
+    RETURN DEFAULT RECORD;
+
+   RETURN [ deletionuser := historyinfo.user
+          , deletiondate := historyinfo.when
+          , origlocation := historyinfo.currentparent
+          , originalpath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=historyinfo.currentparent)
+          , origname :=     historyinfo.currentname
+          ];
+}
 
 PUBLIC STATIC OBJECTTYPE FieldScope EXTEND YamlScope
 <
@@ -50,18 +69,39 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   PUBLIC RECORD ARRAY metacontrollers;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
+  /// Whether the edited object is in the recycle bin, and if so, what the original name etc was
+  RECORD recyclebininfo;
   /// If the user only has read-only access to this file (fs_browse)
   BOOLEAN readonly;
+  /// Whether the edited (or new) object is a folder
+  BOOLEAN isfolder;
+  /// Whether the object is a new object. It may already live in the user's autosave folder! (TODO EditProps may need to be careful when *actually* requesting props in the /webhare-private/ folder? or just not activate meta apply rules there)
+  BOOLEAN isnew;
+  /// Parent folder of the new/edited object
+  OBJECT parentfolder;
+
+  // Versioning policy for the current site
+  OBJECT siteversioningpolicy;
+
+  RECORD basesettings;
+
+  BOOLEAN FUNCTION IsReadOnly(OBJECT fsobj)
+  {
+    RETURN (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
+           OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+
+  }
 
   MACRO RefreshReadonly(OBJECT fsobj)
   {
-    BOOLEAN setreadonly := (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
-                            OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
-    IF(this->readonly = setreadonly)
-      RETURN;
-
+    BOOLEAN setreadonly := this->IsReadOnly(fsobj);
     this->readonly := setreadonly;
     this->OnReadonlyChange();
+  }
+
+  BOOLEAN FUNCTION CanWriteCurrentItem()
+  {
+    RETURN this->isnew OR (NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
   }
 
   MACRO OnReadonlyChange()
@@ -69,20 +109,86 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     this->RefreshMetaTabsReadonly();
   }
 
+  MACRO SetupBaseSettings()
+  {
+    this->basesettings := GetBaseProperties(this->contexts->applytester);
+    IF(this->basesettings.seotabrequireright != "" AND NOT this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))
+    {
+      this->basesettings.seotitle := FALSE;
+      this->basesettings.seotab := FALSE;
+    }
+
+    ^title->visible := this->basesettings.title;
+    ^description->visible := this->basesettings.description;
+    ^keywords->visible := this->basesettings.keywords;
+
+    //FIXME restore seotabrequireright. see objectprops.whlib
+    BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
+    //As these are published, only files that go through a webdesign can show something useful
+    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
+
+    //TODO generalize further so metadata.ts also managed SEO settings, but keep in mind that SetupMetaTabs is currently not always invoked.
+    INSERT CELL[ type := ^seosettings->type
+               , fsinstance := ^seosettings
+               ] INTO this->metacontrollers AT END;
+  }
+
+  RECORD FUNCTION UpdatePinned()
+  {
+    //Do not honor 'pinned' for new objects... then it should apply only AFTER we finalize the dialog. Also ensures valid-whfsname validation still happens
+    BOOLEAN pinned := (^pinobject->value OR RecordExists(this->recyclebininfo)) AND NOT this->isnew;
+    BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
+
+    ^name->enabled := NOT pinned AND parentfullaccess AND NOT this->readonly;
+
+    RETURN CELL [pinned, parentfullaccess];
+  }
+
   BOOLEAN FUNCTION SetupMetaTabs(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
   {
     this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type] );
-    IF(NOT RecordExists(this->metatabsconfig))
-      RETURN FALSE; //nothing to do
+    this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
+    IF(NOT ObjectExists(this->contexts->applytester))
+      THROW NEW TolliumException(this, "No applytester found for this object");
 
+    this->parentfolder := OpenWHFSObject(this->contexts->applytester->objparent);
+    this->SetupBaseSettings();
+    this->isnew := RecordExists(this->metatabsconfig) AND this->metatabsconfig.is_new;
     this->AddTypesTabs();
-    RETURN TRUE;
+    RETURN RecordExists(this->metatabsconfig) AND Length(this->metatabsconfig.types) > 0;
   }
 
   MACRO RefreshMetaTabsReadonly()
   {
     FOREVERY(RECORD controller FROM this->metacontrollers)
       controller.fsinstance->enabled := NOT this->readonly;
+
+    BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
+    //As these are published, only files that go through a webdesign can show something useful
+    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
+    ^title->enabled := NOT this->readonly AND ^title->visible;
+    ^description->enabled := NOT this->readonly AND ^description->visible;
+    ^keywords->enabled := NOT this->readonly AND ^keywords->visible;
+    this->UpdatePinned();
+  }
+
+  MACRO LoadBaseData(OBJECT sourceobject)
+  {
+    this->recyclebininfo := IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
+    ^pinobject->value := sourceobject->ispinned AND NOT this->isnew;
+
+    IF(this->isnew)
+      ^name->value := "";
+    ELSE IF(RecordExists(this->recyclebininfo))
+      ^name->value := this->recyclebininfo.origname;
+    ELSE
+      ^name->value := sourceobject->name;
+
+    FOREVERY (STRING field FROM ["title", "description", "keywords" ])
+    {
+      OBJECT fieldobj := GetMember(this, "^" || field);
+      fieldobj->value := GetMember(sourceobject, field);
+    }
   }
 
   MACRO LoadMetadata(OBJECT sourceobject)
@@ -101,14 +207,22 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
       //broken fields (eg due to incompatible data/vaueConstraints) should be able to opt out, IsUpdateValue ?
       controller.type->SetInstanceData(targetobject, controller.fsinstance->GetUpdateValue());
     }
+
+    RECORD updates;
+    IF(^title->enabled AND ^title->visible)
+      updates := CELL[...updates, title := ^title->value ];
+    IF(^description->enabled AND ^description->visible)
+      updates := CELL[...updates, description := ^description->value ];
+
+    IF(RecordExists(updates) AND NOT ObjectExists(this->siteversioningpolicy))
+      OpenWHFSObject(targetobject)->UpdateMetadata(updates);
   }
 
   MACRO AddTypesTabs()
   {
-    //TODO also take care of the SEO props on tab 1 to generalize the logic
-
     INTEGER insertpos := 1;
-    FOREVERY(RECORD type FROM this->metatabsconfig.types)
+    IF(RecordExists(this->metatabsconfig))
+      FOREVERY(RECORD type FROM this->metatabsconfig.types)
     {
       OBJECT fsinstance := this->CreateTolliumComponent("record");
       RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
@@ -142,11 +256,12 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
           newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
           newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
         }
-
-        IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
-          INSERT type.namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
       }
     }
+
+    IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
+      FOREVERY(RECORD controller FROM this->metacontrollers)
+        INSERT controller.type->namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
 
     this->RefreshMetaTabsReadonly();
   }

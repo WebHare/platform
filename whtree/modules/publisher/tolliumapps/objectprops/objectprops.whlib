@@ -40,22 +40,6 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
 
-RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
-{
-  RECORD res;
-
-  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = 0 AND fs_history.fs_object = objectid ORDER BY when DESC;
-  IF(NOT RecordExists(historyinfo))
-    RETURN DEFAULT RECORD;
-
-   RETURN [ deletionuser := historyinfo.user
-          , deletiondate := historyinfo.when
-          , origlocation := historyinfo.currentparent
-          , originalpath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=historyinfo.currentparent)
-          , origname :=     historyinfo.currentname
-          ];
-}
-
 OBJECTTYPE ObjectPropsAPI
 < // ---------------------------------------------------------------------------
   //
@@ -171,9 +155,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   */
   RECORD startdata;
 
-  /// Versioning policy for the current site
-  OBJECT siteversioningpolicy;
-
   ///Show development options
   BOOLEAN autotitles;
 
@@ -193,14 +174,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       @{
   */
 
-  /// Whether this is a new file/folder or a duplicate
-  BOOLEAN isnew;
-
   /// Whether this is specifically a duplication action
   BOOLEAN isduplicate;
-
-  /// Parent folder of the new/edited object
-  OBJECT parentfolder;
 
   /// system.sites record for the parentsite of the parentfolder
   RECORD parentsite;
@@ -219,12 +194,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   /// Record definition of current (or new) type for the object
   RECORD curtype;
-
-  /// Whether the edited (or new) object is a folder
-  BOOLEAN isfolder;
-
-  /// Whether the edited object is in the recycle bin
-  BOOLEAN isinrecyclebin;
 
   /// Versioning policy for this specific object
   OBJECT objectpolicy;
@@ -248,17 +217,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   */
   RECORD ARRAY extendprops;
 
-  /// Whether the item is in the recycle bin and has a history record
-  BOOLEAN isdeleted;
-
   /** Messageboxes that need to be shown in the next submit round
   */
   RECORD ARRAY scheduledmessageboxes;
 
   // is the sidetabs experiment activated?
   BOOLEAN sidetabs;
-
-  RECORD basesettings;
 
   // ---------------------------------------------------------------------------
   //
@@ -348,7 +312,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     {
       ^pinobject->value := this->draftitem->ispinned;
 
-      IF (this->isinrecyclebin)
+      IF (RecordExists(this->recyclebininfo))
         this->InitFieldsForItemInRecycleBin();
 
       canschedule := canschedule AND this->sourceitem->isactive;
@@ -485,7 +449,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     IF (this->isfolder)
       RETURN [ acceptableindex := FALSE, canedit := FALSE ];
 
-    BOOLEAN canedit := NOT this->isinrecyclebin AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
+    BOOLEAN canedit := NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
 
     IF (this->curtype.id = 20) // contentlink
     {
@@ -531,7 +495,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
           THROW NEW Exception("No such file/folder " || this->startdata.fsobj);
 
         this->isfolder := this->sourceitem->isfolder;
-        this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
       }
 
       this->draftitem := this->sourceitem;
@@ -550,7 +513,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         THROW NEW Exception("No such file/folder " || this->startdata.fsobj);
 
       this->isfolder := this->sourceitem->isfolder;
-      this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
 
       IF(this->sourceitem->parent != 0)
       {
@@ -579,7 +541,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       this->RetrieveApplyBaseInfo(this->startdata.fsobj, this->sourceitem->parentsite);
 
       this->isfolder := this->sourceitem->isfolder;
-      this->isinrecyclebin := IsRecycleBinWHFSPath(this->sourceitem->whfspath);
 
       IF (this->isfolder)
         this->cursite := SELECT * FROM system.sites WHERE root = this->itemid;
@@ -592,7 +553,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
 
     //configure settings that depend on the applytester
-    this->basesettings := GetBaseProperties(this->contexts->applytester);
+    this->SetupBaseSettings();
   }
 
   // ---------------------------------------------------------------------------
@@ -616,7 +577,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     IF (ObjectExists(this->sourceitem))
     {
       // Calculate unique name for duplicate of file
-      ^name->value := this->parentfolder->GenerateUniqueName(^name->value);
+      ^name->value := this->parentfolder->GenerateUniqueName(this->sourceitem->name);
     }
     ELSE
     {
@@ -643,14 +604,15 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   MACRO FillBaseFields()
   {
-    STRING ARRAY versioned_fields := this->editingdraft AND ObjectExists(this->objectpolicy)
-                                         ? this->objectpolicy->GetFields().versioned_fields
-                                         : DEFAULT STRING ARRAY;
-    FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
+    IF(ObjectExists(this->sourceitem))
+      this->LoadBaseData(this->sourceitem);
+
+    IF(this->editingdraft AND ObjectExists(this->objectpolicy) AND (ObjectExists(this->sourceitem))) //Run the old versioned fields code after our shared version has run so versioning behavior won't change (we're still not sure whether to keep versionin)
     {
-      OBJECT fieldobj := GetMember(this, "^" || field);
-      IF (ObjectExists(this->sourceitem))
+      STRING ARRAY versioned_fields := this->objectpolicy->GetFields().versioned_fields;
+      FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
       {
+        OBJECT fieldobj := GetMember(this, "^" || field);
         // If this is a versioned field within the current object policy, read its data from the draft item (or draft
         // metadata in case of the 'name' field), otherwise read from the source item
         IF (field IN versioned_fields)
@@ -660,11 +622,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
           ELSE
             fieldobj->value := GetMember(this->draftitem, field);
         }
-        ELSE
-          fieldobj->value := GetMember(this->sourceitem, field);
       }
-      ELSE
-        fieldobj->value := "";
     }
 
     INTEGER64 filesize := ObjectExists(this->draftitem) AND NOT this->isfolder ? Length64(this->draftitem->data) : 0i64;
@@ -711,7 +669,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
 
     // If the item is deleted or if the user has no edit rights, setup the dialog as information window
-    IF (NOT this->isnew AND (this->isinrecyclebin OR NOT this->CanWriteCurrentItem()))
+    IF (NOT this->isnew AND (RecordExists(this->recyclebininfo) OR NOT this->CanWriteCurrentItem()))
     {
       ^name->readonly := TRUE;
       IF (^title->value = "")
@@ -746,22 +704,19 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   MACRO InitFieldsForItemInRecycleBin()
   {
-    RECORD info := GetRecycledObjectInfo(this->tolliumuser, this->itemid);
-    IF(RecordExists(info))
-    {
-      STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
-      this->isdeleted := TRUE;
+    RECORD info := this->recyclebininfo;
 
-      STRING deletioninfo := this->GetTid(".deletedtext"
-                                   ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
-                                   ,deletionuser);
-      ^deleted->value := deletioninfo;
-      ^deleted->visible := TRUE;
-      ^name->value := info.origname;
+    STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
 
-      ^originallocation->value := info.originalpath;
-      ^originallocation->visible := TRUE;
-    }
+    STRING deletioninfo := this->GetTid(".deletedtext"
+                                  ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
+                                  ,deletionuser);
+    ^deleted->value := deletioninfo;
+    ^deleted->visible := TRUE;
+    ^name->value := info.origname;
+
+    ^originallocation->value := info.originalpath;
+    ^originallocation->visible := TRUE;
   }
 
   MACRO SetupObjectProps()
@@ -771,24 +726,18 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     ^keywords->visible := this->basesettings.keywords;
   }
 
-  BOOLEAN FUNCTION CanWriteCurrentItem()
+  UPDATE RECORD FUNCTION UpdatePinned()
   {
-    RETURN this->isnew OR (NOT this->isinrecyclebin AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
-  }
+    RECORD basepinsettings := PublisherEditorBase::UpdatePinned();
 
-  MACRO UpdatePinned()
-  {
-    //Do not honor 'pinned' for new objects... then it should apply only AFTER we finalize the dialog. Also ensures valid-whfsname validation still happens
-    BOOLEAN pinned := (^pinobject->value OR this->isdeleted) AND NOT this->isnew;
-    BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
-
-    this->frame->flags.ispinned := pinned;
-    ^name->enabled := NOT pinned AND parentfullaccess;
-    ^publish->enabled := NOT pinned AND this->CanWriteCurrentItem();
-    ^makeindex->enabled := NOT pinned AND parentfullaccess;
+    this->frame->flags.ispinned := basepinsettings.pinned;
+    ^publish->enabled := NOT basepinsettings.pinned AND this->CanWriteCurrentItem();
+    ^makeindex->enabled := NOT basepinsettings.pinned AND basepinsettings.parentfullaccess;
 
     this->ApplyVersioningPolicy();
-    this->contexts->objectpropsapi->__UpdateOnPinned(pinned);
+    this->contexts->objectpropsapi->__UpdateOnPinned(basepinsettings.pinned);
+
+    RETURN basepinsettings;
   }
 
   /** Initializes type settings for the current type. Initializes this->curtype, and visibility for the 'url', 'path' and 'size' components
@@ -1053,7 +1002,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         this->SetupMetaTabs(this->startdata.fsobj, parentfolderid, NOT this->isfolder, this->curtype.id);
       }
 
-      IF(this->isnew = FALSE AND this->isinrecyclebin)
+      IF(this->isnew = FALSE AND RecordExists(this->recyclebininfo))
         this->MarkSiteProfileExtensionsReadonly();
 
       IF(ObjectExists(this->sourceitem))
@@ -1102,9 +1051,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
                                                 ? this->objectpolicy->GetFields().versioned_contenttypes
                                                 : DEFAULT INTEGER ARRAY;
-
-    ^seosettings->basefsobject := ^seosettings->type->id IN versioned_contenttypes ? this->draftitem : this->sourceitem;
-    ^seosettings->ReadInstanceFromFSObject();
 
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
@@ -1544,7 +1490,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   MACRO WriteExtensionData(OBJECT work, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
   {
     //Grab siteprofile stuff
-    this->WriteInstanceData(work, ^seosettings, objid, draftid, versioned_contenttypes);
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
       IF (extendprop.contenttype="") // FIXME: all <propertyeditor>'s ?
@@ -2334,15 +2279,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   MACRO InitSeoSettings()
   {
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
-    //As these are published, only files that go through a webdesign can show something useful
-    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
 
     //we delayed setting the title so other extending tabs don't merge into us
     IF(NOT this->sidetabs)
     {
-      IF(NOT (this->basesettings.seotab
-               AND (this->isfolder OR needstemplate)
-               AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))))
+      IF(NOT (this->basesettings.seotab AND (this->isfolder OR needstemplate)))
       {
         ^seotab->visible := FALSE;
         RETURN;

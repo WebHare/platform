@@ -514,6 +514,11 @@ ASYNC MACRO ProcessExpiredResults()
 
 MACRO CustomFormApplyTest()
 {
+  testfw->BeginWork(); //fix 2-nl form still referring to customform2 from breaking, disabling further tests because they see a repub error on customform2-nl
+  IF(ObjectExists(OpenTestsuiteSite()->OpenByPath("webtools/customform2-nl")))
+    OpenTestsuiteSite()->OpenByPath("webtools/customform2-nl")->RecycleSelf();
+  testfw->CommitWork();
+
   BuildCustomWebtoolForm2(
       [ addtslinecomp := TRUE
       , tslinecompapplytest := TRUE

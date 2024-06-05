@@ -43,6 +43,8 @@ interface BaseInfo extends SiteApplicabilityInfo {
   typeneedstemplate: boolean;
   /** Name, set for mocked objects */
   name?: string;
+  /** New document (lives in autosave space, draftmetadata type refers to parent) */
+  isNew: boolean;
 }
 
 function isResourceMatch(rule_siteprofileids: number[], test_siteprofileids: number[]) {
@@ -81,7 +83,7 @@ export function getWRDPlugindata(data: Record<string, unknown> | null) {
   };
 }
 
-export async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: boolean, type: string, name = "new object"): Promise<BaseInfo> {
+async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: boolean, type: string, name: string, isNew: boolean): Promise<BaseInfo> {
   const siteapply = await getSiteApplicabilityInfo(parent.parentSite);
   let site: Selectable<PlatformDB, "system.sites"> | null = null;
   if (parent.parentSite) {
@@ -98,23 +100,39 @@ export async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolde
     isfile: !isFolder,
     type,
     typeneedstemplate,
-    name
+    name,
+    isNew
   };
 }
 
 async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
-  const recycleinfo = await db<PlatformDB>().selectFrom("system.fs_history").
-    select(["fs_object", "currentname", "currentparent"]).
-    where("fs_object", "=", obj.id).
-    where("type", "=", 0).
-    execute();
+  let origparentid: number = 0, currentname = '', isNew = false;
 
-  if (recycleinfo.length !== 1 || !recycleinfo[0].currentparent)
-    throw new Error(`No recycle info found for ${obj.id}`);
+  if (obj.whfsPath.toUpperCase().startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/")) {
+    const draftinfo = await openType("http://www.webhare.net/xmlns/publisher/draftmetadata").get(obj.id);
+    if (!draftinfo.parent)
+      throw new Error(`No draft info found for ${obj.id} or its parent folder is already deleted`);
+
+    origparentid = draftinfo.parent as number;
+    currentname = draftinfo.name as string;
+    isNew = true;
+  } else {
+    const recycleinfo = await db<PlatformDB>().selectFrom("system.fs_history").
+      select(["fs_object", "currentname", "currentparent"]).
+      where("fs_object", "=", obj.id).
+      where("type", "=", 0).
+      execute();
+
+    if (recycleinfo.length !== 1 || !recycleinfo[0].currentparent)
+      throw new Error(`No recycle info found for ${obj.id}`);
+
+    origparentid = recycleinfo[0].currentparent;
+    currentname = recycleinfo[0].currentname;
+  }
 
   //TODO chase parents that are already deleted/historic
-  const origparent = await openFolder(recycleinfo[0].currentparent!);
-  return getBaseInfoForMockedApplyCheck(origparent, obj.isFolder, obj.type, recycleinfo[0].currentname);
+  const origparent = await openFolder(origparentid!);
+  return getBaseInfoForMockedApplyCheck(origparent, obj.isFolder, obj.type, currentname, isNew);
 }
 
 export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInfo> {
@@ -140,7 +158,8 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
       : (await openFolder(obj.parent)),
     isfile: obj.isFile,
     type: obj.type,
-    typeneedstemplate
+    typeneedstemplate,
+    isNew: false
   };
 }
 
@@ -282,8 +301,22 @@ export class WHFSApplyTester {
     return true;
   }
 
+  __getHSInfo() {
+    return {
+      ismocked: this.isMocked(),
+      objectid: this.objinfo.obj?.id ?? 0,
+      parentfolder: this.objinfo.parent?.id ?? 0,
+      type: this.objinfo.type,
+      name: this.objinfo.name || ''
+    };
+  }
+
   isMocked() {
     return !this.objinfo.obj;
+  }
+
+  isNew() {
+    return this.objinfo.isNew;
   }
 
   isTypeNeedsTemplate() {
@@ -489,7 +522,7 @@ export async function getApplyTesterForObject(obj: WHFSObject) {
 }
 
 export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder: boolean, type: string, name = "new object") {
-  return new WHFSApplyTester(await getBaseInfoForMockedApplyCheck(parent, isFolder, type, name)); //TODO root object support
+  return new WHFSApplyTester(await getBaseInfoForMockedApplyCheck(parent, isFolder, type, name, false)); //TODO root object support
 }
 
 export async function getApplyTesterForURL(url: string) {

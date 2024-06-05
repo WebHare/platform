@@ -1,4 +1,7 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.editdocument" library="editdocument.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.editdocument"
+         library="editdocument.whlib">
 
   <screen name="editdocumentapp"
           width="800px"
@@ -84,6 +87,7 @@
     <compositions>
       <eventlistener name="publicationlistener" onevents="gotfolderchangeevents" />
       <dirtylistener name="dirtylistener" makeappdirty="true" ondirty="gotdirty" />
+      <p:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
     </compositions>
 
     <toolbar name="toolbar">
@@ -109,6 +113,35 @@
           <tabs name="filetabs" height="1pr">
             <tab tid=".metadata" vscroll="true">
               <tabs name="maintabs" type="stacked" height="1pr">
+                <tab name="maintab" tid="tolliumapps.objectprops.objectprops.maintab">
+                  <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
+                  <textedit name="name"
+                            width="1pr"
+                            maxlength="256"
+                            dirtylistener="dirtylistener"
+                            tid="~name"
+                            validationchecks="whfsname" />
+                  <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
+                  <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
+                  <textedit composition="seosettings"
+                            cellname="seotitle"
+                            name="seotitle"
+                            width="1pr"
+                            maxlength="256"
+                            dirtylistener="dirtylistener"
+                            placeholdertid="tolliumapps.objectprops.objectprops.meta-title-placeholder"
+                            showcounter="true"
+                            tid="tolliumapps.objectprops.objectprops.meta-title" />
+                  <textarea name="description"
+                            height="3gr"
+                            dirtylistener="dirtylistener"
+                            maxlength="2048"
+                            placeholdertid="tolliumapps.objectprops.objectprops.description-placeholder"
+                            showcounter="true"
+                            tid="~description" />
+                  <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
+                  <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
+                </tab>
               </tabs>
             </tab>
           </tabs>

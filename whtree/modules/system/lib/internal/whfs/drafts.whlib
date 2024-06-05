@@ -468,6 +468,15 @@ PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
   RETURN ObjectExists(draft) AND draft->source = objid ? draft : DEFAULT OBJECT;
 }
 
+PUBLIC OBJECT FUNCTION CreateNewTemporary(OBJECT owner, INTEGER newparent, RECORD metadata)
+{
+  INTEGER destid := MakeAutonumber(system.fs_objects, "id");
+  OBJECT tempfile := OpenWHFSObject(whconstant_whfsid_autosaves)->CreateFile(
+    CELL[ ...metadata, name := ToString(destid), id := destid, modifiedby := owner->authobjectid, publish := FALSE ]);
+  tempfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", [ parent := newparent ]);
+  RETURN tempfile;
+}
+
 /** @short Create a new draft from this object
     @param whfsobject Object to which the draft is linked
     @param instancesource ID from which we should copy existing contenettype data, Usually whfsobject->id */
