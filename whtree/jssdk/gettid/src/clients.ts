@@ -28,7 +28,7 @@ export function resolveTid(parentGid: string, parts: {
   title?: string | null;
 }): string {
   if (parts.tid) {
-    if (parts.tid.includes(":"))
+    if (parts.tid.startsWith('~') || parts.tid.includes(":"))
       return parts.tid;
     if (parts.tid.startsWith('.'))
       return parentGid + parts.tid;
