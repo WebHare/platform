@@ -43,7 +43,7 @@ interface BaseInfo extends SiteApplicabilityInfo {
   typeneedstemplate: boolean;
   /** Name, set for mocked objects */
   name?: string;
-  /** New document (autosave space, ) */
+  /** New document (lives in autosave space, draftmetadata type refers to parent) */
   isNew: boolean;
 }
 
