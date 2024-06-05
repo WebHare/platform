@@ -726,7 +726,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
     IF(this->isnew) //it no longer is!
     {
-      this->isnew := FALSE; //TODO merge into refreshtstae, just look at applytester or path
+      this->isnew := FALSE; //TODO merge into refreshstate, just look at applytester or path
       ^name->value := finalitem->name;
       //Updates display info (eg frame title)
       this->filedata := [ name := finalitem->name, modificationdate := finalitem->modificationdate ];
