@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- We don't want to spell out everything HS supports so we prefer any instead of unknown here */
 import type { WebHareBlob } from "@webhare/services/src/webhareblob";
 import type { HSVMCallsProxy } from "./wasm-proxies";
+import type { ValidationOptions, ValidationResult } from "@mod-platform/js/devsupport/validation";
 
 /* You can also declare your own loadlibs for TypeScript in your own modules. Put this in a TypeScript file:
 
@@ -16,46 +17,6 @@ See hsapi.ts in the `dev` module for a practical example
 
 */
 
-interface ValidationOptions {
-  onlytids?: boolean;
-  overridedata?: WebHareBlob;
-  performance?: boolean;
-  nomissingtids?: boolean;
-  nowarnings?: boolean;
-  documentation?: boolean;
-  eslintmasks?: string[];
-}
-
-type ValidationTid = {
-  resourcename: string;
-  line: number;
-  col: number;
-  attrname?: string;
-};
-
-type ValidationMessage = {
-  resourcename: string;
-  line: number;
-  col: number;
-  message: string;
-  source: string;
-  metadata: unknown;
-};
-
-type ValidationResult = {
-  /** List of hints */
-  hints: ValidationMessage[];
-  /** List of warnings */
-  warnings: ValidationMessage[];
-  /** List of errors */
-  errors: ValidationMessage[];
-  /** List of tids */
-  tids: ValidationTid[];
-  /** Event masks for invalidation of this validation result */
-  eventmasks: string[];
-  /** Icons */
-  icons: unknown[];
-};
 
 interface Mod_Publisher_Lib_Siteapi_Site {
   openByPath(path: string): Promise<(Mod_System_Lib_WHFS_WHFSObject & HSVMCallsProxy) | null>;

@@ -708,6 +708,14 @@ GetTid("missing.module"); GetTid("system:has.module");`);
     TestEq([ "system:group.a_b_c" ], (SELECT AS STRING ARRAY tid FROM res.tids), "Failed on underscore map test #" || #totest);
   }
 
+  //Test YML
+  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml");
+  TestEq(RECORD[], res.errors);
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml" ]],
+                SELECT * FROM res.tids WHERE tid="webhare_testsuite:webdesigns.basetestjs.basetest.has_num2", "*");
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml" ]],
+                SELECT * FROM res.tids WHERE tid="~username", "*");
+
   //Test JS
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts");
   //dumpvalue(res.tids);

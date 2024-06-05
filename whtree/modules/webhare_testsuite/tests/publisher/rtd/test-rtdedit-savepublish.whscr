@@ -41,7 +41,7 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly, BOOLEAN isprops) 
   TestEq("integer", anumberfield->valuetype);
   TestEq(42 + round, anumberfield->value);
 
-  OBJECT selectuserfield := TT(":WH User"); //note that this finds the embedded textedit
+  OBJECT selectuserfield := TT(":Username"); //note that this finds the embedded textedit
   TestAssert(ObjectExists(selectuserfield));
   TestEq(FALSE, selectuserfield->enabled);
   TestEq('Sysop McTestsuite', selectuserfield->value);

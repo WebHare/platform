@@ -2,6 +2,7 @@
 /** @topic testframework/validation */
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::os.whlib";
@@ -23,6 +24,7 @@ LOADLIB "mod::system/lib/internal/validation/xml.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib" EXPORT XMLValidatorBase;
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+CONSTANT STRING ARRAY validate_using_js_extensions := [".yml",".yaml"];
 
 BOOLEAN FUNCTION IsHareScriptFile(STRING path)
 {
@@ -236,14 +238,11 @@ BOOLEAN FUNCTION CanValidateFile(STRING resourcename, BOOLEAN onlytids)
     RETURN TRUE;
   IF(IsSVGIconFile(resourcename))
     RETURN onlytids ? FALSE : TRUE;
-  IF(GetExtensionFromPath(resourcename) IN whconstant_javascript_extensions)
+  IF(GetExtensionFromPath(resourcename) IN STRING[...whconstant_javascript_extensions, ...validate_using_js_extensions])
     RETURN TRUE;
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
   IF(ext IN [".WITTY",".XML",".XSD",".SITEPRL",".IXO"])
     RETURN TRUE;
-  IF(ext = ".IXO")
-    RETURN onlytids ? FALSE : TRUE;
-
   RETURN FALSE;
 }
 
@@ -258,7 +257,9 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
   IF(ToUppercase(resourcename) LIKE "*/WEB/IMG/*.SVG")
     RETURN RunSVGIconValidator(doc_blob, resourcename, options);
   IF(GetExtensionFromPath(resourcename) IN whconstant_javascript_extensions)
-      RETURN RunJSValidator(doc_blob, resourcename, options);
+    RETURN RunJSValidator(doc_blob, resourcename, options);
+  IF(GetExtensionFromPath(resourcename) IN validate_using_js_extensions)
+    RETURN CallJS("@mod-platform/js/devsupport/validation.ts#runJSBasedValidator", doc_blob, resourcename, options);
 
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
   SWITCH(ext)
