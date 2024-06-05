@@ -1890,6 +1890,16 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
+    <xs:attribute name="script">
+      <xs:annotation>
+        <xs:documentation>Overwrite script URL for GTM integration</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="pixel">
+      <xs:annotation>
+        <xs:documentation>Overwrite frame/pixel URL for GTM integration</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="launch">
       <xs:annotation>
         <xs:documentation>When the load of the GTM script will start</xs:documentation>
