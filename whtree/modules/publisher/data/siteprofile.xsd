@@ -1885,7 +1885,7 @@
     </xs:attribute>
     <xs:attribute name="script">
       <xs:annotation>
-        <xs:documentation>Overwrite scrpt URL for GTM integration</xs:documentation>
+        <xs:documentation>Overwrite script URL for GTM integration</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="pixel">
