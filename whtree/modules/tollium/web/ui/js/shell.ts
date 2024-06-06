@@ -486,7 +486,7 @@ class IndyShell extends TolliumShell {
 
     setupWHCheck(settings.checkinterval);
   }
-  sendApplicationMessage(app: AppLaunchInstruction["app"], target: AppLaunchInstruction["target"], message: AppLaunchInstruction["message"], reuse_instance: AppLaunchInstruction["reuse_instance"], inbackground: boolean, appoptions?) {
+  sendApplicationMessage(app: AppLaunchInstruction["app"], target: AppLaunchInstruction["target"], message: AppLaunchInstruction["message"], reuse_instance: AppLaunchInstruction["reuse_instance"], inbackground?: boolean, appoptions?) {
     if ($todd.IsDebugTypeEnabled('communication'))
       console.log('toddSendApplicationMessage: app:' + app + ' reuse:' + reuse_instance + ' target:' + JSON.stringify(target) + " message:" + JSON.stringify(message));
 
