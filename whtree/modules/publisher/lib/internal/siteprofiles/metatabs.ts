@@ -206,10 +206,14 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
 }
 
 export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number }): Promise<MetaTabsForHS | null> {
-  const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? '';
   try {
-    const applytester = obj.objectid ? await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }))
-      : await getApplyTesterForMockedObject(await openFolder(obj.parent), obj.isfolder, typens);
+    let applytester;
+    if (obj.objectid) {
+      applytester = await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }));
+    } else {
+      const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? '';
+      applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent), obj.isfolder, typens);
+    }
 
     const metatabs = await describeMetaTabs(applytester);
     return remapForHs(metatabs);
