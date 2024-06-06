@@ -92,9 +92,9 @@ class TowlNotifications {
   /// Handles a click on a notification. Also hides it.
   _handleClick(data: ActiveTowlNotification) {
     if (data.appmsg) {
-      this.shell.sendApplicationMessage(data.appmsg.appurl,
-        data.appmsg.apptarget,
-        data.appmsg.messagedata,
+      this.shell.sendApplicationMessage(data.appmsg.app,
+        data.appmsg.target,
+        data.appmsg.message,
         data.appmsg.reuse_instance);
     } else if (data.onclick)
       data.onclick();
