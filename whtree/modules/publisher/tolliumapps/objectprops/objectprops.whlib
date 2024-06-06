@@ -472,12 +472,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     RETURN CELL[ acceptableindex := TRUE, canedit ];
   }
 
-  MACRO SetCurrentObjectData()
+  MACRO SetCurrentObjectData() //always invoked by Init(), just after reading user prefs
   {
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
     {
-      this->isnew := TRUE;
-      this->parentfolder := this->startdata.parentfolder = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->startdata.parentfolder);
+      BOOLEAN isfolder := (this->startdata.why = "duplicate") ? (SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = this->startdata.fsobj) : this->startdata.why = "newfolder";
+      this->SetupEditBaseForNewObject(this->startdata.parentfolder, isfolder, this->startdata.type);
       this->parentsite := SELECT * FROM system.sites WHERE id = this->parentfolder->parentsite;
 
       IF (NOT ObjectExists(this->parentfolder) AND this->startdata.parentfolder != 0)
@@ -506,6 +506,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
     ELSE IF (this->startdata.why = "edit")
     {
+      this->SetupEditBaseForExistingObject(this->startdata.fsobj);
       this->itemid := this->startdata.fsobj;
       this->sourceitem := OpenWHFSObject(this->itemid);
 
@@ -983,24 +984,18 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     // If the item is not deleted and if the user has edit rights, setup site profile fields
     //ADDME: Just hiding these fields for now, a better solution would probably involve readonly compositions
 
-    BOOLEAN hasmetatabs;
-
     IF (this->CanWriteCurrentItem())
     {
       INTEGER parentfolderid := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
       this->SetupObjectProps();
 
       this->sp_customfields := this->contexts->applytester->GetCustomFields(this->tolliumuser, this->tolliumuser->language);
-      hasmetatabs := Length(SELECT * FROM this->sp_customfields.propertyeditors WHERE tabsextension = "" AND contenttype != "") > 0;
       DELETE FROM this->sp_customfields.propertyeditors WHERE tabsextension = "";
       this->pending_errors := this->pending_errors CONCAT this->sp_customfields.errors;
       this->SetupSiteProfileExtensions(this->startdata.faultypropeditors);
 
       //For now we'll just append metatabs (assuming existing tabs are for eg. folders too and thus perserve order?), but we could attempt to insert them at the original positions
-      IF(hasmetatabs)
-      {
-        this->SetupMetaTabs(this->startdata.fsobj, parentfolderid, NOT this->isfolder, this->curtype.id);
-      }
+      this->AddTypesTabs();
 
       IF(this->isnew = FALSE AND RecordExists(this->recyclebininfo))
         this->MarkSiteProfileExtensionsReadonly();

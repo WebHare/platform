@@ -97,7 +97,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       this->assumewriteaccess := data.assumewriteaccess;
 
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
-    this->itemid := data.id;
+    this->SetupEditBaseForExistingObject(data.id);
 
     OBJECT fsobject := OpenWHFSObject(this->itemid);
 
@@ -118,6 +118,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       this->tolliumresult := "cancel";
       RETURN;
     }
+
 
     this->filedata := [ name := fsobject->name, modificationdate := fsobject->modificationdate ];
     this->filetype := fsobject->type;
@@ -245,7 +246,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     IF(objecteditor.documenteditor = "")
       objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
 
-    IF(this->SetupMetaTabs(objectid, 0, FALSE, 0))
+    IF(this->AddTypesTabs() )
     {
       ^metapart->visible := TRUE;
     }
