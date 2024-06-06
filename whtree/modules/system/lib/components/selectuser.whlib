@@ -64,6 +64,8 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
     this->required := def.required;
     this->enabled := def.enabled;
     this->readonly := def.readonly;
+    //the base constructor sets pvt_title, so ensure it gets passed on to the username field
+    this->title := def.title;
   }
 
   UPDATE PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
@@ -253,10 +255,10 @@ PUBLIC OBJECTTYPE SelectUser EXTEND TolliumFragmentBase
     OBJECT screen := this->owner->LoadScreen("system:userrights/dialogs.selectuserrole");
     screen->filterontype := 1;
     screen->selectmode := "single";
-    IF(screen->RunModal() = "ok" AND screen->value != DEFAULT OBJECT AND screen->value != this->value)
+    IF(screen->RunModal() = "ok" AND screen->value != DEFAULT OBJECT)
     {
-      this->value := screen->value;
-      this->SetDirty();
+      IF(this->SetValue(screen->value))
+        this->SetDirty();
     }
   }
 

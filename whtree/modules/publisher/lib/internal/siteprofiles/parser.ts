@@ -7,13 +7,7 @@ import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 import { nameToSnakeCase, toSnakeCase } from "@webhare/hscompat/types";
-
-export type ParserMessage = {
-  col: number;
-  line: number;
-  message: string;
-  resourcename: string;
-};
+import type { ValidationMessage } from "@mod-platform/js/devsupport/validation";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedApplyRule = CSPApplyRule & { ruletype: "apply" };
@@ -22,11 +16,11 @@ export type ParsedSiteSetting = unknown & { ruletype: "sitesetting" }; //TODO do
 export type ParsedSiteProfile = {
   applysiteprofiles: string[];
   contenttypes: CSPContentType[];
-  errors: ParserMessage[];
+  errors: ValidationMessage[];
   grouptypes: string[];
   icons: unknown[];
-  hints: ParserMessage[];
-  warnings: ParserMessage[];
+  hints: ValidationMessage[];
+  warnings: ValidationMessage[];
   rules: Array<ParsedApplyRule | ParsedSiteSetting>;
   gid: string;
 };
@@ -160,7 +154,7 @@ export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDef
   return { ns, component, yamlprops: toSnakeCase(compentries[0][1]) as Record<string, unknown> };
 }
 
-function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
+function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
   for (const [name, member] of Object.entries(members)) {
@@ -173,7 +167,7 @@ function parseMembers(gid: string, members: { [key: string]: Sp.TypeMember }): C
       jsname: name,
       type: type.dbtype,
       children: ["array", "record"].includes(member.type) ? parseMembers(gid, member.members || {}) : [],
-      title: resolveTid(gid, { name: toHSSnakeCase(name), title: member.title, tid: member.tid })
+      title: gid.resolveTid({ name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
     if (member.comment)
@@ -386,7 +380,47 @@ function parseApply(module: string, siteprofile: string, baseScope: string | nul
   return rule;
 }
 
-export async function parseSiteProfile(resource: string, options?: { content?: string }) {
+type TidCallback = (resource: string, tid: string) => void;
+
+class ResourceParserContext {
+  readonly onTid?: TidCallback;
+  readonly gid: string;
+  readonly resourcename: string;
+
+  private constructor(resourcename: string, gid: string, onTid?: TidCallback) {
+    this.resourcename = resourcename;
+    this.onTid = onTid;
+    this.gid = gid;
+  }
+
+  /** Initialize context based on resource name */
+  static forResource(resourcename: string, onTid?: TidCallback, potentialGidObject?: { gid?: string }) {
+    const module = parseResourcePath(resourcename)?.module;
+    if (!module)
+      throw new Error(`ResourceParserContext only supports siteprofiles inside a module`);
+
+    const gid = resolveGid(module + ':', potentialGidObject?.gid || '');
+    return new ResourceParserContext(resourcename, gid, onTid);
+  }
+
+  /** Add a potential new gid scope */
+  addGid(potentialGidObject?: { gid?: string }): ResourceParserContext {
+    if (potentialGidObject?.gid)
+      return new ResourceParserContext(this.resourcename, resolveGid(this.gid, potentialGidObject.gid), this.onTid);
+    else
+      return this;
+  }
+
+  /** Resolve a tid */
+  resolveTid(potentialTidObject: { name: string; title?: string; tid?: string }): string {
+    const resolved = resolveTid(this.gid, potentialTidObject);
+    if (resolved && !resolved.startsWith(':') && this.onTid)
+      this.onTid(this.resourcename, resolved);
+    return resolved;
+  }
+}
+
+export async function parseSiteProfile(resource: string, options?: { content?: string; onTid?: TidCallback }) {
   const result: ParsedSiteProfile = {
     applysiteprofiles: [],
     contenttypes: [],
@@ -405,8 +439,8 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
 
   const content = options?.content ?? readFileSync(toFSPath(resource), 'utf8');
   const sp = decodeYAML<Sp.SiteProfile>(content);
-  const spGid = resolveGid(module + ':', sp.gid || '');
-  result.gid = spGid;
+  const rootParser = ResourceParserContext.forResource(resource, options?.onTid, sp);
+  result.gid = rootParser.gid;
 
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}` : null;
 
@@ -417,7 +451,7 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
     if (!baseScope)
       throw new Error(`Siteprofile ${resource} does not have a typeGroup`);
 
-    const typeGid = resolveGid(spGid, settings.gid || '');
+    const typeParser = rootParser.addGid(settings);
     const scopedtype = `${baseScope}.${type}`;
     const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${toHSSnakeCase(sp.typeGroup!)}.${toHSSnakeCase(type)}`;
     const ctype: CSPContentType = {
@@ -431,13 +465,13 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
       isembeddedobjecttype: false,
       isrtdtype: false,
       line: 0, //TODO need to use the more sophisticated yaml parser for this
-      members: parseMembers(typeGid, settings.members || {}),
+      members: parseMembers(typeParser, settings.members || {}),
       namespace: ns,
       orphan: false,
       previewcomponent: "",
       scopedtype,
       siteprofile: resource,
-      title: resolveTid(typeGid, { name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
+      title: typeParser.resolveTid({ name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
       tolliumicon: "",
       type: "contenttype",
       wittycomponent: "",

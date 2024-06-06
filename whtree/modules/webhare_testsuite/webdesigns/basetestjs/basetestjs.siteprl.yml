@@ -1,6 +1,8 @@
 typeGroup: baseTest
+gid: webdesigns.basetestjs
 types:
   siteSettings:
+    gid: .sitesettings
     title: WTS Site Settings
     members:
       mode:
@@ -11,6 +13,7 @@ types:
         type: datetime
 
   baseTestProps:
+    gid: .basetest
     namespace: http://www.webhare.net/xmlns/webhare_testsuite/basetestprops
     title: WTS base test
     members:
@@ -46,7 +49,7 @@ types:
                 title: Complex field 1
       whUser:
         type: string
-        title: WH User
+        tid: ~username
         component:
           "http://www.webhare.net/xmlns/system/components#selectuser":
             inputKind: wrdGuid
@@ -82,6 +85,7 @@ types:
         title: Check it
       extControlledField:
         type: string
+        title: extControlledField
 
 apply:
   - to:

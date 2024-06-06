@@ -45,7 +45,7 @@ async function testMetadataReader() {
                 component: { textedit: { valueType: 'integer', suffix: "kg", emptyValue: 1 } }
               }, {
                 name: "whUser",
-                title: ":WH User",
+                title: "~username",
                 component: { "http://www.webhare.net/xmlns/system/components#selectuser": { inputKind: "wrdGuid" } }
               }, {
                 name: "rtd"
@@ -100,7 +100,7 @@ async function testMetadataReader() {
                 }
               }, {
                 name: "wh_user",
-                title: ":WH User",
+                title: "~username",
                 component: {
                   ns: "http://www.webhare.net/xmlns/system/components",
                   component: "selectuser",
