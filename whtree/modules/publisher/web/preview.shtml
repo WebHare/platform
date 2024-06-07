@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -186,28 +187,21 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   webdesign->RunPage();
 }
 
-STRING baseurl := Tokenize(Tokenize(GetRequestURL(), '/')[5],'?')[0];
-OBJECT draftobj;
-OBJECT openobj;
-INTEGER source;
-BOOLEAN renderwidgetpreview;
-RECORD options;
-
-RECORD data := DecryptForthisServer("publisher:preview",baseurl);
-draftobj := OpenWHFSDraft(data.id);
-openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
+RECORD topreview := ParsePreviewURL(GetRequestURL());
+OBJECT draftobj := OpenWHFSDraft(topreview.id);
+OBJECT openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(topreview.id);
 
 INTEGER designid;
 IF(Objectexists(draftobj))
   designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
 ELSE IF(Objectexists(openobj))
-  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR data.id;
+  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR topreview.id;
 ELSE
   designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
 
-source := ObjectExists(draftobj) ? draftobj->source : data.id;
+INTEGER source := ObjectExists(draftobj) ? draftobj->source : topreview.id;
 
-IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openobj->creationdate)
+IF(NOT ObjectExists(openobj) OR topreview.validuntil < GetCurrentDatetime() OR topreview.creationdate != openobj->creationdate)
 {
   OBJECT page := NEW PreviewPage();
   page->data.component := "previewexpired";
@@ -217,7 +211,7 @@ IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openo
 }
 
 STRING pwd := TrimWhitespace(GetWebVariable("password"));
-IF(data.p != "" AND pwd != data.p)
+IF(topreview.password != "" AND topreview.password != pwd)
 {
   OBJECT page := NEW PreviewPage();
   page->data.component := "previewpassword";
@@ -227,11 +221,7 @@ IF(data.p != "" AND pwd != data.p)
   RETURN;
 }
 
-renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
-IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
-  options := [ instanceid := data.i ];
-
 IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
   THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
 
-RunPublisherPreview(openobj, source, renderwidgetpreview, options);
+RunPublisherPreview(openobj, source, topreview.renderwidgetpreview, CELL[topreview.instanceid]);
