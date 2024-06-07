@@ -54,9 +54,8 @@ for MODULENAME in "${MODULESLIST[@]}"; do
   # TODO the locations we check need to be in sync with what `listNodePackageRoots` looks for
   for Q in "$MODULEDIR" "$MODULEDIR/tests" "$MODULEDIR/webdesigns"/?* ; do
     if cd "$Q" 2>/dev/null ; then
-      echo "Installing npm modules for $Q"
-
       if [ -f package.json ]; then
+        echo "Installing npm modules for $Q"
         $DRYRUNPREFIX npm install $NPMOPTIONS
         RETVAL=$?
         if [ "$RETVAL" != "0" ]; then
