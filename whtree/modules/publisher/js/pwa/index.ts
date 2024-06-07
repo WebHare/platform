@@ -7,7 +7,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import './internal/debugmenu';
 import * as settings from './internal/settings';
 
-const appbase = location.href.split('?')[0];
+const appbase = location.href.indexOf("?") > -1 ? location.href.split('?')[0] : location.href.split('#')[0];
 let didinit;
 
 //set up a promise we'll use to signal succesful offline mode
