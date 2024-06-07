@@ -423,7 +423,7 @@ STATIC OBJECTTYPE WHFSType
         {
           newval := SELECT AS STRING ARRAY setting FROM curset ORDER BY ordering;
         }
-        CASE 5 //Blob/file record
+        CASE 5,24 //Blob/file record, Image
         {
           IF(Length(curset)>=1)
           {
@@ -452,6 +452,11 @@ STATIC OBJECTTYPE WHFSType
         {
           IF(Length(curset)>=1)
             newval := AnyTypeFromString(curset[0].setting, memberrec.type);
+        }
+        CASE 25 //Date
+        {
+          IF(length(curset)>=1)
+            newval := MakeDateFromText(curset[0].setting); //just store it as YYYY-MM-DD
         }
         CASE 15,20 //richdocument, composeddocument
         {
@@ -772,7 +777,7 @@ STATIC OBJECTTYPE WHFSType
             any_nondefault := TRUE;
           }
         }
-        CASE 5 //Blob/file record
+        CASE 5,24 //Blob/file record, image
         {
           IF(TypeID(newval) != TypeID(RECORD))
             THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD got " || GetTypeName(Typeid(newval)));
@@ -1128,8 +1133,10 @@ STATIC OBJECTTYPE WHFSType
           ELSE
           {
             STRING data;
-            IF(memberrec.type IN [4,6,7,8,9])//date
+            IF(memberrec.type IN [4,6,7,8,9])
               data := EncodeMember(newval, memberrec.type);
+            ELSE IF(memberrec.type = 25) //Date
+              data := FormatDateTime("%Y-%m-%d", newval);
             ELSE
               data := newval;
 

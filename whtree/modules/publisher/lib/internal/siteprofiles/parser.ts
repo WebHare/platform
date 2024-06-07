@@ -46,6 +46,12 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       maxValue: 217483647
     }
   },
+  "date": {
+    dbtype: CSPMemberType.Date,
+    constraints: {
+      valueType: "date"
+    },
+  },
   "datetime": {
     dbtype: CSPMemberType.DateTime,
     constraints: {
@@ -56,6 +62,12 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
     dbtype: CSPMemberType.File,
     constraints: {
       valueType: "resourceDescriptor"
+    }
+  },
+  "image": {
+    dbtype: CSPMemberType.File,
+    constraints: {
+      valueType: "imageDescriptor"
     }
   },
   "boolean": {

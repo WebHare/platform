@@ -86,6 +86,7 @@ async function testInstanceData() {
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
+    aDay: new Date("2023-09-29T23:59:59Z"),
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
     aTypedRecord: { intMember: 497 },
@@ -93,12 +94,12 @@ async function testInstanceData() {
     myWhfsRefArray: fileids
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 12);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 13);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 15);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 16);
 
   test.eqPartial({
     int: 20,
@@ -106,6 +107,7 @@ async function testInstanceData() {
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
+    aDay: new Date("2023-09-29T00:00:00Z"), //msecond part gets truncated
     strArray: ["a", "b", "c"],
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
@@ -123,12 +125,15 @@ async function testInstanceData() {
   //Test files
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
   await testtype.set(testfile.id, {
-    blub: goldfish
+    blub: goldfish,
+    blubImg: goldfish
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 16);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 18);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
+  const returnedGoldfish2 = (await testtype.get(testfile.id)).blubImg as ResourceDescriptor;
+  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2.hash);
 
   //Test rich documents
   const inRichdoc = await createRichDocument([{ blockType: "p", contents: "Hello, World!" }]);
@@ -137,7 +142,7 @@ async function testInstanceData() {
     rich: inRichdoc
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 17);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 19);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
@@ -156,6 +161,7 @@ async function testInstanceData() {
     str: "String",
     price: Money.fromNumber(2.5),
     a_float: 1.5,
+    a_day: new Date("2023-09-29T00:00:00Z"),
     a_date_time: new Date("2023-09-28T21:04:35Z"),
     str_array: ["a", "b", "c"],
     url: "http://www.webhare.com",

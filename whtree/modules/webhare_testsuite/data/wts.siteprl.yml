@@ -16,6 +16,8 @@ types:
         type: integer
       blub:
         type: file
+      blubImg:
+        type: image
       price:
         type: money
       rich:
@@ -27,6 +29,8 @@ types:
         type: float
       aDateTime:
         type: datetime
+      aDay:
+        type: date
       anInstance:
         type: instance
       strArray:

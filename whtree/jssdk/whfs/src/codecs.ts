@@ -25,7 +25,10 @@ export type MemberType = "string" // 2
   | "composedDocument" //20
   | "hson" //21 (record in HareScript)
   | "formCondition" //22
-  | "record"; //23 (typedrecord in HareScript)
+  | "record" //23 (typedrecord in HareScript)
+  | "image" //24
+  | "date" //25
+  ;
 
 type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 
@@ -112,6 +115,21 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings.map(s => s.fs_object).filter(s => s !== null);
+    }
+  },
+  "date": {
+    encoder: (value: unknown) => {
+      if (value === null) //we accept nulls in datetime fields
+        return null;
+      if (!(value instanceof Date))
+        throw new Error(`Incorrect type. Wanted a Date, got '${typeof value}'`);
+
+      //return Date as YYYY-MM-DD
+      const yyyy_mm_dd = `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+      return { setting: yyyy_mm_dd };
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      return settings[0]?.setting ? new Date(settings[0].setting) : null;
     }
   },
   "dateTime": {
