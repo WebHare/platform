@@ -218,7 +218,8 @@ getscripttorun()
   eval $VARNAME=\$1
 }
 
-setup_for_console() #setup_for_console is invoked when we're starting a major subprocess (console or exec)
+#setup_for_console is invoked when we're starting a major subprocess (console or exec)
+setup_for_console()
 {
   if [ -n "$INFERRED_DATAROOT" ]; then
     echo "WEBHARE_DATAROOT is not set and inferring WEBHARE_DATAROOT has been removed" 2>&1
