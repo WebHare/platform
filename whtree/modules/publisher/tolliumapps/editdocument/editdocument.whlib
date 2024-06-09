@@ -765,11 +765,16 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     OBJECT work := this->BeginUnvalidatedWork();
     IF (this->frame->flags.isdirty)
     {
-      OBJECT toupdate := OpenWHFSObject(this->itemid);
-      IF(NOT this->isnew AND NOT ObjectExists(this->currentautosave)) //no intermediate autosave needed for isnew .. as isnew *is* the autosave
+      OBJECT toupdate;
+      IF(this->isnew) //no intermediate autosave needed for isnew .. as isnew *is* the autosave
       {
-        //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
-        this->currentautosave := CreateDraft(toupdate, ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, FALSE);
+        toupdate := OpenWHFSObject(this->itemid);
+      }
+      ELSE
+      {
+        IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
+          this->currentautosave := CreateDraft(OpenWHFSObject(this->itemid), ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, FALSE);
+
         toupdate := this->currentautosave->fsobject;
       }
 

@@ -4,6 +4,7 @@
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -14,7 +15,6 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-
 OBJECT FUNCTION Rte()
 {
   RETURN TT("doceditor")->contents->rte;
@@ -24,7 +24,8 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
   RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
 }
 
-ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly, BOOLEAN isprops) //shared MetaTabs and ObjectProps stuff
+INTEGER round;
+ASYNC FUNCTION TestMetaFields(BOOLEAN readonly, BOOLEAN isprops) //shared MetaTabs and ObjectProps stuff
 {
   //naming is inconsistent here
   STRING metatitletitle := isprops ? ":SEO Title" : ":Meta title";
@@ -64,7 +65,7 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly, BOOLEAN isprops) 
   TestEq(10 + round*2, multifieldline.items[0].obj->value);
   TestEq(round % 2 = 1, multifieldline.items[1].obj->value); //Cbox is initally off, then toggles each round
   TestEq(multifieldline.items[1].obj, multifieldline.items[2].obj->enabled_on_condition.field, 'textedit should point to cbox for enabling');
-  TestEq(round % 2 = 1, multifieldline.items[2].obj->AllowExternalUpdates(), 'allowexternal upates should match cbox state!');
+  TestEq(round % 2 = 1 AND NOT readonly, multifieldline.items[2].obj->AllowExternalUpdates(), 'allowexternal updates should match cbox state!');
   TestEq(20 + round*3, multifieldline.items[2].obj->value);
 
   IF(readonly)
@@ -83,6 +84,9 @@ ASYNC FUNCTION TestMetaFields(INTEGER round, BOOLEAN readonly, BOOLEAN isprops) 
   }
 
   TestEq(TT(":Check it"), TT(":extControlledField")->enabled_on_condition.field, 'extControlledField should point to Check it for enabling');
+
+  IF(NOT readonly)
+    round := round + 1;
 
   RETURN CELL [anumberfield];
 }
@@ -112,7 +116,7 @@ ASYNC MACRO TestMetaTab()
   TestEq(FALSE, topscreen->frame->flags.canpublish);
   TestEq(TRUE, TT(":Name")->enabled);
 
-  AWAIT TestMetaFields(0, FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE, FALSE);
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
   TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
@@ -121,24 +125,61 @@ ASYNC MACRO TestMetaTab()
 
   RECORD ARRAY autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
   TestEq(1,Length(autosaves));
-  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(autosaves[0].id), "*");
+
+  INTEGER currentdraft := autosaves[0].id;
+  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(currentdraft), "*");
   TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+
+  //Make a change, not saving or publishing but checking through My changes
+  AWAIT TestMetaFields(FALSE, FALSE);
+  { //click mychanges and test whether the change is there
+    RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
+    RECORD previewinfo := ParsePreviewURL(mychanges.url);
+
+    TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(currentdraft), "*");
+    TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  }
+
+  //Make a second change, not saving or publishing but checking through My changes
+  AWAIT TestMetaFields(FALSE, FALSE);
+  { //click mychanges and test whether the change is there
+    RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
+    RECORD previewinfo := ParsePreviewURL(mychanges.url);
+
+    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(currentdraft), "*");
+    TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  }
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
   TestEq(RECORD[], autosaves);
 
-  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+
+  //Make yet ANOTHER change
+  AWAIT TestMetaFields(FALSE, FALSE);
+
+  { //click mychanges and test whether the change is there
+    RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
+    RECORD previewinfo := ParsePreviewURL(mychanges.url);
+
+    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  }
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
-  AWAIT TestMetaFields(1, FALSE, TRUE);
+  AWAIT TestMetaFields(FALSE, TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 47], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
 }
 
 ASYNC MACRO TestRevert()
@@ -229,7 +270,7 @@ ASYNC MACRO TestReopenDeletedFile()
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
-  AWAIT TestMetaFields(2, TRUE, FALSE);
+  AWAIT TestMetaFields(TRUE, FALSE);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object

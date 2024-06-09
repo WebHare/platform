@@ -98,3 +98,17 @@ PUBLIC STRING FUNCTION GetViewURLWithFeedback(OBJECT file, OBJECT tolliumuser)
 
   RETURN ResolveToAbsoluteURL(url, "/.wh/common/feedback/view.shtml?target=" || EncodeURL(UnpackURL(url).urlpath) || "&feedbacktoken=" || EncodeURL(feedbacktoken));
 }
+
+PUBLIC RECORD FUNCTION ParsePreviewURL(STRING url)
+{
+  STRING baseurl := Tokenize(Tokenize(url, '/')[5],'?')[0];
+  RECORD data := DecryptForthisServer("publisher:preview",baseurl);
+  BOOLEAN renderwidgetpreview := CellExists(data,'t') AND data.t = "w";
+  RETURN [ id := data.id
+         , creationdate := data.c
+         , validuntil := data.v
+         , password := data.p
+         , renderwidgetpreview := renderwidgetpreview
+         , instanceid := renderwidgetpreview AND CellExists(data,'i') ? data.i : 0
+         ];
+}
