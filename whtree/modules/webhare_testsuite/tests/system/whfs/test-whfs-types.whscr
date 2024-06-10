@@ -10,7 +10,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 
 OBJECT testsite;
 
@@ -21,6 +21,19 @@ MACRO Prepare()
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   testsite := CreateSiteFromFolder(firstfolder->id);
   testfw->CommitWork();
+}
+
+MACRO TestCodecs()
+{
+  TestEq("2023-09-28", EncodeSPSetDate(MakeDateFromText("2023-09-28T21:04:35Z")));
+  TestEq("738791:75875000", EncodeSPSetDatetime(MakeDateFromText("2023-09-28T21:04:35Z")));
+
+  //NOTE: for backwards compatibilty we can't enforce no minyear 0 in HS. At least TS datetime variant will not accept the type=time variant
+  TestThrowsLike("*out of range*", PTR EncodeSPSetDate(MakeDate(10000,1,1)));
+  TestThrowsLike("*out of range*", PTR EncodeSPSetDatetime(MakeDate(10000,1,1)));
+  TestThrowsLike("*out of range*", PTR EncodeSPSetDate(MAX_DATETIME));
+  //TODO block MAX_DATETIME for dateime too? or 'too soon' now?
+  TestEq("2147483647:86399999", EncodeSPSetDateTime(MAX_DATETIME));
 }
 
 MACRO MockedTypes()
@@ -591,6 +604,7 @@ MACRO TestDirectInstanceData()
 }
 
 RunTestframework([ PTR Prepare
+                 , PTR TestCodecs
                  , PTR MockedTypes
                  , PTR MergeTypeInto
                  , PTR FindTest

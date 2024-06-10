@@ -129,6 +129,9 @@ PUBLIC STRING FUNCTION EncodeMember(VARIANT data, INTEGER type)
 
 PUBLIC STRING FUNCTION EncodeSPSetDatetime(DATETIME date)
 {
+  IF(date != MAX_DATETIME AND date >= MakeDate(10000,1,1))
+    THROW NEW Exception(`Date out of range, got ${EncodeJSON(date)}`);
+
   RETURN GetDayCount(date) || ":" || GetMsecondCount(date);
 }
 
@@ -148,6 +151,10 @@ PUBLIC DATETIME FUNCTION DecodeSPDatetime(RECORD ARRAY curset)
 
 PUBLIC STRING FUNCTION EncodeSPSetDate(DATETIME date)
 {
+  IF(date = MAX_DATETIME)
+    THROW NEW Exception(`Date out of range, got MAX_DATETIME`);
+  ELSE IF(date >= MakeDate(10000,1,1))
+    THROW NEW Exception(`Date out of range, got ${EncodeJSON(date)}`);
   RETURN FormatDateTime("%Y-%m-%d", date);
 }
 
