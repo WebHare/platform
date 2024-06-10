@@ -448,15 +448,18 @@ STATIC OBJECTTYPE WHFSType
             }
           }
         }
-        CASE 4,6,7,8,9
+        CASE 6,7,8,9
         {
           IF(Length(curset)>=1)
             newval := AnyTypeFromString(curset[0].setting, memberrec.type);
         }
+        CASE 4 //DatetIme
+        {
+          newval := DecodeSPDatetime(curset);
+        }
         CASE 25 //Date
         {
-          IF(length(curset)>=1)
-            newval := MakeDateFromText(curset[0].setting); //just store it as YYYY-MM-DD
+          newval := DecodeSPDate(curset);
         }
         CASE 15,20 //richdocument, composeddocument
         {
@@ -1133,10 +1136,12 @@ STATIC OBJECTTYPE WHFSType
           ELSE
           {
             STRING data;
-            IF(memberrec.type IN [4,6,7,8,9])
+            IF(memberrec.type IN [6,7,8,9])
               data := EncodeMember(newval, memberrec.type);
+            ELSE IF(memberrec.type = 4) //DateTime
+              data := EncodeSPSetDatetime(newval);
             ELSE IF(memberrec.type = 25) //Date
-              data := FormatDateTime("%Y-%m-%d", newval);
+              data := EncodeSPSetDate(newval);
             ELSE
               data := newval;
 
