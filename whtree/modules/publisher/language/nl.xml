@@ -302,6 +302,7 @@
         <text tid="ctypefieldedit">Wijzig instance setting</text>
       </textgroup>
       <textgroup gid="inspect">   <!-- filemanager.inspect.inspect -->
+        <text tid="applied">Toegekend</text>
         <text tid="applyindex">Index</text>
         <text tid="applyrules">&lt;apply&gt;</text>
         <text tid="approved">Goedgekeurd</text>

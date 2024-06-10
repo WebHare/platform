@@ -29,6 +29,9 @@
       <action name="jumptoreference" tid="~edit" onexecute="dojumptoreference">
         <enableon source="refs" min="1" max="1" />
       </action>
+      <action name="openineditor" tid="~openineditor">
+        <enableon source="applies" min="1" max="1" onexecute="doopenineditor" />
+      </action>
     </actions>
 
     <menus>
@@ -38,7 +41,10 @@
         <item action="dbinfodownload" />
         <item action="reflect" />
       </menu>
-    </menus>
+      <menu name="appliesmenu">
+        <item action="openineditor" />
+      </menu>
+  </menus>
 
     <compositions>
       <record name="fsobjecttypesettings" />
@@ -92,8 +98,9 @@
           <textedit name="searchapplyrules" onchange="refreshapplyrules" tid="~search" />
           <split type="vertical" height="1pr">
             <part height="1pr">
-              <list name="applies" selectmode="single" borders="top left right" onselect="onapplyselect" height="1pr" sortable="false">
-                <column name="path" type="text" />
+              <list name="applies" selectmode="single" borders="top left right" onselect="onapplyselect" height="1pr" sortable="false" selectcontextmenu="appliesmenu">
+                <column name="path" type="text" width="1pr" />
+                <column name="applied" type="text" width="1pr"/>
                 <column name="startline" type="integer" tid="~line" align="right" width="6x"/>
               </list>
             </part>
