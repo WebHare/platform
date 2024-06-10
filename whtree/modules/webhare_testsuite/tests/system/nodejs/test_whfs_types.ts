@@ -8,8 +8,39 @@ import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, RichDocument, WebHareBlob } from "@webhare/services";
 import { createRichDocument } from "@webhare/services/src/rtdbuilder";
+import { codecs } from "@webhare/whfs/src/codecs";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
+
+async function testCodecs() {
+  const basesettingrow = {
+    id: 0,
+    blobdata: null,
+    instancetype: null,
+    fs_instance: 0,
+    fs_member: 0,
+    setting: "",
+    fs_object: null,
+    parent: null,
+    ordering: 0
+  };
+
+  //directly testing the codecs also allows us to check against data format/migration issues
+  test.eq({ setting: "2023-09-28" }, codecs["date"].encoder(new Date("2023-09-28T21:04:35Z")));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(-9999, 0, 1))));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Invalid date/i, () => codecs["date"].encoder(new Date("Pieter Konijn")));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(999, 11, 31))));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(10000, 0, 1))));
+
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z")));
+
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], 0));
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], 0)); //sanity check: ensure time part is dropped
+
+  test.throws(/Out of range/i, () => codecs["dateTime"].encoder(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Invalid date/i, () => codecs["dateTime"].encoder(new Date("Pieter Konijn")));
+}
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -219,6 +250,7 @@ async function testInstanceData() {
 
 test.run([
   testSuiteCleanup,
+  testCodecs,
   testMockedTypes,
   testInstanceData
 ]);
