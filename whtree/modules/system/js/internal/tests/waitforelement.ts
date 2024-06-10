@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import * as test from '@mod-system/js/wh/testframework';
 
-export type SelectorPart = string | HTMLElement | RegExp | number;
+export type SelectorPart = string | HTMLElement | RegExp | number | (() => string | HTMLElement | RegExp | number);
 export type Selector = SelectorPart[] | string;
 
 function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector): HTMLElement | null {
@@ -14,7 +14,10 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
     selector = selector.slice(1); //don't edit the original selector list ... repeated waits always need the full list
   }
 
-  for (const step of selector) {
+  for (let step of selector) {
+    if (typeof step === "function")
+      step = step();
+
     if (typeof step === "string") {
       if (Array.isArray(currentmatch)) {
         //Special case - if currentmatch[0] is an iframe we will query into it (to allow ["#site2", ".whlive-chat__input"] paths)
