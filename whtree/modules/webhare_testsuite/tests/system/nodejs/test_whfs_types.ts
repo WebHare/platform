@@ -8,8 +8,39 @@ import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, RichDocument, WebHareBlob } from "@webhare/services";
 import { createRichDocument } from "@webhare/services/src/rtdbuilder";
+import { codecs } from "@webhare/whfs/src/codecs";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
+
+async function testCodecs() {
+  const basesettingrow = {
+    id: 0,
+    blobdata: null,
+    instancetype: null,
+    fs_instance: 0,
+    fs_member: 0,
+    setting: "",
+    fs_object: null,
+    parent: null,
+    ordering: 0
+  };
+
+  //directly testing the codecs also allows us to check against data format/migration issues
+  test.eq({ setting: "2023-09-28" }, codecs["date"].encoder(new Date("2023-09-28T21:04:35Z")));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(-9999, 0, 1))));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Invalid date/i, () => codecs["date"].encoder(new Date("Pieter Konijn")));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(999, 11, 31))));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(10000, 0, 1))));
+
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z")));
+
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], 0));
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], 0)); //sanity check: ensure time part is dropped
+
+  test.throws(/Out of range/i, () => codecs["dateTime"].encoder(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Invalid date/i, () => codecs["dateTime"].encoder(new Date("Pieter Konijn")));
+}
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -86,6 +117,7 @@ async function testInstanceData() {
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
+    aDay: new Date("2023-09-29T23:59:59Z"),
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
     aTypedRecord: { intMember: 497 },
@@ -93,12 +125,12 @@ async function testInstanceData() {
     myWhfsRefArray: fileids
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 12);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 13);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 15);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 16);
 
   test.eqPartial({
     int: 20,
@@ -106,6 +138,7 @@ async function testInstanceData() {
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
+    aDay: new Date("2023-09-29T00:00:00Z"), //msecond part gets truncated
     strArray: ["a", "b", "c"],
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
@@ -123,12 +156,15 @@ async function testInstanceData() {
   //Test files
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
   await testtype.set(testfile.id, {
-    blub: goldfish
+    blub: goldfish,
+    blubImg: goldfish
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 16);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 18);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
+  const returnedGoldfish2 = (await testtype.get(testfile.id)).blubImg as ResourceDescriptor;
+  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2.hash);
 
   //Test rich documents
   const inRichdoc = await createRichDocument([{ blockType: "p", contents: "Hello, World!" }]);
@@ -137,7 +173,7 @@ async function testInstanceData() {
     rich: inRichdoc
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 17);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 19);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
@@ -156,6 +192,7 @@ async function testInstanceData() {
     str: "String",
     price: Money.fromNumber(2.5),
     a_float: 1.5,
+    a_day: new Date("2023-09-29T00:00:00Z"),
     a_date_time: new Date("2023-09-28T21:04:35Z"),
     str_array: ["a", "b", "c"],
     url: "http://www.webhare.com",
@@ -213,6 +250,7 @@ async function testInstanceData() {
 
 test.run([
   testSuiteCleanup,
+  testCodecs,
   testMockedTypes,
   testInstanceData
 ]);

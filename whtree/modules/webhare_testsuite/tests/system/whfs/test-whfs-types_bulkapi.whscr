@@ -1,6 +1,8 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -28,10 +30,12 @@ MACRO TestBulkApi()
   mytype->SetInstanceData(testfile2->id,
       [ str := "String"
       , int := 42
-      , blub := wrapblob(StringToBlob("Dit is een test"),"blub")
+      , blub := WrapBlob(StringToBlob("Dit is een test"),"blub")
+      , blub_img := WrapBlob(GetWebhareResource("mod::system/web/tests/goudvis.png"), "goudvis.png")
       , price := 0m
       , yes_no := FALSE
       , a_float := 0f
+      , a_day := MakeDatetime(2012,5,4,3,2,1)
       , a_date_time := MakeDatetime(2010,5,4,3,2,1)
       , an_instance :=
           [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1"
@@ -139,7 +143,7 @@ MACRO TestBulkApi()
       ]);
 
   RECORD ARRAY results;
-  results := mytype->GetBulkData([INTEGER(testfile1->id), testfile2->id], ["STR","INT","a_date_time","an_instance", "URL", "an_array"]);
+  results := mytype->GetBulkData([INTEGER(testfile1->id), testfile2->id], ["STR","INT","a_date_time","a_day","an_instance", "URL", "an_array", "blub_img"]);
 
   TestEq(2,Length(results));
   TestEq(testfile1->id, results[0].id);
@@ -148,11 +152,15 @@ MACRO TestBulkApi()
   TestEq(42, results[1].int);
   TestEq(DEFAULT DATETIME, results[0].a_date_time);
   TestEq(MakeDatetime(2010,5,4,3,2,1), results[1].a_date_time);
+  TestEq(DEFAULT DATETIME, results[0].a_day);
+  TestEq(MakeDate(2012,5,4), results[1].a_day);
   TestEq(DEFAULT RECORD, results[0].an_instance);
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", results[1].an_instance.whfstype);
   TestEq("str1", results[1].an_instance.str1);
   TestEq(TRUE, results[1].an_instance.whfssettingid != 0);
   TestEq(0, results[1].an_instance.whfsfileid);
+  TestEq(DEFAULT RECORD, results[0].blub_img);
+  TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", results[1].blub_img.hash);
 
   TestEq(results[1].an_instance, GetWHFSInstanceDirect(results[1].an_instance.whfssettingid));
   TestEq("http://example.com/test2", results[0].url);

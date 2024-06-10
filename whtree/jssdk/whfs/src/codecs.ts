@@ -25,7 +25,10 @@ export type MemberType = "string" // 2
   | "composedDocument" //20
   | "hson" //21 (record in HareScript)
   | "formCondition" //22
-  | "record"; //23 (typedrecord in HareScript)
+  | "record" //23 (typedrecord in HareScript)
+  | "image" //24
+  | "date" //25
+  ;
 
 type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 
@@ -44,6 +47,18 @@ function assertValidString(value: unknown) {
   if (Buffer.byteLength(value) >= 4096)
     throw new Error(`String too long (${value.length})`);
   return value;
+}
+
+function assertValidDate(value: unknown): asserts value is Date {
+  if (!(value instanceof Date))
+    throw new Error(`Incorrect type. Wanted a Date, got '${typeof value}'`);
+
+  const t = value.getTime();
+  if (isNaN(t))
+    throw new Error(`Invalid date`);
+  if (t < -30610224000000   // Date.UTC(1000,0,1)   // no dates before 1000-1-1
+    || t >= 253402300800000)  // Date.UTC(10000,0,1)   // no dates on or after the year 10_000 UTC
+    throw new Error(`Date out of range. The year must be between 1 and 9999, got '${value}'`);
 }
 
 export const codecs: { [key: string]: TypeCodec } = {
@@ -114,12 +129,31 @@ export const codecs: { [key: string]: TypeCodec } = {
       return settings.map(s => s.fs_object).filter(s => s !== null);
     }
   },
+  "date": {
+    encoder: (value: unknown) => {
+      if (value === null) //we accept nulls in datetime fields
+        return null;
+
+      assertValidDate(value);
+
+      //return Date as YYYY-MM-DD
+      const yyyy_mm_dd = `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+      return { setting: yyyy_mm_dd };
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      if (!settings[0]?.setting)
+        return null;
+      const dt = new Date(settings[0].setting);
+      dt.setUTCHours(0, 0, 0, 0); //truncate to a UTC Date
+      return dt;
+    }
+  },
   "dateTime": {
     encoder: (value: unknown) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
-      if (!(value instanceof Date))
-        throw new Error(`Incorrect type. Wanted a Date, got '${typeof value}'`);
+
+      assertValidDate(value);
 
       const { days, msecs } = dateToParts(value);
       return days || msecs ? { setting: `${days}:${msecs}` } : null;

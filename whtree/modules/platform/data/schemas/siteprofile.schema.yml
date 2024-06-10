@@ -61,7 +61,9 @@ definitions:
           - string
           - integer
           - datetime
+          - date
           - file
+          - image
           - boolean
           - float
           - money
@@ -119,7 +121,9 @@ definitions:
           - money
           - boolean
           - dateTime
+          - date
           - resourceDescriptor
+          - imageDescriptor
           - fsObjectId
           - array
           - richDocument
@@ -172,7 +176,6 @@ definitions:
         description: Date/time precision
         type: string
         enum:
-          - day
           - hour
           - minute
           - second

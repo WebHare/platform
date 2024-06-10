@@ -73,11 +73,12 @@ function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTollium
     case "money":
       return { textedit: { valueConstraints, valueType: "money" } };
 
+    case "date": {
+      const datetime = { valueConstraints, type: "date", storeUTC: false };
+      return { datetime };
+    }
 
     case "dateTime": {
-      if (valueConstraints.precision === "day")
-        return { datetime: { valueConstraints, type: "date", storeUTC: true } };
-
       const datetime = { valueConstraints, type: "datetime", storeUTC: true };
       if (!valueConstraints.precision)
         datetime.valueConstraints = { ...datetime.valueConstraints, precision: "millisecond" };
@@ -87,6 +88,9 @@ function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTollium
 
     case "resourceDescriptor":
       return { fileedit: { valueConstraints } };
+
+    case "imageDescriptor":
+      return { imgedit: { valueConstraints } };
 
     case "fsObjectId":
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobject": { valueConstraints } };

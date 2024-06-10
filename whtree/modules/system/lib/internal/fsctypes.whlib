@@ -1,5 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
@@ -78,9 +80,13 @@ RECORD FUNCTION GetCacheableMembers(INTEGER typedefid)
       {
         emptyval := DEFAULT RECORD ARRAY;
       }
-      CASE 15, 16, 18, 20, 21, 22, 23 //RTD, intextlink, instance, composeddocument, record, formcondition, typedrecord
+      CASE 15, 16, 18, 20, 21, 22, 23, 24 //RTD, intextlink, instance, composeddocument, record, formcondition, typedrecord, image
       {
         emptyval := DEFAULT RECORD;
+      }
+      CASE 4,25 //Datetime, Date
+      {
+        emptyval := DEFAULT DATETIME;
       }
       DEFAULT
       {
@@ -116,4 +122,47 @@ PUBLIC STRING FUNCTION EncodeMember(VARIANT data, INTEGER type)
       ABORT("Illegal member type change");
   }
   RETURN coding.data;
+}
+
+
+//////////// Type 4: DATETIME.
+
+PUBLIC STRING FUNCTION EncodeSPSetDatetime(DATETIME date)
+{
+  IF(date != MAX_DATETIME AND date >= MakeDate(10000,1,1))
+    THROW NEW Exception(`Date out of range, got ${EncodeJSON(date)}`);
+
+  RETURN GetDayCount(date) || ":" || GetMsecondCount(date);
+}
+
+PUBLIC DATETIME FUNCTION DecodeSPDatetime(RECORD ARRAY curset)
+{
+  IF(Length(curset) = 0)
+    RETURN DEFAULT DATETIME;
+
+  STRING ARRAY toks := Tokenize(curset[0].setting,":");
+  IF (Length(toks)!=2)
+    RETURN DEFAULT DATETIME;
+  ELSE
+    RETURN MakeDateFromParts(ToInteger(toks[0],0), ToInteger(toks[1],0));
+}
+
+//////////// Type 25: DATE.
+
+PUBLIC STRING FUNCTION EncodeSPSetDate(DATETIME date)
+{
+  IF(date = MAX_DATETIME)
+    THROW NEW Exception(`Date out of range, got MAX_DATETIME`);
+  ELSE IF(date >= MakeDate(10000,1,1))
+    THROW NEW Exception(`Date out of range, got ${EncodeJSON(date)}`);
+  RETURN FormatDateTime("%Y-%m-%d", date);
+}
+
+PUBLIC DATETIME FUNCTION DecodeSPDate(RECORD ARRAY curset)
+{
+  IF(Length(curset) = 0)
+    RETURN DEFAULT DATETIME;
+
+  DATETIME newval := MakeDateFromText(curset[0].setting); //just store it as YYYY-MM-DD
+  RETURN newval;
 }

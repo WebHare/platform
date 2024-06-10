@@ -423,7 +423,7 @@ STATIC OBJECTTYPE WHFSType
         {
           newval := SELECT AS STRING ARRAY setting FROM curset ORDER BY ordering;
         }
-        CASE 5 //Blob/file record
+        CASE 5,24 //Blob/file record, Image
         {
           IF(Length(curset)>=1)
           {
@@ -448,10 +448,18 @@ STATIC OBJECTTYPE WHFSType
             }
           }
         }
-        CASE 4,6,7,8,9
+        CASE 6,7,8,9
         {
           IF(Length(curset)>=1)
             newval := AnyTypeFromString(curset[0].setting, memberrec.type);
+        }
+        CASE 4 //DateTime
+        {
+          newval := DecodeSPDatetime(curset);
+        }
+        CASE 25 //Date
+        {
+          newval := DecodeSPDate(curset);
         }
         CASE 15,20 //richdocument, composeddocument
         {
@@ -772,7 +780,7 @@ STATIC OBJECTTYPE WHFSType
             any_nondefault := TRUE;
           }
         }
-        CASE 5 //Blob/file record
+        CASE 5,24 //Blob/file record, image
         {
           IF(TypeID(newval) != TypeID(RECORD))
             THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD got " || GetTypeName(Typeid(newval)));
@@ -1128,8 +1136,12 @@ STATIC OBJECTTYPE WHFSType
           ELSE
           {
             STRING data;
-            IF(memberrec.type IN [4,6,7,8,9])//date
+            IF(memberrec.type IN [6,7,8,9])
               data := EncodeMember(newval, memberrec.type);
+            ELSE IF(memberrec.type = 4) //DateTime
+              data := EncodeSPSetDatetime(newval);
+            ELSE IF(memberrec.type = 25) //Date
+              data := EncodeSPSetDate(newval);
             ELSE
               data := newval;
 

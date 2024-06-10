@@ -196,6 +196,14 @@ async function testAllTypes() {
   const wtsgenerictab = metatabs!.types[1].sections[0];
   test.eqPartial({ title: ":str" }, wtsgenerictab.fields.find(_ => _.name === 'str'));
   test.eqPartial({ component: { fileedit: {} } }, wtsgenerictab.fields.find(_ => _.name === 'blub')); //TODO but shouldn't it actually be an image?
+  test.eqPartial([
+    { name: "blub", component: { fileedit: {} } },
+    { name: "blubImg", component: { imgedit: {} } },
+  ], wtsgenerictab.fields.filter(_ => _.name === 'blub' || _.name === 'blubImg'));
+  test.eqPartial([
+    { name: "aDateTime", component: { datetime: { type: "datetime", storeUTC: true } } },
+    { name: "aDay", component: { datetime: { type: "date", storeUTC: false } } },
+  ], wtsgenerictab.fields.filter(_ => _.name === 'aDateTime' || _.name === 'aDay'));
 
   const missingSuggestions = wtsgenerictab.fields.filter(_ => _.component?.text?.value && _.component?.text?.enabled === false);
   //TODO can we solve these all? at least prevent more from appearing

@@ -96,7 +96,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
       {
         SWITCH(props.value_constraints.precision)
         {
-          CASE "day"
+          CASE "day" //FIXME to be removed, already dropped from schema
           {
             this->type := "date";
           }
@@ -115,6 +115,14 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
         }
       }
     }
+
+    IF(CellExists(props,'type')) {
+      IF(props.type IN ["datetime","date"]) //TODO or spell it as dateTime ?
+        this->type := props.type;
+      ELSE
+        THROW NEW Exception(`Unsupported type '${props.type}'`);  //we specifically no longer support type=time.
+    }
+
     TolliumComponentBase::SetYamlProps(props);
   }
 
