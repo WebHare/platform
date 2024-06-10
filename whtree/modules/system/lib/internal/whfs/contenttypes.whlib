@@ -453,7 +453,7 @@ STATIC OBJECTTYPE WHFSType
           IF(Length(curset)>=1)
             newval := AnyTypeFromString(curset[0].setting, memberrec.type);
         }
-        CASE 4 //DatetIme
+        CASE 4 //DateTime
         {
           newval := DecodeSPDatetime(curset);
         }
