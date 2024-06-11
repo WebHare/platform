@@ -84,6 +84,7 @@ export * from "@mod-platform/js/testing/whtest";
 export {
   load,
   canClick,
+  findElement,
   waitForElement,
   qS,
   qSA,

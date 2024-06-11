@@ -119,7 +119,7 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
     if (this.viaservice) {
       this.serviceinstance ??= await getServiceInstance(this.viaservice);
       const res = await this.serviceinstance.APICall({
-        sourceip: "127.0.0.1", method: method.toLowerCase() as HTTPMethod, url: url.toString(), body: WebHareBlob.from(requestbody), headers: fetchoptions.headers
+        sourceip: "127.0.0.1", method: method.toUpperCase() as HTTPMethod, url: url.toString(), body: WebHareBlob.from(requestbody), headers: fetchoptions.headers
       }, url.toString().slice(this.baseurl.length));
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";

@@ -157,6 +157,17 @@ async function testResourceDescriptors() {
       width: 385,
       height: 236
     }, clone3.getMetaData());
+
+    const clone4 = await fish.clone({ fileName: "x.png", mediaType: "image/png" });
+    test.eqPartial({
+      mediaType: "image/png",
+      hash: null,
+      width: null,
+      height: null,
+      fileName: "x.png",
+    }, clone4.getMetaData());
+
+    test.throws(/Cannot update the mediaType/, () => fish.clone({ mediaType: "image/png", getDominantColor: true }));
   }
 
   {
