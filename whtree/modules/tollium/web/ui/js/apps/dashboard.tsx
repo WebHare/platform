@@ -1,19 +1,18 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-/* globals $shell */
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
-import * as $todd from '../support';
-const getTid = require("@mod-tollium/js/gettid").getTid;
-const toddImages = require("@mod-tollium/js/icons");
+import { getTid } from "@webhare/gettid";
+import * as toddImages from "@mod-tollium/js/icons";
 import KeyboardHandler from 'dompack/extra/keyboard';
 require("../../common.lang.json");
 import { ToddImage } from "../components/jsx";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { registerJSApp, type ApplicationBase } from "../application";
+import type IndyShell from '../shell';
 
 function rememberMenuHeights() {
   dompack.qSA('.dashboard__menuitem, .dashboard__app').forEach(node => {
@@ -27,19 +26,25 @@ function rememberMenuHeights() {
 function setMenuLiVisible(node, active) {
   if (node.classList.contains("dashboard__menuitem--hidden") === active) {
     node.style.maxHeight = (active ? node.propSavedOriginalHeight : 0) + "px";
-    dompack.toggleClasses(node, { "dashboard__menuitem--hidden": !active });
+    node.classList.toggle("dashboard__menuitem--hidden", !active);
   }
 }
 
 class DashboardApp {
   readonly app: ApplicationBase;
+  appshortcuts = [];
+  menusearch = '';
+  dashboardappsnode: HTMLDivElement;
+  node: HTMLDivElement;
+  dashboardnoappstextnode: HTMLSpanElement;
+  findasyoutype;
+  readonly shell: IndyShell;
 
   constructor(appinterface: ApplicationBase, callback) {
     this.app = appinterface;
-    this.appshortcuts = [];
-    this.menusearch = '';
     this.app.onappstackbottom = true; //we don't want to be in the app activation stack
     this.app.requiresScreen = false; //we don't need a screen to be 'active'
+    this.shell = this.app.shell;
 
     this.dashboardappsnode = <div className="dashboard__apps" tabindex="0">
       <nav className="dasbhoard__menuitems" />
@@ -70,8 +75,6 @@ class DashboardApp {
     this.appskeyboard = new KeyboardHandler(this.node, {}, { stopmapped: true });
 
     this.app.getAppCanvas().appendChild(this.node); //move dashboard into our new app
-
-    this.shell = $shell;
     window.addEventListener("tollium:settingschange", () => this.updateShellSettings());
 
     this.app.updateApplicationProperties({
@@ -141,8 +144,7 @@ class DashboardApp {
       return null;
     return document.activeElement.closest('.dashboard__app');
   }
-  _navigateApps(evt, step) //focus next or previous app (step explains direction)
-  {
+  _navigateApps(evt, step) { //focus next or previous app (step explains direction)
     if (evt)
       dompack.stop(evt);
 
@@ -217,12 +219,12 @@ class DashboardApp {
       if (!keyname)
         return;
 
-      this.appskeyboard.addKey(keyname, evt => { this.shell.executeInstruction(app.instr); });
+      this.appskeyboard.addKey(keyname, () => { this.shell.executeInstruction(app.instr); });
       this.appshortcuts.push(keyname);
     }));
   }
 
-  updateShellSettings(event) {
+  updateShellSettings() {
     if (!dompack.qS('#dashboard-user')) //  app has been terminated?
       return;
 
@@ -232,24 +234,24 @@ class DashboardApp {
 
     this.dashboardappsnode.firstChild.replaceWith(newmenu);
 
-    dompack.empty(dompack.qS('#dashboard-user'));
+    dompack.qS('#dashboard-user')?.replaceChildren();
     const usericon = settings.issysop ? 'tollium:users/manager' : 'tollium:users/user';
-    dompack.qS('#dashboard-user').append(
+    dompack.qR('#dashboard-user').append(
       toddImages.createImage(usericon, 16, 16, 'w', { className: "dashboard__userimg" })
       , <span id="dashboard-user-name">{settings.userdisplayname}</span>);
 
-    document.getElementById('dashboard-bg').style.background = settings.dashboardbg ? settings.dashboardbg.css : `url("/.tollium/ui/skins/default/dashboard_background.jpg") center/cover`;
+    dompack.qR('#dashboard-bg').style.background = settings.dashboardbg ? settings.dashboardbg.css : `url("/.tollium/ui/skins/default/dashboard_background.jpg") center/cover`;
 
-    document.getElementById('dashboard-display-name').textContent = settings.displayname;
+    dompack.qR('#dashboard-display-name').textContent = settings.displayname;
     if (settings.displayimage === "") {
-      document.getElementById('t-apptabs').style.backgroundImage = "none";
-      document.getElementById('dashboard-display-name').textContent = settings.displayname;
+      dompack.qR('#t-apptabs').style.backgroundImage = "none";
+      dompack.qR('#dashboard-display-name').textContent = settings.displayname;
     } else {
-      document.getElementById('dashboard-display-name').textContent = "";
-      document.getElementById('t-apptabs').style.backgroundImage = `url("${settings.displayimage}")`;
+      dompack.qR('#dashboard-display-name').textContent = "";
+      dompack.qR('#t-apptabs').style.backgroundImage = `url("${settings.displayimage}")`;
     }
-    dompack.toggleClasses(document.getElementById('dashboard-logout'), { "dashboard-logout--allowed": settings.allowlogout });
-    dompack.empty(document.getElementById('dashboard-newsarea'));
+    dompack.qR('#dashboard-logout').classList.toggle("dashboard-logout--allowed", settings.allowlogout);
+    dompack.qR('#dashboard-newsarea').replaceChildren();
 
     settings.newsitems.forEach(item => {
       let contentdiv;
@@ -261,7 +263,7 @@ class DashboardApp {
           {contentdiv = <div />}
         </div>);
       contentdiv.innerHTML = item.html;
-      dompack.qSA(contentdiv, 'a').forEach(link => link.target = "_blank");
+      dompack.qSA<HTMLAnchorElement>(contentdiv, 'a').forEach(link => link.target = "_blank");
     });
   }
   _onMenuClick(event, instr) {
