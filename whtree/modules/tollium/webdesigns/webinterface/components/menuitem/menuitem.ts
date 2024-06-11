@@ -212,8 +212,4 @@ export default class ObjMenuItem extends ComponentBase {
       return true;
     return this.isEnabled();
   }
-
-  syncWithScrollPos(scrollbar) {
-    this.menunode/*div*/.firstChild/*div*/.scrollTop = scrollbar.cur;
-  }
 }
