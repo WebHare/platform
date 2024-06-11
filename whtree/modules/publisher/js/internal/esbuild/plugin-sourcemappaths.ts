@@ -22,7 +22,6 @@ export default (outdir: string) => ({
           if (attempt_toResourcePath) {
             fullpath = attempt_toResourcePath;
             rewrotePath = true;
-            break;
           }
 
           //FIXME should services.toResourcePath do both of these? but especially whinstallationroot:: seems suspect!!
