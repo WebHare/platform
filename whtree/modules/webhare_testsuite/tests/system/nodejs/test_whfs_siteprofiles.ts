@@ -57,7 +57,7 @@ async function testSiteProfiles() {
     const tester = await getApplyTesterForObject(testobj);
     test.eq({ dogName: "bluey", sisterName: "bingo" }, await tester.getUserData("webhare_testsuite:setting"));
     test.eq(false, tester.isMocked());
-    test.eq("/TestPages/", testobj.fullPath);
+    test.eq("/TestPages/", testobj.sitePath);
     test.eq({ nameIsTestpage: true }, await tester.getUserData("webhare_testsuite:nameinfo"));
   }
 
