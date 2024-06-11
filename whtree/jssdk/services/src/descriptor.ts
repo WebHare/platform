@@ -725,24 +725,27 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     validextensions.push(ext ? ext.substring(1) : "bin");  //'bin' was the fallback application/octet-stream extension in WebHare. as long as we do extension-base mimetypeing on imgcache downloads, we *must* attach an extension for safety
   }
 
-  let filename: string = options?.fileName ?? (metaData?.fileName ? slugify(metaData.fileName) ?? "" : "");
+  let filename: string = options?.fileName ?? metaData?.fileName ?? "";
   let useextension = "";
   if (filename.includes(".")) {
     const fileext = extname(filename).substring(1).toLowerCase();
     if (validextensions.length && !allowanyextension && !validextensions.includes(fileext))
       useextension = validextensions[0];
     else {
-      useextension = fileext;
+      useextension = slugify(fileext) ?? "bin"; //still 'some' sanity applied to extensions, TODO but reconsider to drop allowAnyExtension
       filename = filename.substring(0, filename.length - fileext.length - 1);
     }
   } else if (validextensions.length && !allowanyextension) {
     useextension = validextensions[0];
   }
 
+  if (!options?.fileName) //filename was derived from metadata, not explicitly set
+    filename = slugify(filename) ?? (options?.method ? 'image' : 'file'); //then sanitize it
+
   const packet = getUCSubUrl(options?.method ? options as ResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
   let suffix = dataType === 1 ? "i" : embed ? "e" : "f";
   suffix += packet;
-  suffix += '/' + encodeURIComponent(filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : '');
+  suffix += '/' + encodeURIComponent((filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : ''));
 
   const url = `/.uc/` + suffix;
   return options?.baseURL ? new URL(url, options?.baseURL).href : url;
