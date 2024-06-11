@@ -339,6 +339,12 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   PUBLIC MACRO SetYamlProps(RECORD props) //Set YAML-based properties. Invoked instead of StaticInit and before setting a value
   {
+    IF(CellExists(props,'value_constraints'))
+    {
+      IF(CellExists(props.value_constraints,'required'))
+        this->required := props.value_constraints.required;
+    }
+
     ApplyYAMLPropsDirectly(this, props, CELL["enabled", 'required', 'title', 'width', 'height']);
 
     IF(CellExists(props,'enabled_on'))

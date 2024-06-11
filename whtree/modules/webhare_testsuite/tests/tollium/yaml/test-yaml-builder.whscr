@@ -16,6 +16,24 @@ ASYNC MACRO TestYamlInlineScreens()
   TestEq("Hello, world!", TT(":My textedit")->value);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //value_constraints is an 'initial setting;'
+  AWAIT ExpectScreenChange(+1, PTR RunYamlInlineScreen(GetTestController(),
+     CELL[ body_lines :=
+           [[ "datetime" := [ title := "DATE1", type := "date", value_constraints := [ required := TRUE ] ]]
+           ,[ "datetime" := [ title := "DATE2", type := "date", value_constraints := [ required := TRUE ], required := FALSE ]]
+           ]
+          ]));
+
+  TestEq("date", TT(":DATE1")->type);
+  TestEq(TRUE, TT(":DATE1")->required, "default valueConstraints sets required");
+  TestEq(FALSE, TT(":DATE2")->required, "required explicitly disabled");
+
+  //TODO verify interaction when WRD/WHFSInstance fields are used in combination with fields - whether they can forward their value_constraints in time to still interact with explicit required true/false
+  //TODO WHFS should actually apply the original value_constraints even when overridden in tollium
+  //TODO how useful *is* tightening constraints at the editProps level anyway? why not just modify the component props?
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestConditions()
