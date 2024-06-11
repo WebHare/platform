@@ -1,26 +1,25 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import KeyboardHandler from 'dompack/extra/keyboard';
 
 export default class FindAsYouType {
-  constructor(node, options) {
-    this.findingasyoutype = null;
-    this.findasyoutyperegex = null;
+  findingasyoutype: { timeout: NodeJS.Timeout | 0; search: string } | null = null;
+  findasyoutyperegex = null;
+  searchtimeout = 0;
+  onsearch;
+  node;
 
-    this.options = {
-      searchtimeout: 0,
-      onsearch: null,
-      ...options
-    };
+  constructor(node: HTMLElement, options: { searchtimeout?: number; onsearch: (search: string) => void }) {
+    if (options?.searchtimeout)
+      this.searchtimeout = options.searchtimeout;
+    this.onsearch = options.onsearch;
+
     this.node = node;
     new KeyboardHandler(node, {
       "Backspace": evt => this._onKeyboardBackspace(evt),
       "Escape": evt => this._onKeyboardEsc(evt)
     }, { onkeypress: (evt, key) => this._onKeyboardPress(evt, key) });
-
-    this.focuscallback = evt => this._onFocus(evt);
   }
 
   _onKeyboardBackspace(event) {
@@ -48,7 +47,7 @@ export default class FindAsYouType {
     dompack.stop(event);
     this._updateFindAsYouType(key);
   }
-  _updateFindAsYouType(toadd) {
+  _updateFindAsYouType(toadd: string) {
     // If we're already searching, clear the current deactivation timeout
     if (this.findingasyoutype) {
       if (this.findingasyoutype.timeout)
@@ -59,7 +58,7 @@ export default class FindAsYouType {
         timeout: 0, //deactivation timeout
         search: "" //currently searching for this string
       };
-      window.addEventListener("focus", this.focuscallback, true);
+      window.addEventListener("focus", this._onFocus, true);
     }
 
     // If a backspace was pressed, delete the last character, otherwise add the pressed character to the search string
@@ -70,20 +69,20 @@ export default class FindAsYouType {
 
     // If we still have a search string, set the deactivation timeout, otherwise deactivate directly
     if (this.findingasyoutype.search.length) {
-      if (this.options.searchtimeout)
-        this.findingasyoutype.timeout = setTimeout(() => this.stop(), this.options.searchtimeout);
+      if (this.searchtimeout)
+        this.findingasyoutype.timeout = setTimeout(() => this.stop(), this.searchtimeout);
 
       // Create a regular expression matching string beginning with the (escaped) search string, ignoring case
-      this.options.onsearch(this.findingasyoutype.search);
+      this.onsearch(this.findingasyoutype.search);
     } else
       this.stop();
   }
 
-  _onFocus(evt) {
-    if (!dompack.contains(this.node, evt.target)) {
+  _onFocus = (evt: Event) => {
+    if (evt.target && !this.node.contains(evt.target as Node)) {
       this.stop(); //focus left our container
     }
-  }
+  };
 
   stop() {
     if (!this.findingasyoutype)
@@ -91,8 +90,8 @@ export default class FindAsYouType {
 
     if (this.findingasyoutype.timeout)
       clearTimeout(this.findingasyoutype.timeout);
-    window.removeEventListener("focus", this.focuscallback, true);
+    window.removeEventListener("focus", this._onFocus, true);
     this.findingasyoutype = null;
-    this.options.onsearch('');
+    this.onsearch('');
   }
 }
