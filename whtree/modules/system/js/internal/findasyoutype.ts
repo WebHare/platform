@@ -1,7 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
 import * as dompack from '@webhare/dompack';
-import KeyboardHandler from 'dompack/extra/keyboard';
 
 export default class FindAsYouType {
   findingasyoutype: { timeout: NodeJS.Timeout | 0; search: string } | null = null;
@@ -16,38 +13,36 @@ export default class FindAsYouType {
     this.onsearch = options.onsearch;
 
     this.node = node;
-    new KeyboardHandler(node, {
-      "Backspace": evt => this._onKeyboardBackspace(evt),
-      "Escape": evt => this._onKeyboardEsc(evt)
-    }, { onkeypress: (evt, key) => this._onKeyboardPress(evt, key) });
+    node.addEventListener("keydown", this._onKeyboard);
+    node.addEventListener("focusout", this._onFocusOut);
   }
 
-  _onKeyboardBackspace(event) {
-    dompack.stop(event);
-    if (this.findingasyoutype)
-      this._updateFindAsYouType(null);
-  }
+  _onKeyboard = (evt: KeyboardEvent) => {
+    switch (evt.key) {
+      case "Escape":
+        console.log(this.findingasyoutype);
+        if (this.findingasyoutype) {
+          dompack.stop(evt);
+          this.stop();
+        }
+        break;
+      case "Backspace":
+        dompack.stop(evt);
+        if (this.findingasyoutype)
+          this._updateFindAsYouType(null);
+        break;
+      default:
+        if (evt.key.length === 1 && !(evt.altKey || evt.ctrlKey || evt.metaKey)) { //normal key, add it to the search
+          dompack.stop(evt);
+          this._updateFindAsYouType(evt.key);
+        } else {
+          //something special, cancel find and let the browser handle it
+          this.stop();
+        }
+    } //end switch
+  };
 
-  _onKeyboardEsc(event) {
-    if (this.findingasyoutype) {
-      dompack.stop(event);
-      this.stop();
-    }
-  }
-
-  _onKeyboardPress(event, key) {
-    if (key.length > 1) //ignore special keys here
-      return true;
-
-    if (event.ctrlKey || event.altKey || event.metaKey) {
-      this.stop();
-      return true; // Let browser handle the event
-    }
-
-    dompack.stop(event);
-    this._updateFindAsYouType(key);
-  }
-  _updateFindAsYouType(toadd: string) {
+  _updateFindAsYouType(toadd: string | null) {
     // If we're already searching, clear the current deactivation timeout
     if (this.findingasyoutype) {
       if (this.findingasyoutype.timeout)
@@ -58,7 +53,6 @@ export default class FindAsYouType {
         timeout: 0, //deactivation timeout
         search: "" //currently searching for this string
       };
-      window.addEventListener("focus", this._onFocus, true);
     }
 
     // If a backspace was pressed, delete the last character, otherwise add the pressed character to the search string
@@ -78,10 +72,8 @@ export default class FindAsYouType {
       this.stop();
   }
 
-  _onFocus = (evt: Event) => {
-    if (evt.target && !this.node.contains(evt.target as Node)) {
-      this.stop(); //focus left our container
-    }
+  _onFocusOut = () => {
+    this.stop();
   };
 
   stop() {
@@ -90,7 +82,6 @@ export default class FindAsYouType {
 
     if (this.findingasyoutype.timeout)
       clearTimeout(this.findingasyoutype.timeout);
-    window.removeEventListener("focus", this._onFocus, true);
     this.findingasyoutype = null;
     this.onsearch('');
   }
