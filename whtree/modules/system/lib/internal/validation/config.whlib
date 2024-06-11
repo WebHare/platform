@@ -33,7 +33,7 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
 */
 PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
 {
-  RECORD retval := [ excludemasks := RECORD[]
+  RECORD retval := [ excludemasks := [ [ mask := "localtests/*", why := "Non-validated tests", permanent := TRUE ] ]
                    , futuremodule := FALSE
                    , futuremodulewhy := ""
                    , ...defaultvalidationoptions
