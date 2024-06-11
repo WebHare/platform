@@ -772,7 +772,11 @@ export class ResourceDescriptor implements ResourceMetaData {
         dominantcolor: this.dominantColor || 'transparent',
         filename: this.fileName,
         data: this.resource,
-        source_fsobject: this.sourceFile || 0
+        source_fsobject: this.sourceFile || 0,
+        __blobsource: this.dbLoc?.source === 3 ? "w" + this.dbLoc?.id
+          : this.dbLoc?.source === 2 ? "s" + this.dbLoc?.id
+            : this.dbLoc?.source === 1 ? "o" + this.dbLoc?.id
+              : ""
       });
     }
   };
