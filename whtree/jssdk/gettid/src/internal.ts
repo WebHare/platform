@@ -126,6 +126,13 @@ export function getTIDListForLanguage(langcode: string, gid: string) {
   return result;
 }
 
+function cannotFind(tid: string) {
+  if (debugFlags.sut)
+    return tid.substring(tid.lastIndexOf("."));
+
+  return `(cannot find text: ${tid})`;
+}
+
 function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<string | number | null>, rich: boolean) {
   tid = getCanonicalTid(tid.toLowerCase());
   if (tid === "tollium:tilde.locale.datetimestrings") {
@@ -140,10 +147,6 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<stri
     if (isLive || debugFlags.gtd)
       console.warn(`Missing module name in call for tid '${tid}'`);
     return `(missing module name in tid: ${tid})`;
-  }
-
-  if (debugFlags.sut) {
-    return tid.substring(tid.lastIndexOf("."));
   }
 
   const module = tid.substring(0, modsep);
@@ -163,12 +166,13 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<stri
     if (!fallbackMatch && (!isLive || debugFlags.gtd)) {
       console.warn(`Cannot find text ${tid} for language ${langcode}, also tried fallback language '${compiled.fallbackLanguage}'`);
     }
-    return fallbackMatch ? executeCompiledTidText(fallbackMatch, params, rich) : `(cannot find text: ${tid})`;
+    return fallbackMatch ? executeCompiledTidText(fallbackMatch, params, rich) : cannotFind(tid);
   }
+
   if (!match && (!isLive || debugFlags.gtd)) {
     console.warn(`Cannot find text ${tid} for language ${langcode}, no fallback language`);
   }
-  return match ? executeCompiledTidText(match, params, rich) : `(cannot find text: ${tid})`;
+  return match ? executeCompiledTidText(match, params, rich) : cannotFind(tid);
 }
 
 function getCanonicalTid(tid: string) {

@@ -25,12 +25,13 @@ test.registerTests([
 
     registerTexts("base", "en", base_texts);
 
-    //retrieval with wrong language"
+    // retrieval with wrong language (set to 'nl' above)
     test.eq("(cannot find text: base:testgroup.testtext)", getTid("base:testgroup.testtext"));
 
     // Test short tid's by temporarily setting the 'sut' flag
     domdebug.debugflags.sut = true;
     test.eq(".testtext", getTid("base:testgroup.testtext"));
+    test.eq(".unknown", getTid("base:testgroup.unknown"));
     domdebug.debugflags.sut = false;
 
     // set language
@@ -42,6 +43,13 @@ test.registerTests([
 
     // retrieve a group node
     test.eq("(cannot find text: base:testgroup)", getTid("base:testgroup"));
+
+    // retest short tids
+    domdebug.debugflags.sut = true;
+    test.eq("This is a test", getTid("base:testgroup.testtext"));
+    test.eq(".unknown", getTid("base:testgroup.unknown"));
+    domdebug.debugflags.sut = false;
+
   },
 
   "Test string substitution (param, ifparam, else)",
