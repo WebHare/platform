@@ -45,7 +45,8 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
           return null; //not yet matching
       }
     } else if (typeof step === 'object' && "ownerDocument" in step) {
-      if (!(Array.isArray(currentmatch) ? currentmatch : [currentmatch]).some(e => e.contains(step)))
+      const elt = step;
+      if (!(Array.isArray(currentmatch) ? currentmatch : [currentmatch]).some(e => e.contains(elt)))
         return null; //not yet matching
       currentmatch = step;
     } else if (typeof step === "number") {
