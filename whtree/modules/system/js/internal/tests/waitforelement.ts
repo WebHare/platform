@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import * as test from '@mod-system/js/wh/testframework';
 
-export type SelectorPart = string | HTMLElement | RegExp | number | (() => string | HTMLElement | RegExp | number);
+export type SelectorPart = string | HTMLElement | RegExp | number | (() => string | HTMLElement | RegExp | number | undefined | null);
 export type Selector = SelectorPart[] | string;
 
 function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector): HTMLElement | null {
@@ -9,14 +9,13 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
   if (typeof selector === "string")
     selector = [selector];
 
-  if (typeof selector[0] === 'object' && (selector[0] as HTMLElement).ownerDocument) {
-    currentmatch = selector[0] as HTMLElement;
-    selector = selector.slice(1); //don't edit the original selector list ... repeated waits always need the full list
-  }
-
   for (let step of selector) {
-    if (typeof step === "function")
-      step = step();
+    if (typeof step === "function") {
+      const result = step();
+      if (result === null || result === undefined)
+        return null;
+      step = result;
+    }
 
     if (typeof step === "string") {
       if (Array.isArray(currentmatch)) {
@@ -45,6 +44,10 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
         if (!currentmatch.textContent?.match(step))
           return null; //not yet matching
       }
+    } else if (typeof step === 'object' && "ownerDocument" in step) {
+      if (!(Array.isArray(currentmatch) ? currentmatch : [currentmatch]).some(e => e.contains(step)))
+        return null; //not yet matching
+      currentmatch = step;
     } else if (typeof step === "number") {
       if (!Array.isArray(currentmatch))
         throw new Error("Invalid testfw-selector, require selector before index");
