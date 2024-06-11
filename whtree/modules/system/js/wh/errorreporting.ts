@@ -1,23 +1,20 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-/** @import import * as utilerror from '@mod-system/js/wh/errorreporting';
-*/
+/* eslint-disable no-restricted-globals */
 
 /* This libraries monitors root.error and reports errors to the webhare notice log
 */
 
-import * as dompack from 'dompack';
+import { debugFlags } from "@webhare/env";
+// eslint-disable-next-line @typescript-eslint/no-var-requires -- not fully converted to TS yet
 const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import * as browser from 'dompack/extra/browser';
-const StackTrace = require("stacktrace-js");
+import StackTrace from "stacktrace-js";
 
 let haveerror = false;
 let mayreport = true;
-let saved_onerror = null;
+let saved_onerror: typeof onerror = null;
 
 // Determine root object
-let root;
+let root: typeof self;
 if (typeof window !== "undefined")
   root = window;
 else if (typeof self !== "undefined")
@@ -25,17 +22,19 @@ else if (typeof self !== "undefined")
 
 // With promise debugging, we replace the promise constructor to add a stack trace to the promise
 // at construction time, so we can trace where the rejected promise came from
-if (dompack.debugflags.pro) {
+if (debugFlags.pro) {
   const P = Promise;
-  const MyPromise = function (executor) {
-    const p = new P(executor);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type MyAny = any;
+  const MyPromise = function (executor: MyAny) {
+    const p = new P(executor) as MyAny;
     p.error = new Error("unhandled rejected promise");
     p.__proto__ = MyPromise.prototype;
     return p;
   };
   MyPromise.__proto__ = P;
   MyPromise.prototype.__proto__ = P.prototype;
-  root.Promise = MyPromise;
+  root!.Promise = MyPromise as MyAny;
 }
 
 function installHandlers() {
@@ -47,8 +46,8 @@ function installHandlers() {
 
   root.addEventListener('unhandledrejection', async event => {
     console.log("unhandled rejection", event);
-    if (dompack.debugflags.pro && event.promise.error)
-      reportException(event.promise.error);
+    if (debugFlags.pro && (event.promise as Promise<unknown> & { error: Error }).error)
+      reportException((event.promise as Promise<unknown> & { error: Error }).error);
   });
 }
 
@@ -56,33 +55,27 @@ function resetMayReport() {
   mayreport = true;
 }
 
-const reported = [];
+const reported: string[] = [];
 const sourceCache = {};
-let reportPromise = null;
+let reportPromise: Promise<unknown> | null = null;
 
 /** Send an exception
-    @param errorobj Error exception
-    @param options
-    @cell options.altstack Alternative exception text to show when the exception has no stack member
-    @cell options.forcesend Always send the exception (no throttling)
-    @cell options.extradata Extra data to mix in with the report
-    @cell options.serviceuri Alternative serviceuri to use
-    @cell options.servicefunction Alternative servicefunction to use
+    @param errorobj - Error exception
+    @param options -
+    - options.altstack: Alternative exception text to show when the exception has no stack member
+    - options.forcesend: Always send the exception (no throttling)
+    - options.extradata: Extra data to mix in with the report
+    - options.serviceuri: Alternative serviceuri to use
+    - options.servicefunction: Alternative servicefunction to use
 */
-export async function reportException(errorobj: Error, options?) {
+export async function reportException(errorobj: Error, options?: { altstack?: string; forcesend?: boolean; forceresolve?: boolean; extradata?: object; serviceuri?: string; servicefunction?: string }) {
   options = options || {};
 
   //try {  console.log("reportException", errorobj, errorobj.stack) }catch(e) {}
   let exception_text = '';
-  if (errorobj && typeof errorobj === "object") // Firefox may throw permission denied on stack property
-  {
-    try {
-      exception_text = errorobj.stack;
-      const firstline = errorobj.name + ": " + errorobj.message;
-      if (exception_text.beginsWith(firstline))
-        exception_text = firstline + "\n" + exception_text;
-    } catch (e) {
-    }
+  if (errorobj && typeof errorobj === "object") {
+    if ("name" in errorobj && "message" in errorobj)
+      exception_text = `${errorobj.name}: ${errorobj.message}`;
   }
 
   if (!exception_text && options && options.altstack)
@@ -98,7 +91,7 @@ export async function reportException(errorobj: Error, options?) {
   if (!shouldsend && !options.forcesend && !options.forceresolve)
     return;
 
-  let resolve, promise = new Promise(res => resolve = res);
+  const { resolve, promise } = Promise.withResolvers<boolean>();
   reportPromise = (reportPromise || Promise.resolve(true)).then(() => promise);
   try {
     reported.push(exception_text);
@@ -108,29 +101,37 @@ export async function reportException(errorobj: Error, options?) {
       console.info("Getting stack trace for exception", errorobj);
       // Must specify a sourceCache to avoid duplicate requests
       if (StackTrace) {
-        stackframes = await StackTrace.fromError(errorobj, { sourceCache });
-        stackframes = stackframes.map(frame => (
+        const parsedStackFrames = await StackTrace.fromError(errorobj, { sourceCache });
+        stackframes = parsedStackFrames.map(frame => (
           {
-            line: frame.lineNumber,
-            functionname: frame.functionName,
-            filename: frame.fileName.replace("/@whpath/", ""),
-            column: frame.columnNumber
+            line: frame.lineNumber || 0,
+            functionname: frame.functionName || "unknown",
+            filename: (frame.fileName || "unknown").replace("/@whpath/", ""),
+            column: frame.columnNumber || 0
           }));
       }
     } catch (e) {
-      console.info("Could not retrieve stack trace", e.stack || e);
+      console.info("Could not retrieve stack trace", (e as Error).stack || e);
     }
 
     if (!shouldsend && !options.forcesend)
       return ({ stacktrace: stackframes });
 
-    const data =
-    {
+    type Data = {
+      v: number;
+      browser: { name: string };
+      location: string;
+      message: string;
+      trace: Array<{ line: number; functionname: string; filename: string; column: number }> | undefined;
+      data?: object;
+    };
+
+    const data: Data = {
       v: 1,
       browser: { name: browser.getTriplet() },
       location: location.href,
-      error: exception_text,
-      trace: stackframes
+      message: exception_text,
+      trace: stackframes,
     };
 
     if (options && options.extradata) {
@@ -146,7 +147,7 @@ export async function reportException(errorobj: Error, options?) {
 
     if (stackframes) {
       console.warn("Reported exception: ", exception_text);
-      console.warn("Translated trace: " + stackframes.map(s => `\n at ${s.func || ""} (${s.filename}:${s.line}:${s.col})`).join(""));
+      console.warn("Translated trace: " + stackframes.map(s => `\n at ${s.functionname || ""} (${s.filename}:${s.line}:${s.column})`).join(""));
     } else
       console.warn('Reported exception: ', exception_text);
 
@@ -156,9 +157,9 @@ export async function reportException(errorobj: Error, options?) {
   }
 }
 
-function handleOnError(errormsg, url, linenumber, column, errorobj) {
+function handleOnError(errormsg: Event | string, url?: string, linenumber?: number, column?: number, errorobj?: Error) {
   // Test if we should ignore this callback
-  if (shouldIgnoreOnErrorCallback(errormsg))
+  if (typeof errormsg !== "string" || shouldIgnoreOnErrorCallback(errormsg))
     return false;
 
   if (!mayreport) {
@@ -172,31 +173,26 @@ function handleOnError(errormsg, url, linenumber, column, errorobj) {
     if (url)
       altstack += "\nat unknown_function (" + url + ":" + linenumber + ":" + (column || 1) + ")";
 
-    reportException(errorobj, { altstack: altstack });
+    if (errorobj)
+      reportException(errorobj, { altstack: altstack });
 
     if (!haveerror && root.addEventListener)
       root.addEventListener('click', resetMayReport, true);
 
     haveerror = true;
   } catch (e) {
-    try //IE unspecified errors may refuse to be printed, so be prepared to swallow even this
-    {
-      console.error('Exception while reporting earlier exception', e);
-    } catch (e) {
-      try {
-        console.error('Exception while reporting about the exception about an earlier exception');
-      } catch (e) {
-        /* we give up. console is crashing ? */
-      }
-    }
+    console.error('Exception while reporting earlier exception', e);
   }
 
-  if (saved_onerror)
+  if (saved_onerror) {
+    // @ts-ignore -- This works, but TS complains
+    // eslint-disable-next-line @typescript-eslint/no-invalid-this, prefer-rest-params
     return saved_onerror.apply(this, arguments);
+  }
   return false;
 }
 
-export function shouldIgnoreOnErrorCallback(errormsg) {
+export function shouldIgnoreOnErrorCallback(errormsg: string) {
   // Firefox fires the performance warning 'mutating the [[Prototype]] of an object will cause your code to run very slowly; instead ...'
   // via onerror. Ignore it, it is not an error.
   if (/mutating the \[\[Prototype\]\] of an/.exec(errormsg))
@@ -212,5 +208,5 @@ export function waitForReports() {
   return reportPromise;
 }
 
-if (!dompack.debugflags.ner)
+if (!debugFlags.ner)
   installHandlers();
