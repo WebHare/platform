@@ -156,8 +156,11 @@ test.registerTests(
         // There should be a textedit now
         const textedit = test.getCurrentScreen().getListRow("leesplankje", "Monkey").querySelector(".textedit");
         test.assert(textedit);
-        // Change the value again
-        textedit.value = "ape";
+
+        // Change the value again. pressKey is better to find issues with parent keyboard handlers
+        textedit.focus();
+        textedit.select();
+        await test.pressKey(["a", "p", "e"]);
 
         // Press Enter to submit
         await test.pressKey("Enter");

@@ -18,6 +18,8 @@ export default class FindAsYouType {
   }
 
   _onKeyboard = (evt: KeyboardEvent) => {
+    if (evt.target !== this.node)
+      return; //ignore keyboard events to embedded elements (eg inline title changes in lists)
     switch (evt.key) {
       case "Escape":
         if (this.findingasyoutype) {
