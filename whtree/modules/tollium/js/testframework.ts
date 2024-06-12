@@ -60,9 +60,12 @@ class ScreenProxy {
   /** Return the <li> node for a specific menu item
       @param levels - Full path to the menu item (parts of the menu names)
   */
-  getMenu(levels: string[], { autoclickhamburger = true } = {}): HTMLElement {
+  getMenu(levels: string[], options?: { allowMissing?: boolean; autoClickHamburger?: boolean } = {}): HTMLElement;
+  getMenu(levels: string[], options?: { allowMissing: true; autoClickHamburger?: boolean } = {}): HTMLElement | null;
+
+  getMenu(levels: string[], { allowMissing = false, autoClickHamburger = true } = {}): HTMLElement | null {
     let curitem: HTMLElement | null = this.win.node.querySelector('.wh-menubar');
-    if (!curitem && autoclickhamburger) {
+    if (!curitem && autoClickHamburger) {
       // test clicking the hamburger menu
       const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
       if (hamburger_img) {
@@ -91,7 +94,11 @@ class ScreenProxy {
       }
 
     if (!curitem)
-      throw new Error("Could not find menu item '" + levels.join(" > ") + "'");
+      if (allowMissing)
+        return null;
+      else
+        throw new Error("Could not find menu item '" + levels.join(" > ") + "'");
+
     return curitem;
   }
   getText(compname) {
@@ -205,8 +212,8 @@ function getCurrentApp() {
 function getCurrentScreen() {
   return getCurrentApp().getActiveScreen();
 }
-function getMenu(levels) {
-  return getCurrentScreen().getMenu(levels);
+function getMenu(levels, { allowMissing = false, autoClickHamburger = true } = {}) {
+  return getCurrentScreen().getMenu(levels, { allowMissing, autoClickHamburger });
 }
 function compByName(toddname) {
   return getCurrentScreen().getToddElement(toddname);

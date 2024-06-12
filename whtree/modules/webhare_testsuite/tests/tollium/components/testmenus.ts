@@ -227,7 +227,7 @@ test.registerTests(
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
         test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
 
-        test.assert(!test.getMenu(['X01']) !== null);
+        test.assert(!test.getMenu(['X01'], { allowMissing: true }) !== null);
         const X22 = test.getMenu(['X21', 'x22']);
         test.assert(X22 !== null);
         test.click(X22);
@@ -242,7 +242,7 @@ test.registerTests(
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
         test.assert(testbottom.getBoundingClientRect().bottom < screennode.getBoundingClientRect().bottom, "'test bottom' is outside the t-screen");
 
-        test.assert(!test.getMenu() !== null);
+        test.assert(!test.getMenu([], { allowMissing: true }));
         test.assert(test.compByName('b02_togglebutton') !== null);
         test.click(test.compByName('b01_switchbar'));
       },
