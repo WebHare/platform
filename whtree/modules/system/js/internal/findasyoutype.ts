@@ -36,10 +36,7 @@ export default class FindAsYouType {
         if (evt.key.length === 1 && !(evt.altKey || evt.ctrlKey || evt.metaKey)) { //normal key, add it to the search
           dompack.stop(evt);
           this._updateFindAsYouType(evt.key);
-        } else {
-          //something special, cancel find and let the browser handle it
-          this.stop();
-        }
+        } //don't cancel ourselves based on 'odd key press'. just have focus loss deal with the effect of eg ctrl+shift+2
     } //end switch
   };
 
