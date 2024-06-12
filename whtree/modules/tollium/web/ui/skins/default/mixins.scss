@@ -66,6 +66,7 @@
   border-color: #b3b3b3;
   color: rgba(0,0,0,.5);
   background: url("~@mod-tollium/web/ui/skins/default/bgdisabled.svg") 0 0/48px 48px;
+  opacity: 1; //fix user agents styling a select[disabled] at opacity 0.7
 
   &:focus
   {

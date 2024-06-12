@@ -2,7 +2,7 @@
 
 //import * as components from './componentbase';
 
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as movable from 'dompack/browserfix/movable';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import KeyboardHandler from 'dompack/extra/keyboard';
@@ -996,8 +996,7 @@ export default class Frame extends ToddCompBase {
 
   rebuildContentNode() {
     const newnodes = [this.menubarnode, this.toolbar ? this.toolbar.getNode() : null, this.bodynode?.getNode()].filter(isTruthy);
-    dompack.empty(this.nodes.contentnode);
-    this.nodes.contentnode.append(...newnodes);
+    this.nodes.contentnode.replaceChildren(...newnodes);
   }
 
   /****************************************************************************************************************************
@@ -1218,10 +1217,8 @@ export default class Frame extends ToddCompBase {
     const setwidth = this.width.set;
     const setheight = this.height.set;
 
-    dompack.setStyles(this.nodes.root, {
-      width: setwidth,
-      height: setheight
-    });
+    this.nodes.root.style.width = setwidth + 'px';
+    this.nodes.root.style.height = setheight + 'px';
     this.nodes.contentnode.style.height = (setheight - this.headerheight) + 'px';
 
     if (this.toolbar)
@@ -1261,7 +1258,8 @@ export default class Frame extends ToddCompBase {
       this.left = Math.floor(Math.max((appcanvasdim.width - this.width.set) / 2, 0));
       this.top = Math.floor(Math.max((appcanvasdim.height - this.height.set) / 3, 0));
       // Re-position the window. center
-      dompack.setStyles(this.node, { left: this.left, top: this.top });
+      this.node.style.left = this.left + 'px';
+      this.node.style.top = this.top + 'px';
     }
 
     if (this.bodynode)
@@ -1387,7 +1385,8 @@ export default class Frame extends ToddCompBase {
     // Restrict to min and max position
     this.left = Math.min(Math.max(pos.x, this.draginfo.minpos.x), this.draginfo.maxpos.x);
     this.top = Math.min(Math.max(pos.y, this.draginfo.minpos.y), this.draginfo.maxpos.y);
-    dompack.setStyles(this.node, { left: this.left, top: this.top });
+    this.node.style.left = this.left + 'px';
+    this.node.style.top = this.top + 'px';
   }
 
   onResizerMove(event: movable.DompackMoveEvent) {
