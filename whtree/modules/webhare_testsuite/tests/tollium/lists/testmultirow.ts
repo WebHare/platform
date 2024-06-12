@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 
 
@@ -12,9 +9,9 @@ test.registerTests(
     },
     {
       name: 'setsort',
-      test: function (doc, win) {
+      test: function () {
         const baselist = test.compByName("layout");
-        const senderheader = test.qSA(baselist, '.listheader span').filter(span => span.textContent.includes("Sender"))[0];
+        const senderheader = test.qSA(baselist, '.listheader span').filter(span => span.textContent?.includes("Sender"))[0];
         test.click(senderheader);
         test.assert(senderheader.classList.contains("sortascending"), 'looks like sender column didnt get selected for sort');
       }

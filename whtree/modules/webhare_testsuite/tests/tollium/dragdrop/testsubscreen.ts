@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 const gesture_time = 200;
 
@@ -13,14 +10,14 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_prepare',
-      test: function (doc, win) {
+      test: function () {
         const toplog = test.qSA('t-textarea')[0];
         const bottomlog = test.qSA('t-textarea')[1];
         const topsource = test.qSA('.wh-ui-listview[data-name$=source]')[0];
         const bottomtarget = test.qSA('.wh-ui-listview[data-name$=target]')[1];
 
-        test.eq('', toplog.querySelector('textarea').value);
-        test.eq('', bottomlog.querySelector('textarea').value);
+        test.eq('', toplog.querySelector('textarea')?.value);
+        test.eq('', bottomlog.querySelector('textarea')?.value);
 
         const srow = test.getCurrentScreen().getListRow(topsource.dataset.name, "Row 1: type1");
         const trow = test.getCurrentScreen().getListRow(bottomtarget.dataset.name, "Row 1: Can add");
@@ -34,8 +31,8 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_test',
-      test: function (doc, win) {
-        test.eq('1 T1 ontarget move', test.qSA('t-textarea')[1].querySelector('textarea').value);
+      test: function () {
+        test.eq('1 T1 ontarget move', test.qSA('t-textarea')[1]?.querySelector('textarea')?.value);
       }
     }
   ]);

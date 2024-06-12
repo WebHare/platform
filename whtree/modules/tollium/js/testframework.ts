@@ -60,14 +60,14 @@ class ScreenProxy {
   /** Return the <li> node for a specific menu item
       @param levels - Full path to the menu item (parts of the menu names)
   */
-  getMenu(levels, { autoclickhamburger = true } = {}) {
-    let curitem = this.win.node.querySelector('.wh-menubar');
+  getMenu(levels: string[], { autoclickhamburger = true } = {}): HTMLElement {
+    let curitem: HTMLElement | null = this.win.node.querySelector('.wh-menubar');
     if (!curitem && autoclickhamburger) {
       // test clicking the hamburger menu
       const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
       if (hamburger_img) {
-        test.click(hamburger_img.closest(`button`));
-        curitem = this.win.node.ownerDocument.querySelectorAll('.wh-menulist.open')[0];
+        test.click(hamburger_img.closest(`button`)!);
+        curitem = this.win.node.ownerDocument.querySelectorAll<HTMLElement>('.wh-menulist.open')[0];
       }
     }
     if (levels)
@@ -81,14 +81,17 @@ class ScreenProxy {
             test.click(curitem);
 
           // Get the relevant detached menu
-          curitem = this.win.node.ownerDocument.querySelectorAll('.wh-menulist.open')[i - 1];
+          curitem = this.win.node.ownerDocument.querySelectorAll<HTMLElement>('.wh-menulist.open')[i - 1];
           if (!curitem)
             throw new Error('Could not find detached menu');
         }
 
         // Find the li with the requested text
-        curitem = dompack.qSA(curitem, 'li').filter(li => li.textContent.includes(levels[i]))[0];
+        curitem = dompack.qSA(curitem, 'li').filter(li => li.textContent?.includes(levels[i]))[0];
       }
+
+    if (!curitem)
+      throw new Error("Could not find menu item '" + levels.join(" > ") + "'");
     return curitem;
   }
   getText(compname) {

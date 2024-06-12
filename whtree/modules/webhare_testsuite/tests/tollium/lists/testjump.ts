@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import * as test from '@mod-tollium/js/testframework';
 
@@ -13,7 +10,7 @@ test.registerTests(
     },
     {
       name: 'scrollfirst', //manually scroll first. setting a manual scroll may break scroll restoration
-      test: function (doc, win) {
+      test: function () {
         //TODO gesture support so we can just point to the list and it'll figure out what to scroll
         const list = test.compByName("staticlist").querySelector(".listbodyholder");
         list.scrollTop = 50;
@@ -22,13 +19,13 @@ test.registerTests(
     },
     {
       name: 'jumptoselection',
-      test: function (doc, win) {
+      test: function () {
         test.click(test.getMenu(['M01', 'M06']));
       },
       waits: ['ui']
     },
     {
-      test: function (doc, win) {
+      test: function () {
         const listview = test.compByName("staticlist").propTodd.list;
         test.eq(143, listview.getFirstVisibleRow());//we currently whole "Row #144", which is sequentially 0-based row 143
       }
@@ -39,7 +36,7 @@ test.registerTests(
       waits: ["ui"]
     },
     {
-      test: function (doc, win) {
+      test: function () {
         const listview = test.compByName("staticlist").propTodd.list;
         test.eq(143, listview.getFirstVisibleRow());//we currently whole "Row #144", which is sequentially 0-based row 143
       }
@@ -47,7 +44,7 @@ test.registerTests(
     //make sure scroll position is retained after toggling list
     {
       name: 'toggle list off/on',
-      test: async function (doc, win) {
+      test: async function () {
         let list = test.compByName("staticlist").querySelector(".listbodyholder");
         list.scrollTop = 250;
         dompack.dispatchDomEvent(list, 'scroll');
@@ -71,7 +68,7 @@ test.registerTests(
 
     {
       name: "arrow left in tree to invisible parent",
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'M12']));
         await test.wait("ui");
 
@@ -91,7 +88,7 @@ test.registerTests(
 
     {
       name: "truncate list",
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'M13']));
         await test.wait("ui");
         test.eq(0, test.compByName("staticlist").querySelector(".listbodyholder").scrollTop);

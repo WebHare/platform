@@ -76,6 +76,7 @@ if (window.waitForGestures) {
 
 export class SimulatedDragDataStore {
   items = new Array<RawDragItem>;
+  currentDragOperation: string;
 
   constructor(sourcenode, options?) {
     this._sourcenode = sourcenode;
