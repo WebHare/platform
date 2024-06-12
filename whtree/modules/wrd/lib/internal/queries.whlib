@@ -330,7 +330,7 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
       IF (NOT RecordExists(attr))
       {
         STRING bestmatch := GetBestMatch(attrtag, SELECT AS STRING ARRAY tag FROM this->wrd_type->__final_attrs);
-        THROW NEW Exception(`Cannot find attribute '${attrtag}' in wrd type '${this->wrd_type->tag}'${bestmatch = "" ? "" : `, did you mean '${bestmatch}'`}`);
+        THROW NEW Exception(`Cannot find attribute '${attrtag}' in wrd type '${this->wrd_type->wrdschema->tag}.${this->wrd_type->tag}'${bestmatch = "" ? "" : `, did you mean '${bestmatch}'`}`);
       }
 
       IF (Length(subselect)>0 AND attr.attributetype NOT IN [ 3/*address*/, 9/*image*/, 10/*file*/, 13/*array*/ ])
