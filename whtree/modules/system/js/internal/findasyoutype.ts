@@ -20,7 +20,6 @@ export default class FindAsYouType {
   _onKeyboard = (evt: KeyboardEvent) => {
     switch (evt.key) {
       case "Escape":
-        console.log(this.findingasyoutype);
         if (this.findingasyoutype) {
           dompack.stop(evt);
           this.stop();
