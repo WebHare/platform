@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
@@ -26,7 +23,7 @@ test.registerTests(
 
     {
       name: "not editing",
-      test: function (doc, win) {
+      test: function () {
         // Click the first cell in the first row again to start editing it
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
       },
@@ -35,7 +32,7 @@ test.registerTests(
 
     {
       name: "editing",
-      test: function (doc, win) {
+      test: function () {
         // The first row should still be selected
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should be a textedit now
@@ -50,7 +47,7 @@ test.registerTests(
 
     {
       name: "submitting by clicking other cell",
-      test: function (doc, win) {
+      test: function () {
         // The first row should still be selected
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should not be a textedit
@@ -64,7 +61,7 @@ test.registerTests(
 
     {
       name: "editing 2",
-      test: function (doc, win) {
+      test: function () {
         // There should be a textedit now
         const textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
         test.assert(textedit);
@@ -77,7 +74,7 @@ test.registerTests(
 
     {
       name: "submitting by clicking another row",
-      test: function (doc, win) {
+      test: function () {
         // The first row should still be selected
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should not be a textedit
@@ -106,7 +103,7 @@ test.registerTests(
 
     {
       name: "cancelling by pressing escape",
-      test: function (doc, win) {
+      test: function () {
         // There should not be a textedit
         test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
 
@@ -118,7 +115,7 @@ test.registerTests(
 
     {
       name: "editing 4",
-      test: function (doc, win) {
+      test: function () {
         // There should be a textedit now
         const textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
         test.assert(textedit);
@@ -135,7 +132,7 @@ test.registerTests(
 
     {
       name: "value changed to 'Monkey' by clicking another row",
-      test: function (doc, win) {
+      test: function () {
         // There should no longer be a row with 'Aap'
         test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap"));
         // There should not be a row with 'monkey'
@@ -170,7 +167,7 @@ test.registerTests(
 
     {
       name: "value changed to 'Ape' by pressing enter",
-      test: function (doc, win) {
+      test: function () {
         // There should no longer be a row with 'Aap' or 'Monkey'
         test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap"));
         test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Monkey"));
@@ -185,7 +182,7 @@ test.registerTests(
 
     {
       name: "changing value of another row",
-      test: function (doc, win) {
+      test: function () {
         // Click the second cell in the 4th row to select it, don't click in the middle to prevent the mail client from opening
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Duif").childNodes[1], { x: "90%" });
       },
@@ -194,7 +191,7 @@ test.registerTests(
 
     {
       name: "changing value of another row - start edit",
-      test: function (doc, win) {
+      test: function () {
         // Click the first cell in the 4th row to edit it
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Duif").childNodes[0]);
       },
@@ -218,7 +215,7 @@ test.registerTests(
 
     {
       name: "value changed to 'Ape' by pressing enter",
-      test: function (doc, win) {
+      test: function () {
         // The 'monkey' should be capitalized to 'Ape'
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Ape"));
         // The 'duif' should be changed to 'Dove'
@@ -230,7 +227,7 @@ test.registerTests(
 
     {
       name: "changing value of cell with checkbox - start edit",
-      test: function (doc, win) {
+      test: function () {
         // Click the second cell in the 4th row to select it, don't click in the middle to prevent the mail client from opening
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Dove").childNodes[1], { x: "90%" });
       },
@@ -254,7 +251,7 @@ test.registerTests(
 
     {
       name: "value changed to 'dove@example.org' by pressing enter",
-      test: function (doc, win) {
+      test: function () {
         // The 'duif@example.org' should be changed to 'dove@example.org'
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "dove@example.org"));
         // The 4th row should still be selected
