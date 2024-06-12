@@ -9,11 +9,11 @@ function byDateId(lhs: { wrdCreationDate: Date | null; wrdId: number }, rhs: { w
 }
 
 async function listTestChecks(type: string) {
-  const rows = await systemConfigSchema.selectFrom("serverCheck").historyMode("all").select(
+  const rows = await systemConfigSchema.query("serverCheck").historyMode("all").select(
     ["type", "wrdId", "wrdCreationDate", "wrdModificationDate", "messageText", "messageTid", "metadata", "wrdLimitDate", "snoozedUntil"]).
     where("checkTask", "=", type).execute();
 
-  const history = await systemConfigSchema.selectFrom("serverCheckHistory").
+  const history = await systemConfigSchema.query("serverCheckHistory").
     select(["comment", "wrdLeftEntity", "messageText", "messageTid", "snoozedUntil", "event", "wrdCreationDate", "wrdId"]).
     where("wrdLeftEntity", "in", rows.map((row) => row.wrdId)).
     execute();

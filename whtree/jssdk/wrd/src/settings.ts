@@ -7,7 +7,7 @@ export async function getSchemaSettings<SchemaType extends SchemaTypeDefinition,
   : Promise<MapRecordOutputMap<SchemaType["wrdSettings"], RecordizeOutputMap<SchemaType["wrdSettings"], M>>> {
 
   //@ts-ignore FIXME "=" is not recognized as valid by TS
-  const retval = await schema.selectFrom("wrdSettings").where("wrdGuid", "=", wrdSettingsGuid).select(fields).execute();
+  const retval = await schema.query("wrdSettings").where("wrdGuid", "=", wrdSettingsGuid).select(fields).execute();
   if (!retval[0])
     throw new Error(`No WRD settings found for schema ${schema.tag}`);
 

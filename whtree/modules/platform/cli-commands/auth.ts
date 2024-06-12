@@ -101,7 +101,7 @@ program.command('sp-list')
   .action(async () => {
     const wrdSchema = await getUserApiSchemaName();
     const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
-    const sps = (await schema.selectFrom("wrdauthServiceProvider").
+    const sps = (await schema.query("wrdauthServiceProvider").
       select(["wrdId", "wrdTitle", "wrdCreationDate", "wrdGuid"]).
       execute()).map((sp) => ({
         ...pick(sp, ["wrdId", "wrdTitle", "wrdCreationDate"]),
