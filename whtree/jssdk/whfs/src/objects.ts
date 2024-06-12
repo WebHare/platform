@@ -33,8 +33,8 @@ interface ListableFsObjectRow {
   // externalLink: string;
   /// If this is an internal or content link file, the id of the linked file
   // fileLink: number | null;
-  /// The path from the site's root folder to this file. Always starts and ends with a slash character ('/')
-  fullPath: string;
+  /// The path from the site's root folder to this file. Always starts and ends with a slash character ('/'), empty if object outside a site
+  sitePath: string;
   /// Full path to the file from the root of the WHFS file system - unlike fullpath, this path does not stop at the site root
   whfsPath: string;
   /// The id of the hightest parent that is still in the same site. Equivalent to the 'root' field of the folder's parentsite. 0 if this folder is not inside a site.
@@ -135,7 +135,7 @@ export class WHFSObject {
   get isFile() { return !this.dbrecord.isfolder; }
   get isFolder() { return this.dbrecord.isfolder; }
   get link() { return this.dbrecord.link; }
-  get fullPath() { return this.dbrecord.fullpath; }
+  get sitePath() { return this.dbrecord.fullpath; }
   get whfsPath() { return this.dbrecord.whfspath; }
   get parentSite() { return this.dbrecord.parentsite; }
   get type() { return this._typens; }
@@ -216,7 +216,7 @@ export class WHFSFile extends WHFSObject {
 const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> = {
   "creationDate": "creationdate",
   "description": "description",
-  "fullPath": "fullpath",
+  "sitePath": "fullpath",
   "whfsPath": "whfspath",
   "parentSite": "parentsite",
   "indexDoc": "indexdoc",
@@ -256,7 +256,7 @@ export class WHFSFolder extends WHFSObject {
       .orderBy("name")
       .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
       .$if(getkeys.has("link"), qb => qb.select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link")))
-      .$if(getkeys.has("fullPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
+      .$if(getkeys.has("sitePath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
       .$if(getkeys.has("whfsPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath")))
       .$if(getkeys.has("parentSite"), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
       .$if(getkeys.has("publish"), qb => qb.select("published"))

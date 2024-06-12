@@ -268,17 +268,17 @@ export class WHFSApplyTester {
     return true;
   }
 
-  private getPath(which: "whfsPath" | "fullPath") {
+  private getPath(which: "whfsPath" | "sitePath") {
     if (this.objinfo.obj)
       return this.objinfo.obj[which].toUpperCase();
     // We generate a path based on the parent path and the name of the mocked object. HareScript would always use "NEW OBJECT" as a name
-    return `${(this.objinfo.parent.fullPath + this.objinfo.name).toUpperCase()}${this.objinfo.isfile ? "" : "/"}`;
+    return `${(this.objinfo.parent.sitePath + this.objinfo.name).toUpperCase()}${this.objinfo.isfile ? "" : "/"}`;
   }
 
   testPathConstraint(rec: CSPApplyToTo, site: Selectable<PlatformDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
-    if (rec.pathmask && isNotLike(this.getPath("fullPath"), rec.pathmask.toUpperCase()))
+    if (rec.pathmask && isNotLike(this.getPath("sitePath"), rec.pathmask.toUpperCase()))
       return false;
-    if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullPath.toUpperCase(), rec.parentmask.toUpperCase())))
+    if (rec.parentmask && (!parentitem || isNotLike(parentitem.sitePath.toUpperCase(), rec.parentmask.toUpperCase())))
       return false;
 
     //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
@@ -291,11 +291,11 @@ export class WHFSApplyTester {
       return false;
     if (rec.sitetype !== "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
       return false;
-    if (rec.pathregex && !matchPathRegex(rec.pathregex, this.getPath("fullPath")))
+    if (rec.pathregex && !matchPathRegex(rec.pathregex, this.getPath("sitePath")))
       return false;
     if (rec.whfspathregex && !matchPathRegex(rec.whfspathregex, this.getPath("whfsPath")))
       return false;
-    if (rec.parentregex && (!parentitem || !matchPathRegex(rec.parentregex, parentitem.fullPath)))
+    if (rec.parentregex && (!parentitem || !matchPathRegex(rec.parentregex, parentitem.sitePath)))
       return false;
 
     return true;

@@ -51,7 +51,7 @@ async function testWHFS() {
   test.assert(markdownfile);
   test.assert(markdownfile.isFile);
   test.eq(testsite.webRoot + "TestPages/markdownpage/", markdownfile.link);
-  test.eq("/TestPages/markdownpage", markdownfile.fullPath);
+  test.eq("/TestPages/markdownpage", markdownfile.sitePath);
   test.eq(testsite.id, markdownfile.parentSite);
 
   test.eq(true, (await openFileOrFolder(markdownfile.id)).isFile);
@@ -81,8 +81,12 @@ async function testWHFS() {
   for (let i = 0; i < list.length - 1; ++i)
     test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
 
-  const list2 = await testpagesfolder.list(["type"]);
-  test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", list2.find(_ => _.name === 'staticpage-ps-af')?.type);
+  const list2 = await testpagesfolder.list(["type", "sitePath", "whfsPath"]);
+  test.eqPartial({
+    type: "http://www.webhare.net/xmlns/publisher/richdocumentfile",
+    sitePath: '/TestPages/staticpage-ps-af',
+    whfsPath: '/webhare-tests/webhare_testsuite.testsite/TestPages/staticpage-ps-af'
+  }, list2.find(_ => _.name === 'staticpage-ps-af'));
 
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name === markdownfile.name), "Verify list() works without any keys");
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name === markdownfile.name), "Verify list() works with empty keys");
@@ -93,8 +97,11 @@ async function testWHFS() {
   test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfsPath)).id);
   test.eq(true, (await whfs.openFile(markdownfile.id)).publish);
 
+  test.eq("", (await whfs.openFolder("/webhare-tests/")).sitePath);
+  test.eq('/', (await whfs.openFolder("site::webhare_testsuite.testsite")).sitePath);
   test.eq(testpagesfolder.id, (await testsite.openFolder("testpages")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).id);
+  test.eq('/TestPages/', (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).sitePath);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages/")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder(testpagesfolder.id)).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("whfs::" + testpagesfolder.whfsPath)).id);
