@@ -368,10 +368,13 @@ async function testImgCache() {
   const testsitejs = await getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
+  test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none" })).link);
   await fetchUCLink(wrappedBeagle.link, "image/jpeg");
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
-  await fetchUCLink(kikkerdata.arraytest[0].blobcell.toResized({ method: "none" }).link, "image/jpeg");
+  const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none" });
+  await fetchUCLink(wrappedKikker.link, "image/jpeg");
+  test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none" })).link);
 
 }
 
@@ -410,6 +413,7 @@ async function testFileCache() {
   test.eq(200, oddity2link_fetched.status);
   test.eq("application/octet-stream", oddity2link_fetched.headers.get("content-type"));
 
+  //TBH allowAnyExtension sounds like asking for trouble. Once we have a JS webserver attempt to fully lock down the content-type returned
   oddity2link = oddity2.data.toLink({ allowAnyExtension: true });
   test.eq(/\/bowie-space.oddity-2$/, oddity2link);
   oddity2link_fetched = await fetch(new URL(oddity2link, backendConfig.backendURL));
@@ -436,7 +440,10 @@ async function testWRDImgCache() {
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
   test.assert(wrappedGoldfish);
-  const fetchedGoldFish = await fetchUCLink(wrappedGoldfish.testImage!.toResized({ method: "none" }).link, "image/png");
+  const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none" }).link;
+  test.eq(/goudvis\.png$/, fetchedGoldFishLink);
+  const fetchedGoldFish = await fetchUCLink(fetchedGoldFishLink, "image/png");
+  test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none" })).link);
   const fetchedGoldFishDirect = await fetchUCLink(wrappedGoldfish.testImage!.toLink(), "image/png");
   test.eq(fetchedGoldFish.resource.hash, fetchedGoldFishDirect.resource.hash);
 }
