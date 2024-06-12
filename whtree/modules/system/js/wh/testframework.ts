@@ -46,7 +46,6 @@ export {
 
 export {
   waitForEvent as waitForEvent
-  , simulateTabKey as simulateTabKey
   , focus
   , waitUIFree
 } from 'dompack/testframework';
@@ -252,7 +251,7 @@ export function dragTransition(pos) {
   return easeOut * easeInOut;
 }
 
-export async function pressKey(key, options?) {
+export async function pressKey(key: string | string[], options?) {
   if (!testfw.haveDevtoolsUplink())
     return await keyboard.pressKey(key, options);
 

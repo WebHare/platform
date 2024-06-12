@@ -943,16 +943,7 @@ function processGestureQueue() {
         if (now - mousestate.dndstate._lasthandled > 350)
           handleRunningDrag(part);
       } else {
-        let elchanged = false;
-        try {
-          elchanged = mousestate.lastoverel !== elhere;
-        } catch (e) {
-          if (getName() !== "ie" && getName() !== "edge")
-            throw e; //mousestate.lastoverel may cause permission denieds on IE/edge
-
-          mousestate.lastoverel = null;
-          elchanged = true;
-        }
+        let elchanged = mousestate.lastoverel !== elhere;
 
         if (mousestate.lastoverel !== elhere || elchanged) {
           if (mousestate.lastoverel && mousestate.lastoverel.ownerDocument && mousestate.lastoverel.ownerDocument.defaultView) { // don't fire events for nonexisting documents

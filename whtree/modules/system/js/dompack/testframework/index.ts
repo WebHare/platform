@@ -7,7 +7,7 @@ import * as dombusy from '@webhare/dompack/impl/busy';
 import { _resolveToSingleElement, _getFocusableElement } from './pointer';
 export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect';
 export { canClick, click, focus, sendMouseGesture } from './pointer';
-export { pressKey, simulateTabKey } from './keyboard';
+export { pressKey } from './keyboard';
 export { log } from './log';
 import IframeTestRunner from './iframetestrunner';
 

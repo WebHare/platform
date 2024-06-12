@@ -7,7 +7,6 @@ import { checkedDispatchEvent } from "./pointer";
 import { getName as browserName } from "../extra/browser";
 import * as domfocus from "../browserfix/focus";
 
-
 export function getKeyboardEventProps(data) {
   let keycode = 0;
   let presscode = 0;
@@ -16,8 +15,7 @@ export function getKeyboardEventProps(data) {
 
   //console.log("_getKeyboardEventProps", data.key, data.code);
 
-  if (data.key.length === 1) // one printable character. Don't even bother with producing right key and char codes
-  {
+  if (data.key.length === 1) { // one printable character. Don't even bother with producing right key and char codes
     const keycharcode = data.key.charCodeAt(0);
     if (keycharcode < 32 || keycharcode === 127)
       throw new Error(`No control characters, please use UI-Events name (used key ${encodeURIComponent(data.key)})`);
@@ -27,8 +25,7 @@ export function getKeyboardEventProps(data) {
 
     // Mapping for key=>keyCode an US-EN keyboard. Other keyboards may have other mappings
     // ADDME: for /*+-. see if shift is enabled, use numpad code if so?
-    const key_to_keycode_mapping =
-    {
+    const key_to_keycode_mapping: Record<string, number> = {
       " ": 32,
       "!": 49,
       "@": 50,
@@ -75,8 +72,8 @@ export function getKeyboardEventProps(data) {
 
     ischar = true;
   } else {
-    const key_to_keycode_mapping =
-    {
+    const key_to_keycode_mapping: Record<string, number> = {
+
       "Backspace": 8,
       "Tab": 9,
       "Enter": 13,
@@ -204,7 +201,7 @@ export function getKeyboardEventProps(data) {
   return props;
 }
 
-export function generateKeyboardEvent(target, eventname, data) {
+export function generateKeyboardEvent(target: HTMLElement, eventname: string, data) {
   if (!data.key)
     throw new Error("Empty key passed to generateKeyboardEvent");
 
@@ -244,13 +241,11 @@ export function generateKeyboardEvent(target, eventname, data) {
     if (debugflags.testfw)
       console.log('[testfw] Constructed chrome keyboardevent', evt);
   } else if (browserName() === "firefox") {
-    // edge has some diffent mappings for .key. ("-":"Subtract" and "/":"Divide" are only used for numeric pad)
     const keymapping =
     {
       "Meta": "OS"
     };
     props.key = keymapping[props.key] || props.key;
-
 
     // firefox zeroes the keycode for printable characters in keypress events
     evt = new KeyboardEvent(eventname, {
@@ -271,56 +266,6 @@ export function generateKeyboardEvent(target, eventname, data) {
     });
     if (debugflags.testfw)
       console.log('[testfw] Constructed firefox keyboardevent', evt);
-  } else if (browserName() === "edge" || browserName() === "ie") {
-    // edge has some diffent mappings for .key. ("-":"Subtract" and "/":"Divide" are only used for numeric pad)
-    const keymapping =
-    {
-      "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right", "Escape": "Esc", "Delete": "Del",
-      "*": "Multiply", ".": "Decimal", "Meta": "Win", "ScrollLock": "Scroll", "Print": "PrintScreen", "ContextMenu": "Apps"
-    };
-    props.key = keymapping[props.key] || props.key;
-
-    // 'Tab' also has 'char' set. Enter has char set to String.fromCodePoint(10)
-    // ADDME: ctrl-key has wrong char code (eg. ctrl-v is \u0016)
-    const withchar = (props.ischar || [8, 9, 13, 27].includes(props.presscode)) && !props.ctrlKey && !props.altKey;
-    const vals =
-    {
-      char: withchar ? props.presscode === 13 ? "\n" : String.fromCodePoint(props.presscode) : "",
-      charCode: eventname === "keypress" && withchar ? props.presscode : 0,
-      keyCode: eventname === "keypress" ? props.presscode : props.keycode,
-      which: eventname === "keypress" ? props.presscode : props.keycode
-    };
-
-    // firefox zeroes the keycode for printable characters in keypress events
-    if (browserName() === "edge") {
-      evt = new KeyboardEvent(eventname, {
-        view: doc.defaultView,
-        key: props.key,
-        code: props.code,
-        ctrlKey: props.ctrlKey,
-        altKey: props.altKey,
-        location: props.location,
-        shiftKey: props.shiftKey,
-        metaKey: props.metaKey,
-        repeat: props.repeat,
-        bubbles: true,
-        cancelable: true
-      });
-      Object.defineProperty(evt, 'locale', { get: function () { return "en-US"; } });
-    } else {
-      evt = doc.createEvent("KeyboardEvent");
-      const modifiers = [];
-      if (props.ctrlKey) modifiers.push("Control");
-      if (props.altKey) modifiers.push("Alt");
-      if (props.shiftKey) modifiers.push("Shift");
-      if (props.metaKey) modifiers.push("Win");
-      evt.initKeyboardEvent(eventname, true, true, doc.defaultView, props.key, props.location, modifiers, props.repeat, "en-US");
-    }
-
-    Object.defineProperty(evt, 'char', { get: function () { return vals.char; } });
-    Object.defineProperty(evt, 'charCode', { get: function () { return vals.charCode; } });
-    Object.defineProperty(evt, 'keyCode', { get: function () { return vals.keyCode; } });
-    Object.defineProperty(evt, 'which', { get: function () { return vals.which; } });
   } else if (browserName() === "safari") {
     const keymapping = { "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right" };
     props.key = keymapping[props.key] || props.key;
@@ -378,7 +323,7 @@ function _fireKeyboardEvent(target, eventname, props) {
   return checkedDispatchEvent(target, evt);
 }
 
-export function normalizeKeys(key, props) {
+export function normalizeKeys(key: string | string[], props) {
   let keys = Array.isArray(key) ? key : [key];
   const shift = props && props.shiftKey;
   //match single-char keys (real keys) to upper or lowercase depending on shift state
@@ -386,9 +331,9 @@ export function normalizeKeys(key, props) {
   return keys;
 }
 
-export async function pressKey(keylist, props) {
+export async function pressKey(keylist: string | string[], props) {
   //key must be one of the names documented at https://w3c.github.io/uievents/#events-keyboardevents
-  const keys = normalizeKeys(keylist, props);
+  const keys: string[] = normalizeKeys(keylist, props);
 
   for (const key of keys) {
     //ensure asynchronous invocation for each keypress
@@ -409,7 +354,7 @@ export async function pressKey(keylist, props) {
     if (retval) {
       if (eventprops.key === 'Tab') {
         doTabKey(eventprops.shiftKey ? -1 : +1);
-      } else if (focused.nodeName === 'TEXTAREA' || (focused.nodeName === 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
+      } else if (focused?.nodeName === 'TEXTAREA' || (focused?.nodeName === 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
         if (eventprops.key === 'Backspace') {
           if (focused.selectionStart === focused.selectionEnd) //delete the character before the cursor
             focused.value = focused.value.substr(0, focused.selectionStart - 1) + focused.value.substr(focused.selectionEnd);
@@ -453,12 +398,7 @@ export async function pressKey(keylist, props) {
   }
 }
 
-export function simulateTabKey(direction) {
-  console.warn("simulateTabKey calls should be replaced with calls to `await test.pressKey('Tab', { shiftKey: true | false })` (if all relevant testing WebHares are 4.27+)`");
-  doTabKey(direction);
-}
-
-function doTabKey(direction) {
+function doTabKey(direction: 1 | -1): void {
   const curfocus = domfocus.getCurrentlyFocusedElement();
   if (!curfocus)
     throw new Error("Unable to determine currently focused element");
@@ -492,12 +432,11 @@ function doTabKey(direction) {
     if (tofocus.select)
       tofocus.select();
   } catch (e) {
-    console.log("simulateTabKey: Focus failed: ", allfocus[curpos], e);
+    console.log("doTabKey: Focus failed: ", allfocus[curpos], e);
   }
 
   const nowfocused = domfocus.getCurrentlyFocusedElement();
-  if (allfocus[curpos] !== nowfocused) //if an element is actally unfocusable, the browser just tends to ignore us (except IE, which loves to throw)
-  {
+  if (allfocus[curpos] !== nowfocused) { //if an element is actally unfocusable, the browser just tends to ignore us (except IE, which loves to throw)
     console.log("Tried to focus", allfocus[curpos]);
     console.log("Actually focused", nowfocused);
     allfocus[curpos].style.backgroundColor = "#ff0000";
