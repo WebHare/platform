@@ -13,7 +13,7 @@ import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltopla
 import * as styleloader from './styleloader';
 
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
-import { loadImage } from '@webhare/dompack';
+import { isMultiSelectKey, loadImage } from '@webhare/dompack';
 import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
@@ -666,7 +666,7 @@ export default class EditorBase {
     const linkel = event.target.closest('a[href]');
     if (linkel
       && linkel.href.match(/^https?:/)
-      && (!this.isEditable() || KeyboardHandler.hasNativeEventMultiSelectKey(event))) {
+      && (!this.isEditable() || isMultiSelectKey(event))) {
       window.open(linkel.href, '_blank');
     }
   }

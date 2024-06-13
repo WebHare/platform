@@ -2,11 +2,12 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
+import { isMultiSelectKey } from '@webhare/dompack';
 import * as movable from 'dompack/browserfix/movable';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 
-import Keyboard, { hasNativeEventMultiSelectKey } from 'dompack/extra/keyboard';
+import Keyboard from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 require('./listview.css');
@@ -1513,7 +1514,7 @@ export default class ListView {
   }
 
   clickSelectRowByNumber(event, rownum, options) {
-    this.updateSelection(rownum, { ...options, expandselection: event && event.shiftKey, toggle: event && hasNativeEventMultiSelectKey(event) });
+    this.updateSelection(rownum, { ...options, expandselection: event && event.shiftKey, toggle: event && isMultiSelectKey(event) });
     this.scrollRowIntoView(rownum, false);
   }
 

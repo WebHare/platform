@@ -60,5 +60,23 @@ export function parseUserAgent(ua: string): UserAgentInfo {
   };
 }
 
+/**
+ * Is the native 'multiselect' modifier for this platform pressed? (Cmd for Mac, Ctrl for Windows/Linux)
+ *
+ * @param event - Event to check
+ */
+export function isMultiSelectKey(event: KeyboardEvent): boolean {
+  return browser.platform === 'mac' ? event.metaKey : event.ctrlKey;
+}
+
+/**
+ * Is the native 'copy' modifier for this platform pressed?
+ *
+ * @param event - Event to check
+ */
+export function isCopyKey(event: KeyboardEvent): boolean {
+  return browser.platform === 'mac' ? event.altKey : event.ctrlKey;
+}
+
 //module.exports =
 export const browser: Readonly<UserAgentInfo> = Object.freeze(parseUserAgent(globalThis.navigator?.userAgent || ""));
