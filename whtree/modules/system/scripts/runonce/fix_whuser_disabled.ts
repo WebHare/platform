@@ -13,7 +13,7 @@ async function fixWHUserDisabled() {
     if (!await persontype.describeAttribute("whuserDisableType"))
       throw new Error(`Schema '${schema.tag}' has no whuserDisableType attribute - verify the schema is actually including usermgmt.wrdschema.xml!`);
 
-    const fixusers = await schemaobj.selectFrom("wrdPerson").
+    const fixusers = await schemaobj.query("wrdPerson").
       select(["wrdId", "whuserDisabled", "whuserDisableType"]).
       where("whuserDisabled", "=", true).
       where("whuserDisableType", "=", null).

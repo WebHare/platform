@@ -24,7 +24,7 @@ export async function runAccountExpiration(tag: string) {
   if (!await wrdschema.getType("whuserUnit").exists())
     throw new Error(`Schema '${tag}' has no whuserUnit type - cannot runAccountExpiration`);
 
-  const units = await wrdschema.selectFrom("whuserUnit").select(["wrdId", "wrdLeftEntity", "overrideExpiration", "expiration"]).execute();
+  const units = await wrdschema.query("whuserUnit").select(["wrdId", "wrdLeftEntity", "overrideExpiration", "expiration"]).execute();
   if (!units.find(_ => _.overrideExpiration)) //expiration is not in use
     return;
 

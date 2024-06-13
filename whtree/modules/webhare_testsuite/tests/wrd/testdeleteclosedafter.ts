@@ -17,7 +17,7 @@ async function testDeleteClosedAfter() {
   // Cleanup, the entity should still be there (not closed)
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
   await test.sleep(1);
-  test.eq([person], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").execute());
+  test.eq([person], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").execute());
 
   // Close the entity
   let limitDate = new Date();
@@ -27,8 +27,8 @@ async function testDeleteClosedAfter() {
   // Cleanup, the entity should still be there when setting historyMode to 'all' (limit date after cutoff date)
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
   await test.sleep(1);
-  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").execute());
-  test.eq([person], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
+  test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").execute());
+  test.eq([person], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
 
   // Set the limit date to more than 2 days ago
   limitDate = addDuration(limitDate, `-P${deleteClosedAfter + 1}D`);
@@ -38,7 +38,7 @@ async function testDeleteClosedAfter() {
   // Cleanup, the entity should still be there (modification date less than 1 day ago)
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
   await test.sleep(1);
-  test.eq([person], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
+  test.eq([person], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
 
   // Set the modification date to more than 2 days ago
   await whdb.beginWork();
@@ -47,7 +47,7 @@ async function testDeleteClosedAfter() {
   // Cleanup, the entity should now be gone
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
   await test.sleep(1);
-  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
+  test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
 
   // Update the schema to not delete closed entities and re-add the entity with a limitdate and modification date in the past
   await whdb.beginWork();
@@ -57,7 +57,7 @@ async function testDeleteClosedAfter() {
   // Cleanup, the entity should still be there
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
   await test.sleep(1);
-  test.eq([person], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
+  test.eq([person], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
 
   // Update the schema to delete closed entities
   await whdb.beginWork();
@@ -66,7 +66,7 @@ async function testDeleteClosedAfter() {
   // Cleanup, the entity should now be gone
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
   await test.sleep(1);
-  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
+  test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
 }
 
 test.run([

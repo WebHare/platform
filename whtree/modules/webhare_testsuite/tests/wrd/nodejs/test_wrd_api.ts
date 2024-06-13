@@ -56,7 +56,7 @@ async function testWRDUntypedApi() { //  tests
 
   await wrdschema.update("wrdPerson", personid, { wrdContactEmail: "Test123@example.com" });
   //TODO Do we want to copy the big wrdschmea->RunQuery API too? or just tell people to enrich?
-  test.eq([{ n: "QueryTest" }], await wrdschema.selectFrom("wrdPerson").select({ n: "wrdLastName" }).where("wrdContactEmail", "=", "test123@example.com").execute());
+  test.eq([{ n: "QueryTest" }], await wrdschema.query("wrdPerson").select({ n: "wrdLastName" }).where("wrdContactEmail", "=", "test123@example.com").execute());
   /*
     TestEq([ [ n := "QueryTest" ] ], testfw->GetWRDSchema()->RunQuery(
         [ sources :=      [ [ type :=     wrdperson

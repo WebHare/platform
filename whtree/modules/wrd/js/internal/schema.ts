@@ -375,7 +375,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return typeobj;
   }
 
-  // FIXME Deprecate once everyone is at least 5.4.1
+  /** @deprecated use query() in WebHare 5.4.1+ */
   // eslint-disable-next-line @typescript-eslint/ban-types
   selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.getType(type);
@@ -413,7 +413,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null> {
-    const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.selectFrom(type)
+    const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.query(type)
       .select(mapping)
       .where("wrdId", "=" as any, id as any)
       .historyMode(options?.historyMode || "active")
@@ -543,7 +543,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if ((value as unknown as { wrdLimitDate: Date | null }).wrdLimitDate === null && options?.historyMode !== "all")
       throw new Error(`Resetting wrdLimitDate requires historyMode: all`);
 
-    let lookup = this.schema.selectFrom(this.tag).select(["wrdId"]).historyMode(options?.historyMode ?? "now");
+    let lookup = this.schema.query(this.tag).select(["wrdId"]).historyMode(options?.historyMode ?? "now");
     for (const key of keys) {
       if (!Object.hasOwn(value, key))
         throw new Error(`Upsert requires a value for key field '${key as string}'`);
