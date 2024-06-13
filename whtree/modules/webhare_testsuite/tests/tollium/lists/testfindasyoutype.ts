@@ -1,8 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
-
 
 test.registerTests(
   [
@@ -47,7 +43,7 @@ test.registerTests(
       name: "test selection <4>, select <44>",
       test: async function () {
         test.assert(test.getCurrentScreen().getListRow("list", "<4>").classList.contains("wh-list__row--selected"));
-        await test.pressKey(['4']);
+        await test.pressKey(['Control', '4']); //check that sending Ctrl doesn't abort list progression
       }
     },
     {

@@ -1,54 +1,46 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
-import KeyboardHandler from 'dompack/extra/keyboard';
+import * as dompack from '@webhare/dompack';
 
 export default class FindAsYouType {
-  constructor(node, options) {
-    this.findingasyoutype = null;
-    this.findasyoutyperegex = null;
+  findingasyoutype: { timeout: NodeJS.Timeout | 0; search: string } | null = null;
+  findasyoutyperegex = null;
+  searchtimeout = 0;
+  onsearch;
+  node;
 
-    this.options = {
-      searchtimeout: 0,
-      onsearch: null,
-      ...options
-    };
+  constructor(node: HTMLElement, options: { searchtimeout?: number; onsearch: (search: string) => void }) {
+    if (options?.searchtimeout)
+      this.searchtimeout = options.searchtimeout;
+    this.onsearch = options.onsearch;
+
     this.node = node;
-    new KeyboardHandler(node, {
-      "Backspace": evt => this._onKeyboardBackspace(evt),
-      "Escape": evt => this._onKeyboardEsc(evt)
-    }, { onkeypress: (evt, key) => this._onKeyboardPress(evt, key) });
-
-    this.focuscallback = evt => this._onFocus(evt);
+    node.addEventListener("keydown", this._onKeyboard);
+    node.addEventListener("focusout", this._onFocusOut);
   }
 
-  _onKeyboardBackspace(event) {
-    dompack.stop(event);
-    if (this.findingasyoutype)
-      this._updateFindAsYouType(null);
-  }
+  _onKeyboard = (evt: KeyboardEvent) => {
+    if (evt.target !== this.node)
+      return; //ignore keyboard events to embedded elements (eg inline title changes in lists)
+    switch (evt.key) {
+      case "Escape":
+        if (this.findingasyoutype) {
+          dompack.stop(evt);
+          this.stop();
+        }
+        break;
+      case "Backspace":
+        dompack.stop(evt);
+        if (this.findingasyoutype)
+          this._updateFindAsYouType(null);
+        break;
+      default:
+        if (evt.key.length === 1 && !(evt.altKey || evt.ctrlKey || evt.metaKey)) { //normal key, add it to the search
+          dompack.stop(evt);
+          this._updateFindAsYouType(evt.key);
+        } //don't cancel ourselves based on 'odd key press'. just have focus loss deal with the effect of eg ctrl+shift+2
+    } //end switch
+  };
 
-  _onKeyboardEsc(event) {
-    if (this.findingasyoutype) {
-      dompack.stop(event);
-      this.stop();
-    }
-  }
-
-  _onKeyboardPress(event, key) {
-    if (key.length > 1) //ignore special keys here
-      return true;
-
-    if (event.ctrlKey || event.altKey || event.metaKey) {
-      this.stop();
-      return true; // Let browser handle the event
-    }
-
-    dompack.stop(event);
-    this._updateFindAsYouType(key);
-  }
-  _updateFindAsYouType(toadd) {
+  _updateFindAsYouType(toadd: string | null) {
     // If we're already searching, clear the current deactivation timeout
     if (this.findingasyoutype) {
       if (this.findingasyoutype.timeout)
@@ -59,7 +51,6 @@ export default class FindAsYouType {
         timeout: 0, //deactivation timeout
         search: "" //currently searching for this string
       };
-      window.addEventListener("focus", this.focuscallback, true);
     }
 
     // If a backspace was pressed, delete the last character, otherwise add the pressed character to the search string
@@ -70,20 +61,18 @@ export default class FindAsYouType {
 
     // If we still have a search string, set the deactivation timeout, otherwise deactivate directly
     if (this.findingasyoutype.search.length) {
-      if (this.options.searchtimeout)
-        this.findingasyoutype.timeout = setTimeout(() => this.stop(), this.options.searchtimeout);
+      if (this.searchtimeout)
+        this.findingasyoutype.timeout = setTimeout(() => this.stop(), this.searchtimeout);
 
       // Create a regular expression matching string beginning with the (escaped) search string, ignoring case
-      this.options.onsearch(this.findingasyoutype.search);
+      this.onsearch(this.findingasyoutype.search);
     } else
       this.stop();
   }
 
-  _onFocus(evt) {
-    if (!dompack.contains(this.node, evt.target)) {
-      this.stop(); //focus left our container
-    }
-  }
+  _onFocusOut = () => {
+    this.stop();
+  };
 
   stop() {
     if (!this.findingasyoutype)
@@ -91,8 +80,7 @@ export default class FindAsYouType {
 
     if (this.findingasyoutype.timeout)
       clearTimeout(this.findingasyoutype.timeout);
-    window.removeEventListener("focus", this.focuscallback, true);
     this.findingasyoutype = null;
-    this.options.onsearch('');
+    this.onsearch('');
   }
 }

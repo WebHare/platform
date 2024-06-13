@@ -1,37 +1,25 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
+import { debugFlags } from '@webhare/env/src/envbackend';
 
 
 const gesture_time = 200;
 
 function getLogComponent() { return test.compByName("log").querySelector("textarea"); }
 
-function logDragEvent(e) {
+function logDragEvent(e: DragEvent) {
   const path = [];
-  let n = e.target;
-  while (n && n.nodeType !== 9)
-    path.push(n.nodeName.toLowerCase()), n = n.parentNode;
-  console.log(e.type, e.dataTransfer.dropEffect, e.dataTransfer.effectAllowed/*, path.reverse().join(">")*/, e.target, e.relatedTarget);
-}
-
-function createfileObject(data, name, opts) {
-  try {
-    return new File(data, name, opts);
-  } catch (e) {
-    // IE 11 workaround, it does not have a File constructor. Use a blob and add a filename
-    const file = new Blob(data, opts);
-    file.name = name;
-    return file;
+  let n: Element | null = e.target as Element;
+  while (n && n.nodeType !== 9) {
+    path.push(n.nodeName.toLowerCase());
+    n = n.parentNode as Element | null;
   }
+  console.log(e.type, e.dataTransfer?.dropEffect, e.dataTransfer?.effectAllowed/*, path.reverse().join(">")*/, e.target, e.relatedTarget);
 }
 
 function logAllDragEvents() {
   test.getWin().addEventListener("drag", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragend", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragenter", logDragEvent, { capture: true });
-  test.getWin().addEventListener("dragexit", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragleave", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragover", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragstart", logDragEvent, { capture: true });
@@ -52,7 +40,8 @@ test.registerTests(
       const ctable = test.compByName("ctable");
       const cpanel = test.compByName("cpanel");
 
-      // logAllDragEvents();
+      if (debugFlags.logdragdrop)
+        logAllDragEvents();
 
       const dragelt = test.qSA(clist, "span").filter(n => n.textContent === "Draggable")[0];
       if (!dragelt)
@@ -158,7 +147,7 @@ test.registerTests(
       ]);
 
       test.assert(cpanel.classList.contains("droptarget--hover"));
-      test.eq("copy", test.getCurrentDragDataStore().currentDragOperation);
+      test.eq("copy", test.getCurrentDragDataStore()?.currentDragOperation);
 
       await test.sendMouseGesture([{ el: cpanel, up: 0, delay: gesture_time }]);
 
@@ -177,7 +166,7 @@ test.registerTests(
       ]);
 
       test.assert(cpanel.classList.contains("droptarget--hover"));
-      test.eq("link", test.getCurrentDragDataStore().currentDragOperation);
+      test.eq("link", test.getCurrentDragDataStore()?.currentDragOperation);
 
       await test.sendMouseGesture([{ el: cpanel, up: 0, delay: gesture_time }]);
 
@@ -196,7 +185,7 @@ test.registerTests(
       test.subtest("list");
       getLogComponent().value = "";
 
-      test.startExternalFileDrag(createfileObject(["test1"], "test1.txt", { type: "text/plain" }));
+      test.startExternalFileDrag(new File(["test1"], "test1.txt", { type: "text/plain" }));
 
       await test.sendMouseGesture([
         { el: test.getDoc().documentElement },
@@ -219,7 +208,7 @@ test.registerTests(
       test.subtest("table");
       getLogComponent().value = "";
 
-      test.startExternalFileDrag(createfileObject(["test2"], "test2.txt", { type: "text/plain" }));
+      test.startExternalFileDrag(new File(["test2"], "test2.txt", { type: "text/plain" }));
 
       await test.sendMouseGesture([
         { el: test.getDoc().documentElement },
@@ -242,7 +231,7 @@ test.registerTests(
       test.subtest("panel");
       getLogComponent().value = "";
 
-      test.startExternalFileDrag(createfileObject(["test3"], "test3.txt", { type: "text/plain" }));
+      test.startExternalFileDrag(new File(["test3"], "test3.txt", { type: "text/plain" }));
 
       await test.sendMouseGesture([
         { el: test.getDoc().documentElement },
