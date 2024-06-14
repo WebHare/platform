@@ -83,5 +83,5 @@ else
 fi
 
 
-echo "Starting PostgreSQL"
+echo "Starting $PSNAME"
 exec $RUNAS "$WEBHARE_PGBIN/postmaster" -D "$PSROOT/db" 2>&1

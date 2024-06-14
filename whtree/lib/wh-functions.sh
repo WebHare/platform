@@ -713,30 +713,41 @@ load_postgres_settings()
   # We put everything under a postgresql folder, so we can chown that to ourselves in the future
   PSROOT="${WEBHARE_DATAROOT}postgresql"
 
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
-    if [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
-      RUNAS="chpst -u postgres:whdata"
-    fi
-    WEBHARE_PGBIN="/usr/lib/postgresql/11/bin/"
-  elif [ -z "$WEBHARE_PGBIN" ]; then
-    if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-      # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
+  if [ -z "$WEBHARE_PGBIN" ]; then
+    if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
+      if [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
+        RUNAS="chpst -u postgres:whdata"
+      fi
+      WEBHARE_PGBIN="/usr/lib/postgresql/11/bin/"
+      PSNAME="PostgreSQL 11"
+    elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
+      # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare-deps.rb) for new databases
       PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
       if [ -z "${PGVERSION}" ]; then
         PGVERSION=13
       fi
+      PSNAME="PostgreSQL $PGVERSION"
+
       if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
         WEBHARE_PGBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
       else
-        echo "This database requires postgres version ${PGVERSION}. Please install it (eg. brew install postgresql@${PGVERSION})"
+        echo "This database requires PostgreSQL version ${PGVERSION}. Please install it and point the WEBHARE_PGBIN environment variable to it"
         exit 1
       fi
     else
       WEBHARE_PGBIN="/usr/pgsql-11/bin/"
+      PSNAME="PostgreSQL 11"
     fi
+  else
+    PSNAME="PostgreSQL (from $WEBHARE_PGBIN)"
   fi
 
-  export PSROOT RUNAS PGVERSION WEBHARE_PGBIN
+  if [ ! -x "$WEBHARE_PGBIN/postmaster" ]; then
+    echo "Could not find PostgreSQL binaries in $WEBHARE_PGBIN"
+    exit 1
+  fi
+
+  export PSNAME PSROOT RUNAS PGVERSION WEBHARE_PGBIN
 }
 
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
