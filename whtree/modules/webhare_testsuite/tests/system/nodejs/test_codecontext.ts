@@ -81,9 +81,9 @@ async function testContextSetup() {
 
   //test global flag updates
   test.eq(false, (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
-  await spawnSync("wh", ["debug", "enable", "--allowunknown", nonExistingGlobalFlag], { shell: true, stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await spawnSync("wh", ["debug", "enable", "--force", nonExistingGlobalFlag], { shell: true, stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
   await test.wait(async () => (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
-  await spawnSync("wh", ["debug", "disable", "--allowunknown", nonExistingGlobalFlag], { shell: true, stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await spawnSync("wh", ["debug", "disable", "--force", nonExistingGlobalFlag], { shell: true, stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
   await test.wait(async () => !(await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
 }
 
