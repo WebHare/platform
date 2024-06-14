@@ -856,10 +856,10 @@ function translateHistoryModeToHS(mode: HistoryModeData): { historyMode: SimpleH
 
 export class WRDQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> {
   protected type: WRDType<S, T>;
-  protected wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
+  protected wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown; options: unknown }>;
   protected _historyMode: HistoryModeData;
 
-  constructor(type: WRDType<S, T>, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData) {
+  constructor(type: WRDType<S, T>, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown; options: unknown }>, historyMode: HistoryModeData) {
     this.type = type;
     this.wheres = wheres;
     this._historyMode = historyMode;
@@ -875,9 +875,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
   }
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDModificationBuilder<S, T> {
-    // Need to cast the filter because the options member isn't accepted otherwise
-    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode);
+    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options }], this._historyMode);
   }
 
   $call(cb: (b: WRDModificationBuilder<S, T>) => WRDModificationBuilder<S, T>): WRDModificationBuilder<S, T> {
@@ -995,8 +993,6 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
 
     return retval;
   }
-
-
 }
 
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
@@ -1005,7 +1001,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   private selects: O;
   private _limit: number | null;
 
-  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData, limit: number | null) {
+  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown; options: unknown }>, historyMode: HistoryModeData, limit: number | null) {
     super(type, wheres, historyMode);
     this.selects = selects;
     this._limit = limit;
@@ -1017,9 +1013,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   }
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDSingleQueryBuilder<S, T, O> {
-    // Need to cast the filter because the options member isn't accepted otherwise
-    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode, this._limit);
+    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options }], this._historyMode, this._limit);
   }
 
   $call<TO extends RecordOutputMap<S[T]> | null>(cb: (b: WRDSingleQueryBuilder<S, T, O>) => WRDSingleQueryBuilder<S, T, TO>): WRDSingleQueryBuilder<S, T, TO> {
