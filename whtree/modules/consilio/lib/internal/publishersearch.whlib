@@ -31,7 +31,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
                  AND fs_settings.fs_instance = fs_instances.id
                  AND fs_instances.fs_object = objid
            ORDER BY checked_objectlinks.link;
-      RETURN Detokenize(links, " ");
+      RETURN links;
     }
     CASE "internallink"
     {
