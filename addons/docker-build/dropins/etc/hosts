@@ -1,0 +1,2 @@
+# Ensure resolving localhost works even with podman --no-hosts
+127.0.0.1 localhost localhost.domain
