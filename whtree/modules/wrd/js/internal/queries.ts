@@ -170,7 +170,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       query = query.where(qb => query.where(qb2 => qb2.where("creationdate", "<=", now).where("limitdate", ">", now)).orWhere("creationdate", "=", maxDateTime));
     } break;
     case "range": {
-      query = query.where("creationdate", "<=", historyMode.when_limit).where("limitdate", ">", historyMode.when_start);
+      query = query.where("creationdate", "<=", historyMode.limit).where("limitdate", ">", historyMode.start);
     } break;
     case "at": {
       query = query.where("creationdate", "<=", historyMode.when).where("limitdate", ">", historyMode.when);

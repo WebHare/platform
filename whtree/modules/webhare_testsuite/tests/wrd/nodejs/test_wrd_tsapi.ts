@@ -344,8 +344,10 @@ async function testNewAPI() {
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("unfiltered").execute());
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
   test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", now).execute());
+  test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode({ mode: "at", when: now }).execute());
   test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", new Date(now.valueOf() - 1), now).execute());
+  test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode({ mode: "range", start: new Date(now.valueOf() - 1), limit: now }).execute());
 
   await whdb.beginWork();
 
@@ -704,6 +706,9 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eq([], result.matched);
 
   //with historyMode it is in scope for deletion
+  result = await schema.modify("testDomain_1").historyMode({ mode: "all" }).sync("wrdTag", [], { unmatched: "keep" });
+  test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
+
   result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { unmatched: "delete-closereferred" });
   test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
   test.assert(result.unmatched.includes(threeId));

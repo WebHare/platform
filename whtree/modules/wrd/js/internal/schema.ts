@@ -817,7 +817,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
  * active: Show all entities that are now visible plus any temporaries (the default for getFields).
  */
 export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
-export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
+export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; start: Date; limit: Date } | null;
 type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
 type HSWRDQuery = {
   outputcolumn?: string;
@@ -838,8 +838,20 @@ function toHistoryData(mode: SimpleHistoryMode | HistoryModeData): HistoryModeDa
   return typeof mode === "string" ? { mode } : mode;
 }
 
-function translateHistoryModeToHS(mode: HistoryModeData) {
-  return mode ? { historyMode: mode.mode, ...omit(mode, ["mode"]) } : null;
+function translateHistoryModeToHS(mode: HistoryModeData): { historyMode: SimpleHistoryMode | "at" | "range"; when?: Date; when_start?: Date; when_limit?: Date } | null {
+  switch (mode?.mode) {
+    case undefined: return null;
+    case "now":
+    case "all":
+    case "active":
+    case "unfiltered":
+      return { historyMode: mode.mode };
+    case "at":
+      return { historyMode: mode.mode, when: mode.when };
+    case "range":
+      return { historyMode: mode.mode, when_start: mode.start, when_limit: mode.limit };
+  }
+  throw new Error(`Invalid history mode ${JSON.stringify(mode)}`);
 }
 
 export class WRDQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> {
@@ -875,8 +887,11 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
   historyMode(mode: "now" | "all"): WRDModificationBuilder<S, T>;
   historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
   historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
+  historyMode(mode: HistoryModeData): WRDModificationBuilder<S, T>;
 
-  historyMode(mode: "now" | "all" | "at" | "range", start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+  historyMode(mode: "now" | "all" | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+    if (typeof mode === "object")
+      return new WRDModificationBuilder(this.type, this.wheres, mode);
     switch (mode) {
       case "now":
       case "all": {
@@ -886,7 +901,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
         return new WRDModificationBuilder(this.type, this.wheres, { mode, when: start! });
       }
       case "range": {
-        return new WRDModificationBuilder(this.type, this.wheres, { mode, when_start: start!, when_limit: limit! });
+        return new WRDModificationBuilder(this.type, this.wheres, { mode, start: start!, limit: limit! });
       }
     }
   }
@@ -1014,8 +1029,11 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "now" | "all" | "active" | "unfiltered"): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
+  historyMode(mode: HistoryModeData): WRDSingleQueryBuilder<S, T, O>;
 
-  historyMode(mode: SimpleHistoryMode | "at" | "range", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+  historyMode(mode: SimpleHistoryMode | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+    if (typeof mode === "object")
+      return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, mode, this._limit);
     switch (mode) {
       case "now":
       case "active":
@@ -1027,7 +1045,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
         return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when: start! }, this._limit);
       }
       case "range": {
-        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when_start: start!, when_limit: limit! }, this._limit);
+        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, start: start!, limit: limit! }, this._limit);
       }
       default:
         throw new Error(`Unknown history mode '${mode}'`);
