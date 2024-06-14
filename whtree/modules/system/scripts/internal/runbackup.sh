@@ -58,7 +58,7 @@ fi
 PSROOT="${WEBHARE_DATAROOT}postgresql"
 mkdir -p "$BACKUPDEST/backup/"
 
-"$PSBIN/pg_basebackup" -D "$BACKUPDEST/backup/" -F tar -P -v  --compress=1
+"$WEBHARE_PGBIN/pg_basebackup" -D "$BACKUPDEST/backup/" -F tar -P -v  --compress=1
 BACKUPRETVAL="$?"
 
 if [ "$BACKUPRETVAL" != "0" ]; then

@@ -79,6 +79,9 @@ Additional modulepath to search. Separate by colon (':'). In docker, this is usu
 If set, no connectinfo will be written to the installationroot. This allows you to run a secondary WebHare installation
 from the same tree without confusing your text editor.
 
+### WEBHARE_PGBIN
+Override the PostgreSQL binaries directory
+
 ### WEBHARE_PGCONFIGFILE
 Override the configuration file passed to PostgreSQL
 
