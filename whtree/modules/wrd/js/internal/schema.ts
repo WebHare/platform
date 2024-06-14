@@ -11,12 +11,13 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, omit, stringify } from "@webhare/std";
-import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
+import { isTruthy, stringify } from "@webhare/std";
+import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
+import { nameToCamelCase } from "@webhare/hscompat/types";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -1007,6 +1008,11 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     this._limit = limit;
   }
 
+  private describeQuery() {
+    const schemaVar = nameToCamelCase(`${this.type.schema.tag.replace(":", "_")} _schema`);
+    return `${schemaVar}.query(${JSON.stringify(this.type.tag)}).select(${JSON.stringify(this.selects)})${this.wheres.map(_ => `.where(${JSON.stringify(_.field)}, ${JSON.stringify(_.condition)}, ${JSON.stringify(_.value)})`).join("")}${this._historyMode ? `.historyMode(${JSON.stringify(this._historyMode)})` : ""}${this._limit !== null ? `.limit(${this._limit})` : ""}`;
+  }
+
   select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineRecordOutputMaps<S[T], O, RecordizeOutputMap<S[T], M>>> {
     const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
     return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this._historyMode, this._limit);
@@ -1102,6 +1108,26 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return checkPromiseErrorsHandled(this.executeInternal());
   }
 
+  executeRequireOnlyOne(): Promise<QueryReturnArrayType<S, T, O>[number]> {
+    if (this._limit === null)
+      return this.limit(2).executeRequireOnlyOne();
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length !== 1)
+        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireOnlyOne()`);
+      return res[0];
+    }));
+  }
+
+  executeRequireAtMostOne(): Promise<QueryReturnArrayType<S, T, O>[number] | null> {
+    if (this._limit === null)
+      return this.limit(2).executeRequireAtMostOne();
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length > 1)
+        throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
+      return res[0] ?? null;
+    }));
+  }
+
   async getEventMasks(): Promise<string[]> {
     return this.type.getEventMasks();
   }
@@ -1126,6 +1152,10 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     this.schema = schema;
     this.baseQuery = baseQuery;
     this.enriches = enriches;
+  }
+
+  private describeQuery() {
+    return `${this.baseQuery["describeQuery"]()}${this.enriches.map(enrich => `.enrich(${JSON.stringify(enrich.type)}, ${JSON.stringify(enrich.field)}, ${JSON.stringify(enrich.mapping)}${enrich.options ? `, ${JSON.stringify(enrich.options)}` : ""})`).join("")}`;
   }
 
   private async executeInternal(): Promise<O[]> {
@@ -1157,6 +1187,22 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
 
   execute(): Promise<O[]> {
     return checkPromiseErrorsHandled(this.executeInternal());
+  }
+
+  executeRequireOnlyOne(): Promise<O> {
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length !== 1)
+        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireOnlyOne()`);
+      return res[0];
+    }));
+  }
+
+  executeRequireAtMostOne(): Promise<O | null> {
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length > 1)
+        throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
+      return res[0] ?? null;
+    }));
   }
 
   async getEventMasks(): Promise<string[]> {

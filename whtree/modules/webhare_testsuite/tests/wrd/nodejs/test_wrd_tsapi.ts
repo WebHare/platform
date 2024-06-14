@@ -169,6 +169,14 @@ async function testNewAPI() {
   test.eq([unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
   test.eq([unit_id, sub_unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
 
+  // test executeRequireOnlyOne and executeRequireAtMostOne in simple queries
+  test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireOnlyOne());
+  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireOnlyOne());
+  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireOnlyOne());
+  test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireAtMostOne());
+  await test.throws(/at most one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireAtMostOne());
+  test.eq(null, await schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireAtMostOne());
+
   /* Verify that the Record type isn't constraining too much (it regressed no longer accepting interface types:
      'Type 'TestRecordDataInterface' is not assignable to type '{ [x: string]: IPCMarshallableData; }'.
       Index signature for type 'string' is missing in type 'TestRecordDataInterface'.'
@@ -307,7 +315,17 @@ async function testNewAPI() {
     test.typeAssert<test.Equals<Array<
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
+  }
 
+  // test executeRequireOnlyOne and executeRequireAtMostOne in queries with enrichment
+  {
+    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
+
+    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
+    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
   }
 
   await whdb.beginWork();
