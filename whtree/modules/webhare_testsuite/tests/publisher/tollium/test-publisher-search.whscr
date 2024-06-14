@@ -30,7 +30,7 @@ MACRO PrepIt()
   linksrtdfile := sysoptestfolder->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
   richdoctype->SetInstanceData(linksrtdfile->id,
       [ data := [ htmltext := StringToBlob('<html><head></head><body>'
-                                     || `<p class="normal"><a href="http://www.example.net/link42/">Link 42</a> XX${todaysuniqueword} ZZ${todaysuniqueword}</p>`
+                                     || `<p class="normal"><a href="http://www.example.net/link41/">Link 41</a> <a href="http://www.example.net/link42/">Link 42</a> XX${todaysuniqueword} ZZ${todaysuniqueword}</p>`
                                      || '</body></html>')
                 ]
       ]);
@@ -74,7 +74,7 @@ ASYNC MACRO Search()
             ]
           ]
       ], searchscreen->GetFilterData());
-  
+
   searchscreen->SetFilterData(
       [ filters :=
           [ [ type := "publisher:text"
