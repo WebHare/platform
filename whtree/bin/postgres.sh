@@ -43,7 +43,7 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   echo "Prepare PostgreSQL database in $PSROOT"
-  if ! $RUNAS $PSBIN/initdb -U postgres -D "$PSROOT/tmp_initdb" --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
+  if ! $RUNAS $WEBHARE_PGBIN/initdb -U postgres -D "$PSROOT/tmp_initdb" --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
     echo DB initdb failed
     exit 1
   fi
@@ -53,7 +53,7 @@ if [ ! -d "$PSROOT/db" ]; then
 
   # CREATE DATABASE cannot be combined with other commands
   # log in to 'postgres' database so we can create our own
-  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" postgres ; then
+  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS $WEBHARE_PGBIN/postgres --single -D "$PSROOT/tmp_initdb" postgres ; then
     echo DB create db failed
     exit 1
   fi
@@ -61,7 +61,7 @@ if [ ! -d "$PSROOT/db" ]; then
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
     DOCKERGRANTS="GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;"
   fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
+  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS $WEBHARE_PGBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
     echo DB create user failed
     exit 1
   fi
@@ -84,4 +84,4 @@ fi
 
 
 echo "Starting PostgreSQL"
-exec $RUNAS "$PSBIN/postmaster" -D "$PSROOT/db" 2>&1
+exec $RUNAS "$WEBHARE_PGBIN/postmaster" -D "$PSROOT/db" 2>&1

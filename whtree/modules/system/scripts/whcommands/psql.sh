@@ -15,4 +15,4 @@ else
   echo "  START TRANSACTION READ WRITE;" 1>&2
 fi
 
-exec "$PSBIN/psql" $WEBHARE_DBASENAME "${ARGS[@]}" "$@"
+exec "$WEBHARE_PGBIN/psql" $WEBHARE_DBASENAME "${ARGS[@]}" "$@"

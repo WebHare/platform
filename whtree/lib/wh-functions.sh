@@ -717,24 +717,26 @@ load_postgres_settings()
     if [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
       RUNAS="chpst -u postgres:whdata"
     fi
-    PSBIN="/usr/lib/postgresql/11/bin/"
-  elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-    # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
-    PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
-    if [ -z "${PGVERSION}" ]; then
-      PGVERSION=13
-    fi
-    if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
-      PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
+    WEBHARE_PGBIN="/usr/lib/postgresql/11/bin/"
+  elif [ -z "$WEBHARE_PGBIN" ]; then
+    if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
+      # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
+      PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
+      if [ -z "${PGVERSION}" ]; then
+        PGVERSION=13
+      fi
+      if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
+        WEBHARE_PGBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
+      else
+        echo "This database requires postgres version ${PGVERSION}. Please install it (eg. brew install postgresql@${PGVERSION})"
+        exit 1
+      fi
     else
-      echo "This database requires postgres version ${PGVERSION}. Please install it (eg. brew install postgresql@${PGVERSION})"
-      exit 1
+      WEBHARE_PGBIN="/usr/pgsql-11/bin/"
     fi
-  else
-    PSBIN="/usr/pgsql-11/bin/"
   fi
 
-  export PSROOT RUNAS PGVERSION PSBIN
+  export PSROOT RUNAS PGVERSION WEBHARE_PGBIN
 }
 
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
