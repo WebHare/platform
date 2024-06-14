@@ -402,6 +402,9 @@ export function combineRecordOutputMaps<T extends TypeDefinition, B extends Reco
   return u as CombineRecordOutputMaps<T, B, U>;
 }
 
+/** Object with all values allowed for an object query */
+export type MatchObjectQueryable<T extends TypeDefinition> = { [K in keyof T]?: (GetCVPairs<T[K]> & { condition: "=" })["value"] };
+
 type InsertableAndRequired<T extends WRDAttrBase> = T["__required"] extends true ? T["__insertable"] extends true ? true : false : false;
 
 /** Returns the type for date for WRD entity creation */

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
@@ -410,6 +410,10 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
+  find<T extends keyof S & string>(type: T, query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+    return checkPromiseErrorsHandled(this.getType(type).find(query, options));
+  }
+
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null>;
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
 
@@ -518,12 +522,18 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return await (entityobj as HSVMObject).$get("id") as number;
   }
 
-  async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
+  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
+    if (typeof entity === "object") {
+      const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
+      if (matches.length !== 1)
+        throw new Error(`Expected exactly one match for update, got ${matches.length}`);
+      entity = matches[0] as number;
+    }
     if (debugFlags["wrd:writejsengine"]) {
       //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
       if ("wrdId" in value)
         throw new Error(`An entity update may not set wrdId`);
-      await __internalUpdEntity(this, value as Insertable<S[T]>, wrd_id, {});
+      await __internalUpdEntity(this, value as Insertable<S[T]>, entity, {});
       return;
     }
     if (!debugFlags["wrd:usewasmvm"])
@@ -531,7 +541,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!this.attrs)
       await this.ensureAttributes();
 
-    await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
+    await (await this._getType()).updateEntity(entity, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
   async upsert(keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
@@ -573,6 +583,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
     const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), ...translateHistoryModeToHS(historyMode), jsmode: true }) as number;
     return res || null;
+  }
+
+  find(query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+    let baseQuery = this.schema.query(this.tag).select("wrdId").match(query);
+    if (options?.historyMode)
+      baseQuery = baseQuery.historyMode(typeof options.historyMode === "string" ? { mode: options.historyMode } : options.historyMode);
+    return baseQuery.executeRequireAtMostOne() as Promise<number | null>;
   }
 
   private async getBulkFields<Mapping extends EnrichOutputMap<S[T]>, Id extends number | null>(
@@ -879,6 +896,11 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options }], this._historyMode);
   }
 
+  match(obj: MatchObjectQueryable<S[T]>): WRDModificationBuilder<S, T> {
+    const newWheres = Object.entries(obj).map(([field, value]) => ({ field, condition: "=" as const, value, options: undefined }));
+    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, ...newWheres], this._historyMode);
+  }
+
   $call(cb: (b: WRDModificationBuilder<S, T>) => WRDModificationBuilder<S, T>): WRDModificationBuilder<S, T> {
     return cb(this);
   }
@@ -1020,6 +1042,11 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDSingleQueryBuilder<S, T, O> {
     return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options }], this._historyMode, this._limit);
+  }
+
+  match(obj: MatchObjectQueryable<S[T]>): WRDSingleQueryBuilder<S, T, O> {
+    const newwheres = Object.entries(obj).map(([field, value]) => ({ field, condition: "=" as const, value, options: undefined }));
+    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, ...newwheres], this._historyMode, this._limit);
   }
 
   $call<TO extends RecordOutputMap<S[T]> | null>(cb: (b: WRDSingleQueryBuilder<S, T, O>) => WRDSingleQueryBuilder<S, T, TO>): WRDSingleQueryBuilder<S, T, TO> {

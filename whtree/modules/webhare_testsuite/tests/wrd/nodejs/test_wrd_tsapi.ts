@@ -163,6 +163,9 @@ async function testNewAPI() {
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
 
+  test.eq(unit_id, await schema.find("whuserUnit", { wrdId: unit_id }));
+  test.eq(null, await schema.find("whuserUnit", { "wrdId": -1 }));
+
   // test searches for null in wrdLeftEntity
   test.eq([unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", null).execute());
   test.eq([sub_unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "!=", null).execute());
@@ -187,6 +190,9 @@ async function testNewAPI() {
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
   const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
+
+  // find should throw when finding multiple matches
+  test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
 
   await whdb.commitWork();
 
@@ -236,6 +242,11 @@ async function testNewAPI() {
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "all" }));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "active" }));
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "unfiltered" }));
+
+  test.eq(null, await schema.find("wrdPerson", { wrdGender: "other" }));
+  test.eq(deletedperson, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "all" }));
+  test.eq(null, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "active" }));
+  test.eq(deletedperson, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "unfiltered" }));
 
   await whdb.beginWork();
   await schema.update("wrdPerson", secondperson, { wrdGender: null });
@@ -366,6 +377,10 @@ async function testNewAPI() {
   test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", new Date(now.valueOf() - 1), now).execute());
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode({ mode: "range", start: new Date(now.valueOf() - 1), limit: now }).execute());
+
+  // also test match, with multiple props
+  test.eq([], await schema.query("wrdPerson").select("wrdId").match({ wrdFirstName: "second", wrdId: firstperson }).historyMode("all").execute());
+  test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").match({ wrdFirstName: "second", wrdId: secondperson }).historyMode("all").execute());
 
   await whdb.beginWork();
 
