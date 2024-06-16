@@ -400,18 +400,43 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
   }
 
-  update<T extends keyof S & string>(type: T, wrd_id: number, value: Updatable<S[T]>): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
+  /** Updates fields of a specific entity
+   * @param entity - wrdId of the entity to update, or a query object to find the entity (throws if none or multiple entities match the query)
+   * @param value - Value to match (using condition "=")
+   * @param options - Additional options for the filter
+   * @example
+   * ```typescript
+   * /// Returns the wrdId of an entity with the first name "John" (or null if no such entity exists)
+   * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
+   * ```
+   */
+  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
+    return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value));
   }
 
   upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode }>): Promise<[number, boolean]> {
     return checkPromiseErrorsHandled(this.getType(type).upsert(query, value, ...options));
   }
 
+  /** Returns the wrdId of an entity that has a field with a specific value, or null if not found.
+   * @param field - Field to filter on
+   * @param value - Value to match (using condition "=")
+   * @param options - Additional options for the filter
+   * @example
+   * ```typescript
+   * /// Returns the wrdId of an entity with the first name "John" (or null if no such entity exists)
+   * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
+   * ```
+   */
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
+  /** Returns the wrdId of the entity that matches the properties of the query object.
+   * @param type - Type to search in
+   * @param query - Query object (field-value pairs)
+   * @param options - Options for the search
+   */
   find<T extends keyof S & string>(type: T, query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).find(query, options));
   }
@@ -524,7 +549,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return await (entityobj as HSVMObject).$get("id") as number;
   }
 
-  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
+  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>, options?: { historyMode: SimpleHistoryMode }): Promise<void> {
     if (typeof entity === "object") {
       const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
       if (matches.length !== 1)
@@ -552,7 +577,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!this.attrs)
       await this.ensureAttributes();
     if (Array.isArray(query)) {
-      // @ts-expect-error Fallback code for old upsert function signature
+      // @ts-expect-error Fallback code for old upsert function signature. remove in WH5.7 or when all modules are updated
       [query, value] = [pick(value, query), omit(value, query)];
     }
     const result = await this.schema.query(this.tag).select("wrdId").match(query).historyMode(options[0]?.historyMode ?? "now").execute() as number[];
@@ -587,6 +612,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return res || null;
   }
 
+  /** Returns the wrdId of the entity that matches the properties of the query object.
+   * @param query - Query object (field-value pairs)
+   * @param options - Options for the search
+   */
   find(query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     let baseQuery = this.schema.query(this.tag).select("wrdId").match(query);
     if (options?.historyMode)
@@ -894,10 +923,31 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     return new WRDSingleQueryBuilder(this.type, recordmapping, this.wheres, this._historyMode, null);
   }
 
+  /** Match only the entities for which the field meets the specified condition
+   * @param field - Field to filter on
+   * @param condition - Condition to match
+   * @param value - Value to match
+   * @param options - Additional options for the filter
+   * @example
+   * ```typescript
+   * /// Returns an array of all wrdIds of entities with the first name "John".
+   * const result = await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "John").execute();
+   * /// Returns an array of all wrdIds of entities that are born before 1980.
+   * const result = await schema.query("wrdPerson").select("wrdId").where("wrdBirthDate", "&lt;", new Date(1980, 0, 1)).execute();
+   * ```
+   */
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDModificationBuilder<S, T> {
     return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options }], this._historyMode);
   }
 
+  /** Match only the entities that match all the properties in the specified object.
+   * @param obj - Object with field-value pairs to match
+   * @example
+   * ```typescript
+   * /// Returns an array of all wrdIds of entities with the first name "John" and last name "Doe".
+   * const result = await schema.query("wrdPerson").select("wrdId").match({ wrdFirstName: "John", wrdLastName: "Doe" }).execute()
+   * ```
+   */
   match(obj: MatchObjectQueryable<S[T]>): WRDModificationBuilder<S, T> {
     const newWheres = Object.entries(obj).map(([field, value]) => ({ field, condition: "=" as const, value, options: undefined }));
     return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, ...newWheres], this._historyMode);
