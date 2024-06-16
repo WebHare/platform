@@ -536,7 +536,7 @@ Executed instrs.:   ${stats.instructions}
     CASE "enable", "disable"
     {
       ParseSubArgs(
-            [ [ name := "allowunknown", type := "switch" ]
+            [ [ name := "force", type := "switch" ]
             , [ name := "flags", type := "paramlist" ]
             ]);
 
@@ -548,10 +548,10 @@ Executed instrs.:   ${stats.instructions}
       {
         RECORD match := SELECT * FROM allflags WHERE allflags.name = VAR flag;
         IF(NOT RecordExists(match))
-          IF(args.allowunknown)
+          IF(args.force)
             match := [ name := flag, description := `unknown flag` ];
           ELSE
-            THROW NEW Exception(`Unknown flag '${flag}'`);
+            THROW NEW Exception(`Unknown flag '${flag}' (use --force to override this check)`);
 
         INSERT match INTO updateflags AT END;
       }

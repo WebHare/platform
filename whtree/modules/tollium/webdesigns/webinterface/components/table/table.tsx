@@ -9,7 +9,7 @@ import * as toddupload from '@mod-tollium/web/ui/js/upload';
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
 
-import { hasNativeEventMultiSelectKey } from 'dompack/extra/keyboard';
+import { isMultiSelectKey } from '@webhare/dompack';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 
 /****************************************************************************************************************************
@@ -765,9 +765,9 @@ export default class ObjTable extends ComponentBase {
     // ignore clicks on unselectable cells
     if (target instanceof ObjCell) {
       if (target.selectable)
-        this.selectCell(target, evt.shiftKey, hasNativeEventMultiSelectKey(evt) ? togglemode : "");
+        this.selectCell(target, evt.shiftKey, isMultiSelectKey(evt) ? togglemode : "");
     } else {
-      this.selectOverlay(target, hasNativeEventMultiSelectKey(evt) ? togglemode : "");
+      this.selectOverlay(target, isMultiSelectKey(evt) ? togglemode : "");
     }
 
     // we might have gotten focus, so always run the action enabler

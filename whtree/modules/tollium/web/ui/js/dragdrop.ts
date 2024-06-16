@@ -2,7 +2,6 @@
 // @ts-nocheck -- needs porting!
 
 import * as browser from 'dompack/extra/browser';
-import { getDragModeOverride } from "dompack/extra/keyboard";
 import type { AcceptType } from './types';
 
 // Our custom data url
@@ -22,6 +21,28 @@ function isDropEffectAllowed(dropEffect, effectAllowed) {
   const mask = effectstrs.indexOf(effectAllowed === "uninitialized" ? "all" : effectAllowed);
   const pos = effectstrs.indexOf(dropEffect);
   return pos >= 0 && (mask & pos);
+}
+
+function getDragModeOverride(event: KeyboardEvent) {
+  const modifiers =
+    (event.altKey ? "Alt+" : "") +
+    (event.ctrlKey ? "Control+" : "") +
+    (event.metaKey ? "Meta+" : "") +
+    (event.shiftKey ? "Shift+" : "") +
+    (browser.getPlatform() === "mac" ? "Mac" : "Other");
+
+  let override = "";
+  switch (modifiers) {
+    case "Shift+Other":
+    case "Meta+Other": override = "move"; break;
+    case "Control+Other":
+    case "Alt+Mac": override = "copy"; break;
+    case "Control+Shift+Other":
+    case "Alt+Other":
+    case "Control+Mac": override = "link"; break;
+  }
+
+  return override;
 }
 
 function getDefaultDropEffect(event, effectAllowed) {

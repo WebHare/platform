@@ -21,7 +21,6 @@ export async function createSharpImage(...args: Parameters<typeof sharp.default>
 ////////////////////////////// Puppeteer //////////////////////////
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
 
-
 /** Load Puppeteer */
 export async function launchPuppeteer(options?: Puppeteer.PuppeteerLaunchOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
   if (!puppeteerpromise)
@@ -31,7 +30,20 @@ export async function launchPuppeteer(options?: Puppeteer.PuppeteerLaunchOptions
   process.env.CHROMIUM_PATH = puppeteer.executablePath();
   options = { executablePath: __dirname + "/../bin/start-chromium.sh", ...options };
 
-  const puppet = await (await puppeteerpromise).launch(options) as Puppeteer.Browser & AsyncDisposable;
+  const puppet = await puppeteer.launch(options) as Puppeteer.Browser & AsyncDisposable;
+  if (!puppet[Symbol.asyncDispose]) //it should be there, but just not exposed..
+    throw new Error("Puppet unexpectedly lacks Symbol.asyncDispose");
+
+  return puppet;
+}
+
+/** Connect Puppeteer to existing browser */
+export async function connectPuppeteer(options: Puppeteer.ConnectOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
+  if (!puppeteerpromise)
+    puppeteerpromise = import("puppeteer");
+
+  const puppeteer = await puppeteerpromise;
+  const puppet = await (puppeteer).connect(options) as Puppeteer.Browser & AsyncDisposable;
   if (!puppet[Symbol.asyncDispose]) //it should be there, but just not exposed..
     throw new Error("Puppet unexpectedly lacks Symbol.asyncDispose");
 
