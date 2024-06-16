@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
@@ -11,7 +11,7 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, stringify } from "@webhare/std";
+import { isTruthy, omit, pick, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
@@ -217,6 +217,8 @@ class SchemaDataInvalidationCollector {
 
 let schemaUpdateListener: SchemaUpdateListener | null = null;
 
+type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
+type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
@@ -402,8 +404,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
   }
 
-  upsert<T extends keyof S & string>(type: T, keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
-    return checkPromiseErrorsHandled(this.getType(type).upsert(keys, value, options));
+  upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode }>): Promise<[number, boolean]> {
+    return checkPromiseErrorsHandled(this.getType(type).upsert(query, value, ...options));
   }
 
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
@@ -544,33 +546,33 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateEntity(entity, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
-  async upsert(keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
+  async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode }>): Promise<[number, boolean]> {
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
       await this.ensureAttributes();
-    if (!keys.length)
-      throw new Error(`Upsert requires at least one key field`);
-    if ((value as unknown as { wrdLimitDate: Date | null }).wrdLimitDate === null && options?.historyMode !== "all")
+    if (Array.isArray(query)) {
+      // @ts-expect-error Fallback code for old upsert function signature
+      [query, value] = [pick(value, query), omit(value, query)];
+    }
+    const result = await this.schema.query(this.tag).select("wrdId").match(query).historyMode(options[0]?.historyMode ?? "now").execute() as number[];
+    if (result.length > 1) {
+      const schemaVar = nameToCamelCase(`${this.schema.tag.replace(":", "_")}_schema`);
+      throw new Error(`Query ${schemaVar}.upsert(${JSON.stringify(query)}, ...) matched ${result.length} entities, at most one is allowed`);
+    }
+
+    if ("wrdLimitDate" in value && value.wrdLimitDate === null && options[0]?.historyMode !== "all")
       throw new Error(`Resetting wrdLimitDate requires historyMode: all`);
 
-    let lookup = this.schema.query(this.tag).select(["wrdId"]).historyMode(options?.historyMode ?? "now");
-    for (const key of keys) {
-      if (!Object.hasOwn(value, key))
-        throw new Error(`Upsert requires a value for key field '${key as string}'`);
-      lookup = lookup.where(key as string, "=", value[key]);
-    }
-
-    const result = await lookup.execute() as Array<{ wrdId: number }>; //TODO not sure why it's not being inferred
-    if (result.length > 1)
-      throw new Error(`Upsert matched multiple records`);
-
     if (result.length === 1) {
-      await this.updateEntity(result[0].wrdId, value);
-      return [result[0].wrdId, false];
+      await this.updateEntity(result[0], value);
+      return [result[0], false];
     }
 
-    const newId = await this.createEntity({ ...value, ...options?.ifNew });
+    const newValue = typeof options[0]?.ifNew === "function" ? await options[0].ifNew() : options[0]?.ifNew;
+
+    /* TODO: verify if all updatable / queryable values can be converted to insertable values */
+    const newId = await this.createEntity({ ...query, ...value, ...newValue } as unknown as Insertable<S[T]>);
     return [newId, true];
   }
 
