@@ -1229,12 +1229,12 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return checkPromiseErrorsHandled(this.executeInternal());
   }
 
-  executeRequireOnlyOne(): Promise<QueryReturnArrayType<S, T, O>[number]> {
+  executeRequireExactlyOne(): Promise<QueryReturnArrayType<S, T, O>[number]> {
     if (this._limit === null)
-      return this.limit(2).executeRequireOnlyOne();
+      return this.limit(2).executeRequireExactlyOne();
     return checkPromiseErrorsHandled(this.executeInternal().then(res => {
       if (res.length !== 1)
-        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireOnlyOne()`);
+        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
       return res[0];
     }));
   }
@@ -1310,10 +1310,10 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     return checkPromiseErrorsHandled(this.executeInternal());
   }
 
-  executeRequireOnlyOne(): Promise<O> {
+  executeRequireExactlyOne(): Promise<O> {
     return checkPromiseErrorsHandled(this.executeInternal().then(res => {
       if (res.length !== 1)
-        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireOnlyOne()`);
+        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
       return res[0];
     }));
   }

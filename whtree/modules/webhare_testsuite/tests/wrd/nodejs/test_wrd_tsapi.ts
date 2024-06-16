@@ -172,10 +172,10 @@ async function testNewAPI() {
   test.eq([unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
   test.eq([unit_id, sub_unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
 
-  // test executeRequireOnlyOne and executeRequireAtMostOne in simple queries
-  test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireOnlyOne());
-  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireOnlyOne());
-  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireOnlyOne());
+  // test executeRequireExactlyOne and executeRequireAtMostOne in simple queries
+  test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireExactlyOne());
+  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireExactlyOne());
+  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireExactlyOne());
   test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireAtMostOne());
   await test.throws(/at most one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireAtMostOne());
   test.eq(null, await schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireAtMostOne());
@@ -328,14 +328,14 @@ async function testNewAPI() {
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
   }
 
-  // test executeRequireOnlyOne and executeRequireAtMostOne in queries with enrichment
+  // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment
   {
-    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
-    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
-    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
+    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
 
     test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
-    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireOnlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
     test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
   }
 
