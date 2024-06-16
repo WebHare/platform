@@ -402,6 +402,27 @@ export function combineRecordOutputMaps<T extends TypeDefinition, B extends Reco
   return u as CombineRecordOutputMaps<T, B, U>;
 }
 
+/** Object with all values allowed for an object query */
+export type MatchObjectQueryable<T extends TypeDefinition> = { [K in keyof T]?: (GetCVPairs<T[K]> & { condition: "=" })["value"] };
+
+/** Object with all values allowed for an match query within an upsert query */
+export type UpsertMatchQueryable<T extends TypeDefinition> = Pick<Updatable<T>, keyof MatchObjectQueryable<T> & keyof Updatable<T>> & MatchObjectQueryable<T>;
+
+/** Given an inferred object type O and a contract type Contract, ensure that the resulting type conforms to the contract, and doesn't contain
+ * any extra properties. Can be used for inference of an object type parameter in a function call.
+ * @typeParam O - The type that will be inferred
+ * @typeParam Contract - The contract to ensure the object conforms to
+ * @example
+ * ```typescript
+ * function test<O extends object>(o: EnsureExactForm<O, { a?: number, b?: number }>) { ... }
+ * const v = test({a: 1}); // with this call, O is inferred as { a: number }
+ * const 2 = test(["a"]); // with this call, O is inferred as ["a"], so the result type is `never`, resulting in an error
+ * ```
+ */
+/* It is better than using test<O extends Contract>(obj: O & Record<Exclude<keyof O, keyof Contract>, never>) because it will disallow arrays too (eg ["a"]). Type inference
+   will result in O being inferred to be 'Contract' in that case. If Contract has only optional parameters, the array will conform to the contract */
+export type EnsureExactForm<O extends object, Contract extends object> = O & Contract & Record<Exclude<keyof O, keyof Contract>, never>;
+
 type InsertableAndRequired<T extends WRDAttrBase> = T["__required"] extends true ? T["__insertable"] extends true ? true : false : false;
 
 /** Returns the type for date for WRD entity creation */

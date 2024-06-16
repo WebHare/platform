@@ -543,7 +543,7 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
         else if (entityRecord.initials)
           fullname += entityRecord.initials;
         if (entityRecord.lastname)
-          fullname += `${entityRecord.infix ? entityRecord.infix + " " : ""}${entityRecord.lastname}`;
+          fullname += ` ${entityRecord.infix ? entityRecord.infix + " " : ""}${entityRecord.lastname}`;
         return fullname.trim();
       }
       default: throw new Error(`Unhandled base generated string attribute ${JSON.stringify(this.attr.tag)}`);

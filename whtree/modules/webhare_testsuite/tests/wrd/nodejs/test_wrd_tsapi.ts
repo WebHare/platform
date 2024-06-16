@@ -163,11 +163,22 @@ async function testNewAPI() {
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
 
+  test.eq(unit_id, await schema.find("whuserUnit", { wrdId: unit_id }));
+  test.eq(null, await schema.find("whuserUnit", { "wrdId": -1 }));
+
   // test searches for null in wrdLeftEntity
   test.eq([unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", null).execute());
   test.eq([sub_unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "!=", null).execute());
   test.eq([unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
   test.eq([unit_id, sub_unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
+
+  // test executeRequireExactlyOne and executeRequireAtMostOne in simple queries
+  test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireExactlyOne());
+  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireExactlyOne());
+  await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireExactlyOne());
+  test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireAtMostOne());
+  await test.throws(/at most one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireAtMostOne());
+  test.eq(null, await schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireAtMostOne());
 
   /* Verify that the Record type isn't constraining too much (it regressed no longer accepting interface types:
      'Type 'TestRecordDataInterface' is not assignable to type '{ [x: string]: IPCMarshallableData; }'.
@@ -179,6 +190,9 @@ async function testNewAPI() {
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
   const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
+
+  // find should throw when finding multiple matches
+  test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
 
   await whdb.commitWork();
 
@@ -228,6 +242,11 @@ async function testNewAPI() {
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "all" }));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "active" }));
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "unfiltered" }));
+
+  test.eq(null, await schema.find("wrdPerson", { wrdGender: "other" }));
+  test.eq(deletedperson, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "all" }));
+  test.eq(null, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "active" }));
+  test.eq(deletedperson, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "unfiltered" }));
 
   await whdb.beginWork();
   await schema.update("wrdPerson", secondperson, { wrdGender: null });
@@ -307,7 +326,17 @@ async function testNewAPI() {
     test.typeAssert<test.Equals<Array<
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
+  }
 
+  // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment
+  {
+    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+
+    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
+    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
   }
 
   await whdb.beginWork();
@@ -344,8 +373,14 @@ async function testNewAPI() {
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("unfiltered").execute());
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
   test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", now).execute());
+  test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode({ mode: "at", when: now }).execute());
   test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
   test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", new Date(now.valueOf() - 1), now).execute());
+  test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode({ mode: "range", start: new Date(now.valueOf() - 1), limit: now }).execute());
+
+  // also test match, with multiple props
+  test.eq([], await schema.query("wrdPerson").select("wrdId").match({ wrdFirstName: "second", wrdId: firstperson }).historyMode("all").execute());
+  test.eq([secondperson], await schema.query("wrdPerson").select("wrdId").match({ wrdFirstName: "second", wrdId: secondperson }).historyMode("all").execute());
 
   await whdb.beginWork();
 
@@ -568,35 +603,48 @@ async function testUpsert() {
   await whdb.beginWork();
   test.eq(2, (await wrdTestschemaSchema.query("whuserUnit").select("wrdId").execute()).length);
   ///@ts-expect-error -- TS should also detect wrdTagXX being invalid
-  await test.throws(/Cannot find attribute/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTagXX"], { wrdLeftEntity: null, wrdTagXX: "TAG" }));
-  await test.throws(/requires a value for.*wrdTag/, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null }));
+  await test.throws(/Cannot find attribute/, wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTagXX: "TAG" }, {}));
 
-  const [firstUnitId, firstUnitIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { ifNew: { wrdTitle: "Unit #1" } });
+  const [firstUnitId, firstUnitIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, {}, { ifNew: { wrdTitle: "Unit #1" } });
   test.assert(firstUnitIsNew);
-  const [secondUnitId] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "SECONDUNIT" }, { ifNew: { wrdTitle: "Unit #2" } });
+  const [secondUnitId] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "SECONDUNIT" }, {}, { ifNew: { wrdTitle: "Unit #2" } });
   test.eq(4, (await wrdTestschemaSchema.query("whuserUnit").select("wrdId").execute()).length);
   test.assert(firstUnitId);
   test.assert(secondUnitId);
   test.eq("Unit #1", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"])).wrdTitle);
 
-  const [firstUnitId2, firstUnitIsNew2] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { ifNew: { wrdTitle: "Unit #1b" } });
+  let [firstUnitId2, firstUnitIsNew2] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, {}, { ifNew: { wrdTitle: "Unit #1b" } });
   test.eq(firstUnitId, firstUnitId2);
   test.assert(!firstUnitIsNew2);
   test.eq("Unit #1", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"])).wrdTitle);
 
-  await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdTitle: "Unit #1b" });
+  // @ts-expect-error -- this is the old way of calling upsert, ensure compatibility for now
+  [firstUnitId2, firstUnitIsNew2] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdTitle: "Unit #1bx" }, { ifNew: { wrdTitle: "Unit #1b" } });
+  test.eq("Unit #1bx", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"])).wrdTitle);
+
+  await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { wrdTitle: "Unit #1b" });
   test.eq(4, (await wrdTestschemaSchema.query("whuserUnit").select("wrdId").execute()).length);
   test.eq("Unit #1b", (await wrdTestschemaSchema.getFields("whuserUnit", firstUnitId, ["wrdTitle"])).wrdTitle);
 
-  await test.throws(/Upsert requires at least one key field/, wrdTestschemaSchema.upsert("whuserUnit", [], { wrdTitle: "Unit without key" }));
+  await test.throws(/at most one is allowed/, wrdTestschemaSchema.upsert("whuserUnit", {}, { wrdTitle: "Unit without key" }));
 
   await wrdTestschemaSchema.update("whuserUnit", firstUnitId, { wrdLimitDate: new Date() });
 
-  await test.throws(/requires.*historyMode/i, wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" } }));
+  await test.throws(/requires.*historyMode/i, wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" } }));
 
-  const [recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", ["wrdLeftEntity", "wrdTag"], { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" }, historyMode: "all" });
+  let [recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" }, historyMode: "all" });
   test.eq(firstUnitId, recreateId);
   test.assert(!recreateIsNew);
+
+  await wrdTestschemaSchema.delete("whuserUnit", recreateId);
+  ([recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdLimitDate: null }, { ifNew: () => ({ wrdTitle: "Unit #1b" }), historyMode: "all" }));
+  test.assert(recreateIsNew);
+  test.eq("Unit #1b", await wrdTestschemaSchema.getFields("whuserUnit", recreateId, "wrdTitle"));
+
+  await wrdTestschemaSchema.delete("whuserUnit", recreateId);
+  ([recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdLimitDate: null }, { ifNew: async () => ({ wrdTitle: "Unit #1b" }), historyMode: "all" }));
+  test.assert(recreateIsNew);
+  test.eq("Unit #1b", await wrdTestschemaSchema.getFields("whuserUnit", recreateId, "wrdTitle"));
 
   await whdb.commitWork();
 }
@@ -704,6 +752,9 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eq([], result.matched);
 
   //with historyMode it is in scope for deletion
+  result = await schema.modify("testDomain_1").historyMode({ mode: "all" }).sync("wrdTag", [], { unmatched: "keep" });
+  test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
+
   result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [], { unmatched: "delete-closereferred" });
   test.eq(2, result.unmatched.length, "Deletes both threeid and the TEST_DOMAINVALUE_1_3 we had");
   test.assert(result.unmatched.includes(threeId));

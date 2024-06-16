@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
@@ -11,12 +11,13 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, omit, stringify } from "@webhare/std";
-import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
+import { isTruthy, omit, pick, stringify } from "@webhare/std";
+import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
+import { nameToCamelCase } from "@webhare/hscompat/types";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -29,7 +30,7 @@ interface SyncOptions {
 }
 
 interface GetFieldsOptions {
-  historyMode?: SimpleHistoryMode;
+  historyMode?: SimpleHistoryMode | HistoryModeData;
   allowMissing?: boolean;
 }
 
@@ -216,6 +217,8 @@ class SchemaDataInvalidationCollector {
 
 let schemaUpdateListener: SchemaUpdateListener | null = null;
 
+type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
+type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
@@ -397,16 +400,45 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
   }
 
-  update<T extends keyof S & string>(type: T, wrd_id: number, value: Updatable<S[T]>): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
+  /** Updates fields of a specific entity
+   * @param entity - wrdId of the entity to update, or a query object to find the entity (throws if none or multiple entities match the query)
+   * @param value - Value to match (using condition "=")
+   * @param options - Additional options for the filter
+   * @example
+   * ```typescript
+   * /// Returns the wrdId of an entity with the first name "John" (or null if no such entity exists)
+   * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
+   * ```
+   */
+  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
+    return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value));
   }
 
-  upsert<T extends keyof S & string>(type: T, keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
-    return checkPromiseErrorsHandled(this.getType(type).upsert(keys, value, options));
+  upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
+    return checkPromiseErrorsHandled(this.getType(type).upsert(query, value, ...options));
   }
 
+  /** Returns the wrdId of an entity that has a field with a specific value, or null if not found.
+   * @param field - Field to filter on
+   * @param value - Value to match (using condition "=")
+   * @param options - Additional options for the filter
+   * @example
+   * ```typescript
+   * /// Returns the wrdId of an entity with the first name "John" (or null if no such entity exists)
+   * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
+   * ```
+   */
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
+  }
+
+  /** Returns the wrdId of the entity that matches the properties of the query object.
+   * @param type - Type to search in
+   * @param query - Query object (field-value pairs)
+   * @param options - Options for the search
+   */
+  find<T extends keyof S & string>(type: T, query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+    return checkPromiseErrorsHandled(this.getType(type).find(query, options));
   }
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null>;
@@ -517,12 +549,18 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return await (entityobj as HSVMObject).$get("id") as number;
   }
 
-  async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
+  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
+    if (typeof entity === "object") {
+      const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
+      if (matches.length !== 1)
+        throw new Error(`Expected exactly one match for update, got ${matches.length}`);
+      entity = matches[0] as number;
+    }
     if (debugFlags["wrd:writejsengine"]) {
       //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
       if ("wrdId" in value)
         throw new Error(`An entity update may not set wrdId`);
-      await __internalUpdEntity(this, value as Insertable<S[T]>, wrd_id, {});
+      await __internalUpdEntity(this, value as Insertable<S[T]>, entity, {});
       return;
     }
     if (!debugFlags["wrd:usewasmvm"])
@@ -530,40 +568,40 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!this.attrs)
       await this.ensureAttributes();
 
-    await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
+    await (await this._getType()).updateEntity(entity, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
-  async upsert(keys: Array<keyof Insertable<S[T]>>, value: Insertable<S[T]>, options?: { ifNew?: Insertable<S[T]>; historyMode?: SimpleHistoryMode }): Promise<[number, boolean]> {
+  async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
       await this.ensureAttributes();
-    if (!keys.length)
-      throw new Error(`Upsert requires at least one key field`);
-    if ((value as unknown as { wrdLimitDate: Date | null }).wrdLimitDate === null && options?.historyMode !== "all")
+    if (Array.isArray(query)) {
+      // @ts-expect-error Fallback code for old upsert function signature. remove in WH5.7 or when all modules are updated
+      [query, value] = [pick(value, query), omit(value, query)];
+    }
+    const result = await this.schema.query(this.tag).select("wrdId").match(query).historyMode(options[0]?.historyMode ?? "now").execute() as number[];
+    if (result.length > 1) {
+      const schemaVar = nameToCamelCase(`${this.schema.tag.replace(":", "_")}_schema`);
+      throw new Error(`Query ${schemaVar}.upsert(${JSON.stringify(query)}, ...) matched ${result.length} entities, at most one is allowed`);
+    }
+
+    if ("wrdLimitDate" in value && value.wrdLimitDate === null && options[0]?.historyMode !== "all")
       throw new Error(`Resetting wrdLimitDate requires historyMode: all`);
 
-    let lookup = this.schema.query(this.tag).select(["wrdId"]).historyMode(options?.historyMode ?? "now");
-    for (const key of keys) {
-      if (!Object.hasOwn(value, key))
-        throw new Error(`Upsert requires a value for key field '${key as string}'`);
-      lookup = lookup.where(key as string, "=", value[key]);
-    }
-
-    const result = await lookup.execute() as Array<{ wrdId: number }>; //TODO not sure why it's not being inferred
-    if (result.length > 1)
-      throw new Error(`Upsert matched multiple records`);
-
     if (result.length === 1) {
-      await this.updateEntity(result[0].wrdId, value);
-      return [result[0].wrdId, false];
+      await this.updateEntity(result[0], value);
+      return [result[0], false];
     }
 
-    const newId = await this.createEntity({ ...value, ...options?.ifNew });
+    const newValue = typeof options[0]?.ifNew === "function" ? await options[0].ifNew() : options[0]?.ifNew;
+
+    /* TODO: verify if all updatable / queryable values can be converted to insertable values */
+    const newId = await this.createEntity({ ...query, ...value, ...newValue } as unknown as Insertable<S[T]>);
     return [newId, true];
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData | SimpleHistoryMode }): Promise<number | null> {
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     const historyMode = toHistoryData(options?.historyMode ?? "now");
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
       type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
@@ -572,6 +610,15 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
     const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), ...translateHistoryModeToHS(historyMode), jsmode: true }) as number;
     return res || null;
+  }
+
+  /** Returns the wrdId of the entity that matches the properties of the query object.
+   * @param query - Query object (field-value pairs)
+   * @param options - Options for the search
+   */
+  find(query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+    const baseQuery = this.schema.query(this.tag).select("wrdId").match(query).historyMode(options?.historyMode ?? "now");
+    return baseQuery.executeRequireAtMostOne() as Promise<number | null>;
   }
 
   private async getBulkFields<Mapping extends EnrichOutputMap<S[T]>, Id extends number | null>(
@@ -817,7 +864,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
  * active: Show all entities that are now visible plus any temporaries (the default for getFields).
  */
 export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
-export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
+export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; start: Date; limit: Date } | null;
 type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
 type HSWRDQuery = {
   outputcolumn?: string;
@@ -838,16 +885,28 @@ function toHistoryData(mode: SimpleHistoryMode | HistoryModeData): HistoryModeDa
   return typeof mode === "string" ? { mode } : mode;
 }
 
-function translateHistoryModeToHS(mode: HistoryModeData) {
-  return mode ? { historyMode: mode.mode, ...omit(mode, ["mode"]) } : null;
+function translateHistoryModeToHS(mode: HistoryModeData): { historyMode: SimpleHistoryMode | "at" | "range"; when?: Date; when_start?: Date; when_limit?: Date } | null {
+  switch (mode?.mode) {
+    case undefined: return null;
+    case "now":
+    case "all":
+    case "active":
+    case "unfiltered":
+      return { historyMode: mode.mode };
+    case "at":
+      return { historyMode: mode.mode, when: mode.when };
+    case "range":
+      return { historyMode: mode.mode, when_start: mode.start, when_limit: mode.limit };
+  }
+  throw new Error(`Invalid history mode ${JSON.stringify(mode)}`);
 }
 
 export class WRDQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> {
   protected type: WRDType<S, T>;
-  protected wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
+  protected wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown; options: unknown }>;
   protected _historyMode: HistoryModeData;
 
-  constructor(type: WRDType<S, T>, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData) {
+  constructor(type: WRDType<S, T>, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown; options: unknown }>, historyMode: HistoryModeData) {
     this.type = type;
     this.wheres = wheres;
     this._historyMode = historyMode;
@@ -862,31 +921,81 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     return new WRDSingleQueryBuilder(this.type, recordmapping, this.wheres, this._historyMode, null);
   }
 
+  /** Match only the entities for which the field meets the specified condition
+   * @param field - Field to filter on
+   * @param condition - Condition to match
+   * @param value - Value to match
+   * @param options - Additional options for the filter
+   * @example
+   * ```typescript
+   * /// Returns an array of all wrdIds of entities with the first name "John".
+   * const result = await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "John").execute();
+   * /// Returns an array of all wrdIds of entities that are born before 1980.
+   * const result = await schema.query("wrdPerson").select("wrdId").where("wrdBirthDate", "&lt;", new Date(1980, 0, 1)).execute();
+   * ```
+   */
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDModificationBuilder<S, T> {
-    // Need to cast the filter because the options member isn't accepted otherwise
-    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode);
+    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options }], this._historyMode);
+  }
+
+  /** Match only the entities that match all the properties in the specified object.
+   * @param obj - Object with field-value pairs to match
+   * @example
+   * ```typescript
+   * /// Returns an array of all wrdIds of entities with the first name "John" and last name "Doe".
+   * const result = await schema.query("wrdPerson").select("wrdId").match({ wrdFirstName: "John", wrdLastName: "Doe" }).execute()
+   * ```
+   */
+  match(obj: MatchObjectQueryable<S[T]>): WRDModificationBuilder<S, T> {
+    const newWheres = Object.entries(obj).map(([field, value]) => ({ field, condition: "=" as const, value, options: undefined }));
+    return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, ...newWheres], this._historyMode);
   }
 
   $call(cb: (b: WRDModificationBuilder<S, T>) => WRDModificationBuilder<S, T>): WRDModificationBuilder<S, T> {
     return cb(this);
   }
 
-  historyMode(mode: "now" | "all"): WRDModificationBuilder<S, T>;
+  /*** Set the history mode for this query
+   * @param mode - History mode
+   * - "now": Only show currently visible entities
+   * - "all": Show all entities, including past and future - but no temporaries
+   * - `{ mode: "now" }`: Only show currently visible entities
+   * - `{ mode: "all" }`: Show all entities, including past and future - but no temporaries
+   * - `{ mode: "active" }`: Show all entities that are now visible plus any temporaries
+   * - `{ mode: "unfiltered" }`: Show all entities (including invisible and temporaries)
+   * - `{ mode: "at", when: Date }`: Show all entities that were visible at a specific time
+   * - `{ mode: "range", start: Date, limit: Date }`: Show all entities that were visible anywhere in a range of time
+   */
+  historyMode(mode: SimpleHistoryMode | HistoryModeData): WRDModificationBuilder<S, T>;
+
+  /*** Set the history mode for this query to show all entities that were visible at a specific time
+   * @param mode - "at": Show all entities that were visible at a specific time
+   * @param when - The time at which the entities are/were visible
+  */
   historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
+
+  /*** Set the history mode for this query to show all entities that were visible anywhere in a range of time
+   * @param mode - "range": Show all entities that were visible anywhere in a range of time
+   * @param start - Start of the range
+   * @param limit - End of the range
+  */
   historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
 
-  historyMode(mode: "now" | "all" | "at" | "range", start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+  historyMode(mode: SimpleHistoryMode | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+    if (typeof mode === "object")
+      return new WRDModificationBuilder(this.type, this.wheres, mode);
     switch (mode) {
+      case "active":
+      case "all":
       case "now":
-      case "all": {
+      case "unfiltered": {
         return new WRDModificationBuilder(this.type, this.wheres, { mode });
       }
       case "at": {
         return new WRDModificationBuilder(this.type, this.wheres, { mode, when: start! });
       }
       case "range": {
-        return new WRDModificationBuilder(this.type, this.wheres, { mode, when_start: start!, when_limit: limit! });
+        return new WRDModificationBuilder(this.type, this.wheres, { mode, start: start!, limit: limit! });
       }
     }
   }
@@ -980,8 +1089,6 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
 
     return retval;
   }
-
-
 }
 
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
@@ -990,10 +1097,15 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   private selects: O;
   private _limit: number | null;
 
-  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData, limit: number | null) {
+  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown; options: unknown }>, historyMode: HistoryModeData, limit: number | null) {
     super(type, wheres, historyMode);
     this.selects = selects;
     this._limit = limit;
+  }
+
+  private describeQuery() {
+    const schemaVar = nameToCamelCase(`${this.type.schema.tag.replace(":", "_")} _schema`);
+    return `${schemaVar}.query(${JSON.stringify(this.type.tag)}).select(${JSON.stringify(this.selects)})${this.wheres.map(_ => `.where(${JSON.stringify(_.field)}, ${JSON.stringify(_.condition)}, ${JSON.stringify(_.value)})`).join("")}${this._historyMode ? `.historyMode(${JSON.stringify(this._historyMode)})` : ""}${this._limit !== null ? `.limit(${this._limit})` : ""}`;
   }
 
   select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineRecordOutputMaps<S[T], O, RecordizeOutputMap<S[T], M>>> {
@@ -1002,20 +1114,47 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   }
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDSingleQueryBuilder<S, T, O> {
-    // Need to cast the filter because the options member isn't accepted otherwise
-    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode, this._limit);
+    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options }], this._historyMode, this._limit);
+  }
+
+  match(obj: MatchObjectQueryable<S[T]>): WRDSingleQueryBuilder<S, T, O> {
+    const newwheres = Object.entries(obj).map(([field, value]) => ({ field, condition: "=" as const, value, options: undefined }));
+    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, ...newwheres], this._historyMode, this._limit);
   }
 
   $call<TO extends RecordOutputMap<S[T]> | null>(cb: (b: WRDSingleQueryBuilder<S, T, O>) => WRDSingleQueryBuilder<S, T, TO>): WRDSingleQueryBuilder<S, T, TO> {
     return cb(this);
   }
 
+  /*** Set the history mode for this query
+   * @param mode - History mode
+   * - "now": Only show currently visible entities
+   * - "all": Show all entities, including past and future - but no temporaries
+   * - `{ mode: "now" }`: Only show currently visible entities
+   * - `{ mode: "all" }`: Show all entities, including past and future - but no temporaries
+   * - `{ mode: "active" }`: Show all entities that are now visible plus any temporaries
+   * - `{ mode: "unfiltered" }`: Show all entities (including invisible and temporaries)
+   * - `{ mode: "at", when: Date }`: Show all entities that were visible at a specific time
+   * - `{ mode: "range", start: Date, limit: Date }`: Show all entities that were visible anywhere in a range of time
+   */
+  historyMode(mode: SimpleHistoryMode | HistoryModeData): WRDSingleQueryBuilder<S, T, O>;
+
+  /*** Set the history mode for this query to show all entities that were visible at a specific time
+   * @param mode - "at": Show all entities that were visible at a specific time
+   * @param when - The time at which the entities are/were visible
+   */
   historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
-  historyMode(mode: "now" | "all" | "active" | "unfiltered"): WRDSingleQueryBuilder<S, T, O>;
+
+  /*** Set the history mode for this query to show all entities that were visible anywhere in a range of time
+   * @param mode - "range": Show all entities that were visible anywhere in a range of time
+   * @param start - Start of the range
+   * @param limit - End of the range
+   */
   historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
 
-  historyMode(mode: SimpleHistoryMode | "at" | "range", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+  historyMode(mode: SimpleHistoryMode | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+    if (typeof mode === "object")
+      return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, mode, this._limit);
     switch (mode) {
       case "now":
       case "active":
@@ -1027,7 +1166,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
         return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when: start! }, this._limit);
       }
       case "range": {
-        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when_start: start!, when_limit: limit! }, this._limit);
+        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, start: start!, limit: limit! }, this._limit);
       }
       default:
         throw new Error(`Unknown history mode '${mode}'`);
@@ -1090,6 +1229,26 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return checkPromiseErrorsHandled(this.executeInternal());
   }
 
+  executeRequireExactlyOne(): Promise<QueryReturnArrayType<S, T, O>[number]> {
+    if (this._limit === null)
+      return this.limit(2).executeRequireExactlyOne();
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length !== 1)
+        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
+      return res[0];
+    }));
+  }
+
+  executeRequireAtMostOne(): Promise<QueryReturnArrayType<S, T, O>[number] | null> {
+    if (this._limit === null)
+      return this.limit(2).executeRequireAtMostOne();
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length > 1)
+        throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
+      return res[0] ?? null;
+    }));
+  }
+
   async getEventMasks(): Promise<string[]> {
     return this.type.getEventMasks();
   }
@@ -1114,6 +1273,10 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     this.schema = schema;
     this.baseQuery = baseQuery;
     this.enriches = enriches;
+  }
+
+  private describeQuery() {
+    return `${this.baseQuery["describeQuery"]()}${this.enriches.map(enrich => `.enrich(${JSON.stringify(enrich.type)}, ${JSON.stringify(enrich.field)}, ${JSON.stringify(enrich.mapping)}${enrich.options ? `, ${JSON.stringify(enrich.options)}` : ""})`).join("")}`;
   }
 
   private async executeInternal(): Promise<O[]> {
@@ -1145,6 +1308,22 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
 
   execute(): Promise<O[]> {
     return checkPromiseErrorsHandled(this.executeInternal());
+  }
+
+  executeRequireExactlyOne(): Promise<O> {
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length !== 1)
+        throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
+      return res[0];
+    }));
+  }
+
+  executeRequireAtMostOne(): Promise<O | null> {
+    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+      if (res.length > 1)
+        throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
+      return res[0] ?? null;
+    }));
   }
 
   async getEventMasks(): Promise<string[]> {
