@@ -30,7 +30,7 @@ interface SyncOptions {
 }
 
 interface GetFieldsOptions {
-  historyMode?: SimpleHistoryMode;
+  historyMode?: SimpleHistoryMode | HistoryModeData;
   allowMissing?: boolean;
 }
 
@@ -414,7 +414,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value));
   }
 
-  upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode }>): Promise<[number, boolean]> {
+  upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
     return checkPromiseErrorsHandled(this.getType(type).upsert(query, value, ...options));
   }
 
@@ -549,7 +549,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return await (entityobj as HSVMObject).$get("id") as number;
   }
 
-  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>, options?: { historyMode: SimpleHistoryMode }): Promise<void> {
+  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
     if (typeof entity === "object") {
       const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
       if (matches.length !== 1)
@@ -571,7 +571,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateEntity(entity, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
-  async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode }>): Promise<[number, boolean]> {
+  async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
     if (!debugFlags["wrd:usewasmvm"])
       await extendWorkToCoHSVM();
     if (!this.attrs)
@@ -601,7 +601,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return [newId, true];
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData | SimpleHistoryMode }): Promise<number | null> {
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     const historyMode = toHistoryData(options?.historyMode ?? "now");
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
       type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
@@ -617,9 +617,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
    * @param options - Options for the search
    */
   find(query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
-    let baseQuery = this.schema.query(this.tag).select("wrdId").match(query);
-    if (options?.historyMode)
-      baseQuery = baseQuery.historyMode(typeof options.historyMode === "string" ? { mode: options.historyMode } : options.historyMode);
+    const baseQuery = this.schema.query(this.tag).select("wrdId").match(query).historyMode(options?.historyMode ?? "now");
     return baseQuery.executeRequireAtMostOne() as Promise<number | null>;
   }
 
@@ -957,17 +955,40 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     return cb(this);
   }
 
-  historyMode(mode: "now" | "all"): WRDModificationBuilder<S, T>;
-  historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
-  historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
-  historyMode(mode: HistoryModeData): WRDModificationBuilder<S, T>;
+  /*** Set the history mode for this query
+   * @param mode - History mode
+   * - "now": Only show currently visible entities
+   * - "all": Show all entities, including past and future - but no temporaries
+   * - `{ mode: "now" }`: Only show currently visible entities
+   * - `{ mode: "all" }`: Show all entities, including past and future - but no temporaries
+   * - `{ mode: "active" }`: Show all entities that are now visible plus any temporaries
+   * - `{ mode: "unfiltered" }`: Show all entities (including invisible and temporaries)
+   * - `{ mode: "at", when: Date }`: Show all entities that were visible at a specific time
+   * - `{ mode: "range", start: Date, limit: Date }`: Show all entities that were visible anywhere in a range of time
+   */
+  historyMode(mode: SimpleHistoryMode | HistoryModeData): WRDModificationBuilder<S, T>;
 
-  historyMode(mode: "now" | "all" | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
+  /*** Set the history mode for this query to show all entities that were visible at a specific time
+   * @param mode - "at": Show all entities that were visible at a specific time
+   * @param when - The time at which the entities are/were visible
+  */
+  historyMode(mode: "at", when: Date): WRDModificationBuilder<S, T>;
+
+  /*** Set the history mode for this query to show all entities that were visible anywhere in a range of time
+   * @param mode - "range": Show all entities that were visible anywhere in a range of time
+   * @param start - Start of the range
+   * @param limit - End of the range
+  */
+  historyMode(mode: "range", start: Date, limit: Date): WRDModificationBuilder<S, T>;
+
+  historyMode(mode: SimpleHistoryMode | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDModificationBuilder<S, T> {
     if (typeof mode === "object")
       return new WRDModificationBuilder(this.type, this.wheres, mode);
     switch (mode) {
+      case "active":
+      case "all":
       case "now":
-      case "all": {
+      case "unfiltered": {
         return new WRDModificationBuilder(this.type, this.wheres, { mode });
       }
       case "at": {
@@ -1105,10 +1126,31 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return cb(this);
   }
 
+  /*** Set the history mode for this query
+   * @param mode - History mode
+   * - "now": Only show currently visible entities
+   * - "all": Show all entities, including past and future - but no temporaries
+   * - `{ mode: "now" }`: Only show currently visible entities
+   * - `{ mode: "all" }`: Show all entities, including past and future - but no temporaries
+   * - `{ mode: "active" }`: Show all entities that are now visible plus any temporaries
+   * - `{ mode: "unfiltered" }`: Show all entities (including invisible and temporaries)
+   * - `{ mode: "at", when: Date }`: Show all entities that were visible at a specific time
+   * - `{ mode: "range", start: Date, limit: Date }`: Show all entities that were visible anywhere in a range of time
+   */
+  historyMode(mode: SimpleHistoryMode | HistoryModeData): WRDSingleQueryBuilder<S, T, O>;
+
+  /*** Set the history mode for this query to show all entities that were visible at a specific time
+   * @param mode - "at": Show all entities that were visible at a specific time
+   * @param when - The time at which the entities are/were visible
+   */
   historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
-  historyMode(mode: "now" | "all" | "active" | "unfiltered"): WRDSingleQueryBuilder<S, T, O>;
+
+  /*** Set the history mode for this query to show all entities that were visible anywhere in a range of time
+   * @param mode - "range": Show all entities that were visible anywhere in a range of time
+   * @param start - Start of the range
+   * @param limit - End of the range
+   */
   historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
-  historyMode(mode: HistoryModeData): WRDSingleQueryBuilder<S, T, O>;
 
   historyMode(mode: SimpleHistoryMode | "at" | "range" | HistoryModeData, start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
     if (typeof mode === "object")
