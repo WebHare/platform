@@ -1,23 +1,21 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import TransportBase from "./transportbase";
+import TransportBase, { type TransportBaseOptions } from "./transportbase";
+//@ts-ignore needs to be convertedd to new style JSON/RPC service
 import * as service from "./toddservice.rpc.json";
+import type { LinkWireMessage } from "./linkendpoint";
+
 
 /// JSONRPC support
 export default class JSONRPCTransport extends TransportBase {
-  constructor(options) {
-    super({ commhost: '', ...options });
+  request: AbortController | null = null;
+  request_keepalive = false;
+  scheduled = false;
+  fails = 0;
+  online = false;
+  running = false;
 
-    this.request = null;
-    this.request_keepalive = false;
-    this.scheduled = false;
-    this.unloading = false;
-    //  , sendallmessages: true
-
-    this.fails = 0;
-    this.online = false;
+  constructor(options: Partial<TransportBaseOptions> = {}) {
+    super(options);
 
     $todd.DebugTypedLog("rpc", '** create JSONRPC transport');
 
@@ -30,7 +28,7 @@ export default class JSONRPCTransport extends TransportBase {
       this.request.abort();
   }
 
-  setSignalled(endpoint) {
+  setSignalled() {
     if (!this.scheduled && !this.unloading) {
       $todd.DebugTypedLog("rpc", '** JSONRPC scheduling request');
       setTimeout(() => this.startRequest(), 1);
@@ -49,11 +47,20 @@ export default class JSONRPCTransport extends TransportBase {
     this.scheduled = false;
     this.running = true;
 
-    const req = { links: [], frontendids: [], unloading: this.unloading };
+    const req = {
+      links: [] as LinkWireMessage[],
+      frontendids: [] as string[],
+      unloading: this.unloading
+    };
     for (let i = 0; i < this.endpoints.length; ++i) {
       req.links.push(this.endpoints[i].constructWireMessage(true));
       if (!req.frontendids.includes(this.endpoints[i].options.frontendid))
         req.frontendids.push(this.endpoints[i].options.frontendid);
+    }
+
+    if (!req.links.length && !req.frontendids.length) { //no links up anymore, no need to run
+      this.running = false;
+      return;
     }
 
     const abortcontroller = new AbortController;
@@ -80,7 +87,7 @@ export default class JSONRPCTransport extends TransportBase {
     this.gotSuccess(result);
   }
 
-  gotSuccess(data) {
+  gotSuccess(data: { links: LinkWireMessage[] }) {
     $todd.DebugTypedLog("rpc", '** JSONRPC got response', data, this.endpoints);
 
     this.signalOnline();
@@ -97,7 +104,7 @@ export default class JSONRPCTransport extends TransportBase {
     }
   }
 
-  gotFailure(data) {
+  gotFailure(data: unknown) {
     $todd.DebugTypedLog("rpc", '** JSONRPC got FAILURE', data);
 
     // Two fails in a row: offline

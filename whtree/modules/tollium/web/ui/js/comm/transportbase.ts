@@ -1,40 +1,50 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import type LinkEndpoint from "./linkendpoint";
+import type { LinkWireMessage } from "./linkendpoint";
 
-const utilerror = require('@mod-system/js/wh/errorreporting');
+import { reportException } from "@mod-system/js/wh/errorreporting";
+
+export interface TransportBaseOptions {
+  commurl: string;
+  commhost: string;
+  onrequestneeded: (() => void) | null;
+  onresponse: (() => void) | null;
+  ononline: (() => void) | null;
+  onoffline: (() => void) | null;
+}
 
 export default class TransportBase {
-  constructor(options) {
-    this.serializer = null;
+  /** List of endpoints */
+  endpoints: LinkEndpoint[] = [];
+  options: TransportBaseOptions;
+  serializer: Promise<void> = Promise.resolve();
+  unloading = false;
+  online = false;
 
-    /// List of endpoints
-    this.endpoints = [];
-
+  constructor(options?: Partial<TransportBaseOptions>) {
     this.options =
     {
       commurl: '',
+      commhost: '',
       onrequestneeded: null,
       onresponse: null,
       ononline: null,
       onoffline: null,
       ...options
     };
-
-    this.serializer = Promise.resolve();
   }
 
   destroy() {
   }
 
-  setSignalled(endpoint) {
+  setSignalled(endpoint: LinkEndpoint) {
   }
 
-  addEndPoint(endpoint) {
+  addEndPoint(endpoint: LinkEndpoint) {
     endpoint.transport = this;
     this.endpoints.push(endpoint);
   }
 
-  removeEndPoint(endpoint) {
+  removeEndPoint(endpoint: LinkEndpoint) {
     endpoint.transport = null;
     this.endpoints = this.endpoints.filter(e => e !== endpoint);
     return this.endpoints.length !== 0;
@@ -44,12 +54,12 @@ export default class TransportBase {
   runUnloadHandler() {
   }
 
-  processGotMessageMessage(msg) {
+  processGotMessageMessage(msg: LinkWireMessage) {
     // Finally process the message _finally to absorb crashes.
-    this.serializer = this.serializer.finally(this.processWireMessage.bind(this, msg)).catch(utilerror.reportException);
+    this.serializer = this.serializer.finally(this.processWireMessage.bind(this, msg)).catch(reportException) as Promise<void>;
   }
 
-  processWireMessage(msg) {
+  processWireMessage(msg: LinkWireMessage) {
     for (let j = 0; j < this.endpoints.length; ++j)
       if (this.endpoints[j].options.linkid === msg.linkid) {
         const endpoint = this.endpoints[j];
@@ -63,7 +73,7 @@ export default class TransportBase {
   }
 
   // Called when a new message has arrived at an endpoint
-  gotNewMessage(endpoint) {
+  gotNewMessage(endpoint: LinkEndpoint) {
   }
 
   signalOnline() {

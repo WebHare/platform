@@ -1,46 +1,71 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import type TransportManager from "./transportmanager";
+import type TransportBase from "./transportbase";
+
+interface LinkEndpointOptions {
+  linkid: string;
+  commhost: string;
+  frontendid: string;
+}
+
+
+export interface LinkWireMessage {
+  linkid: string;
+  messages: Array<{
+    seqnr: number;
+    data: unknown;
+  }>;
+  ack: number;
+  frontendid: string;
+  needack: boolean;
+  status?: "gone";
+}
 
 /** Implements the todd end of a reliable communication link
 */
-export default class LinkEndpoint { // ---------------------------------------------------------------------------
+export default class LinkEndpoint {
+  // Current sequence nr for messages
+  msgcounter = 0;
+
+  // List of meessages (unacked & unsent)
+  queuedmessages = new Array<{
+    seqnr: number;
+    data: unknown;
+  }>;
+
+  // Don't transmit immediately
+  stoptransmit = false;
+
+  // Seqnr of last message sent over the wire
+  lastsentseqnr = 0;
+
+  // Seqnr of last (correctly) received message
+  lastreceivedseqnr = 0;
+
+  // Linked TransportManager
+  transmgr: TransportManager | null = null;
+
+  // Transport (used by TransportManager)
+  transport: TransportBase | null = null;
+
+  // Set to true when a new message was seen since the last constructed wire message
+  seennewmessage = false;
+
+  // Current online status
+  online = false;
+
+  onmessage: ((msg: unknown) => void) | null = null;
+  onclosed: (() => void) | null = null;
+
+  options: LinkEndpointOptions;
+
+
   //
   // Constructor
   //
-
-  constructor(options) {
-    // Current sequence nr for messages
-    this.msgcounter = 0;
-
-    // List of meessages (unacked & unsent)
-    this.queuedmessages = [];
-
-    // Don't transmit immediately
-    this.stoptransmit = false;
-
-    // Seqnr of last message sent over the wire
-    this.lastsentseqnr = 0;
-
-    // Seqnr of last (correctly) received message
-    this.lastreceivedseqnr = 0;
-
-    // Linked TransportManager
-    this.transmgr = null;
-
-    // Transport (used by TransportManager)
-    this.transport = null;
-
-    // Set to true when a new message was seen since the last constructed wire message
-    this.seennewmessage = false;
-
-    // Current online status
-    this.online = false;
-
+  constructor(options?: Partial<LinkEndpointOptions>) {
     // options
-    this.options =
-    {
+    this.options = {
       linkid: '',
       commhost: '',
       frontendid: '',
@@ -58,7 +83,7 @@ export default class LinkEndpoint { // -----------------------------------------
   /* Processes incoming wire message
      @return Whether all messages were sent
   */
-  processWireMessage(wiremsg) {
+  processWireMessage(wiremsg: LinkWireMessage) {
     //console.log('** wire msg', wiremsg);
 
     if (wiremsg.status === "gone") {
@@ -85,6 +110,8 @@ export default class LinkEndpoint { // -----------------------------------------
         this.seennewmessage = true;
 
         //console.log('onmessage');
+        if (!this.onmessage)
+          throw new Error("No onmessage handler set");
         this.onmessage(wiremsg.messages[i].data);
       }
     }
@@ -92,7 +119,7 @@ export default class LinkEndpoint { // -----------------------------------------
     return this.queuedmessages.length === 0;
   }
 
-  constructWireMessage(sendall) {
+  constructWireMessage(sendall: boolean): LinkWireMessage {
     let startmsgpos = 0;
     if (!sendall)
       for (; startmsgpos < this.queuedmessages.length; ++startmsgpos)
@@ -101,7 +128,7 @@ export default class LinkEndpoint { // -----------------------------------------
 
     const sendmessages = this.queuedmessages.slice(startmsgpos);
     if (sendmessages.length)
-      this.lastsentseqnr = sendmessages.at(-1).seqnr;
+      this.lastsentseqnr = sendmessages.at(-1)!.seqnr;
 
     const wiremsg =
     {
@@ -122,7 +149,7 @@ export default class LinkEndpoint { // -----------------------------------------
   //
 
   /// Register this endpoint with a communicationManager
-  register(transmgr) {
+  register(transmgr: TransportManager) {
     this.transmgr = transmgr;
     this.transmgr.register(this);
     // Automatically signalled
@@ -142,7 +169,7 @@ export default class LinkEndpoint { // -----------------------------------------
   }
 
   /// Queue a new message with the earlier seqnr
-  queueMessageWithSeqnr(seqnr, message) {
+  queueMessageWithSeqnr(seqnr: number, message: unknown) {
     $todd.DebugTypedLog("rpc", '** QUEUE MESSAGE', message);
     this.queuedmessages.push({ seqnr, data: message });
 
@@ -153,7 +180,7 @@ export default class LinkEndpoint { // -----------------------------------------
   /** Indicate that messages have been received through another channel. Pass the seqnr of the last message.
       Use this when initial messages are transferred by service call before setting up the comm channel.
   */
-  registerManuallyReceivedMessage(seqnr) {
+  registerManuallyReceivedMessage(seqnr: number) {
     //console.log('registerManuallyReceivedMessage', seqnr);
     this.lastreceivedseqnr = seqnr;
   }
