@@ -15,7 +15,7 @@ type PreferredDirection = '' | 'right' | 'left' | 'up' | 'down';
 type ExitDirection = '' | 'left' | 'top';
 // type Position = "first" | "last" | "previous" | "next";
 
-interface MenuOptions {
+export interface MenuOptions {
   forcenooverlap?: boolean;
   direction?: PreferredDirection;
   eventnode?: HTMLElement;
@@ -1140,7 +1140,7 @@ class MenuList extends MenuBase {
     options.direction 'down', 'right', 'up'
     options.forcenooverlap
 */
-export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; target?: HTMLElement } | HTMLElement, options?: MenuOptions) {
+export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" | "target"> | HTMLElement, options?: MenuOptions) {
   ///@ts-ignore -- FIXME fully clean up the options
   options = { ...options };
   if (typeof el !== 'object')
@@ -1151,7 +1151,7 @@ export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; ta
     options!.direction = "right";
     coords = { left: at.pageX || 0, right: at.pageX || 0, top: at.pageY || 0, bottom: at.pageY || 0, width: 0, height: 0 };
     if (!options!.eventnode)
-      options!.eventnode = at.target; //make sure events are injected at the click location
+      options!.eventnode = at.target as HTMLElement; //make sure events are injected at the click location
   } else {
     //@ts-ignore FIXME cleanup calling synatx
     coords = dompack.getRelativeBounds(at.target || at);

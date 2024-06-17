@@ -221,7 +221,7 @@ export default class ObjButton extends ActionableBase {
       const menu = this.owner.getComponent(this.menuname) as ObjMenuItem;
       if (menu) {
         this.menunode = menu.openMenuAt(this.node, {
-          direction: 'bottom',
+          direction: 'down', //TODO this was 'buttom' but invalid, now setting it to 'down' as that appeared the intention
           align: this.ismenubutton ? 'right' : 'left',
           ismenubutton: this.ismenubutton
         });

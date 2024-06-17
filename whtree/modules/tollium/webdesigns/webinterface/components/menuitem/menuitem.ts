@@ -5,6 +5,8 @@ import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import ObjAction from '../action/action';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -91,7 +93,7 @@ export default class ObjMenuItem extends ComponentBase {
    * Component management
    */
 
-  createNode(ascontextmenu) {
+  createNode(ascontextmenu: boolean) {
     const enabled = this.isEnabled();
     const node = dompack.create('li', {
       textContent: this.title,
@@ -118,12 +120,11 @@ export default class ObjMenuItem extends ComponentBase {
     return node;
   }
 
-  _onSelectItem(node, evt, ascontextmenu) {
+  _onSelectItem(node: HTMLElement, evt: Event, ascontextmenu: boolean) {
     let submenu = node.querySelector('ul');
     const subnodes = this.cloneItems(ascontextmenu);
 
-    if (!subnodes.length)//menu already empty
-    {
+    if (!subnodes.length) { //menu already empty
       if (submenu)
         submenu.remove();
       return;
@@ -141,14 +142,14 @@ export default class ObjMenuItem extends ComponentBase {
     }
   }
 
-  cloneItems(ascontextmenu) {
-    const result = [];
+  cloneItems(ascontextmenu: boolean) {
+    const result: HTMLElement[] = [];
     this.items.forEach(item => {
       if (item === "tollium$divider") {
         result.push(dompack.create("li", { className: "divider" }));
         return;
       }
-      const comp = this.owner.getComponent(item);
+      const comp = this.owner.getComponent<ObjMenuItem>(item);
       if (comp && comp.isVisible(ascontextmenu)) {
         result.push(comp.createNode(ascontextmenu));
       }
@@ -159,15 +160,15 @@ export default class ObjMenuItem extends ComponentBase {
   buildNode() {
   }
 
-  onClick(evt) {
+  onClick(evt: Event) {
     dompack.stop(evt);
     if (this.enabled)
       this.owner.executeAction(this.action);
   }
 
-  openMenuAt(evt, options?) {
+  openMenuAt(evt: HTMLElement | Pick<MouseEvent, "pageX" | "pageY" | "target">, options?: menu.MenuOptions & { ismenubutton?: boolean; ascontextmenu?: boolean }) {
     const submenu = dompack.create("ul", { className: { showshortcuts: options && options.ismenubutton } });
-    submenu.append(...this.cloneItems(options && options.ascontextmenu));
+    submenu.append(...this.cloneItems(options?.ascontextmenu || false));
     menu.openAt(submenu, evt, options);
     return submenu;
   }
@@ -191,19 +192,18 @@ export default class ObjMenuItem extends ComponentBase {
       return false;
     if (this.items.length)
       return true;
-    const act = this.owner.getComponent(this.action);
+    const act = this.owner.getComponent<ObjAction>(this.action);
     return act && act.isEnabled();
   }
 
-  isVisible(ascontextmenu) {
+  isVisible(ascontextmenu: boolean) {
     if (!this.visible)
       return false;
 
-    if (this.items.length) //visible if any subitem is visible
-    {
+    if (this.items.length) { //visible if any subitem is visible
       for (let i = 0; i < this.items.length; ++i) {
-        const comp = this.owner.getComponent(this.items[i]);
-        if (comp && comp.isVisible())
+        const comp = this.owner.getComponent<ObjMenuItem>(this.items[i]);
+        if (comp && comp.isVisible(ascontextmenu))
           return true;
       }
       return false;
