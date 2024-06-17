@@ -105,13 +105,13 @@ RECORD FUNCTION DoMollieRequest(STRING apikey, STRING method, STRING endpoint, R
 
 RECORD FUNCTION GetCacheableMethods(STRING apikey, STRING locale)
 {
-  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods?include=issuers&locale=" || EncodeURL(locale), RECORD[], [ nofail := TRUE ]);
+  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods?locale=" || EncodeURL(locale), RECORD[], [ nofail := TRUE ]);
   IF(CellExists(methodsresponse,'error'))
     RETURN [ value := RECORD[], ttl := 5000 ];
 
   RECORD ARRAY methods := SELECT rowkey := id
                                , title := description
-                               , issuers := (SELECT rowkey := id, title := name FROM method.issuers)
+                               , issuers := RECORD[]
                             FROM EnforceStructure([[ id := ""
                                                    , title :=""
                                                    , issuers := RECORD[]
@@ -176,9 +176,6 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
 
   PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
   {
-//    IF (this->paymentmetadata.issuer = "")
-//      THROW NEW Exception("No issuerid set!");
-
     STRING returnurl := GetInternalReturnURL(paymenttok);
     STRING webhookurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ]);
 
@@ -194,8 +191,6 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
 
     IF(this->settings.webhooks)
       INSERT [ name := "webhookUrl", value := webhookurl ] INTO req AT END;
-    IF(this->issuer != "")
-      INSERT [ name := "issuer", value := this->issuer ] INTO req AT END;
 
     RECORD result := this->DoRequest("POST", "v2/payments", req);
 
