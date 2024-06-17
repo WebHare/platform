@@ -58,6 +58,11 @@ export default class JSONRPCTransport extends TransportBase {
         req.frontendids.push(this.endpoints[i].options.frontendid);
     }
 
+    if (!req.links.length && !req.frontendids.length) { //no links up anymore, no need to run
+      this.running = false;
+      return;
+    }
+
     const abortcontroller = new AbortController;
     this.request = abortcontroller;
 
