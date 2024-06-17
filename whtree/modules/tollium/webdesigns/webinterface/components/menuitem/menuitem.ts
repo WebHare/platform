@@ -74,7 +74,7 @@ export default class ObjMenuItem extends ComponentBase {
     }
 
     if (typeof this.action === "object")
-      this.action = this.action.name;
+      throw new Error(`Menuitem action should be a string, not an object: ${this.action}`);
 
     this.items = data.items;
 
