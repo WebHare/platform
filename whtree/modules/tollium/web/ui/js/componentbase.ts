@@ -38,7 +38,6 @@ export interface ComponentStandardAttributes extends $todd.XMLWidthAttributes, $
   enablecomponents?: string[];
   visible?: boolean;
   hint?: string;
-  shortcut?: string;
   enabled_on?: TolliumCondition;
 
   //not tranmistted by tollium harescript, used internally:
@@ -107,7 +106,6 @@ export class ToddCompBase {
   xml_enabled = false;
 
   hint;
-  shortcut;
   firstlayout = true;
 
   dirtylistener: DirtyListener | null = null;
@@ -158,7 +156,6 @@ export class ToddCompBase {
     this.visible = data.visible !== false;
 
     this.hint = data.hint ? data.hint : '';
-    this.shortcut = data.shortcut ? data.shortcut : '';
 
     if (this.owner !== this as unknown as Frame)
       this.owner.registerComponent(this);

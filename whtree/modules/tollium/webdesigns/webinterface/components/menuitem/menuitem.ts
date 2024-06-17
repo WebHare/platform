@@ -1,7 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as browser from 'dompack/extra/browser';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
@@ -14,22 +11,36 @@ import ObjAction from '../action/action';
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
+export interface MenuItemAttributes extends ComponentStandardAttributes {
+  shortcut: string;
+  action: string;
+  checked: boolean;
+  selected: boolean;
+  disablemode: string;
+  indent: number;
+  items: string[];
+}
 
 export default class ObjMenuItem extends ComponentBase {
 
   /****************************************************************************************************************************
    * Initialization
    */
+  componenttype = "menuitem";
 
-  constructor(parentcomp, data) {
+  items: string[] = [];
+  menuopened = false;
+  menuhovered = false;
+  classname = "toddNormalMenu";
+  checked;
+  menulevel = 0;
+  selected;
+  disablemode;
+  indent;
+  shortcut: string;
+
+  constructor(parentcomp: ToddCompBase | null, data: MenuItemAttributes) {
     super(parentcomp, data);
-
-    this.componenttype = "menuitem";
-
-    this.items = [];
-    this.menuopened = false;
-    this.menuhovered = false;
-    this.classname = "toddNormalMenu";
 
     this.title = data.title;
     this.hint = data.hint;
@@ -37,10 +48,10 @@ export default class ObjMenuItem extends ComponentBase {
     this.enabled = data.enabled;
     this.checked = data.checked;
     this.selected = data.selected;
-    this.menulevel = this.parentcomp.menulevel ? this.parentcomp.menulevel + 1 : 1;
+    this.menulevel = this.parentcomp instanceof ObjMenuItem ? this.parentcomp.menulevel + 1 : 1;
     this.disablemode = data.disablemode;
     this.indent = Math.max(data.indent || 0, 0);
-    this.visible = data.visible;
+    this.shortcut = data.shortcut || '';
 
     if (this.shortcut && browser.getPlatform() === "mac") {
       const osx_keysymbols =
@@ -137,8 +148,7 @@ export default class ObjMenuItem extends ComponentBase {
       });
       node.appendChild(submenu);
     } else {
-      dompack.empty(submenu);
-      submenu.append(...subnodes);
+      submenu.replaceChildren(...subnodes);
     }
   }
 
@@ -176,7 +186,9 @@ export default class ObjMenuItem extends ComponentBase {
   /****************************************************************************************************************************
    * Events
    */
-  readdComponent(comp) {
+
+  /* DISABLING FOR NOW - the TypeScript typings show this function to be broken .. it thinks items[] as a ToddCompBase[] but all other functions consider it a string[]
+  readdComponent(comp: ToddCompBase) {
     //ADDME if the menu or our parent is open, we should probably refresh/reposition?
     const oldpos = this.items.indexOf(comp);
     if (oldpos < 0) //not in our list
@@ -185,7 +197,7 @@ export default class ObjMenuItem extends ComponentBase {
     const newitem = this.owner.addComponent(this, comp.name);
     this.items[oldpos] = newitem;
     comp.getNode().replaceWith(newitem.getNode());
-  }
+  }*/
 
   isEnabled() {
     if (!this.enabled)

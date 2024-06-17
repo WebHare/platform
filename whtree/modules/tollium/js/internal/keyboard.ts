@@ -1,9 +1,4 @@
-export interface TolliumKeyboardShortcut {
-  alt: boolean;
-  ctrl: boolean;
-  shift: boolean;
-  keystr: string;
-}
+import type { TolliumKeyboardShortcut } from "@mod-platform/js/tollium/types";
 
 const tollium_domkey_map: { [key: string]: string } = {
   'ESC': 'Escape',
@@ -20,7 +15,7 @@ const tollium_domkey_map: { [key: string]: string } = {
   'PGDN': 'PageDown'
 };
 
-export function getShortcutEvent(shortcut: TolliumKeyboardShortcut) {
+export function getShortcutEvent(shortcut?: TolliumKeyboardShortcut) {
   if (shortcut && shortcut.keystr) {
     return (shortcut.alt ? "Alt+" : "")
       + (shortcut.ctrl ? "Control+" : "")
