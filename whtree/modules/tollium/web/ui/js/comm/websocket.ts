@@ -1,19 +1,16 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import TransportBase from "./transportbase";
+import TransportBase, { type TransportBaseOptions } from "./transportbase";
+import type LinkEndpoint from "./linkendpoint";
 
 /// WebSocket support
 export default class WebSocketTransport extends TransportBase {
-  constructor(options) {
-    super({ commhost: '', ...options });
+  signalled: LinkEndpoint[] = [];
+  socket: WebSocket | null = null;
+  sentall: LinkEndpoint[] = [];
+  backoff = 0;
 
-    this.socket = null;
-    this.signalled = [];
-    this.sentall = [];
-    this.jsonrpc = null;
-    this.backoff = 0;
+  constructor(options?: Partial<TransportBaseOptions>) {
+    super(options);
 
     $todd.DebugTypedLog("rpc", '** create WebSocket transport');
     this.connectWebsocket();
@@ -22,7 +19,7 @@ export default class WebSocketTransport extends TransportBase {
   connectWebsocket() {
     const url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
     this.socket = new WebSocket('ws' + url.substr(4));
-    this.socket.addEventListener('open', e => this.gotOpen(e));
+    this.socket.addEventListener('open', () => this.gotOpen());
     this.socket.addEventListener('message', e => this.gotMessage(e));
     this.socket.addEventListener("close", e => this.gotClose(e));
     this.socket.addEventListener("error", e => this.gotError(e));
@@ -34,12 +31,12 @@ export default class WebSocketTransport extends TransportBase {
     this.socket = null;
   }
 
-  addEndPoint(endpoint) {
+  addEndPoint(endpoint: LinkEndpoint) {
     super.addEndPoint(endpoint);
     this.updateListenLinks();
   }
 
-  removeEndPoint(endpoint) {
+  removeEndPoint(endpoint: LinkEndpoint) {
     const res = super.removeEndPoint(endpoint);
     this.updateListenLinks();
 
@@ -63,7 +60,7 @@ export default class WebSocketTransport extends TransportBase {
     this.signalOnline();
   }
 
-  gotMessage(message) {
+  gotMessage(message: MessageEvent) {
     const rawmsg = JSON.parse(message.data);
     for (let i = 0; i < rawmsg.msg.data.length; ++i) {
       const msg = rawmsg.msg.data[i];
@@ -74,11 +71,11 @@ export default class WebSocketTransport extends TransportBase {
     this.backoff = 0;
   }
 
-  gotError(event) {
+  gotError(event: Event) {
     console.error("Websocket error", event);
   }
 
-  gotClose(event) {
+  gotClose(event: Event) {
     if (this.socket)
       this.socket.close();
     this.socket = null;
@@ -96,7 +93,7 @@ export default class WebSocketTransport extends TransportBase {
     }, nowbackoff * 1000);
   }
 
-  setSignalled(endpoint) {
+  setSignalled(endpoint: LinkEndpoint) {
     //    console.log('endpoint signalled', endpoint.options.linkid, this.socket ? this.socket.readyState : 'n/a');
     if (!this.signalled.includes(endpoint))
       this.signalled.push(endpoint);
@@ -108,8 +105,8 @@ export default class WebSocketTransport extends TransportBase {
     if (!this.socket || this.socket.readyState !== 1)
       return;
 
-    const links = [];
-    const frontendids = [];
+    const links: string[] = [];
+    const frontendids: string[] = [];
 
     this.endpoints.forEach(function (endpoint) {
       if (!links.includes(endpoint.options.linkid))
@@ -130,7 +127,7 @@ export default class WebSocketTransport extends TransportBase {
 
       const sentall = this.sentall.includes(endpoint);
       const msg = endpoint.constructWireMessage(!sentall);
-      this.socket.send(JSON.stringify({ requests: [{ type: 'msg', msg: msg }] }));
+      this.socket!.send(JSON.stringify({ requests: [{ type: 'msg', msg: msg }] }));
       if (!sentall)
         this.sentall.push(endpoint);
     }
@@ -139,7 +136,7 @@ export default class WebSocketTransport extends TransportBase {
   }
 
   // Called when a new message has arrived at an endpoint
-  gotNewMessage(endpoint) {
+  gotNewMessage(endpoint: LinkEndpoint) {
     // Immediately send an ack
     if (!this.signalled.includes(endpoint))
       this.signalled.push(endpoint);
