@@ -16,4 +16,11 @@ type ResetImageCacheInstruction = {
   type: "shell:resetimagecache";
 };
 
+export interface TolliumKeyboardShortcut {
+  alt: boolean;
+  ctrl: boolean;
+  shift: boolean;
+  keystr: string;
+}
+
 export type ShellInstruction = AppLaunchInstruction | WindowOpenInstruction | ResetImageCacheInstruction;

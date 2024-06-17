@@ -322,7 +322,7 @@ export default class ObjIFrame extends ComponentBase {
           return;
 
         const iframepos = this.node!.getBoundingClientRect();
-        menu.openMenuAt({ pageX: iframepos.left + data.x, pageY: iframepos.top + data.y });
+        menu.openMenuAt({ pageX: iframepos.left + data.x, pageY: iframepos.top + data.y, target: null });
         break;
       }
 

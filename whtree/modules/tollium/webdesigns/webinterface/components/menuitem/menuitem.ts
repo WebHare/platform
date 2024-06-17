@@ -1,10 +1,9 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as browser from 'dompack/extra/browser';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import ObjAction from '../action/action';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -12,22 +11,36 @@ import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
+export interface MenuItemAttributes extends ComponentStandardAttributes {
+  shortcut: string;
+  action: string;
+  checked: boolean;
+  selected: boolean;
+  disablemode: string;
+  indent: number;
+  items: string[];
+}
 
 export default class ObjMenuItem extends ComponentBase {
 
   /****************************************************************************************************************************
    * Initialization
    */
+  componenttype = "menuitem";
 
-  constructor(parentcomp, data) {
+  items: string[] = [];
+  menuopened = false;
+  menuhovered = false;
+  classname = "toddNormalMenu";
+  checked;
+  menulevel = 0;
+  selected;
+  disablemode;
+  indent;
+  shortcut: string;
+
+  constructor(parentcomp: ToddCompBase | null, data: MenuItemAttributes) {
     super(parentcomp, data);
-
-    this.componenttype = "menuitem";
-
-    this.items = [];
-    this.menuopened = false;
-    this.menuhovered = false;
-    this.classname = "toddNormalMenu";
 
     this.title = data.title;
     this.hint = data.hint;
@@ -35,10 +48,10 @@ export default class ObjMenuItem extends ComponentBase {
     this.enabled = data.enabled;
     this.checked = data.checked;
     this.selected = data.selected;
-    this.menulevel = this.parentcomp.menulevel ? this.parentcomp.menulevel + 1 : 1;
+    this.menulevel = this.parentcomp instanceof ObjMenuItem ? this.parentcomp.menulevel + 1 : 1;
     this.disablemode = data.disablemode;
     this.indent = Math.max(data.indent || 0, 0);
-    this.visible = data.visible;
+    this.shortcut = data.shortcut || '';
 
     if (this.shortcut && browser.getPlatform() === "mac") {
       const osx_keysymbols =
@@ -72,7 +85,7 @@ export default class ObjMenuItem extends ComponentBase {
     }
 
     if (typeof this.action === "object")
-      this.action = this.action.name;
+      throw new Error(`Menuitem action should be a string, not an object: ${this.action}`);
 
     this.items = data.items;
 
@@ -91,7 +104,7 @@ export default class ObjMenuItem extends ComponentBase {
    * Component management
    */
 
-  createNode(ascontextmenu) {
+  createNode(ascontextmenu: boolean) {
     const enabled = this.isEnabled();
     const node = dompack.create('li', {
       textContent: this.title,
@@ -118,12 +131,11 @@ export default class ObjMenuItem extends ComponentBase {
     return node;
   }
 
-  _onSelectItem(node, evt, ascontextmenu) {
+  _onSelectItem(node: HTMLElement, evt: Event, ascontextmenu: boolean) {
     let submenu = node.querySelector('ul');
     const subnodes = this.cloneItems(ascontextmenu);
 
-    if (!subnodes.length)//menu already empty
-    {
+    if (!subnodes.length) { //menu already empty
       if (submenu)
         submenu.remove();
       return;
@@ -136,19 +148,18 @@ export default class ObjMenuItem extends ComponentBase {
       });
       node.appendChild(submenu);
     } else {
-      dompack.empty(submenu);
-      submenu.append(...subnodes);
+      submenu.replaceChildren(...subnodes);
     }
   }
 
-  cloneItems(ascontextmenu) {
-    const result = [];
+  cloneItems(ascontextmenu: boolean) {
+    const result: HTMLElement[] = [];
     this.items.forEach(item => {
       if (item === "tollium$divider") {
         result.push(dompack.create("li", { className: "divider" }));
         return;
       }
-      const comp = this.owner.getComponent(item);
+      const comp = this.owner.getComponent<ObjMenuItem>(item);
       if (comp && comp.isVisible(ascontextmenu)) {
         result.push(comp.createNode(ascontextmenu));
       }
@@ -159,15 +170,15 @@ export default class ObjMenuItem extends ComponentBase {
   buildNode() {
   }
 
-  onClick(evt) {
+  onClick(evt: Event) {
     dompack.stop(evt);
     if (this.enabled)
       this.owner.executeAction(this.action);
   }
 
-  openMenuAt(evt, options?) {
+  openMenuAt(evt: HTMLElement | Pick<MouseEvent, "pageX" | "pageY" | "target">, options?: menu.MenuOptions & { ismenubutton?: boolean; ascontextmenu?: boolean }) {
     const submenu = dompack.create("ul", { className: { showshortcuts: options && options.ismenubutton } });
-    submenu.append(...this.cloneItems(options && options.ascontextmenu));
+    submenu.append(...this.cloneItems(options?.ascontextmenu || false));
     menu.openAt(submenu, evt, options);
     return submenu;
   }
@@ -175,7 +186,9 @@ export default class ObjMenuItem extends ComponentBase {
   /****************************************************************************************************************************
    * Events
    */
-  readdComponent(comp) {
+
+  /* DISABLING FOR NOW - the TypeScript typings show this function to be broken .. it thinks items[] as a ToddCompBase[] but all other functions consider it a string[]
+  readdComponent(comp: ToddCompBase) {
     //ADDME if the menu or our parent is open, we should probably refresh/reposition?
     const oldpos = this.items.indexOf(comp);
     if (oldpos < 0) //not in our list
@@ -184,26 +197,25 @@ export default class ObjMenuItem extends ComponentBase {
     const newitem = this.owner.addComponent(this, comp.name);
     this.items[oldpos] = newitem;
     comp.getNode().replaceWith(newitem.getNode());
-  }
+  }*/
 
   isEnabled() {
     if (!this.enabled)
       return false;
     if (this.items.length)
       return true;
-    const act = this.owner.getComponent(this.action);
+    const act = this.owner.getComponent<ObjAction>(this.action);
     return act && act.isEnabled();
   }
 
-  isVisible(ascontextmenu) {
+  isVisible(ascontextmenu: boolean) {
     if (!this.visible)
       return false;
 
-    if (this.items.length) //visible if any subitem is visible
-    {
+    if (this.items.length) { //visible if any subitem is visible
       for (let i = 0; i < this.items.length; ++i) {
-        const comp = this.owner.getComponent(this.items[i]);
-        if (comp && comp.isVisible())
+        const comp = this.owner.getComponent<ObjMenuItem>(this.items[i]);
+        if (comp && comp.isVisible(ascontextmenu))
           return true;
       }
       return false;

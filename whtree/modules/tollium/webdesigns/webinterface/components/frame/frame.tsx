@@ -4,8 +4,6 @@
 
 import * as dompack from '@webhare/dompack';
 import * as movable from 'dompack/browserfix/movable';
-import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
-import KeyboardHandler from 'dompack/extra/keyboard';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as domfocus from 'dompack/browserfix/focus';
@@ -16,17 +14,20 @@ import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy } from '@webhare/std/collections';
 import type ObjTabs from '../tabs/tabs';
-import type ActionForwardBase from '../action/actionforwardbase';
+import ActionForwardBase from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
 import type ObjAction from '../action/action';
 import { debugFlags } from '@webhare/env';
 import "./frame.scss";
 import { toCamelCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
+import type { KeyAttributeValue } from '@webhare/dompack';
 
 // Give each frame a unique identifier
 let framecounter = 0;
 
+/** Allowed special keys for shortcuts.Needs to match HareScript ParseShortcut but use the JS names */
+const validShortcutKeys: KeyAttributeValue[] = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Escape", "Enter", "ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown", "Tab", "Backspace", "Delete", "Home", "End", "PageUp", "PageDown"];
 
 function getToddOwner(node: HTMLElement) {
   const namedcomponent = node.closest<HTMLElement>('*[data-name]');
@@ -126,9 +127,6 @@ export default class Frame extends ToddCompBase {
 
   frameid = ++framecounter;
 
-  keyboard;
-  keyboard2;
-
   scrollmonitor;
 
   objectmap: Record<string, ToddCompBase> = {};
@@ -226,16 +224,10 @@ export default class Frame extends ToddCompBase {
     this.nodes.closewindow.addEventListener("mousedown", event => dompack.stop(event));
     movable.enable(this.nodes.windowheader);
 
-    // Create a keyboard manager and register it
-    this.keyboard = new KeyboardHandler(this.node, {
-      "Enter": this.onDefault.bind(this),
-      "Escape": this.onCancel.bind(this, true)
-    }, { stopmapped: true });
+    this.node.addEventListener("keydown", this._onKeyboard);
 
-    // TODO dompack keyboard should not intercept Control+Enter on inputs ?  Or allow us to specify specific keys for captureunsafekeys
-    this.keyboard2 = new KeyboardHandler(this.node, {
-      "Accel+Enter": this.onDefault.bind(this)
-    }, { stopmapped: true, captureunsafekeys: true });
+    // Create a keyboard manager and register it
+
 
     window.addEventListener("resize", this.onDesktopResized);
 
@@ -245,6 +237,33 @@ export default class Frame extends ToddCompBase {
 
     this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
+
+  _onKeyboard = (evt: KeyboardEvent) => {
+    switch (evt.key) {
+      case "Enter":
+        if (!evt[dompack.browser.platform === 'mac' ? 'metaKey' : 'ctrlKey']) { //No accelerator pressed
+          if ((evt.target as HTMLElement)?.matches?.("textarea") || (evt.target as HTMLElement)?.isContentEditable)
+            return; //leave the 'Enter' key for the input component
+        }
+        dompack.stop(evt);
+        this.onDefault();
+        break;
+
+      case "Escape":
+        dompack.stop(evt);
+        this.onCancel(true);
+        break;
+
+      default:
+        if (evt.ctrlKey || evt.altKey || validShortcutKeys.includes(evt.key as KeyAttributeValue)) { //possible Tollum modifiers
+          for (const possibleAction of Object.values(this.objectmap))
+            if (possibleAction instanceof ActionForwardBase && possibleAction.handleShortcut(evt)) {
+              dompack.stop(evt);
+              return;
+            }
+        }
+    }
+  };
 
   private onTakeFocus(evt: dompack.TakeFocusEvent) {
     if (!this.node.inert)
@@ -452,27 +471,10 @@ export default class Frame extends ToddCompBase {
     }
   }
 
-  registerComponentShortcut(comp: ActionForwardBase) {
-    const shortcut = getShortcutEvent(comp.shortcut);
-    if (!shortcut)
-      return;
-    this.keyboard.addKey(shortcut, comp.onShortcut.bind(comp));
-  }
-
-  unregisterComponentShortcut(comp: ActionForwardBase) {
-    const shortcut = getShortcutEvent(comp.shortcut);
-    if (!shortcut)
-      return;
-    this.keyboard.removeKey(shortcut);
-  }
-
   unregisterComponent(comp: ToddCompBase) {
     this.leftovernodes.push(...comp.getDestroyableNodes());
     if (this.objectmap[comp.name] !== comp)
       return; //this component is replaced
-
-    if (comp.shortcut)
-      this.unregisterComponentShortcut(comp as ActionForwardBase);
 
     // Delete component from this window's object list
     delete this.objectmap[comp.name];
