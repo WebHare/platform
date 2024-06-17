@@ -1,8 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
-
 
 test.registerTests(
   [
@@ -13,7 +9,7 @@ test.registerTests(
 
     {
       name: "press f7",
-      test: async function (doc, win) {
+      test: async function () {
         const target = test.getCurrentScreen().getToddElement("textedit").querySelector("input");
         // FIXME: shouldn't have to set focus... only focusable element in main frame should have focus
         target.focus();
@@ -40,7 +36,7 @@ test.registerTests(
 
     {
       name: "check result",
-      test: function (doc, win) {
+      test: function () {
         test.eq("fkey_ctrl 2", test.getCurrentScreen().getToddElement("textedit").querySelector("input").value);
       }
     }

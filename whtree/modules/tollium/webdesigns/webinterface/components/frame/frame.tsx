@@ -21,10 +21,13 @@ import type ObjAction from '../action/action';
 import { debugFlags } from '@webhare/env';
 import "./frame.scss";
 import { toCamelCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
+import type { KeyAttributeValue } from '@webhare/dompack';
 
 // Give each frame a unique identifier
 let framecounter = 0;
 
+/** Allowed special keys for shortcuts.Needs to match HareScript ParseShortcut but use the JS names */
+const validShortcutKeys: KeyAttributeValue[] = ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Escape", "Enter", "ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown", "Tab", "Backspace", "Delete", "Home", "End", "PageUp", "PageDown"];
 
 function getToddOwner(node: HTMLElement) {
   const namedcomponent = node.closest<HTMLElement>('*[data-name]');
@@ -252,7 +255,7 @@ export default class Frame extends ToddCompBase {
         break;
 
       default:
-        if (evt.ctrlKey || evt.altKey) { //possible Tollum modifiers
+        if (evt.ctrlKey || evt.altKey || validShortcutKeys.includes(evt.key as KeyAttributeValue)) { //possible Tollum modifiers
           for (const possibleAction of Object.values(this.objectmap))
             if (possibleAction instanceof ActionForwardBase && possibleAction.handleShortcut(evt)) {
               dompack.stop(evt);
