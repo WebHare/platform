@@ -28,7 +28,7 @@ properties:
     description: Setup automatisch selfchecks
     $ref: "#/definitions/SelfChecks"
 patternProperties:
-  "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties afer x- (but no x-- and no funny chars)
+  "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties after x- (but no x-- and no funny chars)
     type: object
     tsType: unknown
 

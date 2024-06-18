@@ -3,7 +3,7 @@ import { GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
 import { elements, getAttr, parseXMLTidPtr, determineNodeGid } from "./xmlhelpers";
 
 
-export interface Webfeature {
+export interface WebFeature {
   name: string;
   title: string;
   hidden: boolean;
@@ -11,13 +11,13 @@ export interface Webfeature {
   webDesignMasks: string[];
 }
 
-export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Document): Webfeature[] {
+export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Document): WebFeature[] {
   const publishernode = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher").item(0);
   if (!publishernode)
     return [];
 
   const gid = determineNodeGid(resourceBase, publishernode);
-  const webFeatures = new Array<Webfeature>();
+  const webFeatures = new Array<WebFeature>();
 
   for (const node of elements(publishernode.getElementsByTagNameNS(publishernode.namespaceURI, "webfeature"))) {
     if (!isNodeApplicableToThisWebHare(node, ""))
@@ -38,7 +38,7 @@ export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Doc
 
 export function generateWebDesigns(context: GenerateContext): string {
   const webDesigns: never[] = [];
-  const webFeatures = new Array<Webfeature>();
+  const webFeatures = new Array<WebFeature>();
 
   for (const mod of context.moduledefs) {
     if (mod.modXml)
