@@ -5,8 +5,14 @@
   <screen name="panel">
     <actions>
       <action name="recompile" onexecute="dorecompile" shortcut="ctrl+e" />
+      <action name="searchfsobjects" onexecute="dosearchfsobjects">
+        <enableon source="types" min="1" max="1" checkflags="isfsobjecttype"/>
+      </action>
+      <action name="searchwidgets" onexecute="dosearchwidgets">
+        <enableon source="types" min="1" max="1" checkflags="iswidgettype"/>
+      </action>
       <action name="viewtype" onexecute="doviewtype" shortcut="ctrl+i" tid="~properties">
-        <enableon source="types" min="1" />
+        <enableon source="types" min="1" max="1" />
       </action>
       <action name="deletetype" tid="~delete">
         <enableon source="types" min="1" checkflags="candelete" onexecute="dodelete" requirefocus="true" />
@@ -16,6 +22,8 @@
     <menus gid=".menus">
       <menu name="context_menu">
         <item action="viewtype" tid="~properties" />
+        <item action="searchfsobjects" />
+        <item action="searchwidgets" />
         <item action="deletetype" tid="~delete" />
       </menu>
     </menus>
@@ -23,11 +31,8 @@
     <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <panel backgroundcolor="#f0f0f0" borders="right" spacers="right">
-            <line layout="tabs-space">
-              <spacer />
-              <textedit name="filter" onchange="gotfilterchange" />
-            </line>
+          <panel backgroundcolor="#f0f0f0" borders="right" spacers="left right">
+            <textedit name="filter" onchange="gotfilterchange" />
           </panel>
           <list name="types"
                 width="1pr"
@@ -35,13 +40,16 @@
                 minwidth="30x"
                 borders="right top"
                 emptytid=".noctypes"
-                flags="candelete"
+                flags="candelete iswidgettype isfsobjecttype"
                 openaction="viewtype"
                 selectcontextmenu="context_menu"
                 selectmode="single"
                 sortcolumn="namespace">
             <column name="id" type="integer" width="8x" tid="~id" />
-            <column name="namespace" type="text" iconname="typeicon" />
+            <column name="namespace" type="text" iconname="typeicon" width="2pr" />
+            <column name="scopedtype" type="text" width="1pr" />
+            <column name="codesource" type="text" width="2pr" />
+            <column name="type" type="text" width="24x" />
             <column name="orphansince" type="datetime" width="17x" align="right" storeutc="true" />
           </list>
         </cell>

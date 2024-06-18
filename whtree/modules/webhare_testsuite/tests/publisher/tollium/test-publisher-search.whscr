@@ -145,6 +145,27 @@ ASYNC MACRO Search()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO SearchDirectly()
+{
+  { //test direct searches used by dashboard
+    AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", target := [ search := [ widgettype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock" ]]]));
+
+    RECORD ARRAY rows := TT("filelist")->rows;
+    TestEq(TRUE, RecordExists(SELECT * FROM rows WHERE name = "pollholder")); //should find the testuite pollholder files
+
+    AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  }
+
+  { //test direct searches used by dashboard
+    AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", target := [ search := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router" ]]]));
+
+    RECORD ARRAY rows := TT("filelist")->rows;
+    TestEq(TRUE, RecordExists(SELECT * FROM rows WHERE name = "wrdauthtest-router-broken"));
+
+    AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  }
+}
+
 ASYNC MACRO SearchAsLisa()
 {
   testfw->BeginWork();
@@ -212,6 +233,7 @@ ASYNC MACRO SearchAsBart()
 
 RunTestframework([ PTR PrepIt
                  , PTR Search
+                 , PTR SearchDirectly
                  , PTR SearchAsLisa
                  , PTR SearchAsBart
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

@@ -1603,6 +1603,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="contenttypes">   <!-- tolliumapps.dashboard.contenttypes -->
+        <text tid="codesource">Code locatie</text>
         <text tid="ctypeerrors">Meldingen na compilatie</text>
         <text tid="ctypemembers">Contenttype elementen</text>
         <text tid="deletectypeconfirm">Weet u zeker dat u het contenttype '<param p="1"/>' permanent wilt verwijderen?</text>
@@ -1620,8 +1621,12 @@
         <text tid="orphansince">Verweesd sinds</text>
         <text tid="panel">Contenttypes</text>
         <text tid="recompile">Hercompileren</text>
+        <text tid="scopedtype">Scoped type</text>
+        <text tid="searchfsobjects">Zoek objecten met type</text>
+        <text tid="searchwidgets">Zoek bestanden met widget</text>
         <text tid="siteprofile">Siteprofiel</text>
         <text tid="siteprofilesrecompiled">De siteprofielen zijn opnieuw gecompileerd.</text>
+        <text tid="type">Meta type</text>
         <text tid="typename">Type</text>
       </textgroup>
       <textgroup gid="sites">   <!-- tolliumapps.dashboard.sites -->

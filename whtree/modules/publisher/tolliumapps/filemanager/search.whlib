@@ -7,6 +7,7 @@ LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -158,14 +159,33 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
         ];
   }
 
-  UPDATE PUBLIC MACRO SetFilterData(RECORD filterdata)
+  UPDATE PUBLIC BOOLEAN FUNCTION SetFilterData(RECORD filterdata)
   {
     this->ClearAllFilters();
+
+    IF(CellExists(filterdata,'widgettype'))
+    {
+      RECORD def := LookupContentTypeByName(filterdata.widgettype);
+      STRING showvalue := (RecordExists(def) ? GetTid(def.title) : "") ?? filterdata.widgettype;
+      filterdata := [ filters := [[ type := "publisher:widgettype", value := [ selectquery := [CELL[ showvalue, filterdata.widgettype ]]]]]];
+    }
+    IF(CellExists(filterdata,'whfstype'))
+    {
+      RECORD def := LookupContentTypeByName(filterdata.whfstype);
+      IF(RecordExists(def))
+      {
+        STRING showvalue := (RecordExists(def) ? GetTid(def.title) : "") ?? filterdata.whfstype;
+        filterdata := [ filters := [[ type := "publisher:whfstype", value := [ selectquery := [CELL[ showvalue, whfstypes := INTEGER[def.id] ]]]]]];
+      }
+    }
+
     IF (CellExists(filterdata, "filters") AND Length(filterdata.filters) > 0)
       FOREVERY (RECORD filter FROM filterdata.filters)
         this->AddInitializedFilter(DEFAULT OBJECT, filter.type, filter.value);
     ELSE
       this->AddFilter(DEFAULT OBJECT);
+
+    RETURN TRUE;
   }
 
 

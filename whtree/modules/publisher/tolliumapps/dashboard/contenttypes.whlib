@@ -1,6 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
@@ -11,39 +11,20 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-BOOLEAN FUNCTION IsReferenced(INTEGER typid)
-{
-  RETURN RecordExists(SELECT FROM system.fs_objects AS objects WHERE type = typid LIMIT 1);
-}
-
-///list the contenttypes known in system.fs_types
-RECORD ARRAY FUNCTION ListFSContentTypes(STRING mask)
-{
-  RECORD ARRAY contenttypes :=
-    SELECT id
-         , namespace
-         , candelete := orphan //AND NOT this->IsReferenced(namespace)
-         , isfoldertype
-         , orphansince
-      FROM system_internal.fs_types
-     WHERE (VAR mask != "*" ? ToUppercase(namespace) LIKE ToUppercase(mask) : TRUE);
-
-  RECORD ARRAY iconinfo := SELECT id
-                                , tolliumicon
-                             FROM GetCachedSiteProfiles().contenttypes
-                            WHERE RecordExists(filetype) OR RecordExists(foldertype);
-
-  contenttypes := JoinArrays(contenttypes, "id", iconinfo, [ tolliumicon := "" ], [ rightouterjoin := TRUE ]);
-
-  UPDATE contenttypes SET candelete := FALSE WHERE candelete = TRUE AND IsReferenced(id);
-  RETURN contenttypes;
-}
-
 PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 <
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
     RETURN 0;
+  }
+
+  MACRO DoSearchFSObjects()
+  {
+    this->contexts->controller->SendApplicationMessage("publisher:app", CELL[ search := CELL[ whfstype := ^types->selection.namespace ] ], DEFAULT RECORD, TRUE);
+  }
+  MACRO DoSearchWidgets()
+  {
+    this->contexts->controller->SendApplicationMessage("publisher:app", CELL[ search := CELL[ widgettype := ^types->selection.namespace ] ], DEFAULT RECORD, TRUE);
   }
 
   MACRO DoRecompile()
@@ -69,12 +50,13 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     //Gather our information..
-    STRING mask := ^filter->value != "" ? Substitute("*" || Substitute(TrimWhitespace(NormalizeWhitespace(^filter->value)), " ", "*") || "*", "**", "*") : "*";
-    RECORD ARRAY contenttypes := ListFSContentTypes(mask);
+    RECORD ARRAY contenttypes := CallJS("@mod-platform/js/devsupport/siteprofiles.ts#listFSContentTypes", ^filter->value);
     ^types->rows := SELECT *
                          , rowkey := id
                          , listrowclasses:= candelete ? ["grayedout"] : STRING[]
                          , typeicon := tolliumicon != "" ? ^types->GetIcon(tolliumicon) : 0
+                         , iswidgettype := type = "widgettype"
+                         , isfsobjecttype := type = "filetype" OR type = "foldertype" OR type = "widgettype"
                       FROM contenttypes;
   }
 
