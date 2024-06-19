@@ -546,18 +546,10 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentUnifiedCacheContents(DATETIME ignore_modi
   RETURN deletion_candidates;
 }
 
-
+/** @param deletetion_candidates Images files to consider (not extremely recent). 'expired' is set to TRUE by GetCurrentUnifiedCacheContents, we'll set it to FALSE for those that aren't really expired */
 PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, DATETIME rangestart, DATETIME rangeend)
 {
-  STRING ARRAY imagecachefolders :=
-      [ "/.uc/"
-      , "/tollium_todd.res/webhare_testsuite/tests/imgcache/!/"
-      ];
-
-  STRING ARRAY foldermasks;
-  FOREVERY (STRING folder FROM imagecachefolders)
-    INSERT (folder LIKE "*/" ? folder : folder || "/") || "*" INTO foldermasks AT END;
-
+  //Support for decentralized imagecaches was removed, so we can now safely assume that all images live under /.uc/
   IF(Length(deletion_candidates) != 0)
   {
     /* Analyze the logfiles to figure out which images are recently accessed */
@@ -567,22 +559,10 @@ PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, 
       RECORD row := accesslog->ReadRecord();
       IF(NOT RecordExists(row))
         BREAK;
-      IF(row.method != "GET")
+      IF(row.method != "GET" OR row.url NOT LIKE "/.uc/*")
         CONTINUE;
 
-      STRING tokenpart;
-      BOOLEAN iscandidate;
-      FOREVERY (STRING foldermask FROM foldermasks)
-        IF (row.url LIKE foldermask)
-        {
-          tokenpart := SubString(row.url, LENGTH(foldermask) - 1);
-          iscandidate := TRUE;
-        }
-
-      IF (NOT iscandidate)
-        CONTINUE;
-
-      RECORD data := GetUnifiedURLTokenParts(tokenpart);
+      RECORD data := GetUnifiedURLTokenParts(Substring(row.url, 5));
       IF (data.datatoken = "")
         CONTINUE;
 
@@ -622,4 +602,3 @@ PUBLIC RECORD ARRAY FUNCTION ExpireForMissingSources(RECORD ARRAY indata)
   }
   RETURN indata;
 }
-
