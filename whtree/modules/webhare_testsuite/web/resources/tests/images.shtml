@@ -1,0 +1,63 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/whlibs/graphics/filters.whlib";
+
+/* https://my.webhare.dev/tollium_todd.res/webhare_testsuite/tests/images.shtml */
+
+OpenPrimary();
+OBJECT snowbeagle := OpenWHFSObjectByPath("site::webhare_testsuite.testsite/photoalbum/snowbeagle.jpg");
+AddHTTPHeader("content-type", 'text/html', false);
+Print(`<html><body><table>`);
+
+FOREVERY(RECORD testmethod FROM [
+  //All https://www.webhare.dev/manuals/caching/methods/ methods
+  [ method := "fit", setwidth := 100, setheight := 100 ],
+  [ method := "fit", setwidth := 300, setheight := 300 ],
+  [ method := "fit", setwidth := 100 ],
+  [ method := "fit", setheight := 100 ],
+  [ method := "fit", setwidth := 300 ],
+  [ method := "fit", setheight := 300 ],
+
+  [ method := "scale", setwidth := 100, setheight := 100 ],
+  [ method := "scale", setwidth := 300, setheight := 300 ],
+  [ method := "scale", setwidth := 100 ],
+  [ method := "scale", setheight := 100 ],
+  [ method := "scale", setwidth := 300 ],
+  [ method := "scale", setheight := 300 ],
+
+  [ method := "crop", setwidth := 100, setheight := 100 ],
+  [ method := "crop", setwidth := 300, setheight := 300 ],
+  [ method := "crop", setwidth := 100, setheight := 300 ],
+
+  [ method := "fitcanvas", setwidth := 100, setheight := 100, bgcolor := "red" ],
+  [ method := "fitcanvas", setwidth := 300, setheight := 300, bgcolor := "red" ],
+  [ method := "scalecanvas", setwidth := 100, setheight := 100, bgcolor := "red" ],
+  [ method := "scalecanvas", setwidth := 300, setheight := 300, bgcolor := "red" ],
+  [ method := "cropcanvas", setwidth := 300, setheight := 300, bgcolor := "red" ],
+  [ method := "cropcanvas", setwidth := 100, setheight := 300, bgcolor := "red" ],
+
+  [ method := "fill", setwidth := 100, setheight := 100 ],
+  [ method := "fill", setwidth := 300, setheight := 300 ],
+
+  [ method := "stretch", setwidth := 100, setheight := 100 ],
+  [ method := "stretch", setwidth := 300, setheight := 300 ],
+
+  [ method := "stretch-x", setwidth := 100, setheight := 100 ],
+  [ method := "stretch-x", setwidth := 300, setheight := 300 ],
+  [ method := "stretch-y", setwidth := 100, setheight := 100 ],
+  [ method := "stretch-y", setwidth := 300, setheight := 300 ]
+  ])
+{
+  Print(`<tr><td colspan="2">${EncodeJSON(testmethod)}</td></tr>\n`);
+  RECORD hsresult := GfxResizeWrappedImageWithMethod(snowbeagle->GetWrapped(), testmethod);
+  Print(`<tr><td>${hsresult.width} x ${hsresult.height}, ${hsresult.mimetype} (${Length(hsresult.data)} bytes)<br>\n`);
+  Print(`<img src="${GetDataUrl(hsresult.data, hsresult.mimetype)}" />\n`);
+  Print(`</td></tr>\n`);
+  Print(`<tr><td colspan="2"><hr></td></tr>\n\n`);
+  FlushWebResponse(DEFAULT DATETIME);
+}
