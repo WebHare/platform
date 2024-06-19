@@ -466,6 +466,7 @@ MACRO CleanupTests()
   STRING filename_unused_kikker := GetCacheDiskPathFromLink(link_unused_kikker);
   STRING filename_grayscalehomer := GetCacheDiskPathFromLink(link_grayscalehomer);
   STRING filename_fs_frogger := GetCacheDiskPathFromLink(link_fs_frogger);
+  STRING filename_wrd_homer := GetCacheDiskPathFromLink(link_wrd_homer);
 
   currentcachecontents := SELECT *
                             FROM currentcachecontents
@@ -473,9 +474,10 @@ MACRO CleanupTests()
                                              , filename_unused_kikker
                                              , filename_grayscalehomer
                                              , filename_fs_frogger
+                                             , filename_wrd_homer
                                              ];
 
-  TestEq(4, Length(currentcachecontents));
+  TestEq(5, Length(currentcachecontents));
 
   RECORD ARRAY cachecontents := SELECT * FROM FilterRecentHits(currentcachecontents, after_kikker_hit, tracestarttime);
 
@@ -485,14 +487,26 @@ MACRO CleanupTests()
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_kikker);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_fs_frogger, filename_fs_frogger);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_wrd_homer, filename_wrd_homer);
 
   //forcibly delete the gray homer
   testfw->BeginWork();
   homer->DeleteSelf();
+  testfw->GetWRDSchema()->^wrd_person->UpdateEntity(entityid1, [ wrd_limitdate := GetCurrentDateTime() ]);
   testfw->CommitWork();
 
   cachecontents := ExpireForMissingSources(cachecontents);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_fs_frogger, filename_fs_frogger);
   TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
+  TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_wrd_homer, filename_wrd_homer);
+
+  /* TODO should we also be preventing the links from being recreated by locations having the old link? (ie we assume the links just die out?)
+  TestEq(FALSE, testfw->browser->GotoWebPage(link_grayscalehomer));
+  TestEq(404, testfw->browser->GetHTTPStatusCode());
+
+  TestEq(FALSE, testfw->browser->GotoWebPage(link_wrd_homer));
+  TestEq(404, testfw->browser->GetHTTPStatusCode());
+  */
 }
 
 RunTestframework([ PTR ImgCacheTest

@@ -368,6 +368,7 @@ PUBLIC RECORD FUNCTION LookupDataForUnifiedURL(RECORD blobinfo)
                            , data := entity_settings.blobdata
                            , fs_object := 0
                            , creationdate := entities.creationdate
+                           , limitdate := entities.limitdate
                         FROM wrd.entity_settings, wrd.entities
                        WHERE entity_settings.id = blobinfo.id
                              AND entities.id = entity_settings.entity;
@@ -388,7 +389,8 @@ PUBLIC RECORD FUNCTION LookupDataForUnifiedURL(RECORD blobinfo)
     IF((GetDayCount(lookupresult.creationdate) BITXOR GetMsecondCount(lookupresult.creationdate)) != blobinfo.cc)
       THROW NEW Exception(`Image lookup failed: object #${blobinfo.id} of type #${blobinfo.type} does not have the expected creation date`);
 
-    IF( (blobinfo.type = 1 OR blobinfo.type = 2) AND IsRecycleBinWHFSPath(lookupresult.whfspath))
+    IF( ((blobinfo.type = 1 OR blobinfo.type = 2) AND IsRecycleBinWHFSPath(lookupresult.whfspath))
+        OR (blobinfo.type = 3 AND lookupresult.limitdate != MAX_DATETIME AND lookupresult.limitdate < GetCurrentDatetime()))
       THROW NEW Exception(`Image lookup failed: object #${blobinfo.id} of type #${blobinfo.type} has been deleted`);
 
     IF(Length(lookupresult.data) = 0)
