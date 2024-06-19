@@ -187,6 +187,7 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
         , [ name := "metadata[paymentref]", value := this->paymentref ]
         , [ name := "metadata[paymenttok]", value := paymenttok ]
         , [ name := "method",               value := this->paymentoptiontag ]
+        , [ name := "locale",               value := GetTidLanguage() = "nl" ? "nl_NL" : "en_US" ]
         ];
 
     IF(this->settings.webhooks)
