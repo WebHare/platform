@@ -57,6 +57,21 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
   {
     RETURN DEFAULT RECORD;
   }
+  /** @short Lookup an OIDC login */
+  PUBLIC RECORD FUNCTION LookupOIDCLogin(RECORD payload, RECORD context)
+  {
+    STRING trylogin := this->GetOIDCLoginName(CELL[wrd_id := context.oidc_client, wrd_tag := context.oidc_tag, context.loginfield ], payload);
+    IF(trylogin = "")
+    {
+      LogDebug("wrd:auth-oidc", "Configuration issue, unable to figure out login field to check");
+      RETURN DEFAULT RECORD;
+    }
+
+    INTEGER userid := this->LookupLogin(trylogin);
+    LogDebug("wrd:auth-oidc", CELL[ payload, context, userid ]);
+    RETURN [ userid := userid ];
+  }
+
   /** @short Lookup a login */
   PUBLIC INTEGER FUNCTION LookupLogin(STRING loginname)
   {

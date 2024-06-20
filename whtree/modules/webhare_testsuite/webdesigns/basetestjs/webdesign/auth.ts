@@ -1,6 +1,19 @@
-import { type OpenIdRequestParameters, type ReportedUserInfo, type WRDAuthCustomizer } from "@webhare/wrd";
+import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { type JWTPayload, type OpenIdRequestParameters, type ReportedUserInfo, type WRDAuthCustomizer } from "@webhare/wrd";
 
 export class AuthCustomizer implements WRDAuthCustomizer {
+  async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload): Promise<void> {
+    //FIXME our IDP needs to fill email/profiel fields itself if email & profile are requested AND permitted for that provider
+    if (params.scopes.includes("testfw")) {
+      const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", params.user, ["wrdFirstName", "wrdLastName", "wrdContactEmail"]);
+      if (userinfo) {
+        payload.testfw_firstname = userinfo.wrdFirstName;
+        payload.testfw_lastname = userinfo.wrdLastName;
+        payload.testfw_email = userinfo.wrdContactEmail;
+      }
+    }
+  }
+
   onOpenIdReturn(params: OpenIdRequestParameters) {
     return null;
   }

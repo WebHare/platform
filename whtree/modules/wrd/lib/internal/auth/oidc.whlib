@@ -33,6 +33,7 @@ RECORD FUNCTION GetOpenIDConnectMetadata(STRING metadataurl)
                    , keys := BlobToString(browser->content)  //the jwks_uri content
                    ]
         , ttl := 15 * 60 * 1000
+        , eventmasks := ["system:internal.clearopenidcaches"]
         ];
 }
 
@@ -61,7 +62,9 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
     THROW NEW Exception("This authentication domain is not setup for OIDC authentication");
 
   RECORD ARRAY filters;
-  IF (tag != "")
+  IF (tag LIKE "#?*")
+    INSERT [ field := "WRD_ID", value := ToInteger(Substring(tag,1),0) ] INTO filters AT END;
+  ELSE IF (tag != "")
     INSERT [ field := "WRD_TAG", value := tag ] INTO filters AT END;
 
   RECORD ARRAY spdata := wrdtype->RunQuery(
@@ -72,7 +75,7 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
   IF (NOT RecordExists(spdata))
     THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "'" : "") || " configured for this authentication domain");
   ELSE IF (LENGTH(spdata) > 1)
-    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag");
+    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag"); //This shouldn't get triggered by applicationportal.whlib as that one now fallsback to #<id> for tagging. anything else left?
 
 
   //TODO support prompt=login, prompt=none modes. they somewhat map to passive/auto logins?
