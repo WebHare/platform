@@ -6,7 +6,7 @@ export type { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-import { ensureScopedResource } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
@@ -246,15 +246,18 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       throw new Error(`WRD Schema ${this.tag} not found in the database`);
   }
 
-  /*private*/ async __ensureSchemaData(): Promise<SchemaData> {
-    if (this.schemaData) {
+  /*private*/ async __ensureSchemaData({ refresh = false } = {}): Promise<SchemaData> {
+    if (!refresh && this.schemaData) {
       return this.schemaData;
     }
     schemaUpdateListener ??= new SchemaUpdateListener();
     using invalidationCollector = new SchemaDataInvalidationCollector(schemaUpdateListener);
     const data = getSchemaData(this.tag);
     this.schemaData = data;
-    schemaUpdateListener.addSchema(this, await data, invalidationCollector.invalidations, () => this.schemaData = undefined);
+    schemaUpdateListener.addSchema(this, await data, invalidationCollector.invalidations, () => {
+      this.schemaData = undefined;
+      setScopedResource(this.coVMSchemaCacheSymbol, undefined);
+    });
     return data;
   }
 
@@ -294,7 +297,12 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     };
 
     await schemaobj.__DoCreateType(createrequest);
-    return this.getType(tag);
+    const type = this.getType(tag);
+
+    //TODO schedule broadcast post commit to flush other listeners
+    await this.__ensureSchemaData({ refresh: true });
+
+    return type;
   }
 
   async describeType(tag: string) {
@@ -341,6 +349,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
         const wrdschema = await wrd_api.OpenWRDSchema(this.tag) as HSVMObject | null;
         if (!wrdschema)
           throw new Error(`No such WRD schema ${this.tag}`);
+
+        this.__ensureSchemaData(); //ensure listeners are in place to discard the cache where needed
         return wrdschema;
       })(),
       types: {}
@@ -835,6 +845,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
 
     await typeobj.CreateAttribute(tagToHS(tag), typetag, configclone);
+
+    //TODO schedule broadcast post commit to flush other listeners
+    await this.schema.__ensureSchemaData({ refresh: true });
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
