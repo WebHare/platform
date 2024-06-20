@@ -641,6 +641,8 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
     @cell(string array) options.highlightparts The fields from which only a relevant highlighted part (with max length
         `"summary_length"`) will be returned in the summaryfield, defaults to `[ "body" ]` (note that all fields mentioned in
         highlightparts are HTML-encoded)
+    @cell(string) options.highlighttype Which highlighting algorithm to use, either `unified` (the default) or `plain` (see
+        https://opensearch.org/docs/latest/search-plugins/searching-data/highlight/#highlighter-types for more information)
     @cell(string) options.summaryfield The name of the field to return the summary in (set to empty string to not return the
         summary, defaults to `"summary"`)
     @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
@@ -683,7 +685,7 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
 PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ language := ""
+      [ language := GetTidLanguage()
       , first := 0
       , count := default_consilio_search_count
       , save_searches := FALSE
@@ -692,6 +694,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , highlightclass := "consilio--highlight"
       , highlightfields := STRING[]
       , highlightparts := [ "body" ]
+      , highlighttype := "unified"
       , summaryfield := "summary"
       , scorefield := ""
       , mapping := DEFAULT RECORD
@@ -707,7 +710,12 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , refresh := FALSE
       , validatemapping := TRUE
       , timeout := opensearch_read_timeout
-      ], options, [ optional := [ "orderdesc" ] ]);
+      ], options,
+      [ optional := [ "orderdesc" ]
+      , enums :=
+          [ highlighttype := [ "unified", "plain" ]
+          ]
+      ]);
 
   IF(NOT RecordExists(query)
       OR (CellExists(query, "query") AND RecordExists(query.query) AND query.query._type = "nothing")
@@ -782,7 +790,8 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , summary := options.summary_length
       , options.highlightfields
       , options.highlightparts
-      , lang := options.language ?? GetTidLanguage()
+      , options.highlighttype
+      , lang := options.language
       , restrict_to := options.restrict_url
       , options.exclude_urls
       , session
