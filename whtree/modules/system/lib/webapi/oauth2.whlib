@@ -413,7 +413,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     @return URL to the landing page */
 PUBLIC STRING FUNCTION GetDefaultOauth2RedirectURL()
 {
-  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/endpoints/oauth2.shtml");
+  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.wh/common/oauth2/");
 }
 
 /** @short Run the oauth2 landing page (normally hosted as /.system/endpoints/oauth2.shtml
