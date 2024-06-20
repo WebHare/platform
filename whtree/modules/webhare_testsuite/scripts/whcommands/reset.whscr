@@ -80,7 +80,7 @@ MACRO SetupTestSite(OBJECT testsite)
                          [ arraytest := [[ blobcell := WrapBlob(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg"),"kikker.jpg") ]]]);
 
   //'legacy' tests
-  FOREVERY(STRING basename FROM ["portal1","portal1-domainless"])
+  FOREVERY(STRING basename FROM ["portal1","portal1-domainless","portal1-oidc"])
   {
     OBJECT portal1folder  := testsite->rootobject->CreateFolder( [ name := basename ] );
     portal1folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
