@@ -575,10 +575,6 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
     THROW NEW Exception(`JWT token not valid before ${FormatISO8601DateTime(payload.nbf)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
   IF (CellExists(payload, "iat") AND payload.iat > AddTimeToDate(options.grace_period, options.verify_at))
     THROW NEW Exception(`JWT token issued in the future at ${FormatISO8601DateTime(payload.iat)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
-  IF (options.jti != "" AND NOT CellExists(payload, "jti"))
-    THROW NEW Exception(`Missing value for field 'jti'`);
-  ELSE IF (CellExists(payload, "jti") AND payload.jti != options.jti)
-    THROW NEW Exception(`Invalid value '${payload.jti}' for field 'jti', expected '${options.jti}'`);
 
   RETURN token;
 }
