@@ -1,69 +1,79 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 // Implements the frontend 'wh check' towl notifications
-const JSONRPC = require('@mod-system/js/net/jsonrpc');
+import { createClient } from "@webhare/jsonrpc-client";
+
+interface CheckResult {
+  privileged: boolean;
+  firstmessage: string;
+  numleft: number;
+}
+
+interface JSAPIService {
+  getCheckResult(path: string): Promise<CheckResult>;
+}
+
+const client = createClient<JSAPIService>("system:jsapi");
+
 import { getTid } from "@mod-tollium/js/gettid";
 import { encodeString } from "@webhare/std";
-import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
+import IndyShell from '@mod-tollium/web/ui/js/shell';
+import type { TowlNotification } from "./towl";
+import type { AppLaunchInstruction } from "@mod-platform/js/tollium/types";
 
-let checkservice;
-let checkcall = null;
-let intervaltimer;
-let checkinterval;
+let checkcall: Promise<void> | null = null;
+let checkinterval: NodeJS.Timeout | undefined;
 
-function onCheckResponse(success, response) {
+function onCheckFail() {
   checkcall = null;
-  if (!success) {
-    console.error("FIXME: Report server unreachable");
+}
+
+function onCheckResponse(shell: IndyShell, response: CheckResult) {
+  checkcall = null;
+
+  if (!response.privileged)
+    return; //we don't have access
+
+  if (response.firstmessage) {
+    const message: AppLaunchInstruction = {
+      app: "system:dashboard",
+      target: null,
+      reuse_instance: "never",
+      inbackground: false,
+      message: null,
+      type: "appmessage"
+    };
+
+    const messagetext = getTid("tollium:shell.checks.errors", response.numleft, response.firstmessage);
+
+    const notification: TowlNotification = {
+      id: "system:checks",
+      icon: "tollium:messageboxes/warning",
+      title: encodeString(getTid("tollium:shell.checks.unresolvedissues"), 'attribute'),
+      description: encodeString(messagetext, 'attribute'),
+      timeout: 0,
+      applicationmessage: message,
+      persistent: true
+    };
+    shell.towl.showNotification(notification);
   } else {
-    if (!response.privileged)
-      return; //we don't have access
-
-    if (response.firstmessage) {
-      const message =
-      {
-        appurl: "system:dashboard",
-        apptarget: null,
-        reuse_instance: true
-      };
-
-      const messagetext = getTid("tollium:shell.checks.errors", response.numleft, response.firstmessage);
-
-      const notification =
-      {
-        id: "system:checks",
-        icon: "tollium:messageboxes/warning",
-        title: encodeString(getTid("tollium:shell.checks.unresolvedissues"), 'attribute'),
-        description: encodeString(messagetext, 'attribute'),
-        timeout: 0,
-        applicationmessage: message,
-        persistent: true
-      };
-      getIndyShell().towl.showNotification(notification);
-    } else {
-      getIndyShell().towl.hideNotification("system:checks");
-    }
+    shell.towl.hideNotification("system:checks");
   }
 }
 
-
-function onCheckInterval() {
+function onCheckInterval(shell: IndyShell) {
   if (checkcall)
     return; //still one pending, skip this call
 
-  if (!checkservice)
-    checkservice = new JSONRPC(); //separate RPC channel for checks, as they can take time and shouldn't block StartApplication
-  checkcall = checkservice.request('GetCheckResult', [], onCheckResponse.bind(null, true), onCheckResponse.bind(null, false));
+  checkcall = client.getCheckResult(location.pathname).then(resp => onCheckResponse(shell, resp), () => onCheckFail());
 }
 
-export function setupWHCheck(setcheckinterval) {
-  if (setcheckinterval > 0 && !checkinterval) {
-    checkinterval = setcheckinterval;
-    onCheckInterval();
-    intervaltimer = setInterval(onCheckInterval, checkinterval);
-  } else if (intervaltimer && setcheckinterval <= 0) {
-    clearInterval(intervaltimer);
-    intervaltimer = 0;
+export function setupWHCheck(shell: IndyShell, setcheckinterval: number) {
+  if (checkinterval) { //already running
+    clearInterval(checkinterval);
+    checkinterval = undefined;
+  }
+
+  if (setcheckinterval > 0) {
+    checkinterval = setInterval(() => onCheckInterval(shell), setcheckinterval);
+    onCheckInterval(shell);
   }
 }
