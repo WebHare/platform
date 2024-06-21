@@ -12,6 +12,9 @@
       <free tag="CLIENTSECRET" />
       <free tag="ADDITIONALSCOPES" />
       <free tag="LOGINFIELD" /> <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->
+
+      <free tag="REDIRECT_URI" description="Override the redirect URI used. Must point a page implementing the OAuth2 landing code"/>
+      <enum tag="VISIBILITY" allowedvalues="hidden ifused" description="Limit visibility of this login option. hidden: always hide. ifused: show after first use or triggering. "/>
     </attributes>
   </object>
 

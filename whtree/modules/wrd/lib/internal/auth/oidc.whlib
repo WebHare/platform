@@ -69,7 +69,7 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
 
   RECORD ARRAY spdata := wrdtype->RunQuery(
       [ filters := filters
-      , outputcolumns := [ "WRD_ID", "METADATAURL", "CLIENTID", "CLIENTSECRET", "ADDITIONALSCOPES" ]
+      , outputcolumns := [ "WRD_ID", "METADATAURL", "CLIENTID", "CLIENTSECRET", "ADDITIONALSCOPES", "REDIRECT_URI" ]
       ]);
 
   IF (NOT RecordExists(spdata))
@@ -84,9 +84,11 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
                                         , prompt := ""
                                         ]);
 
-  RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl, [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
-                                                                            , extraparameters := [ prompt := GetWebVariable("prompt")
-                                                                                                 //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
-                                                                                                 ]
-                                                                            ]);
+  RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl,
+    [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
+    , redirect_uri := spdata[0].redirect_uri
+    , extraparameters := [ prompt := GetWebVariable("prompt")
+                          //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
+                          ]
+    ]);
 }
