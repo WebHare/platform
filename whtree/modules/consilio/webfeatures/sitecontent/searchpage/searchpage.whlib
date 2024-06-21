@@ -24,10 +24,14 @@ PUBLIC STATIC OBJECTTYPE ConsilioSearchPage EXTEND WebPageBase
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
     OBJECT searchplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","searchpage");
+    INTEGER summarylength;
+    STRING highlighttype;
     IF(ObjectExists(searchplugin))
     {
       IF(searchplugin->witty != "")
         this->userwitty := LoadWittyLibrary(searchplugin->witty, "HTML-NI");
+      summarylength := searchplugin->summarylength;
+      highlighttype := searchplugin->highlighttype;
     }
 
     INSERT "wh-searchpage" INTO this->webdesign->htmlclasses AT END;
@@ -49,7 +53,10 @@ PUBLIC STATIC OBJECTTYPE ConsilioSearchPage EXTEND WebPageBase
         THROW NEW Exception(`Unable to determine which consilio catalog has indexed folder '${this->webdesign->targetfolder->whfspath}'`);
 
       RECORD query := CQParseUserQuery(querytext);
-      RECORD result := RunConsilioSearch(catalog, query, [ summary_length := 150 ]);
+      RECORD options := [ summary_length := summarylength ?? 150 ];
+      IF (highlighttype != "")
+        INSERT CELL highlighttype := highlighttype INTO options;
+      RECORD result := RunConsilioSearch(catalog, query, options);
 
       wittydata.results := SELECT *, link := objectid, DELETE objectid FROM result.results;
       wittydata.totalcount := result.totalcount;
