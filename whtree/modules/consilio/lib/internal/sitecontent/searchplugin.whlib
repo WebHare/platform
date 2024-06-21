@@ -1,19 +1,36 @@
 <?wh
 
+LOADLIB "wh::xml/xsd.whlib";
+
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
-PUBLIC OBJECTTYPE SearchPagePlugin EXTEND WebDesignPluginBase
+PUBLIC STATIC OBJECTTYPE SearchPagePlugin EXTEND WebDesignPluginBase
 <
   PUBLIC STRING witty;
+  PUBLIC INTEGER summarylength;
+  STRING pvt_highlighttype;
+
+  PUBLIC PROPERTY highlighttype(pvt_highlighttype, SetHighlightType);
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
     RETURN [ witty := siteprofile->ParseFSPath(node, "witty")
+           , highlighttype := node->GetAttribute("highlighttype")
+           , summarylength := ParseXSInt(node->GetAttribute("summarylength"))
            ];
   }
 
   UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration)
   {
     this->witty := mergedconfiguration.witty;
+    this->summarylength := mergedconfiguration.summarylength;
+    this->highlighttype := mergedconfiguration.highlighttype;
+  }
+
+  MACRO SetHighlightType(STRING type)
+  {
+    type := ToLowercase(type);
+    IF (type IN [ "", "unified", "plain" ])
+      this->pvt_highlighttype := type;
   }
 >;
