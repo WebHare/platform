@@ -110,20 +110,19 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                , state := ""
                                , access_type := "online"
                                , extraparameters := DEFAULT RECORD
+                               , redirect_uri := ""
                                ], options, [ enums := [ access_type := ["offline","online"] ]]);
 
     IF(this->oauthconfig.authorizeurl = "")
       THROW NEW Exception(`Oauth autorizeurl not set!`);
 
-    STRING redirectto := this->oauthconfig.redirecturl;
-    IF(redirectto = "")
-      redirectto := GetDefaultOauth2RedirectURL();
+    STRING redirect_uri := options.redirect_uri ?? this->oauthconfig.redirecturl ?? GetDefaultOauth2RedirectURL();
 
     STRING url := UpdateURLVariables(this->oauthconfig.authorizeurl,
       [ client_id := this->oauthconfig.clientid
       , response_type := "code"
       , scope := Detokenize(options.scopes,' ')
-      , redirect_uri := redirectto
+      , redirect_uri := redirect_uri
       , state := options.state
       , access_type := options.access_type
       , ...options.extraparameters
