@@ -2006,6 +2006,22 @@
           <xs:documentation>Path to witty with search page/results component overrides</xs:documentation>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="summarylength" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>How long generated summaries should be, in characters, defaults to 150</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="highlightype">
+        <xs:annotation>
+          <xs:documentation>Which highlighting algorithm to use, either `unified` (the default) or `plain`</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="unified" />
+            <xs:enumeration value="plain" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
