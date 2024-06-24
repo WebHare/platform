@@ -92,6 +92,7 @@
       <heading tid=".form" />
       <text     name="metatype" />
       <text     name="dbid" />
+      <text     name="historystatus" />
       <select   composition="type" cellname="parenttype" name="parenttype" rowkeytype="integer" type="pulldown" />
       <textedit composition="type" cellname="tag" required="true" name="tag" />
       <textedit composition="type" cellname="title" />

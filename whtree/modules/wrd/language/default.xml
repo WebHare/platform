@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="authobjects" limitlanguages="en nl">   <!-- authobjects -->
     <text tid="deleteduser">deleted user #<param p="1"/></text>
     <text tid="nametoolong">The name you have entered is too long.</text>
@@ -1274,6 +1274,7 @@
       <text tid="description">Description</text>
       <text tid="edittype">Edit type</text>
       <text tid="form">Type details</text>
+      <text tid="historystatus">History</text>
       <text tid="linkfrom">Link from</text>
       <text tid="linkto">Link to</text>
       <text tid="metatype">Metatype</text>
