@@ -136,7 +136,7 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
     file = path.resolve(file);
 
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
-  return {
+  return { //FIXME should base on ResourceLocation or ResourceMessage (requires resourcename, not 'resource')
     message: error.detail?.formatted as string ?? error.text,
     resource: file,
     line: error.detail?.line ?? error.location?.line ?? 0,

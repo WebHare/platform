@@ -8,14 +8,25 @@ import { parseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parse
 import { WebHareBlob } from "@webhare/services";
 import { pick } from "@webhare/std";
 
-export type ValidationMessage = {
+/** Basic location pointer used by various validators */
+export interface ResourceLocation {
+  /** Full resource name (eg mod::x/y/z) */
   resourcename: string;
+  /** Line number, 1-based. 0 if unknown or file missing*/
   line: number;
+  /** Column number, 1-based. 0 if unknown or file missing */
   col: number;
+}
+
+/** Basic message (erorr, warning) structure used by various validators */
+export interface ResourceMessage extends ResourceLocation {
   message: string;
+}
+
+export interface ValidationMessage extends ResourceMessage {
   source: string;
   metadata: unknown;
-};
+}
 
 export type ValidationResult = {
   /** List of hints */
@@ -43,13 +54,10 @@ export interface ValidationOptions {
   eslintmasks?: string[];
 }
 
-export type ValidationTid = {
+export interface ValidationTid extends ResourceLocation {
   tid: string;
-  resourcename: string;
-  line: number;
-  col: number;
   attrname?: string;
-};
+}
 
 class ValidationState {
   warnings = new Array<ValidationMessage>;
