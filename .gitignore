@@ -40,6 +40,7 @@ coverage.tar.gz
 /whtree/modules/webhare_testsuite/webdesigns/basetest/node_modules
 /whtree/node_modules/*
 /whtree/output
+/whtree/tsconfig.json
 /whtree/tmp
 /whtree/var
 /whtree/whdata

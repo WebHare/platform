@@ -1,0 +1,53 @@
+# This tsconfig is used to validate the base platform modules and helps prevent
+# accidental references to installed modules.
+
+# wh finalize-webhare will convert this file to proper JSON (not JSON comments) so other tools can read it
+# /opt/whdata/tsconfig.json will be generated to extend from this file (but knows about installed modules)
+
+# We're based on the settings from @tsconfig/recommended @1.0.3 but no longer directly depend on that so we don't have
+#   to figure out what actually changed there when the minor dep version updates (rarely anything does).
+#   use https://www.npmjs.com/package/@tsconfig/recommended to look up that tsconfig.json
+#
+
+$schema: https://json.schemastore.org/tsconfig
+compilerOptions:
+  # settings originally from @tsconfig/recommended
+  esModuleInterop: true
+  forceConsistentCasingInFileNames: true
+  strict: true
+  skipLibCheck: true
+  module: commonjs # as internally we're still require() based
+  # our configuration
+  baseUrl: .
+  jsx: react
+  jsxFactory: dompack.jsxcreate
+  jsxFragmentFactory: dompack.jsxfragment
+  isolatedModules: true # disallow constructs that tsc supports but esbuild wouldn't
+  noEmit: true # prevent accidental aTS Compiler invocations from generating code
+  target: es2022
+  paths:
+    dompack:
+      - modules/system/js/dompack
+    dompack/*:
+      - modules/system/js/dompack/*
+    "@webhare/*":
+      - jssdk/*
+    "@mod-consilio/*":
+      - modules/consilio/*
+    "@mod-platform/*":
+      - modules/platform/*
+    "@mod-publisher/*":
+      - modules/publisher/*
+    "@mod-socialite/*":
+      - modules/socialite/*
+    "@mod-system/*":
+      - modules/system/*
+    "@mod-tollium/*":
+      - modules/tollium/*
+    "@mod-wrd/*":
+      - modules/wrd/*
+    wh:internal/whtree/*:
+      - "*"
+
+exclude:
+  - modules/webhare_testsuite
