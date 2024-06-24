@@ -7,7 +7,7 @@ import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, Me
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
 
-export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
+export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
 export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfolder";
 
@@ -19,34 +19,47 @@ type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
-export interface ContentTypeMember {
+export interface WHFSTypeMember {
   id: number;
   name: string;
   type: MemberType;
   //children. only if type === array
-  children?: ContentTypeMember[];
+  children?: WHFSTypeMember[];
 }
 
-//Here we add properties that we think are useful to support longterm on the `whfsobject.type` property. At some point CSP should perhaps directly store this format
-export interface ContentTypeInfo {
+/** Properties implemented by all WHFS Types */
+export interface WHFSTypeBaseInfo {
   id: number | null;
+  title?: string;
   namespace: string;
-  title: string;
-  metaType: ContentTypeMetaTypes;
-  members: ContentTypeMember[];
+  members: WHFSTypeMember[];
+}
 
-  ///File types: When rendered, render inside a webdesign (aka 'needstemplate')
-  isWebPage?: boolean;
+/** The interface used for WHFS Types that only contain fields but don't explicitly implement a file, folder or widget type */
+export interface FieldsTypeInfo extends WHFSTypeBaseInfo {
+  metaType?: never;
 }
 
 //TODO mark inwebdesign etc as present..
-export interface FileTypeInfo extends ContentTypeInfo {
-  kind: "fileType";
+export interface FileTypeInfo extends WHFSTypeBaseInfo {
+  metaType: "fileType";
+
+  /** When rendered, render inside a webdesign (formerly 'needstemplate') */
+  isWebPage: boolean;
+  /** Is this a directly downloadable type? (does its "data" member make sense, formerly 'blobiscontent') */
+  hasData: boolean;
 }
 
-export interface FolderTypeInfo extends ContentTypeInfo {
-  kind: "folderType";
+export interface WidgetTypeInfo extends WHFSTypeBaseInfo {
+  metaType: "widgetType";
 }
+
+export interface FolderTypeInfo extends WHFSTypeBaseInfo {
+  metaType: "folderType";
+}
+
+/** A type representing all possible WHFS Type interfaces */
+export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | WidgetTypeInfo;
 
 //WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
 export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
@@ -94,7 +107,7 @@ function memberNameToJS(tag: string): string {
   return tag;
 }
 
-function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null): ContentTypeMember[] {
+function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null): WHFSTypeMember[] {
   return allrows.filter(_ => _.parent === parent).map(_ => ({
     id: _.id,
     name: memberNameToJS(_.name),
@@ -104,8 +117,8 @@ function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null)
 }
 
 //Given a flat array of members and the toplevel members we want, only return those members and their children
-function getMemberIds(members: ContentTypeMember[], topLevelMembers: Readonly<string[]>): number[] {
-  function getIds(member: ContentTypeMember): number[] {
+function getMemberIds(members: WHFSTypeMember[], topLevelMembers: Readonly<string[]>): number[] {
+  function getIds(member: WHFSTypeMember): number[] {
     return [member.id, ...(member.children?.length ? member.children.map(getIds) : []).flat()];
   }
 
@@ -121,12 +134,12 @@ function getMemberIds(members: ContentTypeMember[], topLevelMembers: Readonly<st
  * @throws If the type could not be found and allowMissing was not set
 */
 
-export async function describeContentType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
-export async function describeContentType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
-export async function describeContentType(type: string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<ContentTypeInfo | null>;
-export async function describeContentType(type: string | number): Promise<ContentTypeInfo>;
+export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
+export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
+export async function describeWHFSType(type: string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
+export async function describeWHFSType(type: string | number): Promise<WHFSTypeInfo>;
 
-export async function describeContentType(type: string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<ContentTypeInfo | null> {
+export async function describeWHFSType(type: string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {
   const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
   if (!matchtype) {
     if (!options?.allowMissing || type === "") //never accept '' (but we do accept '0' as that is historically a valid file type in WebHare)
@@ -135,7 +148,7 @@ export async function describeContentType(type: string | number, options?: { all
       return null;
 
     const fallbackns = options.metaType === "fileType" ? unknownfiletype : normalfoldertype;
-    const fallbacktype = await describeContentType(fallbackns);
+    const fallbacktype = await describeWHFSType(fallbackns);
     const usenamespace = typeof type === "string" ? type : "#" + type;
 
     return {
@@ -143,25 +156,41 @@ export async function describeContentType(type: string | number, options?: { all
       id: null,
       namespace: usenamespace,
       title: ":" + usenamespace,
-      members: []
+      members: [],
+      ...(options.metaType === "fileType" ? { hasData: false } : {})
     };
   }
 
   const allmembers = await db<PlatformDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
   const members = mapRecurseMembers(allmembers);
 
-  const baseinfo: ContentTypeInfo = {
+  const baseinfo: WHFSTypeBaseInfo = {
     id: matchtype.id || null,
     namespace: matchtype.namespace,
-    metaType: matchtype.foldertype ? "folderType" : matchtype.filetype ? "fileType" : "contentType", //TODO add widget rtdtype etc?
     title: matchtype.title,
     members: members //mapMembers(matchtype.members)
   };
 
   if (matchtype.filetype)
-    Object.assign(baseinfo, {
-      isWebPage: Boolean(matchtype.filetype.needstemplate)
-    });
+    if (matchtype.isembeddedobjecttype) {
+      return {
+        ...baseinfo,
+        metaType: "widgetType"
+      };
+    } else {
+      return {
+        ...baseinfo,
+        metaType: "fileType",
+        isWebPage: Boolean(matchtype.filetype.needstemplate),
+        hasData: Boolean(matchtype.filetype.blobiscontent)
+      };
+    }
+
+  if (matchtype.foldertype)
+    return {
+      ...baseinfo,
+      metaType: "folderType"
+    };
 
   return baseinfo;
 }
@@ -193,7 +222,7 @@ class RecursiveSetter {
     this.cursettings = cursettings;
   }
 
-  private async setArrayRecord(matchmember: ContentTypeMember, value: object[] | object, elementSettingId: number | null, isArray: boolean) {
+  private async setArrayRecord(matchmember: WHFSTypeMember, value: object[] | object, elementSettingId: number | null, isArray: boolean) {
     if (Array.isArray(value) !== isArray)
       if (isArray)
         throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
@@ -215,7 +244,7 @@ class RecursiveSetter {
    * @param data - Data to apply at this level
    * @param arrayMember - The current array member being updated
    * @param elementSettingId - The current element being updated  */
-  async recurseSetData(members: ContentTypeMember[], data: object, arrayMember: ContentTypeMember | null, elementSettingId: number | null) {
+  async recurseSetData(members: WHFSTypeMember[], data: object, arrayMember: WHFSTypeMember | null, elementSettingId: number | null) {
     for (const [key, value] of Object.entries(data as object)) {
       if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
         continue;
@@ -291,11 +320,11 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     this.ns = ns;
   }
 
-  private async getCurrentInstanceId(fsobj: number, type: ContentTypeInfo) {
+  private async getCurrentInstanceId(fsobj: number, type: WHFSTypeBaseInfo) {
     return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
-  private async getCurrentSettings(instanceIds: Readonly<number[]>, descr: ContentTypeInfo, keysToSet?: Readonly<string[]>) {
+  private async getCurrentSettings(instanceIds: Readonly<number[]>, descr: WHFSTypeBaseInfo, keysToSet?: Readonly<string[]>) {
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
@@ -308,7 +337,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 
-  async recurseGet(cursettings: readonly FSSettingsRow[], members: ContentTypeMember[], arrayMember: ContentTypeMember | null, elementSettingId: number | null, cc: number) {
+  async recurseGet(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], arrayMember: WHFSTypeMember | null, elementSettingId: number | null, cc: number) {
     const retval: { [key: string]: unknown } = {};
 
     for (const member of members) {
@@ -340,7 +369,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
   }
 
   private async getBulk(fsObjIds: number[], properties?: string[]): Promise<Map<number, unknown>> {
-    const descr = await describeContentType(this.ns);
+    const descr = await describeWHFSType(this.ns);
     const instanceIdMapping = await db<PlatformDB>()
       .selectFrom("system.fs_instances")
       .innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object")
@@ -389,7 +418,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
   }
 
   async set(id: number, data: ContentTypeStructure, options?: InstanceSetOptions): Promise<void> {
-    const descr = await describeContentType(this.ns);
+    const descr = await describeWHFSType(this.ns);
     if (!descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
     const objinfo = await openWHFSObject(0, id, undefined, false, "setInstanceData", false); //TODO should we derivce InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?

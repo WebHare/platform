@@ -1,7 +1,7 @@
 import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
-import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
+import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
@@ -267,7 +267,7 @@ export class WHFSFolder extends WHFSObject {
       const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
       for (const k of getkeys) {
         if (k === 'type') { //remap to string
-          const type = await describeContentType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
+          const type = await describeWHFSType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
           result.type = type?.namespace ?? "#" + row.type;
         } else if (k === 'publish') { //remap from published
           (result as unknown as { publish: boolean }).publish = isPublish(row.published);

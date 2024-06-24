@@ -43,41 +43,48 @@ async function testCodecs() {
 }
 
 async function testMockedTypes() {
-  const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
+  const builtin_normalfoldertype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/normalfolder");
   test.eq("http://www.webhare.net/xmlns/publisher/normalfolder", builtin_normalfoldertype.namespace);
   test.eq("folderType", builtin_normalfoldertype.metaType);
 
-  test.eq("http://www.webhare.net/xmlns/publisher/normalfolder", builtin_normalfoldertype.namespace);
-
-  const builtin_unknownfiletype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/unknownfile");
+  const builtin_unknownfiletype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/unknownfile");
   test.eq("http://www.webhare.net/xmlns/publisher/unknownfile", builtin_unknownfiletype.namespace);
-  test.eq("fileType", builtin_unknownfiletype.metaType);
+  test.assert(builtin_unknownfiletype.metaType === "fileType");
   test.eq(false, builtin_unknownfiletype.isWebPage);
+  test.eq(true, builtin_unknownfiletype.hasData);
 
-  await test.throws(/No such type/, () => whfs.describeContentType("http://www.webhare.net/xmlns/publisher/nosuchfiletype"));
-  await test.throws(/No such type/, () => whfs.describeContentType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { metaType: "fileType" }));
-  test.eq(null, await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { allowMissing: true }));
-  const nosuchfiletype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { allowMissing: true, metaType: "fileType" });
+  await test.throws(/No such type/, () => whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype"));
+  await test.throws(/No such type/, () => whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { metaType: "fileType" }));
+  test.eq(null, await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { allowMissing: true }));
+  const nosuchfiletype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { allowMissing: true, metaType: "fileType" });
   test.eq("http://www.webhare.net/xmlns/publisher/nosuchfiletype", nosuchfiletype.namespace);
   test.eq("fileType", nosuchfiletype.metaType);
   test.eq(false, nosuchfiletype.isWebPage);
+  test.eq(false, nosuchfiletype.hasData); //unrecognized files shouldn't be offerd to download, might confuse users when being able to download 0 byte files where they expect real content
 
-  const htmltype = await whfs.describeContentType(5);
+  const htmltype = await whfs.describeWHFSType(5);
   test.eq("http://www.webhare.net/xmlns/publisher/htmlfile", htmltype.namespace);
 
-  const rtdtype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  const htmlwidgettype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/embedhtml");
+  test.eq("widgetType", htmlwidgettype.metaType);
+
+  const rtdtype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  test.assert(rtdtype.metaType === "fileType");
   test.eqPartial({ name: "data", type: "richDocument" }, rtdtype.members.find(_ => _.name === "data"));
   test.assert(!rtdtype.members.find(_ => !_.id), "All members should have an id");
+  test.eq(false, rtdtype.hasData);
 
   //verify some corner cases
-  await test.throws(/No such type/, () => whfs.describeContentType("", { allowMissing: true }));
-  test.eq(null, await whfs.describeContentType(0, { allowMissing: true }));
-  await test.throws(/No such type/, () => whfs.describeContentType("", { allowMissing: true, metaType: "fileType" }));
-  test.eqPartial({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeContentType(777777777777, { allowMissing: true, metaType: "fileType" }));
+  await test.throws(/No such type/, () => whfs.describeWHFSType("", { allowMissing: true }));
+  test.eq(null, await whfs.describeWHFSType(0, { allowMissing: true }));
+  await test.throws(/No such type/, () => whfs.describeWHFSType("", { allowMissing: true, metaType: "fileType" }));
+  test.eqPartial({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeWHFSType(777777777777, { allowMissing: true, metaType: "fileType" }));
 
   //verify scopedtypenames
-  const scopedtype = await whfs.describeContentType("webhare_testsuite:global.genericTestType");
+  const scopedtype = await whfs.describeWHFSType("webhare_testsuite:global.genericTestType");
   test.eq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", scopedtype.namespace);
+
+  //and widgets
 
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
 }
