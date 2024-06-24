@@ -60,16 +60,16 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
   /** @short Lookup an OIDC login */
   PUBLIC RECORD FUNCTION LookupOIDCLogin(RECORD payload, RECORD context)
   {
-    STRING trylogin := this->GetOIDCLoginName(CELL[wrd_id := context.oidc_client, wrd_tag := context.oidc_tag, context.loginfield ], payload);
-    IF(trylogin = "")
+    RECORD trylogin := this->GetOIDCLoginName(CELL[wrd_id := context.oidc_client, wrd_tag := context.oidc_tag, context.loginfield ], payload);
+    IF(NOT RecordExists(trylogin))
     {
-      LogDebug("wrd:auth-oidc", "Configuration issue, unable to figure out login field to check");
+      LogDebug("wrd:auth-oidc-lookupfailure", CELL[ payload, context, error := "Configuration issue, unable to figure out login field to check" ]);
       RETURN DEFAULT RECORD;
     }
 
-    INTEGER userid := this->LookupLogin(trylogin);
-    LogDebug("wrd:auth-oidc", CELL[ payload, context, userid ]);
-    RETURN [ userid := userid ];
+    INTEGER userid := this->LookupLogin(trylogin.value);
+    LogDebug("wrd:auth-oidc-lookupresult", CELL[ payload, context, userid, trylogin.field, trylogin.value ]);
+    RETURN CELL [ userid, trylogin.field, trylogin.value ];
   }
 
   /** @short Lookup a login */
@@ -93,24 +93,24 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
       @cell(string) providerinfo.wrd_tag Tag
       @cell(string) providerinfo.loginfield Login field to use
       @param payload OIDC payload describing the user*/
-  PUBLIC STRING FUNCTION GetOIDCLoginName(RECORD providerinfo, RECORD payload)
+  RECORD FUNCTION GetOIDCLoginName(RECORD providerinfo, RECORD payload)
   {
     IF(providerinfo.loginfield != "")
     {
       IF(CellExists(payload, providerinfo.loginfield) AND TYPEID(GetCell(payload, providerinfo.loginfield)) = TYPEID(STRING))
-        RETURN GetCell(payload, providerinfo.loginfield);
-      RETURN "";
+        RETURN CELL [ field := providerinfo.loginfield, value := GetCell(payload, providerinfo.loginfield) ];
+      RETURN DEFAULT RECORD;
     }
 
     //Fallback configuration.
     IF(CellExists(payload, 'email') AND CellExists(payload, 'email_verified') AND payload.email_verified)
-      RETURN payload.email;
-    ELSE IF(CellExists(payload, 'employeeid')) //FIXME is this common or should this be selected through a special rule? currently used for UT/Azure
-      RETURN payload.employeeid;
+      RETURN [ field := "email", value := payload.email ];
+    ELSE IF(CellExists(payload, 'employeeid')) //FIXME remove this exception (currently used for UT/Azure) and explicitly configure the provider to look in the employeeid claim
+      RETURN [ field := "employeeid", value := payload.employeeid ];
     ELSE
-      RETURN payload.sub;
+      RETURN [ field := "sub", value := payload.sub ];
 
-    RETURN "";
+    RETURN DEFAULT RECORD;
   }
 
 
