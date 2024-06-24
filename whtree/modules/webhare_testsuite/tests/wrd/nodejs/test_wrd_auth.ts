@@ -48,12 +48,12 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   const state = generateRandomId();
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}`;
 
-  const startflow = await provider.startAuthorizeFlow(new URL(robotClientAuthURL), loginUrl, customizer);
+  const startflow = await provider.startAuthorizeFlow(robotClientAuthURL, loginUrl, customizer);
   test.assert(startflow.error === null && startflow.type === "redirect");
 
   //We now have an url with wrdauth_logincontrol, decrypt it:
   const decryptLoginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", new URL(startflow.url, loginUrl).searchParams.get("wrdauth_logincontrol")!);
-  const endFlow = await provider.returnAuthorizeFlow(new URL(decryptLoginControl.returnto, loginUrl), user, customizer);
+  const endFlow = await provider.returnAuthorizeFlow(new URL(decryptLoginControl.returnto, loginUrl).toString(), user, customizer);
 
   test.assert(endFlow.error === null && endFlow.type === "redirect");
   if (!endFlow.url.startsWith(cbUrl))
