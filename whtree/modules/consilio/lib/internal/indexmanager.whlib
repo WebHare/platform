@@ -234,6 +234,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , summary := 200
       , highlightfields := STRING[]
       , highlightparts := [ "body" ]
+      , highlighttype := "unified"
       , lang := ""
       , restrict_to := ""
       , exclude_urls := STRING[]
@@ -246,7 +247,11 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , timeout := opensearch_read_timeout
       ];
 
-  RECORD options := ValidateOptions(defaultoptions, useroptions);
+  RECORD options := ValidateOptions(defaultoptions, useroptions,
+      [ enums :=
+          [ highlighttype := [ "unified", "plain" ]
+          ]
+      ]);
   IF(options.explain)
     options.mapping := CELL[...options.mapping, _explanation := DEFAULT RECORD ];
 
@@ -324,6 +329,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       RECORD highlightoptions := CELL
           [ highlightfields := ArrayUnion(options.highlightfields, options.highlightparts) // make sure all part fields are highlighted
           , options.highlightparts
+          , options.highlighttype
           , options.summary
           , defaultsummary := defaultoptions.summary
           , addparthighlighting := options.summary != 0 AND Length(options.highlightfields) = 0
@@ -576,6 +582,7 @@ RECORD FUNCTION AddFieldHighlighting(RECORD searchquery, RECORD options)
         INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 1
                                                  , fragment_size := options.summary < 0 ? options.defaultsummary : options.summary
                                                  , no_match_size := options.summary < 0 ? options.defaultsummary : options.summary
+                                                 , type := options.highlighttype
                                                  ])
           INTO searchquery.highlight.fields AT END;
     }

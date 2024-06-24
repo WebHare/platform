@@ -1,19 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<xs:schema
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns:w="http://www.webhare.net/xmlns/wrd/siteprofile"
-  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
-  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
-  xmlns:sc="http://www.webhare.net/xmlns/system/common"
-  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-  elementFormDefault="qualified"
-  xml:lang="en">
+<xs:schema xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+           xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+           xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
+           xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
+           xml:lang="en">
 
   <xs:annotation>
     <xs:documentation>
@@ -22,17 +16,20 @@
   </xs:annotation>
 
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
-  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents&amp;skipns=http://www.webhare.net/xmlns/publisher/siteprofile" />
-  <xs:import namespace="http://www.webhare.net/xmlns/system/moduledefinition" schemaLocation="mod::system/data/moduledefinition.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens"
+             schemaLocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents&amp;skipns=http://www.webhare.net/xmlns/publisher/siteprofile" />
+  <xs:import namespace="http://www.webhare.net/xmlns/system/moduledefinition"
+             schemaLocation="mod::system/data/moduledefinition.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/wrd" schemaLocation="mod::wrd/data/siteprofile.xsd" />
-  <xs:import namespace="http://www.webhare.net/xmlns/system/common"  schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
 
   <xs:simpleType name="PixelWidth">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[0-9]+px"/> <!-- requiring px to allow future %/em etc support to be added without having to deal with naked '450's -->
+      <xs:pattern value="[0-9]+px" />  <!-- requiring px to allow future %/em etc support to be added without having to deal with naked '450's -->
     </xs:restriction>
   </xs:simpleType>
+
   <xs:simpleType name="ModuleNamespacedName">
     <xs:restriction base="xs:string">
       <xs:pattern value="...+:.+" />
@@ -47,7 +44,7 @@
   <xs:element name="siteprofile">
     <xs:complexType>
       <xs:sequence>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
           <xs:group ref="s:ScreenParts" />
           <xs:element name="contenttype" type="ContentType" />
           <xs:element name="rtdtype" type="RTDType" />
@@ -63,21 +60,18 @@
       </xs:sequence>
       <xs:attributeGroup ref="sc:Gid" />
     </xs:complexType>
-
     <xs:key name="TabExtensions">
       <xs:selector xpath="./s:tabsextension" />
       <xs:field xpath="@name" />
     </xs:key>
     <xs:key name="Fragments">
-    <xs:selector xpath="./s:fragment" />
+      <xs:selector xpath="./s:fragment" />
       <xs:field xpath="@name" />
     </xs:key>
     <xs:keyref name="embeddededitors" refer="sp:TabExtensions">
       <xs:selector xpath=".//sp:embeddededitor" />
       <xs:field xpath="@extension" />
     </xs:keyref>
-
-
     <xs:key name="PropertyEditors">
       <xs:selector xpath="./sp:propertyeditor" />
       <xs:field xpath="@name" />
@@ -86,7 +80,6 @@
       <xs:selector xpath="./sp:apply/sp:extendproperties" />
       <xs:field xpath="@name" />
     </xs:keyref>
-
   </xs:element>
 
   <xs:complexType name="ContentType">
@@ -115,21 +108,25 @@
           </xs:sequence>
           <xs:attribute name="defaultstyle" type="xs:string" use="required" />
         </xs:complexType>
+
         <!-- All root-level block text styles -->
         <xs:key name="TextStylesKey">
           <xs:selector xpath="./sp:textstyle" />
           <xs:field xpath="@tag" />
         </xs:key>
+
         <!-- The global default style refers to a root block text style -->
         <xs:keyref name="DefaultBlockStyle" refer="TextStylesKey">
-          <xs:selector xpath="."/>
-          <xs:field xpath="@defaultstyle"/>
+          <xs:selector xpath="." />
+          <xs:field xpath="@defaultstyle" />
         </xs:keyref>
+
         <!-- The default table style refers to a root block text style -->
         <xs:keyref name="DefaultTableStyle" refer="TextStylesKey">
-          <xs:selector xpath="./sp:tablestyle"/>
-          <xs:field xpath="@defaultstyle"/>
+          <xs:selector xpath="./sp:tablestyle" />
+          <xs:field xpath="@defaultstyle" />
         </xs:keyref>
+
         <!-- All root-level block text and table styles -->
         <xs:key name="BlockStylesKey">
           <xs:selector xpath="./sp:textstyle|./sp:tablestyle" />
@@ -139,7 +136,7 @@
       <xs:element name="widgets" minOccurs="0" maxOccurs="1">
         <xs:complexType>
           <xs:sequence>
-            <xs:element name="allowtype" minOccurs="0" maxOccurs="unbounded" type="sc:AllowWidgetType"/>
+            <xs:element name="allowtype" type="sc:AllowWidgetType" minOccurs="0" maxOccurs="unbounded" />
           </xs:sequence>
           <xs:attribute name="ignoresiteprofilewidgets" type="xs:boolean">
             <xs:annotation>
@@ -148,31 +145,32 @@
           </xs:attribute>
         </xs:complexType>
       </xs:element>
-      <xs:element ref="s:linkhandlers" minOccurs="0" maxOccurs="1" />
+      <xs:element minOccurs="0" maxOccurs="1" ref="s:linkhandlers" />
     </xs:sequence>
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
     <xs:attribute name="htmlclass" />
     <xs:attribute name="bodyclass" />
     <xs:attribute name="allownewwindowlinks" type="xs:boolean" />
-    <xs:attribute name="b"> <!-- we only support b=b and b=strong for now, but we leave the option open to support eg 'b=b.bold' to get <b class="bold" /> -->
+    <xs:attribute name="b">
+      <!-- we only support b=b and b=strong for now, but we leave the option open to support eg 'b=b.bold' to get <b class="bold" /> -->
       <xs:annotation>
-        <xs:documentation>How to present `&lt;b>` in the output ('b' or 'strong')</xs:documentation>
+        <xs:documentation>How to present `&lt;b&gt;` in the output ('b' or 'strong')</xs:documentation>
       </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="b"/>
-          <xs:enumeration value="strong"/>
+          <xs:enumeration value="b" />
+          <xs:enumeration value="strong" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
     <xs:attribute name="i">
       <xs:annotation>
-        <xs:documentation>How to present `&lt;i>` in the output ('i' or 'em')</xs:documentation>
+        <xs:documentation>How to present `&lt;i&gt;` in the output ('i' or 'em')</xs:documentation>
       </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="i"/>
-          <xs:enumeration value="em"/>
+          <xs:enumeration value="i" />
+          <xs:enumeration value="em" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
@@ -180,10 +178,10 @@
 
   <xs:simpleType name="WittyEncoding">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="HTML"/>
-      <xs:enumeration value="HTML-NI"/>
-      <xs:enumeration value="XML"/>
-      <xs:enumeration value="XML-NI"/>
+      <xs:enumeration value="HTML" />
+      <xs:enumeration value="HTML-NI" />
+      <xs:enumeration value="XML" />
+      <xs:enumeration value="XML-NI" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -191,28 +189,26 @@
     <xs:restriction base="xs:string">
       <!-- The subset of the flow elements in http://www.w3.org/TR/html-markup/common-models.html#common.elem.phrasing
            that may hold phrasing elements -->
-      <xs:enumeration value="p"/>
-      <xs:enumeration value="div"/>
-      <xs:enumeration value="h1"/>
-      <xs:enumeration value="h2"/>
-      <xs:enumeration value="h3"/>
-      <xs:enumeration value="h4"/>
-      <xs:enumeration value="h5"/>
-      <xs:enumeration value="h6"/>
-      <xs:enumeration value="pre"/>
-      <xs:enumeration value="address"/>
-      <xs:enumeration value="blockquote"/>
-      <xs:enumeration value="section"/>
-      <xs:enumeration value="nav"/>
-      <xs:enumeration value="article"/>
-      <xs:enumeration value="aside"/>
-      <xs:enumeration value="header"/>
-      <xs:enumeration value="footer"/>
-
-      <xs:enumeration value="ol"/>
-      <xs:enumeration value="ul"/>
-
-      <xs:enumeration value="code"/> <!-- code is multiuse and should be allowed too... TODO figure out if this needs we need to d more than phrasing explained above -->
+      <xs:enumeration value="p" />
+      <xs:enumeration value="div" />
+      <xs:enumeration value="h1" />
+      <xs:enumeration value="h2" />
+      <xs:enumeration value="h3" />
+      <xs:enumeration value="h4" />
+      <xs:enumeration value="h5" />
+      <xs:enumeration value="h6" />
+      <xs:enumeration value="pre" />
+      <xs:enumeration value="address" />
+      <xs:enumeration value="blockquote" />
+      <xs:enumeration value="section" />
+      <xs:enumeration value="nav" />
+      <xs:enumeration value="article" />
+      <xs:enumeration value="aside" />
+      <xs:enumeration value="header" />
+      <xs:enumeration value="footer" />
+      <xs:enumeration value="ol" />
+      <xs:enumeration value="ul" />
+      <xs:enumeration value="code" />  <!-- code is multiuse and should be allowed too... TODO figure out if this needs we need to d more than phrasing explained above -->
 
       <!-- ADDME: dl? it's like ol/ul, has a specific form -->
     </xs:restriction>
@@ -220,7 +216,7 @@
 
   <xs:simpleType name="Tag">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[A-Z][-A-Z0-9_]*"/>
+      <xs:pattern value="[A-Z][-A-Z0-9_]*" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -230,20 +226,19 @@
 
   <xs:simpleType name="TextStyleType">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="b"/>
-      <xs:enumeration value="i"/>
-      <xs:enumeration value="u"/>
-      <xs:enumeration value="sub"/>
-      <xs:enumeration value="sup"/>
-      <xs:enumeration value="a-href"/>
-      <xs:enumeration value="strike"/>
-      <xs:enumeration value="img"/>
-      <xs:enumeration value="code"/>
-      <xs:enumeration value="ins"/>
-      <xs:enumeration value="del"/>
+      <xs:enumeration value="b" />
+      <xs:enumeration value="i" />
+      <xs:enumeration value="u" />
+      <xs:enumeration value="sub" />
+      <xs:enumeration value="sup" />
+      <xs:enumeration value="a-href" />
+      <xs:enumeration value="strike" />
+      <xs:enumeration value="img" />
+      <xs:enumeration value="code" />
+      <xs:enumeration value="ins" />
+      <xs:enumeration value="del" />
     </xs:restriction>
   </xs:simpleType>
-
 
   <xs:complexType name="TextStyle">
     <xs:attribute name="tag" type="Tag" use="required" />
@@ -251,7 +246,7 @@
     <xs:attribute name="title" type="xs:string" />
     <xs:attribute name="split" type="xs:boolean" />
     <xs:attribute name="containertag" type="BlockstyleContainerTag" />
-    <xs:attribute name="textstyles" type="AllowTextStyles" use="required"/>
+    <xs:attribute name="textstyles" type="AllowTextStyles" use="required" />
     <xs:attribute name="nextstyle" type="Tag" />
   </xs:complexType>
 
@@ -264,7 +259,8 @@
         <xs:documentation>Styles to allow in this table. If not set or empty, allows all styles</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="allowwidgets"> <!-- Not yet specified as boolean, gives us some room to change our minds about this, eg turning it into wildcard masks list -->
+    <xs:attribute name="allowwidgets">
+      <!-- Not yet specified as boolean, gives us some room to change our minds about this, eg turning it into wildcard masks list -->
       <xs:annotation>
         <xs:documentation>Set to 'false' to block widgets</xs:documentation>
       </xs:annotation>
@@ -331,7 +327,7 @@
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attributeGroup ref="WidgetSettings" />
-    <xs:attribute name="icon" /> <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
+    <xs:attribute name="icon" />  <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
     <xs:attribute name="tolliumicon" type="sc:ImageSrc" />
     <xs:attribute name="requiremergefieldscontext" type="xs:boolean">
       <xs:annotation>
@@ -346,8 +342,8 @@
     <xs:complexContent>
       <xs:extension base="sp:ObjectType">
         <xs:sequence>
-          <xs:element ref="members" minOccurs="0" maxOccurs="1" />
-          <xs:group ref="ApplyItem" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element minOccurs="0" maxOccurs="1" ref="members" />
+          <xs:group maxOccurs="unbounded" minOccurs="0" ref="ApplyItem" />
         </xs:sequence>
         <xs:attributeGroup ref="WidgetSettings" />
         <xs:attribute name="requiremergefieldscontext" type="xs:boolean">
@@ -368,8 +364,8 @@
           </xs:annotation>
           <xs:simpleType>
             <xs:restriction base="xs:string">
-              <xs:enumeration value="block"/>
-              <xs:enumeration value="inline"/>
+              <xs:enumeration value="block" />
+              <xs:enumeration value="inline" />
             </xs:restriction>
           </xs:simpleType>
         </xs:attribute>
@@ -421,8 +417,8 @@
     <xs:attribute name="relativeto" default="siteprofile">
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="siteprofile"/>
-          <xs:enumeration value="targetobject"/>
+          <xs:enumeration value="siteprofile" />
+          <xs:enumeration value="targetobject" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
@@ -499,8 +495,7 @@
     </xs:attribute>
   </xs:complexType>
 
-  <xs:complexType name="PWAFile">
-  </xs:complexType>
+  <xs:complexType name="PWAFile" />
 
   <xs:complexType name="CustomPlugin">
     <xs:attribute name="objectname" type="xs:string" use="required">
@@ -519,16 +514,14 @@
     <xs:sequence>
       <xs:sequence />  <!-- prevents us from suddenly breaking <dynamicexecution>  </dynamicexecution> -->
     </xs:sequence>
-
     <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="startmacro" type="xs:string" />
     <xs:attribute name="webpageobjectname" type="xs:string" />
     <xs:attribute name="routerfunction" type="xs:string" />
-
     <xs:attribute name="cachettl" type="xs:integer">
       <xs:annotation>
         <xs:documentation>
-          If set to a value > 0, cache responses to GET and HEAD requests. cachettl is in seconds.
+          If set to a value &gt; 0, cache responses to GET and HEAD requests. cachettl is in seconds.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -570,27 +563,28 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="screens"/>
-          <tai:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
+          <tai:tolliumcomponent placement="screens" />
+          <tai:childcomponents adoptfields="compositions" field="compositions" target="./sp:compositions" />
           <tai:childcomponents field="newtabs" target="./sp:newtab" />
-          <tai:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
+          <tai:childcomponents adoptfields="lines position where" field="inserts" target="./sp:insert" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
-        <xs:element ref="compositions" minOccurs="0" maxOccurs="1" />
-        <xs:element ref="insert" minOccurs="0" maxOccurs="unbounded" />
-        <xs:element ref="newtab" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element minOccurs="0" maxOccurs="1" ref="compositions" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="insert" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="newtab" />
       </xs:sequence>
       <xs:attribute name="name" type="xs:string" />
     </xs:complexType>
   </xs:element>
 
   <xs:element name="compositions" type="s:Compositions" />
+
   <xs:element name="newtab" type="s:NewTab" />
+
   <xs:element name="insert" type="s:TabsExtensionInsert" />
 
   <!-- FIXME: enforce no duplicate names between extensions inside a propeditor, even though we don't actually support xrefs yet -->
-
   <xs:element name="members" type="Members">
     <xs:unique name="membernames_members">
       <xs:selector xpath="./sp:member" />
@@ -600,36 +594,36 @@
 
   <xs:complexType name="Members">
     <xs:choice>
-      <xs:element name="member" minOccurs="0" maxOccurs="unbounded" type="Member" />
-      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="member" type="Member" minOccurs="0" maxOccurs="unbounded" />
+      <xs:sequence maxOccurs="unbounded" minOccurs="0">
         <xs:choice>
-          <xs:element type="SimpleMember" name="boolean" />
-          <xs:element type="SimpleMember" name="datetime" />
-          <xs:element type="SimpleMember" name="integer" />
-          <xs:element type="SimpleMember" name="file" />
-          <xs:element type="SimpleMember" name="float" />
-          <xs:element type="SimpleMember" name="money" />
-          <xs:element type="SimpleMember" name="string" />
-          <xs:element type="RecordMember" name="array" />
-          <xs:element type="SimpleMember" name="whfsref" />
-          <xs:element type="SimpleMember" name="whfsrefarray" />
-          <xs:element type="SimpleMember" name="stringarray" />
-          <xs:element type="SimpleMember" name="richdocument" />
-          <xs:element type="SimpleMember" name="composeddocument" />
-          <xs:element type="SimpleMember" name="formcondition" />
-          <xs:element type="SimpleMember" name="intextlink" />
-          <xs:element type="SimpleMember" name="instance" />
-          <xs:element type="SimpleMember" name="url" />
-          <xs:element type="RecordMember" name="record" />
+          <xs:element name="boolean" type="SimpleMember" />
+          <xs:element name="datetime" type="SimpleMember" />
+          <xs:element name="integer" type="SimpleMember" />
+          <xs:element name="file" type="SimpleMember" />
+          <xs:element name="float" type="SimpleMember" />
+          <xs:element name="money" type="SimpleMember" />
+          <xs:element name="string" type="SimpleMember" />
+          <xs:element name="array" type="RecordMember" />
+          <xs:element name="whfsref" type="SimpleMember" />
+          <xs:element name="whfsrefarray" type="SimpleMember" />
+          <xs:element name="stringarray" type="SimpleMember" />
+          <xs:element name="richdocument" type="SimpleMember" />
+          <xs:element name="composeddocument" type="SimpleMember" />
+          <xs:element name="formcondition" type="SimpleMember" />
+          <xs:element name="intextlink" type="SimpleMember" />
+          <xs:element name="instance" type="SimpleMember" />
+          <xs:element name="url" type="SimpleMember" />
+          <xs:element name="record" type="RecordMember" />
         </xs:choice>
       </xs:sequence>
     </xs:choice>
   </xs:complexType>
 
   <xs:attributeGroup name="MemberAttributes">
-    <xs:attribute name="name" type="Name" use="required"/>
+    <xs:attribute name="name" type="Name" use="required" />
     <xs:attribute name="comment" type="xs:string">
-       <xs:annotation>
+      <xs:annotation>
         <xs:documentation>A developer's comment on this type. Not shown to non-prviileged WebHare users. Allows easier porting to YAML</xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -648,7 +642,7 @@
   </xs:complexType>
 
   <xs:complexType name="Member">
-    <xs:choice minOccurs="0" maxOccurs="unbounded">
+    <xs:choice maxOccurs="unbounded" minOccurs="0">
       <xs:element name="value">
         <xs:complexType>
           <xs:attributeGroup ref="MemberAttributes" />
@@ -681,14 +675,14 @@
       <xs:enumeration value="stringarray" />
       <xs:enumeration value="richdocument" />
       <xs:enumeration value="intextlink" />
-      <xs:enumeration value="instance" /><!-- instance of a specific contenttype -->
+      <xs:enumeration value="instance" />  <!-- instance of a specific contenttype -->
       <xs:enumeration value="url" />
       <xs:enumeration value="record" />
     </xs:restriction>
   </xs:simpleType>
 
   <xs:complexType name="GroupType">
-    <xs:attribute name="namespace" type="xs:anyURI" use="required"/>
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="icon" type="sc:ImageSrc" />
     <xs:attribute name="tolliumicon" type="sc:ImageSrc" />
@@ -703,8 +697,8 @@
     <xs:attribute name="typedef" type="xs:anyURI" />  <!-- Pre-4.28, deprecate -->
     <xs:attribute name="scopedtype" type="ScopedType" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attribute name="icon" type="xs:string" /> <!-- Pre-4.28, deprecate -->
-    <xs:attribute name="tolliumicon" type="sc:ImageSrc" /> <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
+    <xs:attribute name="icon" type="xs:string" />  <!-- Pre-4.28, deprecate -->
+    <xs:attribute name="tolliumicon" type="sc:ImageSrc" />  <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
     <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
     <xs:attribute name="isdevelopertype" type="xs:boolean" />
     <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
@@ -715,9 +709,9 @@
       <xs:extension base="sp:ObjectType">
         <!-- A list of extensions for this file type, used for new files -->
         <xs:sequence>
-          <xs:element ref="members" minOccurs="0" maxOccurs="1" />
-          <xs:element name="dynamicexecution" type="DynamicExecution" minOccurs="0" maxOccurs="1"/>
-          <xs:group ref="ApplyItem" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element minOccurs="0" maxOccurs="1" ref="members" />
+          <xs:element name="dynamicexecution" type="DynamicExecution" minOccurs="0" maxOccurs="1" />
+          <xs:group maxOccurs="unbounded" minOccurs="0" ref="ApplyItem" />
         </xs:sequence>
         <xs:attribute name="extensions">
           <xs:simpleType>
@@ -789,9 +783,9 @@
     <xs:complexContent>
       <xs:extension base="sp:ObjectType">
         <xs:sequence>
-          <xs:element ref="members" minOccurs="0" maxOccurs="1" />
-          <xs:element name="dynamicexecution" type="DynamicExecution" minOccurs="0" maxOccurs="1"/>
-          <xs:group ref="ApplyItem" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element minOccurs="0" maxOccurs="1" ref="members" />
+          <xs:element name="dynamicexecution" type="DynamicExecution" minOccurs="0" maxOccurs="1" />
+          <xs:group maxOccurs="unbounded" minOccurs="0" ref="ApplyItem" />
         </xs:sequence>
         <xs:attribute name="indexfile" type="FolderIndexFile" />
         <xs:attribute name="indextype" type="xs:string" />
@@ -818,8 +812,8 @@
 
   <xs:complexType name="Apply">
     <xs:sequence minOccurs="1">
-      <xs:group minOccurs="1" maxOccurs="unbounded" ref="ApplyConstraint" />
-      <xs:group minOccurs="1" maxOccurs="unbounded" ref="ApplyItem" />
+      <xs:group maxOccurs="unbounded" minOccurs="1" ref="ApplyConstraint" />
+      <xs:group maxOccurs="unbounded" minOccurs="1" ref="ApplyItem" />
     </xs:sequence>
     <xs:attributeGroup ref="m:ApplicabletoWebHare" />
     <xs:attribute name="priority" type="xs:integer">
@@ -833,7 +827,7 @@
 
   <xs:complexType name="ApplyContraints">
     <xs:sequence>
-      <xs:group minOccurs="1" maxOccurs="unbounded" ref="ApplyConstraint" />
+      <xs:group maxOccurs="unbounded" minOccurs="1" ref="ApplyConstraint" />
     </xs:sequence>
   </xs:complexType>
 
@@ -843,7 +837,7 @@
       <xs:element name="or" type="ApplyContraints" />
       <xs:element name="not">
         <xs:complexType>
-          <xs:group ref="ApplyConstraint" minOccurs="1" maxOccurs="1" />
+          <xs:group maxOccurs="1" minOccurs="1" ref="ApplyConstraint" />
         </xs:complexType>
       </xs:element>
       <xs:element name="to" type="ApplyTo" />
@@ -853,7 +847,7 @@
 
   <xs:group name="ApplyItem">
     <xs:choice>
-      <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##other" processContents="lax" />
+      <xs:any maxOccurs="unbounded" minOccurs="0" namespace="##other" processContents="lax" />
       <xs:element name="republish" type="Republish" />
       <xs:element name="folderindex" type="FolderIndex" />
       <xs:element name="contentlisting" type="ContentListing" />
@@ -888,7 +882,6 @@
       <xs:element name="mailtemplate" type="MailTemplate" />
       <xs:element name="debugsettings" type="DebugSettings" />
       <xs:element name="pwafile" type="PWAFile" />
-
       <xs:element name="formdefinitions" type="FormDefinitions" />
       <xs:element name="formintegration" type="FormIntegration" />
       <xs:element name="captchaintegration" type="CaptchaIntegration" />
@@ -904,7 +897,6 @@
       <xs:element name="gtm" type="GTMPlugin" />
       <xs:element name="googleanalytics" type="GoogleAnalyticsPlugin" />
       <xs:element name="googleanalytics4" type="GoogleAnalytics4Plugin" />
-
       <xs:element name="pollsettings">
         <xs:complexType>
           <xs:attribute name="allowvotingagainafter" type="xs:integer">
@@ -917,7 +909,6 @@
           </xs:attribute>
         </xs:complexType>
       </xs:element>
-
       <xs:element name="userdata">
         <xs:complexType>
           <xs:attribute name="key" type="ModuleNamespacedName" use="required">
@@ -932,7 +923,6 @@
           </xs:attribute>
         </xs:complexType>
       </xs:element>
-
       <xs:element name="extendformeditor">
         <xs:annotation>
           <xs:documentation>
@@ -989,7 +979,6 @@
           </xs:attribute>
         </xs:complexType>
       </xs:element>
-
       <xs:element name="allowformquestion" type="AllowDenyFormComponent">
         <xs:annotation>
           <xs:documentation>
@@ -1148,7 +1137,7 @@
   </xs:complexType>
 
   <xs:complexType name="AllowType">
-    <xs:attribute name="typedef" type="xs:anyURI" /> <!-- Pre-4.28, deprecate -->
+    <xs:attribute name="typedef" type="xs:anyURI" />  <!-- Pre-4.28, deprecate -->
     <xs:attribute name="typemask" type="xs:anyURI">
       <xs:annotation>
         <xs:documentation>A wildcard mask of types to allow</xs:documentation>
@@ -1162,7 +1151,7 @@
   </xs:complexType>
 
   <xs:complexType name="DenyType">
-    <xs:attribute name="typedef" type="xs:anyURI" /> <!-- Pre-4.28, deprecate -->
+    <xs:attribute name="typedef" type="xs:anyURI" />  <!-- Pre-4.28, deprecate -->
     <xs:attribute name="typemask" type="xs:anyURI">
       <xs:annotation>
         <xs:documentation>A wildcard mask of types to deny</xs:documentation>
@@ -1176,7 +1165,6 @@
     <xs:attribute name="mask" type="xs:string" />
     <xs:attribute name="recursive" type="xs:boolean" />
     <xs:attribute name="indexonly" type="xs:boolean" />
-
     <xs:attribute name="onchange">
       <xs:simpleType>
         <xs:restriction base="xs:string">
@@ -1190,7 +1178,6 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-
     <xs:attribute name="scope">
       <xs:simpleType>
         <xs:restriction base="xs:string">
@@ -1224,8 +1211,10 @@
       <xs:enumeration value="newfile" />
     </xs:restriction>
   </xs:simpleType>
+
   <xs:simpleType name="FolderIndexFile">
     <!-- copy_of_file and contentlink_to_file cannot be specified within folder types -->
+
     <!-- If any other values would be supported here, change folder type code in the Publisher would have to be updated too! -->
     <xs:restriction base="sp:IndexFile">
       <xs:enumeration value="none" />
@@ -1277,7 +1266,7 @@
     <xs:sequence>
       <xs:sequence />  <!-- prevents us from suddenly breaking <webdesign>  </webdesign> -->
     </xs:sequence>
-    <xs:attribute name="library" type="xs:string"  />
+    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" />
     <xs:attribute name="siteresponsefactory" type="xs:string">
       <xs:annotation>
@@ -1433,7 +1422,7 @@
     <xs:attribute name="languageattributes" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          If true, add xml:lang attributes assuming the base document language is webdesign->languagecode
+          If true, add xml:lang attributes assuming the base document language is webdesign-&gt;languagecode
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1453,11 +1442,9 @@
     </xs:attribute>
   </xs:complexType>
 
-
   <xs:complexType name="AllowDenyFormComponent">
     <xs:attribute name="type" type="xs:anyURI" />
   </xs:complexType>
-
 
   <xs:complexType name="SiteLanguage">
     <xs:attribute name="lang" type="sc:Locale">
@@ -1563,7 +1550,7 @@
   <xs:complexType name="TestData">
     <xs:attribute name="target" use="required">
       <xs:simpleType>
-        <xs:restriction base="xs:string" >
+        <xs:restriction base="xs:string">
           <xs:enumeration value="root">
             <xs:annotation>
               <xs:documentation>
@@ -1588,7 +1575,6 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-
     <xs:attribute name="typedef" type="xs:anyURI" />
     <xs:attribute name="member" type="xs:string" />
     <xs:attribute name="value" type="xs:string" />
@@ -1596,7 +1582,7 @@
 
   <xs:complexType name="SiteSettings">
     <xs:sequence>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:choice maxOccurs="unbounded" minOccurs="0">
         <xs:element ref="m:webruleset" />
         <xs:element name="addtocatalog">
           <xs:complexType>
@@ -1684,7 +1670,6 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-
     <xs:attribute name="parentmask" type="xs:string">
       <xs:annotation>
         <xs:documentation>
@@ -1759,7 +1744,6 @@
     <xs:attribute name="filetype" type="xs:string" />
     <xs:attribute name="foldertype" type="xs:string" />
     <xs:attributeGroup ref="SiteFilter" />
-
     <xs:attribute name="typeneedstemplate" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
@@ -1768,8 +1752,8 @@
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
-  <!-- end of ApplyTo definition -->
 
+  <!-- end of ApplyTo definition -->
   <xs:complexType name="FormIntegration">
     <xs:attribute name="dontencodewebpackquestions" type="xs:boolean" />
     <xs:attribute name="usecaptcha" type="xs:boolean">
@@ -1794,7 +1778,7 @@
     </xs:attribute>
     <xs:attribute name="infotextrtdtype" type="xs:string">
       <xs:annotation>
-        <xs:documentation>RTD type to use for info texts (if not set, falls back to the &lt;rtddoc /> specified type)</xs:documentation>
+        <xs:documentation>RTD type to use for info texts (if not set, falls back to the &lt;rtddoc /&gt; specified type)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="mailrtdtype" type="xs:string">
@@ -1828,13 +1812,14 @@
           <xs:simpleType>
             <xs:restriction base="xs:string">
               <!-- A list of two-letter country codes and "-" (a divider in the country select option list). WORLD to add all countries not explicitly mentioned -->
-              <xs:pattern value="[A-Z]{2}|-|WORLD"/>
+              <xs:pattern value="[A-Z]{2}|-|WORLD" />
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
       </xs:simpleType>
     </xs:attribute>
     <xs:attribute name="addressoptions" type="sc:FormAddressOptions" />
+
     <!-- TODO move these to FormAddressOptions -->
     <xs:attribute name="addressvalidationkey" type="xs:string">
       <xs:annotation>
@@ -1851,7 +1836,6 @@
         <xs:documentation>Supply hooks to the webtool form (would otherwise be done by a %WebtoolFormPage)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
   </xs:complexType>
 
   <xs:complexType name="CaptchaIntegration">
@@ -1960,13 +1944,12 @@
 
   <xs:complexType name="ForumPlugin">
     <xs:sequence>
-      <xs:element name="imagedisplaymethod" minOccurs="0" maxOccurs="1">
-      </xs:element>
+      <xs:element name="imagedisplaymethod" minOccurs="0" maxOccurs="1" />
     </xs:sequence>
     <xs:attribute name="type">
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="comments"/>
+          <xs:enumeration value="comments" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
@@ -2009,7 +1992,7 @@
 
   <xs:simpleType name="Name">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -2022,6 +2005,22 @@
         <xs:annotation>
           <xs:documentation>Path to witty with search page/results component overrides</xs:documentation>
         </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="summarylength" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>How long generated summaries should be, in characters, defaults to 150</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="highlightype">
+        <xs:annotation>
+          <xs:documentation>Which highlighting algorithm to use, either `unified` (the default) or `plain`</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="unified" />
+            <xs:enumeration value="plain" />
+          </xs:restriction>
+        </xs:simpleType>
       </xs:attribute>
     </xs:complexType>
   </xs:element>
