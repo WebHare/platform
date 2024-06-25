@@ -64,7 +64,7 @@ async function main() {
 
   const pkgdirs = getPackageDirs(module);
   for (const dir of pkgdirs) {
-    const reportDir = toResourcePath(dir, { allowUnmatched: true }) ?? dir;
+    const reportDir = toResourcePath(dir, { keepUnmatched: true });
     const directDependencies = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).dependencies || {}) as Record<string, string>;
     if (!Object.keys(directDependencies).length)
       continue; //no need to mention this dir, no modules

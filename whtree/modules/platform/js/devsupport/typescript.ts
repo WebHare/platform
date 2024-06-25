@@ -14,7 +14,7 @@ function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): Validati
     if (diagnostic.file) {
       const { line, character } = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start!);
       const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-      const resourcename = toResourcePath(diagnostic.file.fileName, { allowUnmatched: true }) || diagnostic.file.fileName;
+      const resourcename = toResourcePath(diagnostic.file.fileName, { keepUnmatched: true });
 
       if (resourcename.includes("/vendor/"))
         type = "hint";
@@ -33,7 +33,7 @@ function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): Validati
       const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
       issues.push({
         type,
-        resourcename: toResourcePath(basedir),
+        resourcename: toResourcePath(basedir, { keepUnmatched: true }),
         line: 0,
         col: 0,
         message,
@@ -72,13 +72,14 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
     await loadlib("mod::system/lib/internal/modulemanager.whlib").BuildTSConfigFile(projectRoot);
 
     //We're building a submodule
-    const tsconfigpath = toFSPath(`mod::${modulename}/tsconfig.json`);
+    const tsconfigres = `mod::${modulename}/tsconfig.json`;
+    const tsconfigpath = toFSPath(tsconfigres);
     let tsconfig;
     try {
       //TODO consider feeding the generated tsconfig.json directly to our code, then we won't even need to have it just to checkmodule. (but VSCode & tsrun will still need it!)
       tsconfig = JSON.parse(await readFile(tsconfigpath, 'utf8'));
     } catch (e) {
-      return [{ type: "error", resourcename: toFSPath(tsconfigpath), message: `Unable to open tsconfig.json: ${(e as Error).message}`, col: 1, line: 1, source: "tsc" }];
+      return [{ type: "error", resourcename: tsconfigres, message: `Unable to open tsconfig.json: ${(e as Error).message}`, col: 1, line: 1, source: "tsc" }];
     }
 
     Object.assign(compileroptions, tsconfig.compilerOptions); //overwrite any set options
