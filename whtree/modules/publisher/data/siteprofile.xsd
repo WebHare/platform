@@ -2004,7 +2004,7 @@
           <xs:documentation>How long generated summaries should be, in characters, defaults to 150</xs:documentation>
         </xs:annotation>
       </xs:attribute>
-      <xs:attribute name="highlightype">
+      <xs:attribute name="highlighttype">
         <xs:annotation>
           <xs:documentation>Which highlighting algorithm to use, either `unified` (the default) or `plain`</xs:documentation>
         </xs:annotation>
