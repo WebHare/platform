@@ -1,5 +1,5 @@
 import { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
-import { openFolder, WHFSObject, WHFSFolder, describeContentType, openType } from "./whfs";
+import { openFolder, WHFSObject, WHFSFolder, describeWHFSType, openType } from "./whfs";
 import { db, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
@@ -90,7 +90,12 @@ async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: bool
     site = await db<PlatformDB>().selectFrom("system.sites").selectAll().where("id", "=", parent.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
-  const typeneedstemplate = !isFolder && ((await describeContentType(type, { allowMissing: true }))?.isWebPage ?? false);
+  let typeneedstemplate = false;
+  if (!isFolder) {
+    const typeinfo = await describeWHFSType(type, { allowMissing: true });
+    if (typeinfo?.metaType === "fileType" && typeinfo.isWebPage)
+      typeneedstemplate = true;
+  }
 
   return {
     ...siteapply,
@@ -145,7 +150,12 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     site = await db<PlatformDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
-  const typeneedstemplate = obj.isFile && ((await describeContentType(obj.type, { allowMissing: true }))?.isWebPage ?? false);
+  let typeneedstemplate = false;
+  if (obj.isFile) {
+    const typeinfo = await describeWHFSType(obj.type, { allowMissing: true });
+    if (typeinfo?.metaType === "fileType" && typeinfo.isWebPage)
+      typeneedstemplate = true;
+  }
   if (!obj.parent && obj.isFile)
     throw new Error(`File ${obj.id} has no parent folder`);
 

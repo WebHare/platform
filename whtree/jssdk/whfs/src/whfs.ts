@@ -1,4 +1,4 @@
-export { describeContentType, openType } from "./contenttypes";
+export { describeWHFSType, openType } from "./contenttypes";
 export { openTagManager } from "./tagmanager";
 export type { TagManager, Tag } from "./tagmanager";
 export { isValidName } from "./support";

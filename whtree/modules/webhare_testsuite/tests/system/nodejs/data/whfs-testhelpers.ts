@@ -1,9 +1,9 @@
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { db } from "@webhare/whdb";
-import { describeContentType } from "@webhare/whfs";
+import { describeWHFSType } from "@webhare/whfs";
 
 export async function verifyNumSettings(objid: number, ns: string, expect: number) {
-  const type = await describeContentType(ns);
+  const type = await describeWHFSType(ns);
   const instances = await db<PlatformDB>()
     .selectFrom("system.fs_instances")
     .selectAll()
@@ -35,7 +35,7 @@ export async function verifyNumSettings(objid: number, ns: string, expect: numbe
 }
 
 export async function dumpSettings(objid: number, ns: string) {
-  const type = await describeContentType(ns);
+  const type = await describeWHFSType(ns);
   const instances = await db<PlatformDB>()
     .selectFrom("system.fs_instances")
     .selectAll()
