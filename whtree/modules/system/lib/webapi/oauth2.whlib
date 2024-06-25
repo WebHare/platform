@@ -1,6 +1,7 @@
 <?wh
 /** @topic webapis/oauth2 */
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/http.whlib";
@@ -25,6 +26,39 @@ PUBLIC CONSTANT RECORD oauth2options := CELL[ ...oauthbaseoptions
                                             , authtokenurl := ""
                                             , redirecturl := ""
                                             ];
+
+// Autorization with PKCE code verifier: https://www.rfc-editor.org/rfc/rfc7636
+
+// Note that the list of allowed characters for a code verifier is [A-Z] / [a-z] / [0-9] / "-" / "." / "_" / "~", using
+// GenerateUFS128BitId eliminates "." and "~" from this list, resulting in a slightly less random code verifier
+PUBLIC STRING FUNCTION CreateCodeVerifier(INTEGER len DEFAULTSTO 56)
+{
+  IF (len < 43 OR len > 128)
+    THROW NEW Exception("A code verifier must be between 43 and 128 characters long");
+  STRING result;
+  WHILE (Length(result) < len)
+    result := result || GenerateUFS128BitId();
+  RETURN Left(result, len);
+}
+
+STRING FUNCTION CreateCodeChallenge(STRING verifier, STRING method)
+{
+  SWITCH (method)
+  {
+    CASE "plain"
+    {
+      RETURN verifier;
+    }
+    CASE "S256"
+    {
+      RETURN EncodeUFS(GetHashForString(verifier, "SHA-256"));
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Invalid code challenge method '${method}', allowed are 'plain' or 'S256`);
+    }
+  }
+}
 
 /** Manages the oauth2 %WebBrowser */
 PUBLIC STATIC OBJECTTYPE Oauth2Connection
@@ -109,6 +143,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     options := ValidateOptions([ scopes := STRING[]
                                , state := ""
                                , access_type := "online"
+                               , code_verifier := ""
                                , extraparameters := DEFAULT RECORD
                                , redirect_uri := ""
                                ], options, [ enums := [ access_type := ["offline","online"] ]]);
@@ -125,6 +160,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
       , redirect_uri := redirect_uri
       , state := options.state
       , access_type := options.access_type
+      , ...(options.code_verifier != "" ? [ code_challenge := CreateCodeChallenge(options.code_verifier, "S256"), code_challenge_method := "S256" ] : DEFAULT RECORD)
       , ...options.extraparameters
       ]);
     RETURN url;
@@ -135,6 +171,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
       @cell(string array) options.scopes Requested scopes
       @cell(string) options.access_type 'offline' to request a refresh_token. defaults to 'online'
       @cell(record) options.extraparameters Any extra parameters, eg [ prompt := "consent" ]
+      @cell(string) options.code_verifier A PKCE code verifier to use for authorization
       @return Record with authorization flow info
   */
 
@@ -151,6 +188,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                              , tokeninfo := DEFAULT RECORD
                                              , requeststart := GetCurrentDatetime()
                                              , redirect_uri := CellExists(options, 'redirect_uri') ? options.redirect_uri : ""
+                                               // Store the code verifier in the state, so it's available to the landing page handler
+                                             , code_verifier := CellExists(options, "code_verifier") ? options.code_verifier : ""
                                              ]
                                   ]
            ];
@@ -173,6 +212,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
       @cell(string array) options.scopes Requested scopes
       @cell(string) options.access_type 'offline' to request a refresh_token. defaults to 'online'
       @cell(record) options.extraparameters Any extra parameters, eg [ prompt := "consent" ]
+      @cell(string) options.code_verifier A PKCE code verifier to use for authorization
       @return Submit instruction to execute
   */
   PUBLIC RECORD FUNCTION StartAuthorizeClient(STRING finalreturnurl, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -203,6 +243,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
       @cell(string array) options.scopes Requested scopes
       @cell(string) options.access_type 'offline' to request a refresh_token. defaults to 'online'
       @cell(record) options.extraparameters Any extra parameters, eg [ prompt := "consent" ]
+      @cell(string) options.code_verifier A PKCE code verifier to use for authorization
       @return Success information
       @cell(boolean) return.success True if we've succesfully authorized the client. AuthorizeClient redirects to the oauth2 flow if we don't have the token yet */
   PUBLIC RECORD FUNCTION AuthorizeClient(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -252,11 +293,15 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                   ,[ name := "grant_type",    value := "refresh_token" ]
                   ]).body;
 
+    // Temporarily clear authorization token (if we're refreshing the token, it probably isn't valid anymore)
+    RECORD token := this->token;
+    this->token := DEFAULT RECORD;
     IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
         [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
     {
       RETURN [ success := FALSE, message := `Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}` ];
     }
+    this->token := token;
 
     RECORD newtoken := DecodeJSONBlob(this->browser->content);
     IF(CellExists(newtoken,"access_token"))
@@ -292,6 +337,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   PUBLIC RECORD FUNCTION RequestToken(STRING code, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ redirect_uri := ""
+                               , code_verifier := ""
                                ], options);
 
 
@@ -304,6 +350,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                   ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
                   ,[ name := "redirect_uri",  value := redirect_uri ]
                   ,[ name := "grant_type",    value := "authorization_code" ]
+                  ,...(options.code_verifier != "" ? [[ name := "code_verifier", value := options.code_verifier ]] : RECORD[])
                   ]).body;
 
     IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
@@ -451,7 +498,10 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   RECORD tokeninfo;
   STRING code := GetWebVariable("code");
   IF(code != "")
-    tokeninfo := oauthconnection->RequestToken(code, [ redirect_uri := CellExists(sessdata,'redirect_uri') ? sessdata.redirect_uri : ""]);
+    tokeninfo := oauthconnection->RequestToken(code,
+        [ redirect_uri := CellExists(sessdata,'redirect_uri') ? sessdata.redirect_uri : ""
+        , code_verifier := CellExists(sessdata,'code_verifier') ? sessdata.code_verifier : ""
+        ]);
 
   sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
 
