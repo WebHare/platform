@@ -191,7 +191,7 @@ OBJECTTYPE CheckerObject
         IF(issue.resourcename LIKE `mod::${modname}/*` AND MatchesPathMasks(Substring(issue.resourcename,SearchSubstring(issue.resourcename,'/')+1), exclusions))
           CONTINUE;
 
-        this->AddIssue(issue, issue.category);
+        this->AddIssue(issue, issue.type);
       }
 
     }

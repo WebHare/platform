@@ -2,9 +2,8 @@
 
 LOADLIB "wh::async.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::os.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::regex.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -14,40 +13,8 @@ LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
 LOADLIB "mod::system/lib/internal/validation/scan.whlib";
-LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 
 LOADLIB "wh::internal/interface.whlib";
-
-
-ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
-{
-  RECORD retval :=
-      [ output :=   ""
-      , errors :=   ""
-      , exitcode := -1
-      ];
-
-  OBJECT itr := MakeProcessAsyncIterator(process, [ autoclose := FALSE ]);
-  WHILE (TRUE)
-  {
-    RECORD rec := AWAIT itr->Next();
-    IF (rec.done)
-      BREAK;
-    SWITCH (rec.value.type)
-    {
-      CASE "output"   { retval.output := retval.output || rec.value.line || "\n"; }
-      CASE "error"    { retval.errors := retval.errors || rec.value.line || "\n"; }
-      CASE "close"    { retval.exitcode := rec.value.exitcode; }
-    }
-  }
-  RETURN retval;
-}
-
-ASYNC MACRO SendProcessInput(OBJECT process, BLOB data)
-{
-  AWAIT AsyncSendBlobTo(process->input_handle, data);
-  process->CloseInput();
-}
 
 ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -239,36 +206,9 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
   RETURN CELL[ texts, icons ];
 }
 
-/** Given a directory, find a .ts or .tsx file, ignoreing node_modules
-    Returns the subpath within the root
-    @param root Root folder
-    @param subpath Subpath to start in (use "" to start at root)
-    @return Subpath to first found .ts or .tsx file
-*/
-PUBLIC STRING FUNCTION RecursivelyFindTypeScriptFile(STRING root, STRING subpath DEFAULTSTO "")
-{
-  STRING finalpath := subpath = "" ? root : MergePath(root, subpath);
-
-  RECORD ARRAY contents := ReadDiskDirectory(finalpath, "*");
-  FOREVERY (RECORD rec FROM contents)
-  {
-    IF (rec.name = "node_modules" OR rec.name = "vendor" OR rec.name LIKE ".*")
-      CONTINUE;
-    IF (GetExtensionFromPath(rec.name) IN whconstant_typescript_extensions)
-      RETURN subpath = "" ? rec.name : MergePath(subpath, rec.name);
-    IF (rec.type = 1)
-    {
-      STRING tsfile := RecursivelyFindTypeScriptFile(root, subpath = "" ? rec.name : MergePath(subpath, rec.name));
-      IF (IsValueSet(tsfile))
-        RETURN tsfile;
-    }
-  }
-  RETURN "";
-}
-
 BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
 {
-  IF(resourcename LIKE "mod::*") //TS errors currently inconsistently come in as full paths or resource paths
+  IF(resourcename LIKE "mod::*") //TS errors currently inconsistently come in as full paths or resource paths (also because /jssdk/ isn't a module)
     resourcename := GetWebHareResourceDiskPath(resourcename);
 
   //TS doesn't let us configure different settings for the postgresql-client dir so just discard the errors
@@ -315,116 +255,14 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   IF (modulename IN whconstant_builtinmodules AND modulename != "platform")
     THROW NEW Exception(`Cannot check individual core modules, use "platform" to check all core modules`);
 
-  // Use the whtree tsconfig.json for core modules (but never for webhare_testsuite)
-  STRING tsbuildinfodir := MergePath(GetWebhareConfiguration().ephemeralroot, "system.typescript");
-  STRING tsconfigpath, tsbuildinfofile;
-  STRING workingdir := GetWebhareConfiguration().installationroot;
-
-  IF (modulename = "platform"
-      OR modulename = "jssdk"
-      OR modulename IN whconstant_builtinmodules)
+  FOREVERY(RECORD message FROM WaitForPromise(ImportJS("@mod-platform/js/devsupport/typescript.ts")->CheckUsingTSC(modulename)))
   {
-    tsconfigpath := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
-    tsbuildinfofile := MergePath(tsbuildinfodir, "platform.tsbuildinfo");
+    IF(ShouldDiscard(modulename, message.resourcename))
+      CONTINUE;
+    INSERT message INTO retval.issues AT END;
   }
-  ELSE
-  {
-    STRING installationroot := GetModuleInstallationRoot(modulename);
-    STRING anytsfile := RecursivelyFindTypeScriptFile(installationroot, ".");
-
-    // Don't need to validate if no .ts/.tsx files present
-    IF (IsDefaultValue(anytsfile))
-      RETURN retval;
-
-    tsconfigpath := MergePath(installationroot, "tsconfig.json");
-
-    // Don't go create tsconfig.json on acceptance and production servers
-    IF (GetDTAPStage() NOT IN [ "development", "test" ] AND NOT RecordExists(GetDiskFileProperties(tsconfigpath)))
-      RETURN retval;
-
-    BuildTSConfigFile(installationroot);
-    tsbuildinfofile := MergePath(tsbuildinfodir, `${modulename}.tsbuildinfo`);
-    workingdir := installationroot;
-
-    // For git-based modules, make sure tsconfig.json is on the .gitignore list
-    IF (RecordExists(GetDiskFileProperties(MergePath(installationroot, ".git"))))
-    {
-      BLOB gitignore := GetDiskResource(MergePath(installationroot, ".gitignore"), [ allowmissing := TRUE ]);
-      STRING ARRAY gitignore_lines := Tokenize(Substitute(BlobToString(gitignore), "\r\n", "\n"), "\n");
-      IF ("tsconfig.json" NOT IN gitignore_lines
-          AND "/tsconfig.json" NOT IN gitignore_lines
-          AND "**/tsconfig.json" NOT IN gitignore_lines)
-      {
-        INSERT
-            [ resourcename := `mod::${modulename}/.gitignore`
-            , line :=         1
-            , col :=          1
-            , message :=      "tsconfig.json is not present in the .gitignore file"
-            , category :=     "error"
-            ] INTO retval.issues AT END;
-      }
-    }
-  }
-
-  STRING tscpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/tsc");
-  CreateDiskDirectoryRecursive(tsbuildinfodir, TRUE);
-
-  STRING ARRAY args := [ "--project", tsconfigpath, "--noEmit", "--incremental", "--tsBuildInfoFile", tsbuildinfofile ];
-
-  OBJECT proc := CreateProcess(tscpath, args, FALSE, TRUE, TRUE, FALSE);
-  proc->initialworkingdirectory := workingdir;
-  proc->Start();
-
-  OBJECT reader := ReadWholeProcessOutput(proc);
-  RECORD procresult := AWAIT reader;
-  proc->Close();
-
-  OBJECT matcher := NEW RegEx("^([^\\(]*)\\((\\d*),(\\d*)\\): (error .*)$");
-
-  FOREVERY (STRING line FROM Tokenize(procresult.output, "\n"))
-  {
-    RECORD ARRAY match := matcher->Exec(line);
-    IF (RecordExists(match))
-    {
-      STRING finalpath := MergePath(workingdir, match[1].value);
-      STRING resourcename := GetResourceNameFromDiskPath(finalpath) ?? finalpath;
-
-      INSERT CELL
-          [ resourcename
-          , line :=         ToInteger(match[2].value, 1)
-          , col :=          ToInteger(match[3].value, 1)
-          , message :=      match[4].value
-          , category :=     ShouldDiscard(modulename, resourcename) ? "discard"
-                            : resourcename LIKE "*/vendor/*" ? "hint"
-                            : "error"
-          ] INTO retval.issues AT END;
-    }
-  }
-
-  IF (procresult.exitcode != 0 AND IsDefaultValue(retval.issues))
-  {
-    INSERT
-        [ resourcename := ""
-        , line :=         1
-        , col :=          1
-        , message :=      "TypeScript validation gave back an error, but did not find one when parsing the output"
-        , category :=     "error"
-        ] INTO retval.issues AT END;
-  }
-
-  DELETE FROM retval.issues WHERE category = "discard"; //only kept them to be able to do the 'TS worked' checked above
 
   RETURN retval;
-}
-
-RECORD FUNCTION DecodeResult(BLOB result)
-{
-  RECORD decoded := DecodeJSONBlob(result);
-  RETURN CELL
-      [ decoded.path
-      , decoded.error
-      , decoded.output
-      ];
 }
 
 /** Format a single javascript file

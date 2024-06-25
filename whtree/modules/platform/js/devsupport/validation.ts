@@ -25,7 +25,11 @@ export interface ResourceMessage extends ResourceLocation {
 
 export interface ValidationMessage extends ResourceMessage {
   source: string;
-  metadata: unknown;
+  metadata?: unknown;
+}
+
+export interface ValidationMessageWithType extends ValidationMessage {
+  type: "error" | "warning" | "hint";
 }
 
 export type ValidationResult = {
@@ -42,7 +46,6 @@ export type ValidationResult = {
   /** Icons */
   icons: unknown[];
 };
-
 
 export interface ValidationOptions {
   onlytids?: boolean;
