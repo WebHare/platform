@@ -99,7 +99,7 @@ program.command("oidc-add")
 
     const wrdSchema = await getUserApiSchemaName();
     const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
-    if (await schema.find("wrdauthOidcClient", { wrdTag: tag }))
+    if (await schema.search("wrdauthOidcClient", "wrdTag", tag))
       throw new Error(`OIDC Service provider with tag '${tag}' already exists`);
 
     if (!opts.metadataurl)
@@ -128,7 +128,7 @@ program.command("oidc-delete")
   .action(async (tag: string) => {
     const wrdSchema = await getUserApiSchemaName();
     const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
-    const wrdId = await schema.find("wrdauthOidcClient", { wrdTag: tag });
+    const wrdId = await schema.search("wrdauthOidcClient", "wrdTag", tag);
     if (!wrdId)
       throw new Error(`OIDC Service provider with tag '${tag}' not found`);
 
