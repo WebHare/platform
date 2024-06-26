@@ -95,12 +95,7 @@ PUBLIC STATIC OBJECTTYPE WidgetBase
       @return A Function PTR rendering the RTD, or a DEFAULT MACRO PTR if the RTD was empty */
   PUBLIC MACRO PTR FUNCTION GetRTDBody(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ rtdtype := "" ], options);
-    IF(NOT RecordExists(richdoc))
-      RETURN DEFAULT MACRO PTR;
-
-    OBJECT rtd := this->context->OpenRTD(richdoc, options);
-    RETURN PTR rtd->RenderAllObjects;
+    RETURN this->context->GetRTDBody(richdoc, options);
   }
 
   /** @short Function invoked when the widget should be rendered for a RTD preview */
