@@ -321,63 +321,6 @@ MACRO TestSchema()
   TestEQ("ab", DecodeInvalidUTF8Chars("\xfe\xff\x00a\x00b", "ISO-8859-15"));
   TestEQ("\u00eea\u00eeb", DecodeInvalidUTF8Chars("\xeea\xeeb", "ISO-8859-15"));
 }
-MACRO ImageCache()
-{
-  testfw->BeginWork();
-
-  OBJECT schemaobj:=  testfw->GetWRDSchema();
-  OBJECT wrdperson := schemaobj->^wrd_person;
-  STRING baseurl := OpenTestsuitesite()->webroot;
-
-  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
-  INTEGER entityid1 := wrdperson->CreateEntity([ test_image := WrapBlob(testimage_blob,"")
-                                               ] )->id;
-  INTEGER entityid2 := wrdperson->CreateEntity([ test_array := [ [ test_image := WrapBlob(testimage_blob,"") ], DEFAULT RECORD ]
-                                               ] )->id;
-
-  RECORD entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID" ]
-                                        , filters := [[ field := "WRD_ID", value := entityid1 ]
-                                                     ]
-                                        ]);
-  TestEq(TRUE, entity.imageid != 0);
-  TestEq("INTEGER64", GetTypeName(TypeID(entity.imageid)));
-  TestEQ(INTEGER64[entity.imageid], wrdperson->RunQuery( [ outputcolumn := "TEST_IMAGE.IMAGEID", filters := [[ field := "WRD_ID", value := entityid1 ]] ]));
-
-  INTEGER64 entityid1_imageid := entity.imageid;
-  TestEq(0, Length(entity.arrayimages));
-
-  entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID", test_array := "TEST_ARRAY" ]
-                                 , filters := [[ field := "WRD_ID", value := entityid2 ]
-                                              ]
-                                 ]);
-
-  TestEq(TRUE, entity.imageid = 0);
-  TestEq("INTEGER64", GetTypeName(TypeID(entity.imageid)));
-  TestEq(2, Length(entity.arrayimages));
-  TestEq(TRUE, entity.arrayimages[0]!=0);
-  TestEq(0i64, entity.arrayimages[1]);
-
-  testfw->CommitWork();
-
-  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none"]);
-  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl ]);
-  TestEq(imagelink, Substitute(legacy_imagelink, "data.png", "noname.png"));
-
-  RECORD wrappedinfo := GetWrappedSourceFromURL(imagelink);
-  TestEq('noname.png', wrappedinfo.filename);
-  TestEq(385, wrappedinfo.width);
-
-  //Test images with a WHFS source
-  testfw->BeginWork();
-  BLOB toupload2 := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp");
-  OBJECT homer := GetTestsuiteTempFolder()->CreateFile( [ data := toupload2, publish := FALSE, name := "homersbrain.bmp" ]);
-  wrdperson->UpdateEntity(entityid1, [ test_image := CELL[...WrapBlob(toupload2, "homersbrain.bmp"), source_fsobject := homer->id ]]);
-  testfw->CommitWork();
-
-  RECORD wrappedresized := WrapCachedImage(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "fit", setwidth := 64, setheight := 52, baseurl := GetPrimaryWebhareInterfaceURL() ]);
-  TestEq(TRUE, testfw->browser->GotoWebPage(wrappedresized.link));
-  TestEqMembers([width:=64, mimetype:="image/png"], ScanBlob(testfw->browser->content), "MIMEWIDTH,TYPE");
-}
 
 MACRO TestGUID()
 {
@@ -3281,7 +3224,6 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestStatusRecordAttr
                  , PTR TestDomains
                  , PTR TestGUID
-                 , PTR ImageCache
                  , PTR RichDoc
                  , PTR RichDocEmbed
                  , PTR TestAttributes("WRD_PERSON")

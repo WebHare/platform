@@ -14,14 +14,18 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 
-STRING link_grayscalehomer, link_kikker, link_fs_frogger, link_unused_kikker;
+STRING link_grayscalehomer, link_kikker, link_fs_frogger, link_unused_kikker, link_wrd_homer;
 DATETIME after_kikker_hit;
 STRING default_imgcache := "public, max-age=31536000, immutable";
 STRING incorrect_imgcache := "public, max-age=86400"; //used when requesting incorrect urls
-OBJECT homer;
+OBJECT homer, wrd_person;
+INTEGER entityid1, entityid2;
 
 MACRO ImgCacheTest()
 {
@@ -362,6 +366,64 @@ MACRO FilenameTest()
   TestEqLike("*/i-am-a-happy-kikker.jpg", kikkerinstance.link);
 }
 
+MACRO WRDImageCache()
+{
+  testfw->BeginWork();
+
+  OBJECT wrdperson := testfw->GetWRDSchema()->^wrd_person;
+  STRING baseurl := OpenTestsuitesite()->webroot;
+
+  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
+   entityid1 := wrdperson->CreateEntity([ test_image := WrapBlob(testimage_blob,"")
+                                        ] )->id;
+   entityid2 := wrdperson->CreateEntity([ test_array := [ [ test_image := WrapBlob(testimage_blob,"") ], DEFAULT RECORD ]
+                                        ] )->id;
+
+  RECORD entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID" ]
+                                        , filters := [[ field := "WRD_ID", value := entityid1 ]
+                                                     ]
+                                        ]);
+  TestEq(TRUE, entity.imageid != 0);
+  TestEq("INTEGER64", GetTypeName(TypeID(entity.imageid)));
+  TestEQ(INTEGER64[entity.imageid], wrdperson->RunQuery( [ outputcolumn := "TEST_IMAGE.IMAGEID", filters := [[ field := "WRD_ID", value := entityid1 ]] ]));
+
+  INTEGER64 entityid1_imageid := entity.imageid;
+  TestEq(0, Length(entity.arrayimages));
+
+  entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID", test_array := "TEST_ARRAY" ]
+                                 , filters := [[ field := "WRD_ID", value := entityid2 ]
+                                              ]
+                                 ]);
+
+  TestEq(TRUE, entity.imageid = 0);
+  TestEq("INTEGER64", GetTypeName(TypeID(entity.imageid)));
+  TestEq(2, Length(entity.arrayimages));
+  TestEq(TRUE, entity.arrayimages[0]!=0);
+  TestEq(0i64, entity.arrayimages[1]);
+
+  testfw->CommitWork();
+
+  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none"]);
+  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl ]);
+  TestEq(imagelink, Substitute(legacy_imagelink, "data.png", "noname.png"));
+
+  RECORD wrappedinfo := GetWrappedSourceFromURL(imagelink);
+  TestEq('noname.png', wrappedinfo.filename);
+  TestEq(385, wrappedinfo.width);
+
+  //Test images with a WHFS source
+  testfw->BeginWork();
+  BLOB toupload2 := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp");
+  wrdperson->UpdateEntity(entityid1, [ test_image := CELL[...WrapBlob(toupload2, "homersbrain.bmp"), source_fsobject := homer->id ]]);
+  testfw->CommitWork();
+
+  RECORD wrappedresized := WrapCachedImage(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "fit", setwidth := 64, setheight := 52, baseurl := GetPrimaryWebhareInterfaceURL() ]);
+  TestEq(TRUE, testfw->browser->GotoWebPage(wrappedresized.link));
+  TestEqMembers([width:=64, mimetype:="image/png"], ScanBlob(testfw->browser->content), "MIMEWIDTH,TYPE");
+  link_wrd_homer := wrappedresized.link;
+}
+
+
 STRING FUNCTION GetCacheDiskPathFromLink(STRING link)
 {
   link := Tokenize(link, "?")[0];
@@ -404,6 +466,7 @@ MACRO CleanupTests()
   STRING filename_unused_kikker := GetCacheDiskPathFromLink(link_unused_kikker);
   STRING filename_grayscalehomer := GetCacheDiskPathFromLink(link_grayscalehomer);
   STRING filename_fs_frogger := GetCacheDiskPathFromLink(link_fs_frogger);
+  STRING filename_wrd_homer := GetCacheDiskPathFromLink(link_wrd_homer);
 
   currentcachecontents := SELECT *
                             FROM currentcachecontents
@@ -411,9 +474,10 @@ MACRO CleanupTests()
                                              , filename_unused_kikker
                                              , filename_grayscalehomer
                                              , filename_fs_frogger
+                                             , filename_wrd_homer
                                              ];
 
-  TestEq(4, Length(currentcachecontents));
+  TestEq(5, Length(currentcachecontents));
 
   RECORD ARRAY cachecontents := SELECT * FROM FilterRecentHits(currentcachecontents, after_kikker_hit, tracestarttime);
 
@@ -423,14 +487,26 @@ MACRO CleanupTests()
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_kikker);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
   TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_fs_frogger, filename_fs_frogger);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_wrd_homer, filename_wrd_homer);
 
   //forcibly delete the gray homer
   testfw->BeginWork();
   homer->DeleteSelf();
+  testfw->GetWRDSchema()->^wrd_person->UpdateEntity(entityid1, [ wrd_limitdate := GetCurrentDateTime() ]);
   testfw->CommitWork();
 
   cachecontents := ExpireForMissingSources(cachecontents);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_fs_frogger, filename_fs_frogger);
   TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
+  TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_wrd_homer, filename_wrd_homer);
+
+  /* TODO should we also be preventing the links from being recreated by locations having the old link? (ie we assume the links just die out?)
+  TestEq(FALSE, testfw->browser->GotoWebPage(link_grayscalehomer));
+  TestEq(404, testfw->browser->GetHTTPStatusCode());
+
+  TestEq(FALSE, testfw->browser->GotoWebPage(link_wrd_homer));
+  TestEq(404, testfw->browser->GetHTTPStatusCode());
+  */
 }
 
 RunTestframework([ PTR ImgCacheTest
@@ -438,5 +514,7 @@ RunTestframework([ PTR ImgCacheTest
                  , PTR NotTheImageTest
                  , PTR FsCacheTest
                  , PTR FilenameTest
+                 , PTR CreateWRDTestSchema
+                 , PTR WRDImageCache
                  , PTR CleanupTests
                  ]);

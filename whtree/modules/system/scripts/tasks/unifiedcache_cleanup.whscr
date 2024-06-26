@@ -25,8 +25,11 @@ INTEGER ignore_newer_than := Tointeger(info.ignorenewerthan,60)*60*1000; //ignor
 INTEGER delete_after_days := ToInteger(info.deleteafterdays,2); //delete files not requested for more than 2 days
 
 DATETIME ignore_modified_after := AddTimeToDate(-ignore_newer_than,GetCurrentDatetime());
+//Generate a list of all existing images not generated in the last 2 hours (urltoken := "", expired := TRUE)
 RECORD ARRAY deletion_candidates := GetCurrentUnifiedCacheContents(ignore_modified_after);
+//Gather matching urltokens for each path, unmark the images as expired
 deletion_candidates := FilterRecentHits(deletion_candidates, AddDaysTodate(-delete_after_days, GetRoundedDatetime(GetCurrentDatetime(), 86400*1000)), ignore_modified_after);
+//Validate whether the urltokens point to existing files, re-mark as expired if so
 deletion_candidates := ExpireForMissingSources(deletion_candidates);
 
 IF(info.dryrun OR info.debug)
