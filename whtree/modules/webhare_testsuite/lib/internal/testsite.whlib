@@ -106,6 +106,7 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                                 || (options.addtslinecomp AND options.addpaymenthandler ? '<p class="normal">TSLinecomp difference: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_tslinecompcost"></span>}</p>' : "")
                                 || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
                                 || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
+                                || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_deep"></div>' : '')
                                 || (options.custommergefields AND options.addtwolevelfield ? '<p class="normal">Subfield value: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_twolevel"></span></p>' : '')
                                 || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
                                 || '</body></html>')
@@ -146,6 +147,32 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                              ,[ instanceid := "embedobj_custom"
                               , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget2"
                                         , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_deep"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/custom2colwidget"
+                                        , col1 := [ htmltext := StringToBlob(`<html><body><p class="normal">IT IS <span class="wh-rtd-embeddedobject" data-instanceid="embobj_deep_merged"></span>.</p>`)
+                                                  , instances := [[ instanceid := "embobj_deep_merged"
+                                                                  , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                                                            , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                                                            ]
+                                                                  ]
+                                                                 ]
+                                                  ]
+                                        , col2 := [ htmltext := StringToBlob(`<html><body><p class="normal">IT IS <span class="wh-rtd-embeddedobject" data-instanceid="embobj_deeper"></span>.</p>`)
+                                                  , instances := [[ instanceid := "embobj_deeper"
+                                                                  , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/custom2colwidget"
+                                                                            , col1 := [ htmltext := StringToBlob(`<html><body><p class="normal">IT IS DEEPER <span class="wh-rtd-embeddedobject" data-instanceid="embobj_deeper_merged"></span>.</p>`)
+                                                                                      , instances := [[ instanceid := "embobj_deeper_merged"
+                                                                                                      , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                                                                                                , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                                                                                                ]
+                                                                                                      ]
+                                                                                                     ]
+                                                                                       ]
+                                                                             ]
+                                                                  ]]
+                                                  ]
                                         ]
                               ]
                              ]

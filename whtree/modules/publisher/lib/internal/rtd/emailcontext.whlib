@@ -14,5 +14,9 @@ PUBLIC OBJECTTYPE EmailWidgetContext EXTEND PreviewContext
   {
     this->__mailcomposer := mailcomposer;
   }
->;
 
+  UPDATE PUBLIC MACRO PTR FUNCTION GetRTDBody(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->__mailcomposer->GetRTDBody(richdoc, CELL[__mergecontext := CELL[ this->applytester, rtdtype := this->rtdtypeinfo, context := this ], ...options]);
+  }
+>;

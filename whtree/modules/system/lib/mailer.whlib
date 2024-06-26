@@ -1129,6 +1129,7 @@ STATIC OBJECTTYPE WittyMailComposer
   STRING ARRAY seenfiles;
   OBJECT __webcontext;
   RECORD __mergerecordextensions;
+  RECORD mergecontext;
 
   ///Merge data for the witty
   PUBLIC RECORD mergerecord;
@@ -1162,13 +1163,14 @@ STATIC OBJECTTYPE WittyMailComposer
   ///Witty encoding to use for reading the mail template. Defaults to "HTML"
   PUBLIC STRING wittyencoding;
 
-  MACRO NEW(STRING mailwitty, OBJECT webcontext, STRING mailtemplate, OBJECT assetcache)
+  MACRO NEW(STRING mailwitty, OBJECT webcontext, STRING mailtemplate, OBJECT assetcache, RECORD mergecontext)
   {
     this->wittyencoding := "HTML";
     this->restructure := TRUE;
     this->__webcontext := webcontext;
     this->__mailtemplatepath := mailwitty;
     this->assetcache := assetcache;
+    this->mergecontext := mergecontext;
 
     IF(NOT IsAbsoluteResourcePath(mailwitty))
       THROW NEW Exception(`The witty path '${mailwitty}' is not an absolute resource`);
@@ -1581,7 +1583,7 @@ STATIC OBJECTTYPE WittyMailComposer
     options := ValidateOptions([ rawwittytags := FALSE
                                , wittyhyperlinks := FALSE
                                , htmlpostprocessor := DEFAULT MACRO PTR
-                               , __mergecontext := DEFAULT RECORD
+                               , __mergecontext := this->mergecontext
                                ], options);
     IF(NOT RecordExists(rtdtext))
       RETURN; //easy!
@@ -1777,15 +1779,17 @@ STATIC OBJECTTYPE WittyMailComposer
     @param mailwitty Mail witty to use, optionally append a ":component" to use a specific component
     @cell(string) options.mailtemplate Path to optional mailtemplate to use. Should contain `<slot name="mailbody"></slot>` for the mail insertion point`
     @cell(object) options.webcontext Webcontext (or webdesign) to use to resolve plugins that can supply mergerecord extensions.
+    @cell(object) options.mergecontext Merge fields context (TODO: specify further, also it does more than just mergefields, it's also a context to steer GetRTDBody in widgets the right way)
     @return(object #WittyMailComposer) A composable mail */
 PUBLIC OBJECT FUNCTION PrepareMailWitty(STRING mailwitty, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ mailtemplate := ""
                              , webcontext := DEFAULT OBJECT
                              , assetcache := DEFAULT OBJECT
+                             , mergecontext := DEFAULT RECORD
                              ], options);
 
-  OBJECT composer := NEW WittyMailComposer(mailwitty, options.webcontext, options.mailtemplate, options.assetcache);
+  OBJECT composer := NEW WittyMailComposer(mailwitty, options.webcontext, options.mailtemplate, options.assetcache, options.mergecontext);
   RETURN composer;
 }
 

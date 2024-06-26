@@ -62,4 +62,24 @@
     </newtab>
   </tabsextension>
 
+  <widgettype editextension="#editcustom2colwidget"
+              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              namespace="http://www.webhare.net/xmlns/webhare_testsuite/custom2colwidget"
+              renderobjectname="customform2.whlib#custom2colwidget"
+              requiremergefieldscontext="true"
+              wittycomponent="customform2.witty:custom2colwidget"
+              title="Custom Form Widget">
+    <members>
+      <member name="col1" type="richdocument" />
+      <member name="col2" type="richdocument" />
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editcustom2colwidget">
+    <newtab>
+      <richdocument composition="contentdata" cellname="col1" />
+      <richdocument composition="contentdata" cellname="col2" />
+    </newtab>
+  </tabsextension>
+
 </siteprofile>

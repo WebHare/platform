@@ -134,6 +134,32 @@ PUBLIC OBJECTTYPE CustomFormWidget2 EXTEND WidgetBase
   }
 >;
 
+PUBLIC STATIC OBJECTTYPE Custom2ColWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    this->EmbedComponent(CELL[ call := "Render"
+                             , col1 := this->context->GetRTDBody(this->data.col1)
+                             , col2 := this->context->GetRTDBody(this->data.col2)
+                             ]);
+
+  }
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    this->EmbedComponent(CELL[ call := "RenderLive"
+                             , col1 := this->context->GetRTDBody(this->data.col1)
+                             , col2 := this->context->GetRTDBody(this->data.col2)
+                             ]);
+  }
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
+  {
+    this->EmbedComponent(CELL[ call := "RenderEmail " || (ObjectExists(mailcomposer) ? "with mailcomposer" : "WITHOUT mailcomposer")
+                             , col1 := this->context->GetRTDBody(this->data.col1)
+                             , col2 := this->context->GetRTDBody(this->data.col2)
+                             ]);
+  }
+>;
+
 PUBLIC STATIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 <
   OBJECT prize;
