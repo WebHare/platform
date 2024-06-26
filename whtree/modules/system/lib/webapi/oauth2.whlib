@@ -150,6 +150,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                   , state := [ oauthconfig := this->oauthconfig
                                              , tokeninfo := DEFAULT RECORD
                                              , requeststart := GetCurrentDatetime()
+                                             , redirect_uri := CellExists(options, 'redirect_uri') ? options.redirect_uri : ""
                                              ]
                                   ]
            ];
@@ -288,18 +289,20 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   //}
 
   //trade in the authorization code for a request token
-  PUBLIC RECORD FUNCTION RequestToken(STRING code)
+  PUBLIC RECORD FUNCTION RequestToken(STRING code, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    STRING redirectto := this->oauthconfig.redirecturl;
-    IF(redirectto = "")
-      redirectto := GetDefaultOauth2RedirectURL();
+    options := ValidateOptions([ redirect_uri := ""
+                               ], options);
+
+
+    STRING redirect_uri := options.redirect_uri ?? this->oauthconfig.redirecturl ?? GetDefaultOauth2RedirectURL();
 
     BLOB body := CreateHTTPUrlencodedRequest(
                   [[ name := "code",          value := code ]
                   //TODO shouldn't this be safer in a authorization header ?
                   ,[ name := "client_id",     value := this->oauthconfig.clientid ]
                   ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
-                  ,[ name := "redirect_uri",  value := redirectto ]
+                  ,[ name := "redirect_uri",  value := redirect_uri ]
                   ,[ name := "grant_type",    value := "authorization_code" ]
                   ]).body;
 
@@ -448,7 +451,7 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   RECORD tokeninfo;
   STRING code := GetWebVariable("code");
   IF(code != "")
-    tokeninfo := oauthconnection->RequestToken(code);
+    tokeninfo := oauthconnection->RequestToken(code, [ redirect_uri := CellExists(sessdata,'redirect_uri') ? sessdata.redirect_uri : ""]);
 
   sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
 
