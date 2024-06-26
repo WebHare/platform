@@ -147,6 +147,11 @@ PUBLIC MACRO CustomForm()
   TestEqLike("*:BEFORERESULTS:*First name*P. Giménez & Henkie 😇*Email*testfw+formtest@beta.webhare.net*Groups & stuff*Upload*allstar.txt*Date*22 June 2017*Checkboxes*CheckboxOpt1; CheckboxOpt3*Radio*Õption*Reversed*Euro & €*Address*Hengelosestraat 296*Netherlands*:AFTERRESULTS:*", TrimWhitespace(confirmmaildoc->body->textcontent));
   TestEq("Hi P. Giménez & Henkie 😇", BlobToString(rtdconfirmmail.toppart.subparts[1].data), 'attachment incorrect');
 
+  OBJECT ARRAY custom2colwidgets := confirmmaildoc->GetElements("div.custom2colwidget");
+  TestEq(2, Length(custom2colwidgets));
+  //verify mail merges reached the deeper levels
+  TestEq("RenderEmail with mailcomposerIT IS P. Giménez & Henkie 😇.IT IS RenderEmail with mailcomposerIT IS DEEPER P. Giménez & Henkie 😇..", custom2colwidgets[0]->textcontent);
+
   editlink := confirmmaildoc->GetElements("p.normal a")[0];
   TestEq(witty.pagedata.editlink, editlink->GetAttribute("href"));
 
