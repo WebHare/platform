@@ -11,5 +11,5 @@ export function mapHareScriptPath(uri: string | null) {
   if (uri.startsWith("wh::"))
     return toFSPath("mod::system/whlibs/" + uri.substring(4));
 
-  return toFSPath(uri, { allowUnmatched: true }) ?? uri;
+  return toFSPath(uri, { keepUnmatched: true });
 }

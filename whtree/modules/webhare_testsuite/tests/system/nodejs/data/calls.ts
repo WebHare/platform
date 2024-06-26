@@ -6,6 +6,10 @@ export async function testAsync42() {
   return 42;
 }
 
+export async function testReject() {
+  throw new Error("Rejection");
+}
+
 export function testSync43() {
   return 43;
 }

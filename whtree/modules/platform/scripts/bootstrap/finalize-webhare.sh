@@ -36,6 +36,9 @@ done
 logWithTime "Downloading esbuild"
 node node_modules/esbuild/install.js || die "Download failed"
 
+## generate root tsconfig.json
+node_modules/.bin/yaml --json --single --strict < tsconfig.yml | jq > tsconfig.json
+
 ## download sharp
 (cd node_modules/sharp && npm run install)
 

@@ -21,6 +21,12 @@ TestEq("testme! 42", ImportJs("testpackage/testpackage.js")->testme());
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
 TestEq(42, WaitForPromise(promise42));
+TestEq(42, WaitForPromise(promise42)); //verify we can request the resolution twice
+
+OBJECT rejected := imp->testReject();
+Sleep(300);
+TestThrowsLike('Rejection', PTR WaitForPromise(rejected)); //verify we still got the rejection, preventing "Promise rejection was handled asynchronously"
+TestThrowsLike('Rejection', PTR WaitForPromise(rejected)); //verify we can request the rejection twice
 
 TestEq(42, CallJS("./data/calls.ts#testAsync42"));
 TestEq(43, CallJS("./data/calls.ts#testSync43"));

@@ -17,7 +17,7 @@ export async function describe(lib: string) {
   return { exports: Object.entries(loaded).map(([name, fn]) => ({ name, type: typeof fn })) };
 }
 
-const promises: Array<Promise<unknown>> = [];
+const promises: Array<Promise<unknown> | null> = [];
 
 //callExportNoWrap is used by importJS _Invoke in WASM environents (through syscalls.ts)
 export function callExportNowrap(libname: string, name: string, args: unknown[]): Promise<unknown> | unknown | undefined {
@@ -45,6 +45,8 @@ export function callExportNowrap(libname: string, name: string, args: unknown[])
 export async function callExport(lib: string, name: string, args: unknown[]): Promise<unknown> {
   const retval = callExportNowrap(lib, name, args);
   if ((retval as Promise<unknown>)?.then) { //If the API returned a promise, mimick that in HS
+    // Dummy catch to prevent unexpected rejection handlers if the awaitPromise ()call is too late
+    (retval as Promise<unknown>).catch(() => { });
     promises.push(retval as Promise<unknown>);
     return { promiseid: promises.length - 1 };
   }
@@ -53,7 +55,12 @@ export async function callExport(lib: string, name: string, args: unknown[]): Pr
 }
 
 export async function awaitPromise(promise: number) {
-  return await promises[promise];
+  if (!promises[promise])
+    throw new Error(`Promise #${promise} already awaited`);
+
+  const waitfor = promises[promise];
+  promises[promise] = null; //cleanup to free storage for big results
+  return await waitfor;
 }
 
 /* The helper service gives us access to */
