@@ -1779,7 +1779,7 @@ STATIC OBJECTTYPE WittyMailComposer
     @param mailwitty Mail witty to use, optionally append a ":component" to use a specific component
     @cell(string) options.mailtemplate Path to optional mailtemplate to use. Should contain `<slot name="mailbody"></slot>` for the mail insertion point`
     @cell(object) options.webcontext Webcontext (or webdesign) to use to resolve plugins that can supply mergerecord extensions.
-    @cell(object) options.emrgecontext Merge fields context (TODO: specify further, also it does more than just mergefields, it's also a context to steer GetRTDBody in widgets the right way)
+    @cell(object) options.mergecontext Merge fields context (TODO: specify further, also it does more than just mergefields, it's also a context to steer GetRTDBody in widgets the right way)
     @return(object #WittyMailComposer) A composable mail */
 PUBLIC OBJECT FUNCTION PrepareMailWitty(STRING mailwitty, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
