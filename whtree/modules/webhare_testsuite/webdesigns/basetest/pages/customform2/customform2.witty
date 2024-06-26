@@ -1,0 +1,7 @@
+[component custom2colwidget]
+  <div class="custom2colwidget">
+    <span class="call">[call]</span>
+    <div class="col1">[col1]</div>
+    <div class="col2">[col2]</div>
+  </div>
+[/component]
