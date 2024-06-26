@@ -23,7 +23,7 @@ export async function listFSContentTypes(mask: string): Promise<ListedFSContentT
     select(["id", "namespace", "orphan", "isfiletype", "isfoldertype", "orphansince", "scopedtype"]).
     execute();
 
-  function getCodeSource(dbtype: typeof dbtypes[0], ctype?: CSPContentType) {
+  function getCodeSource(ctype?: CSPContentType) {
     if (!ctype || ['rtdtype', 'contenttype'].includes(ctype.type))
       return '';
 
@@ -55,7 +55,7 @@ export async function listFSContentTypes(mask: string): Promise<ListedFSContentT
       ...type,
       tolliumicon: match?.tolliumicon ?? "",
       type: match?.type ?? (type.isfiletype ? "filetype" : type.isfoldertype ? "foldertype" : "contenttype"),
-      codesource: getCodeSource(type, match),
+      codesource: getCodeSource(match),
       candelete: type.orphan && !referencedTypeSet.has(type.id),
     });
   }
