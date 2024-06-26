@@ -50,31 +50,26 @@ MACRO RunOpenIDAuth()
   IF(NOT ObjectExists(targetplugin))
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
-  STRING trylogin := targetplugin->GetSupportObject()->GetOIDCLoginName(PickCells(spinfo, [ "WRD_ID", "WRD_TAG", "LOGINFIELD" ]), tok->payload);
-  IF(trylogin = "")
-    Redirect(UpdateURLVariables(whyreason.redirect, [ "wrdauth-loginfail-reason" := "nologinfound"
-                                                    ]));
-
-  INTEGER targetuser := targetplugin->LookupLogin(trylogin);
-  IF(targetuser = 0)
+  RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(tok->payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
+  IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid=0))
   {
     //what to do? we need to redirect/submit to the caller and we need to inform him what went wrong (unknown login)
     //FIXME don't reveal this data over the URL.
     Redirect(UpdateURLVariables(whyreason.redirect, [ "wrdauth-loginfail-reason" := "unmappedlogin"
-                                                    , "wrdauth-loginfail-trylogin" := trylogin
                                                     ]));
   }
+  //TODO support 'navigateto'
+  IF(NOT CellExists(result,'userid'))
+    THROW NEW Exception("LookupOIDCLogin did not return a userid");
 
   //user is recognized. log him in
-  RECORD loginres :=  targetplugin->LoginById(targetuser, FALSE, [ auditmessage := CELL[ oidcclient := spinfo.wrd_id
-                                                                                       , oidctag := spinfo.wrd_tag
-                                                                                       , oidclogin := trylogin
-                                                                                       ]]);
+  RECORD loginres :=  targetplugin->LoginById(result.userid, FALSE, [ auditmessage := CELL[ oidcclient := spinfo.wrd_id
+                                                                                          , oidctag := spinfo.wrd_tag
+                                                                                          ]]);
   IF(loginres.success)
     Redirect(whyreason.redirect);
   ELSE
     Redirect(UpdateURLVariables(whyreason.redirect, [ "wrdauth-loginfail-reason" := "loginfailure"
-                                                    , "wrdauth-loginfail-trylogin" := trylogin
                                                     ]));
 }
 
