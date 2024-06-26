@@ -75,7 +75,7 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
   IF (NOT RecordExists(spdata))
     THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "'" : "") || " configured for this authentication domain");
   ELSE IF (LENGTH(spdata) > 1)
-    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag"); //This shouldn't get triggered by applicationportal.whlib as that one now fallsback to #<id> for tagging. anything else left?
+    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag"); //This shouldn't get triggered by applicationportal.whlib as that one now falls back to #<id> for tagging. anything else left?
 
 
   //TODO support prompt=login, prompt=none modes. they somewhat map to passive/auto logins?
