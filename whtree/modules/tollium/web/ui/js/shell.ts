@@ -117,7 +117,7 @@ class IndyShell extends TolliumShell {
   appmgr = new AppMgr(this);
   applicationbar: ApplicationBar | null = null;
 
-  towl?: TowlNotifications;
+  towl = new TowlNotifications(this);
 
   constructor(setup) {
     super(setup);
@@ -148,8 +148,6 @@ class IndyShell extends TolliumShell {
   onDomReady() {
     if (!document.body) //early termination of load, eg wrdauth of whconnect redirect
       return;
-
-    this.towl = new TowlNotifications(this);
 
     this.continueLaunch();
   }
@@ -484,7 +482,7 @@ class IndyShell extends TolliumShell {
     if (curapp)
       curapp.setAppTitle(curapp.title);
 
-    setupWHCheck(settings.checkinterval);
+    setupWHCheck(this, settings.checkinterval);
   }
   sendApplicationMessage(app: AppLaunchInstruction["app"], target: AppLaunchInstruction["target"], message: AppLaunchInstruction["message"], reuse_instance: AppLaunchInstruction["reuse_instance"], inbackground?: boolean, appoptions?) {
     if ($todd.IsDebugTypeEnabled('communication'))

@@ -121,7 +121,8 @@ class ControlledCall {
 /** Invokes (WebHare) JSON/RPC
     @param url URL to invoke (leave empty or pass no parameters at all to callback to the current page)
     @cell options.timeout Default timeout for all calls
-    @cell options.debug Debug (Follows 'rpc' debugflag if not explicity specified) */
+    @cell options.debug Debug (Follows 'rpc' debugflag if not explicity specified)
+    @deprecated Switch to @webhare/jsonrpc */
 export default class RPCClient {
   constructor(url, options?) {
     this.options = {

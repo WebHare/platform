@@ -1626,6 +1626,13 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
                 maxservertype="development">
       <accesscheck />
     </webservice>
+    <webservice name="jsapi"
+                library="lib/internal/services/jsapi.whlib"
+                prefix="RPC_"
+                primarytrans="auto"
+                transports="jsonrpc">
+      <accesscheck />
+    </webservice>
 
     <internalservice globalport="true"
                      library="scripts/internal/webserver/getconfig.whscr"

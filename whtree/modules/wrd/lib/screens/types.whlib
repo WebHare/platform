@@ -196,6 +196,11 @@ PUBLIC OBJECTTYPE EditType EXTEND TolliumScreenBase
     this->dbid->value := ToString(type_id);
     this->frame->title := GetTid("wrd:types.update.title_edit", this->wrdtype->tag);
 
+    IF(this->wrdtype->keephistorydays > 0)
+      ^historystatus->value := GetTid("wrd:entitychanges.keepinghistory", ToString(this->wrdtype->keephistorydays));
+    ELSE
+      ^historystatus->value := GetTid("wrd:entitychanges.notkeepinghistory");
+
     this->parenttype->options :=
          SELECT rowkey := id, title := title || (tag!=""? " (" || tag || ")" : "")
            FROM [ [ id := 0, title := this->GetTid(".noparent"), tag := "" ] ] CONCAT wrdschema->ListTypes()
