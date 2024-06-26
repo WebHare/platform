@@ -33,6 +33,7 @@ RECORD FUNCTION GetOpenIDConnectMetadata(STRING metadataurl)
                    , keys := BlobToString(browser->content)  //the jwks_uri content
                    ]
         , ttl := 15 * 60 * 1000
+        , eventmasks := ["system:internal.clearopenidcaches"]
         ];
 }
 
@@ -61,18 +62,20 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
     THROW NEW Exception("This authentication domain is not setup for OIDC authentication");
 
   RECORD ARRAY filters;
-  IF (tag != "")
+  IF (tag LIKE "#?*")
+    INSERT [ field := "WRD_ID", value := ToInteger(Substring(tag,1),0) ] INTO filters AT END;
+  ELSE IF (tag != "")
     INSERT [ field := "WRD_TAG", value := tag ] INTO filters AT END;
 
   RECORD ARRAY spdata := wrdtype->RunQuery(
       [ filters := filters
-      , outputcolumns := [ "WRD_ID", "METADATAURL", "CLIENTID", "CLIENTSECRET", "ADDITIONALSCOPES" ]
+      , outputcolumns := [ "WRD_ID", "METADATAURL", "CLIENTID", "CLIENTSECRET", "ADDITIONALSCOPES", "REDIRECT_URI" ]
       ]);
 
   IF (NOT RecordExists(spdata))
     THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "'" : "") || " configured for this authentication domain");
   ELSE IF (LENGTH(spdata) > 1)
-    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag");
+    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag"); //This shouldn't get triggered by applicationportal.whlib as that one now fallsback to #<id> for tagging. anything else left?
 
 
   //TODO support prompt=login, prompt=none modes. they somewhat map to passive/auto logins?
@@ -81,9 +84,11 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
                                         , prompt := ""
                                         ]);
 
-  RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl, [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
-                                                                            , extraparameters := [ prompt := GetWebVariable("prompt")
-                                                                                                 //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
-                                                                                                 ]
-                                                                            ]);
+  RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl,
+    [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
+    , redirect_uri := spdata[0].redirect_uri
+    , extraparameters := [ prompt := GetWebVariable("prompt")
+                          //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
+                          ]
+    ]);
 }

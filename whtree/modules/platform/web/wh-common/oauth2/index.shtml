@@ -1,0 +1,5 @@
+<?wh
+// The oauth2 landing point. https://my.webhare.dev/.wh/common/oauth2/
+
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+RunOAuth2LandingPage();

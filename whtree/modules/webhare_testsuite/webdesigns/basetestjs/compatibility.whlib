@@ -1,0 +1,37 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+// things we'll probably need to support/test for existing HS code compatibility
+
+PUBLIC STATIC OBJECTTYPE WRDAutOIDCSupport EXTEND WRDAuthSupportBase
+<
+  /** @short Lookup an OIDC login */
+  UPDATE PUBLIC RECORD FUNCTION LookupOIDCLogin(RECORD payload, RECORD context)
+  {
+    IF(NOT CellExists(payload,"testfw_email"))
+      THROW NEW Exception("No email in payload");
+
+    INTEGER matchuser := this->plugin->LookupLogin(payload.testfw_email);
+    IF(matchuser = 0)
+    {
+      GetPrimary()->BeginWork();
+
+      INTEGER autounit := this->plugin->wrdschema->^whuser_unit->EnsureEntity(CELL[ wrd_tag := "AUTOUNIT", wrd_title := "OIDC Auto added users"], [ entitykey := ["wrd_tag"]])->id;
+      matchuser := this->plugin->userapi->CreateUser(CELL[
+        wrd_firstname := payload.testfw_firstname,
+        wrd_lastname := payload.testfw_lastname || " (OIDC)",
+        wrd_contact_email := payload.testfw_email,
+        whuser_unit := autounit
+        ]);
+
+      IF(payload.testfw_email LIKE "sysop*")
+        this->plugin->userapi->GetUser(matchuser)->UpdateGrant("grant", "system:supervisor", 0, this->plugin->userapi->GetUser(matchuser), [ allowselfassignment := TRUE ]);
+      GetPrimary()->CommitWork();
+    }
+    RETURN CELL [ userid := matchuser ];
+  }
+>;

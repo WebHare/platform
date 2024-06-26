@@ -12,10 +12,18 @@
     All WebHare assets that usually do not require authentication (ie they are well-known, only content-addressable or do their own authentication)
     must be moved to `/.wh/` so we have a single path to exclude from login checks.
 
+    All embeddedable assets (eg image cache) should move to /.wh/ea/ - this will help when designing rate limits and error handling (ie: users should
+    rarely if ever land on a /.wh/ea, requesting 10 real pages in a second is highly suspect, 10 embedded assets in a second isn't)
+
+    Modules that add similar embeddable assets should do so under /.wh/ea/mod/<modulename>/
+
     All under `/.wh/dev/` will be assigned to the standard 'dev' module (mod::dev/web/wh-dev/)
      `/.wh/common/` is a common location for tools such as Publisher feedback pages. It is managed by the 'platform' module
 
     Add-on modules that want to add content under /.wh/ should use /.wh/mod/<modulename>/
+
+    /.wh/common/ implements various builtin pages
+
     -->
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
     <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" />

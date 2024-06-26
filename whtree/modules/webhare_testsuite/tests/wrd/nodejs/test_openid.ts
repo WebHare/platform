@@ -1,3 +1,7 @@
+/* To see what Puppeteer is doing:
+   WEBHARE_DEBUG=show-browser wh run mod::webhare_testsuite/tests/wrd/nodejs/test_openid.ts
+*/
+
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import { HSVMObject, loadlib, makeObject } from "@webhare/harescript";
 import { toResourcePath } from "@webhare/services/src/resources";
@@ -9,9 +13,11 @@ import { IdentityProvider } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
+import { debugFlags } from "@webhare/env/src/envbackend";
+import { broadcast } from "@webhare/services";
 
 const callbackUrl = "http://localhost:3000/cb";
-const headless = true;
+const headless = !debugFlags["show-browser"];
 let sysoplogin = '', sysoppassword = '', clientWrdId = 0, clientId = '', clientSecret = '';
 let sysopobject: HSVMObject | undefined;
 let puppeteer: Puppeteer.Browser | undefined;
@@ -22,7 +28,10 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
 
   const context = await puppeteer.createBrowserContext(); //separate cookie storage
   const page = await context.newPage();
+
+  console.log("Oauth starting on", authorizeURL);
   await page.goto(authorizeURL);
+
   await page.setRequestInterception(true);
 
   const waitForLocalhost = new Promise<string>((resolve) => {
@@ -39,15 +48,19 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
     });
   });
 
-  await page.waitForSelector('[name=username]');
-  await page.type('[name=username]', sysoplogin);
-  await page.type('[name=password]', sysoppassword);
-  await page.click('button[data-name=loginbutton]');
+  await runWebHareLoginFlow(page);
 
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);
 
   return finalurl;
+}
+
+async function runWebHareLoginFlow(page: Puppeteer.Page) {
+  await page.waitForSelector('[name=username]');
+  await page.type('[name=username]', sysoplogin);
+  await page.type('[name=password]', sysoppassword);
+  await page.click('button[data-name=loginbutton]');
 }
 
 async function setupOIDC() {
@@ -62,6 +75,14 @@ async function setupOIDC() {
   sysoppassword = await testfw.getUserPassword("sysop");
   sysopobject = await testfw.getUserObject("sysop");
 
+  await runInWork(async () => { //run in separate transaction. can be moved back to the runInWork below as soon as CoVMs are eliminated
+    await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema("webhare_testsuite:oidc-sp", {
+      initialize: true,
+      schemaresource: "mod::system/data/wrdschemas/default.wrdschema.xml",
+      usermgmt: true
+    });
+  });
+
   await runInWork(async () => {
     const schema = new WRDSchema("wrd:testschema");
     const provider = new IdentityProvider(schema);
@@ -69,7 +90,22 @@ async function setupOIDC() {
 
     //TODO convert client creation to a @webhare/wrd or wrdauth api ?
     ({ wrdId: clientWrdId, clientId, clientSecret } = await provider.createServiceProvider({ title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
+
+    //Also register it ourselves for later use
+    const testsite = await getTestSiteJS();
+
+    const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+    await schemaSP.insert("wrdauthOidcClient", {
+      wrdTag: "TESTFW_OIDC_SP",
+      wrdTitle: "OIDC self sp",
+      metadataurl: testsite.webRoot + ".well-known/openid-configuration", //TODO There should be an API getting this URL for us, using the identitiyprovider site configuration
+      clientid: clientId,
+      clientsecret: clientSecret,
+      additionalscopes: "testfw"
+    });
   });
+
+  await broadcast("system:internal.clearopenidcaches");
 }
 
 async function verifyRoutes() {
@@ -181,10 +217,33 @@ async function verifyOpenIDClient() {
   test.eq("Sysop", tokenSet2.claims().sub);
 }
 
+async function verifyAsOpenIDSP() {
+  const testsite = await getTestSiteJS();
+
+  if (!puppeteer)
+    puppeteer = await launchPuppeteer({ headless });
+
+  const context = await puppeteer.createBrowserContext(); //separate cookie storage
+  const page = await context.newPage();
+  await page.goto(testsite.webRoot + "portal1-oidc/");
+  //wait for the OIDC button
+  await page.waitForFunction('[...document.querySelectorAll(".t-text__linetext")].find(_ => _.textContent.includes("OIDC self sp"))');
+  //click the OIDC button
+  await page.evaluate('[...document.querySelectorAll(".t-text__linetext")].find(_ => _.textContent.includes("OIDC self sp")).click()');
+  //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
+  await page.waitForNavigation();
+  await runWebHareLoginFlow(page);
+
+  //wait for WebHare username
+  const usernameNode = await page.waitForSelector("#dashboard-user-name");
+  test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode));
+}
+
 test.run([
   testSuiteCleanup,
   setupOIDC,
   verifyRoutes,
   verifyOpenIDClient,
+  verifyAsOpenIDSP,
   () => { puppeteer?.close(); }
 ]);

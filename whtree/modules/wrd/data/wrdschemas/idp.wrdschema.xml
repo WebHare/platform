@@ -1,6 +1,6 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <domain tag="wrdauth_service_provider">
+  <domain tag="wrdauth_service_provider"> <!-- these are service providers registered to our IDP -->
     <attributes>
       <free tag="wrd_title" required="true" />
       <array tag="client_secrets">

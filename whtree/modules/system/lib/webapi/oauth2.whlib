@@ -110,20 +110,19 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                , state := ""
                                , access_type := "online"
                                , extraparameters := DEFAULT RECORD
+                               , redirect_uri := ""
                                ], options, [ enums := [ access_type := ["offline","online"] ]]);
 
     IF(this->oauthconfig.authorizeurl = "")
       THROW NEW Exception(`Oauth autorizeurl not set!`);
 
-    STRING redirectto := this->oauthconfig.redirecturl;
-    IF(redirectto = "")
-      redirectto := GetDefaultOauth2RedirectURL();
+    STRING redirect_uri := options.redirect_uri ?? this->oauthconfig.redirecturl ?? GetDefaultOauth2RedirectURL();
 
     STRING url := UpdateURLVariables(this->oauthconfig.authorizeurl,
       [ client_id := this->oauthconfig.clientid
       , response_type := "code"
       , scope := Detokenize(options.scopes,' ')
-      , redirect_uri := redirectto
+      , redirect_uri := redirect_uri
       , state := options.state
       , access_type := options.access_type
       , ...options.extraparameters
@@ -151,6 +150,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                   , state := [ oauthconfig := this->oauthconfig
                                              , tokeninfo := DEFAULT RECORD
                                              , requeststart := GetCurrentDatetime()
+                                             , redirect_uri := CellExists(options, 'redirect_uri') ? options.redirect_uri : ""
                                              ]
                                   ]
            ];
@@ -289,18 +289,20 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   //}
 
   //trade in the authorization code for a request token
-  PUBLIC RECORD FUNCTION RequestToken(STRING code)
+  PUBLIC RECORD FUNCTION RequestToken(STRING code, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    STRING redirectto := this->oauthconfig.redirecturl;
-    IF(redirectto = "")
-      redirectto := GetDefaultOauth2RedirectURL();
+    options := ValidateOptions([ redirect_uri := ""
+                               ], options);
+
+
+    STRING redirect_uri := options.redirect_uri ?? this->oauthconfig.redirecturl ?? GetDefaultOauth2RedirectURL();
 
     BLOB body := CreateHTTPUrlencodedRequest(
                   [[ name := "code",          value := code ]
                   //TODO shouldn't this be safer in a authorization header ?
                   ,[ name := "client_id",     value := this->oauthconfig.clientid ]
                   ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
-                  ,[ name := "redirect_uri",  value := redirectto ]
+                  ,[ name := "redirect_uri",  value := redirect_uri ]
                   ,[ name := "grant_type",    value := "authorization_code" ]
                   ]).body;
 
@@ -413,7 +415,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     @return URL to the landing page */
 PUBLIC STRING FUNCTION GetDefaultOauth2RedirectURL()
 {
-  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/endpoints/oauth2.shtml");
+  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.wh/common/oauth2/");
 }
 
 /** @short Run the oauth2 landing page (normally hosted as /.system/endpoints/oauth2.shtml
@@ -449,7 +451,7 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   RECORD tokeninfo;
   STRING code := GetWebVariable("code");
   IF(code != "")
-    tokeninfo := oauthconnection->RequestToken(code);
+    tokeninfo := oauthconnection->RequestToken(code, [ redirect_uri := CellExists(sessdata,'redirect_uri') ? sessdata.redirect_uri : ""]);
 
   sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
 
