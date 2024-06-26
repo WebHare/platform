@@ -55,8 +55,9 @@ PUBLIC STATIC OBJECTTYPE WHFSFilterScreenBase EXTEND TolliumScreenBase
     RETURN DEFAULT RECORD;
   }
 
-  PUBLIC MACRO SetFilterData(RECORD filterdata)
+  PUBLIC BOOLEAN FUNCTION SetFilterData(RECORD filterdata)
   {
+    RETURN FALSE;
   }
 
   // Register app contexts with the parent screen, as this screen is loaded as panel contents

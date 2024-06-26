@@ -55,7 +55,16 @@ export interface CSPMember extends CSPMemberBasics {
 
 export interface CSPContentType {
   cloneoncopy: boolean;
-  dynamicexecution: null;
+  dynamicexecution: {
+    cachettl: number;
+    routerfunction: string;
+    startmacro: string;
+    webpageobjectname: string;
+    cacheblacklistcookies: string[];
+    cacheblacklistvariables: string[];
+    cachewebcookies: string[];
+    cachewebvariables: string[];
+  } | null;
   filetype: {
     blobiscontent: boolean;
     capturesubpaths: boolean;
@@ -79,6 +88,9 @@ export interface CSPContentType {
   line: number;
   members: CSPMember[];
   namespace: string;
+  renderer?: {
+    objectname: string;
+  };
   scopedtype: string;
   orphan: boolean;
   previewcomponent: string;

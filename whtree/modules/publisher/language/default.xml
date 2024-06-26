@@ -1604,6 +1604,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="contenttypes">   <!-- tolliumapps.dashboard.contenttypes -->
+        <text tid="codesource">Code location</text>
         <text tid="ctypeerrors">Compilation messages</text>
         <text tid="ctypemembers">Content type members</text>
         <text tid="deletectypeconfirm">Are you sure you want to permanently delete contenttype '<param p="1"/>'?</text>
@@ -1621,8 +1622,12 @@
         <text tid="orphansince">Orphan since</text>
         <text tid="panel">Content types</text>
         <text tid="recompile">Recompile</text>
+        <text tid="scopedtype">Scoped type</text>
+        <text tid="searchfsobjects">Search for objects of type</text>
+        <text tid="searchwidgets">Search files containing widget</text>
         <text tid="siteprofile">Site profile</text>
         <text tid="siteprofilesrecompiled">The site profiles are recompiled.</text>
+        <text tid="type">Meta type</text>
         <text tid="typename">Type</text>
       </textgroup>
       <textgroup gid="sites">   <!-- tolliumapps.dashboard.sites -->

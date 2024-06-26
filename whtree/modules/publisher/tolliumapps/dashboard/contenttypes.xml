@@ -1,23 +1,29 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="contenttypes.whlib"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.dashboard.contenttypes"
-         >
+         library="contenttypes.whlib">
 
   <screen name="panel">
     <actions>
-      <action name="recompile" onexecute="dorecompile" shortcut="ctrl+e"/>
-      <action name="viewtype" tid="~properties" onexecute="doviewtype" shortcut="ctrl+i">
-        <enableon source="types" min="1" />
+      <action name="recompile" onexecute="dorecompile" shortcut="ctrl+e" />
+      <action name="searchfsobjects" onexecute="dosearchfsobjects">
+        <enableon source="types" min="1" max="1" checkflags="isfsobjecttype"/>
+      </action>
+      <action name="searchwidgets" onexecute="dosearchwidgets">
+        <enableon source="types" min="1" max="1" checkflags="iswidgettype"/>
+      </action>
+      <action name="viewtype" onexecute="doviewtype" shortcut="ctrl+i" tid="~properties">
+        <enableon source="types" min="1" max="1" />
       </action>
       <action name="deletetype" tid="~delete">
-        <enableon source="types" checkflags="candelete" min="1" requirefocus="true" onexecute="dodelete" />
+        <enableon source="types" min="1" checkflags="candelete" onexecute="dodelete" requirefocus="true" />
       </action>
     </actions>
 
     <menus gid=".menus">
       <menu name="context_menu">
         <item action="viewtype" tid="~properties" />
+        <item action="searchfsobjects" />
+        <item action="searchwidgets" />
         <item action="deletetype" tid="~delete" />
       </menu>
     </menus>
@@ -25,42 +31,41 @@
     <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <panel backgroundcolor="#f0f0f0" borders="right" spacers="right">
-            <line layout="tabs-space">
-              <spacer />
-              <textedit name="filter" onchange="gotfilterchange" />
-            </line>
+          <panel backgroundcolor="#f0f0f0" borders="right" spacers="left right">
+            <textedit name="filter" onchange="gotfilterchange" />
           </panel>
-
           <list name="types"
-                flags="candelete"
-                emptytid=".noctypes"
-                selectmode="single"
-                selectcontextmenu="context_menu"
-                openaction="viewtype"
+                width="1pr"
+                height="1pr"
                 minwidth="30x"
-                width="1pr" height="1pr"
-                sortcolumn="namespace"
-                borders="right top">
+                borders="right top"
+                emptytid=".noctypes"
+                flags="candelete iswidgettype isfsobjecttype"
+                openaction="viewtype"
+                selectcontextmenu="context_menu"
+                selectmode="single"
+                sortcolumn="namespace">
             <column name="id" type="integer" width="8x" tid="~id" />
-            <column name="namespace" type="text" iconname="typeicon" />
-            <column name="orphansince" type="datetime" storeutc="true" align="right" width="17x"/>
+            <column name="namespace" type="text" iconname="typeicon" width="2pr" />
+            <column name="scopedtype" type="text" width="1pr" />
+            <column name="codesource" type="text" width="2pr" />
+            <column name="type" type="text" width="24x" />
+            <column name="orphansince" type="datetime" width="17x" align="right" storeutc="true" />
           </list>
         </cell>
         <cell spacers="left top right">
-          <button action="recompile" width="1pr" />
-          <button action="viewtype" width="1pr" />
-          <button action="deletetype" width="1pr" />
+          <button width="1pr" action="recompile" />
+          <button width="1pr" action="viewtype" />
+          <button width="1pr" action="deletetype" />
         </cell>
       </grid>
     </body>
   </screen>
 
-  <screen name="ctypemembers"
-          width="100x" height="40x" allowresize="true">
+  <screen name="ctypemembers" width="100x" height="40x" allowresize="true" footerbuttons="close">
     <actions>
       <action name="deletetype" tid="~delete">
-        <enableon source="members" checkflags="candelete" min="1" requirefocus="true" onexecute="dodelete" />
+        <enableon source="members" min="1" checkflags="candelete" onexecute="dodelete" requirefocus="true" />
       </action>
     </actions>
 
@@ -74,57 +79,53 @@
       <grid height="1pr">
         <cell width="1pr">
           <list name="members"
-                flags="candelete"
-                emptytid=".nomembers"
-                selectmode="single"
-                ongetpath="ongetpath"
-                ongetchildren="ongetchildren"
-                selectcontextmenu="context_menu"
-                sortcolumn="name"
-                icons="tollium:status/negative tollium:status/checked"
+                width="1pr"
+                height="1pr"
                 minwidth="30x"
-                width="1pr" height="1pr">
+                emptytid=".nomembers"
+                flags="candelete"
+                icons="tollium:status/negative tollium:status/checked"
+                ongetchildren="ongetchildren"
+                ongetpath="ongetpath"
+                selectcontextmenu="context_menu"
+                selectmode="single"
+                sortcolumn="name">
             <column name="rowkey" type="integer" width="8x" tid="~id" />
             <column name="name" type="text" tree="true" />
-            <column name="typename" width="18x" type="text" />
-            <column name="orphansince" type="datetime" storeutc="true" align="right" width="17x"/>
+            <column name="typename" type="text" width="18x" />
+            <column name="orphansince" type="datetime" width="17x" align="right" storeutc="true" />
           </list>
         </cell>
         <cell>
-          <button action="deletetype" width="1pr" />
+          <button width="1pr" action="deletetype" />
         </cell>
       </grid>
       <box name="locationbox" hr="false">
         <line>
-          <textedit name="siteprofile" enabled="false" width="1pr"/>
+          <textedit name="siteprofile" width="1pr" enabled="false" />
           <text name="linenum" />
         </line>
       </box>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="ctypeerrors" allowresize="true">
+  <screen name="ctypeerrors" allowresize="true" footerbuttons="close">
     <body name="body">
       <panel height="1pr">
         <list name="messagelist"
-              sortable="false"
-              width="1pr" height="1pr"
-              minwidth="150x" minheight="20x"
+              width="1pr"
+              height="1pr"
+              minwidth="150x"
+              minheight="20x"
               icons="tollium:status/warning tollium:status/error"
               rowiconname="icon"
-              >
+              sortable="false">
           <column name="file" type="text" width="3pr" hintname="fullpath" />
-          <column name="line" type="integer" width="8x" align="right" /><!-- FIXME: using minwidth here will screw up layout due to a todd js error -->
+          <column name="line" type="integer" width="8x" align="right" />  <!-- FIXME: using minwidth here will screw up layout due to a todd js error -->
           <column name="message" type="text" width="10pr" />
         </list>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
 </screens>

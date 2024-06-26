@@ -155,6 +155,11 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       {
         this->SelectObject(data.target.fileid);
       }
+      ELSE IF(CellExists(data.target, 'search'))
+      {
+        ^foldertree->value := (SELECT AS INTEGER rowkey FROM ^foldertree->rows WHERE modulekey = 'publisher:1.0');
+        ^filelist->SetFilter(data.target.search);
+      }
     }
     ELSE IF(data.calltype="direct" AND Length(data.params)>=1) // Published started from the URL and a possible id or whfspath specified as parameter?
     {

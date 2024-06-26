@@ -894,6 +894,22 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->RunTheFilter(FALSE, FALSE);
     }
   }
+  PUBLIC BOOLEAN FUNCTION SetFilter(RECORD filterinfo) //used for direct search activation by dashboard>contenttypes
+  {
+    IF(ObjectExists(this->folderfilter->contents))
+    {
+      OBJECT cachedscreen := SELECT AS OBJECT obj FROM this->filterscreencache WHERE id=this->curfolder;
+      IF(ObjectExists(cachedscreen))
+      {
+        IF(cachedscreen->SetFilterData(filterinfo))
+        {
+          this->RunTheFilter(FALSE, FALSE);
+          RETURN TRUE;
+        }
+      }
+    }
+    RETURN FALSE;
+  }
   MACRO RunTheFilter(BOOLEAN interactive, BOOLEAN allresults)
   {
     this->resultslimitedpanel->visible := FALSE;
