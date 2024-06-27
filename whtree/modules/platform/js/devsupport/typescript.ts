@@ -53,7 +53,7 @@ async function getTSFilesRecursive(startpath: string): Promise<string[]> {
   const result = [];
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (entry.name !== "node_modules")
+      if (entry.name !== "node_modules" && entry.name !== "vendor")
         result.push(...await getTSFilesRecursive(path.join(startpath, entry.name)));
       continue;
     }
@@ -64,7 +64,8 @@ async function getTSFilesRecursive(startpath: string): Promise<string[]> {
 }
 
 export async function checkUsingTSC(modulename: string): Promise<ValidationMessageWithType[]> {
-  const baseconfig = JSON.parse(await readFile(backendConfig.installationroot + "tsconfig.json", 'utf-8')); //ie: whtree/tsconfig.json
+  const baseconfigfile = backendConfig.installationroot + "tsconfig.json";
+  const baseconfig = JSON.parse(await readFile(baseconfigfile, 'utf-8')); //ie: whtree/tsconfig.json
   const compileroptions = baseconfig.compilerOptions;
 
   //Discover root of the project and which paths to compile
@@ -113,6 +114,7 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
     return mapDiagnostics(projectRoot, converted.errors);
   converted.options.noEmit = true;
   converted.options.incremental = true;
+  converted.options.configFilePath = baseconfigfile; //needed to make @types/... lookups independent of cwd
 
   //TODO move to storage/ somewhere or something that otherwise has a CACHEDIR.tag ? (not that it's really much data...) - or some dir that is recreated every WebHarere/container restart like the compilecache
   const tsbuildinfodir = backendConfig.dataroot + "ephemeral/system.typescript";
