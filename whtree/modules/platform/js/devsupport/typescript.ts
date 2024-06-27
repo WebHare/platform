@@ -44,6 +44,25 @@ function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): Validati
   return issues;
 }
 
+/* Gather list of files to compile
+
+  TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
+   an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
+async function getTSFilesRecursive(startpath: string): Promise<string[]> {
+  const entries = await fs.readdir(startpath, { withFileTypes: true });
+  const result = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (entry.name !== "node_modules")
+        result.push(...await getTSFilesRecursive(path.join(startpath, entry.name)));
+      continue;
+    }
+    if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
+      result.push(path.join(startpath, entry.name));
+  }
+  return result;
+}
+
 export async function checkUsingTSC(modulename: string): Promise<ValidationMessageWithType[]> {
   const baseconfig = JSON.parse(await readFile(backendConfig.installationroot + "tsconfig.json", 'utf-8')); //ie: whtree/tsconfig.json
   const compileroptions = baseconfig.compilerOptions;
@@ -61,14 +80,12 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
   }
 
   /* Gather list of files to compile
-     TODO a bit more efficient to already ignore node_modules in readdir
      TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
      an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
   const rootnames = [];
-  for (const root of rootpaths) //
-    rootnames.push(...(await fs.readdir(root, { recursive: true })).
-      filter(_ => !_.includes("/node_modules/") && (_.endsWith(".ts") || _.endsWith(".tsx"))).
-      map(name => path.join(root, name)));
+  for (const root of rootpaths)
+    rootnames.push(...await getTSFilesRecursive(root));
+
   if (!rootnames.length)
     return []; //don't bother launching TSC, no TypeScript here
 
