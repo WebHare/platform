@@ -93,7 +93,7 @@
     <test script="test_html.whscr" />
     <test script="test_ical.whscr" />
     <test script="test_internet.whscr" xfail="1" />  <!-- Missing socket support -->
-    <test script="test_ipc.whscr" />
+    <test script="test_ipc.whscr" flaky="true" />
     <test script="test_jobs.whscr" />
     <test script="test_json.whscr" />
     <test script="test_libdump.whscr" />

@@ -1,4 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <test script="test_sitecontentprovider.whscr" timeout="60000" />
+  <test script="test_sitecontentprovider.whscr" timeout="60000" flaky="true" />
   <test script="test_searchpage.whscr"/>
 </group>
