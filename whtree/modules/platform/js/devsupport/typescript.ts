@@ -60,10 +60,15 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
     rootpaths.push(projectRoot);
   }
 
-  //Gather list of files to compile
+  /* Gather list of files to compile
+     TODO a bit more efficient to already ignore node_modules in readdir
+     TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
+     an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
   const rootnames = [];
-  for (const root of rootpaths)
-    rootnames.push(...(await fs.readdir(root, { recursive: true })).filter(_ => _.endsWith(".ts") || _.endsWith(".tsx")).map(name => path.join(root, name)));
+  for (const root of rootpaths) //
+    rootnames.push(...(await fs.readdir(root, { recursive: true })).
+      filter(_ => !_.includes("/node_modules/") && (_.endsWith(".ts") || _.endsWith(".tsx"))).
+      map(name => path.join(root, name)));
   if (!rootnames.length)
     return []; //don't bother launching TSC, no TypeScript here
 
