@@ -1,4 +1,4 @@
-#!/bin/bash
+# shellcheck shell=bash
 # We can't mark this script as executable as it shouldn't be run on a build host
 
 # Updated 2019-10-02 (update this timestamp if nothing else to pull in new dependencies)
@@ -136,10 +136,14 @@ PACKAGES+=(certbot
     vim
     zip)
 
+# Chrome specific deps
+PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2)
+
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKAGES[@]}" ); then
   echo "APT-GET failed"
   exit 1
 fi
+
 
 # if it's just one of those days...  downgrade it, see https://github.com/nodejs/node/issues/52909
 # if [[ $(node -v) =~ ^v20.1[3-9] ]]; then
@@ -156,8 +160,7 @@ rm /etc/java-17-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
-# PUPPETEER_CACHE_DIR is where Puppeteer downloads the browser to
-mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache "$PUPPETEER_CACHE_DIR"
+mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
 
 # TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
 if ! certbot --version; then

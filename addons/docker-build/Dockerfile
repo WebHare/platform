@@ -104,6 +104,12 @@ RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/set
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
     /bin/bash /setup-opensearch.sh "$WHBUILD_ASSETROOT" 2.16.0
 
+## Install Chrome
+#RUN --mount=type=bind,source=addons/docker-build/setup-puppeteer.sh,target=/setup-puppeteer.sh \
+#    --mount=type=tmpfs,target=/tmp \
+#    npm_config_cache=/tmp/npmcache \
+#    /bin/bash /setup-puppeteer.sh  # 2024-07-02 - TODO if we can get the chrome version number online somewhere, could make it a BUILDARG ?
+
 # Add dropins (service management scripts etc)
 ADD addons/docker-build/dropins /
 

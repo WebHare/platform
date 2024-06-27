@@ -58,7 +58,33 @@ node_modules/.bin/yaml --json --single --strict < tsconfig.yml | jq > tsconfig.j
 node -e 'require("sharp")' || die "Sharp failed"
 
 ## download puppeteer
+logWithTime "Downloading puppeteer"
 (cd node_modules/puppeteer && npm run postinstall)
+
+# verify the binary works. note that we tried to cache the puppeteer download by doing it an earlier build stage
+# but it turns out npx @puppeteer/browsers install chrome@stable --path "$PUPPETEER_CACHE_DIR"
+# isn't guaranteed to install the real matching browser version
+logWithTime "Locating and testing Chrome"
+BROWSER=$(find "$PUPPETEER_CACHE_DIR" -type f -name chrome | head -n1)
+
+if [ -z "$BROWSER" ]; then
+  echo "Chrome download failed?"
+  exit 1
+fi
+
+if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  MISSINGLIBS="$(ldd "$BROWSER" | grep not || true)"
+  if [ -n "$MISSINGLIBS" ]; then
+    echo "Some dependencies are missing! Update CHROMEDEPS in setup-imagebase.sh"
+    echo "$MISSINGLIBS"
+    exit 1
+  fi
+fi
+
+if ! "$BROWSER" --headless --no-sandbox --screenshot=/tmp/chrome.png https://www.example.com/ ; then
+  echo "Screenshot failed. Chrome may be broken?"
+  exit 1
+fi
 
 ## get dependencies for the postgresql-client
 logWithTime "Setup postgresql-client"
