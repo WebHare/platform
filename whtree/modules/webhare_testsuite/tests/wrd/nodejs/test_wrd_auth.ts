@@ -1,6 +1,6 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT } from "@webhare/wrd/src/auth";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, CodeChallengeMethod } from "@webhare/wrd/src/auth";
 import { type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
@@ -44,9 +44,10 @@ async function testLowLevelAuthAPIs() {
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
 }
 
-async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '' }, user: number, customizer: WRDAuthCustomizer | null) {
+async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: WRDAuthCustomizer | null) {
   const state = generateRandomId();
-  const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}`;
+  const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
+  const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
 
   const startflow = await provider.startAuthorizeFlow(robotClientAuthURL, loginUrl, customizer);
   test.assert(startflow.error === null && startflow.type === "redirect");
@@ -66,7 +67,8 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
     client_id: clientId,
     client_secret: clientSecret,
     grant_type: "authorization_code",
-    redirect_uri: cbUrl
+    redirect_uri: cbUrl,
+    code_verifier: "",
   }; //TODO also test with auth in  headers
 
   //our evil client should not be able to get the token
@@ -76,6 +78,20 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   const badcodeparams = { ...formparams, code: formparams.code.substring(1) };
   test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(badcodeparams), new Headers, customizer));
 
+  if (challenge) {
+    //not supplying code_verifier when code_challenge was present is an error
+    test.eq({ error: /Missing code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer));
+
+    //invalid code_verifier (should be 43-128 characters long)
+    const invalidverifierparams = { ...formparams, code_verifier: "tooshort" };
+    test.eq({ error: /Invalid code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(invalidverifierparams), new Headers, customizer));
+
+    //non-matching code_verifier
+    const wrongverifierparams = { ...formparams, code_verifier: "1234567890123456789012345678901234567890123" };
+    test.eq({ error: /Wrong code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(wrongverifierparams), new Headers, customizer));
+
+    formparams.code_verifier = code_verifier;
+  }
   const tokens = await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer);
   test.assert(tokens.error === null);
   test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer));
@@ -145,6 +161,10 @@ async function testAuthAPI() {
   test.assert(authresult.expiresIn && authresult.expiresIn > 86300 && authresult.expiresIn < 86400);
 
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken, { audience: peopleClient!.clientId }));
+
+  //validate openid flow with PKCE (both plain and S256)
+  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "plain" }, testuser, null));
+  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser, null));
 
   // Test the openid session apis
   const blockingcustomizer: WRDAuthCustomizer = {

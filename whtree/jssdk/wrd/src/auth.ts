@@ -46,6 +46,9 @@ type LoginResult = {
   code: LoginErrorCodes;
 };
 
+const validCodeChallengeMethods = ["plain", "S256"] as const;
+type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
+
 declare module "@webhare/services" {
   interface SessionScopes {
     "wrd:openid.idpstate": {
@@ -53,6 +56,8 @@ declare module "@webhare/services" {
       scopes: string[];
       state: string | null;
       nonce: string | null;
+      code_challenge: string | null;
+      code_challenge_method: CodeChallengeMethod | null;
       cbUrl: string;
       /** User id to set */
       user?: number;
@@ -76,6 +81,37 @@ export interface WRDAuthSettings {
   loginIsEmail: boolean;
   passwordAttribute: string | null;
   passwordIsAuthSettings: boolean;
+}
+
+// Autorization with PKCE code verifier: https://www.rfc-editor.org/rfc/rfc7636
+
+// Note that the list of allowed characters for a code verifier is [A-Z] / [a-z] / [0-9] / "-" / "." / "_" / "~", using
+// generateRandomId eliminates "." and "~" from this list, resulting in a slightly less random code verifier
+export function createCodeVerifier(len = 56) {
+  if (len < 43 || len > 128)
+    throw new Error("A code verifier must be between 43 and 128 characters long");
+  let result = "";
+  while (result.length < len)
+    result += generateRandomId();
+  return result.substring(0, len);
+}
+
+export function createCodeChallenge(verifier: string, method: CodeChallengeMethod) {
+  switch (method) {
+    case "plain":
+      return verifier;
+    case "S256": {
+      const hash = crypto.createHash("sha256");
+      hash.update(verifier);
+      return hash.digest("base64url");
+    }
+    default:
+      throw new Error(`Invalid code challenge method '${method}', allowed are 'plain' or 'S256`);
+  }
+}
+
+function verifyCodeChallenge(verifier: string, challenge: string, method: CodeChallengeMethod) {
+  return createCodeChallenge(verifier, method) === challenge;
 }
 
 export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings> {
@@ -544,6 +580,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const redirect_uri = searchParams.get("redirect_uri") || '';
     const state = searchParams.get("state") || null;
     const nonce = searchParams.get("nonce") || null;
+    const code_challenge = searchParams.get("code_challenge") || null;
+    const code_challenge_method = searchParams.get("code_challenge_method") || null;
+
+    //If a code challenge was supplied, check the challenge method
+    if (code_challenge) {
+      if (!code_challenge_method)
+        return { error: "Missing code_challenge_method for code_challenge" };
+      if (!validCodeChallengeMethods.includes(code_challenge_method as CodeChallengeMethod))
+        return { error: `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256` };
+    }
 
     const client = await this.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
     if (client.length !== 1)
@@ -553,7 +599,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: "Unauthorized callback URL " + redirect_uri };
 
     const returnInfo = await runInWork(() => createServerSession("wrd:openid.idpstate",
-      { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, cbUrl: redirect_uri }));
+      { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, code_challenge, code_challenge_method: code_challenge_method as CodeChallengeMethod, cbUrl: redirect_uri }));
 
     const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
 
@@ -648,6 +694,17 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
     if (!returnInfo || !returnInfo?.user || returnInfo.clientid !== client[0].wrdId)
       return { error: "Invalid or expired code" };
+
+    if (returnInfo.code_challenge && returnInfo.code_challenge_method) {
+      //The original request had a code challenge, so this request should have a verifier
+      const code_verifier = form.get("code_verifier");
+      if (!code_verifier)
+        return { error: "Missing code_verifier" };
+      if (!code_verifier.match(/^[A-Za-z0-9-._~]{43,128}$/))
+        return { error: "Invalid code_verifier" };
+      if (!verifyCodeChallenge(code_verifier, returnInfo.code_challenge, returnInfo.code_challenge_method))
+        return { error: "Wrong code_verifier" };
+    }
 
     const expires = this.config.expires || "P1D";
     const tokens = await this.createTokens(returnInfo.user, returnInfo.clientid, expires, returnInfo.scopes, sessionid, returnInfo.nonce, customizer);
