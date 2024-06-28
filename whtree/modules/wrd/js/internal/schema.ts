@@ -350,7 +350,9 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
         if (!wrdschema)
           throw new Error(`No such WRD schema ${this.tag}`);
 
-        this.__ensureSchemaData(); //ensure listeners are in place to discard the cache where needed
+        /* ensure listeners are in place to discard the cache where needed */
+        await this.__ensureSchemaData();
+
         return wrdschema;
       })(),
       types: {}
