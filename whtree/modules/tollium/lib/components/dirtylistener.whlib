@@ -165,6 +165,9 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
     IF(this->manualdirty AND NOT RecordExists(SELECT FROM this->components WHERE NOT isdirty)) //already full dirty
       RETURN;
 
+    IF(IsDebugTagEnabled("tollium-dirty"))
+      Print(this->GetComponentIdentification() || " manually set to dirty\n");
+
     this->manualdirty := TRUE;
     UPDATE this->components
        SET isdirty := TRUE;
@@ -178,6 +181,9 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   {
     IF(NOT this->manualdirty AND NOT RecordExists(SELECT FROM this->components WHERE isdirty)) //already full clean
       RETURN;
+
+    IF(IsDebugTagEnabled("tollium-dirty"))
+      Print(this->GetComponentIdentification() || " clearing manual dirty flag\n");
 
     this->manualdirty := FALSE;
     FOREVERY (RECORD comp FROM this->components)
@@ -223,6 +229,8 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   {
     IF (RecordExists(SELECT FROM this->components WHERE comp = obj AND NOT isdirty))
     {
+      IF(IsDebugTagEnabled("tollium-dirty"))
+        Print(`Component ${obj->GetComponentIdentification()} set to dirty\n`);
       UPDATE this->components
          SET isdirty := TRUE
        WHERE comp = obj;
@@ -235,6 +243,8 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   {
     IF (RecordExists(SELECT FROM this->components WHERE comp = obj AND isdirty))
     {
+      IF(IsDebugTagEnabled("tollium-dirty"))
+        Print(`Component ${obj->GetComponentIdentification()} cleared dirty\n`);
       UPDATE this->components
          SET isdirty := FALSE
        WHERE comp = obj;
