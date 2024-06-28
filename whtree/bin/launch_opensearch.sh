@@ -36,16 +36,11 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   #ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
 fi
 
-if [ -x /usr/local/opt/opensearch/bin/opensearch ]; then  #macOS Homebrew on x86
-  OPENSEARCHBINARY=/usr/local/opt/opensearch/bin/opensearch
-elif [ -x /opt/opensearch/bin/opensearch ]; then  #linux docker build
+if [ -x /opt/opensearch/bin/opensearch ]; then  #linux docker build
   OPENSEARCHBINARY=/opt/opensearch/bin/opensearch
 else
-  if ! which opensearch; then
-    echo "No opensearch binary in path"
-    exit 1
-  fi
-  OPENSEARCHBINARY=opensearch #assume path lookup will find it
+  OPENSEARCHBINARY="$(which opensearch || true)"
+  [ -n "$OPENSEARCHBINARY" ] || die "No opensearch binary found in PATH"
 fi
 
 INITIALMEMORY="$1"
@@ -73,8 +68,9 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   fi
 
   setup_builddir
-
-  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version)"
+  # Who thought it was a good idea to write the version to stderr even if explicitly invoking --version ?
+  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version 2>&1 | grep ^Version)"
+  [ -n "$CURRENT_OPENSEARCHVERSION" ] || die "Failed to get opensearch version"
 
   # Remove from old location (remove at Date.now >= 2024-02-13)
   [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"

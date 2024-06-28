@@ -10,6 +10,7 @@ LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
@@ -123,7 +124,15 @@ IF (IsDatabaseWritable())
   trans->CommitWork();
 
   // Rebuild various webhare pregenerated files so they are available before poststart completes (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
-  UpdateGeneratedFiles(["all"]);
+  TRY
+  {
+    UpdateGeneratedFiles(["all"]);
+  }
+  CATCH(OBJECT e)
+  {
+    PrintTo(2,"\nRegenerating generated files failed! " || e->what || "\n");
+    LogHarescriptException(e);
+  }
 
   LogDebug("system:poststart", "Start UpdateModuleNotifications");
   UpdateModuleNotifications();
