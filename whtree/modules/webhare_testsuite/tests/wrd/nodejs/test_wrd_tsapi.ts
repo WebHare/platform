@@ -9,7 +9,6 @@ import { JsonWebKey } from "node:crypto";
 import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
 import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
-import { debugFlags } from "@webhare/env";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType, WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
@@ -976,10 +975,6 @@ async function testEventMasks() {
 }
 
 async function testSettingReuse() {
-  // settings reuse only supported when using the JS engine for reads and writes
-  if (!debugFlags["wrd:usejsengine"] || !debugFlags["wrd:writejsengine"])
-    return;
-
   function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
   }
 
@@ -1048,17 +1043,6 @@ async function testSettingReuse() {
   test.eq([reorderedArray[1].testImage!.dbLoc!.id], slicedArray.map(e => e.testImage!.dbLoc!.id));
 
   await whdb.commitWork();
-}
-
-debugFlags["wrd:usewasmvm"] = true;
-if (process.argv.includes("--usejsengine")) {
-  console.log(`using WRD js engine`);
-  debugFlags["wrd:usejsengine"] = true;
-
-  if (process.argv.includes("--writejsengine")) {
-    console.log(`using WRD js engine for writes too`);
-    debugFlags["wrd:writejsengine"] = true;
-  }
 }
 
 test.run([

@@ -1,14 +1,7 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="tsapi_support.whlib">
   <test script="test_wrd_api.ts" />
   <test script="test_wrd_types.ts" />
-  <test name="test_wrd_tsapi-hs" script="test_wrd_tsapi.ts" />
-  <test name="test_wrd_tsapi-js" script="test_wrd_tsapi.ts">
-    <arg value="--usejsengine" />
-  </test>
-  <test name="test_wrd_tsapi-js-writes" script="test_wrd_tsapi.ts">
-    <arg value="--usejsengine" />
-    <arg value="--writejsengine" />
-  </test>
+  <test script="test_wrd_tsapi.ts" />
   <test script="test_wrd_metadata.ts" />
   <test script="test_wrd_auth.ts" />
   <test script="test_openid.ts" />

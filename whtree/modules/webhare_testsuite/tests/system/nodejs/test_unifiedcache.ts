@@ -1,6 +1,5 @@
 import { getTestSiteJS, getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { debugFlags } from "@webhare/env/src/envbackend";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
@@ -428,9 +427,6 @@ async function testFileCache() {
 }
 
 async function testWRDImgCache() {
-  debugFlags["wrd:usewasmvm"] = true;
-  debugFlags["wrd:usejsengine"] = true;
-
   const schema = await createWRDTestSchema();
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //FIXME WRD should auto-complete metadata itself
   await beginWork();
