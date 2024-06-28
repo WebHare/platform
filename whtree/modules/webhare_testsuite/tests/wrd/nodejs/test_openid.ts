@@ -9,7 +9,7 @@ import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
-import { IdentityProvider } from "@webhare/wrd/src/auth";
+import { IdentityProvider, createCodeVerifier } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
@@ -133,7 +133,7 @@ async function verifyRoutes() {
 
   //FIXME WH should verify callback url validation
   //FIXME WH should verify valid and acceptable scopes
-  const authorize = await oauth2.StartAuthorizeClient(callbackUrl, { scopes: ["openid", "email"] });
+  const authorize = await oauth2.StartAuthorizeClient(callbackUrl, { scopes: ["openid", "email"], code_verifier: createCodeVerifier() });
   test.eq("redirect", authorize.type);
 
   const finalurl = await runAuthorizeFlow(authorize.url);
