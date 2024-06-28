@@ -296,12 +296,18 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     // Temporarily clear authorization token (if we're refreshing the token, it probably isn't valid anymore)
     RECORD token := this->token;
     this->token := DEFAULT RECORD;
-    IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
-        [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
+    TRY
     {
-      RETURN [ success := FALSE, message := `Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}` ];
+      IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
+          [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
+      {
+        RETURN [ success := FALSE, message := `Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}` ];
+      }
     }
-    this->token := token;
+    FINALLY
+    {
+      this->token := token;
+    }
 
     RECORD newtoken := DecodeJSONBlob(this->browser->content);
     IF(CellExists(newtoken,"access_token"))

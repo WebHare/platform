@@ -1,6 +1,6 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge } from "@webhare/wrd/src/auth";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, CodeChallengeMethod } from "@webhare/wrd/src/auth";
 import { type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
@@ -46,7 +46,7 @@ async function testLowLevelAuthAPIs() {
 
 async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: WRDAuthCustomizer | null) {
   const state = generateRandomId();
-  const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as "plain" | "S256") : "";
+  const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
 
   const startflow = await provider.startAuthorizeFlow(robotClientAuthURL, loginUrl, customizer);

@@ -46,6 +46,9 @@ type LoginResult = {
   code: LoginErrorCodes;
 };
 
+const validCodeChallengeMethods = ["plain", "S256"] as const;
+type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
+
 declare module "@webhare/services" {
   interface SessionScopes {
     "wrd:openid.idpstate": {
@@ -54,7 +57,7 @@ declare module "@webhare/services" {
       state: string | null;
       nonce: string | null;
       code_challenge: string | null;
-      code_challenge_method: string | null;
+      code_challenge_method: CodeChallengeMethod | null;
       cbUrl: string;
       /** User id to set */
       user?: number;
@@ -93,21 +96,21 @@ export function createCodeVerifier(len = 56) {
   return result.substring(0, len);
 }
 
-export function createCodeChallenge(verifier: string, method: string) {
+export function createCodeChallenge(verifier: string, method: CodeChallengeMethod) {
   switch (method) {
     case "plain":
       return verifier;
     case "S256": {
       const hash = crypto.createHash("sha256");
       hash.update(verifier);
-      return hash.digest("base64").replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
+      return hash.digest("base64url");
     }
     default:
       throw new Error(`Invalid code challenge method '${method}', allowed are 'plain' or 'S256`);
   }
 }
 
-function verifyCodeChallenge(verifier: string, challenge: string, method: string) {
+function verifyCodeChallenge(verifier: string, challenge: string, method: CodeChallengeMethod) {
   return createCodeChallenge(verifier, method) === challenge;
 }
 
@@ -584,7 +587,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (code_challenge) {
       if (!code_challenge_method)
         return { error: "Missing code_challenge_method for code_challenge" };
-      if (!["plain", "S256"].includes(code_challenge_method))
+      if (!validCodeChallengeMethods.includes(code_challenge_method as CodeChallengeMethod))
         return { error: `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256` };
     }
 
@@ -596,7 +599,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return { error: "Unauthorized callback URL " + redirect_uri };
 
     const returnInfo = await runInWork(() => createServerSession("wrd:openid.idpstate",
-      { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, code_challenge, code_challenge_method, cbUrl: redirect_uri }));
+      { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, code_challenge, code_challenge_method: code_challenge_method as CodeChallengeMethod, cbUrl: redirect_uri }));
 
     const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
 
