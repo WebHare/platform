@@ -4,11 +4,11 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-STRING ARRAY debugsettings;
 BOOLEAN outputtoolsactive;
 BOOLEAN didsetupprofiling;
 
@@ -20,7 +20,7 @@ MACRO ProcessWHDebugVariables(BOOLEAN skipchecks)
     STRING ARRAY toks := Tokenize(debugcookie,'.');
     STRING hash := toks[END-1];
     IF(skipchecks OR ValidateSignatureForThisServer("publisher:wh-debug", Left(debugcookie, Length(debugcookie) - Length(hash) - 1), Substring(hash,4)))
-      debugsettings := ArraySlice(toks, 0, Length(toks)-1);
+      __webdebugsettings := ArraySlice(toks, 0, Length(toks)-1);
   }
 
   STRING debugvars := GetWebVariable("wh-debug");
@@ -28,13 +28,16 @@ MACRO ProcessWHDebugVariables(BOOLEAN skipchecks)
   {
     FOREVERY(STRING opt FROM Tokenize(debugvars,','))
       IF(skipchecks OR opt IN whconstant_whdebug_publicflags) //we permit -some- URL flags, most specifically 'apr'
-        INSERT opt INTO debugsettings AT END;
+        INSERT opt INTO __webdebugsettings AT END;
   }
 
-  IF("apr" IN debugsettings AND NOT didsetupprofiling)
+  IF("apr" IN __webdebugsettings)
   {
-    didsetupprofiling := TRUE;
-    SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
+    IF(NOT didsetupprofiling)
+    {
+      didsetupprofiling := TRUE;
+      SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
+    }
   }
 }
 
@@ -82,9 +85,7 @@ PUBLIC MACRO ProcessWHDebugVariablesUnchecked()
 /** Test whether the specific debug option is set */
 PUBLIC BOOLEAN FUNCTION IsWHDebugOptionSet(STRING opt)
 {
-  IF(NOT IsRequest())
-    THROW NEW NotAShtmlContextException;
-  RETURN ToLowercase(opt) IN debugsettings;
+  RETURN IsDebugTagEnabled(ToLowercase(opt));
 }
 
 IF(IsRequest())

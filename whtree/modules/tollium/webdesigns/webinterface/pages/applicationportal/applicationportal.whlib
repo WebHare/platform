@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -921,6 +922,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
                          , inapppath :=    parsedappname.inapppath
                          , url :=          GetClientRequestURL()
                          , browsertriplet := options.browser
+                         , webdebugsettings := __webdebugsettings
                          , debug :=        IsWHDebugOptionSet("tol")
                          , profile :=      IsWHDebugOptionSet("apr")
                          , memoryprofile := GetWebVariable("profile") = "memory"
