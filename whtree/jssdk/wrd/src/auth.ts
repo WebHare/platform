@@ -12,10 +12,110 @@ import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "./wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
+import { decodeHSON } from "@webhare/hscompat/hscompat";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
+
+interface HSONAuthenticationSettings {
+  version: number;
+  passwords?: Array<{ passwordhash: string; validfrom: Date }>;
+  totp?: {
+    url: string;
+    backupcodes?: Array<{
+      code: string;
+      used?: Date;
+    }>;
+    locked?: Date;
+  };
+}
+
+export class AuthenticationSettings {
+  #passwords: Array<{ hash: string; validFrom: Date }> = [];
+  #totp: {
+    url: string;
+    backupCodes: Array<{ code: string; used: Date | null }>;
+    locked: Date | null;
+  } | null = null;
+
+  static fromPasswordHash(hash: string): AuthenticationSettings {
+    const auth = new AuthenticationSettings;
+    if (hash)
+      auth.#passwords.push({ hash, validFrom: new Date });
+    return auth;
+  }
+
+  static fromHSON(hson: string): AuthenticationSettings {
+    const obj = decodeHSON(hson) as unknown as HSONAuthenticationSettings;
+    if (typeof obj !== "object")
+      throw new Error(`Expected a HSON encoded record, got '${typeof obj}'`);
+    if (!obj || !("version" in obj))
+      throw new Error("Missing version field");
+    if (obj.version !== 1)
+      throw new Error(`Unsupported authentication settings version ${obj.version}`);
+
+    const auth = new AuthenticationSettings;
+    if (Array.isArray(obj.passwords))
+      for (const pwd of (obj.passwords ?? [])) {
+        if (!pwd || !pwd.passwordhash || !pwd.validfrom)
+          throw new Error("Invalid password record");
+        auth.#passwords.push({ hash: pwd.passwordhash, validFrom: pwd.validfrom });
+      }
+
+    if (obj.totp) {
+      auth.#totp = {
+        url: obj.totp.url,
+        backupCodes: (obj.totp.backupcodes ?? []).map(_ => ({ code: _.code, used: _.used ?? null })),
+        locked: obj.totp.locked ?? null
+      };
+    }
+    return auth;
+  }
+
+  hasTOTP(): boolean {
+    return Boolean(this.#totp);
+  }
+
+  getLastPasswordChange(): Date | null {
+    return this.#passwords.at(-1)?.validFrom ?? null;
+  }
+
+  getNumPasswords(): number {
+    return this.#passwords.length;
+  }
+
+  //TODO when to clear password? probably needs to be a WRD schema setting enforced on updateEntity
+  /** Update the password in this setting
+   * @param password - The new password
+   * @param alg - The hash algorithm to use. If not set, use best known method (may change in future versions)
+  */
+  async updatePassword(password: string, alg: "PLAIN" | "WHBF" = "WHBF"): Promise<void> {
+    if (!password)
+      throw new Error("Password cannot be empty");
+
+    let hash = '';
+    if (alg === "PLAIN")
+      hash = 'PLAIN:' + password;
+    else if (alg === "WHBF")
+      hash = await loadlib("wh::crypto.whlib").CREATEWEBHAREPASSWORDHASH(password);
+    else
+      throw new Error(`Unsupported password hash algorithm '${alg}'`);
+
+    this.#passwords.push({ hash, validFrom: new Date });
+  }
+
+  async verifyPassword(password: string): Promise<boolean> {
+    if (!password || !this.#passwords.length)
+      return false;
+
+    const tryHash = this.#passwords[this.#passwords.length - 1].hash;
+    if (tryHash.startsWith("PLAIN:"))
+      return password === tryHash.substring(6);
+
+    return await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash);
+  }
+}
 
 export interface LoginUsernameLookupOptions {
   /** Login to a specific site */
