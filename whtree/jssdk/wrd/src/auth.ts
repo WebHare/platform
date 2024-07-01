@@ -47,7 +47,7 @@ type LoginResult = {
 };
 
 const validCodeChallengeMethods = ["plain", "S256"] as const;
-type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
+export type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
 
 declare module "@webhare/services" {
   interface SessionScopes {
