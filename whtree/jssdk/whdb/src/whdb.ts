@@ -257,7 +257,6 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   constructor() {
     super();
     this._db = this.buildKyselyClient();
-    super.connect();
 
     type ExposeSocket = {
       _intlCon: { socket: { _socket: { ref(): void; unref(): void } } };

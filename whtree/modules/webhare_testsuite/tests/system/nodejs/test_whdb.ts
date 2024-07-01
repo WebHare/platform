@@ -10,6 +10,7 @@ import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
+import { AsyncWorker } from "@mod-system/js/internal/worker";
 
 async function cleanup() {
   await beginWork();
@@ -525,6 +526,13 @@ async function testHSRunInSeparatePrimary() {
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
 }
 
+async function testClosedConnectionHandling() {
+  const worker = new AsyncWorker;
+  await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#runShortLivedContext", 0);
+  await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#runShortLivedContext", 1);
+  await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#testQueryInNewContext");
+}
+
 test.run([
   cleanup,
   testQueries,
@@ -536,5 +544,6 @@ test.run([
   testCodeContexts,
   testSeparatePrimary,
   testHSRunInSeparatePrimary,
-  testHSCommitHandlers //moving this higher triggers races around commit handlers and VM shutdowns
+  testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
+  testClosedConnectionHandling,
 ]);
