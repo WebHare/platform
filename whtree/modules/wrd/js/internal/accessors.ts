@@ -1858,6 +1858,25 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
   }
 }
 
+class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<AuthenticationSettings | null, AuthenticationSettings | null, AuthenticationSettings | null> {
+  getDefaultValue(): null {
+    return null;
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): AuthenticationSettings | null {
+    return AuthenticationSettings.fromPasswordHash(entity_settings[settings_start].rawdata);
+  }
+
+  validateInput(value: AuthenticationSettings | null): void {
+    /* always valid */
+  }
+
+  encodeValue(value: AuthenticationSettings | null): AwaitableEncodedValue {
+    // For now this may also save us from having to port the Password->AuthenticationSetting migration from HS to TS. Would be nice to leave that all behind in HS
+    throw new Error(`Writing password values is not supported in the TypeScript API - the schema needs to switch to AuthenticationSettings`);
+  }
+}
+
 class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase<AuthenticationSettings | null, AuthenticationSettings | null, AuthenticationSettings | null> {
   getDefaultValue(): null {
     return null;
@@ -1934,7 +1953,6 @@ type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Opti
 
 /// The following accessors are not implemented yet
 class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBPasswordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | { data: Buffer } | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
