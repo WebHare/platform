@@ -4,17 +4,16 @@ import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/da
 import { Money } from "../../../../../jssdk/std/money";
 import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
 
-import { setHareScriptType, VariableType } from "@webhare/hscompat";
+import { setHareScriptType, HareScriptType } from "@webhare/hscompat";
 import { determineType, getDefaultValue, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
 
-export { type IPCMarshallableData, type IPCMarshallableRecord, VariableType };
-
+export { type IPCMarshallableData, type IPCMarshallableRecord, HareScriptType as VariableType };
 export { getDefaultValue, HSType }; //edudex compatibility
 
-type ArrayVariableType = VariableType.VariantArray | VariableType.IntegerArray | VariableType.MoneyArray | VariableType.FloatArray | VariableType.BooleanArray | VariableType.DateTimeArray | VariableType.Integer64Array | VariableType.FunctionPtrArray | VariableType.RecordArray | VariableType.StringArray | VariableType.BlobArray | VariableType.ObjectArray;
+type ArrayHareScriptType = HareScriptType.VariantArray | HareScriptType.IntegerArray | HareScriptType.MoneyArray | HareScriptType.FloatArray | HareScriptType.BooleanArray | HareScriptType.DateTimeArray | HareScriptType.Integer64Array | HareScriptType.FunctionPtrArray | HareScriptType.RecordArray | HareScriptType.StringArray | HareScriptType.BlobArray | HareScriptType.ObjectArray;
 
 /** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
-export function getTypedArray<V extends ArrayVariableType, T extends HSType<V>>(type: V, array: T): T {
+export function getTypedArray<V extends ArrayHareScriptType, T extends HSType<V>>(type: V, array: T): T {
   const copy = [...array];
   setHareScriptType(copy, type);
   return copy as T;
@@ -37,7 +36,7 @@ export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallabl
     columns.push(buf.readRaw(colsize).toString("utf-8").toLowerCase());
   }
 
-  const type = buf.readU8() as VariableType;
+  const type = buf.readU8() as HareScriptType;
   const retval = marshalReadInternal(buf, type, columns, null);
   if (buf.readpos !== buf.length)
     throw new Error(`Garbage at end of marshalling packet`);
@@ -88,20 +87,20 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
   const dataformat = buf.readU8();
   if (dataformat !== MarshalPacketFormatType)
     throw new Error(`Error in marshalling packet: Invalid data format`);
-  const type = buf.readU8() as VariableType;
+  const type = buf.readU8() as HareScriptType;
   const retval = marshalReadInternal(buf, type, columns, blobs);
   if (buf.readpos !== 20 + columnsize + datasize)
     throw new Error(`Error in marshalling packet: incorrect data section size`);
   return retval;
 }
 
-function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[], blobs: Buffer[] | null): IPCMarshallableData {
+function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, columns: string[], blobs: Buffer[] | null): IPCMarshallableData {
   if (type & 0x80) {
     const eltcount = buf.readU32();
     const retval: IPCMarshallableData[] = getDefaultValue(type) as IPCMarshallableData[];
-    if (type === VariableType.VariantArray) {
+    if (type === HareScriptType.VariantArray) {
       for (let i = 0; i < eltcount; ++i) {
-        const subtype = buf.readU8() as VariableType;
+        const subtype = buf.readU8() as HareScriptType;
         retval.push(marshalReadInternal(buf, subtype, columns, blobs));
       }
     } else {
@@ -112,13 +111,13 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
     return retval;
   }
   switch (type) {
-    case VariableType.Integer: {
+    case HareScriptType.Integer: {
       return buf.readS32();
     }
-    case VariableType.Integer64: {
+    case HareScriptType.Integer64: {
       return buf.readBigS64();
     }
-    case VariableType.HSMoney: {
+    case HareScriptType.HSMoney: {
       const value = buf.readBigS64();
       let str = value.toString();
       const isnegative = value < BigInt(0);
@@ -126,21 +125,21 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       str = str.substring(0, str.length - 5) + "." + str.substring(str.length - 5);
       return new Money((isnegative ? "-" : "") + str);
     }
-    case VariableType.Float: {
+    case HareScriptType.Float: {
       return buf.readDouble();
     }
-    case VariableType.Boolean: {
+    case HareScriptType.Boolean: {
       return buf.readBoolean();
     }
-    case VariableType.DateTime: {
+    case HareScriptType.DateTime: {
       const days = buf.readU32();
       const msecs = buf.readU32();
       return makeDateFromParts(days, msecs);
     }
-    case VariableType.String: {
+    case HareScriptType.String: {
       return buf.readString();
     }
-    case VariableType.Blob: {
+    case HareScriptType.Blob: {
       if (blobs) {
         const blobid = buf.readU32();
         if (!blobid)
@@ -150,10 +149,10 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       } else
         return WebHareBlob.from(buf.readBinary());
     }
-    case VariableType.FunctionPtr: {
+    case HareScriptType.FunctionPtr: {
       throw new Error(`Cannot decode FUNCTIONPTR yet`); // FIXME?
     }
-    case VariableType.Record: {
+    case HareScriptType.Record: {
       const eltcount = buf.readS32();
       if (eltcount < 0)
         return null;
@@ -162,15 +161,15 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
         const namenr = buf.readU32();
         if (namenr >= columns.length)
           throw new Error(`Corrupt marshal packet: column name nr out of range`);
-        const subtype = buf.readU8() as VariableType;
+        const subtype = buf.readU8() as HareScriptType;
         retval[columns[namenr]] = marshalReadInternal(buf, subtype, columns, blobs);
       }
       return retval;
     }
-    case VariableType.Object: {
+    case HareScriptType.Object: {
       throw new Error(`Cannot decode OBJECT`);
     }
-    case VariableType.WeakObject: {
+    case HareScriptType.WeakObject: {
       throw new Error(`Cannot decode WEAK OBJECT`);
     }
     default: {
@@ -249,24 +248,24 @@ export function writeMarshalPacket(value: unknown): Buffer {
   return Buffer.concat([startwriter.finish(), data_column, data_data, data_blob]);
 }
 
-function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: VariableType | null, path: object[]) {
+function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: HareScriptType | null, path: object[]) {
   const determinedtype = determineType(value);
   if (type === null) {
     type = determinedtype;
     writer.writeU8(type);
   } else if (type !== determinedtype) {
     if (unifyEltTypes(type, determinedtype) !== type)
-      throw new Error(`Cannot store an ${VariableType[determinedtype] ?? determinedtype} in an array for ${VariableType[type] ?? type}`);
+      throw new Error(`Cannot store an ${HareScriptType[determinedtype] ?? determinedtype} in an array for ${HareScriptType[type] ?? type}`);
   }
 
-  if (type & VariableType.Array) {
+  if (type & HareScriptType.Array) {
     if (path.includes(value as object)) //already seen this value
       throw new Error(`Detected a circular reference`);
     path.push(value as object);
 
     const len = (value as unknown[]).length;
     writer.writeU32(len);
-    const subtype = type === VariableType.VariantArray ? null : type & ~VariableType.Array;
+    const subtype = type === HareScriptType.VariantArray ? null : type & ~HareScriptType.Array;
     for (let i = 0; i < len; ++i) {
       writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, path);
     }
@@ -275,13 +274,13 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
     return;
   }
   switch (type) {
-    case VariableType.Integer: {
+    case HareScriptType.Integer: {
       writer.writeS32(value as number);
     } break;
-    case VariableType.Integer64: {
+    case HareScriptType.Integer64: {
       writer.writeS64(BigInt(value as (number | bigint)));
     } break;
-    case VariableType.Float: {
+    case HareScriptType.Float: {
       if (typeof value !== "number") { // Money, boxed float??
         if (Money.isMoney(value))
           writer.writeDouble(Number(value.value));
@@ -290,7 +289,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       } else
         writer.writeDouble(value as number);
     } break;
-    case VariableType.HSMoney: {
+    case HareScriptType.HSMoney: {
       if (typeof value !== "number") { // Money?
         if (!Money.isMoney(value))
           throw new Error(`Unknown object to encode as money`);
@@ -302,18 +301,18 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
         writer.writeS64(BigInt(Math.round(value * 100000)));
       }
     } break;
-    case VariableType.Boolean: {
+    case HareScriptType.Boolean: {
       writer.writeU8(value as boolean ? 1 : 0);
     } break;
-    case VariableType.String: {
+    case HareScriptType.String: {
       writer.writeString(value as string);
     } break;
-    case VariableType.DateTime: {
+    case HareScriptType.DateTime: {
       const { days, msecs } = dateToParts(value as Date);
       writer.writeU32(days);
       writer.writeU32(msecs);
     } break;
-    case VariableType.Record: {
+    case HareScriptType.Record: {
       if (!value)
         writer.writeS32(-1);
       else {
@@ -335,7 +334,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
         path.pop();
       }
     } break;
-    case VariableType.Blob: {
+    case HareScriptType.Blob: {
       if (!(value as WebHareBlob).size) { //empty blob
         writer.writeU32(0); //either we write blobid 0 or size 0
         break;
@@ -350,7 +349,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       }
     } break;
     default: {
-      throw new Error(`Cannot encode type ${VariableType[type] ?? type}`);
+      throw new Error(`Cannot encode type ${HareScriptType[type] ?? type}`);
     }
   }
 }

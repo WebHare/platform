@@ -12,79 +12,79 @@ declare global {
 export const Marshaller = Symbol("Marshaller");
 
 export interface MarshallInfo {
-  type: VariableType;
+  type: HareScriptType;
   setValue?: (hsvmvar: HSVMVar) => void;
 }
 
-export type HSType<T extends VariableType> =
-  T extends VariableType.Integer ? number :
-  T extends VariableType.HSMoney ? Money :
-  T extends VariableType.Float ? number :
-  T extends VariableType.Boolean ? boolean :
-  T extends VariableType.DateTime ? Date :
-  T extends VariableType.Integer64 ? bigint :
-  T extends VariableType.Record ? IPCMarshallableRecord :
-  T extends VariableType.String ? string :
-  T extends VariableType.Blob ? WebHareBlob :
-  T extends VariableType.VariantArray ? IPCMarshallableData[] :
-  T extends VariableType.IntegerArray ? Array<HSType<VariableType.Integer>> :
-  T extends VariableType.MoneyArray ? Array<HSType<VariableType.HSMoney>> :
-  T extends VariableType.FloatArray ? Array<HSType<VariableType.Float>> :
-  T extends VariableType.BooleanArray ? Array<HSType<VariableType.Boolean>> :
-  T extends VariableType.DateTimeArray ? Array<HSType<VariableType.DateTime>> :
-  T extends VariableType.Integer64Array ? Array<HSType<VariableType.Integer64>> :
-  T extends VariableType.FunctionPtrArray ? Array<HSType<VariableType.FunctionPtr>> :
-  T extends VariableType.RecordArray ? Array<HSType<VariableType.Record>> :
-  T extends VariableType.StringArray ? Array<HSType<VariableType.String>> :
-  T extends VariableType.BlobArray ? Array<HSType<VariableType.Blob>> :
+export type HSType<T extends HareScriptType> =
+  T extends HareScriptType.Integer ? number :
+  T extends HareScriptType.HSMoney ? Money :
+  T extends HareScriptType.Float ? number :
+  T extends HareScriptType.Boolean ? boolean :
+  T extends HareScriptType.DateTime ? Date :
+  T extends HareScriptType.Integer64 ? bigint :
+  T extends HareScriptType.Record ? IPCMarshallableRecord :
+  T extends HareScriptType.String ? string :
+  T extends HareScriptType.Blob ? WebHareBlob :
+  T extends HareScriptType.VariantArray ? IPCMarshallableData[] :
+  T extends HareScriptType.IntegerArray ? Array<HSType<HareScriptType.Integer>> :
+  T extends HareScriptType.MoneyArray ? Array<HSType<HareScriptType.HSMoney>> :
+  T extends HareScriptType.FloatArray ? Array<HSType<HareScriptType.Float>> :
+  T extends HareScriptType.BooleanArray ? Array<HSType<HareScriptType.Boolean>> :
+  T extends HareScriptType.DateTimeArray ? Array<HSType<HareScriptType.DateTime>> :
+  T extends HareScriptType.Integer64Array ? Array<HSType<HareScriptType.Integer64>> :
+  T extends HareScriptType.FunctionPtrArray ? Array<HSType<HareScriptType.FunctionPtr>> :
+  T extends HareScriptType.RecordArray ? Array<HSType<HareScriptType.Record>> :
+  T extends HareScriptType.StringArray ? Array<HSType<HareScriptType.String>> :
+  T extends HareScriptType.BlobArray ? Array<HSType<HareScriptType.Blob>> :
   never;
 
-export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
+export function getDefaultValue<T extends HareScriptType>(type: T): HSType<T> {
   switch (type) {
-    case VariableType.Integer: { return 0 as HSType<T>; }
-    case VariableType.HSMoney: { return new Money("0") as HSType<T>; }
-    case VariableType.Float: { return 0 as HSType<T>; }
-    case VariableType.Boolean: { return false as HSType<T>; }
-    case VariableType.DateTime: { return defaultDateTime as HSType<T>; }
-    case VariableType.Integer64: { return BigInt(0) as HSType<T>; }
-    case VariableType.Record: { return null as HSType<T>; }
-    case VariableType.String: { return "" as HSType<T>; }
-    case VariableType.Blob: { return WebHareBlob.from("") as HSType<T>; }
-    case VariableType.VariantArray:
-    case VariableType.IntegerArray:
-    case VariableType.MoneyArray:
-    case VariableType.FloatArray:
-    case VariableType.BooleanArray:
-    case VariableType.DateTimeArray:
-    case VariableType.Integer64Array:
-    case VariableType.RecordArray:
-    case VariableType.StringArray:
-    case VariableType.ObjectArray:
-    case VariableType.BlobArray:
-    case VariableType.WeakObjectArray:
-    case VariableType.FunctionPtrArray:
-    case VariableType.TableArray: {
+    case HareScriptType.Integer: { return 0 as HSType<T>; }
+    case HareScriptType.HSMoney: { return new Money("0") as HSType<T>; }
+    case HareScriptType.Float: { return 0 as HSType<T>; }
+    case HareScriptType.Boolean: { return false as HSType<T>; }
+    case HareScriptType.DateTime: { return defaultDateTime as HSType<T>; }
+    case HareScriptType.Integer64: { return BigInt(0) as HSType<T>; }
+    case HareScriptType.Record: { return null as HSType<T>; }
+    case HareScriptType.String: { return "" as HSType<T>; }
+    case HareScriptType.Blob: { return WebHareBlob.from("") as HSType<T>; }
+    case HareScriptType.VariantArray:
+    case HareScriptType.IntegerArray:
+    case HareScriptType.MoneyArray:
+    case HareScriptType.FloatArray:
+    case HareScriptType.BooleanArray:
+    case HareScriptType.DateTimeArray:
+    case HareScriptType.Integer64Array:
+    case HareScriptType.RecordArray:
+    case HareScriptType.StringArray:
+    case HareScriptType.ObjectArray:
+    case HareScriptType.BlobArray:
+    case HareScriptType.WeakObjectArray:
+    case HareScriptType.FunctionPtrArray:
+    case HareScriptType.TableArray: {
       return setHareScriptType([] as HSType<T>, type);
     }
     default:
-      throw new Error(`Cannot generate default value for type ${VariableType[type] ?? type}`);
+      throw new Error(`Cannot generate default value for type ${HareScriptType[type] ?? type}`);
   }
 }
 
-export function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
-  if (a === b || a === VariableType.Variant)
+export function unifyEltTypes(a: HareScriptType, b: HareScriptType): HareScriptType {
+  if (a === b || a === HareScriptType.Variant)
     return a;
-  if (b === VariableType.Variant)
+  if (b === HareScriptType.Variant)
     return b;
-  if (a === VariableType.Integer && (b === VariableType.Float || b === VariableType.HSMoney || b === VariableType.Integer64))
+  if (a === HareScriptType.Integer && (b === HareScriptType.Float || b === HareScriptType.HSMoney || b === HareScriptType.Integer64))
     return b;
-  if ((a === VariableType.Float || a === VariableType.HSMoney || a === VariableType.Integer64) && b === VariableType.Integer)
+  if ((a === HareScriptType.Float || a === HareScriptType.HSMoney || a === HareScriptType.Integer64) && b === HareScriptType.Integer)
     return a;
-  if (a === VariableType.Float && (b === VariableType.HSMoney || b === VariableType.Integer64))
+  if (a === HareScriptType.Float && (b === HareScriptType.HSMoney || b === HareScriptType.Integer64))
     return a;
-  if ((a === VariableType.HSMoney || a === VariableType.Integer64) && b === VariableType.Float)
+  if ((a === HareScriptType.HSMoney || a === HareScriptType.Integer64) && b === HareScriptType.Float)
     return b;
-  return VariableType.Variant;
+  return HareScriptType.Variant;
 }
 
 /** Set a HareScript type on an object
@@ -92,7 +92,7 @@ export function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
  * @param type - The type to set
  * @returns The `variable` parameter (to allow chaining)
 */
-export function setHareScriptType<T>(variable: T, type: VariableType): T {
+export function setHareScriptType<T>(variable: T, type: HareScriptType): T {
   if (Array.isArray(variable)) {
     if (type < 0x80) //see system.whlib IsTypeidArray
       throw new Error(`Cannot set a non-array type on an array`);
@@ -109,7 +109,7 @@ export function setHareScriptType<T>(variable: T, type: VariableType): T {
 export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | WebHareBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
 export type IPCMarshallableRecord = null | { [key in string]: IPCMarshallableData };
 
-export enum VariableType {
+export enum HareScriptType {
   Uninitialized = 0x00,                 ///< Not initialised variable
   Variant = 0x01,
   Integer = 0x10,
@@ -143,52 +143,52 @@ export enum VariableType {
   BlobArray = 0xc0,
 }
 
-export function determineType(value: unknown): VariableType {
+export function determineType(value: unknown): HareScriptType {
   if (value?.[Marshaller])
     return value[Marshaller].type;
   if (Array.isArray(value)) {
     if (value.length === 0)
-      return VariableType.VariantArray;
+      return HareScriptType.VariantArray;
     let elttype = determineType(value[0]);
     for (let i = 1; i < value.length; ++i) {
       elttype = unifyEltTypes(elttype, determineType(value[i]));
     }
-    if (elttype & VariableType.Array)
-      return VariableType.VariantArray;
-    return elttype | VariableType.Array;
+    if (elttype & HareScriptType.Array)
+      return HareScriptType.VariantArray;
+    return elttype | HareScriptType.Array;
   }
   switch (typeof value) {
     case "object": {
       if (WebHareBlob.isWebHareBlob(value))
-        return VariableType.Blob;
+        return HareScriptType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
-        return VariableType.String;
+        return HareScriptType.String;
       if (Money.isMoney(value))
-        return VariableType.HSMoney;
+        return HareScriptType.HSMoney;
       if (isDate(value))
-        return VariableType.DateTime;
+        return HareScriptType.DateTime;
 
-      return VariableType.Record;
+      return HareScriptType.Record;
     }
     case "bigint": {
-      return VariableType.Integer64;
+      return HareScriptType.Integer64;
     }
     case "boolean": {
-      return VariableType.Boolean;
+      return HareScriptType.Boolean;
     }
     case "string": {
-      return VariableType.String;
+      return HareScriptType.String;
     }
     case "number": {
       if (value === Math.floor(value)) {
         if (value >= -2147483648 && value < 2147483648)
-          return VariableType.Integer;
-        return VariableType.Integer64;
+          return HareScriptType.Integer;
+        return HareScriptType.Integer64;
       }
-      return VariableType.Float;
+      return HareScriptType.Float;
     }
     case "undefined": //treat as 'null'
-      return VariableType.Record;
+      return HareScriptType.Record;
     default: {
       throw new Error(`Cannot send variable of type ${JSON.stringify(typeof value)}`);
     }
@@ -200,30 +200,30 @@ export function encodeHSON(value: IPCMarshallableData): string {
   return "hson:" + encodeHSONInternal(value);
 }
 
-function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType): string {
+function encodeHSONInternal(value: IPCMarshallableData, needtype?: HareScriptType): string {
   let type = determineType(value);
   if (needtype !== undefined && type !== needtype) {
     if (unifyEltTypes(type, needtype) !== needtype)
-      throw new Error(`Cannot store an ${VariableType[type] ?? type} in an array for ${VariableType[needtype] ?? needtype}`);
+      throw new Error(`Cannot store an ${HareScriptType[type] ?? type} in an array for ${HareScriptType[needtype] ?? needtype}`);
     type = needtype;
   }
 
   let retval = "";
   switch (type) {
-    case VariableType.VariantArray: retval = "va["; break;
-    case VariableType.BooleanArray: retval = "ba["; break;
-    case VariableType.DateTimeArray: retval = "da["; break;
-    case VariableType.MoneyArray: retval = "ma["; break;
-    case VariableType.FloatArray: retval = "fa["; break;
-    case VariableType.StringArray: retval = "sa["; break;
-    case VariableType.BlobArray: retval = "xa["; break;
-    case VariableType.Integer64Array: retval = "i64a["; break;
-    case VariableType.IntegerArray: retval = "ia["; break;
-    case VariableType.RecordArray: retval = "ra["; break;
-    case VariableType.ObjectArray: retval = "oa["; break;
+    case HareScriptType.VariantArray: retval = "va["; break;
+    case HareScriptType.BooleanArray: retval = "ba["; break;
+    case HareScriptType.DateTimeArray: retval = "da["; break;
+    case HareScriptType.MoneyArray: retval = "ma["; break;
+    case HareScriptType.FloatArray: retval = "fa["; break;
+    case HareScriptType.StringArray: retval = "sa["; break;
+    case HareScriptType.BlobArray: retval = "xa["; break;
+    case HareScriptType.Integer64Array: retval = "i64a["; break;
+    case HareScriptType.IntegerArray: retval = "ia["; break;
+    case HareScriptType.RecordArray: retval = "ra["; break;
+    case HareScriptType.ObjectArray: retval = "oa["; break;
 
-    case VariableType.Boolean: retval = value ? "true" : "false"; break;
-    case VariableType.DateTime: {
+    case HareScriptType.Boolean: retval = value ? "true" : "false"; break;
+    case HareScriptType.DateTime: {
       const dt = value as Date;
       const totalmsecs = Number(dt);
 
@@ -252,7 +252,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
           retval = retval + `"`;
       }
     } break;
-    case VariableType.Float: {
+    case HareScriptType.Float: {
       if (typeof value === "object") {
         if (Money.isMoney(value))
           retval = "f " + (value as Money).value;
@@ -261,7 +261,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       } else
         retval = "f " + (value as number).toString().replace('+', ''); //format 1e+308 as 1e308
     } break;
-    case VariableType.String:
+    case HareScriptType.String:
       if (typeof value === "string") { //FIXME this might break if the encodeHSON-ed value is then eg hashed .. as JSON stringify may not have the exact same escaping as HS encodeHSON would do!
         retval = JSON.stringify(value);
         break;
@@ -269,7 +269,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       //FIXME should definitely use EncodeHSON style - binary is a hint that this data is not UTF8 safe.
       retval = JSON.stringify((value as Buffer).toString()).replaceAll("\\u0000", "\\x00");
       break;
-    case VariableType.Blob: {
+    case HareScriptType.Blob: {
       if (!(value as WebHareBlob).size) {
         retval = `b""`;
         break;
@@ -278,9 +278,9 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       const data = (value as WebHareBlob).__getAsSyncUInt8Array();
       retval = `b"` + Buffer.from(data).toString("base64") + `"`; //FIXME avoid this buffer copy
     } break;
-    case VariableType.Integer64: retval = "i64 " + (value as number | bigint).toString(); break;
-    case VariableType.Integer: retval = (value as number).toString(); break;
-    case VariableType.HSMoney: {
+    case HareScriptType.Integer64: retval = "i64 " + (value as number | bigint).toString(); break;
+    case HareScriptType.Integer: retval = (value as number).toString(); break;
+    case HareScriptType.HSMoney: {
       if (typeof value === "object") {
         if (!Money.isMoney(value))
           throw new Error(`Unknown object to encode as money`);
@@ -288,7 +288,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       } else
         retval = "m " + value.toString();
     } break;
-    case VariableType.Record: {
+    case HareScriptType.Record: {
       const recval = value as IPCMarshallableRecord;
       if (!recval)
         retval = "*";
@@ -309,10 +309,10 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
     } break;
 
     default:
-      throw new Error(`Cannot encode type ${VariableType[type] ?? type}`);
+      throw new Error(`Cannot encode type ${HareScriptType[type] ?? type}`);
   }
-  if (type & VariableType.Array) {
-    const itemtype = type !== VariableType.VariantArray ? type & ~VariableType.Array : undefined;
+  if (type & HareScriptType.Array) {
+    const itemtype = type !== HareScriptType.VariantArray ? type & ~HareScriptType.Array : undefined;
 
     let first = true;
     for (const item of value as IPCMarshallableData[]) {
@@ -338,14 +338,14 @@ class Level {
   key: string | number;
   lastarrayelt: unknown;
   restorestate: ParseState;
-  arrayelttype: VariableType;
+  arrayelttype: HareScriptType;
 
   constructor(parent: LevelParentVar, key: string | number, restorestate: ParseState) {
     this.parent = parent;
     this.key = key;
     this.restorestate = restorestate;
     this.lastarrayelt = null;
-    this.arrayelttype = VariableType.Uninitialized;
+    this.arrayelttype = HareScriptType.Uninitialized;
   }
 }
 
@@ -407,7 +407,7 @@ class JSONParser {
   /// State before hson type specifier
   hsonrestorestate = ParseState.PS_HSONStart;
   lastname = "";
-  lasttype = VariableType.Uninitialized;
+  lasttype = HareScriptType.Uninitialized;
 
   root: { value?: IPCMarshallableData } = {};
   levels: Level[] = [];
@@ -695,8 +695,8 @@ class JSONParser {
       success: this.state !== TokenState.TS_Error,
       msg: this.errormessage ? `At :${this.errorline}:${this.errorcolumn}: ${this.errormessage}` : "",
       value: this.state === TokenState.TS_Error
-        ? getDefaultValue(VariableType.Record)
-        : this.root.value ?? getDefaultValue(VariableType.Record)
+        ? getDefaultValue(HareScriptType.Record)
+        : this.root.value ?? getDefaultValue(HareScriptType.Record)
     };
   }
 
@@ -878,9 +878,9 @@ class JSONParser {
           if (tokentype === TokenType.JTT_SpecialToken) {
             if (token[0] === '{') { // new object
               if (this.levels[this.levels.length - 1].arrayelttype === 0)
-                this.levels[this.levels.length - 1].arrayelttype = VariableType.RecordArray;
-              else if (this.levels[this.levels.length - 1].arrayelttype !== VariableType.RecordArray)
-                this.levels[this.levels.length - 1].arrayelttype = VariableType.VariantArray;
+                this.levels[this.levels.length - 1].arrayelttype = HareScriptType.RecordArray;
+              else if (this.levels[this.levels.length - 1].arrayelttype !== HareScriptType.RecordArray)
+                this.levels[this.levels.length - 1].arrayelttype = HareScriptType.VariantArray;
               this.levels.push(new Level(parent, key, restorestate));
 
               if (this.levels.length >= 2048) {
@@ -899,7 +899,7 @@ class JSONParser {
                 return false;
               }
 
-              this.levels[this.levels.length - 1].arrayelttype = VariableType.VariantArray;
+              this.levels[this.levels.length - 1].arrayelttype = HareScriptType.VariantArray;
               this.levels.push(new Level(parent, key, restorestate));
 
               if (this.levels.length >= 2048) {
@@ -908,7 +908,7 @@ class JSONParser {
                 return false;
               }
 
-              parent[key] = getDefaultValue(VariableType.VariantArray);
+              parent[key] = getDefaultValue(HareScriptType.VariantArray);
               this.parsestate = ParseState.PS_ArrayWantValue;
               return true;
             } else {
@@ -921,13 +921,13 @@ class JSONParser {
           if (this.hson && tokentype === TokenType.JTT_Token) { // Either type specifier, '*', 'true' or 'false'
             if (token.length === 1) {
               switch (token[0]) {
-                case 'm': this.lasttype = VariableType.HSMoney; break;
-                case 'f': this.lasttype = VariableType.Float; break;
-                case 'd': this.lasttype = VariableType.DateTime; break;
-                case 'b': this.lasttype = VariableType.Blob; break;
-                case 'o': this.lasttype = VariableType.Object; break;
-                case 'w': this.lasttype = VariableType.WeakObject; break;
-                case 'p': this.lasttype = VariableType.FunctionPtr; break;
+                case 'm': this.lasttype = HareScriptType.HSMoney; break;
+                case 'f': this.lasttype = HareScriptType.Float; break;
+                case 'd': this.lasttype = HareScriptType.DateTime; break;
+                case 'b': this.lasttype = HareScriptType.Blob; break;
+                case 'o': this.lasttype = HareScriptType.Object; break;
+                case 'w': this.lasttype = HareScriptType.WeakObject; break;
+                case 'p': this.lasttype = HareScriptType.FunctionPtr; break;
                 case '*':
                   {
                     parent[key] = null;
@@ -952,18 +952,18 @@ class JSONParser {
               }
 
               switch (token[0]) {
-                case 'v': this.lasttype = VariableType.VariantArray; break;
-                case 'b': this.lasttype = VariableType.BooleanArray; break;
-                case 'd': this.lasttype = VariableType.DateTimeArray; break;
-                case 'm': this.lasttype = VariableType.MoneyArray; break;
-                case 'f': this.lasttype = VariableType.FloatArray; break;
-                case 's': this.lasttype = VariableType.StringArray; break;
-                case 'x': this.lasttype = VariableType.BlobArray; break;
-                case 'i': this.lasttype = VariableType.IntegerArray; break;
-                case 'r': this.lasttype = VariableType.RecordArray; break;
-                case 'o': this.lasttype = VariableType.ObjectArray; break;
-                case 'w': this.lasttype = VariableType.WeakObjectArray; break;
-                case 'p': this.lasttype = VariableType.FunctionPtrArray; break;
+                case 'v': this.lasttype = HareScriptType.VariantArray; break;
+                case 'b': this.lasttype = HareScriptType.BooleanArray; break;
+                case 'd': this.lasttype = HareScriptType.DateTimeArray; break;
+                case 'm': this.lasttype = HareScriptType.MoneyArray; break;
+                case 'f': this.lasttype = HareScriptType.FloatArray; break;
+                case 's': this.lasttype = HareScriptType.StringArray; break;
+                case 'x': this.lasttype = HareScriptType.BlobArray; break;
+                case 'i': this.lasttype = HareScriptType.IntegerArray; break;
+                case 'r': this.lasttype = HareScriptType.RecordArray; break;
+                case 'o': this.lasttype = HareScriptType.ObjectArray; break;
+                case 'w': this.lasttype = HareScriptType.WeakObjectArray; break;
+                case 'p': this.lasttype = HareScriptType.FunctionPtrArray; break;
                 default: {
                   this.errormessage = "Illegal variable type encoding '" + token + "'";
                   this.parsestate = ParseState.PS_Error;
@@ -971,7 +971,7 @@ class JSONParser {
                 }
               }
 
-              this.levels[this.levels.length - 1].arrayelttype = VariableType.VariantArray;
+              this.levels[this.levels.length - 1].arrayelttype = HareScriptType.VariantArray;
               this.levels.push(new Level(parent, key, restorestate));
               this.levels[this.levels.length - 1].arrayelttype = this.lasttype;
 
@@ -989,7 +989,7 @@ class JSONParser {
               if (!is_array)
                 this.hsonrestorestate = this.parsestate;
               else {
-                this.levels[this.levels.length - 1].arrayelttype = VariableType.Integer64Array;
+                this.levels[this.levels.length - 1].arrayelttype = HareScriptType.Integer64Array;
                 this.levels.push(new Level(parent, key, restorestate));
 
                 if (this.levels.length >= 2048) {
@@ -998,10 +998,10 @@ class JSONParser {
                   return false;
                 }
 
-                parent[key] = getDefaultValue(VariableType.Integer64Array);
+                parent[key] = getDefaultValue(HareScriptType.Integer64Array);
               }
 
-              this.lasttype = is_array ? VariableType.Integer64Array : VariableType.Integer64;
+              this.lasttype = is_array ? HareScriptType.Integer64Array : HareScriptType.Integer64;
               this.parsestate = is_array ? ParseState.PS_HSONWantArray : ParseState.PS_HSONWantTypedValue;
               return true;
             }
@@ -1044,7 +1044,7 @@ class JSONParser {
       }
       case TokenType.JTT_Token: {
         if (token === "null" && !this.hson) {
-          parent[key] = getDefaultValue(VariableType.Record);
+          parent[key] = getDefaultValue(HareScriptType.Record);
           return true;
         }
         if (token === "false") {
@@ -1173,15 +1173,15 @@ class JSONParser {
 
   parseHSONTypedValue(parent: LevelParentVar, key: string | number, token: string, tokentype: TokenType): boolean {
     switch (this.lasttype) {
-      case VariableType.Integer64: {
+      case HareScriptType.Integer64: {
         parent[key] = BigInt(token);
         return true;
       }
-      case VariableType.HSMoney: {
+      case HareScriptType.HSMoney: {
         parent[key] = new Money(token);
         return true;
       }
-      case VariableType.Float: {
+      case HareScriptType.Float: {
         if (tokentype !== TokenType.JTT_Number) {
           this.errormessage = "Illegal money/float value '" + token + "'";
           this.parsestate = ParseState.PS_Error;
@@ -1191,7 +1191,7 @@ class JSONParser {
         parent[key] = Number(token);
         return true;
       }
-      case VariableType.Blob: {
+      case HareScriptType.Blob: {
         if (tokentype !== TokenType.JTT_String) {
           this.errormessage = "Illegal blob value '" + token + "'";
           this.parsestate = ParseState.PS_Error;
@@ -1200,7 +1200,7 @@ class JSONParser {
         parent[key] = WebHareBlob.from(Buffer.from(token, "base64"));
         return true;
       }
-      case VariableType.DateTime: {
+      case HareScriptType.DateTime: {
         if (tokentype !== TokenType.JTT_String) {
           this.errormessage = "Illegal datetime value '" + token + "'";
           this.parsestate = ParseState.PS_Error;
@@ -1235,13 +1235,13 @@ class JSONParser {
         parent[key] = value;
         return true;
       }
-      case VariableType.Object:
-      case VariableType.WeakObject:
-      case VariableType.FunctionPtr: {
-        throw new Error(`Not supported decoding type ${VariableType[this.lasttype] ?? this.lasttype} in JavaScript`);
+      case HareScriptType.Object:
+      case HareScriptType.WeakObject:
+      case HareScriptType.FunctionPtr: {
+        throw new Error(`Not supported decoding type ${HareScriptType[this.lasttype] ?? this.lasttype} in JavaScript`);
       }
       default:
-        throw new Error(`Unhandled variabletype in HSON typed decoder: ${VariableType[this.lasttype] ?? this.lasttype}`);
+        throw new Error(`Unhandled variabletype in HSON typed decoder: ${HareScriptType[this.lasttype] ?? this.lasttype}`);
     }
   }
 }

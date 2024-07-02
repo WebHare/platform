@@ -1,5 +1,5 @@
 import { isDate, Money } from "@webhare/std";
-import { determineType, VariableType } from "./hson";
+import { determineType, HareScriptType } from "./hson";
 import { defaultDateTime } from "./datetime";
 
 export type ComparableType = number | null | bigint | string | Date | Money | boolean | Buffer;
@@ -168,7 +168,7 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
       }
     } break;
   }
-  throw new Error(`Cannot compare a ${VariableType[determineType(left)]} with a ${VariableType[determineType(right)]}`);
+  throw new Error(`Cannot compare a ${HareScriptType[determineType(left)]} with a ${HareScriptType[determineType(right)]}`);
 }
 
 function groupCompare<

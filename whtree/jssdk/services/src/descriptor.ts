@@ -6,7 +6,7 @@ import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
-import { Marshaller, VariableType } from "@webhare/hscompat/hson";
+import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
@@ -757,7 +757,7 @@ export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
   private readonly _resource: WebHareBlob; // The resource itself
   [Marshaller] = {
-    type: VariableType.Record,
+    type: HareScriptType.Record,
     setValue: function (this: ResourceDescriptor, value: HSVMVar) {
       //Bit of an experiment...  allow ResourceDescriptor to convert to Wrapped Blobs when transferred to HareScript
       value.setJSValue({
