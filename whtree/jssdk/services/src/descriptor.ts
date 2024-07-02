@@ -6,7 +6,7 @@ import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
-import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Marshaller, VariableType } from "@webhare/hscompat/hson";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 

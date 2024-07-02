@@ -1,10 +1,11 @@
 import * as stacktrace_parser from "stacktrace-parser";
-import { VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
+import { determineType } from "@webhare/hscompat/hson";
 
 function testTypeAPIs() {
   test.eq(VariableType.Integer64Array, determineType([0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n]));

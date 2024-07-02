@@ -1,4 +1,4 @@
-import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Marshaller, VariableType } from "@webhare/hscompat/hson";
 import { HSVM_HSVMSource } from "./machinewrapper";
 import { HareScriptVM } from "./wasm-hsvm";
 import { HSVMHeapVar, type HSVMVar } from "./wasm-hsvmvar";

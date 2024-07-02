@@ -1,4 +1,4 @@
-import { Marshaller, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Marshaller, IPCMarshallableRecord, VariableType, determineType, getDefaultValue } from "@webhare/hscompat/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
@@ -502,7 +502,7 @@ export class HSVMVar {
       }
     }
     if (type & VariableType.Array) {
-      const value: unknown[] = getTypedArray(type, []);
+      const value: unknown[] = getDefaultValue(type);
       const eltcount = this.vm.wasmmodule._HSVM_ArrayLength(this.vm.hsvm, this.id);
       for (let i = 0; i < eltcount; ++i) {
         const elt = this.vm.wasmmodule._HSVM_ArrayGetRef(this.vm.hsvm, this.id, i);
