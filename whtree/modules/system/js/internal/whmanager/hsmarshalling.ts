@@ -9,6 +9,8 @@ import { determineType, getDefaultValue, unifyEltTypes, type HSType, type IPCMar
 
 export { type IPCMarshallableData, type IPCMarshallableRecord, VariableType };
 
+export { getDefaultValue, HSType }; //edudex compatibility
+
 type ArrayVariableType = VariableType.VariantArray | VariableType.IntegerArray | VariableType.MoneyArray | VariableType.FloatArray | VariableType.BooleanArray | VariableType.DateTimeArray | VariableType.Integer64Array | VariableType.FunctionPtrArray | VariableType.RecordArray | VariableType.StringArray | VariableType.BlobArray | VariableType.ObjectArray;
 
 /** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
@@ -16,10 +18,6 @@ export function getTypedArray<V extends ArrayVariableType, T extends HSType<V>>(
   const copy = [...array];
   setHareScriptType(copy, type);
   return copy as T;
-}
-
-export function annotateExistingArray<V extends ArrayVariableType>(type: VariableType, array: HSType<V>) {
-  return Object.defineProperty(array, "__hstype", { value: type });
 }
 
 const MarshalFormatType = 2;

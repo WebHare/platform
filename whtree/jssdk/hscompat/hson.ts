@@ -64,7 +64,7 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
     case VariableType.WeakObjectArray:
     case VariableType.FunctionPtrArray:
     case VariableType.TableArray: {
-      return Object.defineProperty([] as HSType<T>, "__hstype", { value: type });
+      return setHareScriptType([] as HSType<T>, type);
     }
     default:
       throw new Error(`Cannot generate default value for type ${VariableType[type] ?? type}`);
@@ -86,8 +86,13 @@ export function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
     return b;
   return VariableType.Variant;
 }
-/** Set a HareScript type on an object */
-export function setHareScriptType(variable: unknown, type: VariableType): void {
+
+/** Set a HareScript type on an object
+ * @param variable - The object to set the type on
+ * @param type - The type to set
+ * @returns The `variable` parameter (to allow chaining)
+*/
+export function setHareScriptType<T>(variable: T, type: VariableType): T {
   if (Array.isArray(variable)) {
     if (type < 0x80) //see system.whlib IsTypeidArray
       throw new Error(`Cannot set a non-array type on an array`);
@@ -97,6 +102,7 @@ export function setHareScriptType(variable: unknown, type: VariableType): void {
   }
 
   Object.defineProperty(variable, Marshaller, { value: { type } });
+  return variable;
 }
 
 /* TODO we may need to support WHDBBlob too - encodeHSON and IPC only currently require that they can transfer the data without await */
@@ -138,12 +144,9 @@ export enum VariableType {
 }
 
 export function determineType(value: unknown): VariableType {
+  if (value?.[Marshaller])
+    return value[Marshaller].type;
   if (Array.isArray(value)) {
-    if (value && typeof value === "object" && "__hstype" in value) {
-      const rec = value as Record<"__hstype", VariableType>;
-      if (rec.__hstype)
-        return rec.__hstype as VariableType;
-    }
     if (value.length === 0)
       return VariableType.VariantArray;
     let elttype = determineType(value[0]);
@@ -156,8 +159,6 @@ export function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
-      if (value?.[Marshaller])
-        return value[Marshaller].type;
       if (WebHareBlob.isWebHareBlob(value))
         return VariableType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
@@ -166,9 +167,7 @@ export function determineType(value: unknown): VariableType {
         return VariableType.HSMoney;
       if (isDate(value))
         return VariableType.DateTime;
-      if (value && "__hstype" in value) {
-        return value.__hstype as VariableType;
-      }
+
       return VariableType.Record;
     }
     case "bigint": {
