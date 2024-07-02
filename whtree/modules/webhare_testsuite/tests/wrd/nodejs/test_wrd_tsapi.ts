@@ -18,6 +18,7 @@ import { isChange } from "@mod-wrd/js/internal/schema";
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
+import { Money } from "@webhare/std";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -861,6 +862,9 @@ async function testComparisons() {
     }
   ], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate", "wrdDateOfBirth", "wrdDateOfDeath"]).where("wrdId", "=", newperson).historyMode("active").execute());
 
+
+  const maxMoneyIntValue = (Number.MAX_SAFE_INTEGER / 100000).toString();
+
   const tests = {
     wrdCreationDate: { values: [null, new Date(1), new Date(0), new Date(-1)] }, //we need to end with creationdate at -1 otherwise one of the tests will set limit < creation
     wrdLimitDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
@@ -868,6 +872,8 @@ async function testComparisons() {
     testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
     testDatetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
     testEnum: { values: [null, "enum1", "enum2"] },
+    testInteger64: { values: [-(2n ** 63n), -10n, 0n, 12n, 2n ** 63n - 1n] },
+    testMoney: { values: [new Money(`-${maxMoneyIntValue}`), new Money("-0.01"), new Money("0.00"), new Money("0.01"), new Money(`${maxMoneyIntValue}`)] },
   };
 
   // Delete other persons to make sure search can only find newperson

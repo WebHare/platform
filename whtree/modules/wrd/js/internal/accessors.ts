@@ -1745,6 +1745,112 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichDocum
   }
 }
 
+
+type WRDDBInteger64Conditions = {
+  condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: bigint | number;
+} | {
+  condition: "in"; value: readonly bigint[];
+};
+
+class WRDDBInteger64Value extends WRDAttributeValueBase<bigint, bigint, bigint, WRDDBInteger64Conditions> {
+  getDefaultValue() { return 0n; }
+  checkFilter({ condition, value }: WRDDBInteger64Conditions) {
+    // type-check is enough (for now)
+  }
+  matchesValue(value: bigint, cv: WRDDBInteger64Conditions): boolean {
+    if (cv.condition === "in")
+      return cv.value.includes(value);
+    return cmp(value, cv.condition, cv.value);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBInteger64Conditions): AddToQueryResponse<O> {
+    if (cv.condition !== "in" && typeof cv.value === "number") {
+      cv = { ...cv, value: BigInt(cv.value) };
+    }
+    const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
+    if (cv.condition === "in" && !cv.value.length)
+      return null;
+
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => addWhere(b, sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, cv.value));
+
+    return {
+      needaftercheck: false,
+      query
+    };
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): bigint {
+    return BigInt(entity_settings[settings_start].rawdata);
+  }
+
+  validateInput(value: bigint) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+    if (value >= 2n ** 63n)
+      throw new Error(`Integer64 out of range for ${this.attr.tag}: ${value} > 2^63-1`);
+    if (value < -(2n ** 63n))
+      throw new Error(`Integer64 out of range for ${this.attr.tag}: ${value} < -2^63`);
+  }
+
+  encodeValue(value: bigint): EncodedValue {
+    return value ? { settings: { rawdata: String(value), attribute: this.attr.id } } : {};
+  }
+}
+
+type WRDDBMoneyConditions = {
+  condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: Money;
+} | {
+  condition: "in"; value: readonly Money[];
+};
+
+class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMoneyConditions> {
+  getDefaultValue() { return new Money("0"); }
+  checkFilter({ condition, value }: WRDDBMoneyConditions) {
+    // type-check is enough (for now)
+  }
+  matchesValue(value: Money, cv: WRDDBMoneyConditions): boolean {
+    if (cv.condition === "in")
+      return cv.value.some(v => Money.cmp(value, v) === 0);
+    const cmpres = Money.cmp(value, cv.value);
+    switch (cv.condition) {
+      case "=": return cmpres === 0;
+      case ">=": return cmpres >= 0;
+      case "<=": return cmpres <= 0;
+      case "<": return cmpres < 0;
+      case ">": return cmpres > 0;
+      case "!=": return cmpres !== 0;
+    }
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBMoneyConditions): AddToQueryResponse<O> {
+    const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
+
+    if (cv.condition === "in" && !cv.value.length)
+      return null;
+
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => addWhere(b, sql<bigint>`rawdata::NUMERIC(1000,5)`, cv.condition, cv.value));
+
+    return {
+      needaftercheck: false,
+      query
+    };
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Money {
+    return new Money(entity_settings[settings_start].rawdata);
+  }
+
+  validateInput(value: Money) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: Money): EncodedValue {
+    return value ? { settings: { rawdata: String(value), attribute: this.attr.id } } : {};
+  }
+}
+
+
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
     throw new Error(`Unimplemented accessor for type ${WRDAttributeType[this.attr.attributetype] ?? WRDBaseAttributeType[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
@@ -1796,8 +1902,8 @@ type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Opti
 /// The following accessors are not implemented yet, but have some typings
 //class WRDDBBaseCreationLimitDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
 //class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
-class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
-class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
+//class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
+//class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
 //class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>> { _x?: Options; _y?: Required; }
 
 /// The following accessors are not implemented yet
