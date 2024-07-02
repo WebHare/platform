@@ -5,12 +5,15 @@ import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
 import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
-import { SetFieldErrorData, setFieldError, setupValidator } from './internal/customvalidation';
+import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId } from '@webhare/std';
 import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getErrorForValidity, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
+import { isFieldNativeErrored, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
+
+//Suggestion or error messages
+export type FormFrontendMessage = HTMLElement | string;
 
 declare global {
   interface HTMLElement {
@@ -28,14 +31,10 @@ declare global {
     propWhNodeCurrentRequired?: boolean;
     propWhNodeCurrentHidden?: boolean;
     propWhFormlineCurrentVisible?: boolean;
-    propWhValidationSuggestion?: HTMLElement | null;
-    propWhValidationError?: string | null;
-    propWhSetFieldError?: string | null;
+    propWhValidationSuggestion?: FormFrontendMessage | null;
     propWhCleanupFunction?: () => void;
-    propWhErrorServerSide?: boolean;
     propWhFormhandler?: FormBase;
     whFormsApiChecker?: () => Promise<void> | void;
-    propWhFormNativeError?: boolean;
     whUseFormGetValue?: boolean;
     __didPlaceholderWarning?: boolean;
   }
@@ -44,7 +43,14 @@ declare global {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
     "wh:form-require": CustomEvent<{ required: boolean }>;
     "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
-    "wh:form-setfielderror": CustomEvent<SetFieldErrorData>;
+    "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
+    "wh:form-pagechange": CustomEvent<{
+      formHandler: FormBase;
+      /** TODO Add numPages and currentPage, but we'd need to figure out how to properly account for Captcha pages (you don't wnat either numPages or currentPage to count that one)
+      numPages: number;
+      currentPage: number;
+      */
+    }>;
   }
 }
 
@@ -413,7 +419,9 @@ export default class FormBase {
    * .wh-form__error             - The error message container
    * .wh-form_suggestion         - The suggestion message container
    */
-  _updateFieldGroupMessageState(field: HTMLElement, type: "error" | "suggestion", getError: (field: HTMLElement) => string | HTMLElement) {
+  _updateFieldGroupMessageState(field: HTMLElement, type: "error" | "suggestion", getError: (field: HTMLElement) => FormFrontendMessage | null) {
+    //Please note that _updateFieldGroupMessageState doesn't *validate* anything - it takes the current error/suggestion status and updates the DOM accordingly
+
     /*
     ADDME: ability to show multiple messages in case both the toplevel and a subfield have an error/suggestion.
            Example: a checkboxgroup in which too many options are selected AND the required textfield of a selected option is empty.
@@ -432,18 +440,20 @@ export default class FormBase {
     const fieldgroup = field.closest<HTMLElement>(".wh-form__fieldgroup");
     //console.log("_updateFieldGroupMessageState", field, fieldgroup);
     if (!fieldgroup)
-      return null;
+      return;
 
-    // Within the group this field belongs to we lookup the first node we can find which is marked as having the
-    // type of message we want ("error" or "suggestion").
-    // First we'll see if the fieldgroup wants to report something, otherwise whe'll look for the first node which has a message.
+    /* Within the group this field belongs to we lookup the first node we can find which is marked as having the
+       type of message we want ("error" or "suggestion").
+       First we'll see if the fieldgroup wants to report something (radio & checkboxes handle their errors at the group level)
+       otherwise whe'll look for the first node which has a message.
+    */
     const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector<HTMLElement>(".wh-form__field--" + type);
-
+    let error = (field_with_message ? getError(field_with_message) : null) || null;
 
     // Now mark the whole .wh-form__fieldgroup as having an error/suggestion
     fieldgroup.classList.toggle("wh-form__fieldgroup--" + type, Boolean(field_with_message));
 
-    let error = (field_with_message ? getError(field_with_message) : null) || null;
+    // Lookup the error message from the field metadata
     if (error) //mark the field has having failed at one point. we will now switch to faster updating error state
       field.classList.add('wh-form__field--everfailed');
 
@@ -531,7 +541,7 @@ export default class FormBase {
   }
 
   _updateFieldGroupErrorState(field: HTMLElement) {
-    this._updateFieldGroupMessageState(field, 'error', failedfield => failedfield.propWhSetFieldError || failedfield.propWhValidationError || '');
+    this._updateFieldGroupMessageState(field, 'error', failedfield => getValidationState(failedfield).getError());
   }
 
   _updateFieldGroupSuggestionState(field: HTMLElement) {
@@ -542,23 +552,19 @@ export default class FormBase {
     //FIXME properly handle multiple fields in this group reporting errors
     dompack.stop(evt);
 
-    //if we're already in error mode, always update reporting
-    if (!evt.detail.reportimmediately && !evt.target.classList.contains("wh-form__field--error"))
-      return;
 
     this._reportFieldValidity(evt.target);
   }
 
-  _reportFieldValidity(node: HTMLElement) {
-    const iserror = (node.propWhSetFieldError || node.propWhValidationError || node.propWhFormNativeError);
-    node.classList.toggle("wh-form__field--error", Boolean(iserror));
-
-    const issuggestion = !iserror && node.propWhValidationSuggestion;
-    node.classList.toggle("wh-form__field--suggestion", Boolean(issuggestion));
+  /** @returns false on error */
+  _reportFieldValidity(node: HTMLElement): boolean {
+    const state = getValidationState(node).getState();
+    node.classList.toggle("wh-form__field--error", Boolean(state?.error));
+    node.classList.toggle("wh-form__field--suggestion", Boolean(state?.suggested));
 
     this._updateFieldGroupErrorState(node);
     this._updateFieldGroupSuggestionState(node);
-    return !iserror;
+    return !(state && "error" in state);
   }
 
   //validate and submit. normal submissions should use this function, directly calling submit() skips validation and busy locking
@@ -598,7 +604,7 @@ export default class FormBase {
 
   private _shouldValidateField(el: HTMLElement) {
     //TODO maybe we can get rid of the data attributes by checking for explicit symbols like whFormsApiChecker
-    return (el.whFormsApiChecker || el.matches('input,select,textarea,*[data-wh-form-name]')) &&
+    return (el.whFormsApiChecker || el.matches('input,select,textarea,*[data-wh-form-name],*[data-wh-form-custom-validator')) &&
       this._isPartOfForm(el);
   }
 
@@ -608,9 +614,11 @@ export default class FormBase {
 
   //reset any serverside generated errors (generally done when preparing a new submission)
   resetServerSideErrors() {
-    for (const field of this._getFieldsToValidate())
-      if (field.propWhSetFieldError && field.propWhErrorServerSide && field.propWhCleanupFunction)
+    for (const field of this._getFieldsToValidate()) {
+      const state = getValidationState(field);
+      if (state?.explicit?.serverside && field.propWhCleanupFunction)
         field.propWhCleanupFunction();
+    }
   }
 
   async _doSubmit(evt: SubmitEvent | null, extradata: ExtraData) {
@@ -753,7 +761,7 @@ export default class FormBase {
     /* tell the page it's now visible - note that we specifically don't fire this on init, as it's very likely
        users would 'miss' the event anyway - registerHandler usually executes faster than your wh:form-pagechange
        registrations, if you wrapped those in a dompack.register */
-    dompack.dispatchCustomEvent(state.pages[pageidx], "wh:form-pagechange", { bubbles: true, cancelable: false });
+    dompack.dispatchCustomEvent(state.pages[pageidx], "wh:form-pagechange", { bubbles: true, cancelable: false, detail: { formHandler: this } });
   }
 
   private _getDestinationPage(pagestate: PageState, direction: number) {
@@ -1469,6 +1477,7 @@ export default class FormBase {
   static setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
     setFieldError(field, error, options);
   }
+
   setFieldError(field: HTMLElement, error: string, options?: Partial<FieldErrorOptions>) {
     setFieldError(field, error, options);
   }
@@ -1477,28 +1486,27 @@ export default class FormBase {
     return true;
   }
 
-  async _validateSingleFieldOurselves(field: HTMLElement) {
-    let alreadyfailed = false;
+  async _validateSingleFieldOurselves(field: HTMLElement): Promise<boolean> {
+    const state = getValidationState(field);
 
-    //browser checks go first, any additional checks are always additive (just disable browserchecks you don't want to apply)
-    field.propWhFormNativeError = false;
-    if (!alreadyfailed && isFormControl(field) && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
-      const validitystatus = field.checkValidity();
-
-      //we need a separate prop for our errors, as we shouldn't clear explicit errors
-      field.propWhValidationError = validitystatus ? '' : getErrorForValidity(field);
-
-      if (!validitystatus) {
-        field.propWhFormNativeError = true;
-        alreadyfailed = true;
-      }
+    if (!state.explicit && isFieldNativeErrored(field)) {
+      //browser checks go first, any additional checks are always additive (just disable browserchecks you don't want to apply)
+      updateFieldError(field);
+      return this._reportFieldValidity(field);
     }
 
-    //FIXME why can't this return a string, be async and then immediately set that error, like setupvalidator can?
-    if (!alreadyfailed && !(await this.validateSingleFormField(field)))
-      alreadyfailed = true;
+    //TODO we probably *shouldn't* be bothering running our validations if state.explicit is set, but then setFieldError needs to rerun the checks once the explicit error is dropped
+    state.dynamicError = null;
+    await this.validateSingleFormField(field);
 
-    if (!alreadyfailed && field.whFormsApiChecker)
+    if (!state.dynamicError)
+      for (const validator of state.validators) {
+        state.dynamicError = await validator(field) || null;
+        if (state.dynamicError)
+          break; //one is enough
+      }
+
+    if (!state.dynamicError && field.whFormsApiChecker)
       await field.whFormsApiChecker();
 
     return this._reportFieldValidity(field);

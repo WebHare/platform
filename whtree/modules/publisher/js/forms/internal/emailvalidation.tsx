@@ -2,6 +2,7 @@ import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@mod-tollium/js/gettid";
 import formservice, { EmailValidationResult } from "@webhare/forms/src/formservice";
 import { isValidEmail } from '@webhare/std';
+import { setFieldError } from './customvalidation';
 
 const cache:
   {
@@ -35,7 +36,8 @@ export async function validateField(form: FormBase, field: HTMLInputElement) {
     return true; //not a problem
 
   if (!isValidEmail(checkvalue)) {
-    field.propWhValidationError = getTid("publisher:site.forms.commonerrors.email");
+    //TODO why aren't we just returning the error like a validator callback?
+    setFieldError(field, getTid("publisher:site.forms.commonerrors.email"));
     return false;
   }
 
@@ -49,23 +51,28 @@ export async function validateField(form: FormBase, field: HTMLInputElement) {
   if (checkvalue !== field.value || !mayValidateField(field))
     return true; //the field already changed, don't report about old errors
 
-  if (result) {
-    if (result.blocked) {
-      field.propWhValidationError = result.blocked;
-      return false;
-    } else if (result.force) {
-      field.value = result.force;
-      return true;
-    } else if (result.suggestion) {
-      const suggestion = getTid("publisher:site.forms.commonerrors.email_suggestion", "___SUGGESTION___").split("___SUGGESTION___");
-      field.propWhValidationSuggestion =
-        <span class="wh-form__emailcorrection">
-          {suggestion[0]}
-          <a href="#" class="wh-form__emailcorrected" on={{ click: (evt: Event) => acceptEmailSuggestion(evt, form, field, result.suggestion as string) }}>{result.suggestion}</a>
-          {suggestion[1]}
-        </span>;
-      return true;
-    }
+  if (result?.blocked) {
+    field.dataset.whFormEmailBlocked = "true";
+    setFieldError(field, result.blocked);
+    return false;
+  }
+  if (field.dataset.whFormEmailBlocked) {
+    delete field.dataset.whFormEmailBlocked;
+    setFieldError(field, ""); //explicitly clear our earlier setFieldError, but only if we set it. FIXME To really cleanly solve this we need better integration with rpc.ts - we want to be in the setupValidation chain and simply return errors instead of being explictly invoked
+  }
+
+  if (result?.force) {
+    field.value = result.force;
+    return true;
+  } else if (result?.suggestion) {
+    const suggestion = getTid("publisher:site.forms.commonerrors.email_suggestion", "___SUGGESTION___").split("___SUGGESTION___");
+    field.propWhValidationSuggestion =
+      <span class="wh-form__emailcorrection">
+        {suggestion[0]}
+        <a href="#" class="wh-form__emailcorrected" on={{ click: (evt: Event) => acceptEmailSuggestion(evt, form, field, result.suggestion as string) }}>{result.suggestion}</a>
+        {suggestion[1]}
+      </span>;
+    return true;
   }
   return true;
 }

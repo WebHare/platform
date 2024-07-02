@@ -2,10 +2,10 @@
 
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
-import { isFormControl, type FormControlElement } from "@webhare/dompack";
+import { isFormControl, isHTMLElement, type FormControlElement } from "@webhare/dompack";
 
 export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
-  return field instanceof HTMLInputElement && ["radio", "checkbox"].includes(field.type);
+  return isHTMLElement(field) && field.tagName === 'INPUT' && ["radio", "checkbox"].includes((field as HTMLInputElement).type);
 }
 
 ///Test if the field is a valid target for various form APIs we have (it's a FormControlElement OR it has data-wh-form-name. We hope to someday merge those into 'real' inputs too)
@@ -13,7 +13,17 @@ export function isValidFormFieldTarget(field: Element): field is HTMLElement {
   return isFormControl(field) || Boolean(field instanceof HTMLElement && field.dataset.whFormName);
 }
 
-export function getErrorForValidity(field: FormControlElement) {
+export function getFieldDisplayName(field: HTMLElement) {
+  if (isFormControl(field))
+    return `native field '${field.name || field.id || '<unnamed>'}'`;
+  if (field.dataset.whFormName)
+    return `custom field '${field.dataset.whFormName || field.id || '<unnamed>'}'`;
+  if (field.classList.contains('wh-form__fieldgroup'))
+    return `field group '${field.dataset.whFormGroupFor || field.id || '<unnamed>'}'`;
+  return `${field.tagName} element '${field.id || '<unnamed>'}'`;
+}
+
+export function getErrorForValidity(field: FormControlElement): string {
   const validity = field.validity;
   if (validity.customError && field.validationMessage)
     return field.validationMessage;
@@ -51,4 +61,15 @@ export function getErrorForValidity(field: FormControlElement) {
       return key;
 
   return '?';
+}
+
+export function isFieldNativeErrored(field: HTMLElement): field is FormControlElement {
+  return isFormControl(field) && !field.hasAttribute("data-wh-form-skipnativevalidation") && !field.checkValidity();
+}
+
+export function getFieldNativeError(field: HTMLElement) {
+  if (isFieldNativeErrored(field))
+    return getErrorForValidity(field);
+
+  return null;
 }
