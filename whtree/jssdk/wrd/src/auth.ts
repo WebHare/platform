@@ -12,7 +12,7 @@ import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "./wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
-import { decodeHSON } from "@webhare/hscompat/hscompat";
+import { HareScriptType, decodeHSON, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -63,6 +63,7 @@ export class AuthenticationSettings {
         auth.#passwords.push({ hash: pwd.passwordhash, validFrom: pwd.validfrom });
       }
 
+    //FIXME we're not properly setting the various dates to 'null' currently, but to minimum datetime. we'll hit that as soon as we need to manipulate TOTP, but for now the round-trip works okay
     if (obj.totp) {
       auth.#totp = {
         url: obj.totp.url,
@@ -71,6 +72,21 @@ export class AuthenticationSettings {
       };
     }
     return auth;
+  }
+
+  toHSON() {
+    const passwords = this.#passwords.map(_ => ({ passwordhash: _.hash, validfrom: _.validFrom }));
+    setHareScriptType(passwords, HareScriptType.RecordArray);
+
+    return encodeHSON({
+      version: 1,
+      passwords,
+      totp: this.#totp ? {
+        url: this.#totp.url,
+        backupcodes: setHareScriptType(this.#totp.backupCodes.map(_ => ({ code: _.code, used: _.used ?? null })), HareScriptType.RecordArray),
+        locked: this.#totp.locked ?? null
+      } : null
+    });
   }
 
   hasTOTP(): boolean {
@@ -848,19 +864,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     let userid = await this.lookupUser(authsettings, username, customizer, options);
     if (userid) {
       //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
-      const userinfo = await this.wrdschema.getFields("wrdPerson", userid, { password: authsettings.passwordAttribute });
+      const userinfo = await this.wrdschema.getFields("wrdPerson", userid, { password: authsettings.passwordAttribute }) as { password: AuthenticationSettings | null };
 
-      //FIXME WRD TS needs to provide a password validation API that understands the attribute. perhaps even wrap the whole verification into the IdentityProvider class to ensure central ratelimits/auditing
-      //@ts-ignore see above why we can't get this value typed
-      const hash = userinfo?.password?.passwords?.at(-1)?.passwordhash || userinfo?.password;
-      if (hash?.startsWith("WHBF:") || hash?.startsWith("LCR:")) {
-        if (!await loadlib("wh::crypto.whlib").verifyWebHarePasswordHash(password, hash))
-          userid = 0;
-      } else if (hash?.startsWith('PLAIN:')) {
-        if (hash.substring(6) !== password)
-          userid = 0;
-      } else
-        throw new Error(`Unsupported password hash for user #${userid}`); //TODO
+      //TODO ratelimits/auditing
+      if (!await userinfo?.password?.verifyPassword(password))
+        userid = 0;
     }
 
     if (!userid) {

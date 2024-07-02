@@ -15,6 +15,7 @@ import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb/src/whdb";
 import { WebHareBlob } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
+import { AuthenticationSettings } from "@webhare/wrd/src/auth";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -1753,7 +1754,6 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichDocum
   }
 }
 
-
 type WRDDBInteger64Conditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: bigint | number;
 } | {
@@ -1858,6 +1858,24 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
   }
 }
 
+class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase<AuthenticationSettings | null, AuthenticationSettings | null, AuthenticationSettings | null> {
+  getDefaultValue(): null {
+    return null;
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): AuthenticationSettings | null {
+    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    return AuthenticationSettings.fromHSON(data);
+  }
+
+  validateInput(value: AuthenticationSettings | null): void {
+    /* always valid */
+  }
+
+  encodeValue(value: AuthenticationSettings | null): AwaitableEncodedValue {
+    return this.encodeAsStringWithOverlow(value ? value.toHSON() : '');
+  }
+}
 
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
@@ -1925,7 +1943,6 @@ class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknow
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBAuthenticationSettingsValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 
 /// Map for all attribute types that have no options
