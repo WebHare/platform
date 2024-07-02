@@ -6,7 +6,7 @@
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase, wrdGuidToUUID, UUIDToWrdGuid } from "@webhare/hscompat";
-import { compare, lowerBound, upperBound } from "@webhare/hscompat/algorithms";
+import { compare, lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { WebHareBlob } from "@webhare/services";
@@ -199,6 +199,64 @@ async function testRecordUpperBound() {
 
   // should work with type-erased searchrecord
   test.eq(4, recordUpperBound(list, { a: 3 } as any, ["a"]));
+}
+
+async function testRecordRange() {
+  // List (sorted on 'a', then 'b')
+  const list = [
+    { a: 1, b: 10, text: "value 1" },
+    { a: 3, b: 1, text: "second value" },
+    { a: 3, b: 1, text: "second value, again" },
+    { a: 3, b: 3, text: "value 3" },
+    { a: 5, b: 7, text: "last value" }
+  ];
+
+  test.eq(list.slice(0, 1), recordRange(list, { a: 1, b: 10 }, ["a", "b"]));
+  test.eq(list.slice(1, 3), recordRange(list, { a: 3, b: 1 }, ["a", "b"]));
+  test.eq([], recordRange(list, { a: 5, b: 8 }, ["a", "b"]));
+  test.eq([], recordRange(list, { a: 1, b: 8 }, ["a", "b"]));
+  test.eq(list.slice(0, 1), recordRange(list, { a: 1 }, ["a"]));
+
+  test.eq(list.slice(0, 1), [...recordRangeIterator(list, { a: 1, b: 10 }, ["a", "b"])]);
+  test.eq(list.slice(1, 3), [...recordRangeIterator(list, { a: 3, b: 1 }, ["a", "b"])]);
+  test.eq([], [...recordRangeIterator(list, { a: 5, b: 8 }, ["a", "b"])]);
+  test.eq([], [...recordRangeIterator(list, { a: 1, b: 8 }, ["a", "b"])]);
+  test.eq(list.slice(0, 1), [...recordRangeIterator(list, { a: 1 }, ["a"])]);
+
+  test.throws(/.*not.*sorted.*/, () => recordRange([{ a: 1 }, { a: 2 }, { a: 2 }, { a: 1 }], { a: 2 }, ["a"]));
+
+  test.throws(/Missing key "A" in array\[2\]/, () => recordRange(
+    list,
+    { a: 1 },
+    // @ts-expect-error -- Used key that doesn't exist in list. Error should be given on key list, not on search record
+    ["A"]));
+
+  test.throws(/Missing key "a" in search record/, () => recordRange(
+    list,
+    // @ts-expect-error -- Used property in searchrecord that doesn't exist in keylist
+    { c: 3 },
+    ["a"]));
+
+  // should not work with string[] as keys
+  const keys = ["a"];
+  // @ts-expect-error -- Used keylist that allows other keys than exist in list
+  test.eq(list.slice(1, 4), recordRange(list, { a: 3 }, keys));
+
+  // should work with type-erased list
+  test.eq(list.slice(1, 4) as Array<{ a: 3 }>, recordRange(list as any, { a: 3 }, ["a"]));
+
+  test.throws(/Missing key "b" in search record/, () => recordRange(
+    list as any,
+    { a: 3 },
+    // @ts-expect-error -- but not when searchrecord is known and key doesn't exist there
+    ["b"]));
+
+  // should work with type-erased list of keys
+  test.eq(list.slice(1, 4), recordRange(list, { a: 3 }, ["a"] as any));
+
+  // should work with type-erased searchrecord
+  test.eq(list.slice(1, 4), recordRange(list, { a: 3 } as any, ["a"]));
+
 }
 
 function testLowerBound() {
@@ -506,6 +564,7 @@ test.run([
   testCompare,
   testRecordLowerBound,
   testRecordUpperBound,
+  testRecordRange,
   testLowerBound,
   testUpperBound,
   testHSON,

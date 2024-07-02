@@ -43,9 +43,24 @@ export function recordRange<
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
 >(searchin: readonly T[], searchrecord: Readonly<S | T>, keys: K[]): T[] {
-  const start = recordLowerBound(searchin, searchrecord, keys);
-  const limit = recordUpperBound(searchin, searchrecord, keys);
-  return searchin.slice(start.position, limit);
+  const start = binaryRecordSearchImpl(searchin, searchrecord, keys, false).position;
+  const limit = binaryRecordSearchImpl(searchin, searchrecord, keys, true).position;
+  return searchin.slice(start, limit);
+}
+
+function* sliceIterator<T>(array: readonly T[], start: number, end: number): Generator<T, void> {
+  for (let idx = start; idx < end; ++idx)
+    yield array[idx];
+}
+
+export function recordRangeIterator<
+  T extends (string extends K ? Any : { [P in K]: ComparableType }),
+  S extends (string extends K ? Any : Pick<T, K & keyof T>),
+  K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
+>(searchin: readonly T[], searchrecord: Readonly<S | T>, keys: K[]): Iterable<T> {
+  const start = binaryRecordSearchImpl(searchin, searchrecord, keys, false).position;
+  const limit = binaryRecordSearchImpl(searchin, searchrecord, keys, true).position;
+  return sliceIterator(searchin, start, limit);
 }
 
 function binaryRecordSearchImpl<
