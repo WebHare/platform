@@ -940,8 +940,8 @@ async function testEventMasks() {
 }
 
 async function testSettingReuse() {
-  // settings reuse not supported when using the JS engine for reads and HS for writes
-  if (debugFlags["wrd:usejsengine"] && !debugFlags["wrd:writejsengine"])
+  // settings reuse only supported when using the JS engine for reads and writes
+  if (!debugFlags["wrd:usejsengine"] || !debugFlags["wrd:writejsengine"])
     return;
 
   function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
@@ -976,6 +976,9 @@ async function testSettingReuse() {
   });
   const writtenArray = await schema.getFields("wrdPerson", newPerson, "testArray");
   assertHasSettingIds(writtenArray);
+  test.assert(writtenArray[0][wrdSettingId]);
+  test.assert(writtenArray[0].testImage!.dbLoc!.id);
+
   await schema.update("wrdPerson", newPerson, {
     testArray: [writtenArray[2], writtenArray[1], writtenArray[0]]
   });
@@ -984,9 +987,9 @@ async function testSettingReuse() {
   test.eq(writtenArray[0][wrdSettingId], reorderedArray[2][wrdSettingId]);
   test.eq(writtenArray[1][wrdSettingId], reorderedArray[1][wrdSettingId]);
   test.eq(writtenArray[2][wrdSettingId], reorderedArray[0][wrdSettingId]);
-  test.eq(writtenArray[0].testImage?.dbLoc?.id, reorderedArray[2].testImage?.dbLoc?.id);
-  test.eq(writtenArray[1].testImage?.dbLoc?.id, reorderedArray[1].testImage?.dbLoc?.id);
-  test.eq(writtenArray[2].testImage?.dbLoc?.id, reorderedArray[0].testImage?.dbLoc?.id);
+  test.eq(writtenArray[0].testImage!.dbLoc!.id, reorderedArray[2].testImage!.dbLoc!.id);
+  test.eq(writtenArray[1].testImage!.dbLoc!.id, reorderedArray[1].testImage!.dbLoc!.id);
+  test.eq(writtenArray[2].testImage!.dbLoc!.id, reorderedArray[0].testImage!.dbLoc!.id);
 
   // map and spread to remove the id hint. Should not change ids because of sorting of current settings on ordering
   await schema.update("wrdPerson", newPerson, {
@@ -996,7 +999,7 @@ async function testSettingReuse() {
   const rewrittenArray = await schema.getFields("wrdPerson", newPerson, "testArray");
   assertHasSettingIds(rewrittenArray);
   test.eq(reorderedArray.map(e => e[wrdSettingId]), rewrittenArray.map(e => e[wrdSettingId]));
-  test.eq(reorderedArray.map(e => e.testImage?.dbLoc?.id), rewrittenArray.map(e => e.testImage?.dbLoc?.id));
+  test.eq(reorderedArray.map(e => e.testImage!.dbLoc!.id), rewrittenArray.map(e => e.testImage!.dbLoc!.id));
 
   // slice a little to see if all old items are removed correctly
   await schema.update("wrdPerson", newPerson, {
@@ -1006,7 +1009,7 @@ async function testSettingReuse() {
   const slicedArray = await schema.getFields("wrdPerson", newPerson, "testArray");
   assertHasSettingIds(slicedArray);
   test.eq([reorderedArray[1][wrdSettingId]], slicedArray.map(e => e[wrdSettingId]));
-  test.eq([reorderedArray[1].testImage?.dbLoc?.id], slicedArray.map(e => e.testImage?.dbLoc?.id));
+  test.eq([reorderedArray[1].testImage!.dbLoc!.id], slicedArray.map(e => e.testImage!.dbLoc!.id));
 
   await whdb.commitWork();
 }
