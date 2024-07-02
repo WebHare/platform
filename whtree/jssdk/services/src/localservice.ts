@@ -5,6 +5,7 @@ import { type WebHareServiceDescription } from "@mod-system/js/internal/types";
 import { type IPCExceptionMessage, encodeIPCException, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import type { TransferListItem } from "node:worker_threads";
 import type { ServiceBase } from "./backendservice";
+import { localServiceHandlerAddPort } from "./symbols";
 export type { ServiceBase } from "./backendservice";
 
 /* Code for node in-process services (over workers threads, using normal messageports and transferLists to communicate)
@@ -119,7 +120,7 @@ export class LocalServiceHandlerBase {
     this._options = options;
   }
 
-  async addPort(link: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>) {
+  async [localServiceHandlerAddPort](link: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>) {
     try {
       const state = new LinkState(null, link, this._options.dropListenerReference ?? false);
       link.on("close", () => this._onClose(state));
