@@ -2943,7 +2943,7 @@ STATIC OBJECTTYPE WRDDBMoneyValue EXTEND WRDDBValue
     ELSE
     {
       STRING ARRAY enc_values;
-      FOREVERY (DATETIME v FROM value)
+      FOREVERY (MONEY v FROM value)
         INSERT EncodeWRDAttribute(v).rawdata INTO enc_values AT END;
       query->AddConstraint(settings_source || ".rawdata", "IN", enc_values);
     }

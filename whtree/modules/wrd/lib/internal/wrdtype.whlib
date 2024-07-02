@@ -1818,7 +1818,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF (jsmode)
       {
         INTEGER jsreturntype := wrd_query->GetTypeForOutputcolumn("RETVAL", TRUE, wrapobjects);
-        IF (returntype != jsreturntype)
+        IF (returntype != jsreturntype OR IsTypeIDArray(returntype))
           returntype := TypeID(VARIANT);
       }
       VARIANT returnlist := GetTypeDefaultArray(returntype);
