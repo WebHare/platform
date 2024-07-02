@@ -24,7 +24,7 @@ import * as support from "./support";
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
-import type { ParsedStructure, BlockStyle } from "./parsedstructure";
+import type { ParsedStructure, BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 
 let editableFix;
@@ -315,41 +315,59 @@ export function getDefaultToolbarLayout() {
   ];
 }
 
+export interface EditorBaseOptions {
+  structure: ExternalStructureDef | null;
+  allowtags: string[] | null;
+  hidebuttons: string[];
+  content: string;
+  enabled: boolean;
+  readonly: boolean;
+  log: boolean;
+  cssinstance: string | null;
+  csslinks: string[] | null;
+  csscode: string;
+  preloadedcss: { addcss: Array<{ type: string, src: string }> } | null;
+  breakupnodes: string[];
+  htmlclass: string;
+  bodyclass: string;
+  contentarea: boolean;
+  editembeddedobjects: boolean;
+  allowundo: boolean;
+  margins: string;
+  propertiesaction: boolean;
+  toolbarlayout: string[][] | null;
+  contentareawidth: string | null;
+  imgloadplaceholder: string | null;
+  language: string;
+}
+
 export default class EditorBase {
-  structure: ParsedStructure | undefined;
+  structure: ExternalStructureDef | undefined;
   blockroots: string[];
   lastselectionstate = new TextFormattingState;
+  options: EditorBaseOptions;
+  container;
+  toolbar = null;
+  addcss = [];
+  /** Whether document is dirty. Initial set to true to avoid firing events during init */
+  dirty = true;
+  original_value = "<neverset>";
+  /** URLs of images we have already seen and stored on the server */
+  knownimages: string[] = [];
+  language: string;
 
-  constructor(container, options) {
-    options =
-    {
+  constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
+    this.container = container;
+    this.options = {
       allowtags: null,
       log: false,
       contentareawidth: null,
       imgloadplaceholder: null, //image loader GIF image to use (defaults to embedded spinning loader)
-      eventnode: null,
-      ...options
-    };
-
-    this.container = container;
-    this.toolbar = null;
-
-    this.addcss = [];
-
-    /// Whether document is dirty. Initial set to true to avoid firing events during init
-    this.dirty = true;
-    this.original_value = "<neverset>";
-    //URLs of images we have already seen and stored on the server
-    this.knownimages = [];
-
-    this.options = {
       structure: null,
-      allowtags: null,
       hidebuttons: [],
       content: '',
       enabled: true,
       readonly: false,
-      log: false,
       //, actionhandler: null
       cssinstance: null,
       csslinks: null,
@@ -365,6 +383,7 @@ export default class EditorBase {
       margins: 'compact',
       propertiesaction: false, //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
       toolbarlayout: null,
+      language: 'en', //TODO get default language from document lang and/or gettidLanguage?
       ...options
     };
 
@@ -528,7 +547,7 @@ export default class EditorBase {
     // (rob: my guess is that happens when the old focused element disappears, but not sure)
     this._registerFrameEventListeners();
 
-    this.language = options && options.language || 'en';
+    this.language = this.options.language;
     this.SetBreakupNodes(options && options.breakupnodes);
     this.setupUndoNode();
     //    this.stateHasChanged();
@@ -863,7 +882,7 @@ export default class EditorBase {
 
     this.bodydiv.innerHTML = val;
     this.resetUndoStack();
-    this.knownimages = this.qSA('img')
+    this.knownimages = this.qSA<HTMLImageElement>('img')
       .filter(node => !node.closest(".wh-rtd-embeddedobject"))
       .map(node => node.src);
 
@@ -1277,10 +1296,6 @@ export default class EditorBase {
     icons.loadMissingImages({ node: this.getBody() });
   }
 
-  SetBackgroundColor(color) //FIXME must be unused...
-  {
-    this.options.backgroundcolor = color;
-  }
   SetBreakupNodes(nodenames) {
     if (nodenames && nodenames.length)
       this.breakupnodes = nodenames;

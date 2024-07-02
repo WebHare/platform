@@ -22,7 +22,7 @@ class EmbedVideoForm extends RPCFormBase {
     };
   }>) {
     if (result.video) {
-      await RTDField.getForNode(this.rtd).insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
+      await RTDField.getForNode(this.rtd)!.insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
       this.dialog.resolve(null);
     }
   }

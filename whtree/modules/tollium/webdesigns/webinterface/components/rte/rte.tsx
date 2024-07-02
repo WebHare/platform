@@ -11,6 +11,7 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
 import getTid from "@mod-tollium/js/gettid";
+import type { EditorBaseOptions } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
 require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TODO use our own language section.
 
 
@@ -33,12 +34,13 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TOD
 
 export default class ObjRTE extends ComponentBase {
   callbacks = new Map<number, (result: unknown) => void>;
+  rteoptions: Partial<EditorBaseOptions>;
+  isemaileditor: boolean;
 
   constructor(parentcomp, data) {
     super(parentcomp, data);
     this.componenttype = "rte";
     this.rte = null;
-    this.rteoptions = null;
     this.actions = [];
     this.borders = null;
     this.hint = '';
@@ -86,7 +88,6 @@ export default class ObjRTE extends ComponentBase {
     {
       enabled: data.enabled,
       readonly: data.readonly,
-      backgroundcolor: 'transparent',
 
       language: 'en',//parent.app.lang      // FIXME
       //, log:true

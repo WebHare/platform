@@ -5,7 +5,7 @@ export interface RTEStructure {
 export interface RTESettings {
   structure?: RTEStructure;
   csslinks?: string[];
-  editembeddedobjects: boolean;
+  editembeddedobjects?: boolean;
 }
 
 export interface RTEWidget {
