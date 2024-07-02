@@ -6,5 +6,6 @@ import { registerAsNonReloadableLibrary } from "@mod-system/js/internal/hmrinter
 export const setLink = Symbol("setLink");
 export const tidLanguage = Symbol("tidLanguage");
 export const brandWebhareBlob = Symbol("brandWebhareBlob");
+export const wrdSettingId: unique symbol = Symbol("wrdSettingId");
 
 registerAsNonReloadableLibrary(module);

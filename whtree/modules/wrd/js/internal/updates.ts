@@ -5,12 +5,12 @@ import { db, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
-import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedValue } from "./accessors";
+import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { generateRandomId, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { compare, isDefaultHareScriptValue, recordRange } from "@webhare/hscompat/algorithms";
+import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
 import { VariableType, encodeHSON, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getStackTrace } from "@webhare/js-api-tools";
 import { WebHareBlob } from "@webhare/services";
@@ -24,6 +24,35 @@ type __InternalUpdEntityOptions = {
   whfsmapper?: never;
   changeset?: number;
 };
+
+type ResolvableSettings = AwaitableEncodedSetting | Promise<EncodedSetting[]>;
+
+function resolveRecursiveSettingsPromisesToSinglePromise(settings: ResolvableSettings | ResolvableSettings[]): EncodedSetting[] | Promise<EncodedSetting[]> {
+  if (!Array.isArray(settings))
+    settings = [settings];
+
+  const resolvedSettings = new Array<EncodedSetting>;
+  const settingPromises = new Array<Promise<EncodedSetting | EncodedSetting[]>>();
+  for (const setting of settings) {
+    if ("then" in setting)
+      settingPromises.push(setting.then((resolved) => resolved));
+    else {
+      const subSettings = setting.sub;
+      if (!subSettings)
+        resolvedSettings.push({ ...setting, sub: [] });
+      else {
+        const resolvedSub = resolveRecursiveSettingsPromisesToSinglePromise(subSettings);
+        if ("then" in resolvedSub)
+          settingPromises.push(resolvedSub.then((sub) => ({ ...setting, sub })));
+        else
+          resolvedSettings.push({ ...setting, sub: resolvedSub });
+      }
+    }
+  }
+  if (!settingPromises.length)
+    return resolvedSettings;
+  return Promise.all(settingPromises).then(resolved => resolvedSettings.concat(resolved.flat()));
+}
 
 async function doSplitEntityData<
   S extends SchemaTypeDefinition,
@@ -76,10 +105,10 @@ async function doSplitEntityData<
       if (encoded.entity)
         Object.assign(entity, encoded.entity);
       if (encoded.settings) { //we're avoiding await overhead where possible when building settings (only blob containing settings require await)
-        if ("then" in encoded.settings)
-          settings.push(...(await encoded.settings));
-        else
-          settings.push(encoded.settings as EncodedSetting);
+        let resolvedSettings = resolveRecursiveSettingsPromisesToSinglePromise(encoded.settings);
+        if ("then" in resolvedSettings)
+          resolvedSettings = await resolvedSettings;
+        settings.push(...resolvedSettings);
       }
     }
   }
@@ -107,9 +136,9 @@ async function doSplitEntityData<
   return { entity, settings: settings.flat(), relevantAttrIds: relevantAttrIds.flat() };
 }
 
-/** Handles re-use of existing settings given the generated settings for an attribute
-*/
-function recurseReuseSettings(encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>, parentSetting: number | null) {
+
+/** Try all encoded settings if a specified id can be reused */
+function tryReusePassedSettings(encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>, parentSetting: number | null) {
   // First round, try to keep ids stable
   for (const enc of encodedSettings) {
     if (!enc.id)
@@ -119,22 +148,30 @@ function recurseReuseSettings(encodedSettings: EncodedSetting[], current: Array<
       item.used = true;
       currentIdMap.delete(enc.id);
       if (enc.sub)
-        recurseReuseSettings(enc.sub, current, currentIdMap, enc.id);
+        tryReusePassedSettings(enc.sub, current, currentIdMap, enc.id);
     } else
       enc.id = undefined;
   }
+}
 
+
+/** Reuse settings when the attribute and parent setting match
+*/
+function reuseFreeSettings(encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>, parentSetting: number | null) {
   // Second round, allocate from the same parent + parentsetting
   for (const enc of encodedSettings) {
     if (!enc.id) {
-      const range = recordRange(current, { attribute: enc.attribute, parentsetting: parentSetting }, ["attribute", "parentsetting"]);
+      const range = recordRangeIterator(current, { attribute: enc.attribute, parentsetting: parentSetting }, ["attribute", "parentsetting"]);
       for (const item of range)
         if (!item.used) {
           item.used = true;
+          enc.id = item.id;
           if (enc.sub)
-            recurseReuseSettings(enc.sub, current, currentIdMap, item.id);
+            reuseFreeSettings(enc.sub, current, currentIdMap, item.id);
+          break;
         }
-    }
+    } else if (enc.sub)
+      reuseFreeSettings(enc.sub, current, currentIdMap, enc.id);
   }
 }
 
@@ -157,7 +194,10 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
   newSets: Array<EntitySettingsRec & { unique_rawdata: string; sub?: unknown }>;
   newLinks: EntitySettingsWHFSLinkRec[];
 }> {
-  recurseReuseSettings(encodedSettings, current, currentIdMap, null);
+  tryReusePassedSettings(encodedSettings, current, currentIdMap, null);
+  reuseFreeSettings(encodedSettings, current, currentIdMap, null);
+
+  // Reuse all settings that have been left unused
   const parentMap = new Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>;
   const flattened = flattenSettings(encodedSettings, null, parentMap);
   const unused = current.filter(item => !item.used).sort((a, b) => a.id - b.id);
@@ -214,22 +254,9 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
 }
 
 async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: boolean }>, newsets: Array<Omit<EntitySettingsRec & { unique_rawdata: string }, 'sub'>>, linkCheckAttrs: Set<number>, whfslinkattrs: Set<number>, newLinks: EntitySettingsWHFSLinkRec[], whfsmapper?: never) {
-  // Sort current settings on id for quick lookup
-  const currentIdMap = new Map(current.map(item => [item.id, item]));
-
   for (const rec of newsets) {
     if (Buffer.byteLength(rec.rawdata) > 4096)
       throw new Error(`Attempting to insert ${rec.rawdata.length} bytes of data into rawdata`);
-
-    // Is this a reuse?
-    const cur = currentIdMap.get(rec.id);
-    if (cur) {
-      if (cur.used)
-        throw new Error(`WRD setting reused twice!`);
-
-      // Update if needed
-      cur.used = true;
-    }
   }
 
   if (newsets.length) {
@@ -255,7 +282,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
   const updatedAttrs = [...new Set(current.map(rec => rec.attribute).concat(newsets.map(rec => rec.attribute)))].sort();
   const updatedSettings = newsets.map(item => item.id);
   const linkCheckSettings = newsets.filter(item => linkCheckAttrs.has(item.attribute)).map(item => item.id);
-  const deletedSettings = current.filter(rec => rec.used).map(rec => rec.id);
+  const deletedSettings = current.filter(rec => !rec.used).map(rec => rec.id);
   if (deletedSettings.length) {
     await db<PlatformDB>()
       .deleteFrom("wrd.entity_settings")
@@ -632,6 +659,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       .where("attribute", "=", kysely.sql`any(${splitData.relevantAttrIds})`)
       .orderBy("attribute")
       .orderBy("parentsetting")
+      .orderBy("ordering")
       .execute()).map(row => ({ ...row, used: false }));
 
     // If changing the GUID, also update the corresponding authobject

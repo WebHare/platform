@@ -14,6 +14,7 @@ import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb/src/whdb";
 import { WebHareBlob } from "@webhare/services";
+import { wrdSettingId } from "@webhare/services/src/symbols";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -1527,12 +1528,13 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
       const retval = new Array<ArraySelectable<Members>>;
       for (let idx = settings_start; idx < settings_limit; ++idx) {
         const settingid = entity_settings[idx].id;
-        const rec = {} as ArraySelectable<Members>;
+        const rec = {} as ArraySelectable<Members> & { [wrdSettingId]: number };
         for (const field of this.fields) {
           const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
           const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
           rec[field.name] = field.accessor.getValue(entity_settings, lb.position, ub, row, links, cc);
         }
+        rec[wrdSettingId] = settingid;
         retval.push(rec);
       }
       return retval;
@@ -1564,10 +1566,11 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     return retval;
   }
 
-  encodeValue(value: Array<Insertable<Members>>): AwaitableEncodedValue {
+  encodeValue(value: Array<Insertable<Members> & { [wrdSettingId]?: number }>): AwaitableEncodedValue {
     return {
       settings: value.map((row, idx): AwaitableEncodedSetting => {
-        const retval = { attribute: this.attr.id, ordering: idx + 1 };
+        // if a setting id is present in an element (stored with wrdSettingId symbol), include it for re-use
+        const retval: EncodedSetting = { attribute: this.attr.id, ordering: idx + 1, id: row[wrdSettingId] };
         const subs: NonNullable<AwaitableEncodedSetting["sub"]> = [];
         for (const field of this.fields) {
           if (field.name in row) {
@@ -1702,7 +1705,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
         const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
         if (value.resource.size)
           await uploadBlob(value.resource);
-        const setting: EncodedSetting = { rawdata, blobdata: value.resource, attribute: this.attr.id };
+        const setting: EncodedSetting = { rawdata, blobdata: value.resource, attribute: this.attr.id, id: value.dbLoc?.id };
         if (value.sourceFile) {
           setting.linktype = 2;
           setting.link = value.sourceFile;
