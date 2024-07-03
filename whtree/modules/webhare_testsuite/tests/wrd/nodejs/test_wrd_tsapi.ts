@@ -190,8 +190,9 @@ async function testNewAPI() {
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
   const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
   // find should throw when finding multiple matches
@@ -222,6 +223,8 @@ async function testNewAPI() {
       guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
     }
   ], selectres);
+
+  test.eq({ testJsonRequired: { mixedCase: [randomData] } }, await schema.getFields("wrdPerson", secondperson, ["testJsonRequired"]));
 
   // wait until schemaById also knows testJsonRequired
   console.log(`start wait`);

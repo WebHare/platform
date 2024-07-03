@@ -10,9 +10,9 @@ const deleteClosedAfter = 2;
 async function testDeleteClosedAfter() {
   const schema = new WRDSchema(testSchemaTag);
 
-  // Add an entity
+  // Add an entity. Create it 7 days in the past so wrdLimitDate > wrdCreationDate holds during the tests
   await whdb.beginWork();
-  let person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "testdelete@beta.webhare.net" });
+  let person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "testdelete@beta.webhare.net", wrdCreationDate: new Date(Date.now() - 86400 * 1000 * 7) });
   await whdb.commitWork();
   // Cleanup, the entity should still be there (not closed)
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });

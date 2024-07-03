@@ -161,6 +161,28 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
   }
 
   abstract encodeValue(value: In | null): AwaitableEncodedValue; //explicitly add | null so derived classes have to handle it
+
+  protected decodeAsStringWithOverlow(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
+    if (entity_settings[settings_start].rawdata)
+      return entity_settings[settings_start].rawdata;
+    const buf = entity_settings[settings_start].blobdata?.__getAsSyncUInt8Array();
+    return buf ? Buffer.from(buf).toString() : "";
+  }
+
+  protected encodeAsStringWithOverlow(rawdata: string): AwaitableEncodedValue {
+    if (!rawdata)
+      return {};
+    if (Buffer.byteLength(rawdata) <= 4096)
+      return { settings: { rawdata, attribute: this.attr.id } };
+
+    return {
+      settings: (async (): Promise<EncodedSetting[]> => {
+        const blobdata = WebHareBlob.from(rawdata);
+        await uploadBlob(blobdata);
+        return [{ blobdata, attribute: this.attr.id }];
+      })()
+    };
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1615,23 +1637,16 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): JSONType | NullIfNotRequired<Required> {
-    if (entity_settings[settings_start].rawdata)
-      return JSON.parse(entity_settings[settings_start].rawdata);
-    const buf = entity_settings[settings_start].blobdata?.__getAsSyncUInt8Array();
-    return buf ? JSON.parse(Buffer.from(buf).toString()) : null;
+    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    return data ? JSON.parse(data) : null;
   }
 
   validateInput(value: JSONType | NullIfNotRequired<Required>): void {
     /* always valid */
   }
 
-  encodeValue(value: JSONType | NullIfNotRequired<Required>): EncodedValue {
-    if (value === null)
-      return {};
-    const rawdata = JSON.stringify(value);
-    if (Buffer.byteLength(rawdata) <= 4096)
-      return { settings: { rawdata, attribute: this.attr.id } };
-    throw new Error(`FIXME: writing blob values is not supported yet`);
+  encodeValue(value: JSONType | NullIfNotRequired<Required>): AwaitableEncodedValue {
+    return this.encodeAsStringWithOverlow(value ? JSON.stringify(value) : '');
   }
 }
 
@@ -1644,23 +1659,16 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): IPCMarshallableRecord | null {
-    if (entity_settings[settings_start].rawdata)
-      return decodeHSON(entity_settings[settings_start].rawdata) as IPCMarshallableRecord;
-    const buf = entity_settings[settings_start].blobdata?.__getAsSyncUInt8Array();
-    return buf ? decodeHSON(Buffer.from(buf).toString()) as IPCMarshallableRecord : null;
+    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    return data ? decodeHSON(data) as IPCMarshallableRecord : null;
   }
 
   validateInput(value: object | null): void {
     /* always valid */
   }
 
-  encodeValue(value: object | null): EncodedValue {
-    if (!value)
-      return {};
-    const rawdata = encodeHSON(value as IPCMarshallableData);
-    if (Buffer.byteLength(rawdata) <= 4096)
-      return { settings: { rawdata, attribute: this.attr.id } };
-    throw new Error(`FIXME: writing blob values is not supported yet`);
+  encodeValue(value: object | null): AwaitableEncodedValue {
+    return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
   }
 
 }
