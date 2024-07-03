@@ -10,6 +10,8 @@ import { reportException, waitForReports } from "@mod-system/js/wh/errorreportin
 import "./testsuite.css";
 import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
+import { isError } from '@webhare/std';
+import type { TestError } from '@webhare/test/src/checks';
 
 const sourceCache = {};
 const testframetabname = 'testframe' + Math.random();
@@ -26,6 +28,10 @@ function getTestRoots() {
     throw new Error("No contentwindow in iframe found");
 
   return { win: cw, doc: cw.document, html: cw.document.documentElement, body: cw.document.body };
+}
+
+function isTestError(e: Error): e is TestError {
+  return "annotation" in e;
 }
 
 //Find best location to highlight, skipping internal files
@@ -47,9 +53,20 @@ declare global {
   }
 }
 
+//A .ts(x) script to test
+interface TestScript {
+  name: string;
+}
+
+//An individual step in a test
+interface TestStep {
+  name: string;
+  subname: string;
+}
+
 class TestFramework {
-  currentscript = '';
-  tests = [];
+  currentstep = -1;
+  tests: TestScript[] = [];
 
   testframes = [];
   currenttestframe = "main";
@@ -541,7 +558,7 @@ class TestFramework {
   }
 
   /// Handles a test step that errored out
-  async handleTestStepException(test, step, e) {
+  async handleTestStepException(test: TestScript, step: TestStep, e: unknown) {
     const fullname = step.name ? step.name + (step.subname ? "#" + step.subname : "") : "";
     // Got a test exception. Log it everywhere
     const prefix = 'Test ' + test.name + ' step ' + (fullname ? fullname + ' (#' + this.currentstep + ')' : '#' + this.currentstep);
@@ -551,8 +568,18 @@ class TestFramework {
     console.warn(e);
 
     this.haveerror = true;
+    if (isError(e)) {
+      if (isTestError(e)) { //Quacks like as TestError
+        this.log(prefix + " TestError: " + e);
+        if (e.annotation)
+          this.log("Annotation: " + e.annotation);
+      } else {
+        this.log(prefix + " Error: " + e);
+      }
+    } else {
+      this.log(`${prefix} failed with unknown reason (exception type = ${typeof e})`);
+    }
 
-    this.log(prefix + (e ? " exception: " + e : " failed with unknown reason"));
     const lognode = this.log("Location: computing...");
 
     test.fails = (test.fails || []);
