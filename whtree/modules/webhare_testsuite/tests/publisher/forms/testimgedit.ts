@@ -18,7 +18,6 @@ test.registerTests(
     {
       test: async function () {
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        console.error(img, test.qS('#rtdtest-img')?.outerHTML);
         test.assert(img, 'no image present');
         test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');
         test.assert(test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
