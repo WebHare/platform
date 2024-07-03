@@ -1,4 +1,4 @@
-import { Marshaller, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { HSVM_HSVMSource } from "./machinewrapper";
 import { HareScriptVM } from "./wasm-hsvm";
 import { HSVMHeapVar, type HSVMVar } from "./wasm-hsvmvar";
@@ -40,7 +40,7 @@ export class HSVMObjectWrapper {
   }
 
   [Marshaller] = {
-    type: VariableType.Object,
+    type: HareScriptType.Object,
     setValue: function (this: HSVMObjectWrapper, value: HSVMVar) {
       value.copyFrom(this.$obj);
     }

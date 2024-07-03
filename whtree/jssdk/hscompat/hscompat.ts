@@ -1,10 +1,10 @@
-import { decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { decodeHSON, encodeHSON, setHareScriptType, HareScriptType } from "./hson";
 export { toSnakeCase, toCamelCase } from "./types";
 export type { ToSnakeCase, ToCamelCase } from "./types";
-export { encodeHSON, decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 export { isLike, isNotLike, UUIDToWrdGuid, wrdGuidToUUID } from "./strings";
 export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound } from "./algorithms";
 export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime } from "./datetime";
+export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
 
 /** API to prepare for transitional period where we have both HSON and JSON records in the database. */
 export function decodeHSONorJSONRecord(input: string | null): object | null {

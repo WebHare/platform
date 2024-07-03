@@ -11,12 +11,13 @@ import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { generateRandomId, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
-import { VariableType, encodeHSON, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getStackTrace } from "@webhare/js-api-tools";
 import { WebHareBlob } from "@webhare/services";
 import { Changes, ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";
 import { wrdFinishHandler } from "./finishhandler";
 import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
+import { encodeHSON } from "@webhare/hscompat";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;

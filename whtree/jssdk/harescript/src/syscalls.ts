@@ -7,6 +7,7 @@ import { callExportNowrap, describe, load } from "@mod-system/js/internal/util/j
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HareScriptVM } from "./wasm-hsvm";
 import { StashedWork, isWorkOpen, stashWork } from "@webhare/whdb";
+import { setHareScriptType } from "@webhare/hscompat/hson";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
@@ -147,7 +148,7 @@ export function getActionQueue(hsvm: HareScriptVM) {
     if (req.sent)
       continue;
 
-    Object.defineProperty(req.params, "__hstype", { value: VariableType.VariantArray }); //hack so setJSValue doesn't mangle us as determineType is confused bt HSVMVars (but we really should reconsider allowing setJSValue to take HSVMVars)
+    setHareScriptType(req.params, VariableType.VariantArray);
     functionrequests.push({
       id: req.id,
       functionref: req.functionref,

@@ -6,7 +6,7 @@ import { omit, pick } from "@webhare/std";
 import { RecursivePartial } from "../util/algorithms";
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
-import { decodeHSON } from "../whmanager/hsmarshalling";
+import { decodeHSON } from "@webhare/hscompat";
 import { DTAPStage } from "@webhare/env/src/concepts";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";

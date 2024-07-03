@@ -1,4 +1,5 @@
-import { writeMarshalData, readMarshalData, readMarshalPacket, writeMarshalPacket, encodeHSON, decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { writeMarshalData, readMarshalData, readMarshalPacket, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import { Money } from "@webhare/std";
 
 

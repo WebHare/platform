@@ -1,4 +1,4 @@
-import { Marshaller, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Marshaller, IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
@@ -8,10 +8,10 @@ import { resurrect } from "./wasm-resurrection";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { ReadableStream } from "node:stream/web";
 
-function canCastTo(from: VariableType, to: VariableType): boolean {
+function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
   if (from === to)
     return true;
-  if (from === VariableType.Integer && to === VariableType.Integer64)
+  if (from === HareScriptType.Integer && to === HareScriptType.Integer64)
     return true;
   return false;
 }
@@ -86,7 +86,7 @@ class HSVMBlob extends WebHareBlob {
 export class HSVMVar {
   vm: HareScriptVM;
   id: HSVM_VariableId;
-  private type: VariableType | undefined;
+  private type: HareScriptType | undefined;
 
   constructor(vm: HareScriptVM, id: HSVM_VariableId) {
     this.vm = vm;
@@ -97,44 +97,44 @@ export class HSVMVar {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     return this.type;
   }
-  checkType(expectType: VariableType) {
+  checkType(expectType: HareScriptType) {
     this.type ??= this.vm.checkType(this.id, expectType);
   }
   getBoolean(): boolean {
-    this.checkType(VariableType.Boolean);
+    this.checkType(HareScriptType.Boolean);
     return Boolean(this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id));
   }
   setBoolean(value: boolean) {
     this.vm.wasmmodule._HSVM_BooleanSet(this.vm.hsvm, this.id, value ? 1 : 0);
-    this.type = VariableType.Boolean;
+    this.type = HareScriptType.Boolean;
   }
   getInteger(): number {
-    this.checkType(VariableType.Integer);
+    this.checkType(HareScriptType.Integer);
     return this.vm.wasmmodule._HSVM_IntegerGet(this.vm.hsvm, this.id);
   }
   setInteger(value: number) {
     this.vm.wasmmodule._HSVM_IntegerSet(this.vm.hsvm, this.id, value);
-    this.type = VariableType.Integer;
+    this.type = HareScriptType.Integer;
   }
   getInteger64(): bigint {
-    this.checkType(VariableType.Integer64);
+    this.checkType(HareScriptType.Integer64);
     return this.vm.wasmmodule._HSVM_Integer64Get(this.vm.hsvm, this.id);
   }
   setInteger64(value: number | bigint) {
     if (typeof value === "number")
       value = BigInt(value);
     this.vm.wasmmodule._HSVM_Integer64Set(this.vm.hsvm, this.id, value);
-    this.type = VariableType.Integer64;
+    this.type = HareScriptType.Integer64;
   }
   getString(): string {
-    this.checkType(VariableType.String);
+    this.checkType(HareScriptType.String);
     this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
     const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
     const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
     return this.vm.wasmmodule.UTF8ToString(begin, end - begin);
   }
   getStringAsBuffer(): Buffer {
-    this.checkType(VariableType.String);
+    this.checkType(HareScriptType.String);
     this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
     const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
     const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
@@ -153,10 +153,10 @@ export class HSVMVar {
       this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + value.byteLength);
       this.vm.wasmmodule._free(alloced);
     }
-    this.type = VariableType.String;
+    this.type = HareScriptType.String;
   }
   getDateTime(): Date {
-    this.checkType(VariableType.DateTime);
+    this.checkType(HareScriptType.DateTime);
     this.vm.wasmmodule._HSVM_DateTimeGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
     const days = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "i32") as number;
     const msecs = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "i32") as number;
@@ -165,10 +165,10 @@ export class HSVMVar {
   setDateTime(value: Date) {
     const { days, msecs } = dateToParts(value);
     this.vm.wasmmodule._HSVM_DateTimeSet(this.vm.hsvm, this.id, days, msecs);
-    this.type = VariableType.DateTime;
+    this.type = HareScriptType.DateTime;
   }
   getMoney() {
-    this.checkType(VariableType.HSMoney);
+    this.checkType(HareScriptType.HSMoney);
     const nrvalue = this.vm.wasmmodule._HSVM_MoneyGet(this.vm.hsvm, this.id);
     const strval = nrvalue.toString().padStart(6, "0");
     return new Money(`${strval.substring(0, strval.length - 5)}.${strval.substring(strval.length - 5)}`);
@@ -180,14 +180,14 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_MoneySet(this.vm.hsvm, this.id, BigInt(`${parts[0]}${parts[1]}`));
   }
   getFloat() {
-    this.checkType(VariableType.Float);
+    this.checkType(HareScriptType.Float);
     return this.vm.wasmmodule._HSVM_FloatGet(this.vm.hsvm, this.id);
   }
   setFloat(value: number) {
     this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
   }
   getBlob(): WebHareBlob {
-    this.checkType(VariableType.Blob);
+    this.checkType(HareScriptType.Blob);
     const size = Number(this.vm.wasmmodule._HSVM_BlobLength(this.vm.hsvm, this.id));
     if (size === 0)
       return WebHareBlob.from("");
@@ -203,7 +203,7 @@ export class HSVMVar {
   }
   setBlob(blob: WebHareBlob | null) {
     if (!blob || !blob.size) {
-      this.setDefault(VariableType.Blob);
+      this.setDefault(HareScriptType.Blob);
       return;
     }
 
@@ -214,7 +214,7 @@ export class HSVMVar {
       this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(blob.size));
       this.vm.wasmmodule._free(fullpath_cstr);
       this.vm.setBlobJSTag(this.id, { pg: dbid });
-      this.type = VariableType.Blob;
+      this.type = HareScriptType.Blob;
       return;
     }
 
@@ -228,9 +228,9 @@ export class HSVMVar {
     this.vm.wasmmodule._free(tempbuffer);
     this.vm.wasmmodule._HSVM_MakeBlobFromStream(this.vm.hsvm, this.id, stream);
   }
-  setDefault(type: VariableType): HSVMVar {
-    if (type === VariableType.Array)
-      throw new Error(`Illegal variable type ${VariableType[type] ?? type}`);
+  setDefault(type: HareScriptType): HSVMVar {
+    if (type === HareScriptType.Array)
+      throw new Error(`Illegal variable type ${HareScriptType[type] ?? type}`);
     this.vm.wasmmodule._HSVM_SetDefault(this.vm.hsvm, this.id, type as HSVM_VariableType);
     this.type = type;
     return this;
@@ -261,33 +261,33 @@ export class HSVMVar {
     return retval;
   }
   getCell(name: string): HSVMVar | null {
-    this.checkType(VariableType.Record);
+    this.checkType(HareScriptType.Record);
 
     const columnid = this.vm.getColumnId(name.toString());
     const newid = this.vm.wasmmodule._HSVM_RecordGetRef(this.vm.hsvm, this.id, columnid);
     return newid ? new HSVMVar(this.vm, newid) : null;
   }
   ensureCell(name: string) {
-    this.checkType(VariableType.Record);
+    this.checkType(HareScriptType.Record);
 
     const columnid = this.vm.getColumnId(name.toString());
     const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
   }
   recordExists(): boolean {
-    this.checkType(VariableType.Record);
+    this.checkType(HareScriptType.Record);
     return this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id) !== 0;
   }
   objectExists(): boolean {
-    this.checkType(VariableType.Object);
+    this.checkType(HareScriptType.Object);
     return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id) !== 0;
   }
   functionPtrExists(): boolean {
-    this.checkType(VariableType.FunctionPtr);
+    this.checkType(HareScriptType.FunctionPtr);
     return this.vm.wasmmodule._HSVM_FunctionPtrExists(this.vm.hsvm, this.id) !== 0;
   }
   memberExists(name: string): boolean {
-    this.checkType(VariableType.Object);
+    this.checkType(HareScriptType.Object);
     const columnid = this.vm.getColumnId(name);
     return this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, columnid) !== 0;
   }
@@ -338,19 +338,19 @@ export class HSVMVar {
     return new HSVMVar(this.vm, this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, columnid, /*skipaccess=*/1));
   }
 
-  setJSValue(value: unknown, forcetype: VariableType = VariableType.Variant): void {
+  setJSValue(value: unknown, forcetype: HareScriptType = HareScriptType.Variant): void {
     if (value instanceof HSVMVar) {
-      if (forcetype !== VariableType.Variant && forcetype !== value.getType())
-        throw new Error(`Cannot use a ${VariableType[value.getType()]} here, a ${VariableType[forcetype]} is required`);
+      if (forcetype !== HareScriptType.Variant && forcetype !== value.getType())
+        throw new Error(`Cannot use a ${HareScriptType[value.getType()]} here, a ${HareScriptType[forcetype]} is required`);
 
       this.copyFrom(value as HSVMVar);
       return;
     }
 
     let type = determineType(value);
-    if (forcetype !== VariableType.Variant) {
+    if (forcetype !== HareScriptType.Variant) {
       if (!canCastTo(type, forcetype))
-        throw new Error(`Cannot use a ${VariableType[type]} here, a ${VariableType[forcetype]} is required`);
+        throw new Error(`Cannot use a ${HareScriptType[type]} here, a ${HareScriptType[forcetype]} is required`);
       type = forcetype;
     }
     if (typeof value === "object" && value?.[Marshaller]?.setValue) {
@@ -359,57 +359,57 @@ export class HSVMVar {
     }
 
     switch (type) {
-      case VariableType.VariantArray: break;
-      case VariableType.BooleanArray: break;
-      case VariableType.DateTimeArray: break;
-      case VariableType.MoneyArray: break;
-      case VariableType.FloatArray: break;
-      case VariableType.StringArray: break;
-      case VariableType.BlobArray: break;
-      case VariableType.Integer64Array: break;
-      case VariableType.IntegerArray: break;
-      case VariableType.RecordArray: break;
-      case VariableType.ObjectArray: break;
+      case HareScriptType.VariantArray: break;
+      case HareScriptType.BooleanArray: break;
+      case HareScriptType.DateTimeArray: break;
+      case HareScriptType.MoneyArray: break;
+      case HareScriptType.FloatArray: break;
+      case HareScriptType.StringArray: break;
+      case HareScriptType.BlobArray: break;
+      case HareScriptType.Integer64Array: break;
+      case HareScriptType.IntegerArray: break;
+      case HareScriptType.RecordArray: break;
+      case HareScriptType.ObjectArray: break;
 
-      case VariableType.Integer: {
+      case HareScriptType.Integer: {
         this.setInteger(value as number);
         return;
       } break;
-      case VariableType.Integer64: {
+      case HareScriptType.Integer64: {
         this.setInteger64(value as number | bigint);
         return;
       } break;
-      case VariableType.Boolean: {
+      case HareScriptType.Boolean: {
         this.setBoolean(Boolean(value));
         return;
       } break;
-      case VariableType.String: {
+      case HareScriptType.String: {
         this.setString(value as string | Buffer | ArrayBuffer);
         return;
       } break;
-      case VariableType.DateTime: {
+      case HareScriptType.DateTime: {
         this.setDateTime(value as Date);
         return;
       } break;
-      case VariableType.HSMoney: {
+      case HareScriptType.HSMoney: {
         this.setMoney(value as Money);
         return;
       } break;
-      case VariableType.Float: {
+      case HareScriptType.Float: {
         this.setFloat(value as number);
         return;
       } break;
-      case VariableType.Blob: {
+      case HareScriptType.Blob: {
         this.setBlob(value as WebHareBlob | null);
         return;
       } break;
-      case VariableType.Record: {
+      case HareScriptType.Record: {
         const recval = value as IPCMarshallableRecord;
         if (!recval)
-          this.setDefault(VariableType.Record);
+          this.setDefault(HareScriptType.Record);
         else {
           this.vm.wasmmodule._HSVM_RecordSetEmpty(this.vm.hsvm, this.id);
-          this.type = VariableType.Record;
+          this.type = HareScriptType.Record;
           for (const [key, propval] of Object.entries(recval)) {
             if (propval !== undefined)
               this.ensureCell(key).setJSValue(propval);
@@ -418,57 +418,57 @@ export class HSVMVar {
         return;
       }
     }
-    if (type & VariableType.Array) {
-      const itemtype = type !== VariableType.VariantArray ? type & ~VariableType.Array : VariableType.Variant;
+    if (type & HareScriptType.Array) {
+      const itemtype = type !== HareScriptType.VariantArray ? type & ~HareScriptType.Array : HareScriptType.Variant;
       this.setDefault(type);
       for (const item of value as unknown[]) {
         this.arrayAppend().setJSValue(item, itemtype);
       }
       return;
     }
-    throw new Error(`Encoding ${VariableType[type]} not supported yet`);
+    throw new Error(`Encoding ${HareScriptType[type]} not supported yet`);
   }
   getJSValue(): unknown {
-    const type = this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id) as VariableType;
+    const type = this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id) as HareScriptType;
     switch (type) {
-      case VariableType.VariantArray: break;
-      case VariableType.BooleanArray: break;
-      case VariableType.DateTimeArray: break;
-      case VariableType.MoneyArray: break;
-      case VariableType.FloatArray: break;
-      case VariableType.StringArray: break;
-      case VariableType.BlobArray: break;
-      case VariableType.Integer64Array: break;
-      case VariableType.IntegerArray: break;
-      case VariableType.RecordArray: break;
-      case VariableType.ObjectArray: break;
-      case VariableType.FunctionPtrArray: break;
+      case HareScriptType.VariantArray: break;
+      case HareScriptType.BooleanArray: break;
+      case HareScriptType.DateTimeArray: break;
+      case HareScriptType.MoneyArray: break;
+      case HareScriptType.FloatArray: break;
+      case HareScriptType.StringArray: break;
+      case HareScriptType.BlobArray: break;
+      case HareScriptType.Integer64Array: break;
+      case HareScriptType.IntegerArray: break;
+      case HareScriptType.RecordArray: break;
+      case HareScriptType.ObjectArray: break;
+      case HareScriptType.FunctionPtrArray: break;
 
-      case VariableType.Integer: {
+      case HareScriptType.Integer: {
         return this.vm.wasmmodule._HSVM_IntegerGet(this.vm.hsvm, this.id);
       }
-      case VariableType.Integer64: {
+      case HareScriptType.Integer64: {
         return this.vm.wasmmodule._HSVM_Integer64Get(this.vm.hsvm, this.id);
       }
-      case VariableType.Boolean: {
+      case HareScriptType.Boolean: {
         return Boolean(this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id));
       }
-      case VariableType.String: {
+      case HareScriptType.String: {
         return this.getString();
       }
-      case VariableType.DateTime: {
+      case HareScriptType.DateTime: {
         return this.getDateTime();
       }
-      case VariableType.Float: {
+      case HareScriptType.Float: {
         return this.getFloat();
       }
-      case VariableType.HSMoney: {
+      case HareScriptType.HSMoney: {
         return this.getMoney();
       }
-      case VariableType.Blob: {
+      case HareScriptType.Blob: {
         return this.getBlob();
       }
-      case VariableType.Record: {
+      case HareScriptType.Record: {
         if (!this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id))
           return null;
         const cellcount = this.vm.wasmmodule._HSVM_RecordLength(this.vm.hsvm, this.id);
@@ -480,7 +480,7 @@ export class HSVMVar {
         }
         return value;
       }
-      case VariableType.Object: {
+      case HareScriptType.Object: {
         if (!this.objectExists())
           return null; //TODO or a boxed default object?
 
@@ -491,18 +491,18 @@ export class HSVMVar {
 
         return this.vm.objectCache.ensureObject(this.id);
       }
-      case VariableType.FunctionPtr:
+      case HareScriptType.FunctionPtr:
         if (!this.functionPtrExists())
           return null; //TODO or a boxed default functionptr?
 
         throw new Error(`Returning active function ptr not supported yet`);
 
       default: {
-        throw new Error(`Decoding ${VariableType[type]} not supported yet`);
+        throw new Error(`Decoding ${HareScriptType[type]} not supported yet`);
       }
     }
-    if (type & VariableType.Array) {
-      const value: unknown[] = getTypedArray(type, []);
+    if (type & HareScriptType.Array) {
+      const value: unknown[] = getDefaultValue(type);
       const eltcount = this.vm.wasmmodule._HSVM_ArrayLength(this.vm.hsvm, this.id);
       for (let i = 0; i < eltcount; ++i) {
         const elt = this.vm.wasmmodule._HSVM_ArrayGetRef(this.vm.hsvm, this.id, i);

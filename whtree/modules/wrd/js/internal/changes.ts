@@ -3,7 +3,7 @@ import { db, nextVal, sql } from "@webhare/whdb";
 import { EntityPartialRec, EntityRec, EntitySettingsRec, TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { isTruthy, omit } from "@webhare/std";
 import { encodeWRDGuid } from "./accessors";
-import { IPCMarshallableData, annotateExistingArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { setHareScriptType, IPCMarshallableData, HareScriptType } from "@webhare/hscompat/hson";
 
 
 export type ChangesSettings<T extends string | number | null> = Array<Omit<EntitySettingsRec, "blobdata" | "entity" | "setting" | "attribute"> & { blobseqnr: number; setting: T; attribute: T }>;
@@ -152,11 +152,11 @@ function mapChangesRefs<A extends number | string | null, B extends number | str
     }
   };
 
-  annotateExistingArray(VariableType.RecordArray, retval.oldsettings.settings);
-  annotateExistingArray(VariableType.RecordArray, retval.oldsettings.whfslinks);
-  annotateExistingArray(VariableType.RecordArray, retval.modifications.settings);
-  annotateExistingArray(VariableType.RecordArray, retval.modifications.whfslinks);
-  annotateExistingArray(VariableType.Integer64Array, retval.modifications.deletedsettings);
+  setHareScriptType(retval.oldsettings.settings, HareScriptType.RecordArray);
+  setHareScriptType(retval.oldsettings.whfslinks, HareScriptType.RecordArray);
+  setHareScriptType(retval.modifications.settings, HareScriptType.RecordArray);
+  setHareScriptType(retval.modifications.whfslinks, HareScriptType.RecordArray);
+  setHareScriptType(retval.modifications.deletedsettings, HareScriptType.Integer64Array);
 
   return retval;
 }

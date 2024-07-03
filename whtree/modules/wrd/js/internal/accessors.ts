@@ -6,9 +6,9 @@ import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@we
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
-import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { decodeHSON } from "@webhare/hscompat/hscompat";
-import { IPCMarshallableData, IPCMarshallableRecord, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
+import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
+import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { RichDocument, __RichDocumentInternal } from "@webhare/services/src/richdocument";
 import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
