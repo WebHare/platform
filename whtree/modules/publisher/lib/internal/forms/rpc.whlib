@@ -61,15 +61,8 @@ PUBLIC RECORD FUNCTION RPC_FormInvoke(RECORD submitinfo)
 
 PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl)
 {
-  STRING tok := GetVariableFromURL(uploadurl, "file");
-  RECORD ARRAY files := PeekUploadedFiles([tok]);
-  IF(Length(files) != 1)
-    THROW NEW Exception("Didn't receive a file");
-
-  IF(files[0].filename = "mytestfile.txt" AND GetDtapStage()="development") //slow down tests to make it less racy
-    Sleep(1000);
-
-  RECORD wrapped := WrapBlob(files[0].data, files[0].filename);
+  RECORD file := ParseDataURL(uploadurl);
+  RECORD wrapped := WrapBlob(file.data, "");
   OpenPrimary();
   RETURN IsSupportedImageResizeType(wrapped.mimetype) ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
                                                       : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);
