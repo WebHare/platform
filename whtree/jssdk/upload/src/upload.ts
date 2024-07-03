@@ -222,3 +222,20 @@ export async function requestFile(options?: UploadRequestOptions): Promise<Singl
   const uploader = new SingleFileUploader(files[0]);
   return uploader;
 }
+
+/** Convert a file to a data: URL
+ * @param file - The file to convert
+ * @returns A promise that resolves to the data: URL
+*/
+export function getFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader;
+    // MDN: When the read operation is finished… the loadend event is triggered.
+    reader.addEventListener("loadend", () => {
+      //At that time, the result attribute contains the data as a data: URL representing the file's data as a base64 encoded string.
+      resolve(reader.result as string);
+    });
+    reader.addEventListener("error", () => reject(new Error("Failed to load file")));
+    reader.readAsDataURL(file);
+  });
+}
