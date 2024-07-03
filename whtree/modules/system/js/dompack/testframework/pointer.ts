@@ -1249,8 +1249,11 @@ export function click(element: ValidElementTarget, options?: ElementClickOptions
 export function focus(target: ValidElementTarget) { //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
   const element = _resolveToSingleElement(target);
   if (!canClick(element)) {
-    console.error("Cannot focus nonclickable element", element);
-    throw new Error("Cannot focus nonclickable element");
+    element.scrollIntoView();
+    if (!canClick(element)) {
+      console.error("Cannot focus nonclickable element", element);
+      throw new Error("Cannot focus nonclickable element - scrolling didn't help");
+    }
   }
   if (!domfocus.canFocusTo(element)) {
     console.error("Cannot focus element that fails canFocusTo", element);
