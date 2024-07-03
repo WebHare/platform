@@ -244,6 +244,7 @@ test.registerTests([
     test.click('#coretest-checkboxes-1'); //deselecting #1 - now expecting immediate responses
     await test.wait('ui');
     test.eq('Kies minimaal 1 item.', test.qR(checkboxgroup, '.wh-form__error').textContent);
+
     let result = await formhandler.validate(checkboxgroup);
     test.eq(checkboxgroup, result.firstfailed);
     test.assert(result.failed.length === 1);
@@ -362,21 +363,24 @@ test.registerTests([
     test.assert(emailgroup);
     test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
 
-    //if we set an error before we start validating...
-    formhandler.setFieldError(test.qR('#coretest-email'), 'bad email field');
-    //...don't show it. this is more consistent with html5 rendering
-    test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
-    test.assert(!test.qS(emailgroup, '.wh-form__error'));
-
-    //but if we force show it...
+    //we now just show errors immediately if you set them. reportimmediately should become obsolete soon as we're no longer eagerly validating the form on rendering (actually triggered by setupValidator which immediately ran the check)
     formhandler.setFieldError(test.qR('#coretest-email'), 'really bad email field', { reportimmediately: true });
     test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'));
     test.eq('really bad email field', test.qR(emailgroup, '.wh-form__error').textContent);
 
-    //and we can hide it
+    /* and we can hide it. This *used* to completely hide the error but I've now reduced the amount of state to keep
+       and I don't think we really need to support this scenario? The simpler approach falls back to the business rule
+       'once a field has reported an error, it will no longer delay further error reports' so clearing the explicit
+       error will now cause a 'required' error to be shown.
+
     formhandler.setFieldError(test.qR('#coretest-email'), '');
     test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
     test.eq('', test.qR(emailgroup, '.wh-form__error').textContent);
+
+    */
+    formhandler.setFieldError(test.qR('#coretest-email'), '');
+    test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+    test.eq('Dit veld is verplicht.', test.qR(emailgroup, '.wh-form__error').textContent);
 
     result = await formhandler.validate(emailgroup);
     test.eq(test.qR('#coretest-email'), result.firstfailed);

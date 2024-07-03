@@ -5,7 +5,6 @@ import { getTid } from "@mod-tollium/js/gettid";
 import "../internal/form.lang.json";
 import FileEditBase from './fileeditbase';
 import './upload.css';
-import type { UploadedFile } from '@mod-system/js/compat/upload';
 
 
 function getLabelText(node: HTMLElement) {
@@ -98,19 +97,18 @@ export default class UploadField extends FileEditBase {
     this.refresh();
     dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }
+  uploadHasChanged() {
+    this.refresh();
+    dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
+  }
+  isSet() {
+    return Boolean(this.hasChanged ? this.uploadedFile : this.node.dataset.whFilename);
+  }
   refresh() {
-    const filename = this.node.dataset.whFilename || '';
-    const hasfile = Boolean(this.node.dataset.whFileurl);
-
-    this._filenamefield.value = filename;
-    dompack.toggleClass(this.replacement, "wh-form__uploadfield--hasfile", hasfile);
+    this._filenamefield.value = (this.hasChanged ? this.uploadedFile?.name : this.node.dataset.whFilename) || '';
+    this.replacement.classList.toggle("wh-form__uploadfield--hasfile", this.isSet());
   }
   getFieldValueLink() {
     return this.node.dataset.whFileurl || null;
-  }
-  async handleUploadedFile(result: UploadedFile) {
-    this.node.dataset.whFileurl = result.url;
-    //this.filesize = result.size; - size is there if we need it, but not using it yet
-    this.refresh();
   }
 }

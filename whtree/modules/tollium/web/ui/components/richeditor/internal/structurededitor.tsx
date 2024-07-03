@@ -15,6 +15,7 @@ import * as tableeditor from "./tableeditor";
 import * as domlevel from "./domlevel";
 import EditorBase, { TextFormattingState } from './editorbase';
 import PasteCleanup from './pastecleanup';
+import type { RTEWidget } from "./types";
 
 //debug flags
 const debugicc = debugFlags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
@@ -94,7 +95,7 @@ export default class StructuredEditor extends EditorBase {
     };
 
     //structure should be parsed/maintained at the RTE level if we're going to provide Pagelevel editing
-    this.structure = new ParsedStructure(this.options.structure);
+    this.structure = new ParsedStructure(this.options.structure!); //structure HAS to be set if this class is Constructed
     this.reprocessAfterExternalSet();
     this._constructorTail();
   }
@@ -2674,11 +2675,11 @@ export default class StructuredEditor extends EditorBase {
   // Block components
   //
 
-  _createEmbeddedObjectNode(data) {
+  _createEmbeddedObjectNode(data: RTEWidget) {
     return rtesupport.buildEmbeddedObjectNode(data, this.options);
   }
 
-  insertEmbeddedObject(data) {
+  insertEmbeddedObject(data: RTEWidget) {
     const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
     const rangeiscollapsed = range.isCollapsed();
@@ -2697,7 +2698,7 @@ export default class StructuredEditor extends EditorBase {
     this._reprocessEmbeddedAutoElements();
   }
 
-  updateEmbeddedObject(target, data) {
+  updateEmbeddedObject(target, data: RTEWidget) {
     // No undo, embedded object state is kept at server
     const range = this.getSelectionRange();
     const undolock = this.getUndoLock();

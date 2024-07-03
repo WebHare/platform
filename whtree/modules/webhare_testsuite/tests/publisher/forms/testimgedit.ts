@@ -12,16 +12,11 @@ test.registerTests(
     'Reset image',
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
-      test.assert(!test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
       test.click('#rtdtest-img');
-
-      //click handler processing is async, so give it a chance to run
-      await test.wait(() => test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
       await test.wait('ui');
     },
     {
       test: async function () {
-        test.assert(!test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present');
         test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');

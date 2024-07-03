@@ -22,7 +22,7 @@ class EmbedVideoForm extends RPCFormBase {
     };
   }>) {
     if (result.video) {
-      await RTDField.getForNode(this.rtd).insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
+      await RTDField.getForNode(this.rtd)!.insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
       this.dialog.resolve(null);
     }
   }
@@ -35,7 +35,7 @@ export async function insertVideo(rtd: HTMLElement) {
     console.error("Cannot find formhandler for node", rtd);
     throw new Error("Cannot find formhandler for RTD node");
   }
-  const formdata = await publisherFormService.requestBuiltinForm((formhandler as RPCFormBase).getServiceSubmitInfo(), 'rtd', 'embedvideo');
+  const formdata = await publisherFormService.requestBuiltinForm((formhandler as RPCFormBase).getRPCFormIdentifier(), 'rtd', 'embedvideo');
 
   const dialog = dialogapi.createDialog();
   dialog.contentnode!.innerHTML = formdata.html;

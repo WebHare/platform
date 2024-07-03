@@ -766,6 +766,11 @@
                 transports="jsonrpc">
       <accesscheck />
     </webservice>
+    <webservice name="formsts"
+                service="lib/internal/forms/service.ts#FormService"
+                transports="jsonrpc">
+      <accesscheck />
+    </webservice>
     <webservice name="designfiles"
                 library="lib/internal/webdesign/services.whlib"
                 prefix="RPC_"

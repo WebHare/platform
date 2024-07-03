@@ -1,5 +1,5 @@
 import FormBase from '@mod-publisher/js/forms/formbase';
-import RPCFormBase from '@mod-publisher/js/forms/formbase';
+import RPCFormBase from '@mod-publisher/js/forms/rpc';
 import { verifyAddress, AddressValidationResult, AddressChecks, AddressValue } from './address';
 
 export { FormBase, RPCFormBase, verifyAddress };

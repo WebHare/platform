@@ -5,7 +5,7 @@ import { isHTMLElement, loadImage } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import FileEditBase from './fileeditbase';
 import './imgedit.css';
-import type { UploadedFile } from '@mod-system/js/compat/upload';
+import { wrapSerialized } from '@webhare/std';
 
 // also used in testimgedit.es
 export function readBackgroundUrl(imgnode: HTMLElement | null) {
@@ -22,6 +22,8 @@ export function readBackgroundUrl(imgnode: HTMLElement | null) {
 }
 
 export default class ImgEditField extends FileEditBase {
+  /** Hold the last created image URL so we can revoke it */
+  private currentImgUrl = '';
   deletebutton?: HTMLElement;
 
   constructor(node: HTMLElement) {
@@ -30,11 +32,6 @@ export default class ImgEditField extends FileEditBase {
     this.node.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
     this.setupComponent();
-    if (window.FileReader) {
-      this.node.addEventListener("dragover", evt => evt.preventDefault());
-      this.node.addEventListener("dragenter", evt => evt.preventDefault());
-      this.node.addEventListener("drop", evt => this.doDrop(evt));
-    }
     this._afterConstruction();
   }
 
@@ -106,14 +103,6 @@ export default class ImgEditField extends FileEditBase {
     this.node.appendChild(this.deletebutton!);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
   }
-  doDrop(evt: DragEvent) {
-    evt.preventDefault();
-
-    const lock = dompack.flagUIBusy();
-    const files = evt.dataTransfer?.files;
-    if (files)
-      this.uploadFile(files, lock);
-  }
   doDelete(evt: Event) {
     dompack.stop(evt);
     if (!this._getEnabled())
@@ -129,30 +118,43 @@ export default class ImgEditField extends FileEditBase {
     if (changed)
       dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }
-  async handleUploadedFile(result: UploadedFile) {
-    //ADDME maxsize? files[0].size....
 
-    /* We MUST work through the server to get proper JPEG rotation fixes. So we
-       can't just take a dataurl and preview it immediately (not without parsing EXIF)
-       until we'd support image-editor integration */
-
-    if (!result.type || result.type.indexOf("image/") !== 0)
-      return;//Not an image
-
-    const imgpreload = await loadImage(result.url);
-    if (!imgpreload.naturalWidth || !imgpreload.naturalHeight)
+  private updateImgUrl(newurl: string) {
+    if (this.currentImgUrl === newurl)
       return;
-
-    const holder = this.node.querySelector('.wh-form__imgeditholder');
-    if (!holder)
-      throw new Error("Cannot process image, missing wh-form__imgeditholder holder");
-
-    dompack.empty(holder);
-    const imgnode = document.createElement("div");
-    imgnode.classList.add('wh-form__imgeditimg');
-    imgnode.style.backgroundImage = `url('${imgpreload.src}')`;
-    holder.appendChild(imgnode);
-    this.setupComponent();
-    //FIXME this is just a webserver temporary session, need to get URLs with longer persistence
+    if (this.currentImgUrl)
+      URL.revokeObjectURL(this.currentImgUrl);
+    this.currentImgUrl = newurl;
   }
+
+  protected uploadHasChanged = wrapSerialized(async () => {
+    const imgnode = this.node.querySelector('.wh-form__imgeditimg');
+    if (!this.uploadedFile || !this.uploadedFile.type.startsWith("image/")) {
+      //looks like we're deleted
+      imgnode?.remove();
+      this.updateImgUrl("");
+      this.setupComponent();
+    } else { //a new image to show
+      const url = URL.createObjectURL(this.uploadedFile);
+      const imgpreload = await loadImage(url);
+      if (!imgpreload.naturalWidth || !imgpreload.naturalHeight) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const holder = this.node.querySelector('.wh-form__imgeditholder');
+      if (!holder)
+        throw new Error("Cannot process image, missing wh-form__imgeditholder holder");
+
+      //FIXME why aren't we just putting the <img> we created above into the DOM? but might not be an easy change anymore now..
+      const imgholder = document.createElement("div");
+      imgholder.classList.add('wh-form__imgeditimg');
+      imgholder.style.backgroundImage = `url('${imgpreload.src}')`;
+      holder.replaceChildren(imgholder);
+      this.setupComponent();
+      this.updateImgUrl(url);
+    }
+
+    dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
+  }, { coalesce: true });
 }

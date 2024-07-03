@@ -1,7 +1,8 @@
 import * as dompack from "@webhare/dompack";
 import FormBase from "../formbase";
 import { debugFlags } from "@webhare/env";
-import { verifyAddress, AddressValidationResult, AddressValue, AddressChecks } from "@webhare/forms";
+import { verifyAddress, AddressValidationResult, AddressValue, AddressChecks } from "@webhare/forms/src/address";
+import { setFieldError } from "../internal/customvalidation";
 
 function orThrow(error: string): never {
   throw new Error(error);
@@ -135,8 +136,7 @@ export default class AddressField {
   }
 
   _clearErrors() {
-    const form = FormBase.getForNode(this.formnode) ?? orThrow("Parent form for address field not yet initialized");
-    this.allFields.forEach(field => form.setFieldError(field.node, "", { reportimmediately: true }));
+    this.allFields.forEach(field => setFieldError(field.node, "", { reportimmediately: true }));
   }
 
   _getCurState() {
