@@ -1248,7 +1248,7 @@ export default class FormBase {
         return deferred.promise;
     }
     if (!isFormControl(field)) {
-      console.error(`Cannot set value on non-FormControl`, field);
+      console.error(`Cannot get value on non-FormControl`, field);
       return undefined; //TODO throw? but wasn't currently fatal
     }
 
