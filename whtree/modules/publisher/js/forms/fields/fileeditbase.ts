@@ -1,11 +1,10 @@
 import * as dompack from 'dompack';
-import * as upload from '@mod-system/js/compat/upload';
-//@ts-ignore rpc.json should be fully replaced
-import * as formservice from '../internal/form.rpc.json';
+import { SingleFileUploader, requestFile } from "@webhare/upload";
+
 import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
-import { setFieldError } from '@mod-publisher/js/forms';
-import { isFormControl, type UIBusyLock } from '@webhare/dompack/dompack';
+import { FormBase, setFieldError } from '@mod-publisher/js/forms';
+import { isFormControl } from '@webhare/dompack';
 
 function isAcceptableType(fileType: string, masks: string[]) {
   if (masks.includes(fileType))
@@ -21,12 +20,18 @@ function isAcceptableType(fileType: string, masks: string[]) {
 
 export default abstract class FileEditBase {
   readonly node: HTMLElement;
+  readonly group: HTMLElement | null;
+  hasChanged = false;
   isrequired: boolean;
   busy = false;
-  deferredvalues = new Array<PromiseWithResolvers<unknown>>();
+
+  /** The current uploaded file. May not contain a useful value if hassChanged === false */
+  uploadedFile: File | null = null;
 
   constructor(node: HTMLElement) {
     this.node = node;
+    this.group = this.node.closest<HTMLElement>(".wh-form__fieldgroup");
+
     this.isrequired = (isFormControl(node) && node.required) || node.hasAttribute("data-wh-form-required");
     //@ts-ignore does forms even pick up on this?
     node.required = false;
@@ -36,12 +41,21 @@ export default abstract class FileEditBase {
 
     this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
     this.node.addEventListener('wh:form-require', evt => this._handleRequire(evt));
+
+    if (this.group) {
+      this.group.addEventListener("dragover", evt => evt.preventDefault());
+      this.group.addEventListener("dragenter", evt => evt.preventDefault());
+      this.group.addEventListener("drop", evt => this.doDrop(evt));
+    }
   }
   _afterConstruction() { //all derived classes must invoke this at the end of their constructor
     this._updateEnabledStatus(this._getEnabled()); //set current status, might already be disabled
   }
+  isSet() {
+    return this.uploadedFile !== null;
+  }
   _check() {
-    if (this.isrequired && !this.getFieldValueLink())
+    if (this.isrequired && !this.isSet())
       setFieldError(this.node, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
     else
       setFieldError(this.node, "", { reportimmediately: false });
@@ -60,78 +74,65 @@ export default abstract class FileEditBase {
   _updateEnabledStatus(nowenabled: boolean) {
   }
   getValue(evt: CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>) {
+    dompack.stop(evt);
     evt.preventDefault();
     evt.stopPropagation();
-
-    this.deferredvalues.push(evt.detail.deferred);
-    if (!this.busy)
-      this.finishGetValue();
-  }
-  finishGetValue() {
-    const valuelink = this.getFieldValueLink();
-    const value = valuelink
-      ? { link: valuelink, filename: this.node.dataset.whFilename, mimetype: this.node.dataset.whFiletype }
-      : null;
-
-    const toresolve = this.deferredvalues;
-    this.deferredvalues = [];
-    toresolve.forEach(deferred => deferred.resolve(value));
+    evt.detail.deferred.resolve(this.hasChanged ? this.uploadedFile || { token: "" } : null);
   }
 
-  abstract getFieldValueLink(): string | null;
-  abstract handleUploadedFile(result: upload.UploadedFile): Promise<void>;
+  _isAcceptableType(mimetype: string) {
+    return !this.node.dataset.whAccept
+      || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
+  }
+
+  private doDrop(evt: DragEvent) {
+    //IXME check 'accept' - or can the drag handlers do that?
+    evt.preventDefault();
+
+    const files = evt.dataTransfer?.files;
+    if (files)
+      this.processUpload(new SingleFileUploader(files[0]));
+  }
 
   async selectFile(evt: Event) {
     if (!this._getEnabled())
       return;
 
     evt.preventDefault();
-    const lock = dompack.flagUIBusy();
-    const files = await upload.selectFiles();
-    this.uploadFile(files, lock);
+
+    const accept = this.node.dataset.whAccept?.split(',') ?? [];
+    using lock = dompack.flagUIBusy();
+    void (lock);
+
+    const uploader = await requestFile({ accept });
+    if (!uploader)
+      return;
+
+    await this.processUpload(uploader);
   }
-  _isAcceptableType(mimetype: string) {
-    return !this.node.dataset.whAccept
-      || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
+
+  /** Allow derived classes to update their UI after the `uploadedFile` has changed. */
+  protected uploadHasChanged() {
   }
-  async uploadFile(files: FileList, lock: UIBusyLock) {
-    if (files.length === 0) {
-      lock.release();
+
+  private async processUpload(uploader: SingleFileUploader) {
+    const formNode = this.node.closest('form');
+    const form = formNode ? FormBase.getForNode(formNode) : null;
+    if (!form)
+      throw new Error(`Upload control is missing its form`);
+
+    if (!this._isAcceptableType(uploader.file.type)) {
+      //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
+      const msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
+      setFieldError(this.node, msg, { reportimmediately: true });
       return;
     }
 
-    const uploadingcontrol = this.node.closest(".wh-form__fieldgroup");
-    if (uploadingcontrol)
-      uploadingcontrol.classList.add("wh-form--uploading");
+    this.hasChanged = true;
+    this.uploadedFile = uploader.file;
+    this.node.dataset.whFilename = uploader.file.name;
+    this.node.dataset.whFiletype = uploader.file.type;
 
-    this.busy = true;
-    try {
-      const uploader = new upload.UploadSession(files);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
-      const res = await uploader.upload();
-
-      if (!this._isAcceptableType(res[0].type)) {
-        //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
-        const msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
-        setFieldError(this.node, msg, { reportimmediately: true });
-        return;
-      }
-
-      res[0].url = await formservice.getUploadedFileFinalURL(res[0].url);
-
-      this.node.dataset.whFilename = res[0].name;
-      this.node.dataset.whFiletype = res[0].type;
-      //this.filesize = result.size;
-      await this.handleUploadedFile(res[0]);
-
-      //FIXME this is just a webserver temporary session, need to get URLs with longer persistence
-      dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
-      this._check();
-    } finally {
-      this.busy = false;
-      this.finishGetValue();
-      lock.release();
-      if (uploadingcontrol)
-        uploadingcontrol.classList.remove("wh-form--uploading");
-    }
+    await this.uploadHasChanged();
   }
 }

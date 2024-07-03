@@ -9,15 +9,11 @@ import * as pxl from '@mod-consilio/js/pxl';
 import { debugFlags, isLive, navigateTo } from "@webhare/env";
 import { pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
+import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
+import { tsFormService } from '@webhare/forms/src/formservice';
+import { SingleFileUploader, type UploadResult } from '@webhare/upload';
 
-function getServiceSubmitInfo(formtarget: string) {
-  return {
-    url: location.href.split('/').slice(3).join('/'),
-    target: formtarget || ''
-  };
-}
-
-function unpackObject(formvalue: FormResultValue) {
+function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
 }
 
@@ -30,21 +26,74 @@ interface FormSubmitDetails {
   errors: FormSubmitMessage[];
 }
 
+type UploadCache = WeakMap<Blob, UploadResult>;
+
+class FormSubmitter {
+  private readonly target;
+  private readonly cache: UploadCache;
+
+  constructor(target: RPCFormTarget, cache?: UploadCache) {
+    this.target = target;
+    this.cache = cache || new WeakMap();
+  }
+
+  private async uploadFile(file: Blob) {
+    //TODO what if the server discarded the token? we should negoitate with the server which files it (still) wants
+    const completed = this.cache.get(file);
+    if (completed)
+      return completed;
+
+    const uploader = new SingleFileUploader(file);
+    //Ask the server if it's okay to upload these files
+    const uploadinstructions = await tsFormService.requestUpload(this.target, uploader.manifest);
+    //Run the actual upload. Options: onProgress, signal
+    const uploadedfile: UploadResult = await uploader.upload(uploadinstructions);
+    this.cache.set(file, uploadedfile);
+    return uploadedfile;
+  }
+
+  private async convertSubmittable(formvalue: unknown): Promise<unknown> {
+    //TODO combine multiple uploads into one
+    if (Array.isArray(formvalue))
+      return await Promise.all(formvalue.map(file => this.getSubmittable(file)));
+
+    if (formvalue && typeof formvalue === 'object') {
+      if ("size" in formvalue && "type" in formvalue && "slice" in formvalue) //it quacks like a Blob (instanceOf isn't safe, Blobs can be cross-frame)
+        return await this.uploadFile(formvalue as Blob);
+
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(formvalue)) {
+        result[key] = await this.getSubmittable(value);
+        //console.log(key, value, result[key]);
+      }
+      return result;
+    }
+    return formvalue;
+  }
+
+  async getSubmittable(formvalue: FormResultValue): Promise<FormResultValue> {
+    return await this.convertSubmittable(formvalue) as FormResultValue;
+  }
+}
 
 /** Directly submit a RPC form to WebHare
  *  @param target - Formtarget as obtained from
  */
 export async function submitForm(target: string, formvalue: FormResultValue, options?: { extrasubmit: unknown }) {
+  const submitstart = Date.now();
+  const formTarget: RPCFormTarget = { target, url: location.href.split('/').slice(3).join('/') };
+  const submitter = new FormSubmitter(formTarget);
+
   let eventtype = 'publisher:formsubmitted';
   const fields: pxl.PxlEventData = {
     ds_formmeta_jssource: 'submitForm'
   };
-  const submitstart = Date.now();
 
   try {
-    const submitparameters = {
-      ...getServiceSubmitInfo(target),
-      vals: unpackObject(formvalue),
+    const vals = await submitter.getSubmittable(formvalue);
+    const submitparameters: RPCFormSubmission = {
+      ...formTarget,
+      vals: unpackObject(vals),
       extrasubmit: options?.extrasubmit || null
     };
 
@@ -76,6 +125,8 @@ export default class RPCFormBase extends FormBase {
     submitting: false
   };
 
+  #completedUploads = new WeakMap<Blob, UploadResult>;
+
   pendingrpcs = new Array<Promise<unknown>>;
 
   constructor(formnode: HTMLFormElement) {
@@ -95,8 +146,17 @@ export default class RPCFormBase extends FormBase {
     }
   }
 
-  getServiceSubmitInfo() { //submitinfo as required by some RPCs
-    return getServiceSubmitInfo(this.__formhandler.target);
+  getRPCFormIdentifier(): RPCFormTarget { //submitinfo as required by some RPCs
+    return {
+      url: location.href.split('/').slice(3).join('/'),
+      target: this.__formhandler.target
+    };
+  }
+
+  async #getSubmitVals(): Promise<FormResultValue> {
+    const formvalue = await this.getFormValue();
+    const submitter = new FormSubmitter(this.getRPCFormIdentifier(), this.#completedUploads);
+    return await submitter.getSubmittable(formvalue);
   }
 
   //Invoke a function on the form on the server
@@ -108,11 +168,9 @@ export default class RPCFormBase extends FormBase {
 
     const lock = dompack.flagUIBusy({ modal: !background });
     try {
-      //we used to accept options as first parameter but noone was using those anyway, so remove!
-      const formvalue = await this.getFormValue();
       const rpc = publisherFormService.formInvoke({
-        ...getServiceSubmitInfo(this.__formhandler.target),
-        vals: unpackObject(formvalue),
+        ...this.getRPCFormIdentifier(),
+        vals: unpackObject(await this.#getSubmitVals()),
         methodname,
         args
       });
@@ -206,16 +264,13 @@ export default class RPCFormBase extends FormBase {
 
       //Request extrasubmit first, so that if it returns a promise, it can execute in parallel with getFormValue
       const extraSubmitAwaitable = this.getFormExtraSubmitData();
-      const formValueAwaitable = this.getFormValue();
+      const valsAwaitable = this.#getSubmitVals();
 
-      const extrasubmit = {
-        ...extradata,
-        ...(await extraSubmitAwaitable)
-      };
+      const extrasubmit = { ...extradata, ...(await extraSubmitAwaitable) };
+      const vals = await valsAwaitable;
+
       eventdetail.extrasubmitdata = extrasubmit;
-
-      const formvalue = await formValueAwaitable;
-      eventdetail.submitted = formvalue;
+      eventdetail.submitted = vals;
 
       /* make sure no getFormValue RPCs are still pending, assuming they went through us, eg if an address validation is
          still running (and could update)
@@ -223,9 +278,9 @@ export default class RPCFormBase extends FormBase {
       */
       await this._flushPendingRPCs();
       dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", { bubbles: true, cancelable: false, detail: { extrasubmit: extrasubmit } });
-      const submitparameters = {
-        ...getServiceSubmitInfo(this.__formhandler.target),
-        vals: unpackObject(formvalue),
+      const submitparameters: RPCFormSubmission = {
+        ...this.getRPCFormIdentifier(),
+        vals: unpackObject(vals),
         extrasubmit: extrasubmit
       };
 

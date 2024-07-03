@@ -18,16 +18,11 @@ test.registerTests(
     'Reset file',
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-      test.assert(!test.qS('[data-wh-form-group-for=file]').classList.contains("wh-form--uploading"));
       test.click('[data-wh-form-group-for=file] .wh-form__uploadfieldselect');
-
-      //note that uploading mytestfile.txt is delayed by 1 sec by the server so we have a chance to see 'uploading'
-      await test.wait(() => test.qS('[data-wh-form-group-for=file]').classList.contains("wh-form--uploading"));
       await test.wait('ui');
     },
     {
       test: async function () {
-        test.assert(!test.qS('[data-wh-form-group-for=file]').classList.contains("wh-form--uploading"));
         const filenameinput = getUploadField().querySelector('.wh-form__uploadfieldfilename');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         test.assert(test.canClick('[data-wh-form-group-for="file"] .wh-form__uploadfielddelete'), 'no delete button');

@@ -1,8 +1,9 @@
 import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@mod-tollium/js/gettid";
-import formservice, { EmailValidationResult } from "@webhare/forms/src/formservice";
+import formservice from "@webhare/forms/src/formservice";
 import { isValidEmail } from '@webhare/std';
 import { setFieldError } from './customvalidation';
+import type { EmailValidationResult } from '@webhare/forms/src/types';
 
 const cache:
   {

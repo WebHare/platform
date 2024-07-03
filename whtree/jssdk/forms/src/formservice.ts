@@ -1,27 +1,8 @@
 import { createClient } from "@webhare/jsonrpc-client";
 import type { AddressValidationOptions, AddressValidationResult, AddressValue } from "./address";
 import { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
-
-export interface EmailValidationResult { /** If blocked, the suggested error message */
-  blocked?: string;
-  /** If set, the emailaddress should be forced to this value */
-  force?: string;
-  /** Suggested email address */
-  suggestion?: string;
-}
-
-interface BaseFormSubmitInfo {
-  url: string;
-  target: string;
-}
-
-interface FormSubmitInfo extends BaseFormSubmitInfo {
-  extrasubmit?: unknown;
-  vals: Array<{
-    name: string;
-    value: unknown;
-  }>;
-}
+import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission } from "./types";
+import type { FormService } from "@mod-publisher/lib/internal/forms/service";
 
 export interface PublisherFormService {
   /** Validate an email address for validity (including against server configured correction/blacklists)
@@ -30,8 +11,7 @@ export interface PublisherFormService {
    * @param emailaddress - Address to validate
    * @returns Validation result
    */
-  validateEmail(langcode: string, emailaddress: string)
-    : Promise<EmailValidationResult>;
+  validateEmail(langcode: string, emailaddress: string): Promise<EmailValidationResult>;
 
   /** Get an image from a remote URL */
   getImgFromRemoteURL(imageurl: string): Promise<string>;
@@ -44,15 +24,17 @@ export interface PublisherFormService {
   /** Verify address */
   verifyAddress(url: string, address: AddressValue, options: AddressValidationOptions): Promise<AddressValidationResult>;
 
-  formSubmit(submitinfo: FormSubmitInfo): Promise<FormSubmitResult>;
+  formSubmit(submitinfo: RPCFormSubmission): Promise<FormSubmitResult>;
 
-  formInvoke(submitinfo: FormSubmitInfo & { methodname: string; args: unknown[] }): Promise<{
+  formInvoke(submitinfo: RPCFormInvokeRPC): Promise<{
     messages: Array<{ field: string; prop: string; data: unknown }>;
     result: unknown;
   }>;
 
-  requestBuiltinForm(submitinfo: BaseFormSubmitInfo, filename: string, formname: string): Promise<{ html: string }>;
+  requestBuiltinForm(submitinfo: RPCFormTarget, filename: string, formname: string): Promise<{ html: string }>;
 }
 
-// const client = rpc.createClient<PublisherFormService>("publisher:forms");
-export default createClient<PublisherFormService>("publisher:forms");
+export const hsFormService = createClient<PublisherFormService>("publisher:forms");
+export const tsFormService = createClient<FormService>("publisher:formsts");
+
+export default hsFormService;

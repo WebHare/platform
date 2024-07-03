@@ -81,7 +81,7 @@ test.registerTests(
       test.eq("array name", result.contacts[0].name);
       test.eq("another name", result.contacts[1].name);
       test.assert(result.contacts[1].photo);
-      test.eq("portrait_8.jpg", result.contacts[1].photo.filename);
+      test.eq("portrait_8.jpg", result.contacts[1].photo.name);
 
       // No more rows can be added
       test.assert(!test.canClick("[data-wh-form-group-for=contacts] .wh-form__arrayadd"));
@@ -120,7 +120,7 @@ test.registerTests(
         test.eq(1, result.contacts.length);
         test.eq("another name", result.contacts[0].name);
         test.assert(result.contacts[0].photo);
-        test.eq("portrait_8.jpg", result.contacts[0].photo.filename);
+        test.eq("portrait_8.jpg", result.contacts[0].photo.name);
 
         // Delete the last row
         test.click(test.qS(".wh-form__arraydelete"));
@@ -174,8 +174,10 @@ test.registerTests(
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);
         test.eq("first contact", result.contacts[0].name);
-        test.assert(result.contacts[0].photo);
-        test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
+
+        // a prefilled image field is not visible in getFormValue - why would we have to redownload already submitted file ?
+        // test.assert(result.contacts[0].photo);
+        // test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
 
         // Clear the array by setting the value to an empty array
         const arrayvalue = test.qS("[data-wh-form-group-for=contacts] .wh-form__arrayinput");
@@ -250,8 +252,10 @@ test.registerTests(
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);
         test.eq("first contact", result.contacts[0].name);
-        test.assert(result.contacts[0].photo);
-        test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
+
+        // a prefilled image field is not visible in getFormValue - why would we have to redownload already submitted file ?
+        // test.assert(result.contacts[0].photo);
+        // test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
 
         // Add a row
         test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");

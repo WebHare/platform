@@ -58,13 +58,6 @@ MACRO DirectFormStorage1()
   //dumpvalue(imghost);
   TestEq(TRUE, imghost.value.link != "");
 
-  STRING imglink := ResolveToAbsoluteURL(formfile->url, imghost.value.link);
-  TEstEq(TRUE, testfw->browser->GotoWebPage(imglink), imglink);
-  TestEq("image/jpeg", testfw->browser->contenttype);
-
-  //frontend resolves the link, we need to not be confused by that
-  liveform->^upload->UpdateFromJS([filename := imghost.value.filename, link := imglink]);
-
   //Make sure image stays after editing something else
   liveform->^firstname->value := "Kereltje";
 
@@ -105,12 +98,6 @@ MACRO DirectFormStorage2()
   //test file hosting for editing
   RECORD filehost := liveform->^upload->__GetRenderData();
   TestEq(TRUE, filehost.value.link != "");
-
-  STRING filelink := ResolveToAbsoluteURL(formfile->url, filehost.value.link);
-  TEstEq(TRUE, testfw->browser->GotoWebPage(filelink), filelink);
-  TestEq("text/plain", testfw->browser->contenttype);
-
-  liveform->^upload->UpdateFromJS([filename := filehost.value.filename, link := filehost.value.link]);
 
   liveform->FormExecuteSubmit();
 }

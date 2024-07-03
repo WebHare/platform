@@ -6,7 +6,6 @@ import * as merge from './internal/merge';
 import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
-import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId } from '@webhare/std';
 import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
@@ -1253,24 +1252,9 @@ export default class FormBase {
       return undefined; //TODO throw? but wasn't currently fatal
     }
 
-    if (field.type === 'file' && field instanceof HTMLInputElement) { //note that field:FormControl.type===file actually implies HTMLInputElement
-      //FIXME multiple support
-      if (!field.files || field.files.length === 0)
-        return null;
+    if (field.type === 'file')     //We don't care for multiple yet, as our form RPC APIs don't support that either
+      return (field as HTMLInputElement).files?.[0] || null;
 
-      const dataurl = await compatupload.getFileAsDataURL(field.files[0]);
-      return {
-        filename: field.files[0].name.split('\\').join('/').split('/').pop(), //ensure we get the last part
-        link: dataurl
-      };
-      // return Promise.all(Array.from(field.files).map(async function (fileobject)
-      //          {
-      //            let dataurl = await compatupload.getFileAsDataURL(fileobject);
-      //            return { filename: fileobject.name.split('\\').join('/').split('/').pop() //ensure we get the last part
-      //                   , dataurl: dataurl
-      //                   };
-      //          }));
-    }
     return field.value;
   }
 

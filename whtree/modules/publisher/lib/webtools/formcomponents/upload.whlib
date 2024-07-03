@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/networking/antivirus.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 
 /*
@@ -144,26 +145,26 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
   }
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
-    STRING givenurl := RecordExists(jsdata) ? jsdata.link : "";
-    IF(givenurl LIKE "data:*") //this is an upload, not a replaced uploadfield talking to us
+    IF(NOT RecordExists(jsdata)) //signals 'no change'
+      RETURN;
+
+    IF(CellExists(jsdata,'link') AND jsdata.link LIKE "data:*") //Old format uploads. Race during upgrade to 5.6?
     {
-      this->pvt_value := WrapBlob(ParseDataURL(givenurl).data, jsdata.filename);
+      this->pvt_value := WrapBlob(ParseDataURL(jsdata.link).data, jsdata.filename);
       this->pvt_url := "";
       RETURN;
     }
-    IF(givenurl = this->pvt_url) //no change
-      RETURN;
 
-    this->pvt_url := givenurl;
-    IF(givenurl != "")
+    IF(jsdata.token = "") ///signals deletion
     {
-      this->pvt_value := GetWrappedSourceFromURL(givenurl);
-      IF(RecordExists(this->pvt_value))
-        this->pvt_value.filename := jsdata.filename;
+      this->pvt_value := DEFAULT RECORD;
     }
     ELSE
     {
-      this->pvt_value := DEFAULT RECORD;
+      //TODO cleanup all related uploads when form succesfully submitted
+      RECORD upload := GetUploadedFile(jsdata.token);
+      this->pvt_value := WrapBlob(upload.data, jsdata.name);
+      this->pvt_url := "";
     }
   }
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
@@ -280,4 +281,3 @@ PUBLIC STATIC OBJECTTYPE UploadField EXTEND FileEditFieldBase
     }
   }
 >;
-
