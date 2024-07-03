@@ -1997,21 +1997,6 @@ export default class EditorBase {
     return img.matches('.wh-rtd__img--uploading');
   }
 
-  _debugDataTransfer(event) {
-    event.clipboardData.items.forEach(item => {
-      console.log("CP item", item, item.kind);
-
-      if (item.kind === "string")
-        item.getAsString(function (str) { console.warn(str); });
-      else if (item.kind === "file") {
-        const reader = new FileReader();
-        reader.onload = function (loadevent) {
-          console.warn(loadevent.target.result);
-        };
-        reader.readAsDataURL(item.getAsFile());
-      }
-    });
-  }
   _gotPaste(event) {
     if (dompack.debugflags.rte)
       console.log('[rte] paste', this, event);
