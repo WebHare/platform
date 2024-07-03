@@ -336,10 +336,10 @@ function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): n
 }
 
 function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: Annotation): Error {
-  if (!quacksLikeAnError(exception)) {
     if (annotation)
       logAnnotation(annotation);
 
+  if (!isError(exception)) {
     console.error("Expected a proper Error but got:", exception);
     throw new Error("testThrows fails - didn't get an Error object");
   }

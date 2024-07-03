@@ -7,7 +7,7 @@ import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
 import { debugFlags, isLive, navigateTo } from "@webhare/env";
-import { pick } from '@webhare/std';
+import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
 import { tsFormService } from '@webhare/forms/src/formservice';
@@ -58,7 +58,7 @@ class FormSubmitter {
       return await Promise.all(formvalue.map(file => this.getSubmittable(file)));
 
     if (formvalue && typeof formvalue === 'object') {
-      if ("size" in formvalue && "type" in formvalue && "slice" in formvalue) //it quacks like a Blob (instanceOf isn't safe, Blobs can be cross-frame)
+      if (isBlob(formvalue))
         return await this.uploadFile(formvalue as Blob);
 
       const result: Record<string, unknown> = {};
