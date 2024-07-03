@@ -10,5 +10,4 @@
   <test script="test_printer.whscr" />
   <test script="test_analytics.whscr" />
   <test script="test_antivirus.whscr" />
-  <test script="uploadreceiver.whscr" />
 </group>

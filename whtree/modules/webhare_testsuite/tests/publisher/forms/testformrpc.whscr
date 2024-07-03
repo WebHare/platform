@@ -8,7 +8,6 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/testfw/upload.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";

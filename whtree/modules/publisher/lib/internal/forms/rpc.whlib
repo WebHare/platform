@@ -4,12 +4,7 @@ LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
@@ -20,8 +15,6 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
