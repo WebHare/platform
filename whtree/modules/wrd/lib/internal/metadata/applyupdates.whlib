@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
@@ -76,7 +77,11 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
     alldefs := alldefs CONCAT GetModuleDefinedWRDSchemas(module);
 
   BOOLEAN allsuccess := TRUE, anymatch;
-  STRING ARRAY candidates := SELECT AS STRING ARRAY DISTINCT ToLowercase(tag) FROM ToRecordArray(GetWRDSchemaDefCandidates(alldefs), 'tag') CONCAT ListWRDSchemas();
+  RECORD ARRAY schemas := SELECT DISTINCT tag := ToLowercase(tag)
+                              FROM ToRecordArray(GetWRDSchemaDefCandidates(alldefs), 'tag') CONCAT ListWRDSchemas();
+  STRING ARRAY candidates := SELECT AS STRING ARRAY tag
+                               FROM schemas
+                           ORDER BY Tokenize(tag,':')[0] IN VAR whconstant_builtinmodules ? SearchElement(VAR whconstant_builtinmodules, Tokenize(tag,':')[0]) : 999;
 
   FOREVERY(STRING candidate FROM candidates)
   {
