@@ -523,6 +523,9 @@ test.registerTests(
     "Test URL preload and slow submission",
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
+      /* URL based prefills -especially on static pages- cannot complete before the JS code is ready. We need to wait for that
+         (you can  see this by running the above test with Disable cache and Fast 3G - DOMContentLoaded will fire before the JS code is ready */
+      await test.waitForElement("#coreform.wh-form--allowsubmit");
       test.eq("joop@beta.webhare.net", test.qR('#coreform [name=email]').value);
       test.eq("", test.qR('[name=text]').value);
       test.assert(test.qR('[name="radiotest"][value="5"]').checked);
