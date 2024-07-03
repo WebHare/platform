@@ -11,6 +11,15 @@ test.registerTests(
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     },
+    'Reset RTE', //a partially completed testre.ts leaves behind a big image, pushing our test components outside the screen
+    async function () {
+      const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
+      rtebody.innerHTML = '<p class="normal">Initial state</p>';
+      test.click('#submitbutton');
+      await test.wait('ui');
+      const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent!);
+      test.eq('<html><body><p class="normal">Initial state</p></body></html>', serverreponse.htmltext);
+    },
     'Reset file',
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);

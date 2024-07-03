@@ -33,26 +33,21 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     },
 
-    {
-      name: 'Reset RTE',
-      test: async function () {
-        //We didn't specify a video provider so the button shouldn't be there
-        test.eq(null, test.qS(videobuttonselector), 'video button should not be present yet');
-        //There is no table style defined in the rtd's structure so the button shouldn't be there
-        test.eq(null, test.qS(tablebuttonselector), 'table button should not be present yet');
+    'Reset RTE',
+    async function () {
+      //We didn't specify a video provider so the button shouldn't be there
+      test.eq(null, test.qS(videobuttonselector), 'video button should not be present yet');
+      //There is no table style defined in the rtd's structure so the button shouldn't be there
+      test.eq(null, test.qS(tablebuttonselector), 'table button should not be present yet');
 
-        const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
-        rtebody.innerHTML = '<p class="normal">Initial state</p>';
-        test.click('#submitbutton');
-      },
-      waits: ['ui']
+      const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
+      rtebody.innerHTML = '<p class="normal">Initial state</p>';
+      test.click('#submitbutton');
+      await test.wait('ui');
+      const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent!);
+      test.eq('<html><body><p class="normal">Initial state</p></body></html>', serverreponse.htmltext);
     },
-    {
-      test: function () {
-        const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent!);
-        test.eq('<html><body><p class="normal">Initial state</p></body></html>', serverreponse.htmltext);
-      }
-    },
+
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Verify basic RTE content',
