@@ -6,9 +6,9 @@ const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpu
 
 function quickFillDefaultRequiredFields() {
   //fill required fields so we can submit
-  test.fill(test.qS('#coretest-agree'), true);
-  test.fill(test.qS('#coretest-email'), 'pietje@example.com');
-  test.fill(test.qS('#coretest-setvalidator'), 'validated');
+  test.fill('#coretest-agree', true);
+  test.fill('#coretest-email', 'pietje@example.com');
+  test.fill('#coretest-setvalidator', 'validated');
   test.click('#coretest-requiredradio-x');
   test.qR(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex = 2;
   test.fill('#coretest-address\\.country', "NL");
@@ -351,25 +351,25 @@ test.registerTests(
 
       label_option4.click();
       test.click('#coretest-requiredradio-x');
-      test.fill(test.qS('#coretest-email'), 'pietje@example.com');
+      test.fill('#coretest-email', 'pietje@example.com');
       test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
 
       field_pulldowntest.selectedIndex = 2;
       test.eq('2', field_pulldowntest.value);
       test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
-      test.fill(test.qS('#coretest-agree'), true);
+      test.fill('#coretest-agree', true);
       test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
 
-      test.fill(test.qS('#coretest-setvalidator'), 'raam');
+      test.fill('#coretest-setvalidator', 'raam');
       test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
 
-      test.fill(test.qS('#coretest-setvalidator'), 'roos');
+      test.fill('#coretest-setvalidator', 'roos');
       test.assert((await FormBase.getForNode(formnode)!.validate()).valid);
 
-      test.fill(test.qS('#coretest-dateofbirth'), '2099-01-01');
+      test.fill('#coretest-dateofbirth', '2099-01-01');
       test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid, 'Date checkValidity failed (perhaps the date validation polyfill broke)');
 
-      test.fill(test.qS('#coretest-dateofbirth'), '1979-06-13');
+      test.fill('#coretest-dateofbirth', '1979-06-13');
       test.assert((await FormBase.getForNode(formnode)!.validate()).valid);
       test.fillUpload(test.qS('#coretest-upload'), [{ filename: 'test.txt', mimetype: 'application/octet-stream', data: 'This is a text file' }]);
 
@@ -428,7 +428,7 @@ test.registerTests(
       test.assert(!passwordgroup?.classList.contains('wh-form__fieldgroup--error')); //this field is in error
       test.eq(null, passwordgroup?.querySelector('.wh-form__error'));
 
-      test.fill(test.qS('#coretest-password'), ' secret');
+      test.fill('#coretest-password', ' secret');
       test.qR('#coreformsubmitresponse').textContent = '';
       test.click('#submitbutton');
       await test.wait('ui');
@@ -445,7 +445,7 @@ test.registerTests(
       test.eq("'secret' is a bad password", errornode.textContent);
 
       //trigger global error popup
-      test.fill(test.qS('#coretest-password'), 'globalerror');
+      test.fill('#coretest-password', 'globalerror');
       test.click('#submitbutton');
       await test.wait('ui');
       test.eq(/You broke the form.*Don't do that.*/, test.qR(".mydialog").textContent);
