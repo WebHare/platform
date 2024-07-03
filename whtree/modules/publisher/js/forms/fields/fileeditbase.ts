@@ -25,7 +25,7 @@ export default abstract class FileEditBase {
   isrequired: boolean;
   busy = false;
 
-  /** The current uploaded file. May not contain a useful value if hassChanged === false */
+  /** The current uploaded file. May not contain a useful value if hasChanged === false */
   uploadedFile: File | null = null;
 
   constructor(node: HTMLElement) {
@@ -86,7 +86,7 @@ export default abstract class FileEditBase {
   }
 
   private doDrop(evt: DragEvent) {
-    //IXME check 'accept' - or can the drag handlers do that?
+    //FIXME check 'accept' - or can the drag handlers do that?
     evt.preventDefault();
 
     const files = evt.dataTransfer?.files;

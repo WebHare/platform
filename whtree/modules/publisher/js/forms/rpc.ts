@@ -38,7 +38,7 @@ class FormSubmitter {
   }
 
   private async uploadFile(file: Blob) {
-    //TODO what if the server discarded the token? we should negoitate with the server which files it (still) wants
+    //TODO what if the server discarded the token? we should negotiate with the server which files it (still) wants
     const completed = this.cache.get(file);
     if (completed)
       return completed;

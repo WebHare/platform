@@ -45,7 +45,7 @@ declare global {
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
     "wh:form-pagechange": CustomEvent<{
       formHandler: FormBase;
-      /** TODO Add numPages and currentPage, but we'd need to figure out how to properly account for Captcha pages (you don't wnat either numPages or currentPage to count that one)
+      /** TODO Add numPages and currentPage, but we'd need to figure out how to properly account for Captcha pages (you don't want either numPages or currentPage to count that one)
       numPages: number;
       currentPage: number;
       */

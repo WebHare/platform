@@ -146,7 +146,7 @@ export default class ImgEditField extends FileEditBase {
       if (!holder)
         throw new Error("Cannot process image, missing wh-form__imgeditholder holder");
 
-      //FIXME why aren't we just poutting the <img> we created above into the DOM? but might not be an easy change anymore now..
+      //FIXME why aren't we just putting the <img> we created above into the DOM? but might not be an easy change anymore now..
       const imgholder = document.createElement("div");
       imgholder.classList.add('wh-form__imgeditimg');
       imgholder.style.backgroundImage = `url('${imgpreload.src}')`;
