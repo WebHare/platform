@@ -8,8 +8,8 @@ import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId } from '@webhare/std';
-import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { isFieldNativeErrored, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
+import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -271,6 +271,8 @@ export default class FormBase {
   private _submittimeout: NodeJS.Timeout | undefined;
   /** Is the form considered interactive yet? Used to ignore changes done by code/setFieldValue */
   private isInteractive = true;
+  /** Did we warn about old style form controls? */
+  private didLegacyWarning = false;
 
   constructor(formnode: HTMLFormElement) {
     this.node = formnode;
@@ -1236,6 +1238,13 @@ export default class FormBase {
     }
   }
 
+  private ensureLegacyWarning(field: HTMLElement) {
+    if (!this.didLegacyWarning && !isLive)
+      console.warn(`[form] ${getFieldDisplayName(field)} is using wh:form-getvalue/wh:form-setvalue events. It should switch to RegisteredFieldBase in WebHare 5.6+`);
+
+    this.didLegacyWarning = true;
+  }
+
   /* Override this to overwrite the processing of individual fields. Note that
      radio and checkboxes are not passed through getFieldValue, and that
      getFieldValue may return undefined or a promise. */
@@ -1244,8 +1253,10 @@ export default class FormBase {
       //create a deferred promise for the field to fulfill
       const deferred = Promise.withResolvers<unknown>();
       //if cancelled, we'll assume the promise is taken over
-      if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
+      if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } })) {
+        this.ensureLegacyWarning(field);
         return deferred.promise;
+      }
     }
     if (!isFormControl(field)) {
       console.error(`Cannot get value on non-FormControl`, field);
@@ -1262,8 +1273,10 @@ export default class FormBase {
      to getFieldValue, this function will also be invoked for radio and checkboxes */
   setFieldValue(fieldnode: HTMLElement, value: unknown) {
     if (fieldnode.hasAttribute('data-wh-form-name')) {
-      if (!dompack.dispatchCustomEvent(fieldnode, 'wh:form-setvalue', { bubbles: true, cancelable: true, detail: { value } }))
+      if (!dompack.dispatchCustomEvent(fieldnode, 'wh:form-setvalue', { bubbles: true, cancelable: true, detail: { value } })) {
+        this.ensureLegacyWarning(fieldnode);
         return;
+      }
       // Event is not cancelled, set node value directly
     }
 
