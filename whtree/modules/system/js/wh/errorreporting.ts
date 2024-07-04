@@ -8,6 +8,7 @@ import { debugFlags } from "@webhare/env";
 const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import * as browser from 'dompack/extra/browser';
 import StackTrace from "stacktrace-js";
+import { isError } from "@webhare/std";
 
 let haveerror = false;
 let mayreport = true;
@@ -73,10 +74,8 @@ export async function reportException(errorobj: Error, options?: { altstack?: st
 
   //try {  console.log("reportException", errorobj, errorobj.stack) }catch(e) {}
   let exception_text = '';
-  if (errorobj && typeof errorobj === "object") {
-    if ("name" in errorobj && "message" in errorobj)
-      exception_text = `${errorobj.name}: ${errorobj.message}`;
-  }
+  if (isError(errorobj))
+    exception_text = `${errorobj.name}: ${errorobj.message}`;
 
   if (!exception_text && options && options.altstack)
     exception_text = options.altstack;

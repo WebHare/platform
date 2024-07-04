@@ -1,3 +1,5 @@
+import { isDate } from "./quacks";
+
 /** A relative (up to a week) or absolute wait period. Use 0 for 'polling' and Infinity to indicate an endless waits. Numbers are interpreted to be in milliseconds, a string is interpreted as a ISO8601 duration */
 export type WaitPeriod = 0 | number | string | Date;
 
@@ -19,11 +21,6 @@ function parseMS(ms: string): number {
   if (ms.length === 3) //.54
     return parseInt(ms.substring(1)) * 10;
   return parseInt(ms.substring(1, 4));
-}
-
-/** Test whether a value is a date (even if crossrealm, unlike instanceOf) */
-export function isDate(value: unknown): value is Date {
-  return value instanceof Date || ((value instanceof Object) === false && (value as object)?.constructor?.name === "Date");
 }
 
 /** Parse an ISO8601 duration

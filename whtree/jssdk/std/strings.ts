@@ -1,4 +1,4 @@
-import { isDate } from "./datetime";
+import { isDate } from "./quacks";
 import { Money } from "./money";
 
 /** Encode string for use in a regexp
