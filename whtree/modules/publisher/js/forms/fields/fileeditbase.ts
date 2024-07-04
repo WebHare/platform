@@ -5,6 +5,8 @@ import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
 import { FormBase, setFieldError } from '@mod-publisher/js/forms';
 import { isFormControl } from '@webhare/dompack';
+import { getFieldDisplayName } from '@webhare/forms/src/domsupport';
+import { isFile } from '@webhare/std';
 import { RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
 
 function isAcceptableType(fileType: string, masks: string[]) {
@@ -37,7 +39,6 @@ export default abstract class FileEditBase extends RegisteredFieldBase {
     node.required = false;
     this.node.whFormsApiChecker = () => this._check();
     this.node.whUseFormGetValue = true;
-    this.node.addEventListener('wh:form-getvalue', evt => this.getValue(evt));
 
     this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
     this.node.addEventListener('wh:form-require', evt => this._handleRequire(evt));
@@ -73,11 +74,24 @@ export default abstract class FileEditBase extends RegisteredFieldBase {
   }
   _updateEnabledStatus(nowenabled: boolean) {
   }
-  getValue(evt: CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>) {
-    dompack.stop(evt);
-    evt.preventDefault();
-    evt.stopPropagation();
-    evt.detail.deferred.resolve(this.hasChanged ? this.uploadedFile || { token: "" } : null);
+  getValue() {
+    return this.hasChanged ? this.uploadedFile || { token: "" } : null;
+  }
+
+  setValue(value: File | null, options?: { ignoreInvalid: boolean }) {
+    if (value !== null && !isFile(value))
+      throw new Error(`Incorrect value type received for ${getFieldDisplayName(this.node)} - expect File or null, got '${typeof value}'`);
+
+    if (value && !this._isAcceptableType(value.type)) {
+      if (options?.ignoreInvalid)
+        return false;
+      throw new Error(`File type ${value.type} is not acceptable for ${getFieldDisplayName(this.node)}`);
+    }
+
+    this.hasChanged = true;
+    this.uploadedFile = value;
+    this.uploadHasChanged();
+    return true;
   }
 
   _isAcceptableType(mimetype: string) {

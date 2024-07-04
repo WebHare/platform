@@ -567,7 +567,7 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
 }
 
 //We want to make clear ('assert') that wait will not return falsy values
-type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
+export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 
 export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
   if (typeof options === "string" || typeof options === "function")

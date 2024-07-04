@@ -80,21 +80,34 @@ export default class RTDField extends RegisteredFieldBase {
   async setupRTE(rtdoptions: Partial<EditorBaseOptions>) {
     const richeditor = await import('@mod-tollium/web/ui/components/richeditor') as typeof RichEditor;
 
-    const rte = richeditor.createRTE(this.node, {
+    this.rte = richeditor.createRTE(this.node, {
       ...rtdoptions,
       enabled: this._getEnabled() //initial enabled state
     });
 
-    this.rte = rte;
     //@ts-ignore -- we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
-    this.node.rte = rte;
-    //TODO setup getvalue and setvalue before async so that the rest of the form can communicate with us, RTE loading can be slow
-    this.node.addEventListener('wh:form-getvalue', evt => { evt.preventDefault(); evt.detail.deferred.resolve(rte.getValue()); });
-    //@ts-expect-error -- remove as soon as wh:form-setvalue is defined
-    this.node.addEventListener('wh:form-setvalue', evt => { evt.preventDefault(); rte.setValue(evt.detail.value); });
+    this.node.rte = this.rte;
     //@ts-expect-error -- remove as soon as wh:richeditor-action is defined
     this.node.addEventListener('wh:richeditor-action', evt => this.executeAction(evt));
     this.node.addEventListener('wh:richeditor-dirty', evt => dompack.dispatchCustomEvent(this.node, 'input', { bubbles: true, cancelable: false }));
+  }
+
+  getValue(): string {
+    return this.rte ? this.rte.getValue() : this.node.innerHTML;
+  }
+
+  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
+    if (typeof newvalue !== 'string')
+      if (options?.ignoreInvalid)
+        return false;
+      else
+        throw new Error(`Invalid value for RTE field: ${typeof newvalue}`);
+
+    if (this.rte)
+      this.rte.setValue(newvalue);
+    else
+      this.node.innerHTML = newvalue;
+    return true;
   }
 
   async executeAction(evt: CustomEvent<{ action: string }>) {

@@ -21,4 +21,8 @@ export abstract class RegisteredFieldBase<NodeType extends HTMLElement = HTMLEle
       console.warn(`[form] Registered field ${getFieldDisplayName(this.node)} must be rendered with data-wh-form-registered-field`, this.node);
     }
   }
+
+  abstract getValue(): unknown;
+
+  abstract setValue(newvalue: unknown, options?: { ignoreInvalid: boolean }): boolean;
 }

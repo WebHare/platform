@@ -856,7 +856,7 @@ export default class EditorBase {
     return this;
   }
 
-  getValue() {
+  getValue(): string {
     const returntree = this.getBody().cloneNode(true);
 
     //clean embedded objects
@@ -876,7 +876,7 @@ export default class EditorBase {
     return returntree.innerHTML;
   }
 
-  setValue(val) {
+  setValue(val: string) {
     this.dirty = true;
 
     this.bodydiv.innerHTML = val;

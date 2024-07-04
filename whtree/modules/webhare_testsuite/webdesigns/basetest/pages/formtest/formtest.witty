@@ -58,6 +58,9 @@
     <button type="button" class="prefillbutton">Prefill</button>
     <button type="button" class="validatebutton">Validate</button>
     <button type="submit" id="submitbutton">Submit</button>
+    -
+    <button type="button" id="clearimage">Clear image</button>
+    <button type="button" id="setimage">Set image</button>
   </form>
   <div>
     Last server submit response: <span id="rtdformresponse"></span>
