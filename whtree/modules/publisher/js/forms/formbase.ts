@@ -9,7 +9,7 @@ import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, u
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList } from '@webhare/forms/src/domsupport';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -54,13 +54,6 @@ declare global {
 }
 
 type ExtraData = unknown;
-
-type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
-
-// Constrains the RadioNodeList type to only return HTMLInputElements. reduces number of casts we need
-function isRadioNodeList(el: RadioNodeList | Element): el is ConstrainedRadioNodeList {
-  return el instanceof RadioNodeList;
-}
 
 type FormControlDescription = {
   name: string;
