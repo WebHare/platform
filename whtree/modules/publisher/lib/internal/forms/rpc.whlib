@@ -4,12 +4,7 @@ LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
@@ -20,8 +15,6 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
@@ -61,15 +54,8 @@ PUBLIC RECORD FUNCTION RPC_FormInvoke(RECORD submitinfo)
 
 PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl)
 {
-  STRING tok := GetVariableFromURL(uploadurl, "file");
-  RECORD ARRAY files := PeekUploadedFiles([tok]);
-  IF(Length(files) != 1)
-    THROW NEW Exception("Didn't receive a file");
-
-  IF(files[0].filename = "mytestfile.txt" AND GetDtapStage()="development") //slow down tests to make it less racy
-    Sleep(1000);
-
-  RECORD wrapped := WrapBlob(files[0].data, files[0].filename);
+  RECORD file := ParseDataURL(uploadurl);
+  RECORD wrapped := WrapBlob(file.data, "");
   OpenPrimary();
   RETURN IsSupportedImageResizeType(wrapped.mimetype) ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
                                                       : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);

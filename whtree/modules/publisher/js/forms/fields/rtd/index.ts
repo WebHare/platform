@@ -44,6 +44,13 @@ export default class RTDField {
     hidebuttons.push('object-insert');
     hidebuttons.push('action-showformatting');
 
+    //We shouldn't be waiting to receive enable/disable until the RTD is there
+    this._fieldgroup = this.node.closest(".wh-form__fieldgroup");
+    if (this._fieldgroup) {
+      this.node.dataset.whFormStateListener = "true";
+      this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
+    }
+
     const rtdoptions: Partial<EditorBaseOptions> =
     {
       enabled: true,
@@ -68,7 +75,6 @@ export default class RTDField {
     //, bodyclass: data.bodyclass
     //, csscode: data.csscode
 
-    this._fieldgroup = this.node.closest(".wh-form__fieldgroup");
     this.setupRTE(rtdoptions);
   }
   async setupRTE(rtdoptions: Partial<EditorBaseOptions>) {
@@ -82,17 +88,13 @@ export default class RTDField {
     this.rte = rte;
     //@ts-ignore -- we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
     this.node.rte = rte;
+    //TODO setup getvalue and setvalue before async so that the rest of the form can communicate with us, RTE loading can be slow
     this.node.addEventListener('wh:form-getvalue', evt => { evt.preventDefault(); evt.detail.deferred.resolve(rte.getValue()); });
     //@ts-expect-error -- remove as soon as wh:form-setvalue is defined
     this.node.addEventListener('wh:form-setvalue', evt => { evt.preventDefault(); rte.setValue(evt.detail.value); });
     //@ts-expect-error -- remove as soon as wh:richeditor-action is defined
     this.node.addEventListener('wh:richeditor-action', evt => this.executeAction(evt));
     this.node.addEventListener('wh:richeditor-dirty', evt => dompack.dispatchCustomEvent(this.node, 'input', { bubbles: true, cancelable: false }));
-
-    if (this._fieldgroup) {
-      this.node.dataset.whFormStateListener = "true";
-      this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
-    }
   }
 
   async executeAction(evt: CustomEvent<{ action: string }>) {
@@ -125,7 +127,7 @@ export default class RTDField {
     this._updateEnabledStatus(this._getEnabled());
   }
   _updateEnabledStatus(nowenabled: boolean) {
-    this.rte!.setEnabled(nowenabled);
+    this.rte?.setEnabled(nowenabled);
     if (nowenabled)
       this.node.removeAttribute("data-wh-form-disabled");
     else

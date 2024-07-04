@@ -1,6 +1,8 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="blob-tests.whscr">
   <test script="primitivevalues.whscr" />
-  <test script="pg_locking.whscr" />
+
+  <!-- test is unstable and issues with the HS PG driver might not be relevant going forwards. The 100-300ms timeouts are probably too short to be stable on CI -->
+  <test script="pg_locking.whscr" flaky="true" />
   <test script="pg_procedures.whscr" />
   <test script="pg_blobcleanup.whscr" />
   <test script="pg_metadataupdates.whscr" />

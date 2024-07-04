@@ -136,7 +136,7 @@ export function setRawStructuredContent(win, structuredhtml) {
   setStructuredContent(win, structuredhtml, true);
 }
 
-export function setStructuredContent(rte, structuredhtml, options) {
+export function setStructuredContent(rte, structuredhtml, options?) {
   options = { raw: false, verify: true, ...(typeof options === "boolean" ? { raw: options } : options || {}) };
 
   if (!rte) {

@@ -12,7 +12,8 @@ import "@mod-tollium/web/ui/components/richeditor/richeditor.lang.json";
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 import * as styleloader from './styleloader';
 
-import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
+import formservice from "@webhare/forms/src/formservice"; //TODO should not require formservice in core RTD code, RTD integration should take care of it
+
 import { isMultiSelectKey, loadImage } from '@webhare/dompack';
 import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard";
@@ -21,13 +22,11 @@ import * as tablesupport from "./tableeditor";
 import * as richdebug from "./richdebug";
 import * as domlevel from "./domlevel";
 import * as support from "./support";
-import * as compatupload from '@mod-system/js/compat/upload';
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
 import type { ParsedStructure, BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
-
-let editableFix;
+import { getFileAsDataURL, requestFile } from '@webhare/upload';
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2004,7 +2003,7 @@ export default class EditorBase {
     return this.options.imgloadplaceholder || defaultimgplaceholder;
   }
 
-  _createImageDownloadNode() {
+  protected _createImageDownloadNode(): HTMLImageElement {
     return <img class="wh-rtd__img wh-rtd__img--uploading" src={this._getImageDownloadURL()} />;
   }
 
@@ -2936,42 +2935,38 @@ export default class EditorBase {
     }
   }
 
-  async newUploadInsertImage() {
-    const lock = dompack.flagUIBusy();
-    const files = await compatupload.selectFiles({ mimetypes: ["image/*"] });
-    if (!files.length) {
-      lock.release();
-      return;
-    }
+  private async newUploadInsertImage(): Promise<void> {
+    using lock = dompack.flagUIBusy();
+    void (lock);
 
-    try {
-      const imgnode = this._createImageDownloadNode();
-      this.replaceSelectionWithNode(imgnode, true);
-      await this.uploadImageToServer(files[0], imgnode);
-    } finally {
-      lock.release();
-    }
+    const toUpload = await requestFile({ accept: ["image/png", "image/jpeg", "image/gif"] });
+    if (!toUpload)
+      return;
+
+    const imgnode = this._createImageDownloadNode();
+    this.replaceSelectionWithNode(imgnode, true);
+    this.uploadImageToServer(toUpload.file, imgnode);
   }
 
   //Upload an image to the server, and then replace the src in the specified image node
-  async uploadImageToServer(filetoupload, imgnode) {
-    const busylock = dompack.flagUIBusy();
-    try {
-      const uploader = new compatupload.UploadSession([filetoupload]);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
-      const res = await uploader.upload();
-      const properurl = await formservice.getUploadedFileFinalURL(res[0].url);
-      imgnode.src = properurl;
-      this.knownimages.push(imgnode.src);
-      imgnode.classList.add("wh-rtd__img");
+  protected async uploadImageToServer(filetoupload: File, imgnode: HTMLImageElement) {
+    /* TODO convert to the new uploader to avoid base64 encoding but might as well delay that until the server-side RTD code is also willing to deny uploads
+            can we use the FormCode's FormSubmitter to negotiate uploading and keep responsibility for the images on the client until the server has actually
+            recorded them (and traded them in for image cache urls?) as it would also be nice to not have the RTD code directly rely on the image cache/form service
+    */
+    using lock = dompack.flagUIBusy();
+    void (lock);
 
-      //drop width/height form external images
-      imgnode.removeAttribute("width");
-      imgnode.removeAttribute("height");
+    const properurl = await formservice.getUploadedFileFinalURL(await getFileAsDataURL(filetoupload));
+    imgnode.src = properurl;
+    this.knownimages.push(imgnode.src);
+    imgnode.classList.add("wh-rtd__img");
 
-      await loadImage(imgnode.src); //don't return until the upload is done!
-    } finally {
-      busylock.release();
-    }
+    //drop width/height form external images
+    imgnode.removeAttribute("width");
+    imgnode.removeAttribute("height");
+
+    await loadImage(imgnode.src); //don't return until the upload is done!
   }
   //FIXME if we can select embeddedobjects, we can merge this into executeAction
   launchActionPropertiesForNode(node, subaction) {

@@ -7,7 +7,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";
 LOADLIB "mod::system/lib/remoting/server.whlib";
-LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/webserver/reloadconfig.whlib";
@@ -137,12 +136,4 @@ PUBLIC RECORD FUNCTION RPC_ManipWebserverSession(STRING action, STRING sessionid
     CASE "close"  { CloseWebSession(sessionid, passwd); RETURN DEFAULT RECORD;  }
   }
   RETURN DEFAULT RECORD;
-}
-
-PUBLIC RECORD ARRAY FUNCTION RPC_GetWebserverUploadedFiles(STRING ARRAY filetokens)
-{
-  RETURN
-      SELECT *
-           , data :=  EncodeBase16(GetSHA1Hash(BlobToString(data, -1)))
-        FROM GetUploadedFiles(filetokens);
 }

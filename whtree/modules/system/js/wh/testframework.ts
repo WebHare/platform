@@ -293,54 +293,6 @@ export async function asyncMouseClick(x, y, options) {
   return await testfw.sendDevtoolsRequest({ type: "mouseClick", x, y, options });
 }
 
-export interface MockUploadFile {
-  url: string;
-  filename: string;
-}
-
-class FakeUploadSession {
-  files;
-  donecallback;
-  blobs: Array<Blob | null>;
-
-  constructor(files: MockUploadFile[], donecallback?: () => void) {
-    this.files = files;
-    this.donecallback = donecallback;
-    this.blobs = files.map(() => null);
-  }
-  runUpload(inputnode: HTMLElement) {
-    this.files.forEach((file, idx) => {
-      getFileFromURL(file.url, file.filename).then(blob => this.doneUpload(blob, idx, inputnode));
-    });
-  }
-  doneUpload(blob: Blob, idx: number, inputnode: HTMLElement) {
-    if (this.blobs[idx])
-      throw new Error("Duplicate upload completion for blob #" + idx);
-    this.blobs[idx] = blob;
-    if (this.blobs.filter(val => val).length < this.blobs.length) //we don't have all files yet
-      return;
-
-    dompack.dispatchCustomEvent(inputnode, 'wh:upload-fake', { bubbles: false, cancelable: false, detail: { files: this.blobs } });
-    if (this.donecallback)
-      setTimeout(this.donecallback, 1);
-  }
-}
-
-export function prepareUploadTest(node: unknown, files: MockUploadFile[], donecallback?: () => void): void {
-  if (window.top.wh_testapi_fakeupload)
-    throw new Error("The window already has a pending upload");
-
-  const uploadclass = new FakeUploadSession(files, donecallback);
-  window.top.wh_testapi_fakeupload = (el: HTMLInputElement) => uploadclass.runUpload(el);
-}
-
-export async function prepareUpload(files: MockUploadFile[]): Promise<void> {
-  const deferred = Promise.withResolvers<void>();
-  const uploadclass = new FakeUploadSession(files, function () { deferred.resolve(); });
-  window.top.wh_testapi_fakeupload = (el: HTMLInputElement) => uploadclass.runUpload(el);
-  await deferred.promise;
-}
-
 export function getOpenMenu() {
   return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }

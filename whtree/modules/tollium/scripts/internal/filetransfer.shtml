@@ -1,12 +1,29 @@
 ﻿<?wh
 
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+// LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+
+MACRO SendDownloadFile(BLOB data, STRING filename, STRING contenttype)
+{
+  AddHTTPHeader("Content-Type", contenttype, FALSE);
+  AddHTTPHeader("Content-Disposition", "attachment; filename=\"" || EncodeJava(Filename) || "\"", FALSE);
+
+  STRING uploadid := GetWebVariable("wh-download");
+  IF(uploadid!="")
+    UpdateWebCookie("wh-download-" || uploadid, "done", [ httponly := FALSE ]);
+  SendWebFile(data);
+}
+
+MACRO SendDownloadError(RECORD errorinfo)
+{
+  Print('<!DOCTYPE html><script type="text/javascript">\n');
+  Print('var f=window.frameElement;var d=f.ownerDocument;(d.defaultView).__wh_downloadfailurecallback(f,' || EncodeJSON(errorinfo) || ');\n');
+  Print('</script>');
+  RETURN;
+}
+
 
 BOOLEAN debug_logcontroller := IsDebugTagEnabled("tollium:logcontroller");
 STRING portid := GetWebVariable("l");
@@ -32,98 +49,6 @@ IF(NOT ObjectExists(ipclink))
 
 SWITCH (type)
 {
-  CASE "urlupload"
-  {
-    //FIXME verify that this request actually came from a RTE or test. Is checking objectexists(ipclink) enough?
-    //FIXME evaluate security issues with allowing even identified users to do requests (we could be made a DoS proxy! we could be abused to avoid IP security checks - perhaps we should add a Requesting-For header with IP?)
-    //ADDME huge data urls are probably better decoded piece-wise
-    RECORD uploadreq := DecodeJSONBlob(GetRequestBody());
-    BLOB indata;
-
-    IF(uploadreq.url LIKE "http:*" OR uploadreq.url LIKE "https:*")
-    {
-      OBJECT browser := NEW WebBrowser;
-      browser->timeout := 30000;
-      IF(NOT browser->GotoWebPage(uploadreq.url))
-      {
-        AddHTTPHeader("Content-Type","application/json",FALSE);
-        Print(EncodeJSON([status := "DOWNLOADFAILED"]));
-        RETURN;
-      }
-
-      indata := browser->content;
-      browser->Close();
-    }
-    ELSE IF(uploadreq.url LIKE "data:*")
-    {
-      RECORD parsed := ParseDataURL(uploadreq.url);
-      IF(RecordExists(parsed))
-        indata := parsed.data;
-    }
-    ELSE
-    {
-      AddHTTPHeader("Content-Type","application/json",FALSE);
-      Print(EncodeJSON([status := "DOWNLOADFAILED"]));
-      RETURN;
-    }
-
-    RECORD fileinfo := ScanBlob(indata,"");
-    IF(fileinfo.width <= 0 OR fileinfo.height <= 0)
-    {
-      AddHTTPHeader("Content-Type","application/json",FALSE);
-      Print(EncodeJSON([status := "DOWNLOADFAILED"]));
-      RETURN;
-    }
-
-    RECORD rec := ipclink->DoRequest(
-        [ type := "upload"
-        , window := GetWebVariable("w")
-        , component := GetWebVariable("n")
-        , data := DecodeJSON(GetWebVariable("d"))
-        , incoming := [ data := indata
-                      , filename := uploadreq.filename
-                      , uploadtype := "urlupload"
-                      ]
-        ]);
-
-    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
-    {
-      AddHTTPHeader("Status", "404 Not found", FALSE);
-      RETURN;
-    }
-
-    AddHTTPHeader("Content-Type","application/json",FALSE);
-    Print(EncodeJSON([status := "OK", url := rec.msg.tokens[0] ]));
-    RETURN;
-
-  }
-  CASE "upload", "upload-xhr"
-  {
-    RECORD incoming := ProcessUploadEndpointData();
-    IF(NOT RecordExists(incoming))
-      ABORT("Upload endpoint did not understand received data");
-
-    RECORD rec := ipclink->DoRequest(
-        [ type := "upload"
-        , window := GetWebVariable("w")
-        , component := GetWebVariable("n")
-        , data := DecodeJSON(GetWebVariable("d"))
-        , incoming := incoming
-        ]);
-
-    IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
-    {
-      AddHTTPHeader("Status", "404 Not found", FALSE);
-      RETURN;
-    }
-    IF(type="upload")
-      SendUploadEndpointResponse(incoming, rec.msg.tokens);
-    ELSE
-    {
-      AddHTTPHeader("Content-Type","application/json",FALSE);
-      Print(EncodeJSON([status := "OK", url := rec.msg.tokens[0] ]));
-    }
-  }
   CASE "download" //'download' is still used by embedded files (eg RTE CSS)
   {
     RECORD rec := ipclink->DoRequest(
