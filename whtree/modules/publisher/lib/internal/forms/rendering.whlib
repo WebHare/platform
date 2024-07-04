@@ -733,7 +733,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
         Print(`<div${idstr} class="wh-form__rtd" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-rtdoptions="${EncodeValue(EncodeJSON(fielddescription.rtdoptions))}"`);
         IF(NOT fielddescription.enabled)
           Print(` data-wh-form-disabled`);
-        Print(`>`);
+        Print(` data-wh-form-registered-field>`);
         Print(fielddescription.value);
         Print(`</div>`);
       }
@@ -769,7 +769,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(` data-wh-form-required aria-required`);
         IF(RecordExists(fielddescription.value))
           Print(` data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
-        Print(`>`);
+        Print(` data-wh-form-registered-field>`);
         Print(`<div class="wh-form__imgeditholder">`);
         IF(RecordExists(fielddescription.value))
           Print(`<div class="wh-form__imgeditimg" style="background-image: url('${EncodeValue(fielddescription.value.link)}')"></div>`);

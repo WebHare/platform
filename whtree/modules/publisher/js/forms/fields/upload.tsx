@@ -70,7 +70,6 @@ export default class UploadField extends FileEditBase {
     this._afterConstruction();
   }
   _updateEnabledStatus(nowenabled: boolean) {
-    this.node.disabled = false; //we'll now manually handle disabled status
     this._uploadbutton.disabled = !nowenabled;
   }
   _takeFocus(evt: Event) {
