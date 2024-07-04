@@ -34,10 +34,9 @@ test.registerTests(
       test.assert(!test.canClick("#webtoolform-not18"));
     },
 
-    { loadpage: function () { return setupdata.url; } },
-
     'Test conditional',
     async function () {
+      await test.load(setupdata.url);
       test.assert(test.qS('input[name="firstname"]').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'), "firstname should be required");
 
       const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
@@ -52,10 +51,9 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
     },
 
-    { loadpage: function () { return setupdata.url; } },
-
     'Test hiding',
     async function () {
+      await test.load(setupdata.url);
       test.assert(test.canClick(test.qS('input[name="firstname"]')), "firstname should be clickable");
       test.click(test.qSA('[name=hidefirstname]')[0]);
       test.assert(!test.canClick(test.qS('input[name="firstname"]')), "firstname should no longer be clickable");
@@ -139,9 +137,9 @@ test.registerTests(
       test.eq(/Subfield value: Subvalue #2/, emails[0].plaintext);
     },
 
-    { loadpage: function () { return setupdata.url; } },
     'Test disabling',
     async function () {
+      await test.load(setupdata.url);
       test.assert(test.qS('input[name="conditionhas"]').disabled, "condition HAS should be disabled as the 'other' option isn't enabled");
       test.assert(test.qS('input[name="conditionis"]').disabled, "condition IS should be disabled as the 'other' option isn't enabled");
 
@@ -165,10 +163,9 @@ test.registerTests(
       test.eq("", thankyou[0].textContent, "Thankyou node should be empty");
     },
 
-    { loadpage: function () { return setupdata.url; } },
-
     'Test group dependencies',
     async function () {
+      await test.load(setupdata.url);
       test.assert(!test.canClick(test.qS('input[name="phone"]')), "phone should not be visible");
       test.assert(!test.canClick(test.qS('input[name="mobile"]')), "mobile should not be visible");
       test.click(test.qS('[name=showcontact]'));

@@ -4,11 +4,10 @@ import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
   [
-    { loadpage: '/.webhare_testsuite/tests/pages/captcha?wh-debug=nsc' },
-
     "Test google specific recaptcha",
 
     async function () {
+      await test.load('/.webhare_testsuite/tests/pages/captcha?wh-debug=nsc');
       test.click('#trigger_googlerecaptcha');
       await test.wait('ui');
       test.eq(1, test.qSA('.mydialog').length);

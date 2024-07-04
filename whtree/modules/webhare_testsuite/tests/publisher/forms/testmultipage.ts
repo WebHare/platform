@@ -106,8 +106,9 @@ test.registerTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1');
+
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field not available on page 1");
@@ -154,8 +155,9 @@ test.registerTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1');
+
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field not available on page 1");
@@ -252,8 +254,8 @@ test.registerTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1');
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
 
       // Check the 'maybe' checkbox
@@ -355,9 +357,9 @@ test.registerTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
-    "Test scrolling back up on error",
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1');
+
       test.click('#multipagetest-vertspace');
       test.assert(!test.canClick(test.qS('.wh-form__button--next')));
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext"]').getBoundingClientRect().bottom);

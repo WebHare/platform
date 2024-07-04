@@ -38,11 +38,9 @@ test.registerTests(
       }
     },
     {
-      loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte'
-    },
-    {
       name: 'Verify reloaded image',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
         //wait for image to load
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present #2');
@@ -57,11 +55,10 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte'
-    },
-    {
       name: 'Verify re-reloaded image',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
+
         //wait for image to load
         let img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present #3');
@@ -86,11 +83,9 @@ test.registerTests(
       }
     },
     {
-      loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&imgrequired=1'
-    },
-    {
       name: 'Test error handling',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&imgrequired=1');
         test.focus('#rtdtest-img');
         test.click('.wh-form__imgeditdelete'); //kill image
         test.click('#submitbutton'); //image should be removed. submit
@@ -109,10 +104,9 @@ test.registerTests(
       }
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1' },
-
     'Initially disabled imgedit',
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1');
       test.assert(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'));
     }
   ]);
