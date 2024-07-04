@@ -4,8 +4,12 @@ import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isFormControl, isHTMLElement, type FormControlElement } from "@webhare/dompack";
 
+export function isInputElement(field: Element): field is HTMLInputElement {
+  return isHTMLElement(field) && field.tagName === 'INPUT';
+}
+
 export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
-  return isHTMLElement(field) && field.tagName === 'INPUT' && ["radio", "checkbox"].includes((field as HTMLInputElement).type);
+  return isInputElement(field) && ["radio", "checkbox"].includes(field.type);
 }
 
 ///Test if the field is a valid target for various form APIs we have (it's a FormControlElement OR it has data-wh-form-name. We hope to someday merge those into 'real' inputs too)
