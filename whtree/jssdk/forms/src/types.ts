@@ -29,3 +29,33 @@ export interface RPCFormInvokeRPC extends RPCFormInvokeBase {
 export interface RPCFormSubmission extends RPCFormInvokeBase {
   extrasubmit?: unknown;
 }
+
+export type FormCondition = {
+  matchtype: "IN" | "HAS" | "IS";
+  field: string;
+  value: unknown;
+  options?: {
+    matchcase?: boolean;
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "HASVALUE";
+  field: string;
+  value: boolean;
+  options?: {
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "AGE<" | "AGE>=";
+  field: string;
+  value: number;
+  options?: {
+    checkdisabled?: boolean;
+  };
+} | {
+  matchtype: "AND" | "OR";
+  conditions: FormCondition[];
+} | {
+  matchtype: "NOT";
+  condition: FormCondition;
+};

@@ -9,8 +9,9 @@ import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, u
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, isInputElement } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, isInputElement, parseCondition } from '@webhare/forms/src/domsupport';
 import { rfSymbol, type RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
+import type { FormCondition } from '@webhare/forms/src/types';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -92,36 +93,6 @@ export interface FormSubmitResult {
 }
 
 type RichValues = Array<{ field: string; value: string }>;
-
-type FormCondition = {
-  matchtype: "IN" | "HAS" | "IS";
-  field: string;
-  value: unknown;
-  options?: {
-    matchcase?: boolean;
-    checkdisabled?: boolean;
-  };
-} | {
-  matchtype: "HASVALUE";
-  field: string;
-  value: boolean;
-  options?: {
-    checkdisabled?: boolean;
-  };
-} | {
-  matchtype: "AGE<" | "AGE>=";
-  field: string;
-  value: number;
-  options?: {
-    checkdisabled?: boolean;
-  };
-} | {
-  matchtype: "AND" | "OR";
-  conditions: FormCondition[];
-} | {
-  matchtype: "NOT";
-  condition: FormCondition;
-};
 
 export interface FieldErrorOptions {
   serverside: boolean;
@@ -510,7 +481,7 @@ export default class FormBase {
 
           let ourcondition: FormCondition = { field: name, matchtype: "IN", value: control.value };
           if (target.dataset.whFormEnabledIf) //append to existing criterium
-            ourcondition = { conditions: [this.parseCondition(target.dataset.whFormEnabledIf), ourcondition], matchtype: "AND" };
+            ourcondition = { conditions: [parseCondition(target.dataset.whFormEnabledIf), ourcondition], matchtype: "AND" };
           target.dataset.whFormEnabledIf = JSON.stringify({ c: ourcondition });
         }
       }
@@ -1162,19 +1133,11 @@ export default class FormBase {
     }
   }
 
-  private parseCondition(conditiontext: string): FormCondition {
-    interface FormConditionWrapper {
-      c: FormCondition;
-    }
-
-    return (JSON.parse(conditiontext) as FormConditionWrapper).c;
-  }
-
   _matchesCondition(conditiontext: string | undefined) {
     if (!conditiontext)
       return true;
 
-    return this._matchesConditionRecursive(this.parseCondition(conditiontext));
+    return this._matchesConditionRecursive(parseCondition(conditiontext));
   }
 
   _getConditionRawValue(fieldname: string, options?: { checkdisabled?: boolean }) {

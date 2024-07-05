@@ -3,6 +3,7 @@
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isFormControl, isHTMLElement, type FormControlElement } from "@webhare/dompack";
+import type { FormCondition } from "./types";
 
 export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
 
@@ -85,4 +86,13 @@ export function getFieldNativeError(field: HTMLElement) {
     return getErrorForValidity(field);
 
   return null;
+}
+
+
+export function parseCondition(conditiontext: string): FormCondition {
+  interface FormConditionWrapper {
+    c: FormCondition;
+  }
+
+  return (JSON.parse(conditiontext) as FormConditionWrapper).c;
 }
