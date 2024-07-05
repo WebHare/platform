@@ -28,5 +28,5 @@ export function isError(e: unknown): e is Error {
 
 /** Check if the object looks like a promise */
 export function isPromise<T>(e: unknown): e is Promise<T> {
-  return e instanceof Error || (isCrossRealm(e) && "name" in e && "stack" in e && "message" in e);
+  return Boolean(e && typeof (e as Promise<unknown>).then === "function" && typeof (e as Promise<unknown>).catch === "function");
 }

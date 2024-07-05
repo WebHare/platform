@@ -3,9 +3,10 @@ import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform
 import { openWHFSObject } from "./objects";
 import { CSPContentType } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
-import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
+import { EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
+import { isPromise } from "@webhare/std";
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -265,10 +266,7 @@ class RecursiveSetter {
           throw new Error(`Unsupported type ${matchmember.type}`);
 
         const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value);
-        const finalsettings: EncoderBaseReturnValue =
-          (encodedsettings as EncoderAsyncReturnValue)?.then
-            ? await encodedsettings as EncoderBaseReturnValue
-            : encodedsettings as EncoderBaseReturnValue;
+        const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
 
         if (Array.isArray(finalsettings))
           mynewsettings.push(...finalsettings);

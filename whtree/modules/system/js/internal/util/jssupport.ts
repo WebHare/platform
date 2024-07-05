@@ -1,5 +1,6 @@
 import { addBestMatch } from "@webhare/js-api-tools/src/levenshtein";
 import { BackendServiceConnection, registerAsDynamicLoadingLibrary, toFSPath } from "@webhare/services";
+import { isPromise } from "@webhare/std";
 
 const libmap = new Map<string, Record<string, unknown>>;
 
@@ -44,10 +45,10 @@ export function callExportNowrap(libname: string, name: string, args: unknown[])
 //callExport is used by importJS _Invoke in non-WASM environents
 export async function callExport(lib: string, name: string, args: unknown[]): Promise<unknown> {
   const retval = callExportNowrap(lib, name, args);
-  if ((retval as Promise<unknown>)?.then) { //If the API returned a promise, mimick that in HS
+  if (isPromise(retval)) { //If the API returned a promise, mimick that in HS
     // Dummy catch to prevent unexpected rejection handlers if the awaitPromise ()call is too late
-    (retval as Promise<unknown>).catch(() => { });
-    promises.push(retval as Promise<unknown>);
+    retval.catch(() => { });
+    promises.push(retval);
     return { promiseid: promises.length - 1 };
   }
 

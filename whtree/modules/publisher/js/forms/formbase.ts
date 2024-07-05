@@ -7,7 +7,7 @@ import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import * as pxl from '@mod-consilio/js/pxl';
-import { generateRandomId } from '@webhare/std';
+import { generateRandomId, isPromise } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList } from '@webhare/forms/src/domsupport';
 
@@ -1397,9 +1397,9 @@ export default class FormBase {
   _processFieldValue(outdata: FormResultValue, fieldpromises: Array<Promise<void>>, fieldname: string, receivedvalue: unknown) {
     if (receivedvalue === undefined)
       return;
-    if ((receivedvalue as Promise<unknown>).then) {
+    if (isPromise(receivedvalue)) {
       fieldpromises.push(new Promise<void>((resolve, reject) => {
-        (receivedvalue as Promise<unknown>).then(result => {
+        receivedvalue.then(result => {
           if (result !== undefined)
             outdata[fieldname] = result;
 

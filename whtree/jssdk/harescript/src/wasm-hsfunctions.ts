@@ -6,7 +6,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, setCachedWebAssemblyModule } from "@webhare/harescript/src/wasm-modulesupport";
-import { generateRandomId, sleep } from "@webhare/std";
+import { generateRandomId, isPromise, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
@@ -472,11 +472,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     let value = (syscalls as SysCallsModule)[func](vm, data);
     if (value === undefined)
       value = false;
-    if ((value as Promise<unknown>)?.then) { //looks like a promise
+    if (isPromise(value)) { //looks like a promise
       const id = ++vm.syscallPromiseIdCounter;
 
       //TODO keep weak references, promises may stick around a long time
-      (value as Promise<unknown>).then(
+      value.then(
         result => vm.resolveSyscalledPromise(id, true, result),
         result => vm.resolveSyscalledPromise(id, false, result));
 
