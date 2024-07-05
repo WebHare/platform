@@ -23,7 +23,6 @@ export default class ArrayField {
 
     // The template for new rows
     this.template = qR<HTMLTemplateElement>(node, "template");
-    this.template.remove();
 
     // The node before which to add new rows
     this.insertPoint = qR(node, ".wh-form__arrayadd");
@@ -158,8 +157,7 @@ export default class ArrayField {
 
         // Rename id's to make them unique; update the labels within the field's fieldgroup to point to the new id
         if (fieldnode.id) {
-          // Checkboxes/radiobuttons have two labels: the first is the checkbox/radiobutton itself, the second is the actual label
-          const labelnodes = qSA<HTMLLabelElement>(fieldnode.closest(".wh-form__fieldgroup"), `label[for="${fieldnode.id}"]`);
+          const labelnodes = qSA<HTMLLabelElement>(node, `label[for="${fieldnode.id}"]`);
           fieldnode.id += "-" + rowid;
           for (const labelnode of labelnodes)
             labelnode.htmlFor = fieldnode.id;
