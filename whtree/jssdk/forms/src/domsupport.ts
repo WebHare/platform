@@ -4,8 +4,14 @@ import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isFormControl, isHTMLElement, type FormControlElement } from "@webhare/dompack";
 
+export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
+
+export function isInputElement(field: Element): field is HTMLInputElement {
+  return isHTMLElement(field) && field.tagName === 'INPUT';
+}
+
 export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
-  return isHTMLElement(field) && field.tagName === 'INPUT' && ["radio", "checkbox"].includes((field as HTMLInputElement).type);
+  return isInputElement(field) && ["radio", "checkbox"].includes(field.type);
 }
 
 ///Test if the field is a valid target for various form APIs we have (it's a FormControlElement OR it has data-wh-form-name. We hope to someday merge those into 'real' inputs too)
@@ -13,7 +19,14 @@ export function isValidFormFieldTarget(field: Element): field is HTMLElement {
   return isFormControl(field) || Boolean(field instanceof HTMLElement && field.dataset.whFormName);
 }
 
-export function getFieldDisplayName(field: HTMLElement) {
+// Constrains the RadioNodeList type to only return HTMLInputElements. reduces number of casts we need
+export function isRadioNodeList(el: RadioNodeList | Element): el is ConstrainedRadioNodeList {
+  return el instanceof RadioNodeList;
+}
+
+export function getFieldDisplayName(field: HTMLElement | ConstrainedRadioNodeList): string {
+  if (isRadioNodeList(field))
+    return `radiogroup '${(field.item(0) as HTMLInputElement)?.name || (field.item(0) as HTMLElement)?.id || '<unnamed>'}'`;
   if (isFormControl(field))
     return `native field '${field.name || field.id || '<unnamed>'}'`;
   if (field.dataset.whFormName)

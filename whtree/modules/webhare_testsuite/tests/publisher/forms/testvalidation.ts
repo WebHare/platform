@@ -347,11 +347,11 @@ test.registerTests([
     test.assert(!test.qR('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
   },
 
-  { loadpage: test.getTestSiteRoot() + 'testpages/formtest/' },
   //the following tests only test the API (and for compatibility with parlsey). We can get through these tests without actually responding to the user (ie no triggers)
 
   'Test builtin validation API',
   async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
     const formhandler = FormBase.getForNode(test.qR('#coreform'));
     test.assert(formhandler);
     test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
@@ -421,11 +421,10 @@ test.registerTests([
     test.assert(!test.qR('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
   },
 
-  { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?scrollzone=1' },
-
   {
     name: 'Test built-in validation far away validation',
-    test: function () {
+    test: async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?scrollzone=1');
       test.getWin().scrollTo(0, test.getDoc().documentElement.scrollHeight - test.getWin().innerHeight);
       test.assert(!test.canClick(test.qR('#coretest-email')), '#coretest-email should be out of sight');
       test.click('.validatebutton');
@@ -439,12 +438,9 @@ test.registerTests([
     }
   },
 
-  {
-    name: 'Test built-in validation not validating custom validated fields - SUBMIT button',
-    loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
-  },
-
+  'Test built-in validation not validating custom validated fields - SUBMIT button',
   async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
     const setvalidatorgroup = test.qR('#coretest-setvalidator').closest('.wh-form__fieldgroup');
     test.assert(setvalidatorgroup);
     test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
@@ -458,12 +454,9 @@ test.registerTests([
     test.eq("R<a>am", test.qR(setvalidatorgroup, '.wh-form__error').textContent);
   },
 
-  {
-    name: 'Test built-in validation not validating custom validated fields - VALIDATE button',
-    loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
-  },
-
+  'Test built-in validation not validating custom validated fields - VALIDATE button',
   async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
     const setvalidatorgroup = test.qR('#coretest-setvalidator').closest('.wh-form__fieldgroup');
     test.assert(setvalidatorgroup);
     test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
@@ -475,12 +468,9 @@ test.registerTests([
     test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
   },
 
-  {
-    name: 'Test rich validation errors',
-    loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
-  },
-
+  'Test rich validation errors',
   async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
     const setvalidatorgroup = test.qR('#coretest-setvalidator').closest('.wh-form__fieldgroup');
     test.assert(setvalidatorgroup);
     test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
@@ -495,11 +485,9 @@ test.registerTests([
     test.eq("Rich Error", test.qR(setvalidatorgroup, '.wh-form__error a').textContent);
   },
 
-  {
-    name: 'Test odd radio validation behaviour',
-    loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
-  },
+  'Test odd radio validation behaviour',
   async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
     test.click('#submitbutton');
     await test.wait('ui');
     test.assert(test.qR('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'));
@@ -509,10 +497,9 @@ test.registerTests([
     test.assert(!test.qR('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'), "Error should be cleared immediately");
   },
 
-  //load the page without initial checkboxes selected
-  { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?nocheckboxselect=1' },
-
+  "load the page without initial checkboxes selected",
   async function () {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/?nocheckboxselect=1');
     test.assert(!test.qR('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
     test.click('#submitbutton');
     await test.wait('ui');

@@ -7,9 +7,9 @@ import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import * as pxl from '@mod-consilio/js/pxl';
-import { generateRandomId } from '@webhare/std';
-import { debugFlags, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { isFieldNativeErrored, isRadioOrCheckbox } from '@webhare/forms/src/domsupport';
+import { generateRandomId, isPromise } from '@webhare/std';
+import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList } from '@webhare/forms/src/domsupport';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -54,13 +54,6 @@ declare global {
 }
 
 type ExtraData = unknown;
-
-type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
-
-// Constrains the RadioNodeList type to only return HTMLInputElements. reduces number of casts we need
-function isRadioNodeList(el: RadioNodeList | Element): el is ConstrainedRadioNodeList {
-  return el instanceof RadioNodeList;
-}
 
 type FormControlDescription = {
   name: string;
@@ -271,6 +264,8 @@ export default class FormBase {
   private _submittimeout: NodeJS.Timeout | undefined;
   /** Is the form considered interactive yet? Used to ignore changes done by code/setFieldValue */
   private isInteractive = true;
+  /** Did we warn about old style form controls? */
+  private didLegacyWarning = false;
 
   constructor(formnode: HTMLFormElement) {
     this.node = formnode;
@@ -399,7 +394,7 @@ export default class FormBase {
           this.setFieldValue(tocheck, true);
         if (!tocheck)
           field.nodes.filter(_ => _.checked).forEach(_ => this.setFieldValue(_, false));
-      } else {
+      } else if (field.node.matches("input:not([type=file]),select,textarea")) { //Limit URL prefills to simple elements - TODO allow custom components to decide on this themselves OR *explicitly* require fields to opt-in to being prefillable
         if (!this._isNowSettable(field.node))
           continue;
         this.setFieldValue(field.node, allvalues[allvalues.length - 1]); //last value wins
@@ -1236,6 +1231,13 @@ export default class FormBase {
     }
   }
 
+  private ensureLegacyWarning(field: HTMLElement) {
+    if (!this.didLegacyWarning && !isLive)
+      console.warn(`[form] ${getFieldDisplayName(field)} is using wh:form-getvalue/wh:form-setvalue events. It should switch to RegisteredFieldBase in WebHare 5.6+`);
+
+    this.didLegacyWarning = true;
+  }
+
   /* Override this to overwrite the processing of individual fields. Note that
      radio and checkboxes are not passed through getFieldValue, and that
      getFieldValue may return undefined or a promise. */
@@ -1244,8 +1246,10 @@ export default class FormBase {
       //create a deferred promise for the field to fulfill
       const deferred = Promise.withResolvers<unknown>();
       //if cancelled, we'll assume the promise is taken over
-      if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
+      if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } })) {
+        this.ensureLegacyWarning(field);
         return deferred.promise;
+      }
     }
     if (!isFormControl(field)) {
       console.error(`Cannot get value on non-FormControl`, field);
@@ -1262,8 +1266,10 @@ export default class FormBase {
      to getFieldValue, this function will also be invoked for radio and checkboxes */
   setFieldValue(fieldnode: HTMLElement, value: unknown) {
     if (fieldnode.hasAttribute('data-wh-form-name')) {
-      if (!dompack.dispatchCustomEvent(fieldnode, 'wh:form-setvalue', { bubbles: true, cancelable: true, detail: { value } }))
+      if (!dompack.dispatchCustomEvent(fieldnode, 'wh:form-setvalue', { bubbles: true, cancelable: true, detail: { value } })) {
+        this.ensureLegacyWarning(fieldnode);
         return;
+      }
       // Event is not cancelled, set node value directly
     }
 
@@ -1391,9 +1397,9 @@ export default class FormBase {
   _processFieldValue(outdata: FormResultValue, fieldpromises: Array<Promise<void>>, fieldname: string, receivedvalue: unknown) {
     if (receivedvalue === undefined)
       return;
-    if ((receivedvalue as Promise<unknown>).then) {
+    if (isPromise(receivedvalue)) {
       fieldpromises.push(new Promise<void>((resolve, reject) => {
-        (receivedvalue as Promise<unknown>).then(result => {
+        receivedvalue.then(result => {
           if (result !== undefined)
             outdata[fieldname] = result;
 

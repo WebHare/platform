@@ -523,7 +523,8 @@ export async function selectFrame(name) {
   return callbacks.setFrame(name, "select");
 }
 
-export async function load(page: string): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-shadow
+export async function load(page: string, { waitUI = true } = {}): Promise<void> {
   if (typeof page !== "string") {
     console.error(`test.load expects a string, got`, page);
     throw new Error(`test.load exects a string`);
@@ -540,6 +541,8 @@ export async function load(page: string): Promise<void> {
 
   getWin().location.href = page;
   await wait("load");
+  if (waitUI)
+    await wait("ui-nocheck");
 }
 
 export function pasteHTML(content) {

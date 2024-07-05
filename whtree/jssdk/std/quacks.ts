@@ -25,3 +25,8 @@ export function isFile(value: unknown): value is File {
 export function isError(e: unknown): e is Error {
   return e instanceof Error || (isCrossRealm(e) && "name" in e && "stack" in e && "message" in e);
 }
+
+/** Check if the object looks like a promise */
+export function isPromise<T>(e: unknown): e is Promise<T> {
+  return Boolean(e && typeof (e as Promise<unknown>).then === "function" && typeof (e as Promise<unknown>).catch === "function");
+}

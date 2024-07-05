@@ -43,10 +43,10 @@ test.registerTests(
         test.eq('text/plain', serverreponse.file.mimetype);
       }
     },
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte' },
     {
       name: 'Verify reloaded file',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
         const filenameinput = test.qR(getUploadField(), '.wh-form__uploadfieldfilename');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         test.assert(getUploadField().classList.contains('wh-form__uploadfield--hasfile'));
@@ -55,10 +55,10 @@ test.registerTests(
       },
       waits: ['ui']
     },
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte' },
     {
       name: 'Verify re-reloaded file',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
         const filenameinput = test.qR(getUploadField(), '.wh-form__uploadfieldfilename');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         test.getWin().scrollTo(0, filenameinput.getBoundingClientRect().top);
@@ -104,10 +104,10 @@ test.registerTests(
       test.eq("snap ik niet", test.qR(filegroup!, ".wh-form__error").textContent);
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1' },
     {
       name: 'Test validation button',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1');
         test.click('.validatebutton');
         await test.wait('ui');
 
@@ -122,10 +122,10 @@ test.registerTests(
         test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
       }
     },
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1' },
     {
       name: 'Test error handling',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1');
         test.click('#submitbutton');
         await test.wait('ui');
 
@@ -169,8 +169,9 @@ test.registerTests(
     },
 
     "Test uploading file through initially invisible field",
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1' },
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1');
+
       test.click('#rtdtest-showfile2');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click('[data-wh-form-group-for="file2"] button');
@@ -184,10 +185,9 @@ test.registerTests(
       test.eq('mytestfile.txt', serverreponse.file2.filename);
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1' },
-
     'Initially disabled upload',
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1');
       test.assert(test.qR('[data-wh-form-group-for=file] button').disabled);
     }
   ]);

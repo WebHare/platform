@@ -3,22 +3,24 @@
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, load as oldLoad, getWin } from "@mod-system/js/wh/testframework";
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 
 /** Wait for the current UIBusyLock (flagUIBusy) to clear if any
  *
- * @throws If that the UI has never been busy since the last wait (and inside the current test step) */
-export async function waitForUI(): Promise<void> {
-  await oldWait("ui");
+ * @throws If that the UI has never been busy since the last wait and the 'optional' flag was not set (and inside the current test step) */
+export async function waitForUI({ optional = false } = {}): Promise<void> {
+  await oldWait(optional ? "ui-nocheck" : "ui");
 }
 
 /** Wait for a pageload to complete, triggered by either await load() or an action by the page
  *
  * @throws If that the UI has never been busy since the last wait (and inside the current test step) */
-export async function waitForLoad(): Promise<void> {
+export async function waitForLoad({ waitUI = true } = {}): Promise<void> {
   await oldWait("load");
+  if (waitUI)
+    await waitForUI({ optional: true });
 }
 
 export async function fetchAsFile(url: string, options?: { overrideContentType?: string }): Promise<File> {
@@ -77,12 +79,21 @@ export function importExposed<T>(name: string): T {
   return testfw.importExposed(name) as T;
 }
 
+/** Wait for a page to load
+ * @param page - URL to load
+ * @param waitUI - Wait for the UI to be ready (default: true)
+ */
+export async function load(page: string, { waitUI = true } = {}): Promise<void> {
+  await oldLoad(page);
+  if (waitUI)
+    await waitForUI({ optional: true });
+}
+
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
 
 //We individually vet APIs from testframework. We should only export APIs with proper typings!
 export {
-  load,
   canClick,
   findElement,
   waitForElement,

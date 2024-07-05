@@ -48,10 +48,10 @@ test.registerTests(
       test.eq('<html><body><p class="normal">Initial state</p></body></html>', serverreponse.htmltext);
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Verify basic RTE content',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1');
         const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
         test.eq(1, rtebody.querySelectorAll('p').length);
         test.eq('Initial state', rtebody.querySelectorAll('p')[0].textContent);
@@ -103,10 +103,10 @@ test.registerTests(
       },
       waits: ['ui']
     },
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Test beagle after reload',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1');
         await verifyBeagleVideo();
       }
     },
@@ -130,10 +130,10 @@ test.registerTests(
       waits: ['ui']
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Verify image after reload',
-      test: function () {
+      test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1');
         verifyImage();
       }
     },
@@ -154,10 +154,10 @@ test.registerTests(
       }
     },
 
-    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&rtdrequired=1' },
     {
       name: 'Test error handling',
       test: async function () {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&rtdrequired=1');
         await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal"><br data-wh-rte="bogus"/></p>');
         test.click('#submitbutton'); //image should be removed. submit

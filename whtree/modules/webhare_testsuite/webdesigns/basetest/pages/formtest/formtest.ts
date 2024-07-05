@@ -131,7 +131,7 @@ function initForms() {
   }));
   register(".wh-form__imgedit", node => new ImgEditField(node));
 
-  if (location.href.includes('rtd=1') || location.href.includes('array=1') || location.href.includes('method=htmlonly')) //note - the uploadfield should not actually upgrade htmlonly uploads
+  if (location.href.includes('rtd=1') || location.href.includes('array=1'))
     register(".wh-form__upload", node => new UploadField(node));
 
   if (location.href.includes("splitdatetime=1")) {
@@ -144,13 +144,10 @@ function initForms() {
   }
 }
 
-if (!location.href.includes('method=htmlonly')) {
-  if (location.href.includes("dompackpulldown=1"))
-    onDomReady(initForms); //delay so pulldowns get a chance to register first, a test requires the pulldowns to have done their DOM duplication before we run
-  else
-    initForms();
-}
-
+if (location.href.includes("dompackpulldown=1"))
+  onDomReady(initForms); //delay so pulldowns get a chance to register first, a test requires the pulldowns to have done their DOM duplication before we run
+else
+  initForms();
 
 register("#datetime_debugging", node => node.addEventListener("click", function () {
   qSA(".datetime--replaced").forEach(el => el.classList.remove("datetime--replaced"));

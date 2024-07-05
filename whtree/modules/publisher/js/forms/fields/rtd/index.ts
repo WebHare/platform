@@ -11,6 +11,7 @@ import type { ExternalStructureDef } from '@mod-tollium/web/ui/components/riched
 import type { EditorBaseOptions } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
 import type RPCFormBase from '../../rpc';
 import type { RTEWidget } from '@mod-tollium/web/ui/components/richeditor/internal/types';
+import { RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
 
 //FIXME  Are we sure we want to have one control handling both Free and Structured RTD? does the form RPC currently even support Free? might remove 'as' below if we dont eg insertVideo...
 
@@ -21,14 +22,13 @@ export interface RTDFieldOptions {
   rtdoptions?: EditorBaseOptions;
 }
 
-export default class RTDField {
-  readonly node;
+export default class RTDField extends RegisteredFieldBase {
   rte: FreeEditor | StructuredEditor | null = null;
   options: RTDFieldOptions;
   _fieldgroup: HTMLElement | null;
 
   constructor(node: HTMLElement, options?: RTDFieldOptions) {
-    this.node = node;
+    super(node);
     //@ts-ignore cleanup registration
     this.node.whRTDField = this;
     this.options = { ...options };

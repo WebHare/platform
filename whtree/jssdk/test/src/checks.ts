@@ -5,7 +5,7 @@ import Ajv2019 from "ajv/dist/2019";
 import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-import { Money, isDate, isError } from "@webhare/std";
+import { Money, isDate, isError, isPromise } from "@webhare/std";
 
 export type { LoadTSTypeOptions } from "./testsupport";
 
@@ -157,9 +157,9 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
     throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
   }
 
-  if ((expected as Promise<unknown>)?.then)
+  if (isPromise(expected))
     throw new TestError(`Passing a Promise to test.eq's expected value - did you mean to await it?`, annotation);
-  if ((actual as Promise<unknown>)?.then)
+  if (isPromise(actual))
     throw new TestError(`Passing a Promise to test.eq's actual value - did you mean to await it?`, annotation);
 
   // Deeper type comparison
@@ -289,7 +289,7 @@ export function eq<T>(expected: NoInfer<RecursiveOrRegExp<T>>, actual: T, annota
    assert's returnvalue isn't that useful so it seems worth giving up the return value for cleaner testcode
 */
 export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, annotation?: Annotation): asserts actual {
-  if ((actual as Promise<unknown>)?.then)
+  if (isPromise(actual))
     throw new TestError(`You cannot assert on a promise. Did you forget to await it?`, annotation);
 
   if (actual)
@@ -360,7 +360,7 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
   try {
     //If we got a function, execute it
     const potentialpromise = typeof func_or_promise === "function" ? func_or_promise() : func_or_promise;
-    if ((potentialpromise as Promise<unknown>)?.then)
+    if (isPromise(potentialpromise))
       return checkPromiseErrorsHandled(throwsAsync(expect, potentialpromise as Promise<unknown>, annotation));
 
     retval = potentialpromise;

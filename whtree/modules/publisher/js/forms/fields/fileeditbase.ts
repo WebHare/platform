@@ -5,6 +5,7 @@ import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
 import { FormBase, setFieldError } from '@mod-publisher/js/forms';
 import { isFormControl } from '@webhare/dompack';
+import { RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
 
 function isAcceptableType(fileType: string, masks: string[]) {
   if (masks.includes(fileType))
@@ -18,8 +19,7 @@ function isAcceptableType(fileType: string, masks: string[]) {
 }
 
 
-export default abstract class FileEditBase {
-  readonly node: HTMLElement;
+export default abstract class FileEditBase extends RegisteredFieldBase {
   readonly group: HTMLElement | null;
   hasChanged = false;
   isrequired: boolean;
@@ -29,7 +29,7 @@ export default abstract class FileEditBase {
   uploadedFile: File | null = null;
 
   constructor(node: HTMLElement) {
-    this.node = node;
+    super(node);
     this.group = this.node.closest<HTMLElement>(".wh-form__fieldgroup");
 
     this.isrequired = (isFormControl(node) && node.required) || node.hasAttribute("data-wh-form-required");
