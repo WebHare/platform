@@ -375,13 +375,28 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   PUBLIC RECORD FUNCTION RequestClientCredentials(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ scopes := STRING[]
+                               //password grants are deprecated. probably not worth extending the API for this
+                               , username := ""
+                               , password := ""
                                ], options);
 
     //TODO shouldn't this be safer in a authorization header ?
     RECORD ARRAY vars := [[ name := "client_id",     value := this->oauthconfig.clientid ]
                          ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
-                         ,[ name := "grant_type",    value := "client_credentials" ]
-                         ];
+                        ];
+    IF(options.username != "")
+    {
+      vars := vars CONCAT [[ name := "grant_type",   value := "password" ]
+                          ,[ name := "username",     value := options.username ]
+                          ,[ name := "password",     value := options.password ]
+                          ];
+    }
+    ELSE
+    {
+      vars := vars CONCAT [[ name := "grant_type",    value := "client_credentials" ]
+                          ];
+    }
+
     IF(Length(options.scopes) > 0)
       INSERT CELL [ name := "scope", value := Detokenize(options.scopes,' ') ] INTO vars AT END;
 
@@ -405,6 +420,9 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   PUBLIC RECORD FUNCTION SetupClientCredentialsUsingRegistryKey(STRING keyname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ scopes := STRING[]
+                               //password grants are deprecated. probably not worth extending the registry components for this
+                               , username := ""
+                               , password := ""
                                ], options);
 
     IF(GetPrimary()->IsWorkOpen())
