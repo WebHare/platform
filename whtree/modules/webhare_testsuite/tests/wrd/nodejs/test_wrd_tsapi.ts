@@ -920,6 +920,39 @@ async function testComparisons() {
   }
 
   await whdb.commitWork();
+
+  // STORY: Conditions mentions and mentionsany in arrays
+  {
+    await whdb.beginWork();
+
+    const domValue1 = (await schema.upsert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }, {}))[0];
+    const domValue2 = (await schema.upsert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }, {}))[0];
+
+    await schema.update("wrdPerson", newperson, {
+      wrdCreationDate: new Date,
+      wrdLimitDate: null,
+      testArray: [
+        {
+          testArray2: [{ testInt2: 2 }],
+          testSingle: domValue1,
+          testMultiple: [domValue1, domValue2],
+        }
+      ]
+    });
+
+    await whdb.commitWork();
+
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testArray.testSingle", "mentions", domValue1).executeRequireExactlyOne());
+    test.eq(null, await schema.query("wrdPerson").select("wrdId").where("testArray.testSingle", "mentions", domValue2).executeRequireAtMostOne());
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testArray.testSingle", "mentionsany", [domValue1, domValue2]).executeRequireExactlyOne());
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testArray.testMultiple", "mentions", domValue2).executeRequireAtMostOne());
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testArray.testMultiple", "mentionsany", [domValue1, domValue2]).executeRequireExactlyOne());
+
+    if (false as boolean) {
+      // @ts-expect-error -- testArray.testSingle is within an array field, so only conditions "mentions" and "mentionsany" are allowed
+      schema.query("wrdPerson").select("wrdId").where("testArray.testSingle", "=", 10);
+    }
+  }
 }
 
 function testGeneratedWebHareWRDAPI() {
