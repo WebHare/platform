@@ -394,7 +394,7 @@ export default class FormBase {
           this.setFieldValue(tocheck, true);
         if (!tocheck)
           field.nodes.filter(_ => _.checked).forEach(_ => this.setFieldValue(_, false));
-      } else if (field.node.matches("input:not([type=file]),select,textarea")) { //Limit URL prefills to simple elements - TODO allow custom components to decide on this themselves OR *expliclty* require fields to opt-in to being prefillable
+      } else if (field.node.matches("input:not([type=file]),select,textarea")) { //Limit URL prefills to simple elements - TODO allow custom components to decide on this themselves OR *explicitly* require fields to opt-in to being prefillable
         if (!this._isNowSettable(field.node))
           continue;
         this.setFieldValue(field.node, allvalues[allvalues.length - 1]); //last value wins
