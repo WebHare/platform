@@ -1,52 +1,62 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import "./arrayfield.css";
+import { throwError } from "@webhare/std";
+import { addDocEventListener, qR, qSA, type DocEvent, type FormControlElement } from "@webhare/dompack";
+import { parseCondition } from "@webhare/forms/src/domsupport";
+import type { FormCondition } from "@webhare/forms/src/types";
 
 export default class ArrayField {
-  constructor(node, options) {
+  node: HTMLElement;
+  valueNode: HTMLInputElement;
+  name;
+  nextrowid = 0;
+  form;
+  template;
+  insertPoint;
+
+
+  constructor(node: HTMLElement) {
     this.node = node;
-    this.name = node.dataset.whFormGroupFor;
-    this.nextnewrowid = 0;
-    this.form = this.node.closest("form").propWhFormhandler;
+    this.name = node.dataset.whFormGroupFor || throwError("Could not find name for arrayfield");
+    this.form = this.node.closest("form")?.propWhFormhandler || throwError("Could not find form for arrayfield");
 
     // The template for new rows
-    this.template = node.querySelector("template");
+    this.template = qR<HTMLTemplateElement>(node, "template");
     this.template.remove();
 
     // The node before which to add new rows
-    this.insertPoint = this.node.querySelector(".wh-form__arrayadd");
+    this.insertPoint = qR(node, ".wh-form__arrayadd");
 
     // Event handler for add/delete button clicks
-    this.node.addEventListener("click", event => this._onClick(event));
+    addDocEventListener(node, "click", event => this._onClick(event));
 
     // Proxy node for getting/setting properties and receiving events
-    this.valueNode = this.node.querySelector(".wh-form__arrayinput");
+    this.valueNode = qR<HTMLInputElement>(node, "input.wh-form__arrayinput");
     this.valueNode.whUseFormGetValue = true;
     this.valueNode.addEventListener("wh:form-getvalue", event => this._onGetValue(event));
+    //@ts-expect-error wh:form-setvalue isn't defined - but it'll go away anyawy
     this.valueNode.addEventListener("wh:form-setvalue", event => this._onSetValue(event));
 
     // Initialize initial value rows
-    for (const rownode of this.node.querySelectorAll(".wh-form__arrayrow"))
+    for (const rownode of qSA(this.node, ".wh-form__arrayrow"))
       this._fixupRowNode(rownode);
 
     this._checkValidity();
   }
 
-  addRow() {
+  addRow(): HTMLElement {
     // Instatiate a new row
-    const newrow = this.template.content.cloneNode(true);
-    newrow.firstChild.dataset.whFormRowid = (this.nextnewrowid++);
-    this._fixupRowNode(newrow.firstChild);
+    const newrow = this.template.content.cloneNode(true) as HTMLElement;
+    (newrow.firstElementChild! as HTMLElement).dataset.whFormRowid = String(this.nextrowid++);
+    this._fixupRowNode(newrow.firstElementChild! as HTMLElement);
 
     // Insert the new row
-    this.insertPoint.parentNode.insertBefore(newrow, this.insertPoint);
-    dompack.registerMissed(this.insertPoint.previousSibling);
+    this.insertPoint.parentNode!.insertBefore(newrow, this.insertPoint);
+    dompack.registerMissed(this.insertPoint.previousElementSibling!);
     this._checkValidity();
     this.form.refreshConditions();
-    return this.insertPoint.previousSibling;
+    return this.insertPoint.previousSibling as HTMLElement;
   }
   /* seems a unused API ?.  .. if we need to provide this, just let people pass us a row node instead of understanding IDs
     removeRow(id)
@@ -57,7 +67,7 @@ export default class ArrayField {
         this._removeRowNode(node);
     }
   */
-  _onClick(event) {
+  _onClick(event: DocEvent<MouseEvent>) {
     // Check if the add button was clicked
     if (event.target.closest(".wh-form__arrayadd")) {
       event.preventDefault();
@@ -69,11 +79,11 @@ export default class ArrayField {
     const delNode = event.target.closest(".wh-form__arraydelete");
     if (delNode) {
       event.preventDefault();
-      this._removeRowNode(delNode.closest(".wh-form__arrayrow"));
+      this._removeRowNode(delNode.closest(".wh-form__arrayrow")!);
     }
   }
 
-  _onGetValue(event) {
+  _onGetValue(event: CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>) {
     // We're using the deferred promise to return our value
     event.preventDefault();
     event.stopPropagation();
@@ -87,13 +97,13 @@ export default class ArrayField {
       // Add an all promise for the value promises and add it to the list of row promises
       valuePromises.push(Promise.all(rowPromises).then(values => {
         // Combine the values into a value object for this row
-        const rowValue = { formrowid: row.dataset.whFormRowid };
+        const rowValue: Record<string, unknown> = { formrowid: row.dataset.whFormRowid };
         values.forEach((value, idx) => {
           // The values are returned in the order that the promises were added to the list of value promises, so we can use
           // the index of the value to get the original field
-
-          const firstnode = rowFields[idx].node || rowFields[idx].nodes[0];
-          rowValue[firstnode.dataset.whFormCellname] = value;
+          const rowField = rowFields[idx];
+          const firstnode = rowField.multi ? rowField.nodes[0] : rowField.node;
+          rowValue[firstnode.dataset.whFormCellname!] = value;
         });
         return rowValue;
       }));
@@ -103,13 +113,13 @@ export default class ArrayField {
     Promise.all(valuePromises).then(valueRows => event.detail.deferred.resolve(valueRows));
   }
 
-  _onSetValue(event) {
+  _onSetValue(event: CustomEvent<{ value: unknown }>) {
     event.preventDefault();
     event.stopPropagation();
 
     // Remove all current rows
-    while (this.insertPoint.previousSibling?.classList.contains("wh-form__arrayrow"))
-      this._removeRowNode(this.insertPoint.previousSibling);
+    while (this.insertPoint.previousElementSibling?.classList.contains("wh-form__arrayrow"))
+      this._removeRowNode(this.insertPoint.previousElementSibling);
 
     // Check if we have an array value
     if (Array.isArray(event.detail.value)) {
@@ -118,8 +128,8 @@ export default class ArrayField {
         const row = this.addRow();
         // Initialize the row's fields
         for (const field of this._queryAllFields(row)) {
-          for (const fieldnode of (field.nodes || [field.node])) {
-            if (fieldnode.dataset.whFormCellname in value) {
+          for (const fieldnode of (field.multi ? field.nodes : [field.node])) {
+            if (fieldnode.dataset.whFormCellname && fieldnode.dataset.whFormCellname in value) {
               this.form.setFieldValue(fieldnode, value[fieldnode.dataset.whFormCellname]);
             }
           }
@@ -129,13 +139,13 @@ export default class ArrayField {
     this._checkValidity();
   }
 
-  _fixupRowNode(node) {
+  _fixupRowNode(node: HTMLElement) {
     const rowid = node.dataset.whFormRowid;
 
     // Rename all fields to avoid duplicate field names
-    const mapping = new Map();
+    const mapping = new Map<string, string>;
     for (const field of this._queryAllFields(node))
-      for (const fieldnode of (field.nodes || [field.node])) {
+      for (const fieldnode of (field.multi ? field.nodes : [field.node])) {
 
         // Rename fields
         fieldnode.dataset.whFormCellname = field.name.substr(this.name.length + 1);
@@ -143,13 +153,13 @@ export default class ArrayField {
         if (fieldnode.dataset.whFormName)
           fieldnode.dataset.whFormName = subname;
         else
-          fieldnode.name = subname;
+          (fieldnode as FormControlElement).name = subname;
         mapping.set(field.name, subname);
 
         // Rename id's to make them unique; update the labels within the field's fieldgroup to point to the new id
         if (fieldnode.id) {
           // Checkboxes/radiobuttons have two labels: the first is the checkbox/radiobutton itself, the second is the actual label
-          const labelnodes = fieldnode.closest(".wh-form__fieldgroup").querySelectorAll(`label[for="${fieldnode.id}"]`);
+          const labelnodes = qSA<HTMLLabelElement>(fieldnode.closest(".wh-form__fieldgroup"), `label[for="${fieldnode.id}"]`);
           fieldnode.id += "-" + rowid;
           for (const labelnode of labelnodes)
             labelnode.htmlFor = fieldnode.id;
@@ -158,15 +168,15 @@ export default class ArrayField {
 
     // Rewrite conditions after all fields have been renamed
     for (const type of ["visible", "enabled", "required"]) {
-      for (const conditionnode of node.querySelectorAll(`[data-wh-form-${type}-if]`)) {
-        const condition = JSON.parse(conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`]);
-        if (this._fixupConditionRecursive(node, condition.c, mapping))
-          conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`] = JSON.stringify(condition);
+      for (const conditionnode of qSA(node, `[data-wh-form-${type}-if]`)) {
+        const condition = parseCondition(conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`]!);
+        if (this._fixupConditionRecursive(node, condition, mapping))
+          conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`] = JSON.stringify({ c: condition });
       }
     }
   }
 
-  _fixupConditionRecursive(node, condition, mapping) {
+  _fixupConditionRecursive(node: HTMLElement, condition: FormCondition, mapping: Map<string, string>): boolean {
     switch (condition.matchtype) {
       case "AND":
       case "OR":
@@ -192,15 +202,15 @@ export default class ArrayField {
     return false;
   }
 
-  _removeRowNode(node) {
+  _removeRowNode(node: Element) {
     // Remove the row node
     node.remove();
     this._checkValidity();
   }
 
   _checkValidity() {
-    const minRows = parseInt(this.valueNode.dataset.whMin) || 0;
-    const maxRows = parseInt(this.valueNode.dataset.whMax) || 0;
+    const minRows = parseInt(this.valueNode.dataset.whMin || "0");
+    const maxRows = parseInt(this.valueNode.dataset.whMax || "0");
 
     const numRows = this.node.querySelectorAll(".wh-form__arrayrow").length;
     if (numRows < minRows)
@@ -217,7 +227,7 @@ export default class ArrayField {
       this.node.classList.remove("wh-form__array--maxrows");
   }
 
-  _queryAllFields(node) {
+  _queryAllFields(node: HTMLElement) {
     return this.form._queryAllFields({ startnode: node, skipfield: this.valueNode });
   }
 }
