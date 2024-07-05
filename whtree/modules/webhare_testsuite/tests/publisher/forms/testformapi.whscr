@@ -1,12 +1,34 @@
 <?wh
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
 
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+MACRO VerifyNot18Conditions(OBJECT formdefs, OBJECT formpage, OBJECT field, OBJECT field_toggleselectoptions)
+{
+  RECORD condition := formdefs->GetConditionAttribute(field, "enabledconditionid");
+  OBJECT cbox := field->previouselementsibling;
+
+  //not18 points to the cbox in conditions[0] and conditions[1], which is cloned. [2] points to toggleselectoptions
+  TestEq(cbox->GetAttribute("guid"), condition.conditions[1].field);
+  TestEq(field_toggleselectoptions->GetAttribute("guid"), condition.conditions[2].field);
+}
+
+OBJECT FUNCTION Get2ndGroup1stNot18(OBJECT dupedpage_obj)
+{
+  OBJECT ARRAY dupedpage_obj_groups := dupedpage_obj->ListChildren("*","group");
+  TestEq(4,Length(dupedpage_obj_groups));
+
+  //Let's get the 2nd group 1st not18 question
+  OBJECT dupedpage_2ndgroup_1stnot18 := dupedpage_obj_groups[2]->ListChildren("*","*")[3];
+  RETURN dupedpage_2ndgroup_1stnot18;
+}
 
 MACRO TestCoreFormAPI()
 {
@@ -99,6 +121,89 @@ MACRO FormApitest()
 
   TestEq(TRUE, checkboxes_option2->GetAttribute("visibleconditionid") != checkboxes2_option2->GetAttribute("visibleconditionid"));
   TestEq(formdefs->GetConditionAttribute(checkboxes_option2, "visibleconditionid"), formdefs->GetConditionAttribute(checkboxes2_option2, "visibleconditionid") );
+
+  // Duplicate the cbox, date & dependent email component in Groups & Stuff
+  OBJECT groups_stuff := formpage->LookupComponent("group1");
+  OBJECT group1_dummycbox := formpage->LookupComponent("dummycbox");
+  OBJECT group1_date := formpage->LookupComponent("date");
+  OBJECT group1_not18 := formpage->LookupComponent("not18");
+
+  TestEq("mixedtypes", formdef->PrepareDuplicate(OBJECT[groups_stuff, group1_date]).error);
+  TestEq("mixedtypes", formdef->PrepareDuplicate(OBJECT[formpage->node, group1_date]).error);
+  TestEq("mixedtypes", formdef->PrepareDuplicate(OBJECT[formpage->node, group1_not18]).error);
+
+  // Not putting the list in the right order, should still appear as group1_date, group1_dummycbox group1_not18
+  OBJECT ARRAY duped := formdef->PrepareDuplicate([group1_not18, group1_date, group1_dummycbox]).duplicator->Run();
+  OBJECT duped_date := duped[0];
+  TestEq("date", duped_date->localname, "The duplicated date should be a date");
+  OBJECT duped_dummycbox := duped[1];
+  TestEq("checkbox", duped_dummycbox->localname, "The duplicated cbox should still be a checkbox");
+  OBJECT duped_not18 := duped[2];
+  TestEq("email", duped_not18->GetAttribute("validationchecks"), "The duplicated not18 should be an email field" );
+  // Print(formdef->GetOutline()||'\n');
+  TestAssert(duped[2]->previouselementsibling->IsSameNode(duped[1]), "The duped elements should be in original form order");
+  TestAssert(duped[1]->previouselementsibling->IsSameNode(duped[0]), "The duped elements should be in original form order");
+  TestAssert(duped[0]->previouselementsibling->IsSameNode(group1_not18), "The duped cbox should be after the original not18 question");
+  TestAssert(group1_dummycbox->GetAttribute("guid") != duped_dummycbox->GetAttribute("guid"));
+
+  OBJECT field_toggleselectoptions := formpage->LookupComponent("toggleselectoptions");
+  VerifyNot18Conditions(formdefs, formpage, group1_not18, field_toggleselectoptions);
+  VerifyNot18Conditions(formdefs, formpage, duped_not18, field_toggleselectoptions);
+
+  OBJECT groups_contact := formpage->LookupComponent("groups_contact");
+  //Duplicate groups&stuff and contact group
+  OBJECT ARRAY duped_groups := formdef->PrepareDuplicate([groups_contact, groups_stuff]).duplicator->Run();
+  TestEq(2, Length(duped_groups));
+
+  TestAssert(duped_groups[1]->previouselementsibling->IsSameNode(duped_groups[0]), "The duped groups should be in original form order");
+  TestAssert(duped_groups[0]->previouselementsibling->IsSameNode(groups_contact), "The duped gruop shoul be after groups_contact which is the last group");
+
+  //Verify both group's lengths
+  OBJECT dupedgroup_stuff := duped_groups[0];
+  OBJECT dupedgroup_contact := duped_groups[1];
+  TestEq(7, Length(dupedgroup_stuff->ListChildren("*","*")));
+  TestEq(4, Length(dupedgroup_contact->ListChildren("*","*")));
+
+  //Verify remapping
+  VerifyNot18Conditions(formdefs, formpage, dupedgroup_stuff->ListChildren("*","*")[3], field_toggleselectoptions);
+  VerifyNot18Conditions(formdefs, formpage, dupedgroup_stuff->ListChildren("*","*")[6], field_toggleselectoptions);
+
+  //Duplicate the page
+  OBJECT ARRAY dupedpages := formdef->PrepareDuplicate(OBJECT[formpage->node]).duplicator->Run();
+  OBJECT dupedpage_obj := dupedpages[0];
+  OBJECT dupedpage := formdef->GetPage(1);
+  TestEq("", dupedpage->Role);
+  TestEq(Length(dupedpage_obj->ListChildren("*","*")),Length(formpage->node->ListChildren("*","*")), "# of questions should be the same");
+
+  //Find the dupedgroup_stuff in the duped page and get the 2nd group 1st not18 question
+  OBJECT dupedpage_2ndgroup_1stnot18 := Get2ndGroup1stNot18(dupedpage_obj);
+
+  //VerifyNot18Conditions will point to the cloned toggleselectoptions now
+  OBJECT cloned_toggleselectoptions := dupedpage_obj->ListChildren("*","select")[0];
+  VerifyNot18Conditions(formdefs, dupedpage, dupedpage_2ndgroup_1stnot18, cloned_toggleselectoptions);
+
+  //Move the cloned_toggleselectoption to the first page
+  formpage->node->AppendChild(cloned_toggleselectoptions);
+
+  //Dupe page 1
+  OBJECT ARRAY dupedpages2 := formdef->PrepareDuplicate(OBJECT[dupedpage_obj]).duplicator->Run();
+  TestEq(1, Length(dupedpages2));
+  OBJECT page2 := dupedpages2[0];
+  // print(formdef->GetOutline()||'\n');
+
+  // Page2 can't clone a toggleselectoptions so should still point to the cloned verison we moved from page1 to page0
+  OBJECT page2_toggleselectoptions := page2->ListChildren("*","select")[0];
+  VerifyNot18Conditions(formdefs, formdef->GetPage(2), Get2ndGroup1stNot18(page2), cloned_toggleselectoptions);
+
+  RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().text]);
+  TestEq(RECORD[], validation.errors);
+  TestEq(RECORD[], validation.warnings);
+
+  // Save what we have we can inspect it in the formedit app
+  testfw->BeginWork();
+  formdefs->SaveToWHFS(res.formfile);
+  testfw->CommitWork();
+  Print(`Edit url: ${GetPrimaryWebhareinterfaceURL()}?app=publisher(${res.formfile->id})\n`);
 }
 
 RunTestframework([ PTR TestCoreFormAPI

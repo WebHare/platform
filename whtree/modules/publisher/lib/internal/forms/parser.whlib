@@ -368,7 +368,7 @@ OBJECT ARRAY FUNCTION FlattenChildren(OBJECT startnode)
 PUBLIC RECORD ARRAY FUNCTION GatherFormComponentsFromComponent(OBJECT node, RECORD options)
 {
   RECORD ARRAY result := [CELL[ node, type := "component", allchildren := OBJECT[] ]];
-  IF(node->localname = "group")
+  IF(node->localname IN ["page","group"])
     RETURN result CONCAT GatherFormComponentsFromChildren(node, options);
 
   BOOLEAN isselect := node->localname = "select" AND node->namespaceuri = "http://www.webhare.net/xmlns/publisher/forms";
