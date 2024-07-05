@@ -6,3 +6,13 @@ export { shuffle, emplace, pick, omit, isTruthy, mapGroupBy, objectGroupBy, type
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
 export { addDuration, parseDuration, convertWaitPeriodToDate, type Duration, type WaitPeriod } from "./datetime";
 export { isDate, isBlob, isFile, isError, isPromise } from "./quacks";
+
+/** Throw an error with the specified message. This function allows you to throw inside expressions
+ * @param err - The error message
+ * @returns This function never returns
+ * @throws An error with the specified message
+ */
+export function throwError(err: string): never {
+  //TODO remove ourselves from the stack ?
+  throw new Error(err);
+}
