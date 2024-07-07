@@ -21,8 +21,8 @@
       <action name="addquestion" onexecute="doaddquestion" frameflags="canedit">
         <enableon source="questions" min="1" max="1" checkflags="canaddquestions" />
       </action>
-      <action name="duplicate" onexecute="doduplicatequestion" frameflags="canedit" tid="~duplicate">
-        <enableon source="questions" min="1" max="1" checkflags="canduplicate" />
+      <action name="duplicate" onexecute="doduplicate" frameflags="canedit" tid="~duplicate">
+        <enableon source="questions" min="1" checkflags="canduplicate" />
       </action>
       <action name="addtext" onexecute="doaddtext" frameflags="canedit">
         <enableon source="questions" min="1" max="1" checkflags="canaddtexts" />
