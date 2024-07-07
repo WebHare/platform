@@ -65,7 +65,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
   BOOLEAN readonly;
 
-  OBJECT formdefsobject;
   STRING formdefsresource;
   OBJECT formdefsfile;
   RECORD ARRAY instancedatacache;
@@ -405,16 +404,21 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->AddComponentOfType("http://www.webhare.net/xmlns/publisher/forms#richtext");
   }
 
-  MACRO DoDuplicateQuestion()
+  MACRO DoDuplicate()
   {
-    OBJECT source := ^questions->selection.node;
-    OBJECT sourcepage := ^questions->selection.page;
-    OBJECT newnode := sourcepage->DuplicateComponent(source);
+    RECORD prep := this->curform->PrepareDuplicate(SELECT AS OBJECT ARRAY node FROM ^questions->selection);
+    IF(prep.error = "mixedtypes")
+    {
+      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.formedit.messages.duplicate-mixedtypes"));
+      RETURN;
+    }
 
+    OBJECT ARRAY newnodes := prep.duplicator->Run();
+    STRING ARRAY newguids := SELECT AS STRING ARRAY node->GetAttribute("guid") FROM ToRecordArray(newnodes,"node");
     this->MarkFormAsDirty();
     this->ReloadList();
 
-    ^questions->selection := SELECT * FROM ^questions->rows WHERE ObjectExists(rows.node) AND rows.node->IsSameNode(newnode);
+    ^questions->selection := SELECT * FROM ^questions->rows WHERE guid IN newguids;
   }
 
   MACRO DoAddHandler()
@@ -1141,6 +1145,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
                , canaddtexts := TRUE
                , candelete := "existence" NOT IN pins
                , page
+               , guid := question->GetAttribute("guid")
                , pins
                , isquestion := TRUE
                , canduplicate := ObjectExists(page) //only duplicate questions not on trash
@@ -1248,11 +1253,12 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
                      , title := question->GetAttribute("title") ?? GetTid(this->groupcompdef.tid, ToString(groupnum + 1))
                      , type := ^questions->GetIcon(this->groupcompdef.icon)
                      , icons := "existence" IN pins ? [ 2 ] : INTEGER[]
-                     , page
+                     , page //NOTE is an integer here, but an object when dealing wit questions. so likely unused
                      , guid := question->GetAttribute("guid")
                      , node := question
                      , expanded := TRUE
                      , subnodes := groupquestions
+                     , canduplicate := TRUE
                      , candelete := "existence" NOT IN pins
                      , pins
                      , draginfo
@@ -1310,6 +1316,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
               , canaddgroups := NOT isredirectpage
               , canaddquestions := NOT istextpage AND NOT isredirectpage
               , canaddtexts := NOT isredirectpage
+              , canduplicate := pagerole=""
               , candelete := "existence" NOT IN pins
               , ispage := TRUE
               , isselectable := TRUE
