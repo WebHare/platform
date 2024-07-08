@@ -2,7 +2,6 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { WRDAttributeType, WRDMetaType } from "@mod-wrd/js/internal/types";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 
 async function testCommitAndRollback() { //test the Co-HSVM
@@ -43,9 +42,9 @@ async function testWRDUntypedApi() { //  tests
   const persontype = wrdschema.getType("wrdPerson");
   test.eq(null, await persontype.describeAttribute("noSuchAttribute"));
   await test.throws(/may not start/, () => persontype.describeAttribute("WRD_CONTACT_EMAIL"));
-  test.eqPartial({ attributeType: WRDAttributeType.Email }, await persontype.describeAttribute("wrdContactEmail"));
-  test.eqPartial({ attributeType: WRDAttributeType.Domain, domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
-  test.eqPartial({ attributeType: WRDAttributeType.Enum, isRequired: false, allowedValues: ["male", "female", "other"] }, await persontype.describeAttribute("wrdGender"));
+  test.eqPartial({ attributeType: "email" }, await persontype.describeAttribute("wrdContactEmail"));
+  test.eqPartial({ attributeType: "domain", domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
+  test.eqPartial({ attributeType: "enum", isRequired: false, allowedValues: ["male", "female", "other"] }, await persontype.describeAttribute("wrdGender"));
 
   test.eq(null, await wrdschema.describeType("noSuchType"));
   test.eqPartial({ left: "wrdPerson", right: null }, await wrdschema.describeType("personattachment"));
@@ -288,15 +287,15 @@ async function testUnique() {
   await whdb.beginWork();
 
   const wrdschema: WRDSchema = await getWRDSchema();
-  const newdomtype = await wrdschema.createType("testUniques", { metaType: WRDMetaType.Domain });
-  await newdomtype.createAttribute("testFree", { attributeType: WRDAttributeType.Free, isUnique: true });
-  await newdomtype.createAttribute("testEmail", { attributeType: WRDAttributeType.Email, isUnique: true });
-  await newdomtype.createAttribute("testInteger", { attributeType: WRDAttributeType.Integer, isUnique: true });
-  await newdomtype.createAttribute("testInteger64", { attributeType: WRDAttributeType.Integer64, isUnique: true });
-  await test.throws(/cannot be set on attributes of type/, newdomtype.createAttribute("testArray", { attributeType: WRDAttributeType.Array, isUnique: true }));
-  await newdomtype.createAttribute("testArray", { attributeType: WRDAttributeType.Array });
-  await newdomtype.createAttribute("testArray.email", { attributeType: WRDAttributeType.Email, isUnique: true });
-  await newdomtype.createAttribute("testNonUnique", { attributeType: WRDAttributeType.Free, isUnique: false });
+  const newdomtype = await wrdschema.createType("testUniques", { metaType: "domain" });
+  await newdomtype.createAttribute("testFree", { attributeType: "string", isUnique: true });
+  await newdomtype.createAttribute("testEmail", { attributeType: "email", isUnique: true });
+  await newdomtype.createAttribute("testInteger", { attributeType: "integer", isUnique: true });
+  await newdomtype.createAttribute("testInteger64", { attributeType: "integer64", isUnique: true });
+  await test.throws(/cannot be set on attributes of type/, newdomtype.createAttribute("testArray", { attributeType: "array", isUnique: true }));
+  await newdomtype.createAttribute("testArray", { attributeType: "array" });
+  await newdomtype.createAttribute("testArray.email", { attributeType: "email", isUnique: true });
+  await newdomtype.createAttribute("testNonUnique", { attributeType: "string", isUnique: false });
   await whdb.commitWork();
 
   test.eqPartial({ isUnique: true }, await newdomtype.describeAttribute("testEmail"));

@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { WRDAttributeType, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
+import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema, listSchemas, openWRDSchemaById } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -131,7 +131,7 @@ interface TestRecordDataInterface {
 async function testNewAPI() {
   type Extensions = {
     wrdPerson: {
-      testJsonRequired: IsRequired<WRDAttr<WRDAttributeType.JSON, { type: { mixedCase: Array<number | string> } }>>;
+      testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
     } & WRDTypeBaseSettings;
   };
 
@@ -144,7 +144,7 @@ async function testNewAPI() {
   test.eqPartial([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
   await whdb.beginWork();
-  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: WRDAttributeType.Free });
+  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: "string" });
   test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
   await schema.getType("wrdPerson").deleteAttribute("testDummy");
   test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
@@ -157,7 +157,7 @@ async function testNewAPI() {
   // Ensure schemaById loads its schema data before testJsonRequired is added
   test.eq([], await schemaById.query("wrdPerson").select("wrdId").execute());
 
-  await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
+  await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
   const sub_unit_id = await schema.insert("whuserUnit", { wrdTitle: "Sub unit", wrdTag: "SUBTAG", wrdLeftEntity: unit_id });

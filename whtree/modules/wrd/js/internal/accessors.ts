@@ -1,4 +1,4 @@
-import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
+import { WRDBaseAttributeTypeId, WRDAttributeTypeId, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOperatorExpression, WhereInterface } from "kysely";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
@@ -1726,19 +1726,19 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
 
 export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends Default> extends WRDAttributeValueBase<In, Default, Out, never> {
   checkFilter(cv: never): void {
-    throw new Error(`Cannot compare values of type ${WRDAttributeType[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type ${WRDAttributeTypeId[this.attr.attributetype]}`);
   }
 
   matchesValue(value: unknown, cv: never): boolean {
-    throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type  ${WRDAttributeTypeId[this.attr.attributetype]}`);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv_org: never): AddToQueryResponse<O> {
-    throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type  ${WRDAttributeTypeId[this.attr.attributetype]}`);
   }
 
   containsOnlyDefaultValues(cv: never): boolean {
-    throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
+    throw new Error(`Cannot compare values of type  ${WRDAttributeTypeId[this.attr.attributetype]}`);
   }
 }
 
@@ -2011,7 +2011,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
 
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
-    throw new Error(`Unimplemented accessor for type ${WRDAttributeType[this.attr.attributetype] ?? WRDBaseAttributeType[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
+    throw new Error(`Unimplemented accessor for type ${WRDAttributeTypeId[this.attr.attributetype] ?? WRDBaseAttributeTypeId[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
   }
 
   /** Returns the default value for a value with no settings
@@ -2077,43 +2077,43 @@ class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unk
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
-  [WRDBaseAttributeType.Base_Integer]: WRDDBIntegerValue;
-  [WRDBaseAttributeType.Base_Guid]: WRDDBBaseGuidValue;
-  [WRDBaseAttributeType.Base_Tag]: WRDDBBaseStringValue;
-  [WRDBaseAttributeType.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
-  [WRDBaseAttributeType.Base_ModificationDate]: WRDDBBaseModificationDateValue;
-  [WRDBaseAttributeType.Base_Date]: WRDDBDateValue<false>;
-  [WRDBaseAttributeType.Base_GeneratedString]: WRDDBStringValue;
-  [WRDBaseAttributeType.Base_NameString]: WRDDBBaseStringValue;
-  [WRDBaseAttributeType.Base_Domain]: WRDDBBaseDomainValue<Required>;
-  [WRDBaseAttributeType.Base_Gender]: WRDDBBaseGenderValue;
-  [WRDBaseAttributeType.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
+  [WRDBaseAttributeTypeId.Base_Integer]: WRDDBIntegerValue;
+  [WRDBaseAttributeTypeId.Base_Guid]: WRDDBBaseGuidValue;
+  [WRDBaseAttributeTypeId.Base_Tag]: WRDDBBaseStringValue;
+  [WRDBaseAttributeTypeId.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
+  [WRDBaseAttributeTypeId.Base_ModificationDate]: WRDDBBaseModificationDateValue;
+  [WRDBaseAttributeTypeId.Base_Date]: WRDDBDateValue<false>;
+  [WRDBaseAttributeTypeId.Base_GeneratedString]: WRDDBStringValue;
+  [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
+  [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required>;
+  [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
+  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
 
-  [WRDAttributeType.Free]: WRDDBStringValue;
-  [WRDAttributeType.Email]: WRDDBEmailValue;
-  [WRDAttributeType.Telephone]: WRDDBStringValue;
-  [WRDAttributeType.URL]: WRDDBStringValue;
-  [WRDAttributeType.Boolean]: WRDDBBooleanValue;
-  [WRDAttributeType.Integer]: WRDDBIntegerValue;
-  [WRDAttributeType.Date]: WRDDBDateValue<Required>;
-  [WRDAttributeType.DateTime]: WRDDBDateTimeValue<Required>;
-  [WRDAttributeType.Domain]: WRDDBDomainValue<Required>;
-  [WRDAttributeType.DomainArray]: WRDDBDomainArrayValue;
-  [WRDAttributeType.Address]: WRDDBAddressValue;
-  [WRDAttributeType.Password]: WRDDBPasswordValue;
-  [WRDAttributeType.Image]: WRDDBImageValue;
-  [WRDAttributeType.File]: WRDDBFileValue;
-  [WRDAttributeType.Money]: WRDDBMoneyValue;
-  [WRDAttributeType.RichDocument]: WRDDBRichDocumentValue;
-  [WRDAttributeType.Integer64]: WRDDBInteger64Value;
-  [WRDAttributeType.WHFSInstance]: WRDDBWHFSInstanceValue;
-  [WRDAttributeType.WHFSIntextlink]: WRDDBWHFSIntextlinkValue;
-  [WRDAttributeType.Record]: WRDDBRecordValue;
-  [WRDAttributeType.PaymentProvider]: WRDDBPaymentProviderValue;
-  [WRDAttributeType.Payment]: WRDDBPaymentValue;
-  [WRDAttributeType.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
-  [WRDAttributeType.WHFSLink]: WRDDBWHFSLinkValue;
-  [WRDAttributeType.Time]: WRDDBIntegerValue;
+  [WRDAttributeTypeId.String]: WRDDBStringValue;
+  [WRDAttributeTypeId.Email]: WRDDBEmailValue;
+  [WRDAttributeTypeId.Telephone]: WRDDBStringValue;
+  [WRDAttributeTypeId.URL]: WRDDBStringValue;
+  [WRDAttributeTypeId.Boolean]: WRDDBBooleanValue;
+  [WRDAttributeTypeId.Integer]: WRDDBIntegerValue;
+  [WRDAttributeTypeId.Date]: WRDDBDateValue<Required>;
+  [WRDAttributeTypeId.DateTime]: WRDDBDateTimeValue<Required>;
+  [WRDAttributeTypeId.Domain]: WRDDBDomainValue<Required>;
+  [WRDAttributeTypeId.DomainArray]: WRDDBDomainArrayValue;
+  [WRDAttributeTypeId.Address]: WRDDBAddressValue;
+  [WRDAttributeTypeId.Password]: WRDDBPasswordValue;
+  [WRDAttributeTypeId.Image]: WRDDBImageValue;
+  [WRDAttributeTypeId.File]: WRDDBFileValue;
+  [WRDAttributeTypeId.Money]: WRDDBMoneyValue;
+  [WRDAttributeTypeId.RichDocument]: WRDDBRichDocumentValue;
+  [WRDAttributeTypeId.Integer64]: WRDDBInteger64Value;
+  [WRDAttributeTypeId.WHFSInstance]: WRDDBWHFSInstanceValue;
+  [WRDAttributeTypeId.WHFSIntExtLink]: WRDDBWHFSIntextlinkValue;
+  [WRDAttributeTypeId.HSON]: WRDDBRecordValue;
+  [WRDAttributeTypeId.PaymentProvider]: WRDDBPaymentProviderValue;
+  [WRDAttributeTypeId.Payment]: WRDDBPaymentValue;
+  [WRDAttributeTypeId.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
+  [WRDAttributeTypeId.WHFSRef]: WRDDBWHFSLinkValue;
+  [WRDAttributeTypeId.Time]: WRDDBIntegerValue;
 };
 
 /** Returns the accessor for a WRDAttr record
@@ -2122,15 +2122,15 @@ type SimpleTypeMap<Required extends boolean> = {
  */
 export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof SimpleTypeMap<T["__required"]>
   ? SimpleTypeMap<T["__required"]>[T["__attrtype"]]
-  : (T extends { __attrtype: WRDAttributeType.Enum }
+  : (T extends { __attrtype: WRDAttributeTypeId.Enum }
     ? WRDDBEnumValue<T["__options"], T["__required"]>
-    : (T extends { __attrtype: WRDAttributeType.EnumArray }
+    : (T extends { __attrtype: WRDAttributeTypeId.EnumArray }
       ? WRDDBEnumArrayValue<T["__options"]>
-      : (T extends { __attrtype: WRDAttributeType.StatusRecord }
+      : (T extends { __attrtype: WRDAttributeTypeId.DeprecatedStatusRecord }
         ? WRDDBStatusRecordValue<T["__options"], T["__required"]>
-        : (T extends { __attrtype: WRDAttributeType.Array }
+        : (T extends { __attrtype: WRDAttributeTypeId.Array }
           ? WRDDBArrayValue<T["__options"]["members"]>
-          : (T extends { __attrtype: WRDAttributeType.JSON }
+          : (T extends { __attrtype: WRDAttributeTypeId.JSON }
             ? WRDDBJSONValue<T["__required"], T["__options"]["type"]>
             : never)))));
 
@@ -2140,50 +2140,50 @@ export function getAccessor<T extends WRDAttrBase>(
   parentAttrMap: Map<number | null, AttrRec[]>,
 ): AccessorType<T> {
   switch (attrinfo.attributetype) {
-    case WRDBaseAttributeType.Base_Integer: return new WRDDBBaseIntegerValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Guid: return new WRDDBBaseGuidValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Tag: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_ModificationDate: return new WRDDBBaseModificationDateValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Date: return new WRDDBBaseDateValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeType.Base_Gender: return new WRDDBBaseGenderValue(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
-    case WRDBaseAttributeType.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Integer: return new WRDDBBaseIntegerValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Guid: return new WRDDBBaseGuidValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Tag: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_ModificationDate: return new WRDDBBaseModificationDateValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
 
-    case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Email: return new WRDDBEmailValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.URL: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Integer:
-    case WRDAttributeType.Time:
+    case WRDAttributeTypeId.String: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Email: return new WRDDBEmailValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.URL: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Integer:
+    case WRDAttributeTypeId.Time:
       return new WRDDBIntegerValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Domain: return new WRDDBDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Password: return new WRDDBPasswordValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Image: return new WRDDBImageValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.File: return new WRDDBFileValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Money: return new WRDDBMoneyValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.RichDocument: return new WRDDBRichDocumentValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Integer64: return new WRDDBInteger64Value(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.WHFSInstance: return new WRDDBWHFSInstanceValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.WHFSIntextlink: return new WRDDBWHFSIntextlinkValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Record: return new WRDDBRecordValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.PaymentProvider: return new WRDDBPaymentProviderValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Payment: return new WRDDBPaymentValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.WHFSLink: return new WRDDBWHFSLinkValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Domain: return new WRDDBDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Password: return new WRDDBPasswordValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Image: return new WRDDBImageValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.File: return new WRDDBFileValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Money: return new WRDDBMoneyValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.RichDocument: return new WRDDBRichDocumentValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Integer64: return new WRDDBInteger64Value(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.WHFSInstance: return new WRDDBWHFSInstanceValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.WHFSIntExtLink: return new WRDDBWHFSIntextlinkValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.HSON: return new WRDDBRecordValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.PaymentProvider: return new WRDDBPaymentProviderValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Payment: return new WRDDBPaymentValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.WHFSRef: return new WRDDBWHFSLinkValue(attrinfo) as AccessorType<T>;
 
-    case WRDAttributeType.Enum: return new WRDDBEnumValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.EnumArray: return new WRDDBEnumArrayValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
-    case WRDAttributeType.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.StatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedvalues: string; type: object }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Enum: return new WRDDBEnumValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.EnumArray: return new WRDDBEnumArrayValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
+    case WRDAttributeTypeId.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DeprecatedStatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedvalues: string; type: object }, T["__required"]>(attrinfo) as AccessorType<T>;
   }
-  throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeType[attrinfo.attributetype] : WRDAttributeType[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
+  throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeTypeId[attrinfo.attributetype] : WRDAttributeTypeId[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
 }

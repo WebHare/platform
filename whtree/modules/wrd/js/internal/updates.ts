@@ -1,6 +1,6 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDSingleQueryBuilder, WRDType } from "./schema";
-import { Insertable, SchemaTypeDefinition, WRDAttributeType, WRDTypeBaseSettings, baseAttrCells } from "./types";
+import { Insertable, SchemaTypeDefinition, WRDAttributeTypeId, WRDTypeBaseSettings, baseAttrCells } from "./types";
 import { db, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
@@ -397,7 +397,7 @@ async function validateSettings<
         throw new Error(`Unique value conflict with entity #${res[0].wrdId} on attribute '${attr.tag}' (${value})`);
     }
 
-    if (attr.attributetype === WRDAttributeType.Array) {
+    if (attr.attributetype === WRDAttributeTypeId.Array) {
       for (const row of value)
         await validateSettings(type, typeRec, row, currentEntity, attr.id, fulltag + '.');
     }

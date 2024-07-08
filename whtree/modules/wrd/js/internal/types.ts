@@ -5,12 +5,15 @@ import type { AccessorType } from "./accessors";
 
 /** WRD entity metatypes.
 */
-export enum WRDMetaType {
+export enum WRDMetaTypeId {
   Object = 1,
   Link = 2,
   Attachment = 3,
   Domain = 4,
 }
+
+export const WRDMetaTypes = ["object", "link", "attachment", "domain"] as const;
+export type WRDMetaType = typeof WRDMetaTypes[number];
 
 /** WRD Gender values
  */
@@ -21,7 +24,7 @@ export enum WRDGender {
 }
 
 /** WRD attribute types. Negative values are used for base attributes (which will have a different accessor than the attributes read from settings) */
-export enum WRDBaseAttributeType {
+export enum WRDBaseAttributeTypeId {
   Base_Integer = -1, // wrd_ordering
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
@@ -35,12 +38,12 @@ export enum WRDBaseAttributeType {
   Base_FixedDomain = -11, // wrd_id, wrd_type
 }
 
-export enum WRDAttributeType {
+export enum WRDAttributeTypeId {
   Domain = 1,
-  Free = 2, //TODO why not 'text'
+  String = 2, //TODO why not 'text'
   Address = 3,
   Email = 4,
-  Telephone = 5, //TODO why not 'phone'
+  Telephone = 5, //why not 'phone' - well maybe we should consider that *once we start normalizing/validating input*
   Date = 6,
   Password = 7,
   DomainArray = 8,
@@ -55,67 +58,68 @@ export enum WRDAttributeType {
   RichDocument = 17,
   Integer64 = 18,
   WHFSInstance = 19,
-  WHFSIntextlink = 20,
+  WHFSIntExtLink = 20,
   URL = 21,
-  Record = 22,
+  HSON = 22,
   Enum = 23,
   EnumArray = 24,
   PaymentProvider = 25,
   Payment = 26,
-  StatusRecord = 27,
+  DeprecatedStatusRecord = 27,
   AuthenticationSettings = 28,
-  WHFSLink = 29,
+  WHFSRef = 29,
   JSON = 30
 }
 
-export const WRDAttributeTypeNames = [
-  "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE", "PASSWORD",
-  "DOMAINARRAY", /*9*/"IMAGE", "FILE", "TIME", "DATETIME",/*13*/  "ARRAY", "MONEY",
-  "INTEGER", "BOOLEAN", "RICHDOCUMENT", "INTEGER64", /*19*/"WHFSINSTANCE", "WHFSINTEXTLINK",
-   /*21*/"URL", /*22*/"RECORD", /*23*/"ENUM", /*24*/"ENUMARRAY", /*25*/"PAYMENTPROVIDER", /*26*/"PAYMENT",
-   /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS", /*29*/ "WHFSLINK", /*30*/ "JSON"
-];
+export const WRDAttributeTypes = [
+  "domain", /*2*/"string", "address", "email", "telephone", "date", "password",
+  "domainArray", /*9*/"image", "file", "time", "dateTime",/*13*/  "array", "money",
+  "integer", "boolean", "richDocument", "integer64", /*19*/"whfsInstance", "whfsIntExtLink",
+   /*21*/"url", /*22*/"hson", /*23*/"enum", /*24*/"enumArray", /*25*/"paymentProvider", /*26*/"payment",
+   /*27*/"deprecatedStatusRecord", /*28*/"authenticationSettings", /*29*/ "whfsRef", /*30*/ "json"
+] as const;
 
+export type WRDAttributeType = typeof WRDAttributeTypes[number];
 
 /** List of simple attribute types, that have no associated options
 */
 export type SimpleWRDAttributeType =
-  WRDBaseAttributeType.Base_Integer |
-  WRDBaseAttributeType.Base_Guid |
-  WRDBaseAttributeType.Base_Tag |
-  WRDBaseAttributeType.Base_CreationLimitDate |
-  WRDBaseAttributeType.Base_ModificationDate |
-  WRDBaseAttributeType.Base_Date |
-  WRDBaseAttributeType.Base_GeneratedString |
-  WRDBaseAttributeType.Base_NameString |
-  WRDBaseAttributeType.Base_Domain |
-  WRDBaseAttributeType.Base_Gender |
-  WRDBaseAttributeType.Base_FixedDomain |
-  WRDAttributeType.Domain |
-  WRDAttributeType.Free |
-  WRDAttributeType.Address |
-  WRDAttributeType.Email |
-  WRDAttributeType.Telephone |
-  WRDAttributeType.Date |
-  WRDAttributeType.Password |
-  WRDAttributeType.DomainArray |
-  WRDAttributeType.Image |
-  WRDAttributeType.File |
-  WRDAttributeType.Time |
-  WRDAttributeType.DateTime |
-  WRDAttributeType.Money |
-  WRDAttributeType.Integer |
-  WRDAttributeType.Boolean |
-  WRDAttributeType.RichDocument |
-  WRDAttributeType.Integer64 |
-  WRDAttributeType.WHFSInstance |
-  WRDAttributeType.WHFSIntextlink |
-  WRDAttributeType.URL |
-  WRDAttributeType.Record |
-  WRDAttributeType.PaymentProvider |
-  WRDAttributeType.Payment |
-  WRDAttributeType.AuthenticationSettings |
-  WRDAttributeType.WHFSLink;
+  WRDBaseAttributeTypeId.Base_Integer |
+  WRDBaseAttributeTypeId.Base_Guid |
+  WRDBaseAttributeTypeId.Base_Tag |
+  WRDBaseAttributeTypeId.Base_CreationLimitDate |
+  WRDBaseAttributeTypeId.Base_ModificationDate |
+  WRDBaseAttributeTypeId.Base_Date |
+  WRDBaseAttributeTypeId.Base_GeneratedString |
+  WRDBaseAttributeTypeId.Base_NameString |
+  WRDBaseAttributeTypeId.Base_Domain |
+  WRDBaseAttributeTypeId.Base_Gender |
+  WRDBaseAttributeTypeId.Base_FixedDomain |
+  WRDAttributeTypeId.Domain |
+  WRDAttributeTypeId.String |
+  WRDAttributeTypeId.Address |
+  WRDAttributeTypeId.Email |
+  WRDAttributeTypeId.Telephone |
+  WRDAttributeTypeId.Date |
+  WRDAttributeTypeId.Password |
+  WRDAttributeTypeId.DomainArray |
+  WRDAttributeTypeId.Image |
+  WRDAttributeTypeId.File |
+  WRDAttributeTypeId.Time |
+  WRDAttributeTypeId.DateTime |
+  WRDAttributeTypeId.Money |
+  WRDAttributeTypeId.Integer |
+  WRDAttributeTypeId.Boolean |
+  WRDAttributeTypeId.RichDocument |
+  WRDAttributeTypeId.Integer64 |
+  WRDAttributeTypeId.WHFSInstance |
+  WRDAttributeTypeId.WHFSIntExtLink |
+  WRDAttributeTypeId.URL |
+  WRDAttributeTypeId.HSON |
+  WRDAttributeTypeId.PaymentProvider |
+  WRDAttributeTypeId.Payment |
+  WRDAttributeTypeId.AuthenticationSettings |
+  WRDAttributeTypeId.WHFSRef;
 
 
 export const baseAttrCells = {
@@ -149,7 +153,7 @@ export const baseAttrCells = {
  * @typeParam O - Options for the type. For enum/enum array use `{ allowedvalues: "a" | "b" }`, for arrays
  * use `{ members: { a: WRDAttributeType.Integer } }`
 */
-export type WRDAttr<T extends WRDAttributeType | WRDBaseAttributeType, O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
+export type WRDAttr<T extends WRDAttributeTypeId | WRDBaseAttributeTypeId, O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
   /// Attribute type
   __attrtype: T;
   /// Options for this attribute
@@ -162,7 +166,7 @@ export type WRDAttr<T extends WRDAttributeType | WRDBaseAttributeType, O extends
   __updatable: true;
 };
 
-export type WRDAttrBaseGen<T extends (WRDAttributeType | WRDBaseAttributeType), O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
+export type WRDAttrBaseGen<T extends (WRDAttributeTypeId | WRDBaseAttributeTypeId), O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
   __attrtype: T;
   __options: T extends SimpleWRDAttributeType ? never : O;
   __required: boolean;
@@ -175,10 +179,10 @@ export type WRDAttrBaseGen<T extends (WRDAttributeType | WRDBaseAttributeType), 
 */
 export type WRDAttrBase =
   WRDAttrBaseGen<SimpleWRDAttributeType, never> |
-  WRDAttrBaseGen<WRDAttributeType.Enum | WRDAttributeType.EnumArray, { allowedvalues: string }> |
-  WRDAttrBaseGen<WRDAttributeType.Array, { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> }> |
-  WRDAttrBaseGen<WRDAttributeType.JSON, { type: object }> |
-  WRDAttrBaseGen<WRDAttributeType.StatusRecord, { allowedvalues: string; type: object }>;
+  WRDAttrBaseGen<WRDAttributeTypeId.Enum | WRDAttributeTypeId.EnumArray, { allowedvalues: string }> |
+  WRDAttrBaseGen<WRDAttributeTypeId.Array, { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> }> |
+  WRDAttrBaseGen<WRDAttributeTypeId.JSON, { type: object }> |
+  WRDAttrBaseGen<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedvalues: string; type: object }>;
 
 /** Converts a SimpleWRDAttributeType (enum) to a WRDAttrBase */
 export type ToWRDAttr<T extends SimpleWRDAttributeType | WRDAttrBase> = T extends WRDAttrBase ? T : T extends SimpleWRDAttributeType ? WRDAttr<T> : never;
@@ -218,13 +222,13 @@ export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "me
 
 /** Base WRD type */
 export type WRDTypeBaseSettings = {
-  wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_FixedDomain>;
-  wrdGuid: ToWRDAttr<WRDBaseAttributeType.Base_Guid>;
-  wrdType: IsGenerated<WRDBaseAttributeType.Base_FixedDomain>;
-  wrdTag: ToWRDAttr<WRDBaseAttributeType.Base_Tag>;
-  wrdCreationDate: ToWRDAttr<WRDBaseAttributeType.Base_CreationLimitDate>;
-  wrdLimitDate: ToWRDAttr<WRDBaseAttributeType.Base_CreationLimitDate>;
-  wrdModificationDate: ToWRDAttr<WRDBaseAttributeType.Base_ModificationDate>;
+  wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_FixedDomain>;
+  wrdGuid: ToWRDAttr<WRDBaseAttributeTypeId.Base_Guid>;
+  wrdType: IsGenerated<WRDBaseAttributeTypeId.Base_FixedDomain>;
+  wrdTag: ToWRDAttr<WRDBaseAttributeTypeId.Base_Tag>;
+  wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
 };
 
 /** Extracts the select result type for an attribute type */
@@ -426,10 +430,10 @@ export type EnsureExactForm<O extends object, Contract extends object> = O & Con
 type AnyCondition = { field: string; condition: AllowedFilterConditions; value: unknown; options?: object };
 
 type ListConditionsSimple<T extends TypeDefinition, Field extends keyof T & string, Base extends string, Filter extends object> = Field extends keyof T & string ?
-  (WRDAttributeType extends T[Field] ? // test for 'any'
+  (WRDAttributeTypeId extends T[Field] ? // test for 'any'
     AnyCondition :
     { field: `${Base}${Field}` } & GetCVPairs<T[Field]> & Filter |
-    (T[Field] extends { __attrtype: WRDAttributeType.Array; __options: { members: infer M extends TypeDefinition } } ?
+    (T[Field] extends { __attrtype: WRDAttributeTypeId.Array; __options: { members: infer M extends TypeDefinition } } ?
       ListConditionsSimple<M, keyof M & string, `${Base}${Field}.`, { condition: "mentions" | "mentionsany" }> :
       never)) :
   never;

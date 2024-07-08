@@ -655,7 +655,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   // This function handles the 4 Create<type>Type functions below. Public for JS
   PUBLIC OBJECT FUNCTION __DoCreateType(RECORD typerecord)
   {
-    typerecord := MakeUpdatedRecord([ title := "", description := "", tag := ""
+    typerecord := ValidateOptions([ title := "", description := "", tag := ""
                                     , requiretype_left := 0, requiretype_right := 0, metatype := 1
                                     , parenttype := 0, abstract := FALSE, deleteclosedafter := 0, keephistorydays := 0
                                     , haspersonaldata := FALSE
@@ -727,11 +727,15 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     IF (options.keephistorydays < 0)
       THROW NEW Exception(`Cannot keep changes for a negative time period`);
 
-    INSERT CELL tag := tag
-              , metatype := options.linkto != 0 ? 2 : options.linkfrom != 0 ? 3 : 1
-              , requiretype_left := options.linkfrom
-              , requiretype_right := options.linkto
-           INTO options;
+    options := CELL[ ...options
+                   , tag
+                   , metatype := options.linkto != 0 ? 2 : options.linkfrom != 0 ? 3 : 1
+                   , requiretype_left := options.linkfrom
+                   , requiretype_right := options.linkto
+                   , DELETE linkfrom
+                   , DELETE linkto
+                  ];
+
     RETURN this->__DoCreateType(options);
   }
 

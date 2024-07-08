@@ -1,7 +1,7 @@
 import { db, Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { WRDAttributeType, WRDBaseAttributeType, WRDMetaType } from "./types";
+import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDMetaTypeId } from "./types";
 
 const selectSchemaColumns = ["id"] as const;
 const selectTypeColumns = ["id", "tag", "metatype", "parenttype", "requiretype_left", "requiretype_right", "abstract", "keephistorydays"] as const;
@@ -22,7 +22,7 @@ export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTyp
   uniqueAttrs: Set<number>;
   emailAttrs: Set<number>;
 };
-export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeType | WRDAttributeType };
+export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeTypeId | WRDAttributeTypeId };
 export type EntitySettingsRec = Pick<Selectable<PlatformDB, "wrd.entity_settings">, typeof selectEntitySettingColumns[number]>;
 export type EntityRec = Selectable<PlatformDB, "wrd.entities">;
 export type EntityPartialRec = Partial<EntityRec>;
@@ -51,40 +51,40 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     id: 0,
   };
   const attrs: AttrRec[] = [
-    { ...baseEmptyAttrRec, tag: "wrdGuid", attributetype: WRDBaseAttributeType.Base_Guid },
-    { ...baseEmptyAttrRec, tag: "wrdId", attributetype: WRDBaseAttributeType.Base_FixedDomain }, // FIXME: make only insertable, not updatable!
-    { ...baseEmptyAttrRec, tag: "wrdType", attributetype: WRDBaseAttributeType.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
-    { ...baseEmptyAttrRec, tag: "wrdTag", attributetype: WRDBaseAttributeType.Base_Tag },
-    { ...baseEmptyAttrRec, tag: "wrdCreationDate", attributetype: WRDBaseAttributeType.Base_CreationLimitDate },
-    { ...baseEmptyAttrRec, tag: "wrdLimitDate", attributetype: WRDBaseAttributeType.Base_CreationLimitDate },
-    { ...baseEmptyAttrRec, tag: "wrdModificationDate", attributetype: WRDBaseAttributeType.Base_ModificationDate },
+    { ...baseEmptyAttrRec, tag: "wrdGuid", attributetype: WRDBaseAttributeTypeId.Base_Guid },
+    { ...baseEmptyAttrRec, tag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain }, // FIXME: make only insertable, not updatable!
+    { ...baseEmptyAttrRec, tag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
+    { ...baseEmptyAttrRec, tag: "wrdTag", attributetype: WRDBaseAttributeTypeId.Base_Tag },
+    { ...baseEmptyAttrRec, tag: "wrdCreationDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
+    { ...baseEmptyAttrRec, tag: "wrdLimitDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
+    { ...baseEmptyAttrRec, tag: "wrdModificationDate", attributetype: WRDBaseAttributeTypeId.Base_ModificationDate },
   ];
-  if (type.metatype === WRDMetaType.Domain)
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdOrdering", attributetype: WRDBaseAttributeType.Base_Integer });
-  if (((type.metatype === WRDMetaType.Attachment || type.metatype === WRDMetaType.Link) && type.requiretype_left) || type.metatype === WRDMetaType.Domain)
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdLeftEntity", attributetype: WRDBaseAttributeType.Base_Domain, required: type.metatype !== WRDMetaType.Domain });
-  if ((type.metatype === WRDMetaType.Link) && type.requiretype_left)
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdRightEntity", attributetype: WRDBaseAttributeType.Base_Domain, required: true });
+  if (type.metatype === WRDMetaTypeId.Domain)
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdOrdering", attributetype: WRDBaseAttributeTypeId.Base_Integer });
+  if (((type.metatype === WRDMetaTypeId.Attachment || type.metatype === WRDMetaTypeId.Link) && type.requiretype_left) || type.metatype === WRDMetaTypeId.Domain)
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdLeftEntity", attributetype: WRDBaseAttributeTypeId.Base_Domain, required: type.metatype !== WRDMetaTypeId.Domain });
+  if ((type.metatype === WRDMetaTypeId.Link) && type.requiretype_left)
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdRightEntity", attributetype: WRDBaseAttributeTypeId.Base_Domain, required: true });
   if (type.tag === "wrdPerson") {
     attrs.push(...[
-      { ...baseEmptyAttrRec, tag: "wrdRightEntity", attributetype: WRDBaseAttributeType.Base_Integer, required: true },
-      { ...baseEmptyAttrRec, tag: "wrdGender", attributetype: WRDBaseAttributeType.Base_Gender },
-      { ...baseEmptyAttrRec, tag: "wrdSaluteFormal", attributetype: WRDBaseAttributeType.Base_GeneratedString },
-      { ...baseEmptyAttrRec, tag: "wrdAddressFormal", attributetype: WRDBaseAttributeType.Base_GeneratedString, isreadonly: true },
-      { ...baseEmptyAttrRec, tag: "wrdFullName", attributetype: WRDBaseAttributeType.Base_GeneratedString, isreadonly: true },
-      { ...baseEmptyAttrRec, tag: "wrdTitles", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdInitials", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdFirstName", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdFirstNames", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdInfix", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdLastName", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdTitlesSuffix", attributetype: WRDBaseAttributeType.Base_NameString },
-      { ...baseEmptyAttrRec, tag: "wrdDateOfBirth", attributetype: WRDBaseAttributeType.Base_Date },
-      { ...baseEmptyAttrRec, tag: "wrdDateOfDeath", attributetype: WRDBaseAttributeType.Base_Date },
+      { ...baseEmptyAttrRec, tag: "wrdRightEntity", attributetype: WRDBaseAttributeTypeId.Base_Integer, required: true },
+      { ...baseEmptyAttrRec, tag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender },
+      { ...baseEmptyAttrRec, tag: "wrdSaluteFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString },
+      { ...baseEmptyAttrRec, tag: "wrdAddressFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
+      { ...baseEmptyAttrRec, tag: "wrdFullName", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
+      { ...baseEmptyAttrRec, tag: "wrdTitles", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdInitials", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdFirstName", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdFirstNames", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdInfix", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdLastName", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdTitlesSuffix", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdDateOfBirth", attributetype: WRDBaseAttributeTypeId.Base_Date },
+      { ...baseEmptyAttrRec, tag: "wrdDateOfDeath", attributetype: WRDBaseAttributeTypeId.Base_Date },
     ]);
   }
   if (type.tag === "wrdRelation")
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdTitle", attributetype: WRDBaseAttributeType.Base_GeneratedString });
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdTitle", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString });
 
   return attrs;
 }
@@ -173,11 +173,11 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
         type.rootAttrMap.set(attr.tag, attr);
       if (attr.isunique)
         type.uniqueAttrs.add(attr.id);
-      if ([WRDAttributeType.RichDocument, WRDAttributeType.WHFSInstance, WRDAttributeType.URL].includes(attr.attributetype) || attr.checklinks)
+      if ([WRDAttributeTypeId.RichDocument, WRDAttributeTypeId.WHFSInstance, WRDAttributeTypeId.URL].includes(attr.attributetype) || attr.checklinks)
         type.consilioLinkCheckAttrs.add(attr.id);
-      if (attr.attributetype === WRDAttributeType.WHFSLink)
+      if (attr.attributetype === WRDAttributeTypeId.WHFSRef)
         type.whfsLinkAttrs.add(attr.id);
-      if (attr.attributetype === WRDAttributeType.Email)
+      if (attr.attributetype === WRDAttributeTypeId.Email)
         type.emailAttrs.add(attr.id);
     }
     for (const rootAttr of type.rootAttrMap.values())

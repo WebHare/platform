@@ -582,15 +582,25 @@ PUBLIC BOOLEAN FUNCTION ValidateWRDGUID(STRING inguid)
 
 PUBLIC INTEGER FUNCTION GetAttributeTypeIdByTypeName(STRING attributetype, BOOLEAN strict)
 {
-  IF(NOT strict)
-  {
-    attributetype := ToUppercase(attributetype);
-    attributetype := Substitute(attributetype,'_','');
-    IF(attributetype="DOMAINSINGLE")
-      attributetype:="DOMAIN";
-    ELSE IF(attributetype="DOMAINMULTIPLE")
-      attributetype:="DOMAINARRAY";
-  }
+  //NOTE not caring too much about pre-2017 API usage, ignoring strict flag now
+  attributetype := ToUppercase(attributetype);
+  attributetype := Substitute(attributetype,'_','');
+
+  IF(attributetype="DOMAINSINGLE")
+    attributetype:="DOMAIN";
+  ELSE IF(attributetype="DOMAINMULTIPLE")
+    attributetype:="DOMAINARRAY";
+
+  //TS names:
+  ELSE IF(attributetype="DEPRECATEDSTATUSRECORD")
+    attributetype:="STATUSRECORD";
+  ELSE IF(attributetype="HSON")
+    attributetype:="RECORD";
+  ELSE IF(attributetype="WHFSREF")
+    attributetype:="WHFSLINK";
+  ELSE IF(attributetype="STRING")
+    attributetype:="FREE";
+
   RETURN SearchElement(attrtypes, attributetype) + 1;
 }
 

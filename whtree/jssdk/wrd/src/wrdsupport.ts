@@ -1,4 +1,4 @@
-import { WRDAttributeType } from "@mod-wrd/js/internal/types";
+import { WRDAttributeTypeId, type WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { ResourceDescriptor, decodeScanData } from "@webhare/services/src/descriptor";
 import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
 import { WebHareBlob } from "@webhare/services";
@@ -152,7 +152,7 @@ export function fieldsToHS(fields: Record<string, unknown>, attributes: WRDAttri
   for (const [key, value] of Object.entries(fields)) {
     const hstag = tagToHS(key);
     const matchattr = attributes.find(attr => attr.tag === hstag);
-    if (matchattr && matchattr.attributetype === WRDAttributeType.JSON)
+    if (matchattr && matchattr.attributetype === WRDAttributeTypeId.JSON)
       result[hstag] = JSON.stringify(value);
     else if (Array.isArray(value) && value.length && typeof value[0] === "object" && value[0]) { // array?
       result[hstag] = value.map(elt => fieldsToHS(elt, []));

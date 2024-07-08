@@ -1266,6 +1266,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INTEGER attributetypeid := GetAttributeTypeIdByTypeName(ToUpperCase(attr.attributetype), this->wrdschema->__iswrdapi2017);
       IF (attributetypeid=0)
         THROW NEW Exception(`Unknown attribute type '${attr.attributetype}' for field '${attr.tag}' in type '${this->tag}'`);
+      attr.attributetype := attrtypes[attributetypeid-1]; //normalize the JS names
 
       IF (attr.domaintag != "")
       {

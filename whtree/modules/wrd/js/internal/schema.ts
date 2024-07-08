@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
@@ -44,22 +44,22 @@ interface WRDTypeConfigurationBase {
 }
 
 interface WRDObjectTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Object;
+  metaType: "object";
 }
 
 interface WRDAttachmentTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Attachment;
+  metaType: "attachment";
   left?: string;
 }
 
 interface WRDLinkTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Link;
+  metaType: "link";
   left?: string;
   right?: string;
 }
 
 interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Domain;
+  metaType: "domain";
 }
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
@@ -284,7 +284,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       tag: hstag,
       requiretype_left: left,
       requiretype_right: right,
-      metatype: config.metaType,
+      metatype: WRDMetaTypes.indexOf(config.metaType) + 1,
       //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
       deleteclosedafter: config.deleteClosedAfter || 0,
       keephistorydays: config.keepHistoryDays || 0,
@@ -307,10 +307,12 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
     const linkfrom = await type.$get("linkfrom") as number;
     const linkto = await type.$get("linkto") as number;
+    const metatype = await type.$get("metatype") as number;
 
     return {
       left: linkfrom ? await this.__getTypeTag(linkfrom) : null,
-      right: linkto ? await this.__getTypeTag(linkto) : null
+      right: linkto ? await this.__getTypeTag(linkto) : null,
+      metaType: WRDMetaTypes[metatype - 1]
     };
   }
 
@@ -743,7 +745,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (tag === "wrdGender" && this.tag === "wrdPerson")  // HS doesn't fully know wrdGender is an enum in JS
       return {
         tag: "wrdGender",
-        attributeType: WRDAttributeType.Enum,
+        attributeType: "enum",
         title: '',
         checkLinks: false,
         domain: null,
@@ -762,7 +764,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
     return {
       tag: result.tag,
-      attributeType: result.attributetype,
+      attributeType: WRDAttributeTypes[result.attributetype - 1],
       title: result.title || "",
       checkLinks: result.checklinks,
       domain: result.domain ? await this.schema.__getTypeTag(result.domain) : null,
@@ -776,7 +778,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
     const typeobj = await this._getType();
-    const typetag = WRDAttributeTypeNames[configuration.attributeType - 1];
+    const typetag = configuration.attributeType;
 
     const configclone: Omit<Partial<WRDAttributeConfiguration>, 'domain'> & { domain?: string | number | null } = configuration;
     delete configclone.attributeType;
