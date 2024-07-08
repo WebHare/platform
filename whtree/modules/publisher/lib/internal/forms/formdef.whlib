@@ -34,6 +34,110 @@ MACRO UpdateAttribute(OBJECT child, RECORD attr, STRING newvalue)
    child->SetAttributeNS(attr.namespaceuri, attr.nodename, newvalue);
 }
 
+STATIC OBJECTTYPE Duplicator
+<
+  STRING type;
+  OBJECT ARRAY comps;
+  OBJECT ARRAY duplicates;
+  OBJECT formdefinition;
+  STRING ARRAY currentinstanceids;
+  RECORD ARRAY guidmapping;
+
+  MACRO NEW(OBJECT formdefinition, STRING type, OBJECT ARRAY comps)
+  {
+    this->formdefinition := formdefinition;
+    this->type := type;
+    this->comps := comps;
+
+    this->currentinstanceids := this->formdefinition->formdefinitions->__GetInstanceids();
+  }
+
+
+  /** Duplicate the specified component */
+  OBJECT FUNCTION DuplicateComponent(OBJECT source)
+  {
+    //verify it's actually a component TODO: allow components to specify after-clone callbacks?
+    //RECORD comptype := GetFormComponentDef(source->namespaceuri, source->element, [ nofail := TRUE ]);
+
+    OBJECT newquestion := source->CloneNode(TRUE); //deep copy
+    source->parentnode->InsertBefore(newquestion, source->nextelementsibling); //insert behind source
+
+    FOREVERY(RECORD comp FROM GatherFormComponentsFromComponent(newquestion, [ getallchildren := TRUE ]))
+    {
+      IF(comp.type="component")
+      {
+        STRING oldguid := comp.node->GetAttribute("guid");
+        IF(oldguid = "" OR oldguid NOT LIKE "?*:?*")
+          THROW NEW Exception("Component unexpectedly without guid");
+
+        STRING newguid := this->formdefinition->formdefinitions->__CreateGUID(Tokenize(oldguid,':')[0]);
+        comp.node->SetAttribute("guid", newguid);
+        INSERT CELL[ oldguid, newguid ] INTO this->guidmapping AT END;
+        comp.node->RemoveAttribute("name");
+        comp.node->RemoveAttribute("pins");
+      }
+
+      this->duplicates := OBJECT[...this->duplicates, comp.node, ...comp.allchildren];
+    }
+
+    RETURN newquestion;
+  }
+
+  MACRO DuplicateInstances(OBJECT child)
+  {
+    FOREVERY(RECORD attr FROM child->ListAttributes())
+    {
+      IF(attr.nodevalue IN this->currentinstanceids)
+      {
+        RECORD instance := this->formdefinition->formdefinitions->GetInstance(attr.nodevalue);
+        IF(attr.nodename IN ["visibleconditionid", "enabledconditionid", "requiredconditionid"])
+          instance.data := this->FixReferences(instance.data);
+
+        STRING newinstanceid := this->formdefinition->formdefinitions->CreateInstance(instance);
+        UpdateAttribute(child, attr, newinstanceid);
+      }
+    }
+  }
+
+  RECORD FUNCTION FixReferences(RECORD condition)
+  {
+    IF(CellExists(condition, "condition")) //not
+      condition.condition:= this->FixReferences(condition.condition);
+
+    IF(CellExists(condition, "conditions")) //and & or
+      FOREVERY(RECORD sub FROM condition.conditions)
+        condition.conditions[#sub] := this->FixReferences(sub);
+
+    IF(CellExists(condition, "field"))
+    {
+      STRING remapped := SELECT AS STRING newguid FROM this->guidmapping WHERE oldguid = condition.field;
+      IF(remapped != "")
+        condition.field := remapped;
+    }
+
+    RETURN condition;
+  }
+
+  /** Duplicate the specified components (or pages/groups) */
+  PUBLIC OBJECT ARRAY FUNCTION Run()
+  {
+    OBJECT ARRAY newitems;
+    OBJECT insertbefore := this->comps[END-1]->nextelementsibling; //it's okay if this is a DEFAULT OBJECT
+    OBJECT insertparent := this->comps[END-1]->parentnode;
+
+    FOREVERY(OBJECT todupe FROM this->comps)
+    {
+      OBJECT dupe := this->DuplicateComponent(todupe);
+      INSERT dupe INTO newitems AT END;
+      insertparent->insertbefore(dupe, insertbefore);
+    }
+
+    FOREVERY(OBJECT duped FROM this->duplicates)
+      this->DuplicateInstances(duped);
+
+    RETURN newitems;
+  }
+>;
 
 STATIC OBJECTTYPE FormPage
 <
@@ -72,34 +176,7 @@ STATIC OBJECTTYPE FormPage
   /** Duplicate the specified component */
   PUBLIC OBJECT FUNCTION DuplicateComponent(OBJECT source)
   {
-    //verify it's actually a component TODO: allow components to specify after-clone callbacks?
-    //RECORD comptype := GetFormComponentDef(source->namespaceuri, source->element, [ nofail := TRUE ]);
-
-    OBJECT newquestion := source->CloneNode(TRUE); //deep copy
-    source->parentnode->InsertBefore(newquestion, source->nextelementsibling); //insert behind source
-
-    STRING ARRAY currentinstanceids := this->formdefinition->formdefinitions->__GetInstanceids();
-
-    FOREVERY(RECORD comp FROM GatherFormComponentsFromComponent(newquestion, [ getallchildren := TRUE ]))
-    {
-      IF(comp.type="component")
-      {
-        comp.node->SetAttribute("guid", this->formdefinition->formdefinitions->__CreateGUID("formcomp"));
-        comp.node->RemoveAttribute("name");
-        comp.node->RemoveAttribute("pins");
-      }
-
-      FOREVERY(OBJECT child FROM OBJECT[comp.node] CONCAT comp.allchildren)
-        FOREVERY(RECORD attr FROM child->ListAttributes())
-        {
-          IF(attr.nodevalue IN currentinstanceids)
-          {
-            STRING newinstanceid := this->formdefinition->formdefinitions->CreateInstance(this->formdefinition->formdefinitions->GetInstance(attr.nodevalue));
-            UpdateAttribute(child, attr, newinstanceid);
-          }
-        }
-    }
-    RETURN newquestion;
+    RETURN PickFirst(this->formdefinition->PrepareDuplicate([source]).duplicator->Run());
   }
 
   PUBLIC OBJECT ARRAY FUNCTION GetComponents(OBJECT questiongroup DEFAULTSTO DEFAULT OBJECT)
@@ -248,6 +325,78 @@ STATIC OBJECTTYPE FormDefinition
   {
     component->Dispose();
     this->GetTrashNode()->AppendChild(component);
+  }
+
+  STRING FUNCTION GetOutlineLevel(OBJECT node, INTEGER indent)
+  {
+    STRING guid := node->GetAttribute("guid");
+    STRING name := node->GetAttribute("name");
+    STRING title := node->GetAttribute("title");
+    STRING output := RepeatText(" ", indent) || `- ${node->localname}${title != "" ? ` ${title}` : ""}${guid != "" ? ` (guid=${guid})` : ""}${name != "" ? ` (name=${name})` : ""}\n`;
+    FOREVERY(OBJECT child FROM node->ListChildren("*","*"))
+      output := output || this->GetOutlineLevel(child, indent + 2);
+
+    RETURN output;
+  }
+
+  PUBLIC STRING FUNCTION GetOutline()
+  {
+    RETURN this->GetOutlineLevel(this->node, 0);
+  }
+
+  /** Prepare duplication */
+  PUBLIC RECORD FUNCTION PrepareDuplicate(OBJECT ARRAY sources)
+  {
+    STRING ARRAY todupeguids;
+    //Gather guids to dupe. ALl form editor items should have a guid
+    FOREVERY(OBJECT source FROM sources)
+    {
+      STRING guid := source->GetAttribute("guid");
+      IF(guid != "")
+        INSERT guid INTO todupeguids AT END;
+    }
+
+    //Gather the components to duplicate in form order. Group by type
+    OBJECT ARRAY dupepages, dupegroups, dupecomps;
+    FOREVERY(OBJECT page FROM this->GetPageNodes())
+    {
+      IF(page->GetAttribute("guid") IN todupeguids)
+        INSERT page INTO dupepages AT END;
+
+      FOREVERY(OBJECT subitem FROM page->ListChildren("*","*"))
+      {
+        IF(subitem->namespaceuri = xmlns_forms AND subitem->localname = "group")
+        {
+          IF(subitem->GetAttribute("guid") IN todupeguids)
+            INSERT subitem INTO dupegroups AT END;
+
+          FOREVERY(OBJECT groupeditem FROM subitem->ListChildren("*","*"))
+            IF(groupeditem->GetAttribute("guid") IN todupeguids)
+              INSERT groupeditem INTO dupecomps AT END;
+        }
+        ELSE IF(subitem->GetAttribute("guid") IN todupeguids)
+          INSERT subitem INTO dupecomps AT END;
+      }
+    }
+
+    //How many types to dupe
+    INTEGER dupetypes;
+    IF(Length(dupepages) > 0)
+      dupetypes := dupetypes + 1;
+    IF(Length(dupegroups) > 0)
+      dupetypes := dupetypes + 1;
+    IF(Length(dupecomps) > 0)
+      dupetypes := dupetypes + 1;
+
+    IF(dupetypes != 1) //mixed types
+      RETURN CELL [ error := "mixedtypes" ];
+
+    IF(Length(dupepages) > 0)
+      RETURN CELL [ error := "", duplicator := NEW Duplicator(this, "pages", dupepages) ];
+    IF(Length(dupegroups) > 0)
+      RETURN CELL [ error := "", duplicator := NEW Duplicator(this, "groups", dupegroups) ];
+
+    RETURN CELL [ error := "", duplicator := NEW Duplicator(this, "componentss", dupecomps) ];
   }
 
   STRING FUNCTION GetName()

@@ -2117,6 +2117,7 @@
       <textgroup gid="messages">   <!-- tolliumapps.formedit.messages -->
         <text tid="confirmdeleteitem">Weet u zeker dat u <ifparam p="1" value="page">deze pagina<else/><ifparam p="1" value="handler">deze actie<else/><ifparam p="1" value="question">deze vraag<else/>dit onderdeel</ifparam></ifparam></ifparam> wilt verwijderen?</text>
         <text tid="confirmdeleteitems">Weet u zeker dat u deze <param p="2"/> <ifparam p="1" value="page">pagina's<else/><ifparam p="1" value="handler">afhandelingen<else/><ifparam p="1" value="question">vragen<else/>onderdelen</ifparam></ifparam></ifparam> wilt verwijderen?</text>
+        <text tid="duplicate-mixedtypes">De te dupliceren selectie dient uit pagina's, groepen of vragen te bestaan.</text>
         <text tid="extensionloaderror">De editorextensie '<param p="1"/>' heeft een fout veroorzaakt bij het laden:<br/><br/><param p="2"/></text>
         <text tid="formbroken">Er is een probleem met dit formulier en het kan daardoor niet geopend worden in de editor. Neem contact op met uw beheerder om dit probleem op te lossen.</text>
         <text tid="formbroken-fixit">De formuliereditor kon niet geopend worden. Er waren problemen bij het inladen van het formulier:<br/><br/><param p="1"/><br/><br/>Wilt u de broncode van het formulier wijzigen?</text>
