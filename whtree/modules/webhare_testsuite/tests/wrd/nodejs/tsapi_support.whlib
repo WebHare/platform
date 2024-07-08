@@ -20,3 +20,14 @@ PUBLIC STRING ARRAY FUNCTION GetWRDTypeEventMasks(STRING wrdschemaname, STRING t
 {
   RETURN OpenWRDSchema(wrdschemaname)->__GetTypeByTag(typetag)->GetEventMasks();
 }
+
+
+PUBLIC RECORD FUNCTION GetWRDEntityFields(STRING wrdschema, STRING type, INTEGER entityid, STRING ARRAY fields)
+{
+  RETURN OpenWRDSchema(wrdschema)->__GetTypeByTag(type)->GetEntityFields(entityid, fields);
+}
+
+PUBLIC MACRO UpdateWRDEntity(STRING wrdschema, STRING type, INTEGER entityid, RECORD updates)
+{
+  OpenWRDSchema(wrdschema)->__GetTypeByTag(type)->UpdateEntity(entityid, updates);
+}

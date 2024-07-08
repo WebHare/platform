@@ -65,12 +65,27 @@ RECORD ARRAY addressvalidationservices :=
 
 RECORD FUNCTION GetCacheableAddressInfoData()
 {
-  RETURN [ value := DecodeYAML(BlobToString(GetWebHareResource("mod::platform/data/facts/addresses.yml")))
+  RECORD decoded := DecodeYAML(BlobToString(GetWebHareResource("mod::platform/data/facts/addresses.yml")));
+
+  // Convert houseNumber (JS addresses) to nr_detail (HS addresses)
+  UPDATE decoded.addressfields SET field := "nr_detail" WHERE field = "houseNumber";
+  FOREVERY (RECORD up FROM UnpackRecord(decoded.customformat))
+    FOREVERY (RECORD line FROM up.value)
+      FOREVERY (STRING field FROM line.fields)
+        IF (field = "houseNumber")
+        {
+          up.value[#line].fields[#field] := "nr_detail";
+          decoded.customformat := CellUpdate(decoded.customformat, up.name, up.value);
+        }
+  decoded := CELL[ ...decoded, DELETE housenumber, nrdetail := decoded.housenumber ];
+
+  RETURN [ value := decoded
          , ttl := 60 * 60 * 1000
          , eventmasks := GetResourceEventMasks(["mod::platform/data/facts/addresses.yml"])
          ];
 }
-RECORD FUNCTION GetAddressInfoData()
+
+PUBLIC RECORD FUNCTION GetAddressInfoData()
 {
   RETURN GetAdhocCached(CELL["addresses"], PTR GetCacheableAddressInfoData);
 }

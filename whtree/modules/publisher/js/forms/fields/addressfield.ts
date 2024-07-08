@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import FormBase from "../formbase";
 import { debugFlags } from "@webhare/env";
-import { verifyAddress, AddressValidationResult, AddressValue, AddressChecks } from "@webhare/forms/src/address";
+import { verifyHareScriptAddress, type HareScriptAddressValidationResult, type AddressChecks, type HareScriptAddressValue } from "@webhare/forms/src/address";
 import { setFieldError } from "../internal/customvalidation";
 import { throwError } from "@webhare/std";
 
@@ -137,13 +137,13 @@ export default class AddressField {
   }
 
   _getCurState() {
-    const value: AddressValue = { country: "" };
+    const value: HareScriptAddressValue = { country: "" };
     const visiblefields: HTMLElement[] = [];
     let anyset = false, allrequiredset = true;
     this.allFields.forEach((field, key) => {
       if (!field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden")) {
         visiblefields.push(field.node.closest(".wh-form__fieldgroup")!);
-        value[key as keyof AddressValue] = field.node.value;
+        value[key as keyof HareScriptAddressValue] = field.node.value;
 
         if (!anyset && key !== 'country' && field.node.value)
           anyset = true;
@@ -170,12 +170,12 @@ export default class AddressField {
     if (!curstate.allrequiredset)
       return; //no need to validate if we don't even have the required fields in place
 
-    let result: AddressValidationResult;
+    let result: HareScriptAddressValidationResult;
     const lock = dompack.flagUIBusy();
     try {
       curstate.visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
       ++this.numvaliditycalls;
-      result = await verifyAddress(curstate.value as AddressValue, {
+      result = await verifyHareScriptAddress(curstate.value as HareScriptAddressValue, {
         lang: form.getLangCode(),
         checks: (this.node.dataset.checks?.split(' ') ?? []) as AddressChecks[]
       });

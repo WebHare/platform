@@ -6,6 +6,7 @@ export { shuffle, emplace, pick, omit, isTruthy, mapGroupBy, objectGroupBy, type
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
 export { addDuration, parseDuration, convertWaitPeriodToDate, type Duration, type WaitPeriod } from "./datetime";
 export { isDate, isBlob, isFile, isError, isPromise } from "./quacks";
+export { type AddressValue } from "./address";
 
 /** Throw an error with the specified message. This function allows you to throw inside expressions
  * @param err - The error message
