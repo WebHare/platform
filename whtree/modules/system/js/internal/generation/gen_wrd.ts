@@ -280,8 +280,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     const typedecls = Array.from(typeDeclImports.entries()).map(([library, imports]) => {
       const names = Array.from(imports).map(([name, usename]) => (name !== usename ? `${name} as ${usename} ` : name)).join(", ");
       library = library.replace(/(\.d)?\.tsx?$/, ""); // remove .d.ts,  .ts, .tsx extensions
-      return `import type { ${names}
-  } from ${JSON.stringify(library)}; \n`;
+      return `import type { ${names} } from ${JSON.stringify(library)}; \n`;
     }
     ).join("");
 
@@ -318,6 +317,9 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
   } else if (attr.attributeType === WRDAttributeType.JSON) {
     const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { type: ${typedeclname} }>`;
+  } else if (attr.attributeType === WRDAttributeType.StatusRecord) {
+    const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
+    typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { allowedvalues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")}; type: ${typedeclname} }>`;
   } else {
     typedef = `WRDAttributeType.${WRDAttributeType[attr.attributeType]}`;
   }

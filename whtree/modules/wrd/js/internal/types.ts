@@ -114,7 +114,6 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.Record |
   WRDAttributeType.PaymentProvider |
   WRDAttributeType.Payment |
-  WRDAttributeType.StatusRecord |
   WRDAttributeType.AuthenticationSettings |
   WRDAttributeType.WHFSLink;
 
@@ -178,7 +177,8 @@ export type WRDAttrBase =
   WRDAttrBaseGen<SimpleWRDAttributeType, never> |
   WRDAttrBaseGen<WRDAttributeType.Enum | WRDAttributeType.EnumArray, { allowedvalues: string }> |
   WRDAttrBaseGen<WRDAttributeType.Array, { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> }> |
-  WRDAttrBaseGen<WRDAttributeType.JSON, { type: object }>;
+  WRDAttrBaseGen<WRDAttributeType.JSON, { type: object }> |
+  WRDAttrBaseGen<WRDAttributeType.StatusRecord, { allowedvalues: string; type: object }>;
 
 /** Converts a SimpleWRDAttributeType (enum) to a WRDAttrBase */
 export type ToWRDAttr<T extends SimpleWRDAttributeType | WRDAttrBase> = T extends WRDAttrBase ? T : T extends SimpleWRDAttributeType ? WRDAttr<T> : never;

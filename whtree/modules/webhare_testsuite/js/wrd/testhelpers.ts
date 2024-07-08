@@ -52,7 +52,7 @@ export type CustomExtensions = {
     testInteger64: WRDAttributeType.Integer64;//", { title: "Integer64 attribute" });
     testRecord: WRDAttributeType.Record;//", { title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
     testJson: WRDAttr<WRDAttributeType.JSON, { type: { mixedCase: Array<number | string> } }>;//", { title: "Json attribute" });
-    testStatusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
+    testStatusrecord: WRDAttr<WRDAttributeType.StatusRecord, { allowedvalues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
   } & WRDTypeBaseSettings;

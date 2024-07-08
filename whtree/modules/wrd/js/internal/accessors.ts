@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOpera
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money } from "@webhare/std";
+import { Money, omit } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -1179,6 +1179,104 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
   }
 }
 
+// FIXME: add wildcard support
+type GetStatusRecordValues<Options extends { allowedvalues: string; type: object }, Required extends boolean> = (Options extends { allowedvalues: infer V; type: infer T extends object } ? { status: V } & T : never) | (Required extends true ? never : null);
+
+class WRDDBStatusRecordValue<Options extends { allowedvalues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<never, GetStatusRecordValues<Options, Required> | null, GetStatusRecordValues<Options, Required>, WRDDBEnumConditions> {
+  getDefaultValue(): GetStatusRecordValues<Options, Required> | null { return null; }
+  checkFilter({ condition, value }: WRDDBEnumConditions) {
+    if (condition === "mentions" && !value)
+      throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
+    if (value === "")
+      throw new Error(`Use null instead of "" for enum compares`);
+  }
+  matchesValue(value: { status: string } | null, cv: WRDDBEnumConditions): boolean {
+    if (cv.condition === "in") {
+      return cv.value.includes(value?.status ?? null);
+    }
+    const valueStatus = value?.status || "";
+    if (cv.condition === "mentionsany") {
+      return cv.value.includes(valueStatus);
+    }
+    if (cv.condition === "like") {
+      return isLike(valueStatus, cv.value);
+    }
+    return cmp(valueStatus, cv.condition === "mentions" ? "=" : cv.condition, cv.value || "");
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
+    const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
+
+    // Rewrite like query to PostgreSQL LIKE mask format
+    let db_cv = { ...cv };
+    if (db_cv.condition === "like") {
+      db_cv.value = db_cv.value.replaceAll(/[\\%_]/g, "\\$&").replaceAll("*", "%").replaceAll(".", "_");
+    }
+
+    // rewrite mentions and mentionsany to supported conditions
+    if (db_cv.condition === "mentions")
+      db_cv = { ...db_cv, condition: "=" };
+    else if (db_cv.condition === "mentionsany")
+      db_cv = { ...db_cv, condition: "in" };
+
+    // Eliminate nulls
+    if (db_cv.condition === "=" || db_cv.condition === "!=")
+      db_cv = { ...db_cv, value: db_cv.value ?? "" };
+    if (db_cv.condition === "in")
+      db_cv = { ...db_cv, value: db_cv.value.map(v => v ?? "") };
+
+    if (db_cv.condition === "in" && !db_cv.value.length)
+      return null; // no results!
+
+    // copy to a new variable to satisfy TypeScript type inference
+    const filtered_cv = db_cv;
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => b.where(sql`SPLIT_PART(rawdata, '\t', 1)`, filtered_cv.condition, filtered_cv.value));
+    return {
+      needaftercheck: false,
+      query
+    };
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): GetStatusRecordValues<Options, Required> {
+    const rawdata = entity_settings[settings_start].rawdata;
+    const tabPos = rawdata.indexOf("\t");
+    if (tabPos < 0)
+      return null as GetStatusRecordValues<Options, Required>;
+
+    const status = rawdata.substring(0, tabPos);
+    if (rawdata.length > tabPos + 1)
+      return { status, ...(decodeHSON(rawdata.substring(tabPos + 1)) as object) } as GetStatusRecordValues<Options, Required>;
+    const buf = entity_settings[settings_start].blobdata?.__getAsSyncUInt8Array();
+    const bufData = buf ? decodeHSON(Buffer.from(buf).toString()) as object : {};
+    return { status, ...bufData } as GetStatusRecordValues<Options, Required>;
+  }
+
+  validateInput(value: GetStatusRecordValues<Options, Required>) {
+    if (this.attr.required && !value?.status.length)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+
+
+  }
+
+  encodeValue(value: GetStatusRecordValues<Options, Required> | null): EncodedValue | AwaitableEncodedValue {
+    if (!value)
+      return {};
+
+    const restData = encodeHSON(omit(value as { status: string }, ["status"]));
+    const rawdata = value.status + "\t" + restData;
+    if (Buffer.byteLength(rawdata) > 4096) {
+      return { settings: { rawdata: rawdata, attribute: this.attr.id } };
+    } else {
+      return {
+        settings: (async (): Promise<EncodedSetting[]> => {
+          const blobdata = WebHareBlob.from(restData);
+          await uploadBlob(blobdata);
+          return [{ rawdata: value.status + "\t", blobdata, attribute: this.attr.id }];
+        })()
+      };
+    }
+  }
+}
 
 type WRDDBDateTimeConditions = {
   condition: "=" | "!="; value: Date | null;
@@ -1960,7 +2058,6 @@ class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknow
 //class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 
 /// Map for all attribute types that have no options
@@ -1983,6 +2080,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.URL]: WRDDBStringValue;
   [WRDAttributeType.Boolean]: WRDDBBooleanValue;
   [WRDAttributeType.Integer]: WRDDBIntegerValue;
+  [WRDAttributeType.Date]: WRDDBDateValue<Required>;
+  [WRDAttributeType.DateTime]: WRDDBDateTimeValue<Required>;
   [WRDAttributeType.Domain]: WRDDBDomainValue<Required>;
   [WRDAttributeType.DomainArray]: WRDDBDomainArrayValue;
   [WRDAttributeType.Address]: WRDDBAddressValue;
@@ -1997,7 +2096,6 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.Record]: WRDDBRecordValue;
   [WRDAttributeType.PaymentProvider]: WRDDBPaymentProviderValue;
   [WRDAttributeType.Payment]: WRDDBPaymentValue;
-  [WRDAttributeType.StatusRecord]: WRDDBStatusRecordValue;
   [WRDAttributeType.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
   [WRDAttributeType.WHFSLink]: WRDDBWHFSLinkValue;
   [WRDAttributeType.Time]: WRDDBIntegerValue;
@@ -2013,15 +2111,14 @@ export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof 
     ? WRDDBEnumValue<T["__options"], T["__required"]>
     : (T extends { __attrtype: WRDAttributeType.EnumArray }
       ? WRDDBEnumArrayValue<T["__options"]>
-      : (T extends { __attrtype: WRDAttributeType.Date }
-        ? WRDDBDateValue<T["__required"]>
-        : (T extends { __attrtype: WRDAttributeType.DateTime }
-          ? WRDDBDateTimeValue<T["__required"]>
-          : (T extends { __attrtype: WRDAttributeType.Array }
-            ? WRDDBArrayValue<T["__options"]["members"]>
-            : (T extends { __attrtype: WRDAttributeType.JSON }
-              ? WRDDBJSONValue<T["__required"], T["__options"]["type"]>
-              : never))))));
+      : (T extends { __attrtype: WRDAttributeType.StatusRecord }
+        ? WRDDBStatusRecordValue<T["__options"], T["__required"]>
+        : (T extends { __attrtype: WRDAttributeType.Array }
+          ? WRDDBArrayValue<T["__options"]["members"]>
+          : (T extends { __attrtype: WRDAttributeType.JSON }
+            ? WRDDBJSONValue<T["__required"], T["__options"]["type"]>
+            : never)))));
+
 
 export function getAccessor<T extends WRDAttrBase>(
   attrinfo: AttrRec & { attributetype: T["__attrtype"]; required: T["__required"] },
@@ -2048,6 +2145,8 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeType.Integer:
     case WRDAttributeType.Time:
       return new WRDDBIntegerValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Domain: return new WRDDBDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
@@ -2062,16 +2161,14 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeType.Record: return new WRDDBRecordValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.PaymentProvider: return new WRDDBPaymentProviderValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Payment: return new WRDDBPaymentValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.StatusRecord: return new WRDDBStatusRecordValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.WHFSLink: return new WRDDBWHFSLinkValue(attrinfo) as AccessorType<T>;
 
     case WRDAttributeType.Enum: return new WRDDBEnumValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.EnumArray: return new WRDDBEnumArrayValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
     case WRDAttributeType.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.StatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedvalues: string; type: object }, T["__required"]>(attrinfo) as AccessorType<T>;
   }
   throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeType[attrinfo.attributetype] : WRDAttributeType[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
 }
