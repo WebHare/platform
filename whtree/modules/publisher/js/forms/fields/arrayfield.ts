@@ -34,7 +34,7 @@ export default class ArrayField {
     this.valueNode = qR<HTMLInputElement>(node, "input.wh-form__arrayinput");
     this.valueNode.whUseFormGetValue = true;
     this.valueNode.addEventListener("wh:form-getvalue", event => this._onGetValue(event));
-    //@ts-expect-error wh:form-setvalue isn't defined - but it'll go away anyawy
+    //@ts-expect-error wh:form-setvalue isn't defined - but it'll go away anyway
     this.valueNode.addEventListener("wh:form-setvalue", event => this._onSetValue(event));
 
     // Initialize initial value rows
