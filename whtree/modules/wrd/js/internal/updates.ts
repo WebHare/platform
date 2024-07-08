@@ -876,8 +876,8 @@ IF(NOT this -> ValidateSettings(splitdata.settings CONCAT splitdata.checked_base
         .updateTable("wrd.entity_settings")
         .set({ unique_rawdata: sql`rawdata` })
         .where("entity", "=", result.entityId)
-        // .where("id", "!=", sql`any(${updateres?.updatedSettings})`)
-        .where("attribute", "=", sql`any(${uniqueNonEmailAttrs})`) // FIXME: keep these per-type
+        // .where("id", "!=", sql`any(${updateres?.updatedSettings})`) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
+        .where("attribute", "=", sql`any(${uniqueNonEmailAttrs})`)
         .execute();
     }
     if (uniqueEmailAttrs.length) {
@@ -885,8 +885,8 @@ IF(NOT this -> ValidateSettings(splitdata.settings CONCAT splitdata.checked_base
         .updateTable("wrd.entity_settings")
         .set({ unique_rawdata: sql`lower(rawdata)` })
         .where("entity", "=", result.entityId)
-        .where("id", "!=", sql`any(${updateres?.updatedSettings})`)
-        .where("attribute", "=", sql`any(${uniqueEmailAttrs})`) // FIXME: keep these per-type
+        // .where("id", "!=", sql`any(${updateres?.updatedSettings})`) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
+        .where("attribute", "=", sql`any(${uniqueEmailAttrs})`)
         .execute();
     }
   }
