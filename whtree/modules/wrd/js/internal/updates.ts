@@ -380,6 +380,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       throw new Error("Temporary entities may not have a creationdate or limitdate set");
     entityData.wrdCreationDate = null;
     entityData.wrdLimitDate = addDuration(new Date, "P7D");
+  } else {
+    if ("creationDate" in entityData && !entityData.creationDate)
+      throw new Error(`Cannot update creationDate to be null`);
   }
 
   // Get the data for the whole schema
