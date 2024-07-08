@@ -302,7 +302,7 @@ async function testUnique() {
   test.eqPartial({ isUnique: true }, await newdomtype.describeAttribute("testEmail"));
 
   await whdb.beginWork();
-  await wrdschema.insert("testUniques", { testFree: "1", testEmail: "2a@a.com", testInteger: 3, testInteger64: 4, testArray: [{ email: "pietje@beta.webhare.net" }] });
+  const pietje = await wrdschema.insert("testUniques", { testFree: "1", testEmail: "2a@a.com", testInteger: 3, testInteger64: 4, testArray: [{ email: "pietje@beta.webhare.net" }] });
   await test.throws(/conflict/, wrdschema.insert("testUniques", { testFree: "1" }));
   await test.throws(/conflict/, wrdschema.insert("testUniques", { testEmail: "2a@a.com" }));
   await test.throws(/conflict/, wrdschema.insert("testUniques", { testInteger: 3 }));
@@ -356,6 +356,10 @@ async function testUnique() {
   await wrdschema.update("testUniques", person1, { testEmail: "TRANS@beta.webhare.net" });
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "trans@beta.webhare.net"));
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
+  test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "=", "tRaNS@beTA.webhare.net").execute());
+  test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA*").execute());
+  test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentions", "PIETje@beta.webhare.net").execute());
+  test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentionsany", ["pietje@beta.WEBHARE.net"]).execute());
   await whdb.commitWork();
 }
 

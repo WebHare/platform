@@ -2538,7 +2538,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     newsets :=
         SELECT *
-             , unique_rawdata := attr.isunique ? rawdata : ""
+             , unique_rawdata := attr.isunique ? attr.attributetype = wrd_attributetype_email ? ToLowercase(rawdata) : rawdata : ""
           FROM newsets;
 
     RETURN CELL[ attr, newsets, subs ];
@@ -3513,9 +3513,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       {
         // materialize all unique data if needed after deleting updated settings
         INTEGER ARRAY unique_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE isunique;
+        INTEGER ARRAY email_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE attributetype = wrd_attributetype_email;
 
         UPDATE wrd.entity_settings
-           SET unique_rawdata := rawdata
+           SET unique_rawdata := attribute IN email_attrs ? ToLowercase(rawdata) : rawdata
          WHERE entity = entityid
            AND unique_rawdata = ""
            AND attribute IN unique_attrs;

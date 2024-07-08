@@ -538,7 +538,7 @@ MACRO TestWRDQuery()
                         ]
       ]));
 
-  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
       [ sources :=      [ [ type :=     wrdperson
                           , outputcolumns := [ n := "WRD_LASTNAME" ]
                           , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
@@ -575,7 +575,7 @@ MACRO TestWRDQuery()
                         ]
       ]));
 
-  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
       [ sources :=      [ [ type :=     wrdperson
                           , outputcolumns := [ n := "WRD_LASTNAME" ]
                           , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
@@ -614,7 +614,7 @@ MACRO TestWRDQuery()
                         ]
       ]));
 
-  TestEq(DEFAULT RECORD ARRAY, RunWRDQuery(
+  TestEq([ [ n := "QueryTest" ] ], RunWRDQuery(
       [ sources :=      [ [ type :=     wrdperson
                           , outputcolumns := [ n := "WRD_LASTNAME" ]
                           , filters :=  [ [ field := "WRD_CONTACT_EMAIL"

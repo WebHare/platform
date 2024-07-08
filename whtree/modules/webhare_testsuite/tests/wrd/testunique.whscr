@@ -38,9 +38,9 @@ MACRO TestUnique()
 
   testfw->BeginWork();
 
-  dom_obj->CreateEntity([ test_free := "1", test_email := "2@a.com", test_integer := 3, test_integer64 := 4, test_array := [[ email := "pietje@example.com" ]] ]);
+  INTEGER person1 := dom_obj->CreateEntity([ test_free := "1", test_email := "trans@beta.webhare.net", test_integer := 3, test_integer64 := 4, test_array := [[ email := "pietje@example.com" ]] ])->id;
   TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_free := "1" ]));
-  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_email := "2@a.com" ]));
+  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_email := "trans@beta.webhare.net" ]));
   TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_integer := 3 ]));
   TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_integer64 := 4 ]));
   TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_array := [[ email := "pietje@example.com" ]] ]));  //Issue #479
@@ -170,6 +170,21 @@ MACRO TestUnique()
     deleted->UpdateEntity([ test_free := "UNIQUEFREE7", wrd_limitdate := MAX_DATETIME ]);
     testfw->CommitWork();
   }
+
+  //test email normalization
+  testfw->BeginWork();
+  TestEq(person1, dom_obj->Search("test_email", "trans@beta.webhare.net"));
+  TestEq(person1, dom_obj->Search("test_email", "TRANS@beta.webhare.net"));
+  TestThrowsLike("*is not a valid value*", PTR dom_obj->CreateEntity([ test_email := "trans@beta" ]));
+  TestThrowsLike("*Unique value conflict*", PTR dom_obj->CreateEntity([ test_email := "TRANS@beta.webhare.net" ]));
+  dom_obj->UpdateEntity(person1, [ test_email:= "TRANS@beta.webhare.net"]);
+  TestEq(person1, dom_obj->Search("test_email", "trans@beta.webhare.net"));
+  TestEq(person1, dom_obj->Search("test_email", "TRANS@beta.webhare.net"));
+  TestEq([[ wrd_id := person1 ]], dom_obj->RunQuery([outputcolumns := ["wrd_id"], filters := [[ field := "test_email", value := "tRaNS@beTA.webhare.net" ]]]));
+  TestEq([[ wrd_id := person1 ]], dom_obj->RunQuery([outputcolumns := ["wrd_id"], filters := [[ field := "test_email", matchtype := "LIKE", value := "tRaNS@beTA.*.net" ]]]));
+  TestEq([[ wrd_id := person1 ]], dom_obj->RunQuery([outputcolumns := ["wrd_id"], filters := [[ field := "test_email", matchtype := "IN", value := ["tRaNS@beTA.WebHARE.net"] ]]]));
+  TestEq([[ wrd_id := person1 ]], dom_obj->RunQuery([outputcolumns := ["wrd_id"], filters := [[ field := "test_array.email", matchtype := "MENTIONS", value := "PIETje@example.com" ]]]));
+  testfw->CommitWork();
 }
 
 MACRO TestEnsureEntity()
