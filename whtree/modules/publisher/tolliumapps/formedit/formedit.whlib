@@ -1253,7 +1253,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
                      , title := question->GetAttribute("title") ?? GetTid(this->groupcompdef.tid, ToString(groupnum + 1))
                      , type := ^questions->GetIcon(this->groupcompdef.icon)
                      , icons := "existence" IN pins ? [ 2 ] : INTEGER[]
-                     , page //NOTE is an integer here, but an object when dealing wit questions. so likely unused
+                     , page //NOTE is an integer here, but an object when dealing with questions. so likely unused
                      , guid := question->GetAttribute("guid")
                      , node := question
                      , expanded := TRUE
