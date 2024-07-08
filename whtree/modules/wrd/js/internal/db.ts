@@ -20,6 +20,7 @@ export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTyp
   consilioLinkCheckAttrs: Set<number>;
   whfsLinkAttrs: Set<number>;
   uniqueAttrs: Set<number>;
+  emailAttrs: Set<number>;
 };
 export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeType | WRDAttributeType };
 export type EntitySettingsRec = Pick<Selectable<PlatformDB, "wrd.entity_settings">, typeof selectEntitySettingColumns[number]>;
@@ -112,6 +113,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       consilioLinkCheckAttrs: new Set<number>,
       whfsLinkAttrs: new Set<number>,
       uniqueAttrs: new Set<number>,
+      emailAttrs: new Set<number>,
     }));
   const typeids: number[] = types.map(t => t.id);
   const attrs = (await db<PlatformDB>()
@@ -169,10 +171,14 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
     for (const attr of typeAttrs) {
       if (!attr.parent)
         type.rootAttrMap.set(attr.tag, attr);
+      if (attr.isunique)
+        type.uniqueAttrs.add(attr.id);
       if ([WRDAttributeType.RichDocument, WRDAttributeType.WHFSInstance, WRDAttributeType.URL].includes(attr.attributetype) || attr.checklinks)
         type.consilioLinkCheckAttrs.add(attr.id);
-      if (attr.attributetype === WRDAttributeType.PaymentProvider)
+      if (attr.attributetype === WRDAttributeType.WHFSLink)
         type.whfsLinkAttrs.add(attr.id);
+      if (attr.attributetype === WRDAttributeType.Email)
+        type.emailAttrs.add(attr.id);
     }
     for (const rootAttr of type.rootAttrMap.values())
       recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap);

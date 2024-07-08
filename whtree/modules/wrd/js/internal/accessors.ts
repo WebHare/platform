@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOpera
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit } from "@webhare/std";
+import { Money, omit, isValidEmail } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -300,9 +300,13 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cmpvalue);
   }
 
+  isCaseInsensitve(cv: WRDDBStringConditions) {
+    return cv.options?.matchcase === false; //matchcase defauls to true;
+  }
+
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
-    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    const caseInsensitive = this.isCaseInsensitve(cv);
 
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
@@ -351,6 +355,17 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
 
   encodeValue(value: string): EncodedValue {
     return value ? { settings: { rawdata: value, attribute: this.attr.id } } : {};
+  }
+}
+
+class WRDDBEmailValue extends WRDDBStringValue {
+  encodeValue(value: string): EncodedValue {
+    if (value && !isValidEmail(value))
+      throw new Error(`Invalid email address '${value}' for attribute ${this.attr.tag}`);
+    return super.encodeValue(value);
+  }
+  isCaseInsensitve(cv: WRDDBStringConditions) {
+    return true;
   }
 }
 
@@ -2075,7 +2090,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeType.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
 
   [WRDAttributeType.Free]: WRDDBStringValue;
-  [WRDAttributeType.Email]: WRDDBStringValue;
+  [WRDAttributeType.Email]: WRDDBEmailValue;
   [WRDAttributeType.Telephone]: WRDDBStringValue;
   [WRDAttributeType.URL]: WRDDBStringValue;
   [WRDAttributeType.Boolean]: WRDDBBooleanValue;
@@ -2138,7 +2153,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeType.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
 
     case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.Email: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Email: return new WRDDBEmailValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.URL: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;

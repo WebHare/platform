@@ -16,6 +16,7 @@ export interface WRDAttributeConfiguration_HS {
   isunsafetocopy: boolean;
   isrequired: boolean;
   isordered: boolean;
+  isunique: boolean;
   allowedvalues: string[];
 }
 
@@ -27,6 +28,7 @@ export interface WRDAttributeConfigurationBase {
   isUnsafeToCopy?: boolean;
   isRequired?: boolean;
   isOrdered?: boolean;
+  isUnique?: boolean;
   allowedValues?: string[] | null;
 }
 
@@ -38,6 +40,7 @@ export interface WRDAttributeConfiguration extends WRDAttributeConfigurationBase
   isUnsafeToCopy: boolean;
   isRequired: boolean;
   isOrdered: boolean;
+  isUnique: boolean;
   allowedValues: string[] | null;
 }
 

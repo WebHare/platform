@@ -750,6 +750,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
         isUnsafeToCopy: false,
         isRequired: false,
         isOrdered: false,
+        isUnique: false,
         allowedValues: ['male', 'female', 'other']
       };
 
@@ -768,6 +769,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       isUnsafeToCopy: result.isunsafetocopy,
       isRequired: result.isrequired,
       isOrdered: result.isordered,
+      isUnique: result.isunique,
       allowedValues: result.allowedvalues.length ? result.allowedvalues : []
     };
   }

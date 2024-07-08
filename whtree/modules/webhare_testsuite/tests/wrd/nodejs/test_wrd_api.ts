@@ -2,7 +2,8 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { WRDAttributeType } from "@mod-wrd/js/internal/types";
+import { WRDAttributeType, WRDMetaType } from "@mod-wrd/js/internal/types";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 async function testCommitAndRollback() { //test the Co-HSVM
   const wrdschema: WRDSchema = await getWRDSchema();
@@ -279,10 +280,88 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
     TestEq([[fullname := "Blobdieblob", id := personid]], wrdperson->RunQuery(basequery));
     TestEq([[fullname := "Blobdieblob", id := personid]], wrdperson->RunQuery(cacheablequery));
     */
+
+  await whdb.rollbackWork();
+}
+
+async function testUnique() {
+  await whdb.beginWork();
+
+  const wrdschema: WRDSchema = await getWRDSchema();
+  const newdomtype = await wrdschema.createType("testUniques", { metaType: WRDMetaType.Domain });
+  await newdomtype.createAttribute("testFree", { attributeType: WRDAttributeType.Free, isUnique: true });
+  await newdomtype.createAttribute("testEmail", { attributeType: WRDAttributeType.Email, isUnique: true });
+  await newdomtype.createAttribute("testInteger", { attributeType: WRDAttributeType.Integer, isUnique: true });
+  await newdomtype.createAttribute("testInteger64", { attributeType: WRDAttributeType.Integer64, isUnique: true });
+  await test.throws(/cannot be set on attributes of type/, newdomtype.createAttribute("testArray", { attributeType: WRDAttributeType.Array, isUnique: true }));
+  await newdomtype.createAttribute("testArray", { attributeType: WRDAttributeType.Array });
+  await newdomtype.createAttribute("testArray.email", { attributeType: WRDAttributeType.Email, isUnique: true });
+  await newdomtype.createAttribute("testNonUnique", { attributeType: WRDAttributeType.Free, isUnique: false });
+  await whdb.commitWork();
+
+  test.eqPartial({ isUnique: true }, await newdomtype.describeAttribute("testEmail"));
+
+  await whdb.beginWork();
+  await wrdschema.insert("testUniques", { testFree: "1", testEmail: "2a@a.com", testInteger: 3, testInteger64: 4, testArray: [{ email: "pietje@beta.webhare.net" }] });
+  await test.throws(/conflict/, wrdschema.insert("testUniques", { testFree: "1" }));
+  await test.throws(/conflict/, wrdschema.insert("testUniques", { testEmail: "2a@a.com" }));
+  await test.throws(/conflict/, wrdschema.insert("testUniques", { testInteger: 3 }));
+  await test.throws(/conflict/, wrdschema.insert("testUniques", { testInteger64: 4 }));
+  await test.throws(/conflict/, wrdschema.insert("testUniques", { testArray: [{ email: "pietje@beta.webhare.net" }] })); //"Issue #479"
+
+  await whdb.commitWork();
+
+  //Test whether the database is actually enforcing these contraints by using 2 parallel connections
+  const context1 = new CodeContext("test_unique: Inserter", { context: 1 });
+  const context2 = new CodeContext("test_unique: Conflicter", { context: 2 });
+
+  await context1.run(async () => whdb.beginWork());
+  await context2.run(async () => whdb.beginWork());
+
+  const person1 = await context1.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
+  const person2 = context2.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
+  await test.sleep(50); //give context2 time to start hanging - TODO would be nice to just look up the hang in the posgres lock table and wait for that
+
+  await context1.run(async () => whdb.commitWork());
+  await test.throws(/duplicate key value/, person2, "PG throws, WRD cannot see the issue");
+  await test.throws(/Commit failed/, context2.run(async () => whdb.commitWork()));
+
+  // Test reactivation triggering unique checks
+  await whdb.beginWork();
+  const ent1 = await wrdschema.insert("testUniques", { testFree: "testReactivation", wrdCreationDate: new Date(2010, 1, 1), wrdLimitDate: new Date(2018, 1, 1) });
+  const ent2 = await wrdschema.insert("testUniques", { testFree: "testReactivation", wrdCreationDate: new Date(2010, 1, 1) });
+  await whdb.commitWork();
+
+  await whdb.beginWork();
+  //TODO We might want to build nicer exceptions for this? but also a lot more work to have to look these up
+  await test.throws(/duplicate key/, wrdschema.update("testUniques", ent1, { wrdLimitDate: new Date(2050, 1, 2) }));
+  await whdb.rollbackWork();
+
+  await whdb.beginWork();
+  await test.throws(/duplicate key/, wrdschema.update("testUniques", ent1, { wrdLimitDate: null }));
+  await whdb.rollbackWork();
+
+  //test swapping liveliness
+  await whdb.beginWork();
+  await wrdschema.update("testUniques", ent2, { wrdLimitDate: new Date(2019, 1, 1) });
+  await wrdschema.update("testUniques", ent1, { wrdLimitDate: null });
+  await whdb.commitWork();
+
+  //test email normalization
+  await whdb.beginWork();
+  test.throws(/Invalid email address/, wrdschema.insert("testUniques", { testEmail: "trans@beta" }));
+  test.throws(/Unique value conflict/, wrdschema.insert("testUniques", { testEmail: "TRANS@beta.webhare.net" }));
+  test.eq(person1, await wrdschema.search("testUniques", "testEmail", "trans@beta.webhare.net"));
+  test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
+  await wrdschema.update("testUniques", person1, { testEmail: "TRANS@beta.webhare.net" });
+  test.eq(person1, await wrdschema.search("testUniques", "testEmail", "trans@beta.webhare.net"));
+  test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
+  await whdb.commitWork();
 }
 
 test.run([
   async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
   testCommitAndRollback,
-  testWRDUntypedApi
+  testWRDUntypedApi,
+  testUnique,
 ], { wrdauth: false });
