@@ -1,15 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
-import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
+import { tagToHS, tagToJS, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, SchemaData } from "./db";
-import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { isTruthy, omit, pick, stringify } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
@@ -46,22 +44,22 @@ interface WRDTypeConfigurationBase {
 }
 
 interface WRDObjectTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Object;
+  metaType: "object";
 }
 
 interface WRDAttachmentTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Attachment;
+  metaType: "attachment";
   left?: string;
 }
 
 interface WRDLinkTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Link;
+  metaType: "link";
   left?: string;
   right?: string;
 }
 
 interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
-  metaType: WRDMetaType.Domain;
+  metaType: "domain";
 }
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
@@ -280,16 +278,13 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const left = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
     const right = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
 
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
-
     const createrequest = {
       title: "",
       description: "",
       tag: hstag,
       requiretype_left: left,
       requiretype_right: right,
-      metatype: config.metaType,
+      metatype: WRDMetaTypes.indexOf(config.metaType) + 1,
       //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
       deleteclosedafter: config.deleteClosedAfter || 0,
       keephistorydays: config.keepHistoryDays || 0,
@@ -312,10 +307,12 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
     const linkfrom = await type.$get("linkfrom") as number;
     const linkto = await type.$get("linkto") as number;
+    const metatype = await type.$get("metatype") as number;
 
     return {
       left: linkfrom ? await this.__getTypeTag(linkfrom) : null,
-      right: linkto ? await this.__getTypeTag(linkto) : null
+      right: linkto ? await this.__getTypeTag(linkto) : null,
+      metaType: WRDMetaTypes[metatype - 1]
     };
   }
 
@@ -343,9 +340,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return ensureScopedResource(this.coVMSchemaCacheSymbol, (context) => ({
       schemaobj: (async () => {
         //const hsvm = await getCoHSVM();
-        const wrd_api = debugFlags["wrd:usewasmvm"]
-          ? loadlib("mod::wrd/lib/api.whlib")
-          : (await getCoHSVM()).loadlib("mod::wrd/lib/api.whlib");
+        const wrd_api = loadlib("mod::wrd/lib/api.whlib"); //FIXME
         const wrdschema = await wrd_api.OpenWRDSchema(this.tag) as HSVMObject | null;
         if (!wrdschema)
           throw new Error(`No such WRD schema ${this.tag}`);
@@ -541,24 +536,12 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateMetadata(newmetadata: Partial<WRDTypeMetadata>) {
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
     await (await this._getType()).updateMetadata(newmetadata);
   }
 
   async createEntity(value: Insertable<S[T]>): Promise<number> {
-    if (debugFlags["wrd:writejsengine"]) {
-      const res = await __internalUpdEntity(this, value, 0, {});
-      return res.entityId;
-    }
-
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
-    if (!this.attrs)
-      await this.ensureAttributes();
-
-    const entityobj = await (await this._getType()).createEntity(fieldsToHS(value, this.attrs!), { jsmode: true });
-    return await (entityobj as HSVMObject).$get("id") as number;
+    const res = await __internalUpdEntity(this, value, 0, {});
+    return res.entityId;
   }
 
   async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
@@ -568,24 +551,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
         throw new Error(`Expected exactly one match for update, got ${matches.length}`);
       entity = matches[0] as number;
     }
-    if (debugFlags["wrd:writejsengine"]) {
-      //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
-      if ("wrdId" in value)
-        throw new Error(`An entity update may not set wrdId`);
-      await __internalUpdEntity(this, value as Insertable<S[T]>, entity, {});
-      return;
-    }
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
-    if (!this.attrs)
-      await this.ensureAttributes();
 
-    await (await this._getType()).updateEntity(entity, fieldsToHS(value, this.attrs!), { jsmode: true });
+    //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
+    if ("wrdId" in value)
+      throw new Error(`An entity update may not set wrdId`);
+    await __internalUpdEntity(this, value as Insertable<S[T]>, entity, {});
   }
 
   async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
     if (!this.attrs)
       await this.ensureAttributes();
     if (Array.isArray(query)) {
@@ -615,13 +588,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     const historyMode = toHistoryData(options?.historyMode ?? "now");
-    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
-      type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-      const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], historyMode, 1);
-      return list.length ? list[0] as number : null;
-    }
-    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), ...translateHistoryModeToHS(historyMode), jsmode: true }) as number;
-    return res || null;
+    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
+    const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], historyMode, 1);
+    return list.length ? list[0] as number : null;
   }
 
   /** Returns the wrdId of the entity that matches the properties of the query object.
@@ -678,49 +647,28 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
     const historyMode = toHistoryData(options.historyMode ?? "now");
 
-    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
-      const rightOuterJoin = (options.rightOuterJoin ?
-        () => {
-          const recordizedOutputMap = recordizeOutputMap(mapping);
-          return getDefaultJoinRecord(this, recordizedOutputMap);
-        } : null) as (() => RightOuterJoinType) | null;
+    const rightOuterJoin = (options.rightOuterJoin ?
+      () => {
+        const recordizedOutputMap = recordizeOutputMap(mapping);
+        return getDefaultJoinRecord(this, recordizedOutputMap);
+      } : null) as (() => RightOuterJoinType) | null;
 
-      const result = executeEnrichment<
-        DataRow,
-        EnrichKey,
-        MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>,
-        never,
-        RightOuterJoinType,
-        never>(
-          data,
-          field,
-          {},
-          (ids, isLeftOuterJoin, matchCase) => this.getBulkFields(mapping, ids, isLeftOuterJoin, matchCase, historyMode),
-          null,
-          rightOuterJoin,
-        );
+    const result = executeEnrichment<
+      DataRow,
+      EnrichKey,
+      MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>,
+      never,
+      RightOuterJoinType,
+      never>(
+        data,
+        field,
+        {},
+        (ids, isLeftOuterJoin, matchCase) => this.getBulkFields(mapping, ids, isLeftOuterJoin, matchCase, historyMode),
+        null,
+        rightOuterJoin,
+      );
 
-      return result as RetVal;
-    }
-    //avoid sending the original array through the API (and having to repair it!)
-    const outputmap = recordizeOutputMap(mapping);
-    const lookupkeys = new Set(data.map(row => row[field]));
-    //HS wants an array to look up, so convert the uniquefied keys to {__js_enricon: lookup key }
-    const lookuparray = [...lookupkeys.values()].map(key => ({ __js_enrichon: key }));
-    const result = await (await this._getType()).enrich(lookuparray, "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true, ...translateHistoryModeToHS(historyMode) }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], Mapping>>>;
-    const resultlookup = new Map(result.map(row => [row.__js_enrichon, row]));
-    const resultrows: Array<Record<string, unknown>> = [];
-    for (const row of data) {
-      const enrichment = resultlookup.get(row[field]);
-      if (!enrichment) //unmatched
-        continue;
-
-      const remergedrow = { ...enrichment, ...row };
-      delete remergedrow.__js_enrichon;
-      resultrows.push(remergedrow);
-    }
-
-    return repairResultSet(resultrows, outputmap) as unknown as RetVal;
+    return result as RetVal;
   }
 
   async isReferenced(id: number): Promise<boolean> {
@@ -745,16 +693,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   private async __deleteEntities(ids: number[]): Promise<void> {
-    if (debugFlags["wrd:writejsengine"]) {
-      await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "=", sql`any(${ids})`).execute();
-      return;
-    }
-
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
-
-    const type = await this._getType();
-    await type.deleteEntities(ids);
+    await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "=", sql`any(${ids})`).execute();
+    return;
   }
 
   async close(ids: number | number[], options?: EntityCloseOptions): Promise<void> {
@@ -805,13 +745,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (tag === "wrdGender" && this.tag === "wrdPerson")  // HS doesn't fully know wrdGender is an enum in JS
       return {
         tag: "wrdGender",
-        attributeType: WRDAttributeType.Enum,
+        attributeType: "enum",
         title: '',
         checkLinks: false,
         domain: null,
         isUnsafeToCopy: false,
         isRequired: false,
         isOrdered: false,
+        isUnique: false,
         allowedValues: ['male', 'female', 'other']
       };
 
@@ -823,22 +764,21 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
     return {
       tag: result.tag,
-      attributeType: result.attributetype,
+      attributeType: WRDAttributeTypes[result.attributetype - 1],
       title: result.title || "",
       checkLinks: result.checklinks,
       domain: result.domain ? await this.schema.__getTypeTag(result.domain) : null,
       isUnsafeToCopy: result.isunsafetocopy,
       isRequired: result.isrequired,
       isOrdered: result.isordered,
+      isUnique: result.isunique,
       allowedValues: result.allowedvalues.length ? result.allowedvalues : []
     };
   }
 
   async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
     const typeobj = await this._getType();
-    const typetag = WRDAttributeTypeNames[configuration.attributeType - 1];
+    const typetag = configuration.attributeType;
 
     const configclone: Omit<Partial<WRDAttributeConfiguration>, 'domain'> & { domain?: string | number | null } = configuration;
     delete configclone.attributeType;
@@ -853,15 +793,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
   }
 
   async deleteAttribute(tag: string) {
-    if (!debugFlags["wrd:usewasmvm"])
-      await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     await typeobj.DeleteAttribute(tagToHS(tag));
 
@@ -881,39 +817,12 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
 export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; start: Date; limit: Date } | null;
 type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
-type HSWRDQuery = {
-  outputcolumn?: string;
-  outputcolumns?: object;
-  filters?: object[];
-  historyMode?: SimpleHistoryMode | "at" | "range";
-  when?: Date;
-  when_start?: Date;
-  when_limit?: Date;
-  jsmode: true;
-  resultlimit?: number;
-};
 
 type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
 type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;
 
 function toHistoryData(mode: SimpleHistoryMode | HistoryModeData): HistoryModeData {
   return typeof mode === "string" ? { mode } : mode;
-}
-
-function translateHistoryModeToHS(mode: HistoryModeData): { historyMode: SimpleHistoryMode | "at" | "range"; when?: Date; when_start?: Date; when_limit?: Date } | null {
-  switch (mode?.mode) {
-    case undefined: return null;
-    case "now":
-    case "all":
-    case "active":
-    case "unfiltered":
-      return { historyMode: mode.mode };
-    case "at":
-      return { historyMode: mode.mode, when: mode.when };
-    case "range":
-      return { historyMode: mode.mode, when_start: mode.start, when_limit: mode.limit };
-  }
-  throw new Error(`Invalid history mode ${JSON.stringify(mode)}`);
 }
 
 export class WRDQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string> {
@@ -1198,25 +1107,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     if (!this.selects)
       throw new Error(`A select is required`);
 
-    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"])
-      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this._historyMode, this._limit) as unknown as Promise<QueryReturnArrayType<S, T, O>>;
-
-    const type = await this.type._getType();
-    const query: HSWRDQuery = { jsmode: true, ...translateHistoryModeToHS(this._historyMode) };
-    if (typeof this.selects === "string")
-      query.outputcolumn = tagToHS(this.selects);
-    else
-      query.outputcolumns = outputmapToHS(this.selects);
-    if (this.wheres.length)
-      query.filters = this.wheres.map(({ field, condition, value }) => ({ field: tagToHS(field), matchtype: condition.toUpperCase(), value }));
-    if (this._limit !== null)
-      query.resultlimit = this._limit;
-    const result = await type.runQuery(query) as unknown as QueryReturnArrayType<S, T, O>;
-
-    if (typeof this.selects === "string") //no need for translation
-      return result.map(repairResultValue) as typeof result;
-
-    return repairResultSet(result as Array<Record<string, unknown>>, this.selects!) as unknown as ReturnType<typeof this.executeInternal>;
+    return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this._historyMode, this._limit) as unknown as Promise<QueryReturnArrayType<S, T, O>>;
   }
 
   enrich<

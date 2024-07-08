@@ -213,7 +213,7 @@
       <xs:element name="paymentprovider" type="PlainAttribute" />
       <xs:element name="payment" type="DomainAttribute" />
       <xs:element name="richdocument" type="TextAttribute" />
-      <xs:element name="statusrecord" type="EnumAttribute" />
+      <xs:element name="statusrecord" type="StatusRecordAttribute" />
       <xs:element name="time" type="PlainAttribute" />
       <xs:element name="telephone" type="PlainAttribute" />
       <xs:element name="whfsinstance" type="PlainAttribute" />
@@ -278,6 +278,22 @@
           <xs:simpleType>
             <xs:list itemType="xs:string" />
           </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="gid">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="StatusRecordAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:attribute name="allowedvalues" use="required">
+          <xs:simpleType>
+            <xs:list itemType="xs:string" />
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="typedeclaration" type="xs:string">
         </xs:attribute>
         <xs:attribute name="gid">
         </xs:attribute>

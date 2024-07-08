@@ -1,6 +1,6 @@
 import { addDuration } from "@webhare/std/datetime";
-import { WRDType } from "./schema";
-import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells } from "./types";
+import { WRDSingleQueryBuilder, WRDType } from "./schema";
+import { Insertable, SchemaTypeDefinition, WRDAttributeTypeId, WRDTypeBaseSettings, baseAttrCells } from "./types";
 import { db, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
@@ -8,7 +8,7 @@ import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingW
 import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { generateRandomId, omit } from "@webhare/std";
+import { generateRandomId, omit, throwError } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -55,6 +55,12 @@ function resolveRecursiveSettingsPromisesToSinglePromise(settings: ResolvableSet
   return Promise.all(settingPromises).then(resolved => resolvedSettings.concat(resolved.flat()));
 }
 
+interface SplitData {
+  entity: EntityPartialRec;
+  settings: EncodedSetting[];
+  relevantAttrIds: number[];
+}
+
 async function doSplitEntityData<
   S extends SchemaTypeDefinition,
   T extends keyof S & string
@@ -63,12 +69,7 @@ async function doSplitEntityData<
   schemadata: SchemaData,
   typeRec: TypeRec,
   fieldsData: Insertable<S[T]> & Insertable<WRDTypeBaseSettings>,
-  options: object
-): Promise<{
-  entity: EntityPartialRec;
-  settings: EncodedSetting[];
-  relevantAttrIds: number[];
-}> {
+): Promise<SplitData> {
 
   //ADDME: Beter samenwerken met de __final_attrs array, daar staat veel info waardoor we special cases weg kunnen halen
   //FIXME: Controleer bij een nieuw object ook isrequired op base attributes, ook als ze niet in fieldsdata zitten
@@ -368,6 +369,127 @@ async function createChangeSet(wrdSchemaId: number, now: Date): Promise<number> 
   return retval[0].id;
 }
 
+async function validateSettings<
+  S extends SchemaTypeDefinition,
+  T extends keyof S & string,
+  EntityData extends object,
+>(
+  type: WRDType<S, T>,
+  typeRec: TypeRec,
+  data: EntityData,
+  currentEntity: number,
+  currentParent: null | number,
+  currentSubMember: string): Promise<void> {
+
+  //TODO also validate the base settings.
+  const attrs = typeRec.parentAttrMap.get(currentParent) ?? throwError(`No parent attributes found for ${currentParent}`);
+  for (const [key, value] of Object.entries(data)) {
+    const fulltag = currentSubMember + key;
+    const attr = attrs.find(_ => _.tag === key);
+    if (!attr)
+      throw new Error(`Unknown attribute '${fulltag}'`);
+
+    //FIXME Validate URL fields (HS did IsValidURL)
+    if (attr.isunique) {
+      //@ts-expect-error lacking 'general' support
+      const res = await (new WRDSingleQueryBuilder(type, null, [], null, null)).select(["wrdId"]).where(fulltag, currentSubMember ? "mentions" : "=", value).where("wrdId", "!=", currentEntity).limit(1).execute() as [{ wrdId: number }];
+      if (res.length)
+        throw new Error(`Unique value conflict with entity #${res[0].wrdId} on attribute '${attr.tag}' (${value})`);
+    }
+
+    if (attr.attributetype === WRDAttributeTypeId.Array) {
+      for (const row of value)
+        await validateSettings(type, typeRec, row, currentEntity, attr.id, fulltag + '.');
+    }
+  }
+
+  /*
+
+      BOOLEAN anyerror;
+    RECORD ARRAY errors;
+    STRING ARRAY seentags;
+
+    FOREVERY(RECORD toset FROM insettings)
+    {
+      INSERT ToUppercase(toset.attr.tag) INTO seentags AT END;
+      IF (toset.attr.isrequired AND Length(toset.newsets)=0 AND NOT options.importmode AND NOT options.temp)
+      {
+        options.errorcallback([tag := toset.attr.tag, code := "REQUIRED"]);
+        anyerror := TRUE;
+      }
+
+      IF(toset.attr.attributetype = wrd_attributetype_array)//array, validate subs
+      {
+        FOREVERY(RECORD arrayelement FROM toset.subs)
+          IF(NOT this->ValidateSettings(arrayelement.settings, currententityid, toset.attr.id, isv2api, options))
+            anyerror := TRUE;
+      }
+
+      //all the following checks only apply if there is data
+      IF(Length(toset.newsets)=0)
+        CONTINUE;
+      IF(Length(toset.newsets)>1 AND toset.attr.attributetype NOT IN [wrd_attributetype_domainarray, wrd_attributetype_array, wrd_attributetype_richdocument, wrd_attributetype_payment])
+        THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " may not have " ||Length(toset.newsets) || " settings");
+
+      BOOLEAN size_error := toset.attr.maxlength != 0 AND Length(toset.newsets[0].rawdata) > toset.attr.maxlength;
+      IF (size_error)
+      {
+        options.errorcallback([tag := toset.attr.tag, code := "TOOLARGE", maxlength := toset.attr.maxlength, triedlength := Length(toset.newsets[0].rawdata)]);
+        anyerror := TRUE;
+        size_error := TRUE; // Don't go searching for too-long data
+      }
+      IF (toset.attr.isunique AND NOT size_error AND NOT options.importmode)
+      {
+        IF(toset.attr.attributetype NOT IN [wrd_attributetype_free, wrd_attributetype_email, wrd_attributetype_integer, wrd_attributetype_integer64])
+          THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " incorrectly marked as isunique");
+
+        VARIANT findvalue;
+        IF(toset.attr.attributetype = wrd_attributetype_integer)
+          findvalue := ToInteger(toset.newsets[0].rawdata,0);
+        ELSE IF(toset.attr.attributetype = wrd_attributetype_integer64)
+          findvalue := ToInteger64(toset.newsets[0].rawdata,0);
+        ELSE
+          findvalue := toset.newsets[0].rawdata;
+
+        RECORD ARRAY filters := [ [ field := toset.attr.tag
+                                  , matchtype := currentattribute = 0 ? "=" : "MENTIONS"
+                                  , value := findvalue
+                                  , matchcase := toset.attr.attributetype IN [15,18]
+                                  ]
+                                ];
+        IF (currententityid != 0)
+          INSERT [ field := "WRD_ID", match_type := "!=", value := currententityid ] INTO filters AT END;
+
+        OBJECT wrd_query := MakeWRDQuery(
+            [ sources := [ [ type := this
+                           , filters := filters
+                           , outputcolumns := [ id := "WRD_ID" ]
+                           ] ] ]);
+        RECORD ARRAY res := wrd_query->Execute();
+        IF (RecordExists(res))
+        {
+          options.errorcallback([ message := `Unique value conflict with entity #${res[0].id} on attribute '${toset.attr.tag}' (${findvalue})`
+                        , tag := toset.attr.tag
+                        , code := "NOTUNIQUE"
+                        ]);
+          anyerror := TRUE;
+        }
+      }
+    }
+
+    IF ((currententityid=0 OR currentattribute != 0) AND NOT options.importmode AND NOT options.temp) //existing settings only persist at root, so validate required when creating new entity or any array row
+      FOREVERY(RECORD requiredfield FROM SELECT * FROM this->__final_attrs WHERE isrequired AND parent = VAR currentattribute)
+        IF(ToUppercase(requiredfield.tag) NOT IN seentags)
+        {
+          options.errorcallback([tag := requiredfield.tag, code := "REQUIRED"]);
+          anyerror := TRUE;
+        }
+
+    RETURN NOT anyerror;
+*/
+}
+
+
 export async function __internalUpdEntity<S extends SchemaTypeDefinition, T extends keyof S & string>(
   type: WRDType<S, T>,
   entityData: Insertable<S[T]> & Insertable<WRDTypeBaseSettings>,
@@ -380,6 +502,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       throw new Error("Temporary entities may not have a creationdate or limitdate set");
     entityData.wrdCreationDate = null;
     entityData.wrdLimitDate = addDuration(new Date, "P7D");
+  } else {
+    if ("creationDate" in entityData && !entityData.creationDate)
+      throw new Error(`Cannot update creationDate to be null`);
   }
 
   // Get the data for the whole schema
@@ -394,6 +519,12 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     entityId: entityId
   };
 
+  // Validate the settings. this was originally done on the post-split data but it might be easier on the source records..
+  /*
+IF(NOT this -> ValidateSettings(splitdata.settings CONCAT splitdata.checked_base_fields
+  , is_new ? 0 : entityid, 0, isv2api, options))anyerror:= TRUE;
+*/
+  await validateSettings(type, typeRec, entityData, entityId, null, "");
 
   //const allSettingIds = new Array<number>;
   const deletedSettingIds = new Array<number>;
@@ -412,7 +543,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     delete entityData.wrdId;
   }
 
-  const splitData = await doSplitEntityData(type, schemadata, typeRec, entityData, {});
+  const splitData = await doSplitEntityData(type, schemadata, typeRec, entityData);
   if (splitData?.entity.guid) {
     // Find other entity with the same GUID (in the same schema)
     const otherEntity = await db<PlatformDB>()
@@ -442,6 +573,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     if (targetGuid === wrdSettingsGuid)
       throw new Error(`The primary WRD_SETTINGS entity may never be closed`);
   }
+
 
   //Discover datetime limits for entity settings (they must be mapped to DEFAULT/MAX if they exceed or match the entity's lifetime)
   //let entityCreation : Date | undefined, entityLimit: Date | undefined;
@@ -544,16 +676,8 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
   }
   */
 
-  // FIMXE: implement validatesettings
-  /*
-  IF(NOT this -> ValidateSettings(splitdata.settings CONCAT splitdata.checked_base_fields
-    , is_new ? 0 : entityid
-    , 0
-    , isv2api
-    , options))
-  anyerror:= TRUE;
-  */
-  // Validate the settings (FIXME: Validate settings inside arrays too)
+
+
 
   // "Date of death's" cannot be in the future. FIXME: implement in accessor
   //IF(CellExists(splitdata.entityrec, "DATEOFDEATH") AND splitdata.entityrec.dateofdeath > GetCurrentDatetime())
@@ -635,16 +759,13 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       ...splitData.entity
     };
   } else {
-    if ("limitdate" in splitData.entity) {
-      if (!allow_unique_rawdata) {
-        // When setting the limitdate to now or past, delete the materialized unique data
-        await db<PlatformDB>()
-          .updateTable("wrd.entity_settings")
-          .set({ unique_rawdata: "" })
-          .where("entity", "=", entityId)
-          .where("rawdata", "!=", "")
-          .execute();
-      }
+    if ("limitdate" in splitData.entity && !allow_unique_rawdata) {
+      //If limitdate is changed and we're not (no longer) allowed to have unique_rawdata, remove any existing rawdata
+      await db<PlatformDB>()
+        .updateTable("wrd.entity_settings")
+        .set({ unique_rawdata: "" })
+        .where("entity", "=", entityId)
+        .execute();
     }
 
     //      const relevant_attrids = new Array<number>;
@@ -719,10 +840,13 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
   //IF(NOT allow_unique_rawdata)
   //      UPDATE newsets SET unique_rawdata:= "";
 
-  if (isNew && !is_temp)
+  if (allow_unique_rawdata)
     newSets.newSets.forEach(item => {
       if (typeRec.uniqueAttrs.has(item.attribute))
-        item.unique_rawdata = item.rawdata;
+        if (typeRec.emailAttrs.has(item.attribute))
+          item.unique_rawdata = item.rawdata.toLowerCase();
+        else
+          item.unique_rawdata = item.rawdata;
     });
 
   const setsWithoutSub = omit(newSets.newSets, ['sub']);
@@ -740,15 +864,35 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     if (rootAttr)
       changed_attrs.add(rootAttr.tag);
   }
-  if (!isNew && allow_unique_rawdata) {
+
+  if (!isNew && allow_unique_rawdata && "limitdate" in splitData.entity) {
+    // recheck and materialize existing unique data
     // materialize all unique data if needed after deleting updated settings
-    await db<PlatformDB>()
-      .updateTable("wrd.entity_settings")
-      .set({ unique_rawdata: sql`rawdata` })
-      .where("id", "=", sql`any(${updateres?.updatedSettings})`)
-      .where("attribute", "=", sql`any(${[...typeRec.uniqueAttrs]})`) // FIXME: keep these per-type
-      .execute();
+    const uniqueNonEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => !typeRec.emailAttrs.has(attrId));
+    const uniqueEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => typeRec.emailAttrs.has(attrId));
+
+    if (uniqueNonEmailAttrs.length) {
+      await db<PlatformDB>()
+        .updateTable("wrd.entity_settings")
+        .set({ unique_rawdata: sql`rawdata` })
+        .where("entity", "=", result.entityId)
+        // .where("id", "!=", sql`any(${updateres?.updatedSettings})`) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
+        .where("attribute", "=", sql`any(${uniqueNonEmailAttrs})`)
+        .execute();
+    }
+    if (uniqueEmailAttrs.length) {
+      await db<PlatformDB>()
+        .updateTable("wrd.entity_settings")
+        .set({ unique_rawdata: sql`lower(rawdata)` })
+        .where("entity", "=", result.entityId)
+        // .where("id", "!=", sql`any(${updateres?.updatedSettings})`) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
+        .where("attribute", "=", sql`any(${uniqueEmailAttrs})`)
+        .execute();
+    }
   }
+
+  // console.log("uniqe settings");
+  // console.log(await db<PlatformDB>().selectFrom("wrd.entity_settings").selectAll().where("entity", "=", result.entityId).execute());
 
   if (typeRec.keephistorydays > 0 || historyDebugging) {
     const newrec = { ...orgentityrec, ...splitData.entity };

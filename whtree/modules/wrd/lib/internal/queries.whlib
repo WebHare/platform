@@ -2440,11 +2440,11 @@ STATIC OBJECTTYPE WRDDBStringValue EXTEND WRDDBValue
         user_input := user_input[0];
     }
 
-    IF (TypeID(user_input) != TypeID(STRING))
-      RETURN FALSE;
-
     IF (match_type IN [ "CONTAINS", "MENTIONSANY", "__INRANGE" ])
       THROW NEW Exception(`The match type '${match_type}' is not allowed for attribute '${this->attr.tag}'`);
+
+    IF (TypeID(user_input) != TypeID(STRING))
+      RETURN FALSE;
 
     // Default value is always illegal for mentions
     IF (match_type = "MENTIONS" AND user_input = "")
@@ -2477,10 +2477,15 @@ STATIC OBJECTTYPE WRDDBStringValue EXTEND WRDDBValue
     RETURN entity_settings[settings_start].rawdata;
   }
 
+  BOOLEAN FUNCTION IsMatchCase(OBJECT condition)
+  {
+    RETURN condition->match_case;
+  }
+
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
   {
     STRING comparetype := condition->match_type;
-    BOOLEAN match_case := condition->match_case;
+    BOOLEAN match_case := this->IsMatchCase(condition);
     BOOLEAN ignoreallowedvalues := condition->ignoreallowedvalues;
 
     // Can't handle when default also matches
@@ -2521,6 +2526,15 @@ STATIC OBJECTTYPE WRDDBStringValue EXTEND WRDDBValue
     RETURN [ canhandle := TRUE, canhandlepartially := FALSE, noresults := FALSE ];
   }
 
+>;
+
+/// Object accessor for emails
+STATIC OBJECTTYPE WRDDBEmailValue EXTEND WRDDBStringValue
+<
+  UPDATE BOOLEAN FUNCTION IsMatchCase(OBJECT condition)
+  {
+    RETURN FALSE; //email is always case-insensitive
+  }
 >;
 
 STATIC OBJECTTYPE WRDDBRTValue EXTEND WRDDBValue //RelationTitle value
@@ -4066,10 +4080,12 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
     { RETURN NEW WRDDBLinksValue(wrd_type, attrinfo, options); }
 
   CASE wrd_attributetype_free
-     , wrd_attributetype_email
      , wrd_attributetype_telephone
      , wrd_attributetype_url
     { RETURN NEW WRDDBStringValue(wrd_type, attrinfo); }
+
+  CASE wrd_attributetype_email
+    { RETURN NEW WRDDBEmailValue(wrd_type, attrinfo); }
 
   CASE wrd_attributetype_password
     { RETURN NEW WRDDBPasswordValue(wrd_type, attrinfo); }

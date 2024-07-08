@@ -1,11 +1,13 @@
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
+export { AuthenticationSettings } from "./auth";
 export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "./auth";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { db } from "@webhare/whdb";
+import type { WRDAttributeType, WRDMetaType } from "@mod-wrd/js/internal/types";
 
-export { WRDSchema };
+export { WRDSchema, WRDAttributeType, WRDMetaType };
 
 /** Get a list of WRD schemas a user may schema-manage
     @returns List of schemas

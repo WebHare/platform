@@ -1593,7 +1593,7 @@ MACRO TestWRDQuery()
       ]));
 
   // Also test passing type by tag
-  TestEq(DEFAULT RECORD ARRAY, testfw->GetWRDSchema()->RunQuery(
+  TestEq([ [ n := "QueryTest" ] ], testfw->GetWRDSchema()->RunQuery(
       [ sources :=      [ [ type :=     wrdperson->tag
                           , outputcolumns := [ n := "WRD_LASTNAME" ]
                           , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
@@ -1630,7 +1630,7 @@ MACRO TestWRDQuery()
                         ]
       ]));
 
-  TestEq(DEFAULT RECORD ARRAY, testfw->GetWRDSchema()->RunQuery(
+  TestEq([ [ n := "QueryTest" ] ], testfw->GetWRDSchema()->RunQuery(
       [ sources :=      [ [ type :=     wrdperson
                           , outputcolumns := [ n := "WRD_LASTNAME" ]
                           , filters :=  [ [ field := "WRD_CONTACT_EMAIL"
@@ -1669,7 +1669,7 @@ MACRO TestWRDQuery()
                         ]
       ]));
 
-  TestEq(DEFAULT RECORD ARRAY, testfw->GetWRDSchema()->RunQuery(
+  TestEq([ [ n := "QueryTest" ] ], testfw->GetWRDSchema()->RunQuery(
       [ sources :=      [ [ type :=     wrdperson
                           , outputcolumns := [ n := "WRD_LASTNAME" ]
                           , filters :=  [ [ field := "WRD_CONTACT_EMAIL"

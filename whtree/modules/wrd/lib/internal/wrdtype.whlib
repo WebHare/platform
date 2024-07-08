@@ -1266,6 +1266,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INTEGER attributetypeid := GetAttributeTypeIdByTypeName(ToUpperCase(attr.attributetype), this->wrdschema->__iswrdapi2017);
       IF (attributetypeid=0)
         THROW NEW Exception(`Unknown attribute type '${attr.attributetype}' for field '${attr.tag}' in type '${this->tag}'`);
+      attr.attributetype := attrtypes[attributetypeid-1]; //normalize the JS names
 
       IF (attr.domaintag != "")
       {
@@ -1354,7 +1355,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             , DELETE domaintag
             ];
 
-        this->__InternalUpdateAttribute(attr.tag, updates);
+        TRY
+        {
+          this->__InternalUpdateAttribute(attr.tag, updates);
+        }
+        CATCH(OBJECT e)
+        {
+          //Rollback database changes
+          DELETE FROM wrd.attrs WHERE id IN newids;
+          this->__ReloadTypeAndChildren();
+          THROW e;
+        }
       }
 
       this->pvt_wrdschema->__SignalMetadataChanged();
@@ -2528,7 +2539,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     newsets :=
         SELECT *
-             , unique_rawdata := attr.isunique ? rawdata : ""
+             , unique_rawdata := attr.isunique ? attr.attributetype = wrd_attributetype_email ? ToLowercase(rawdata) : rawdata : ""
           FROM newsets;
 
     RETURN CELL[ attr, newsets, subs ];
@@ -3503,9 +3514,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       {
         // materialize all unique data if needed after deleting updated settings
         INTEGER ARRAY unique_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE isunique;
+        INTEGER ARRAY email_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE attributetype = wrd_attributetype_email;
 
         UPDATE wrd.entity_settings
-           SET unique_rawdata := rawdata
+           SET unique_rawdata := attribute IN email_attrs ? ToLowercase(rawdata) : rawdata
          WHERE entity = entityid
            AND unique_rawdata = ""
            AND attribute IN unique_attrs;

@@ -1,39 +1,39 @@
 import * as test from "@webhare/test";
-import { IsGenerated, IsNonUpdatable, IsRequired, WRDBaseAttributeType, WRDAttributeType, recordizeOutputMap, combineRecordOutputMaps, OutputMap, RecordizeOutputMap, MapRecordOutputMap, Insertable, WRDGender, TypeDefinition } from "@mod-wrd/js/internal/types";
+import { IsGenerated, IsNonUpdatable, IsRequired, WRDBaseAttributeTypeId, WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, OutputMap, RecordizeOutputMap, MapRecordOutputMap, Insertable, WRDGender, TypeDefinition } from "@mod-wrd/js/internal/types";
 
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
 
 function testTypes() {
 
   type System_Usermgmt_WRDPerson = {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_guid: WRDBaseAttributeType.Base_Guid;
-    wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
-    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
-    wrd_gender: WRDBaseAttributeType.Base_Gender;
-    wrdSaluteFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrdAddressFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrdFullName: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrd_titles: WRDBaseAttributeType.Base_NameString;
-    wrd_initials: WRDBaseAttributeType.Base_NameString;
-    wrdFirstName: WRDBaseAttributeType.Base_NameString;
-    wrdFirstNames: WRDBaseAttributeType.Base_NameString;
-    wrd_infix: WRDBaseAttributeType.Base_NameString;
-    wrdLastName: WRDBaseAttributeType.Base_NameString;
-    wrdTitlesSuffix: WRDBaseAttributeType.Base_NameString;
-    wrdDateOfBirth: WRDBaseAttributeType.Base_Date;
-    wrdDateOfDeath: WRDBaseAttributeType.Base_Date;
-    wrdTitle: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    whuser_disabled: WRDAttributeType.Boolean;
-    whuser_disablereason: WRDAttributeType.Free;
-    whuser_comment: WRDAttributeType.Free;
-    whuser_lastlogin: WRDAttributeType.DateTime;
-    whuser_unit: IsRequired<WRDAttributeType.Domain>;
-    whuser_hiddenannouncements: WRDAttributeType.DomainArray;
-    invented_domain: WRDAttributeType.Domain;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Integer>;
+    wrd_guid: WRDBaseAttributeTypeId.Base_Guid;
+    wrd_type: IsGenerated<WRDBaseAttributeTypeId.Base_Integer>;
+    wrdTag: WRDBaseAttributeTypeId.Base_Tag;
+    wrdCreationDate: WRDBaseAttributeTypeId.Base_CreationLimitDate;
+    wrdLimitDate: WRDBaseAttributeTypeId.Base_CreationLimitDate;
+    wrdModificationDate: WRDBaseAttributeTypeId.Base_ModificationDate;
+    wrd_gender: WRDBaseAttributeTypeId.Base_Gender;
+    wrdSaluteFormal: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
+    wrdAddressFormal: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
+    wrdFullName: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
+    wrd_titles: WRDBaseAttributeTypeId.Base_NameString;
+    wrd_initials: WRDBaseAttributeTypeId.Base_NameString;
+    wrdFirstName: WRDBaseAttributeTypeId.Base_NameString;
+    wrdFirstNames: WRDBaseAttributeTypeId.Base_NameString;
+    wrd_infix: WRDBaseAttributeTypeId.Base_NameString;
+    wrdLastName: WRDBaseAttributeTypeId.Base_NameString;
+    wrdTitlesSuffix: WRDBaseAttributeTypeId.Base_NameString;
+    wrdDateOfBirth: WRDBaseAttributeTypeId.Base_Date;
+    wrdDateOfDeath: WRDBaseAttributeTypeId.Base_Date;
+    wrdTitle: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
+    whuser_disabled: WRDAttributeTypeId.Boolean;
+    whuser_disablereason: WRDAttributeTypeId.String;
+    whuser_comment: WRDAttributeTypeId.String;
+    whuser_lastlogin: WRDAttributeTypeId.DateTime;
+    whuser_unit: IsRequired<WRDAttributeTypeId.Domain>;
+    whuser_hiddenannouncements: WRDAttributeTypeId.DomainArray;
+    invented_domain: WRDAttributeTypeId.Domain;
   };
 
 
@@ -80,7 +80,7 @@ function testTypes() {
     };
   }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect>>>();
 
-  type GenericWRDTypeDef = Record<string, WRDAttributeType.Integer>;
+  type GenericWRDTypeDef = Record<string, WRDAttributeTypeId.Integer>;
 
   test.typeAssert<test.Equals<{
     a: "a";

@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, CodeChallengeMethod } from "@webhare/wrd/src/auth";
-import { type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/wrd/src/auth";
+import { AuthenticationSettings, type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
@@ -15,6 +15,50 @@ const loginUrl = "https://www.example.net/login/";
 let robotClient: ClientConfig | undefined;
 let peopleClient: ClientConfig | undefined;
 let evilClient: ClientConfig | undefined;
+
+async function testAuthSettings() {
+  test.throws(/Expected.*record/, () => AuthenticationSettings.fromHSON("hson:42"));
+  test.throws(/Missing version/, () => AuthenticationSettings.fromHSON(`hson:{"passwords":ra[],"totp":*}`));
+  test.throws(/Unsupported/, () => AuthenticationSettings.fromHSON(`hson:{"passwords":ra[],"totp":*,"version":-1}`));
+
+  {
+    const hsonvalue = `hson:{"passwords":ra[],"totp":*,"version":1}`;
+    const auth = AuthenticationSettings.fromHSON(hsonvalue);
+    test.eq(null, auth.getLastPasswordChange());
+    test.eq(0, auth.getNumPasswords());
+
+    test.eq(hsonvalue, auth.toHSON()); //should roundtrip exactly (ensures HS Compatibility)
+  }
+
+  {
+    const hsonvalue = `hson:{"passwords":ra[{"passwordhash":"PLAIN:secret","validfrom":d"20211012T101930.779"},{"passwordhash":"PLAIN:123","validfrom":d"20211012T102004.930"},{"passwordhash":"PLAIN:456","validfrom":d"20211012T102037.024"}],"totp":*,"version":1}`;
+    const auth = AuthenticationSettings.fromHSON(hsonvalue);
+    test.eq(3, auth.getNumPasswords());
+    test.eq(new Date("2021-10-12T10:20:37.024Z"), auth.getLastPasswordChange());
+    test.eq(hsonvalue, auth.toHSON()); //should roundtrip exactly (ensures HS Compatibility)
+
+    //FIXME how to test the other validFrom dates?
+    // { hash: "PLAIN:secret", validFrom: new Date("2021-10-12T10:19:30.779Z") },
+    // { hash: "PLAIN:123", validFrom: new Date("2021-10-12T10:20:04.930Z") },
+    // { hash: "PLAIN:456", validFrom: new Date("2021-10-12T10:20:37.024Z") }
+
+    await auth.updatePassword("Hi!", 'PLAIN');
+    test.eq(4, auth.getNumPasswords());
+    const lastchange = auth.getLastPasswordChange();
+    test.assert(lastchange && lastchange.getTime() <= Date.now() && lastchange.getTime() >= Date.now() - 100);
+    test.eq(false, auth.hasTOTP());
+  }
+
+  {
+    //NOTE secret grabbed from https://totp.danhersam.com/
+    const hsonvalue = `hson:{"passwords":ra[{"passwordhash":"PLAIN:secret","validfrom":d"20211012T101930.779"}],"totp":{"backupcodes":ra[{"code":"ABCD1234","used":d""},{"code":"DEFG5678","used":d""}],"locked":d"","url":"otpauth://totp/beta.webhare.net:arnold%40beta.webhare.net?secret=JBSWY3DPEHPK3PXP&issuer=beta.webhare.net"},"version":1}`;
+    const auth = AuthenticationSettings.fromHSON(hsonvalue);
+    test.eq(1, auth.getNumPasswords());
+    test.eq(true, auth.hasTOTP());
+    test.eq(hsonvalue, auth.toHSON()); //should roundtrip exactly (ensures HS Compatibility)
+  }
+}
+
 
 async function testLowLevelAuthAPIs() {
   const key = await createSigningKey();
@@ -143,12 +187,10 @@ async function testAuthAPI() {
   const provider = new IdentityProvider(wrdTestschemaSchema);
 
   await whdb.beginWork();
+  //Setup test user and test the AuthenticationSettings types
   const testunit = await wrdTestschemaSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
   const testuser = await wrdTestschemaSchema.insert("wrdPerson", {
-    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit,
-    /* TODO need a nice password set API but I'd prefer insert/update to be smart (and take eg {hash:pwdhash}) instead of moving all the update logic to the claler
-            perhaps we should consider a separate updatePassword(type, entity, field, pwd) API instead of combining it here but that also requires changeset support ..*/
-    whuserPassword: { version: 1, passwords: [{ passwordHash: testValues.pwd_secret$, validFrom: new Date }] }
+    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(testValues.pwd_secret$)
   });
   await whdb.commitWork();
 
@@ -230,8 +272,41 @@ async function testAuthAPI() {
   test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
 }
 
+async function testSlowPasswordHash() {
+  const start = new Date;
+  {
+    const auth = new AuthenticationSettings;
+    await auth.updatePassword("secret");
+    await auth.updatePassword("secret2");
+    test.eq(2, auth.getNumPasswords());
+    test.assert(!await auth.verifyPassword("secret"));
+    test.assert(await auth.verifyPassword("secret2"));
+  }
+
+  {
+    const auth = AuthenticationSettings.fromHSON(`hson:{"passwords":ra[{"passwordhash":"WHBF:$2y$10$alL3LS3/Rjn4YgzuTlbCPuT3uCIw8G8Wed7Zfnf6F8QnjvkG/Psfy","validfrom":d"20211012T101930.779"}],"version":1}`);
+    test.eq(1, auth.getNumPasswords());
+    test.assert(await auth.verifyPassword("secret"));
+    test.assert(!await auth.verifyPassword("secret2"));
+  }
+
+  {
+    const auth = AuthenticationSettings.fromPasswordHash(`WHBF:$2y$10$alL3LS3/Rjn4YgzuTlbCPuT3uCIw8G8Wed7Zfnf6F8QnjvkG/Psfy`);
+    test.eq(1, auth.getNumPasswords());
+    test.assert(await auth.verifyPassword("secret"));
+    test.assert(!await auth.verifyPassword("secret2"));
+  }
+
+
+  const timespent = Date.now() - start.getTime();
+  if (timespent < 100)
+    console.error(`testSlowPasswordHash took only ${timespent} ms!!!`); //TODO retune when we decrypt natively
+}
+
 test.run([
+  testAuthSettings,
   testLowLevelAuthAPIs,
   setupOpenID,
   testAuthAPI,
+  testSlowPasswordHash //placed last so we don't have to wait too long for other test failures
 ]);

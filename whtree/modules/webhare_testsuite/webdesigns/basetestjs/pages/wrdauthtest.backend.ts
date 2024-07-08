@@ -1,14 +1,14 @@
 import { WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import type { LookupUsernameParameters, WRDAuthCustomizer } from "@webhare/wrd/src/auth";
 
-import { WRDAttributeType, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
+import { WRDAttributeTypeId, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema } from "@webhare/wrd";
 
 
 type TestSchema = WRD_TestschemaSchemaType & {
   wrdPerson: {
     //fields set up by DoSetupWRDAuth
-    multisite: WRDAttributeType.Free;
+    multisite: WRDAttributeTypeId.String;
   } & WRDTypeBaseSettings;
 };
 

@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { WRDAttributeType, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
+import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema, listSchemas, openWRDSchemaById } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -9,7 +9,6 @@ import { JsonWebKey } from "node:crypto";
 import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
 import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
-import { debugFlags } from "@webhare/env";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType, WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
@@ -132,7 +131,7 @@ interface TestRecordDataInterface {
 async function testNewAPI() {
   type Extensions = {
     wrdPerson: {
-      testJsonRequired: IsRequired<WRDAttr<WRDAttributeType.JSON, { type: { mixedCase: Array<number | string> } }>>;
+      testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
     } & WRDTypeBaseSettings;
   };
 
@@ -145,7 +144,7 @@ async function testNewAPI() {
   test.eqPartial([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
   await whdb.beginWork();
-  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: WRDAttributeType.Free });
+  await schema.getType("wrdPerson").createAttribute("testDummy", { attributeType: "string" });
   test.assert(await schema.getType("wrdPerson").describeAttribute("testDummy"));
   await schema.getType("wrdPerson").deleteAttribute("testDummy");
   test.assert(!await schema.getType("wrdPerson").describeAttribute("testDummy"));
@@ -158,7 +157,7 @@ async function testNewAPI() {
   // Ensure schemaById loads its schema data before testJsonRequired is added
   test.eq([], await schemaById.query("wrdPerson").select("wrdId").execute());
 
-  await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
+  await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
   const sub_unit_id = await schema.insert("whuserUnit", { wrdTitle: "Sub unit", wrdTag: "SUBTAG", wrdLeftEntity: unit_id });
@@ -535,6 +534,26 @@ async function testNewAPI() {
     // @ts-expect-error -- wrdLeftEntity and wrdRightEntity must be numbers
     await schema.insert("personorglink", { wrdLeftEntity: null, wrdRightEntity: null });
   }
+
+  // STORY: test statusrecord
+  {
+    await schema.update("wrdPerson", newperson, { testStatusrecord: null });
+    test.eq(null, await schema.getFields("wrdPerson", newperson, "testStatusrecord"));
+    await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "ok", message: "message" } });
+    test.eq({ status: "ok", message: "message" }, await schema.getFields("wrdPerson", newperson, "testStatusrecord"));
+    if (nottrue) {
+      // @ts-expect-error -- status must be in the list of allowed values
+      await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "wrong-enum-value" } });
+      // @ts-expect-error -- type must conform to the specified type
+      await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "ok", misspelledMessage: "message" } });
+
+      test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "misspelled").executeRequireAtMostOne());
+    }
+    test.eq(newperson, await schema.search("wrdPerson", "testStatusrecord", "ok"));
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "in", ["ok", "warning"]).executeRequireAtMostOne());
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "error").executeRequireAtMostOne());
+  }
+
   await whdb.commitWork();
 }
 
@@ -976,10 +995,6 @@ async function testEventMasks() {
 }
 
 async function testSettingReuse() {
-  // settings reuse only supported when using the JS engine for reads and writes
-  if (!debugFlags["wrd:usejsengine"] || !debugFlags["wrd:writejsengine"])
-    return;
-
   function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
   }
 
@@ -1048,17 +1063,6 @@ async function testSettingReuse() {
   test.eq([reorderedArray[1].testImage!.dbLoc!.id], slicedArray.map(e => e.testImage!.dbLoc!.id));
 
   await whdb.commitWork();
-}
-
-debugFlags["wrd:usewasmvm"] = true;
-if (process.argv.includes("--usejsengine")) {
-  console.log(`using WRD js engine`);
-  debugFlags["wrd:usejsengine"] = true;
-
-  if (process.argv.includes("--writejsengine")) {
-    console.log(`using WRD js engine for writes too`);
-    debugFlags["wrd:writejsengine"] = true;
-  }
 }
 
 test.run([

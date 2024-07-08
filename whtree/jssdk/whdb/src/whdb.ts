@@ -172,7 +172,10 @@ class Work {
     this.open = false;
     const lock = this.conn.reftracker.getLock("query lock: COMMIT");
     try {
-      await sql`COMMIT`.execute(this.conn._db);
+      const commitresult = await this.conn.pgclient.query("COMMIT");
+      if (commitresult.command !== "COMMIT")
+        throw new Error(`Commit failed (usually due to earlier errors on this transaction)`);
+
       this.commituniqueevents.forEach(event => broadcast(event));
       this.commitdataevents.forEach(event => broadcast(event.name, event.data));
       await this.invokeFinishHandlers(handlers, "onCommit");
