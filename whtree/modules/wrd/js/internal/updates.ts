@@ -866,7 +866,7 @@ IF(NOT this -> ValidateSettings(splitdata.settings CONCAT splitdata.checked_base
   }
 
   if (!isNew && allow_unique_rawdata && "limitdate" in splitData.entity) {
-    // recheck and materialize exisiting unique data
+    // recheck and materialize existing unique data
     // materialize all unique data if needed after deleting updated settings
     const uniqueNonEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => !typeRec.emailAttrs.has(attrId));
     const uniqueEmailAttrs = [...typeRec.uniqueAttrs].filter(attrId => typeRec.emailAttrs.has(attrId));

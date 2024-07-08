@@ -301,7 +301,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
   }
 
   isCaseInsensitve(cv: WRDDBStringConditions) {
-    return cv.options?.matchcase === false; //matchcase defauls to true;
+    return cv.options?.matchcase === false; //matchcase defaults to true;
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {

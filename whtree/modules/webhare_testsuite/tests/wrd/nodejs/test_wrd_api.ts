@@ -319,7 +319,7 @@ async function testUnique() {
 
   const person1 = await context1.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
   const person2 = context2.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
-  await test.sleep(50); //give context2 time to start hanging - TODO would be nice to just look up the hang in the posgres lock table and wait for that
+  await test.sleep(50); //give context2 time to start hanging - TODO would be nice to just look up the hang in the PostgreSQL lock table and wait for that
 
   await context1.run(async () => whdb.commitWork());
   await test.throws(/duplicate key value/, person2, "PG throws, WRD cannot see the issue");
