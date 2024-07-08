@@ -281,6 +281,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 
   OBJECT simpleformgroup := formpage->AppendComponent("group");
   simpleformgroup->SetAttribute("title", "Groups & stuff"); //test ampersand
+  simpleformgroup->SetAttribute("name", "group1");
 
   OBJECT uploadfield := formpage->AppendComponent("upload");
   uploadfield->SetAttribute("name","upload");
@@ -297,11 +298,15 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   whenfield->SetAttribute("title","Date");
   simpleformgroup->AppendChild(whenfield); //TODO nicer way to add fields to group ?
 
+  OBJECT dummycboxfield, not18field;
   IF(options.addconditions)
   {
-    //whenfield->SetAttribute("required", "true");
+    dummycboxfield := formpage->AppendComponent("checkbox");
+    dummycboxfield->SetAttribute("name","dummycbox");
+    dummycboxfield->SetAttribute("title","Dummy Cbox");
+    simpleformgroup->AppendChild(dummycboxfield);
 
-    OBJECT not18field := formpage->AppendComponent("textedit");
+    not18field := formpage->AppendComponent("textedit");
     not18field->SetAttribute("name","not18");
     not18field->SetAttribute("title","Parents email");
     not18field->SetAttribute("validationchecks","email");
@@ -344,9 +349,15 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
               , value := [1]
               ]);
 
+    OBJECT toggleselectoptions_bare, toggleselectoptions_withplaceholder;
     FOREVERY(STRING el FROM ["","_withplaceholder"])
     {
       OBJECT toggleselectoptions := formpage->AppendComponent("select");
+      IF(el = "")
+        toggleselectoptions_bare := toggleselectoptions;
+      ELSE IF(el = "_withplaceholder")
+        toggleselectoptions_withplaceholder := toggleselectoptions;
+
       toggleselectoptions->SetAttribute("name", "toggleselectoptions" || el);
       toggleselectoptions->SetAttribute("type", "pulldown");
       toggleselectoptions->SetAttribute("title", "Toggle options");
@@ -373,6 +384,16 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
         toggleselectoptions->SetAttribute("placeholder", "(placeholder)");
       }
     }
+
+    //we use this condition during Duplicate testing
+    formdefs->SetConditionAttribute(not18field, "enabledconditionid",
+              [ matchtype := "OR"
+              , conditions := [
+                  [ matchtype := "HASVALUE", field := dummycboxfield->GetAttribute("guid"), value := TRUE ],
+                  [ matchtype := "HASVALUE", field := dummycboxfield->GetAttribute("guid"), value := FALSE ],
+                  [ matchtype := "IN", field := toggleselectoptions_bare->GetAttribute("guid"), value := ["copt1"] ]
+               ]
+              ]);
   }
 
   OBJECT checkboxesfield;
@@ -515,6 +536,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     showcontactfield->SetAttribute("label","Please contact me");
 
     OBJECT formgroup := formpage->AppendComponent("group");
+    formgroup->SetAttribute("name", "groups_contact");
     formgroup->SetAttribute("title", "Contact");
 
     OBJECT phonefield := formpage->AppendComponent("textedit");
