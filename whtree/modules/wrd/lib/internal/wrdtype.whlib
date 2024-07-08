@@ -1354,7 +1354,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             , DELETE domaintag
             ];
 
-        this->__InternalUpdateAttribute(attr.tag, updates);
+        TRY
+        {
+          this->__InternalUpdateAttribute(attr.tag, updates);
+        }
+        CATCH(OBJECT e)
+        {
+          //Rollback database changes
+          DELETE FROM wrd.attrs WHERE id IN newids;
+          this->__ReloadTypeAndChildren();
+          THROW e;
+        }
       }
 
       this->pvt_wrdschema->__SignalMetadataChanged();

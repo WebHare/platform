@@ -30,6 +30,7 @@ MACRO TestUnique()
   dom_obj->CreateAttribute("TEST_INTEGER",     "INTEGER",   [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER" ]);
   dom_obj->CreateAttribute("TEST_INTEGER64",   "INTEGER64", [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER64" ]);
   TestThrowsLike("*cannot*ARRAY*", PTR dom_obj->CreateAttribute("TEST_ARRAY",       "ARRAY",     [ isunique := TRUE, isrequired := FALSE, title := "Array with unique stuff" ]));
+  dom_obj->CreateAttribute("TEST_ARRAY",       "ARRAY");
   dom_obj->CreateAttribute("TEST_ARRAY.EMAIL", "EMAIL",     [ isunique := TRUE, isrequired := FALSE, title := "Unique EMAIL" ]);
   dom_obj->CreateAttribute("TEST_NONUNIQUE",   "FREE",      [ isunique := FALSE, isrequired := FALSE, title := "Non-unique FREE" ]);
 
