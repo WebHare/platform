@@ -7,9 +7,11 @@ import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import * as pxl from '@mod-consilio/js/pxl';
-import { generateRandomId, isPromise } from '@webhare/std';
+import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, isInputElement, parseCondition } from '@webhare/forms/src/domsupport';
+import { rfSymbol, type RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
+import type { FormCondition } from '@webhare/forms/src/types';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -91,36 +93,6 @@ export interface FormSubmitResult {
 }
 
 type RichValues = Array<{ field: string; value: string }>;
-
-type FormCondition = {
-  matchtype: "IN" | "HAS" | "IS";
-  field: string;
-  value: unknown;
-  options?: {
-    matchcase?: boolean;
-    checkdisabled?: boolean;
-  };
-} | {
-  matchtype: "HASVALUE";
-  field: string;
-  value: boolean;
-  options?: {
-    checkdisabled?: boolean;
-  };
-} | {
-  matchtype: "AGE<" | "AGE>=";
-  field: string;
-  value: number;
-  options?: {
-    checkdisabled?: boolean;
-  };
-} | {
-  matchtype: "AND" | "OR";
-  conditions: FormCondition[];
-} | {
-  matchtype: "NOT";
-  condition: FormCondition;
-};
 
 export interface FieldErrorOptions {
   serverside: boolean;
@@ -252,6 +224,120 @@ function handleValidateAfterEvent(event: Event) {
   doValidation(event.target, true);
 }
 
+abstract class FormField {
+  protected readonly form: FormBase;
+
+  constructor(form: FormBase) {
+    this.form = form;
+  }
+
+  abstract getValue<T = unknown>(): T;
+
+  /** Set a value
+   * @param newvalue - The new value to set
+   * @param ignoreInvalid - Do not throw if the value is invalid. Used for eg. prefills which can't usefully handle it anyway
+   * @returns True if succesfully set */
+
+  abstract setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean;
+}
+
+class HTMLFormFieldHandler extends FormField {
+  private readonly field;
+
+  constructor(form: FormBase, field: FormControlElement) {
+    super(form);
+    this.field = field;
+  }
+
+  getValue<T = unknown>(): T {
+    if (isInputElement(this.field)) {
+      if (this.field.type === "number")
+        return this.field.valueAsNumber as T;
+      if (this.field.type === "checkbox")
+        return this.field.checked as T;
+    }
+    if (this.field.tagName === 'SELECT') {
+      const fieldAsSelect = this.field as HTMLSelectElement;
+      return (fieldAsSelect.selectedOptions[0]?.value ?? null) as T;
+    }
+
+    return this.field.value as T;
+  }
+
+  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
+    if (isInputElement(this.field)) {
+      if (this.field.type === 'checkbox') {
+        //For convenience we're interpreting setting a checkbox as 'truthy' instead of explicit true/false
+        this.field.checked = Boolean(newvalue);
+        this.form.__scheduleUpdateConditions();
+        return true;
+      }
+    }
+
+    //FIXME type validation
+    this.field.value = newvalue as string;
+    this.form.__scheduleUpdateConditions();
+    return true;
+  }
+}
+
+class RadioFormFieldHandler extends FormField {
+  private readonly rnode;
+
+  constructor(form: FormBase, rnode: ConstrainedRadioNodeList) {
+    super(form);
+    this.rnode = rnode;
+  }
+  getValue<T>(): T {
+    const node = ([...this.rnode] as HTMLInputElement[]).find(_ => _.checked);
+    return (node ? node.value : null) as T;
+  }
+  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
+    if (newvalue === null) {
+      for (const node of [...this.rnode])
+        node.checked = false;
+
+      this.form.__scheduleUpdateConditions();
+      return true;
+    } else {
+      if (typeof newvalue !== "string") {
+        if (options?.ignoreInvalid)
+          return false;
+
+        throw new Error(`Invalid value for ${getFieldDisplayName(this.rnode)}: ${newvalue}`);
+      }
+
+      const node = ([...this.rnode] as HTMLInputElement[]).find(_ => _.value === newvalue);
+      if (!node) {
+        if (options?.ignoreInvalid)
+          return false;
+        throw new Error(`No such value ${newvalue} in ${getFieldDisplayName(this.rnode)}`);
+      }
+
+      node.checked = true;
+      this.form.__scheduleUpdateConditions();
+    }
+    return true;
+  }
+}
+
+class RegisteredFieldHandler extends FormField {
+  private readonly field: RegisteredFieldBase;
+
+  constructor(form: FormBase, field: RegisteredFieldBase) {
+    super(form);
+    this.field = field;
+  }
+
+  getValue<T>(): T {
+    return this.field.getValue() as T;
+  }
+  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
+    return this.field.setValue(newvalue);
+  }
+}
+
+
 export default class FormBase {
   readonly node: HTMLFormElement;
   /** @deprecated Use node.elements if you want a true HTMLFormControlsCollection, use getElementByName since WH5.4+ for properly typed elements */
@@ -305,6 +391,33 @@ export default class FormBase {
 
   static getForNode(node: HTMLElement): FormBase | null {
     return node.propWhFormhandler || null;
+  }
+
+  /** Get a field handler by name */
+  getField(name: string, options: { allowMissing: true }): FormField | null;
+  getField(name: string, options?: { allowMissing?: boolean }): FormField;
+
+  getField(name: string, options?: { allowMissing?: boolean }): FormField | null {
+    const htmlField = this.getElementByName(name);
+    if (htmlField)
+      if (isRadioNodeList(htmlField))
+        return new RadioFormFieldHandler(this, htmlField);
+      else if (htmlField[rfSymbol])
+        return new RegisteredFieldHandler(this, htmlField[rfSymbol]);
+      else
+        return new HTMLFormFieldHandler(this, htmlField);
+
+    const byNameField = this.node.querySelector<HTMLElement>(`*[data-wh-form-name="${CSS.escape(name)}"]`);
+    if (byNameField)
+      if (byNameField[rfSymbol])
+        return new RegisteredFieldHandler(this, byNameField[rfSymbol]);
+      else
+        throw new Error(`Field ${getFieldDisplayName} is not yet a RegisteredField and cannot be controlled through the getField API`);
+
+    if (options?.allowMissing)
+      return null;
+
+    throw new Error(`Field ${name} not found in this form`);
   }
 
   ///like namedItem but improves on the types returned. does *not* lookup by data-wh-form-name!
@@ -368,7 +481,7 @@ export default class FormBase {
 
           let ourcondition: FormCondition = { field: name, matchtype: "IN", value: control.value };
           if (target.dataset.whFormEnabledIf) //append to existing criterium
-            ourcondition = { conditions: [this.parseCondition(target.dataset.whFormEnabledIf), ourcondition], matchtype: "AND" };
+            ourcondition = { conditions: [parseCondition(target.dataset.whFormEnabledIf), ourcondition], matchtype: "AND" };
           target.dataset.whFormEnabledIf = JSON.stringify({ c: ourcondition });
         }
       }
@@ -997,6 +1110,8 @@ export default class FormBase {
     this.fixupMergeFields(mergeNodes);
   }
 
+  __scheduleUpdateConditions = wrapSerialized(() => this._updateConditions(false), { coalesce: true });
+
   async fixupMergeFields(nodes: HTMLElement[]) {
     // Rename the data-wh-merge attribute to data-wh-dont-merge on hidden pages and within hidden formgroups to prevent
     // merging invisible nodes
@@ -1018,19 +1133,11 @@ export default class FormBase {
     }
   }
 
-  private parseCondition(conditiontext: string): FormCondition {
-    interface FormConditionWrapper {
-      c: FormCondition;
-    }
-
-    return (JSON.parse(conditiontext) as FormConditionWrapper).c;
-  }
-
   _matchesCondition(conditiontext: string | undefined) {
     if (!conditiontext)
       return true;
 
-    return this._matchesConditionRecursive(this.parseCondition(conditiontext));
+    return this._matchesConditionRecursive(parseCondition(conditiontext));
   }
 
   _getConditionRawValue(fieldname: string, options?: { checkdisabled?: boolean }) {
@@ -1242,6 +1349,9 @@ export default class FormBase {
      radio and checkboxes are not passed through getFieldValue, and that
      getFieldValue may return undefined or a promise. */
   async getFieldValue(field: HTMLElement) {
+    if (field[rfSymbol])
+      return field[rfSymbol].getValue();
+
     if (field.hasAttribute('data-wh-form-name') || field.whUseFormGetValue) {
       //create a deferred promise for the field to fulfill
       const deferred = Promise.withResolvers<unknown>();
@@ -1265,6 +1375,9 @@ export default class FormBase {
   /* Override this to overwrite the setting of individual fields. In contrast
      to getFieldValue, this function will also be invoked for radio and checkboxes */
   setFieldValue(fieldnode: HTMLElement, value: unknown) {
+    if (fieldnode[rfSymbol])
+      return fieldnode[rfSymbol].setValue(value);
+
     if (fieldnode.hasAttribute('data-wh-form-name')) {
       if (!dompack.dispatchCustomEvent(fieldnode, 'wh:form-setvalue', { bubbles: true, cancelable: true, detail: { value } })) {
         this.ensureLegacyWarning(fieldnode);

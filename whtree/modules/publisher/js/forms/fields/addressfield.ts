@@ -3,10 +3,7 @@ import FormBase from "../formbase";
 import { debugFlags } from "@webhare/env";
 import { verifyAddress, AddressValidationResult, AddressValue, AddressChecks } from "@webhare/forms/src/address";
 import { setFieldError } from "../internal/customvalidation";
-
-function orThrow(error: string): never {
-  throw new Error(error);
-}
+import { throwError } from "@webhare/std";
 
 class SubField {
   node;
@@ -16,7 +13,7 @@ class SubField {
   constructor(node: dompack.FormControlElement, pos: number) {
     this.node = node;
     this.pos = pos;
-    this.fieldgroup = node.closest(".wh-form__fieldgroup") ?? orThrow("Could not find fieldgroup for field");
+    this.fieldgroup = node.closest(".wh-form__fieldgroup") ?? throwError("Could not find fieldgroup for field");
   }
 }
 
@@ -39,7 +36,7 @@ export default class AddressField {
   constructor(node: HTMLElement) {
     this.node = node;
     //We won't FormBase.getForNode yet here so we're not too dependent on registration ordering
-    this.formnode = node.closest("form") ?? orThrow("Could not find form for addressfield");
+    this.formnode = node.closest("form") ?? throwError("Could not find form for addressfield");
 
     // AddressField is initialized for the address's country field, so first find the other fields
     this.countryNode = dompack.qR(this.node, "select.wh-form__pulldown"); //TODO why aren't we targetting by ID ? this will work but seems ambiguous
@@ -98,7 +95,7 @@ export default class AddressField {
       if (key !== "country" && !field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden") && (!firstfield || firstfield.pos > field.pos))
         firstfield = field;
 
-    return firstfield ?? orThrow("Cannot find field for error");
+    return firstfield ?? throwError("Cannot find field for error");
   }
 
   _reconfigureFieldOrdering() {
@@ -159,7 +156,7 @@ export default class AddressField {
   }
 
   async _checkValidity(event: Event) {
-    const form = FormBase.getForNode(this.formnode) ?? orThrow("Parent form for address field not yet initialized");
+    const form = FormBase.getForNode(this.formnode) ?? throwError("Parent form for address field not yet initialized");
     /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
        but not sure why. ignoring those fields should be okay? and this is a very eager trigger, so if we really do this, do
        this on base of the country actually changing, not an external checkbox controlling visibility of the whole country field

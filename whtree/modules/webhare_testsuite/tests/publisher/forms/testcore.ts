@@ -1,6 +1,7 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';
+import { waitChange } from './lib/testhelpers';
 
 const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpulldown=1' : '';
 
@@ -16,6 +17,7 @@ function quickFillDefaultRequiredFields() {
   test.fill("#coretest-address\\.zip", "7521AM");
 }
 
+
 test.registerTests(
   [
     'Study page fields',
@@ -23,6 +25,7 @@ test.registerTests(
       test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
+        await test.waitForElement("#coreform.wh-form--allowsubmit");
 
         test.eq(0, test.getPxlLog(/^publisher:form.+/).length, "Should be no PXL events yet");
 
@@ -326,6 +329,40 @@ test.registerTests(
         const result = await formhandler.getFormValue();
         test.assert(!("" in result));
       }
+    },
+
+    'Test form field API',
+    async function () {
+      const formhandler = FormBase.getForNode(test.qR('#coreform'))!;
+
+      //Test the HTML field types
+      test.eq(21, formhandler.getField("radiotestnamelijk").getValue(), "tyoe=number");
+      test.eq("Enschede", formhandler.getField("address.city").getValue(), "type=text");
+      test.eq("", formhandler.getField("pulldowntest").getValue(), "type=text");
+      test.eq("red", formhandler.getField("pulldown2test").getValue(), "type=text");
+      test.eq("", formhandler.getField("pulldown3test").getValue(), "type=text");
+
+      //Test clearing pulldown. first via OUR code
+      formhandler.getField("pulldowntest").setValue(null);
+      test.eq(-1, test.qR("[name=pulldowntest]").selectedIndex);
+      test.eq(null, formhandler.getField("pulldowntest").getValue());
+      //And via the DOM
+      test.qR("[name=pulldown3test]").selectedIndex = -1;
+      test.eq(null, formhandler.getField("pulldown3test").getValue());
+
+      //Test checkbox field
+      test.eq(true, formhandler.getField("showradioy").getValue(), "type=checkbox");
+      await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => formhandler.getField("showradioy").setValue(false), "Unsetting showradioy should block the 'y' option");
+      test.eq(false, test.qR("#coretest-showradioy").checked);
+
+      //Test the non-HTML field types (and condition updates)
+      test.eq("3", formhandler.getField("radiotest").getValue(), "RadioFormField");
+      await test.throws(/Invalid value for/, () => formhandler.getField("radiotest").setValue(5));
+      await waitChange(() => !test.qR("[name=opt5_select]").disabled, () => formhandler.getField("radiotest").setValue("5"), "Setting radiotest to 5 should enable the opt5_select field");
+      await waitChange(() => test.qR("[name=opt5_select]").disabled, () => formhandler.getField("radiotest").setValue(null), "Clearing the radio should disable the opt5_select field again");
+
+      test.eq(0, test.qSA("[name=radiotest]:checked").length);
+      test.eq(null, formhandler.getField("radiotest").getValue());
     },
 
     {

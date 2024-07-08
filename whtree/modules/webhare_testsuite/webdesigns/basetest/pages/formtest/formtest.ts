@@ -14,6 +14,7 @@ import * as embedvideo from '@mod-publisher/js/forms/fields/rtd/embedvideo';
 
 //in development: date & time parts
 import { DateField, TimeField } from '@mod-publisher/js/forms/fields/datetime';
+import { fetchAsFile } from '@webhare/test-frontend';
 
 class CoreForm extends RPCFormBase {
   constructor(node: HTMLFormElement) {
@@ -76,6 +77,12 @@ class RTDForm extends RPCFormBase {
     this.filename = new URL(location.href).searchParams.get("store");
     qR('#rtdform .prefillbutton').addEventListener('click', () => this.doPrefill());
     qR('#rtdform .validatebutton').addEventListener('click', () => this.validate());
+    qR('#rtdform #clearimage').addEventListener('click', () => {
+      this.getField("img").setValue(null);
+    });
+    qR('#rtdform #setimage').addEventListener('click', async () => {
+      this.getField("img").setValue(await fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg'));
+    });
   }
   async doPrefill() {
     qR('#rtdformresponse').textContent = JSON.stringify(await this.invokeRPC('prefill', this.filename));

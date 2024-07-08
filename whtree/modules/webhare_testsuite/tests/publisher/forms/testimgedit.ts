@@ -2,6 +2,7 @@ import * as test from '@mod-system/js/wh/testframework';
 import { loadImage } from '@webhare/dompack';
 import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';
 import { prepareUpload } from '@webhare/test-frontend';
+import { waitChange } from './lib/testhelpers';
 
 test.registerTests(
   [
@@ -70,14 +71,16 @@ test.registerTests(
         test.click('#rtdtest-img .wh-form__imgeditdelete');
 
         img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        test.assert(img, 'image should still be present');
+        test.assert(img, 'image should still be present - delete should have been ignored as the field was enabled');
 
+        test.assert(test.qR("#rtdtest-img").hasAttribute("data-wh-form-disabled"));
         test.click('#rtdtest-enablefields');
-        test.assert(test.qR('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
-        test.click('#rtdtest-img .wh-form__imgeditdelete');
 
-        img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        test.assert(!img, 'image still present');
+        test.assert(test.qR('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
+
+        test.assert(!test.qR("#rtdtest-img").hasAttribute("data-wh-form-disabled"));
+
+        await waitChange(() => !test.qS('#rtdtest-img .wh-form__imgeditimg'), () => test.click('#rtdtest-img .wh-form__imgeditdelete'), 'image should have gone away after clicking delete');
         test.assert(!test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'delete button still present');
         test.assert(!test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
       }

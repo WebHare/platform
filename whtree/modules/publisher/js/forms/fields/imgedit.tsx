@@ -108,15 +108,8 @@ export default class ImgEditField extends FileEditBase {
     if (!this._getEnabled())
       return;
 
-    const imgnode = this.node.querySelector('.wh-form__imgeditimg');
-    let changed = false;
-    if (imgnode) {
-      imgnode.remove();
-      changed = true;
-    }
-    this.setupComponent();
-    if (changed)
-      dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
+    this.setValue(null);
+    dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }
 
   private updateImgUrl(newurl: string) {
@@ -129,6 +122,7 @@ export default class ImgEditField extends FileEditBase {
 
   protected uploadHasChanged = wrapSerialized(async () => {
     const imgnode = this.node.querySelector('.wh-form__imgeditimg');
+
     if (!this.uploadedFile || !this.uploadedFile.type.startsWith("image/")) {
       //looks like we're deleted
       imgnode?.remove();

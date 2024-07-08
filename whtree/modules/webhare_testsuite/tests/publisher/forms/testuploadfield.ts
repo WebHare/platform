@@ -1,5 +1,6 @@
 import { prepareUpload } from '@webhare/test-frontend';
 import * as test from '@mod-system/js/wh/testframework';
+import { FormBase } from '@webhare/forms';
 
 function getUploadField() { //get the replament field, not the original input
   return test.qR(test.qR('#rtdtest-file').closest('.wh-form__fieldline')!, '.wh-form__uploadfield');
@@ -32,6 +33,12 @@ test.registerTests(
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         test.assert(test.canClick('[data-wh-form-group-for="file"] .wh-form__uploadfielddelete'), 'no delete button');
         test.assert(getUploadField().classList.contains('wh-form__uploadfield--hasfile'), "wh-form__uploadfield--hasfile must be present");
+
+        //form field API
+        const formhandler = FormBase.getForNode(test.qR('#rtdform'))!;
+        test.eq('mytestfile.txt', formhandler.getField('file').getValue<File | null>()?.name);
+        test.eq('This is a test.\n', await formhandler.getField('file').getValue<File | null>()?.text());
+
         test.click('#submitbutton');
       },
       waits: ['ui']
