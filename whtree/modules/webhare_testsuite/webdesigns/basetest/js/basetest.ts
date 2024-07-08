@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import * as dialog from 'dompack/components/dialog';
 import * as dialogapi from 'dompack/api/dialog';
@@ -9,10 +6,9 @@ import ForumCommentsWebtool from "@mod-publisher/js/webtools/forumcomments";
 import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecontent';
 import * as forms from '@mod-publisher/js/forms';
 import * as formrpc from '@mod-publisher/js/forms/rpc';
-import { verifyAddress } from "@webhare/forms";
+import { verifyHareScriptAddress } from "@webhare/forms/src/address";
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
-import { configureGTMFormSubmit } from "@mod-publisher/js/analytics/gtm.ts";
 import * as whintegration from "@mod-system/js/wh/integration";
 import { debugFlags, isLive, dtapStage } from "@webhare/env";
 import { frontendConfig } from "@webhare/frontend";
@@ -39,6 +35,21 @@ declare global {
       now?: Date;
       beaconconsent?: string;
     };
+    basetestErrorList: ErrorEvent[];
+    got_consent_analytics?: boolean;
+    got_consent_remarketing?: boolean;
+    hasConsent?: (consent: string) => boolean | undefined;
+    whintegration_config: typeof whintegration.config;
+    formrpc_submitForm: typeof formrpc.submitForm;
+    formrpc_validateAddress: typeof verifyHareScriptAddress;
+    baseTestConfig: {
+      env: { debugFlags: Partial<Record<string, boolean>>; isLive: boolean; dtapStage: string };
+      frontendConfig: typeof frontendConfig;
+    };
+    getTidTest: () => Record<string, string>;
+    getIconTest: () => Record<string, string>;
+    revokeConsent: () => void;
+
   }
 }
 
@@ -133,7 +144,7 @@ if (urlparams.get("consent") === "1" || location.href.includes("testpages/consen
 
 if (urlparams.get("consent") === "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent")) {
   if (urlparams.has("defaultconsent")) {
-    consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent").split(",") });
+    consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent")!.split(",") });
   } else
     consenthandler.setup("webhare-testsuite-consent", startCookieRequest);
 
@@ -145,9 +156,9 @@ if (urlparams.get("consent") === "1" || location.href.includes("testpages/consen
 
 window.__testdcoptions = {};
 if (urlparams.has("now"))
-  window.__testdcoptions.now = new Date(urlparams.get("now"));
+  window.__testdcoptions.now = new Date(urlparams.get("now")!);
 if (urlparams.get("beaconconsent"))
-  window.__testdcoptions.beaconconsent = urlparams.get("beaconconsent");
+  window.__testdcoptions.beaconconsent = urlparams.get("beaconconsent")!;
 
 adaptivecontent.setup(window.__testdcoptions);
 
@@ -155,7 +166,7 @@ window.geoip_getCountryCode = geoip.getCountryCode;
 window.geoip_getIPInfo = geoip.getIPInfo;
 window.whintegration_config = whintegration.config;
 window.formrpc_submitForm = formrpc.submitForm;
-window.formrpc_validateAddress = verifyAddress;
+window.formrpc_validateAddress = verifyHareScriptAddress;
 
 window.baseTestConfig = {
   env: { debugFlags, isLive, dtapStage },

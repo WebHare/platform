@@ -35,7 +35,7 @@ if (!window.gtag) {
     load();
 }
 
-export function initOnConsent(options) {
+export function initOnConsent(options?) {
   options = {
     requiredconsent: "*",
     ...options
