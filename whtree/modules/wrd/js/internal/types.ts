@@ -423,6 +423,32 @@ export type UpsertMatchQueryable<T extends TypeDefinition> = Pick<Updatable<T>, 
    will result in O being inferred to be 'Contract' in that case. If Contract has only optional parameters, the array will conform to the contract */
 export type EnsureExactForm<O extends object, Contract extends object> = O & Contract & Record<Exclude<keyof O, keyof Contract>, never>;
 
+type AnyCondition = { field: string; condition: AllowedFilterConditions; value: unknown; options?: object };
+
+type ListConditionsSimple<T extends TypeDefinition, Field extends keyof T & string, Base extends string, Filter extends object> = Field extends keyof T & string ?
+  (WRDAttributeType extends T[Field] ? // test for 'any'
+    AnyCondition :
+    { field: `${Base}${Field}` } & GetCVPairs<T[Field]> & Filter |
+    (T[Field] extends { __attrtype: WRDAttributeType.Array; __options: { members: infer M extends TypeDefinition } } ?
+      ListConditionsSimple<M, keyof M & string, `${Base}${Field}.`, { condition: "mentions" | "mentionsany" }> :
+      never)) :
+  never;
+
+/** Lists all allowed `{ field, condition, value, options }` pairs for a type */
+export type ListConditions<T extends TypeDefinition> = ListConditionsSimple<T, keyof T & string, "", object>;
+
+/** Lists all allowed fields for a `where` clause */
+export type WhereFields<T extends TypeDefinition> = ListConditions<T>["field"];
+
+type ListConditionsForField<T extends TypeDefinition, Field extends WhereFields<T>> = (ListConditions<T> & { field: Field });
+
+/** Lists all allowed conditions for a `where` clause and a specified field */
+export type WhereConditions<T extends TypeDefinition, Field extends WhereFields<T>> = ListConditionsForField<T, Field>["condition"];
+
+/** Lists all allowed `{ field, condition, value, options }` pairs for a type, a specified field and a specified condition */
+export type WhereValueOptions<T extends TypeDefinition, Field extends WhereFields<T>, Condition extends WhereConditions<T, Field>> = ListConditionsForField<T, Field> & { condition: Condition };
+
+
 type InsertableAndRequired<T extends WRDAttrBase> = T["__required"] extends true ? T["__insertable"] extends true ? true : false : false;
 
 /** Returns the type for date for WRD entity creation */

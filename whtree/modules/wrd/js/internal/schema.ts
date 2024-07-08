@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDAttributeType, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
@@ -459,7 +459,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null> {
     const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.query(type)
       .select(mapping)
-      .where("wrdId", "=" as any, id as any)
+      .where("wrdId" as any, "=" as any, id as any)
       .historyMode(options?.historyMode || "active")
       .execute();
 
@@ -949,7 +949,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
    * const result = await schema.query("wrdPerson").select("wrdId").where("wrdBirthDate", "&lt;", new Date(1980, 0, 1)).execute();
    * ```
    */
-  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDModificationBuilder<S, T> {
+  where<Field extends WhereFields<S[T]>, Condition extends WhereConditions<S[T], Field>>(field: Field, condition: Condition, value: WhereValueOptions<S[T], Field, Condition>["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], Field, Condition>, undefined>): WRDModificationBuilder<S, T> {
     return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options }], this._historyMode);
   }
 
@@ -1128,7 +1128,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this._historyMode, this._limit);
   }
 
-  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDSingleQueryBuilder<S, T, O> {
+  where<Field extends WhereFields<S[T]>, Condition extends WhereConditions<S[T], Field>>(field: Field, condition: Condition, value: WhereValueOptions<S[T], Field, Condition>["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], Field, Condition>, undefined>): WRDSingleQueryBuilder<S, T, O> {
     return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options }], this._historyMode, this._limit);
   }
 

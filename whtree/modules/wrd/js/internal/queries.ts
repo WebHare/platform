@@ -183,9 +183,19 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   // add more wheres
   const afterchecks: Array<typeof wheres[number] & { accessor: AnyWRDAccessor }> = [];
   for (const filter of wheres) {
-    const attr = typerec.rootAttrMap.get(filter.field);
+    const parts = filter.field.split(".");
+    let attr: AttrRec | undefined;
+    for (const [idx, part] of parts.entries()) {
+      attr = attr ?
+        typerec.parentAttrMap.get(attr.id)?.find(a => a.tag === part) :
+        typerec.rootAttrMap.get(part);
+      if (!attr)
+        throw new Error(`Cannot find attribute ${JSON.stringify(parts.slice(0, idx + 1))} in type ${JSON.stringify(type.tag)}`);
+    }
     if (!attr)
-      throw new Error(`Cannot find attribute ${JSON.stringify(filter.field)}`);
+      throw new Error(`Cannot find attribute ${JSON.stringify(filter.field)} in type ${JSON.stringify(type.tag)}`);
+    if (parts.length > 1 && !["mentions", "mentionsany"].includes(filter.condition))
+      throw new Error(`Condition ${JSON.stringify(filter.condition)} not allowed for field ${JSON.stringify(filter.field)} in type ${JSON.stringify(type.tag)}`);
 
     const accessor = getAccessor(attr, typerec.parentAttrMap);
     accessor.checkFilter(filter as never);
