@@ -174,6 +174,10 @@ export abstract class FormFieldMap {
 
     throw new Error(`Field '${name}' (with name/data-wh-form-name '${nameToSnakeCase((this.fieldBaseName ? this.fieldBaseName + '.' : "") + name)}') not found in this form`); //TODO report the fukll anme
   }
+
+  getFieldNames(): string[] {
+    return [...this.fieldmap.keys()];
+  }
 }
 
 
@@ -208,11 +212,20 @@ class RecordFieldHandler extends FormFieldMap implements FormField {
 export class FieldMapDataProxy implements ProxyHandler<object> {
   constructor(private readonly form: FormFieldMap) {
   }
-  get(target: unknown, p: string) {
+  get(target: object, p: string) {
+    if (p in target || typeof p !== 'string' || ["toJSON"].includes(p)) //better get out of the way - don't block JS builtins (TODO is there a proper list somewhere of builtins to ignore?)
+      return (target as Record<string, unknown>)[p];
+
     return this.form.getField(p).getValue();
   }
   set(target: unknown, p: string, value: unknown): boolean {
     this.form.getField(p).setValue(value);
     return true;
+  }
+  ownKeys(target: object): ArrayLike<string | symbol> {
+    return this.form.getFieldNames();
+  }
+  getOwnPropertyDescriptor(/*target, prop*/) { // allow ownKeys to actually return to Object.keys
+    return { enumerable: true, configurable: true };
   }
 }

@@ -26,6 +26,7 @@ interface CoreFormShape {
   pulldown3test: null | "";
   showradioy: boolean;
   radiotest: null | "3" | "5";
+  checkboxes: Array<"1" | "2" | "3">;
 }
 
 test.registerTests(
@@ -371,6 +372,11 @@ test.registerTests(
       await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => formhandler.data.showradioy = false, "Unsetting showradioy should block the 'y' option");
       test.eq(false, test.qR("#coretest-showradioy").checked);
 
+      //Test checkboxes field
+      test.eq(['1', '3'], formhandler.data.checkboxes);
+      formhandler.data.checkboxes = ["2"];
+      test.eq(['2'], formhandler.data.checkboxes);
+
       //Test the non-HTML field types (and condition updates)
       test.eq("3", formhandler.data.radiotest, "RadioFormField");
       await test.throws(/Invalid value for/, () => formhandler.getField("radiotest").setValue(5));
@@ -381,6 +387,19 @@ test.registerTests(
 
       test.eq(0, test.qSA("[name=radiotest]:checked").length);
       test.eq(null, formhandler.data.radiotest);
+
+      //Verify that we can retrieve the formdata as full object
+      test.eqPartial(
+        {
+          radiotestnamelijk: 21,
+          address: { city: "Enschede" },
+          pulldowntest: null,
+          pulldown2test: "red",
+          pulldown3test: null,
+          showradioy: false,
+          radiotest: null,
+          checkboxes: ["2"]
+        }, formhandler.data);
     },
 
     {
