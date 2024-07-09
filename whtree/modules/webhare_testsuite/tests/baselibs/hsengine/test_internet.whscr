@@ -219,9 +219,16 @@ MACRO UrlTest()
   TestEQ(FALSE, IsAbsoluteURL("?app=webshop:order(slaapkamerweb,007799)", FALSE));
   TestEQ(FALSE, IsAbsoluteURL("", FALSE));
 
+  TestEq(TRUE, IsValidURL("http://nu.nl/"));
+  TestEq(TRUE, IsValidURL("HtTp://nu.nl/"));
+
   TestEq(FALSE, IsValidURL("<URL:http://nu.nl/>"));
   TestEq(FALSE, IsValidURL("<FTP:http://nu.nl/>"));
-  TestEq(TRUE, IsValidURL("http://nu.nl/"));
+  TestEq(FALSE, IsValidURL("http://nu.nl/\t"));
+  TestEq(FALSE, IsValidURL("http://nu.nl/met spatie"));
+  TestEq(FALSE, IsValidURL("http://nu.nl:65536/"));
+  TestEq(FALSE, IsValidURL("http://nu.nl:0/"));
+  TestEq(FALSE, IsValidURL("http:///"));
 
   CloseTest("TestInternet: URLs");
 }

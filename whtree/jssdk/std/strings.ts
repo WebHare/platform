@@ -215,9 +215,9 @@ export function slugify(text: string, { separator = "-", keep = "" }: {
 }
 
 /** Check if an email address is valid in modern times (an emailcheck much closer to what a browser would do, with additional sanity checks. No attempt to allow all legacy styles supported by the RFCs but 99.9%+ sure to be an error if seen submitted in a form
-    @returns True if the email address would appears to be a well-formed email address to a non-greybeard
+    @returns True if the email address appears to be a well-formed email address to a non-greybeard
 */
-export function isValidEmail(email: string) {
+export function isValidEmail(email: string): boolean {
   if (email.length > 254) //TODO count bytes instead of characters
     return false;
 
@@ -240,4 +240,32 @@ export function joinURL(baseurl: string, path: string) {
   if (baseurl.endsWith("/"))
     baseurl = baseurl.substring(0, baseurl.length - 1);
   return baseurl + (path.startsWith("/") ? path : "/" + path);
+}
+
+/** Test whether an URL is a valid url. This function verifies that an URL looks
+ * like an URL. If the scheme is recognized, more  stringent checks are performed
+ * @returns True if the url appears to be a well-formed url
+ */
+export function isValidUrl(url: string): boolean {
+  // test: no control characters or spaces (0x00 - 0x20)
+  // test: starts with 'scheme' ':' anychar +
+  // test: scheme only has letters, numbers, '-', '.' or '+' (and is not empty)
+  // test: HareScript tests for http/https schema, hostname is not empty and port is in range 1-65535
+  // For JavaScript, we'll just check if the URL constructor throws and that the port is not 0
+
+  // eslint-disable-next-line no-control-regex
+  const unpacked = url.match(/^([-.+a-zA-Z0-9]*):[^\x00-\x20]+$/);
+  if (!unpacked)
+    return false;
+  if (unpacked[1] !== "http" && unpacked[1] !== "https")
+    return true;
+  try {
+    // The URL constructor throws on invalid URLs
+    const parsed = new URL(url);
+    if (parsed.port && parseInt(parsed.port) < 1)
+      return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
 }

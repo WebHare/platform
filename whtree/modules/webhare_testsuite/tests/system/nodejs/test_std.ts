@@ -463,6 +463,28 @@ function testEmails() {
     test.eq(true, std.isValidEmail(email), `Expected to be valid: ${email}`);
 }
 
+function testUrls() {
+  const validUrls = [
+    "http://nu.nl/",
+    "HtTp://nu.nl/",
+    "HtTp://nu.nl:65535/"
+  ];
+  const invalidUrls = [
+    "<URL:http://nu.nl/>",
+    "<FTP:http://nu.nl/>",
+    "http://nu.nl/\t",
+    "http://nu.nl/met spatie",
+    "http://nu.nl:65536/",
+    "http://nu.nl:0/",
+    "http:///",
+  ];
+
+  for (const url of validUrls)
+    test.eq(true, std.isValidUrl(url), `testing valid url ${JSON.stringify(url)}`);
+  for (const url of invalidUrls)
+    test.eq(false, std.isValidUrl(url), `testing invalid url ${JSON.stringify(url)}`);
+}
+
 async function testCollections() {
   const map = new Map<string, number>();
   test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
@@ -585,6 +607,7 @@ test.run([
   "Crypto and strings",
   testStrings,
   testEmails,
+  testUrls,
   "Collections",
   testCollections,
   "Promises",

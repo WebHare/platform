@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOpera
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -366,6 +366,14 @@ class WRDDBEmailValue extends WRDDBStringValue {
   }
   isCaseInsensitve(cv: WRDDBStringConditions) {
     return true;
+  }
+}
+
+class WRDDBUrlValue extends WRDDBStringValue {
+  validateInput(value: string): void {
+    super.validateInput(value);
+    if (!isValidUrl(value))
+      throw new Error(`Invalid URL '${value}' for attribute ${this.attr.tag}`);
   }
 }
 
@@ -2120,7 +2128,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
   [WRDAttributeTypeId.Telephone]: WRDDBStringValue;
-  [WRDAttributeTypeId.URL]: WRDDBStringValue;
+  [WRDAttributeTypeId.URL]: WRDDBUrlValue;
   [WRDAttributeTypeId.Boolean]: WRDDBBooleanValue;
   [WRDAttributeTypeId.Integer]: WRDDBIntegerValue;
   [WRDAttributeTypeId.Date]: WRDDBDateValue<Required>;
@@ -2183,7 +2191,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.String: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Email: return new WRDDBEmailValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.URL: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.URL: return new WRDDBUrlValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Integer:
     case WRDAttributeTypeId.Time:
