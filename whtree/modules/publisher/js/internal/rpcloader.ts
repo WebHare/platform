@@ -1,20 +1,18 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 /*
   This is the RPC loader, which is used by the assetpackmanager to generate JSONRPC binding files based on *.rpc.json
   JSONRPC specification files. See services.md for further documentation
 */
 import * as fs from "fs";
-import * as services from "@webhare/services";
 import { loadlib } from '@webhare/harescript';
+import type * as esbuild from 'esbuild';
+import type { CaptureLoadPlugin } from "./esbuild/compiletask";
 
-async function generateRPCWrappers(resourcePath, rpcdata) {
+async function generateRPCWrappers(resourcePath: string, rpcdata: string) {
   const rpcfile = JSON.parse(rpcdata);
   const service = rpcfile.services[0];
   const response = await loadlib("mod::publisher/lib/internal/webdesign/rpcloader.whlib").GetServiceInfo(service);
   const dependencies = [];
-  const warnings = [];
+  const warnings: string[] = [];
 
   let output = `// Auto-generated RPC interface from ${resourcePath}
 var RPCClient = require("@mod-system/js/wh/rpc").default;
@@ -37,7 +35,7 @@ exports.invoke = function () { return request.invoke.apply(request,Array.prototy
     dependencies.push(response.diskpath);
   }
 
-  response.functions.forEach(func => {
+  response.functions.forEach((func: { name: string; arguments: Array<{ type: string; name: string }>; type: string }) => {
     if (func.name.toLowerCase().startsWith("rpc")) {
       warnings.push("Not including function '" + func.name + "', because its name starts with 'rpc'");
     } else {
@@ -66,12 +64,12 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
 
 module.exports = {};
 
-module.exports.getESBuildPlugin = (captureplugin) => ({
+module.exports.getESBuildPlugin = (captureplugin: CaptureLoadPlugin) => ({
   name: "jsonrpc",
-  setup: function (build) {
+  setup: function (build: esbuild.PluginBuild) {
     build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) => {
       const source = await fs.promises.readFile(args.path);
-      const result = await generateRPCWrappers(args.path, source);
+      const result = await generateRPCWrappers(args.path, source.toString());
 
       result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
 
