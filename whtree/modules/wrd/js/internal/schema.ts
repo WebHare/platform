@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
-import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
-import { loadlib } from "@webhare/harescript";
+import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 import { tagToHS, tagToJS, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
@@ -69,6 +68,7 @@ type WRDTypeMetadata = Omit<WRDTypeConfiguration, "metaType">;
 
 type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attributeType'> & Partial<Omit<WRDAttributeConfiguration, 'attributeType'>>;
 
+// TODO not actually a CoVM anymore but this still points to some loadlibs we need to cleanup for WRD efficiency
 type CoVMSchemaCache = {
   schemaobj: Promise<HSVMObject>;
   types: Record<string, Promise<HSVMObject>>;
@@ -339,7 +339,6 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   private getWRDSchemaCache(): CoVMSchemaCache {
     return ensureScopedResource(this.coVMSchemaCacheSymbol, (context) => ({
       schemaobj: (async () => {
-        //const hsvm = await getCoHSVM();
         const wrd_api = loadlib("mod::wrd/lib/api.whlib"); //FIXME
         const wrdschema = await wrd_api.OpenWRDSchema(this.tag) as HSVMObject | null;
         if (!wrdschema)

@@ -75,15 +75,13 @@ async function setupOIDC() {
   sysoppassword = await testfw.getUserPassword("sysop");
   sysopobject = await testfw.getUserObject("sysop");
 
-  await runInWork(async () => { //run in separate transaction. can be moved back to the runInWork below as soon as CoVMs are eliminated
+  await runInWork(async () => {
     await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema("webhare_testsuite:oidc-sp", {
       initialize: true,
       schemaresource: "mod::system/data/wrdschemas/default.wrdschema.xml",
       usermgmt: true
     });
-  });
 
-  await runInWork(async () => {
     const schema = new WRDSchema("wrd:testschema");
     const provider = new IdentityProvider(schema);
     await provider.initializeIssuer("https://my.webhare.dev/testfw/issuer");

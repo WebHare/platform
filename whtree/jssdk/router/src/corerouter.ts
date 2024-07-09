@@ -1,4 +1,4 @@
-import { callHareScript } from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { WebHareWHFSRouter, WebRequest, WebResponse, createWebResponse } from "./router";
@@ -13,7 +13,7 @@ export async function lookupPublishedTarget(url: string, { clientWebServer = 0 }
   if (clientWebServer)
     opts.push({ clientwebserver: clientWebServer });
 
-  const lookupresult = await callHareScript("mod::publisher/lib/publisher.whlib#LookupPublisherURL", opts, { openPrimary: true }) as { file: number };
+  const lookupresult = await loadlib("mod::publisher/lib/publisher.whlib").LookupPublisherURL(...opts) as { file: number };
   if (!lookupresult.file)
     return null;
 

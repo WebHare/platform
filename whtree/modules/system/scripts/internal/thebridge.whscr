@@ -1,12 +1,10 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/resources.whlib";
 
 
 BOOLEAN debug := PickFirst(GetConsoleArguments()) = "--debug";
@@ -22,35 +20,6 @@ STATIC OBJECTTYPE BridgeConnection
   PUBLIC ASYNC FUNCTION invokeAnyFunction(STRING funcname, VARIANT ARRAY args, RECORD options)
   {
     RETURN AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/modules/bridgesupport.whlib#InvokeInsideJob", funcname, args, options);
-  }
-
-  PUBLIC STRING FUNCTION OpenHSVM()
-  {
-    //FIXME Detect link termination and destroy associated jobs
-    RECORD jobrecord := CreateJob(Resolve("thebridge_hsvm.whscr"));
-    IF(Length(jobrecord.errors) > 0)
-      THROW NEW Exception(`Failed to start HSVM job: ${jobrecord.errors[0].message}`);
-
-    IF (debug)
-      jobrecord.job->SetConsoleArguments([ "--debug" ]);
-
-    jobrecord.job->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->CheckJobErrors(jobrecord.job));
-    jobrecord.job->Start();
-    INSERT jobrecord INTO this->myjobs AT END;
-
-    RETURN "system:bridge_hsmv_" || jobrecord.job->groupid;
-  }
-
-  MACRO CheckJobErrors(OBJECT job)
-  {
-    RECORD ARRAY errors := job->GetErrors();
-    IF(Length(errors) > 0)
-    {
-      Print(FormatHarescriptErrors(errors));
-      LogHarescriptException(NEW HarescriptErrorException(errors));
-    }
-    job->Close();
-    DELETE FROM this->myjobs WHERE myjobs.job = VAR job;
   }
 >;
 

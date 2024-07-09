@@ -5,7 +5,7 @@
 
 import * as webserver from "./webserver";
 import { Configuration } from "./webconfig";
-import * as services from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
 import { program } from 'commander';
 
 async function main() {
@@ -15,7 +15,7 @@ async function main() {
 
   program.parse();
   const rescueport = program.opts().rescue as string | null;
-  const config = (await services.callHareScript("mod::system/lib/internal/webserver/config.whlib#DownloadWebserverConfig", [], { openPrimary: true })) as Configuration;
+  const config = await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig() as Configuration;
 
   //Remove the HS trusted port from our bindlist - that one needs to be held by the HS webserver
   const trustedportidx = config.ports.findIndex(_ => _.id === -6 /*whwebserverconfig_hstrustedportid*/);

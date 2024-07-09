@@ -7,7 +7,6 @@ export interface InvokeOptions {
 
 export interface BridgeService {
   invokeAnyFunction(func: string, args: unknown[], options: InvokeOptions): Promise<unknown>;
-  openHSVM(): Promise<string>;
 }
 
 let bridgeservice: BridgeService;

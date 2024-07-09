@@ -4,31 +4,6 @@ import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 
-async function testCommitAndRollback() { //test the Co-HSVM
-  const wrdschema: WRDSchema = await getWRDSchema();
-
-  await whdb.beginWork();
-  test.eq(null, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTHSVMtest"), "shouldn't exist yet");
-  const personid = await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest", wrdContactEmail: "covmtest@beta.webhare.net" });
-  test.assert(personid);
-  await whdb.rollbackWork();
-
-  test.eq(null, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTHSVMtest"), "shouldn't exist yet");
-  test.eq(null, await wrdschema.getFields("wrdPerson", personid, { ln: "wrdLastName" }, { allowMissing: true }));
-
-  await whdb.beginWork();
-  const personid2 = (await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest", wrdContactEmail: "covmtest@beta.webhare.net" }));
-  await whdb.commitWork();
-
-  test.eq(personid2, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTtest"), "should exist!");
-
-  await whdb.beginWork();
-  await wrdschema.delete("wrdPerson", personid2);
-  await whdb.rollbackWork();
-
-  test.eq(personid2, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTtest"), "should still exist!");
-}
-
 async function testWRDUntypedApi() { //  tests
   const nosuchschema = new WRDSchema("wrd:nosuchschema");
   await test.throws(/No such WRD schema.*nosuchschema/, () => nosuchschema.getType("wrdPerson").exists());
@@ -364,7 +339,6 @@ async function testUnique() {
 
 test.run([
   async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
-  testCommitAndRollback,
   testWRDUntypedApi,
   testUnique,
 ], { wrdauth: false });

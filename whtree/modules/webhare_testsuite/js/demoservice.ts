@@ -1,5 +1,6 @@
 import type { ServiceClientFactoryFunction } from '@webhare/services/src/backendservicerunner';
-import { BackendServiceConnection, BackendServiceController } from "@webhare/services";
+import { BackendServiceConnection, BackendServiceController, broadcast } from "@webhare/services";
+import type { SimpleMarshallableRecord } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
 class Controller implements BackendServiceController {
   dummy = "-1";
@@ -76,6 +77,9 @@ class ClusterTestLink extends ClusterTestLinkBase {
 
     this.mainobject.dummy = val;
     return null; //FIXME marshalling cannot deal with service APIs returning undefined
+  }
+  emitIPCEvent(name: string, data: unknown) {
+    broadcast(name, data as SimpleMarshallableRecord); //FIXME shouldn't need an internal type to broadcast...
   }
   emitTestEvent(data: { start: number; add: number }) {
     this.emit("testevent", data.start + data.add);

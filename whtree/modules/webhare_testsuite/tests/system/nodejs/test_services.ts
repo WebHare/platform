@@ -7,7 +7,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
 import { runBackendService } from "@webhare/services";
-import { createVM, HSVMObject, type HSVMWrapper } from "@webhare/harescript";
+import { createVM, HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
@@ -49,21 +49,14 @@ async function testServices() {
   test.assert(services.backendConfig);
   test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
 
-  //Verify potentially higher level invoke APIs work
-  test.eq(45, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]));
-
   //@ts-expect-error Verify invoking LoadJSFunction without a type signature is a TS error
   await loadJSFunction("@webhare/services#log");
-
-  await test.throws(/NOSUCHFUNCTION.*not found/, services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#NoSuchFunction", []));
-  await test.throws(/Custom.*Try to kill the bridge/, services.callHareScript("wh::system.whlib#ABORT", ["Try to kill the bridge through abort"]));
-  test.eq(1452, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#MultiplyPromise", [22, 66]), "Verify promises work AND that the bridge is still there");
 
   const runoncekey = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
   test.eq("TS RUNONCE!", runoncekey);
 
   //get WebHare configuration
-  const whconfig = await services.callHareScript("mod::system/lib/configure.whlib#GetWebHareConfiguration", []) as any;
+  const whconfig = await loadlib("mod::system/lib/configure.whlib").GetWebHareConfiguration();
   // console.log(services.backendConfig, whconfig);
   test.eq(whconfig.basedataroot, services.backendConfig.dataroot);
 
@@ -72,12 +65,12 @@ async function testServices() {
 
   test.throws(/The WebHare configuration is read-only/, () => { if (services.backendConfig) (services.backendConfig as any).dataroot = "I touched it"; });
 
-  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]) as string, services.backendConfig.module.system.root);
+  test.eq(await loadlib("mod::system/lib/configure.whlib").GetModuleInstallationRoot("system") as string, services.backendConfig.module.system.root);
   ensureProperPath(services.backendConfig.module.system.root);
 
-  //Verify callHareScript supporting the new blobs
-  test.eq("1234", await services.callHareScript("wh::files.whlib#BlobToString", [services.WebHareBlob.from("1234")]));
-  const returnblob = await services.callHareScript("wh::files.whlib#StringToBlob", ["5678"]) as services.WebHareBlob;
+  //Verify loadlib supporting the new blobs
+  test.eq("1234", await loadlib("wh::files.whlib").BlobToString(services.WebHareBlob.from("1234")));
+  const returnblob = await loadlib("wh::files.whlib").StringToBlob("5678") as services.WebHareBlob;
   test.eq("5678", await returnblob.text());
 }
 
@@ -158,7 +151,8 @@ async function testEvents() {
   test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }], allevents);
 
   //======= Test remote events
-  await services.callHareScript("wh::ipc.whlib#BroadcastEvent", ["webhare_testsuite:testevent", { event: 3 }]);
+  using serviceJS = await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice", ["x"]);
+  await serviceJS.emitIPCEvent("webhare_testsuite:testevent", { event: 3 });
   await test.wait(() => allevents.length > 1);
   test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }, { name: "webhare_testsuite:testevent", data: { event: 3 } }], allevents);
 
@@ -167,7 +161,7 @@ async function testEvents() {
   await subscription.setMasks(["webhare_testsuite:testevent1", "webhare_testsuite:testevent2.*"]);
   services.broadcast("webhare_testsuite:testevent2.x");
   await test.wait(() => allevents.length > 0);
-  await services.callHareScript("wh::ipc.whlib#BroadcastEvent", ["webhare_testsuite:testevent2.y"]);
+  await serviceJS.emitIPCEvent("webhare_testsuite:testevent2.y", null);
   await test.wait(() => allevents.length > 1);
   test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
 }
@@ -365,7 +359,6 @@ async function runBackendServiceTest_Events() {
   serviceHS.emitTestEvent({ start: 12, add: 13 }).catch(() => { }); //ignore exception usuaslly triggered by the close below (TODO is there any fix for that?)
   test.eq({ start: 12, add: 13 }, await waiterHS); //HS services not as cool to calcuate things
   serviceHS.close();
-
 }
 
 async function testMutexVsHareScript() {
@@ -398,7 +391,7 @@ async function testLogs() {
     [Symbol("artist")]: "Prince", //ignored in logs currently
     tafkap: Symbol("Prince")
   });
-  await services.callHareScript("mod::system/lib/logging.whlib#LogToJSONLog", ["webhare_testsuite:test", { hareScript: "I can speak JSON too!" }]);
+  await loadlib("mod::system/lib/logging.whlib").LogToJSONLog("webhare_testsuite:test", { hareScript: "I can speak JSON too!" });
 
   const logreader = services.readLogLines("webhare_testsuite:test", { start: test.startTime, limit: new Date(Date.now() + 1) });
   const logline = await logreader.next();
