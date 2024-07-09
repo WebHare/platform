@@ -8,10 +8,3 @@ PUBLIC RECORD FUNCTION GetInstanceData(INTEGER id, STRING type)
 {
   RETURN OpenWHFSType(type)->GetInstanceData(id);
 }
-
-PUBLIC BOOLEAN FUNCTION TestCoVMReusable()
-{
-  GetPrimary()->BeginWork();
-  GetPrimary()->RollbackWork();
-  RETURN TRUE;
-}
