@@ -89,9 +89,6 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
       @cell options.metadata Additional/structured metadata for the error */
   PUBLIC MACRO AddErrorFor(OBJECT comp, STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->terminated)
-      THROW NEW Exception("This feedback object has already been terminated");
-
     options := ValidateOptions([ metadata := DEFAULT RECORD ], options);
 
     /* - If the identical component has already got an error, ignore the newest error
@@ -129,9 +126,6 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
       @cell options.metadata Additional/structured metadata for the warning */
   PUBLIC MACRO AddWarningFor(OBJECT comp, STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->terminated)
-      THROW NEW Exception("This feedback object has already been terminated");
-
     options := ValidateOptions([ metadata := DEFAULT RECORD ], options);
 
     /* - If the identical component has already got an error, ignore the newest error
