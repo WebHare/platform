@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOpera
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -1990,6 +1990,35 @@ class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<Authenticatio
   }
 }
 
+class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparableValueBase<AddressValue | NullIfNotRequired<Required>, AddressValue | null, AddressValue | NullIfNotRequired<Required>> {
+  getDefaultValue(): AddressValue | null {
+    return null;
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): AddressValue | NullIfNotRequired<Required> {
+    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    const parsed = JSON.parse(data) as AddressValue & { nr_detail: string };
+    return { ...omit(parsed, ["nr_detail"]), houseNumber: parsed.nr_detail };
+  }
+
+  validateInput(value: AddressValue | NullIfNotRequired<Required>): void {
+    if (!value)
+      return;
+    if ("nr_detail" in value)
+      throw new Error(`AddressValue should not contain nr_detail, use houseNumber instead`);
+    if ("housenumber" in value)
+      throw new Error(`AddressValue should not contain housenumber, use houseNumber instead (did you route the address value through HareScript?)`);
+    if (value.country?.length !== 2)
+      throw new Error(`The field 'country' is required in an address and must be a 2 character code`);
+    if (value.country !== value.country.toUpperCase())
+      throw new Error(`The field 'country' must be uppercase`);
+  }
+
+  encodeValue(value: AddressValue | NullIfNotRequired<Required>): AwaitableEncodedValue {
+    return this.encodeAsStringWithOverlow(value ? JSON.stringify({ ...omit(value, ["houseNumber"]), nr_detail: value.houseNumber }) : '');
+  }
+}
+
 class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase<AuthenticationSettings | null, AuthenticationSettings | null, AuthenticationSettings | null> {
   getDefaultValue(): null {
     return null;
@@ -2065,7 +2094,6 @@ type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Opti
 //class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>> { _x?: Options; _y?: Required; }
 
 /// The following accessors are not implemented yet
-class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | { data: Buffer } | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
@@ -2099,7 +2127,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.DateTime]: WRDDBDateTimeValue<Required>;
   [WRDAttributeTypeId.Domain]: WRDDBDomainValue<Required>;
   [WRDAttributeTypeId.DomainArray]: WRDDBDomainArrayValue;
-  [WRDAttributeTypeId.Address]: WRDDBAddressValue;
+  [WRDAttributeTypeId.Address]: WRDDBAddressValue<Required>;
   [WRDAttributeTypeId.Password]: WRDDBPasswordValue;
   [WRDAttributeTypeId.Image]: WRDDBImageValue;
   [WRDAttributeTypeId.File]: WRDDBFileValue;

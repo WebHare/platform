@@ -1,19 +1,19 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import './internal/baseforumstyle.css';
 import * as dompack from "dompack";
+// @ts-ignore -- .rpc.json imports cannot be checked by TypeScript
 import * as forumrpc from "@mod-publisher/js/webtools/internal/forum.rpc.json";
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 import FormBase from '@mod-publisher/js/forms/formbase';
 
 //TODO perhaps merge with standard formcode... now that basic forms do recaptcha, we shouldn't need to implement it ourselves.. especially as we make it only more complex by overriding submit
 class ForumCommentsForm extends FormBase {
-  constructor(commentstool, node) {
+  commentstool;
+
+  constructor(commentstool: ForumCommentsWebtool, node: HTMLFormElement) {
     super(node);
     this.commentstool = commentstool;
   }
-  async submit(extradata) {
+  async submit(extradata?: { captcharesponse: string }) {
     const result = await this.getFormValue();
 
     const lock = dompack.flagUIBusy();
@@ -28,7 +28,7 @@ class ForumCommentsForm extends FormBase {
         this.reset();
       } else if (response.error === "CAPTCHA") {
         setTimeout(async () => {
-          const captcharesponse = await getCaptchaResponse(response.apikey, { busycomponent: this.node });
+          const captcharesponse = await getCaptchaResponse(response.apikey);
           if (captcharesponse) //retry with the response
             return this.submit({ captcharesponse });
         });
@@ -36,11 +36,20 @@ class ForumCommentsForm extends FormBase {
     } finally {
       lock.release();
     }
+    return {};
   }
 }
 
+export type ForumCommentsWebtoolOptions = {
+  generateitems: (items: Array<{ name: string; postdate: string; message: string }>) => HTMLElement[];
+  generateitem: (item: { name: string; postdate: string; message: string }) => HTMLElement;
+};
+
 export default class ForumCommentsWebtool {
-  constructor(node, options) {
+  node;
+  options: ForumCommentsWebtoolOptions;
+
+  constructor(node: HTMLElement, options?: Partial<ForumCommentsWebtoolOptions>) {
     this.node = node;
     this.options = {
       generateitems: items => this.generateItems(items),
@@ -52,11 +61,11 @@ export default class ForumCommentsWebtool {
     this._initComments();
   }
 
-  generateItems(items) {
+  generateItems(items: Array<{ name: string; postdate: string; message: string }>) {
     return items.map(item => this.options.generateitem(item));
 
   }
-  generateItem(item) {
+  generateItem(item: { name: string; postdate: string; message: string }) {
     let messagenode;
     const node = <div class="wh-forumcomments__post">
       {messagenode = <div class="wh-forumcomments__message"></div>}
@@ -73,7 +82,7 @@ export default class ForumCommentsWebtool {
   }
 
   _initForm() {
-    const formnode = dompack.qS(this.node, 'form');
+    const formnode = dompack.qS<HTMLFormElement>(this.node, 'form');
     if (formnode)
       new ForumCommentsForm(this, formnode);
   }

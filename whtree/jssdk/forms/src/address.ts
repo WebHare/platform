@@ -1,15 +1,7 @@
-import { stringify, emplace } from "@webhare/std";
-import PublisherFormService from "./formservice";
+import { stringify, emplace, type AddressValue, omit } from "@webhare/std";
+import PublisherFormService, { type HareScriptAddressValidationResult, type HareScriptAddressValue } from "./formservice";
 
-export interface AddressValue {
-  street?: string;
-  city?: string;
-  nr_detail?: string;
-  zip?: string;
-  state?: string;
-  //2 letter country code, uppercase
-  country: string;
-}
+export type { HareScriptAddressValue, HareScriptAddressValidationResult } from "./formservice";
 
 export type AddressChecks = "nl-zip-suggest" | "nl-zip-force";
 
@@ -29,18 +21,42 @@ export interface AddressValidationResult {
     ///Error message in the requested language
     message: string;
   }>;
-  corrections: Record<keyof AddressValue, string> | null;
+  corrections: Partial<Record<keyof AddressValue, string>> | null;
 }
 
 let lookupcache: Map<string, Promise<AddressValidationResult>> | undefined;
 
-export async function verifyAddress(address: AddressValue, options: AddressValidationOptions = {}): Promise<AddressValidationResult> {
+export async function verifyHareScriptAddress(address: HareScriptAddressValue, options: AddressValidationOptions = {}): Promise<HareScriptAddressValidationResult> {
   if (!lookupcache)
     lookupcache = new Map<string, Promise<AddressValidationResult>>;
 
   const lookupkey = stringify({ address, options }, { stable: true });
   const lookup = emplace(lookupcache, lookupkey, {
-    insert: () => PublisherFormService.verifyAddress(location.pathname, address, options) || {}
+    insert: () => PublisherFormService.verifyAddress(location.pathname, address, options)
   });
   return await lookup;
+}
+
+export async function verifyAddress(address: AddressValue, options: AddressValidationOptions = {}): Promise<AddressValidationResult> {
+  if (!lookupcache)
+    lookupcache = new Map<string, Promise<AddressValidationResult>>;
+
+  // convert houseNumber to nr_detail
+  const hsAddress = { ...omit(address, ["houseNumber"]), nr_detail: address.houseNumber };
+
+  const hsresult = await verifyHareScriptAddress(hsAddress, options);
+
+  // back-convert nr_detail to houseNumber
+  let corrections: AddressValidationResult["corrections"] = null;
+  if (hsresult.corrections) {
+    corrections = {};
+    for (const [key, value] of Object.entries(hsresult.corrections) as Array<[keyof HareScriptAddressValue, string]>) {
+      corrections[key === "nr_detail" ? "houseNumber" as const : key] = value;
+    }
+  }
+  return {
+    status: hsresult.status,
+    errors: hsresult.errors.map(error => ({ fields: error.fields.map(f => f === "houseNumber" ? "nr_detail" : f), message: error.message })),
+    corrections,
+  };
 }

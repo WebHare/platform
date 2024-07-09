@@ -6,7 +6,7 @@ addressFields:
   - field: street
     autocomplete: street-address
     tid: "platform:common.addressfields.street"
-  - field: nr_detail
+  - field: houseNumber
     tid: "platform:common.addressfields.nr_detail"
   - field: zip
     autocomplete: postal-code
@@ -28,14 +28,14 @@ customFormat:
   NL:
     - fields:
       - street
-      - nr_detail
+      - houseNumber
     - fields:
       - zip
       - " " #We need two spaces before the city in NL
       - city
   CA: # We default to state after city, Canada wants it before (or is the US the exception?)
     - fields:
-      - nr_detail
+      - houseNumber
       - street
     - fields:
       - city
@@ -43,7 +43,7 @@ customFormat:
       - zip
   US:
     - fields:
-      - nr_detail
+      - houseNumber
       - street
     - fields:
       - city
@@ -70,7 +70,7 @@ requireZip:
   - "BE"
   - "US"
 
-nrDetail:
+houseNumber:
   before: []
   after:
   - "NL"

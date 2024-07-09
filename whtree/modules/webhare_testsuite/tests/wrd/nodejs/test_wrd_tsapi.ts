@@ -554,6 +554,23 @@ async function testNewAPI() {
     test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "error").executeRequireAtMostOne());
   }
 
+  // STORY: test address
+  {
+    await schema.update("wrdPerson", newperson, { testAddress: null });
+    test.eq(null, await schema.getFields("wrdPerson", newperson, "testAddress"));
+    await schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "NL", state: "state" } });
+    test.eq({ street: "street", city: "city", houseNumber: "14", zip: "zip", country: "NL", state: "state" }, await schema.getFields("wrdPerson", newperson, "testAddress"));
+    // @ts-expect-error -- nr_detail is not allowed as key
+    test.throws(/nr_detail/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL" } }));
+    // @ts-expect-error -- housenumber (lowercase) is not allowed as key
+    test.throws(/housenumber/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", housenumber: "14", zip: "zip", country: "NL" } }));
+    test.throws(/2/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "TOOLONG" } }));
+    test.throws(/uppercase/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "nl" } }));
+
+    test.eq({ test_address: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL", locationdetail: "", state: "state" } }, await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDEntityFields(testSchemaTag, "WRD_PERSON", newperson, ["test_address"]));
+    await await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
+    test.eq({ street: "street", city: "city", houseNumber: "15", zip: "zip", country: "NL", state: "state" }, await schema.getFields("wrdPerson", newperson, "testAddress"));
+  }
   await whdb.commitWork();
 }
 
@@ -912,7 +929,7 @@ async function testComparisons() {
       await schema.update("wrdPerson", newperson, entityval);
       //@ts-ignore -- it should be okay as we've matched the keys in const 'tests'.
       currentPersonValue[attr] = value;
-      for (let othervalue of values as unknown[])
+      for (let othervalue of values as any[])
         for (const comparetype of comparetypes) {
           if (/Enum/.test(attr) && [">", ">=", "<=", "<"].includes(comparetype))
             continue;

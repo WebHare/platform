@@ -1,8 +1,24 @@
 import { createClient } from "@webhare/jsonrpc-client";
-import type { AddressValidationOptions, AddressValidationResult, AddressValue } from "./address";
+import type { AddressValidationOptions, AddressValidationStatus } from "./address";
 import { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission } from "./types";
 import type { FormService } from "@mod-publisher/lib/internal/forms/service";
+import type { AddressValue } from "@webhare/std";
+
+
+/// HareScript uses 'nr_detail' instead of 'houseNumber'
+export type HareScriptAddressValue = Omit<AddressValue, "houseNumber"> & { nr_detail?: string };
+
+export interface HareScriptAddressValidationResult {
+  status: AddressValidationStatus;
+  errors: Array<{
+    ///Fields affected by the error
+    fields: string[];
+    ///Error message in the requested language
+    message: string;
+  }>;
+  corrections: Partial<Record<keyof HareScriptAddressValue, string>> | null;
+}
 
 export interface PublisherFormService {
   /** Validate an email address for validity (including against server configured correction/blacklists)
@@ -22,7 +38,7 @@ export interface PublisherFormService {
   validateEmbeddedObjects(objrefs: string[]): Promise<{ tokill: string[] }>;
 
   /** Verify address */
-  verifyAddress(url: string, address: AddressValue, options: AddressValidationOptions): Promise<AddressValidationResult>;
+  verifyAddress(url: string, address: HareScriptAddressValue, options: AddressValidationOptions): Promise<HareScriptAddressValidationResult>;
 
   formSubmit(submitinfo: RPCFormSubmission): Promise<FormSubmitResult>;
 
