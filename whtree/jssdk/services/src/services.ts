@@ -63,6 +63,7 @@ export async function isWebHareRunning() {
     @param args - Arguments
     @param options - openPrimary
     @returns Promise resolving to the final function's value
+    @deprecated Use \@webhare/harescript's loadlib instead
 */
 export async function callHareScript(func: string, args: unknown[], options?: InvokeOptions) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)

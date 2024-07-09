@@ -68,7 +68,7 @@ async function testServices() {
   test.eq(await loadlib("mod::system/lib/configure.whlib").GetModuleInstallationRoot("system") as string, services.backendConfig.module.system.root);
   ensureProperPath(services.backendConfig.module.system.root);
 
-  //Verify callHareScript supporting the new blobs
+  //Verify loadlib supporting the new blobs
   test.eq("1234", await loadlib("wh::files.whlib").BlobToString(services.WebHareBlob.from("1234")));
   const returnblob = await loadlib("wh::files.whlib").StringToBlob("5678") as services.WebHareBlob;
   test.eq("5678", await returnblob.text());
@@ -151,7 +151,8 @@ async function testEvents() {
   test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }], allevents);
 
   //======= Test remote events
-  await services.callHareScript("wh::ipc.whlib#BroadcastEvent", ["webhare_testsuite:testevent", { event: 3 }]);
+  using serviceJS = await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice", ["x"]);
+  await serviceJS.emitIPCEvent("webhare_testsuite:testevent", { event: 3 });
   await test.wait(() => allevents.length > 1);
   test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }, { name: "webhare_testsuite:testevent", data: { event: 3 } }], allevents);
 
@@ -160,7 +161,7 @@ async function testEvents() {
   await subscription.setMasks(["webhare_testsuite:testevent1", "webhare_testsuite:testevent2.*"]);
   services.broadcast("webhare_testsuite:testevent2.x");
   await test.wait(() => allevents.length > 0);
-  await services.callHareScript("wh::ipc.whlib#BroadcastEvent", ["webhare_testsuite:testevent2.y"]);
+  await serviceJS.emitIPCEvent("webhare_testsuite:testevent2.y", null);
   await test.wait(() => allevents.length > 1);
   test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
 }
@@ -358,7 +359,6 @@ async function runBackendServiceTest_Events() {
   serviceHS.emitTestEvent({ start: 12, add: 13 }).catch(() => { }); //ignore exception usuaslly triggered by the close below (TODO is there any fix for that?)
   test.eq({ start: 12, add: 13 }, await waiterHS); //HS services not as cool to calcuate things
   serviceHS.close();
-
 }
 
 async function testMutexVsHareScript() {
