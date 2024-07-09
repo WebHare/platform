@@ -9,9 +9,10 @@ import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, u
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, isInputElement, parseCondition } from '@webhare/forms/src/domsupport';
-import { rfSymbol, type RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition } from '@webhare/forms/src/domsupport';
+import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormCondition } from '@webhare/forms/src/types';
+import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -34,7 +35,7 @@ declare global {
     propWhFormlineCurrentVisible?: boolean;
     propWhValidationSuggestion?: FormFrontendMessage | null;
     propWhCleanupFunction?: () => void;
-    propWhFormhandler?: FormBase;
+    propWhFormhandler?: FormBase<object>;
     whFormsApiChecker?: () => Promise<void> | void;
     whUseFormGetValue?: boolean;
     __didPlaceholderWarning?: boolean;
@@ -46,7 +47,7 @@ declare global {
     "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
     "wh:form-pagechange": CustomEvent<{
-      formHandler: FormBase;
+      formHandler: FormBase<object>;
       /** TODO Add numPages and currentPage, but we'd need to figure out how to properly account for Captcha pages (you don't want either numPages or currentPage to count that one)
       numPages: number;
       currentPage: number;
@@ -224,122 +225,7 @@ function handleValidateAfterEvent(event: Event) {
   doValidation(event.target, true);
 }
 
-abstract class FormField {
-  protected readonly form: FormBase;
-
-  constructor(form: FormBase) {
-    this.form = form;
-  }
-
-  abstract getValue<T = unknown>(): T;
-
-  /** Set a value
-   * @param newvalue - The new value to set
-   * @param ignoreInvalid - Do not throw if the value is invalid. Used for eg. prefills which can't usefully handle it anyway
-   * @returns True if succesfully set */
-
-  abstract setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean;
-}
-
-class HTMLFormFieldHandler extends FormField {
-  private readonly field;
-
-  constructor(form: FormBase, field: FormControlElement) {
-    super(form);
-    this.field = field;
-  }
-
-  getValue<T = unknown>(): T {
-    if (isInputElement(this.field)) {
-      if (this.field.type === "number")
-        return this.field.valueAsNumber as T;
-      if (this.field.type === "checkbox")
-        return this.field.checked as T;
-    }
-    if (this.field.tagName === 'SELECT') {
-      const fieldAsSelect = this.field as HTMLSelectElement;
-      return (fieldAsSelect.selectedOptions[0]?.value ?? null) as T;
-    }
-
-    return this.field.value as T;
-  }
-
-  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
-    if (isInputElement(this.field)) {
-      if (this.field.type === 'checkbox') {
-        //For convenience we're interpreting setting a checkbox as 'truthy' instead of explicit true/false
-        this.field.checked = Boolean(newvalue);
-        this.form.__scheduleUpdateConditions();
-        return true;
-      }
-    }
-
-    //FIXME type validation
-    this.field.value = newvalue as string;
-    this.form.__scheduleUpdateConditions();
-    return true;
-  }
-}
-
-class RadioFormFieldHandler extends FormField {
-  private readonly rnode;
-
-  constructor(form: FormBase, rnode: ConstrainedRadioNodeList) {
-    super(form);
-    this.rnode = rnode;
-  }
-  getValue<T>(): T {
-    const node = ([...this.rnode] as HTMLInputElement[]).find(_ => _.checked);
-    return (node ? node.value : null) as T;
-  }
-  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
-    if (newvalue === null) {
-      for (const node of [...this.rnode])
-        node.checked = false;
-
-      this.form.__scheduleUpdateConditions();
-      return true;
-    } else {
-      if (typeof newvalue !== "string") {
-        if (options?.ignoreInvalid)
-          return false;
-
-        throw new Error(`Invalid value for ${getFieldDisplayName(this.rnode)}: ${newvalue}`);
-      }
-
-      const node = ([...this.rnode] as HTMLInputElement[]).find(_ => _.value === newvalue);
-      if (!node) {
-        if (options?.ignoreInvalid)
-          return false;
-        throw new Error(`No such value ${newvalue} in ${getFieldDisplayName(this.rnode)}`);
-      }
-
-      node.checked = true;
-      this.form.__scheduleUpdateConditions();
-    }
-    return true;
-  }
-}
-
-class RegisteredFieldHandler extends FormField {
-  private readonly field: RegisteredFieldBase;
-
-  constructor(form: FormBase, field: RegisteredFieldBase) {
-    super(form);
-    this.field = field;
-  }
-
-  getValue<T>(): T {
-    return this.field.getValue() as T;
-  }
-  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
-    return this.field.setValue(newvalue);
-  }
-}
-
-
-export default class FormBase {
-  readonly node: HTMLFormElement;
+export default class FormBase<DataShape extends object = Record<string, unknown>> extends FormFieldMap {
   /** @deprecated Use node.elements if you want a true HTMLFormControlsCollection, use getElementByName since WH5.4+ for properly typed elements */
   readonly elements: HTMLFormControlsCollection;
   private _formsessionid = generateRandomId();
@@ -353,12 +239,18 @@ export default class FormBase {
   /** Did we warn about old style form controls? */
   private didLegacyWarning = false;
 
-  constructor(formnode: HTMLFormElement) {
-    this.node = formnode;
-    if (this.node.nodeName !== 'FORM')
+  readonly data = new Proxy<DataShape>({} as DataShape, new FieldMapDataProxy(this));
+
+  constructor(public readonly node: HTMLFormElement) {
+    if (node.nodeName !== 'FORM')
       throw new Error("Specified node is not a <form>"); //we want our clients to be able to assume 'this.node.elements' works
 
-    this.elements = formnode.elements;
+    const formels = dompack.qSA<HTMLElement>(node, "input[name], select[name], textarea[name], [data-wh-form-registered-field]")
+      .filter(el => !("form" in el) || el.form === node);
+
+    super("", formels);
+
+    this.elements = node.elements;
     if (this.node.propWhFormhandler)
       throw new Error("Specified node already has an attached form handler");
     this.node.propWhFormhandler = this;
@@ -389,35 +281,8 @@ export default class FormBase {
     this._updatePageNavigation();
   }
 
-  static getForNode(node: HTMLElement): FormBase | null {
-    return node.propWhFormhandler || null;
-  }
-
-  /** Get a field handler by name */
-  getField(name: string, options: { allowMissing: true }): FormField | null;
-  getField(name: string, options?: { allowMissing?: boolean }): FormField;
-
-  getField(name: string, options?: { allowMissing?: boolean }): FormField | null {
-    const htmlField = this.getElementByName(name);
-    if (htmlField)
-      if (isRadioNodeList(htmlField))
-        return new RadioFormFieldHandler(this, htmlField);
-      else if (htmlField[rfSymbol])
-        return new RegisteredFieldHandler(this, htmlField[rfSymbol]);
-      else
-        return new HTMLFormFieldHandler(this, htmlField);
-
-    const byNameField = this.node.querySelector<HTMLElement>(`*[data-wh-form-name="${CSS.escape(name)}"]`);
-    if (byNameField)
-      if (byNameField[rfSymbol])
-        return new RegisteredFieldHandler(this, byNameField[rfSymbol]);
-      else
-        throw new Error(`Field ${getFieldDisplayName} is not yet a RegisteredField and cannot be controlled through the getField API`);
-
-    if (options?.allowMissing)
-      return null;
-
-    throw new Error(`Field ${name} not found in this form`);
+  static getForNode<DataShape extends object = Record<string, unknown>>(node: HTMLElement): FormBase<DataShape> | null {
+    return (node.propWhFormhandler as FormBase<DataShape>) || null;
   }
 
   ///like namedItem but improves on the types returned. does *not* lookup by data-wh-form-name!

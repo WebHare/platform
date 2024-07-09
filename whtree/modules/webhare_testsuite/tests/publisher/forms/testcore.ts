@@ -2,6 +2,7 @@ import * as test from '@mod-system/js/wh/testframework';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';
 import { waitChange } from './lib/testhelpers';
+import type { AddressValue } from '@webhare/std';
 
 const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpulldown=1' : '';
 
@@ -17,6 +18,15 @@ function quickFillDefaultRequiredFields() {
   test.fill("#coretest-address\\.zip", "7521AM");
 }
 
+interface CoreFormShape {
+  radiotestnamelijk: number;
+  address: AddressValue;
+  pulldowntest: null | "" | "1" | "2";
+  pulldown2test: null | "red";
+  pulldown3test: null | "";
+  showradioy: boolean;
+  radiotest: null | "3" | "5";
+}
 
 test.registerTests(
   [
@@ -333,36 +343,44 @@ test.registerTests(
 
     'Test form field API',
     async function () {
-      const formhandler = FormBase.getForNode(test.qR('#coreform'))!;
+      const formhandler = FormBase.getForNode<CoreFormShape>(test.qR('#coreform'))!;
 
       //Test the HTML field types
-      test.eq(21, formhandler.getField("radiotestnamelijk").getValue(), "tyoe=number");
-      test.eq("Enschede", formhandler.getField("address.city").getValue(), "type=text");
+      test.eq(21, formhandler.getField("radiotestnamelijk").getValue(), "type=number");
+      test.eqPartial({ city: "Enschede" }, formhandler.getField("address").getValue(), "type=text");
       test.eq("", formhandler.getField("pulldowntest").getValue(), "type=text");
       test.eq("red", formhandler.getField("pulldown2test").getValue(), "type=text");
       test.eq("", formhandler.getField("pulldown3test").getValue(), "type=text");
 
+      test.eq(21, formhandler.data.radiotestnamelijk);
+      test.eq("Enschede", formhandler.data.address.city);
+      test.eq("", formhandler.data.pulldowntest);
+      test.eq("red", formhandler.data.pulldown2test);
+      test.eq("", formhandler.data.pulldown3test);
+
       //Test clearing pulldown. first via OUR code
-      formhandler.getField("pulldowntest").setValue(null);
+      formhandler.data.pulldowntest = null;
       test.eq(-1, test.qR("[name=pulldowntest]").selectedIndex);
-      test.eq(null, formhandler.getField("pulldowntest").getValue());
+      test.eq(null, formhandler.data.pulldowntest);
       //And via the DOM
       test.qR("[name=pulldown3test]").selectedIndex = -1;
-      test.eq(null, formhandler.getField("pulldown3test").getValue());
+      test.eq(null, formhandler.data.pulldown3test);
 
       //Test checkbox field
-      test.eq(true, formhandler.getField("showradioy").getValue(), "type=checkbox");
-      await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => formhandler.getField("showradioy").setValue(false), "Unsetting showradioy should block the 'y' option");
+      test.eq(true, formhandler.data.showradioy, "type=checkbox");
+      await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => formhandler.data.showradioy = false, "Unsetting showradioy should block the 'y' option");
       test.eq(false, test.qR("#coretest-showradioy").checked);
 
       //Test the non-HTML field types (and condition updates)
-      test.eq("3", formhandler.getField("radiotest").getValue(), "RadioFormField");
+      test.eq("3", formhandler.data.radiotest, "RadioFormField");
       await test.throws(/Invalid value for/, () => formhandler.getField("radiotest").setValue(5));
-      await waitChange(() => !test.qR("[name=opt5_select]").disabled, () => formhandler.getField("radiotest").setValue("5"), "Setting radiotest to 5 should enable the opt5_select field");
-      await waitChange(() => test.qR("[name=opt5_select]").disabled, () => formhandler.getField("radiotest").setValue(null), "Clearing the radio should disable the opt5_select field again");
+      //@ts-expect-error Typescript also disapproves
+      await test.throws(/Invalid value for/, () => formhandler.data.radiotest = 5);
+      await waitChange(() => !test.qR("[name=opt5_select]").disabled, () => formhandler.data.radiotest = "5", "Setting radiotest to 5 should enable the opt5_select field");
+      await waitChange(() => test.qR("[name=opt5_select]").disabled, () => formhandler.data.radiotest = null, "Clearing the radio should disable the opt5_select field again");
 
       test.eq(0, test.qSA("[name=radiotest]:checked").length);
-      test.eq(null, formhandler.getField("radiotest").getValue());
+      test.eq(null, formhandler.data.radiotest);
     },
 
     {
