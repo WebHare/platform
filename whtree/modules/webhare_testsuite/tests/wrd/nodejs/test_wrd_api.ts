@@ -3,6 +3,7 @@ import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { CodeContext } from "@webhare/services/src/codecontexts";
+import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 
 async function testCommitAndRollback() { //test the Co-HSVM
   const wrdschema: WRDSchema = await getWRDSchema();
@@ -283,6 +284,33 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
   await whdb.rollbackWork();
 }
 
+async function testRequired() {
+  type MySchema = {
+    testRequiredDom: {
+      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
+      wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+      wrdTitle: WRDAttributeTypeId.String;
+      testFree: IsRequired<WRDAttributeTypeId.String>;
+    } & WRDTypeBaseSettings;
+    testRequiredLink: {
+      wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+      wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+    } & WRDTypeBaseSettings;
+  };
+
+  const wrdschema = await getWRDSchema() as unknown as WRDSchema<MySchema>;
+
+  await whdb.beginWork();
+  const newdomtype = await wrdschema.createType("testRequiredDom", { metaType: "domain" });
+  await wrdschema.createType("testRequiredLink", { metaType: "link", left: "testRequiredDom", right: "testRequiredDom" });
+  await newdomtype.createAttribute("testFree", { attributeType: "string", isRequired: true });
+
+  await test.throws(/Required attribute/, wrdschema.insert("testRequiredDom", {}));
+  await test.throws(/Required attribute/, wrdschema.insert("testRequiredLink", {}));
+
+  await whdb.commitWork();
+}
+
 async function testUnique() {
   await whdb.beginWork();
 
@@ -302,11 +330,11 @@ async function testUnique() {
 
   await whdb.beginWork();
   const pietje = await wrdschema.insert("testUniques", { testFree: "1", testEmail: "2a@a.com", testInteger: 3, testInteger64: 4, testArray: [{ email: "pietje@beta.webhare.net" }] });
-  await test.throws(/conflict/, wrdschema.insert("testUniques", { testFree: "1" }));
-  await test.throws(/conflict/, wrdschema.insert("testUniques", { testEmail: "2a@a.com" }));
-  await test.throws(/conflict/, wrdschema.insert("testUniques", { testInteger: 3 }));
-  await test.throws(/conflict/, wrdschema.insert("testUniques", { testInteger64: 4 }));
-  await test.throws(/conflict/, wrdschema.insert("testUniques", { testArray: [{ email: "pietje@beta.webhare.net" }] })); //"Issue #479"
+  await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testFree: "1" }));
+  await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testEmail: "2a@a.com" }));
+  await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testInteger: 3 }));
+  await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testInteger64: 4 }));
+  await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testArray: [{ email: "pietje@beta.webhare.net" }] })); //"Issue #479"
 
   await whdb.commitWork();
 
@@ -349,7 +377,7 @@ async function testUnique() {
   //test email normalization
   await whdb.beginWork();
   test.throws(/Invalid email address/, wrdschema.insert("testUniques", { testEmail: "trans@beta" }));
-  test.throws(/Unique value conflict/, wrdschema.insert("testUniques", { testEmail: "TRANS@beta.webhare.net" }));
+  test.throws(/Unique constraint violated/, wrdschema.insert("testUniques", { testEmail: "TRANS@beta.webhare.net" }));
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "trans@beta.webhare.net"));
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
   await wrdschema.update("testUniques", person1, { testEmail: "TRANS@beta.webhare.net" });
@@ -362,9 +390,52 @@ async function testUnique() {
   await whdb.commitWork();
 }
 
+async function testReferences() {
+  await whdb.beginWork();
+
+  type MySchema = {
+    testReferencesDom1: {
+      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
+      wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+      wrdTitle: WRDAttributeTypeId.String;
+    } & WRDTypeBaseSettings;
+    testReferencesDom2: {
+      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
+      wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+      wrdTitle: WRDAttributeTypeId.String;
+    } & WRDTypeBaseSettings;
+    testReferencesLink: {
+      wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
+      wrdRightEntity: WRDBaseAttributeTypeId.Base_Domain;
+    } & WRDTypeBaseSettings;
+  };
+
+  const wrdschema = await getWRDSchema() as unknown as WRDSchema<MySchema>;
+  await wrdschema.createType("testReferencesDom1", { metaType: "domain" });
+  await wrdschema.createType("testReferencesDom2", { metaType: "domain" });
+  await wrdschema.createType("testReferencesLink", { metaType: "link", left: "testReferencesDom1", right: "testReferencesDom2" });
+  const rootNode = await wrdschema.insert("testReferencesDom1", {});
+  const root2Node = await wrdschema.insert("testReferencesDom2", {});
+  // wrdLeftEntity not allowed to reference self
+  await test.throws(/may not reference itself/, wrdschema.update("testReferencesDom1", rootNode, { wrdLeftEntity: rootNode }));
+  // wrdLeftEntity must reference the correct type
+  await test.throws(/Referential integrity violated/, wrdschema.insert("testReferencesDom2", { wrdLeftEntity: rootNode }));
+  await test.throws(/Referential integrity violated/, wrdschema.insert("testReferencesLink", { wrdLeftEntity: root2Node, wrdRightEntity: root2Node }));
+  await test.throws(/Referential integrity violated/, wrdschema.insert("testReferencesLink", { wrdLeftEntity: rootNode, wrdRightEntity: rootNode }));
+  const link = await wrdschema.insert("testReferencesLink", { wrdLeftEntity: rootNode, wrdRightEntity: root2Node });
+  await test.throws(/Referential integrity violated/, wrdschema.update("testReferencesLink", link, { wrdLeftEntity: root2Node, wrdRightEntity: root2Node }));
+  await test.throws(/Referential integrity violated/, wrdschema.update("testReferencesLink", link, { wrdLeftEntity: rootNode, wrdRightEntity: rootNode }));
+
+
+
+
+}
+
 test.run([
   async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
   testCommitAndRollback,
   testWRDUntypedApi,
+  testRequired,
   testUnique,
+  testReferences,
 ], { wrdauth: false });

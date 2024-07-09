@@ -16,6 +16,7 @@ import { uploadBlob } from "@webhare/whdb/src/whdb";
 import { WebHareBlob } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "@webhare/wrd/src/auth";
+import type { ValueQueryChecker } from "./checker";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -150,7 +151,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
-  abstract validateInput(value: In): void;
+  abstract validateInput(value: In, checker: ValueQueryChecker, attrPath: string): void;
 
   /** Returns the list of attributes that need to be fetched */
   getAttrIds(): number | number[] {
@@ -348,9 +349,13 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     return entity_settings[settings_start].rawdata;
   }
 
-  validateInput(value: string) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: string, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value && this.attr.isunique)
+      checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
+    if (Buffer.byteLength(value) > 4096)
+      throw new Error(`Provided too large value (${Buffer.byteLength(value)} bytes) for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: string): EncodedValue {
@@ -359,10 +364,10 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
 }
 
 class WRDDBEmailValue extends WRDDBStringValue {
-  encodeValue(value: string): EncodedValue {
+  validateInput(value: string, checker: ValueQueryChecker, attrPath: string): void {
+    super.validateInput(value, checker, attrPath);
     if (value && !isValidEmail(value))
-      throw new Error(`Invalid email address '${value}' for attribute ${this.attr.tag}`);
-    return super.encodeValue(value);
+      throw new Error(`Invalid email address ${JSON.stringify(value)} for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
   isCaseInsensitve(cv: WRDDBStringConditions) {
     return true;
@@ -370,10 +375,10 @@ class WRDDBEmailValue extends WRDDBStringValue {
 }
 
 class WRDDBUrlValue extends WRDDBStringValue {
-  validateInput(value: string): void {
-    super.validateInput(value);
+  validateInput(value: string, checker: ValueQueryChecker, attrPath: string): void {
+    super.validateInput(value, checker, attrPath);
     if (!isValidUrl(value))
-      throw new Error(`Invalid URL '${value}' for attribute ${this.attr.tag}`);
+      throw new Error(`Invalid URL ${JSON.stringify(value)} for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 }
 
@@ -463,11 +468,15 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
     throw new Error("Not implemented for base fields");
   }
 
-  validateInput(value: string) {
+  validateInput(value: string, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value.length > 256)
-      throw new Error(`Value for attribute ${this.attr.tag} is too long (${value.length} characters, maximum is 256)`);
+      throw new Error(`Value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} is too long (${value.length} characters, maximum is 256)`);
+    if (value && this.attr.isunique)
+      checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
+    if (this.attr.tag === "wrdTag" && !isValidWRDTag(value))
+      throw new Error(`Invalid wrdTag '${value}' - must start with A-Z, may only contain A-Z, 0-9 and _, but must not end with a _. Maximum length is 64 characters`);
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -484,8 +493,6 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
   }
 
   encodeValue(value: string): EncodedValue {
-    if (this.attr.tag === "wrdTag" && !isValidWRDTag(value))
-      throw new Error(`Invalid wrdTag '${value}' - must start with A-Z, may only contain A-Z, 0-9 and _, but must not end with a _. Maximum length is 64 characters`);
     const key = this.getAttrBaseCells();
     return { entity: { [key]: value } };
   }
@@ -536,8 +543,9 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
     throw new Error("Not implemented for base fields");
   }
 
-  validateInput(value: string) {
+  validateInput(value: string, checker: ValueQueryChecker) {
     this.checkGuid(value);
+    checker.addUniqueCheck(this.attr.fullTag, value, this.attr.tag);
   }
 
   getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
@@ -608,8 +616,8 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
     return getAttrBaseCells(this.attr.tag, ["wrdSaluteFormal", "wrdAddressFormal", "wrdFullName", "wrdTitle"]);
   }
 
-  validateInput(value: string): void {
-    throw new Error(`Unable to updated generated field ${JSON.stringify(this.attr.tag)}`);
+  validateInput(value: string, checker: ValueQueryChecker, attrPath: string): void {
+    throw new Error(`Unable to update generated field ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: string | null): EncodedValue {
@@ -645,9 +653,9 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
     return entity_settings[settings_start].rawdata === "1";
   }
 
-  validateInput(value: boolean) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: boolean, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: boolean): EncodedValue {
@@ -659,6 +667,10 @@ type WRDDBIntegerConditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: number;
 } | {
   condition: "in"; value: readonly number[];
+} | {
+  condition: "mentions"; value: number;
+} | {
+  condition: "mentionsany"; value: readonly number[];
 };
 
 class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
@@ -667,14 +679,20 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     // type-check is enough (for now)
   }
   matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
-    if (cv.condition === "in")
+    if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
     return cmp(value, cv.condition, cv.value);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
+    else if (cv.condition === "mentionsany")
+      cv = { condition: "in", value: cv.value };
     if (cv.condition === "in" && !cv.value.length)
       return null;
 
@@ -690,9 +708,11 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     return Number(entity_settings[settings_start].rawdata);
   }
 
-  validateInput(value: number) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: number, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value && this.attr.isunique)
+      checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
   }
 
   encodeValue(value: number): EncodedValue {
@@ -707,14 +727,22 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     // type-check is enough (for now)
   }
   matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
-    if (cv.condition === "in")
+    if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
     return cmp(value, cv.condition, cv.value);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
+    else if (cv.condition === "mentionsany")
+      cv = { condition: "in", value: cv.value };
+
     if (cv.condition === "in" && !cv.value.length)
       return null;
+
     switch (this.attr.tag) {
       case "wrdId": query = addWhere(query, "id", cv.condition, cv.value); break;
       case "wrdType": query = addWhere(query, "type", cv.condition, cv.value); break;
@@ -741,9 +769,11 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     throw new Error(`Should not be called for base attributes`);
   }
 
-  validateInput(value: number) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: number, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value && this.attr.isunique)
+      checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -829,16 +859,21 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     return entity_settings[settings_start].setting as number; // for domains, always filled with valid reference
   }
 
-  validateInput(value: true extends Required ? number : number | null) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: true extends Required ? number : number | null, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value && this.attr.domain) {
+      checker.addRefCheck(this.attr.domain, value, attrPath + this.attr.tag);
+      if (value && this.attr.isunique)
+        checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
+    }
+    if (value === 0)
+      throw new Error(`Value may not be the number 0 for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} - use \`null\` to encode an empty domain value`);
   }
 
   encodeValue(value: number): EncodedValue {
     if (value === null)
       return {};
-    if (value === 0)
-      throw new Error("Value may not be the number 0 - use `null` to encode an empty domain value");
 
     return { settings: { setting: value, attribute: this.attr.id } };
   }
@@ -917,9 +952,17 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
     throw new Error(`Should not be called for base attributes`);
   }
 
-  validateInput(value: true extends Required ? number : number | null) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: true extends Required ? number : number | null, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+
+    if (value && this.attr.domain && (this.attr.tag === "wrdLeftEntity" || this.attr.tag === "wrdRightEntity")) {
+      if (value === checker.entityId)
+        throw new Error(`Entity ${checker.entityId} may not reference itself in attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+      checker.addRefCheck(this.attr.domain, value, attrPath + this.attr.tag);
+      if (value && this.attr.isunique)
+        checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
+    }
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -1019,11 +1062,11 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     return retval;
   }
 
-  validateInput(value: number[]) {
-    if (this.attr.required && !value.length)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: number[], checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value.length && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value.includes(0))
-      throw new Error(`Value may not include the number 0 for attribute ${this.attr.tag}`);
+      throw new Error(`Value may not include the number 0 for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: number[]): EncodedValue {
@@ -1107,9 +1150,15 @@ abstract class WRDDBEnumValueBase<Options extends { allowedvalues: string }, Req
     return entity_settings[settings_start].rawdata as GetEnumAllowedValues<Options, Required>;
   }
 
-  validateInput(value: GetEnumAllowedValues<Options, Required> | null) {
-    if (this.attr.required && (!value || !value.length))
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: GetEnumAllowedValues<Options, Required> | null, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && (!value || !value.length) && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value) {
+      if (this.attr.isunique)
+        checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
+      if (!this.attr.allowedvalues || !this.attr.allowedvalues.split("\t").includes(value))
+        throw new Error(`Invalid value ${JSON.stringify(value)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    }
   }
 }
 
@@ -1152,6 +1201,16 @@ class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedvalues: WRDGender
     return getAttrBaseCells(this.attr.tag, ["wrdGender"]);
   }
 
+  validateInput(value: GetEnumAllowedValues<{ allowedvalues: WRDGender }, false> | null, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && (!value || !value.length) && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value) {
+      if (!["male", "female", "other"].includes(value))
+        throw new Error(`Invalid value ${JSON.stringify(value)} for gender attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    }
+  }
+
+
   encodeValue(value: WRDGender) {
     const mapped = [null, WRDGender.Male, WRDGender.Female, WRDGender.Other].indexOf(value);
     if (mapped === -1)
@@ -1193,9 +1252,18 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
     return entity_settings[settings_start].rawdata ? entity_settings[settings_start].rawdata.split("\t") as Array<GetEnumArrayAllowedValues<Options>> : [];
   }
 
-  validateInput(value: Array<GetEnumArrayAllowedValues<Options>>) {
-    if (value.some(v => !v))
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: Array<GetEnumArrayAllowedValues<Options>>, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value.length && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    const allowed = this.attr.allowedvalues ? this.attr.allowedvalues.split("\t") : [];
+    for (const v of value) {
+      if (!v)
+        throw new Error(`Provided default enum value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+      if (!allowed.includes(v))
+        throw new Error(`Invalid value ${JSON.stringify(v)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    }
+    if (Buffer.byteLength(value.join("\t")) > 4096)
+      throw new Error(`EnumArray value too long for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: Array<GetEnumArrayAllowedValues<Options>>): EncodedValue {
@@ -1277,11 +1345,9 @@ class WRDDBStatusRecordValue<Options extends { allowedvalues: string; type: obje
     return { status, ...bufData } as GetStatusRecordValues<Options, Required>;
   }
 
-  validateInput(value: GetStatusRecordValues<Options, Required>) {
-    if (this.attr.required && !value?.status.length)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
-
-
+  validateInput(value: GetStatusRecordValues<Options, Required>, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value?.status.length && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: GetStatusRecordValues<Options, Required> | null): EncodedValue | AwaitableEncodedValue {
@@ -1338,11 +1404,11 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
     return makeDateFromParts(Number(parts[0]), 0);
   }
 
-  validateInput(value: (true extends Required ? Date : Date | null)) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: (true extends Required ? Date : Date | null), checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed use defaultDateTime of maxDateTime for attribute(this.attr.tag)`);
+      throw new Error(`Not allowed use defaultDateTime of maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: (true extends Required ? Date : Date | null)): EncodedValue {
@@ -1356,11 +1422,15 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
 
 class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
+  validateFilterInput(value: Date | null) {
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
+  }
   checkFilter(cv: WRDDBDateTimeConditions) {
     if (cv.condition === "in")
-      cv.value.forEach(v => this.validateInput(v));
+      cv.value.forEach(v => this.validateFilterInput(v));
     else
-      this.validateInput(cv.value);
+      this.validateFilterInput(cv.value);
   }
   matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
     if (cv.condition === "in") {
@@ -1407,9 +1477,13 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
     return val;
   }
 
-  validateInput(value: Date | null) {
+  validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value && this.attr.tag === "wrdDateOfDeath" && value.getTime() > Date.now())
+      throw new Error(`Provided date of death in the future for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -1447,9 +1521,9 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
     return makeDateFromParts(Number(parts[0]), Number(parts[1]));
   }
 
-  validateInput(value: (true extends Required ? Date : Date | null)) {
-    if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  validateInput(value: (true extends Required ? Date : Date | null), checker: ValueQueryChecker, attrPath: string) {
+    if (this.attr.required && !value && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: (true extends Required ? Date : Date | null)): EncodedValue {
@@ -1467,11 +1541,17 @@ type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRD
 
 class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
+
+  validateFilterInput(value: Date | null) {
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime`);
+  }
+
   checkFilter(cv: WRDDBDateTimeConditions) {
     if (cv.condition === "in")
-      cv.value.forEach(v => this.validateInput(v));
+      cv.value.forEach(v => this.validateFilterInput(v));
     else
-      this.validateInput(cv.value);
+      this.validateFilterInput(cv.value);
   }
   matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
     if (cv.condition === "in") {
@@ -1530,9 +1610,12 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
     return val;
   }
 
-  validateInput(value: Date | null) {
+  validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
+    // FIXME: check temp mode
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use null`);
+    if (!value && this.attr.tag === "wrdCreationDate" && (!checker.temp || attrPath))
+      throw new Error(`Not allowed to use \`null\` for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} for non-temp entities`);
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -1546,17 +1629,22 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
 
 class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | null, Date, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
+
+  validateFilterInput(value: Date) {
+    throw new Error(`Not allowed to use defaultDatetime or maxDatetime`);
+  }
+
   checkFilter(cv: WRDDBDateTimeConditions) {
     if (cv.condition === "in") {
       for (const value of cv.value)
         if (!value)
           throw new Error(`Not allowed to use null in comparisions`);
         else
-          this.validateInput(value);
+          this.validateFilterInput(value);
     } else if (!cv.value)
       throw new Error(`Not allowed to use null in comparisions`);
     else
-      this.validateInput(cv.value);
+      this.validateFilterInput(cv.value);
   }
   matchesValue(value: Date, cv: WRDDBDateTimeConditions): boolean {
     if (cv.condition === "in") {
@@ -1588,9 +1676,11 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
     return entityrec.modificationdate;
   }
 
-  validateInput(value: Date) {
+  validateInput(value: Date, checker: ValueQueryChecker, attrPath: string) {
+    if (!value)
+      throw new Error(`Not allowed to use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs)
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime`);
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -1691,14 +1781,17 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
-  validateInput(value: Array<Insertable<Members>>) {
-    for (const row of value)
+  validateInput(value: Array<Insertable<Members>>, checker: ValueQueryChecker, attrPath: string) {
+    const eltBasePath = attrPath + this.attr.tag + "[";
+    for (const [idx, row] of value.entries()) {
+      const eltPath = eltBasePath + idx + '].';
       for (const field of this.fields) {
         if (field.name in row)
-          field.accessor.validateInput(row[field.name as keyof typeof row]);
+          field.accessor.validateInput(row[field.name as keyof typeof row], checker, eltPath);
         else if (field.accessor.attr.required)
-          throw new Error(`Missing required field ${JSON.stringify(field.name)} in ${JSON.stringify(this.attr.tag)}`);
+          throw new Error(`Missing required field ${JSON.stringify(field.name)} for attribute ${checker.typeTag}.${eltBasePath}${field.name as string}`);
       }
+    }
   }
 
   getAttrIds(): number | number[] {
@@ -1766,8 +1859,9 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
     return data ? JSON.parse(data) : null;
   }
 
-  validateInput(value: JSONType | NullIfNotRequired<Required>): void {
-    /* always valid */
+  validateInput(value: JSONType | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
+    if (!value && this.attr.required && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: JSONType | NullIfNotRequired<Required>): AwaitableEncodedValue {
@@ -1788,8 +1882,9 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
     return data ? decodeHSON(data) as IPCMarshallableRecord : null;
   }
 
-  validateInput(value: object | null): void {
-    /* always valid */
+  validateInput(value: object | null, checker: ValueQueryChecker, attrPath: string): void {
+    if (!value && this.attr.required && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: object | null): AwaitableEncodedValue {
@@ -1882,20 +1977,30 @@ type WRDDBInteger64Conditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: bigint | number;
 } | {
   condition: "in"; value: readonly bigint[];
+} | {
+  condition: "mentions"; value: bigint | number;
+} | {
+  condition: "mentionsany"; value: readonly bigint[];
 };
-
-class WRDDBInteger64Value extends WRDAttributeValueBase<bigint, bigint, bigint, WRDDBInteger64Conditions> {
+class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint, bigint, WRDDBInteger64Conditions> {
   getDefaultValue() { return 0n; }
   checkFilter({ condition, value }: WRDDBInteger64Conditions) {
     // type-check is enough (for now)
   }
   matchesValue(value: bigint, cv: WRDDBInteger64Conditions): boolean {
-    if (cv.condition === "in")
+    if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
     return cmp(value, cv.condition, cv.value);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBInteger64Conditions): AddToQueryResponse<O> {
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
+    else if (cv.condition === "mentionsany")
+      cv = { condition: "in", value: cv.value };
+
     if (cv.condition !== "in" && typeof cv.value === "number") {
       cv = { ...cv, value: BigInt(cv.value) };
     }
@@ -1915,13 +2020,17 @@ class WRDDBInteger64Value extends WRDAttributeValueBase<bigint, bigint, bigint, 
     return BigInt(entity_settings[settings_start].rawdata);
   }
 
-  validateInput(value: bigint) {
+  validateInput(value: bigint, checker: ValueQueryChecker, attrPath: string) {
+    if (typeof value === "number")
+      value = BigInt(value);
     if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value >= 2n ** 63n)
-      throw new Error(`Integer64 out of range for ${this.attr.tag}: ${value} > 2^63-1`);
+      throw new Error(`Integer64 out of range for ${checker.typeTag}.${attrPath}${this.attr.tag}: ${value} > 2^63-1`);
     if (value < -(2n ** 63n))
-      throw new Error(`Integer64 out of range for ${this.attr.tag}: ${value} < -2^63`);
+      throw new Error(`Integer64 out of range for ${checker.typeTag}.${attrPath}${this.attr.tag}: ${value} < -2^63`);
+    if (value && this.attr.isunique)
+      checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
   }
 
   encodeValue(value: bigint): EncodedValue {
@@ -1933,6 +2042,10 @@ type WRDDBMoneyConditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: Money;
 } | {
   condition: "in"; value: readonly Money[];
+} | {
+  condition: "mentions"; value: Money;
+} | {
+  condition: "mentionsany"; value: readonly Money[];
 };
 
 class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMoneyConditions> {
@@ -1941,11 +2054,12 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
     // type-check is enough (for now)
   }
   matchesValue(value: Money, cv: WRDDBMoneyConditions): boolean {
-    if (cv.condition === "in")
+    if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.some(v => Money.cmp(value, v) === 0);
     const cmpres = Money.cmp(value, cv.value);
     switch (cv.condition) {
       case "=": return cmpres === 0;
+      case "mentions": return cmpres === 0;
       case ">=": return cmpres >= 0;
       case "<=": return cmpres <= 0;
       case "<": return cmpres < 0;
@@ -1955,6 +2069,11 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBMoneyConditions): AddToQueryResponse<O> {
+    if (cv.condition === "mentions")
+      cv = { condition: "=", value: cv.value };
+    else if (cv.condition === "mentionsany")
+      cv = { condition: "in", value: cv.value };
+
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     if (cv.condition === "in" && !cv.value.length)
@@ -1972,9 +2091,9 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
     return new Money(entity_settings[settings_start].rawdata);
   }
 
-  validateInput(value: Money) {
+  validateInput(value: Money, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && !value)
-      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: Money): EncodedValue {
@@ -2012,17 +2131,17 @@ class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparab
     return { ...omit(parsed, ["nr_detail"]), houseNumber: parsed.nr_detail };
   }
 
-  validateInput(value: AddressValue | NullIfNotRequired<Required>): void {
+  validateInput(value: AddressValue | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
     if (!value)
       return;
     if ("nr_detail" in value)
-      throw new Error(`AddressValue should not contain nr_detail, use houseNumber instead`);
+      throw new Error(`AddressValue should not contain nr_detail for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use houseNumber instead`);
     if ("housenumber" in value)
-      throw new Error(`AddressValue should not contain housenumber, use houseNumber instead (did you route the address value through HareScript?)`);
+      throw new Error(`AddressValue should not contain housenumber for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use houseNumber instead (did you route the address value through HareScript?)`);
     if (value.country?.length !== 2)
-      throw new Error(`The field 'country' is required in an address and must be a 2 character code`);
+      throw new Error(`The field 'country' is required in an address for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} and must be a 2 character code`);
     if (value.country !== value.country.toUpperCase())
-      throw new Error(`The field 'country' must be uppercase`);
+      throw new Error(`The field 'country' must be uppercase for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   encodeValue(value: AddressValue | NullIfNotRequired<Required>): AwaitableEncodedValue {
@@ -2097,19 +2216,9 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
 // FIXME: add wildcard support
 type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Options extends { allowedvalues: infer V } ? V : never;
 
-/// The following accessors are not implemented yet, but have some typings
-//class WRDDBBaseCreationLimitDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
-//class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
-//class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
-//class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
-//class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>> { _x?: Options; _y?: Required; }
-
 /// The following accessors are not implemented yet
-//class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-//class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | { data: Buffer } | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-//class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }

@@ -35,8 +35,8 @@ let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 export class TestError extends Error {
   readonly annotation: string;
 
-  constructor(message: string, annotation?: Annotation) {
-    super(message);
+  constructor(message: string, annotation?: Annotation, options?: { cause?: Error }) {
+    super(message, options);
 
     //Log test failure info during construction so it's not lost if there's not a testrunner to catch and display this
     console.error("TestError:", message);
@@ -340,7 +340,7 @@ function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: 
     onLog("Got exception: ", exceptiontext);
     if (exception.stack)
       onLog("Stack: ", exception.stack);
-    throw new TestError("testThrows fails - exception mismatch", annotation);
+    throw new TestError("testThrows fails - exception mismatch", annotation, { cause: exception });
   }
 
   return exception; //we got what we wanted - a throw! return the Error
