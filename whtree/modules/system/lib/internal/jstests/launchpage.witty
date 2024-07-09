@@ -56,8 +56,10 @@
   <head>
     <script>
       const bundlestatus = [bundlestatus:json];
-      console.error("Testscript compile errors");
-      console.table(bundlestatus.errors);
+      console.error("Testscript compile errors", bundlestatus);
+      for(const err of bundlestatus.status?.info?.errors || [[])
+        console.error(`${err.resource}:${err.line}:${err.col} ${err.message}`);
+
       window.parent.postMessage({type: 'compilefailure', bundlestatus}, location.origin);
     </script>
     <style>

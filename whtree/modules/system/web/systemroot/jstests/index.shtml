@@ -30,17 +30,18 @@ RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint, STRING setcompatibil
 
   STRING headers := GetAssetpackIntegrationCode(designhash);
   STRING errors;
+  RECORD status;
 
   IF (packinginfo.haserrors)
   {
     OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-    VARIANT status := WaitForPromise(assetpackcontrol->recompileBundle(designhash));
+    status := WaitForPromise(assetpackcontrol->recompileBundle(designhash));
     IF (RecordExists(status))
       errors := status.errors;
     assetpackcontrol->CloseService();
   }
 
-  RETURN CELL[ headers, packinginfo.haserrors, errors ];
+  RETURN CELL[ headers, packinginfo.haserrors, errors, status ];
 }
 
 
@@ -103,6 +104,7 @@ IF(urlbase LIKE "*/!/*")
               hasdevmodule := IsModuleInstalled("dev"),
               bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
                                   , headers.errors
+                                  , headers.status
                                   ]
             ]);
           RETURN;
