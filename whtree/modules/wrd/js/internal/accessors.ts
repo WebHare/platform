@@ -435,6 +435,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       case "wrdFirstNames": baseAttr = !caseInsensitive ? sql`firstnames` : sql`upper("firstnames")`; break;
       case "wrdInfix": baseAttr = !caseInsensitive ? sql`infix` : sql`upper("infix")`; break;
       case "wrdLastName": baseAttr = !caseInsensitive ? sql`lastname` : sql`upper("lastname")`; break;
+      case "wrdTitles": baseAttr = !caseInsensitive ? sql`titles` : sql`upper("titles")`; break;
       case "wrdTitlesSuffix": baseAttr = !caseInsensitive ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
       default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
     }
@@ -452,6 +453,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       case "wrdFirstNames": return entityRecord.firstnames || "";
       case "wrdInfix": return entityRecord.infix || "";
       case "wrdLastName": return entityRecord.lastname || "";
+      case "wrdTitles": return entityRecord.titles || "";
       case "wrdTitlesSuffix": return entityRecord.titles_suffix || "";
       default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
     }
@@ -476,6 +478,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       "wrdFirstNames",
       "wrdInfix",
       "wrdLastName",
+      "wrdTitles",
       "wrdTitlesSuffix"
     ]);
   }

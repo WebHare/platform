@@ -32,7 +32,7 @@ export enum WRDBaseAttributeTypeId {
   Base_ModificationDate = -10, // wrdModificationDate
   Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
   Base_GeneratedString = -6, // wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
-  Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitlesSuffix
+  Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
   Base_Domain = -8, // wrdLeftEntity, wrdRightEntity
   Base_Gender = -9, // wrd_gender
   Base_FixedDomain = -11, // wrd_id, wrd_type
@@ -129,6 +129,7 @@ export const baseAttrCells = {
   "wrdFirstNames": "firstnames",
   "wrdInfix": "infix",
   "wrdLastName": "lastname",
+  "wrdTitles": "titles",
   "wrdTitlesSuffix": "titles_suffix",
   "wrdGuid": "guid",
   "wrdGender": "gender",

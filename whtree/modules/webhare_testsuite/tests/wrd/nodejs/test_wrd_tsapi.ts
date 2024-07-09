@@ -68,6 +68,7 @@ function testSupportAPI() {
   testTag("WRD_ORGNAME", "wrdOrgName");
   testTag("WRD_SALUTE_FORMAL", "wrdSaluteFormal");
   testTag("WRD_ADDRESS_FORMAL", "wrdAddressFormal");
+  testTag("WRD_TITLES", "wrdTitles");
   testTag("WRD_TITLES_SUFFIX", "wrdTitlesSuffix");
   testTag("WRD_LEFTENTITY", "wrdLeftEntity");
   testTag("WRD_RIGHTENTITY", "wrdRightEntity");
