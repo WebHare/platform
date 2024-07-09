@@ -1,7 +1,8 @@
-import type { FormControlElement } from "@webhare/dompack";
+import { type FormControlElement } from "@webhare/dompack";
 import { isInputElement } from "./domsupport";
 import { nameToCamelCase, nameToSnakeCase } from "@webhare/hscompat/types";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
+import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
 
 export interface FormParent {
   __scheduleUpdateConditions(): void;
@@ -105,7 +106,7 @@ class CheckboxGroupHandler implements FormField {
 }
 
 class RegisteredFieldHandler implements FormField {
-  constructor(private form: FormParent, private readonly field: FormFieldAPI) {
+  constructor(protected form: FormParent, private readonly field: FormFieldAPI) {
   }
 
   getValue(): unknown {
@@ -113,6 +114,23 @@ class RegisteredFieldHandler implements FormField {
   }
   setValue(newvalue: unknown): void {
     this.field.setValue(newvalue);
+  }
+}
+
+class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
+  private baseName;
+
+  constructor(form: FormParent, private node: HTMLElement, items: HTMLElement[]) {
+    node[rfSymbol] ||= new ArrayField(form, node, items);
+    super(form, node[rfSymbol]);
+
+    this.baseName = node.dataset.whFormGroupFor!;
+    if (!this.baseName)
+      throw new Error("ArrayFieldHandler: Missing base name");
+  }
+
+  __scheduleUpdateConditions() {
+    this.form.__scheduleUpdateConditions();
   }
 }
 
@@ -132,6 +150,14 @@ export abstract class FormFieldMap {
       if (items[0].matches('input[type=radio]')) {
         this.fieldmap.set(name, new RadioFormFieldHandler(this, fullName, items as HTMLInputElement[]));
         continue;
+      }
+
+      if (items[0].matches('.wh-form__arrayinput')) {
+        const arraygroup = items[0].closest<HTMLElement>('.wh-form__fieldgroup--array');
+        if (arraygroup) {
+          this.fieldmap.set(name, new ArrayFieldHandler(this, arraygroup, items));
+          continue;
+        }
       }
 
       if (items.length > 1) { //TODO setup a plugin system/make this more elegant....
@@ -181,15 +207,18 @@ export abstract class FormFieldMap {
 }
 
 
-class RecordFieldHandler extends FormFieldMap implements FormField {
+export class RecordFieldHandler extends FormFieldMap implements FormField {
   constructor(private form: FormParent, baseName: string, nodes: HTMLElement[]) {
     super(baseName, nodes);
   }
 
   getValue(): unknown {
     const retval: Record<string, unknown> = {};
-    for (const [name, field] of this.fieldmap)
-      retval[name] = field.getValue();
+    for (const [name, field] of this.fieldmap) {
+      const val = field.getValue();
+      if (val !== undefined) //Suppress undefined values (where we cannot safely re-set them, eg images in Object.keys
+        retval[name] = val;
+    }
 
     return retval;
   }
@@ -213,10 +242,9 @@ export class FieldMapDataProxy implements ProxyHandler<object> {
   constructor(private readonly form: FormFieldMap) {
   }
   get(target: object, p: string) {
-    if (p in target || typeof p !== 'string' || ["toJSON"].includes(p)) //better get out of the way - don't block JS builtins (TODO is there a proper list somewhere of builtins to ignore?)
-      return (target as Record<string, unknown>)[p];
-
-    return this.form.getField(p).getValue();
+    //Don't attempt to validate getters... it will break various introspection calls (eg requesting constructor, checking for 'then'...)
+    const field = this.form.getField(p, { allowMissing: true });
+    return field ? field.getValue() : (target as Record<string, unknown>)[p];
   }
   set(target: unknown, p: string, value: unknown): boolean {
     this.form.getField(p).setValue(value);
@@ -225,7 +253,9 @@ export class FieldMapDataProxy implements ProxyHandler<object> {
   ownKeys(target: object): ArrayLike<string | symbol> {
     return this.form.getFieldNames();
   }
-  getOwnPropertyDescriptor(/*target, prop*/) { // allow ownKeys to actually return to Object.keys
-    return { enumerable: true, configurable: true };
+  getOwnPropertyDescriptor(target: unknown, prop: string) { // allow ownKeys to actually return to Object.keys
+    const val = this.form.getField(prop, { allowMissing: true })?.getValue();
+    //Suppress undefined values (where we cannot safely re-set them, eg images in Object.keys
+    return { enumerable: val !== undefined, configurable: true };
   }
 }

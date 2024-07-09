@@ -629,7 +629,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
             STRING cellname := Substring(field->name, Length(fielddescription.name) + 1);
             VARIANT savedvalue := field->value; //this is the default, so save it.. we lack a nondestructive 'Render-with-this-value'
             field->value := GetCell(row.cells, cellname);
-            field->RenderField(); //FIXME we should set the proper ids+names serverside instead of relying on clientisde fixing
+            field->RenderField(); //FIXME we should set the proper ids+names serverside instead of relying on clientisde fixing. but this ship may have sailed for HareScript rendering as we can't add context (eg a name prefix) to RenderField
 
             field->value := savedvalue;
           }

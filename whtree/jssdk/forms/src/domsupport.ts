@@ -2,7 +2,7 @@
 
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
-import { isFormControl, isHTMLElement, type FormControlElement } from "@webhare/dompack";
+import { isFormControl, isHTMLElement, qSA, type FormControlElement } from "@webhare/dompack";
 import type { FormCondition } from "./types";
 
 export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
@@ -95,4 +95,16 @@ export function parseCondition(conditiontext: string): FormCondition {
   }
 
   return (JSON.parse(conditiontext) as FormConditionWrapper).c;
+}
+
+export function getFormElementCandidates(basenode: HTMLElement, namePrefix: string) {
+  const parentForm = basenode.closest('form');
+  if (!parentForm)
+    throw new Error('No form found for element');
+
+  const candidates = qSA<HTMLElement>(basenode, "input, select, textarea, [data-wh-form-registered-field]").filter(el => !("form" in el) || el.form === parentForm);
+  if (namePrefix)
+    return candidates.filter(el => ((el as FormControlElement).name || el.dataset.whFormName || '').startsWith(namePrefix + '.'));
+  else
+    return candidates;
 }

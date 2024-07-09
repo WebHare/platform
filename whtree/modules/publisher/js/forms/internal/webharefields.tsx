@@ -4,7 +4,6 @@ import * as dompack from 'dompack';
 import { qSA } from 'dompack';
 import * as datetime from 'dompack/types/datetime';
 import AddressField from '@mod-publisher/js/forms/fields/addressfield';
-import ArrayField from '@mod-publisher/js/forms/fields/arrayfield';
 import CaptchaField from '@mod-publisher/js/forms/fields/captchafield';
 import { setupValidator } from './customvalidation';
 
@@ -155,10 +154,6 @@ export function setup(form) {
   // Setup address field validation
   for (const addresscontrol of qSA(form, ".wh-form__fieldgroup--addressfield"))
     new AddressField(addresscontrol);
-
-  // Setup array fields
-  for (const arrayfieldgroup of qSA(form, ".wh-form__fieldgroup--array"))
-    new ArrayField(arrayfieldgroup);
 
   // Setup on-demand captcha
   if (form.dataset.whFormCaptcha) {

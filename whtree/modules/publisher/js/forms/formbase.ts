@@ -9,7 +9,7 @@ import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, u
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormCondition } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
@@ -245,10 +245,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     if (node.nodeName !== 'FORM')
       throw new Error("Specified node is not a <form>"); //we want our clients to be able to assume 'this.node.elements' works
 
-    const formels = dompack.qSA<HTMLElement>(node, "input[name], select[name], textarea[name], [data-wh-form-registered-field]")
-      .filter(el => !("form" in el) || el.form === node);
-
-    super("", formels);
+    super("", getFormElementCandidates(node, ''));
 
     this.elements = node.elements;
     if (this.node.propWhFormhandler)
@@ -580,7 +577,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       this._isPartOfForm(el);
   }
 
-  private _getFieldsToValidate(startingpoint?: HTMLElement) {
+  _getFieldsToValidate(startingpoint?: HTMLElement) {
     return dompack.qSA<HTMLElement>(startingpoint ?? this.node, "*").filter(el => this._shouldValidateField(el));
   }
 
@@ -1272,7 +1269,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   _isPartOfForm(el: HTMLElement) {
     //In HTML terms, an input must either have *no* form attribute or explicitly point to us. eg <input form> is *outside* a form
     //However nodes may live in fragments (eg arrayedits) that are not in the DOM and not attached anywhere, so we also consider anything outside the DOM to be in our form...
-    return !("form" in el) || el.form === this.node || !document.contains(el);
+    return !("form" in el) || el.form === this.node || !document.contains(el)
+      || (!this.node && !el.hasAttribute("form")); //FIXME remove this workaround needed now to work around form init race where arrayfields try to use _queryAllFields
   }
 
   _queryAllFields(options?: {

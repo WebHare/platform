@@ -5,21 +5,21 @@ import { throwError } from "@webhare/std";
 import { addDocEventListener, qR, qSA, type DocEvent, type FormControlElement } from "@webhare/dompack";
 import { parseCondition } from "@webhare/forms/src/domsupport";
 import type { FormCondition } from "@webhare/forms/src/types";
+import { RegisteredFieldBase } from "@webhare/forms/src/registeredfield";
+import { RecordFieldHandler, type FormParent } from "@webhare/forms/src/fieldmap";
+import type FormBase from "../formbase";
 
-export default class ArrayField {
-  node: HTMLElement;
+export default class ArrayField extends RegisteredFieldBase {
   valueNode: HTMLInputElement;
   name;
   nextrowid = 0;
-  form;
   template;
   insertPoint;
 
-
-  constructor(node: HTMLElement) {
-    this.node = node;
+  constructor(private form: FormParent, node: HTMLElement, items: HTMLElement[]) {
+    node.dataset.whFormRegisteredField = "dynamic"; //just to keep the parent class happy
+    super(node);
     this.name = node.dataset.whFormGroupFor || throwError("Could not find name for arrayfield");
-    this.form = this.node.closest("form")?.propWhFormhandler || throwError("Could not find form for arrayfield");
 
     // The template for new rows
     this.template = qR<HTMLTemplateElement>(node, "template");
@@ -54,7 +54,7 @@ export default class ArrayField {
     this.insertPoint.parentNode!.insertBefore(newrow, this.insertPoint);
     dompack.registerMissed(this.insertPoint.previousElementSibling!);
     this._checkValidity();
-    this.form.refreshConditions();
+    this.form.__scheduleUpdateConditions();
     return this.insertPoint.previousSibling as HTMLElement;
   }
   /* seems a unused API ?.  .. if we need to provide this, just let people pass us a row node instead of understanding IDs
@@ -82,6 +82,24 @@ export default class ArrayField {
     }
   }
 
+  getRowHandler(row: HTMLElement): RecordFieldHandler {
+    const rowFields = (this.form as FormBase)._getFieldsToValidate(row) //FIXME get rid of 'as FormBase' to support array-in-array
+      .filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
+
+    const rowBaseName = this.valueNode.dataset.whFormName + "." + row.dataset.whFormRowid;
+    return new RecordFieldHandler(this.form, rowBaseName, rowFields);
+  }
+
+  getValue() {
+    const rows = [];
+    for (const row of dompack.qSA(this.node, ".wh-form__arrayrow")) {
+      const handler = this.getRowHandler(row);
+      const rowval = handler.getValue();
+      rows.push(rowval);
+    }
+    return rows;
+  }
+
   _onGetValue(event: CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>) {
     // We're using the deferred promise to return our value
     event.preventDefault();
@@ -92,7 +110,7 @@ export default class ArrayField {
     for (const row of dompack.qSA(this.node, ".wh-form__arrayrow")) {
       const rowFields = this._queryAllFields(row);
       // Create a promise for each of the row's subfields to get its value
-      const rowPromises = rowFields.map(field => this.form._getQueryiedFieldValue(field));
+      const rowPromises = rowFields.map(field => (this.form as FormBase)._getQueryiedFieldValue(field)); //FIXME get rid of 'as FormBase' to support array-in-array
       // Add an all promise for the value promises and add it to the list of row promises
       valuePromises.push(Promise.all(rowPromises).then(values => {
         // Combine the values into a value object for this row
@@ -112,6 +130,24 @@ export default class ArrayField {
     Promise.all(valuePromises).then(valueRows => event.detail.deferred.resolve(valueRows));
   }
 
+  setValue(newvalue: unknown[]) {
+    if (!Array.isArray(newvalue))
+      throw new Error(`Invalid value for array field '${this.name}': ${JSON.stringify(newvalue)}`);
+
+    // Remove all current rows (TODO optmize)
+    while (this.insertPoint.previousElementSibling?.classList.contains("wh-form__arrayrow"))
+      this._removeRowNode(this.insertPoint.previousElementSibling);
+
+    // Check if we have an array value
+    for (const value of newvalue) {
+      // Add a row
+      const row = this.addRow();
+      const handler = this.getRowHandler(row);
+      handler.setValue(value);
+    }
+    this._checkValidity();
+  }
+
   _onSetValue(event: CustomEvent<{ value: unknown }>) {
     event.preventDefault();
     event.stopPropagation();
@@ -129,7 +165,7 @@ export default class ArrayField {
         for (const field of this._queryAllFields(row)) {
           for (const fieldnode of (field.multi ? field.nodes : [field.node])) {
             if (fieldnode.dataset.whFormCellname && fieldnode.dataset.whFormCellname in value) {
-              this.form.setFieldValue(fieldnode, value[fieldnode.dataset.whFormCellname]);
+              (this.form as FormBase).setFieldValue(fieldnode, value[fieldnode.dataset.whFormCellname]); //FIXME get rid of 'as FormBase' to support array-in-array
             }
           }
         }
@@ -147,8 +183,9 @@ export default class ArrayField {
       for (const fieldnode of (field.multi ? field.nodes : [field.node])) {
 
         // Rename fields
-        fieldnode.dataset.whFormCellname = field.name.substr(this.name.length + 1);
-        const subname = this.valueNode.dataset.whFormName + "-" + field.name + "-" + rowid;
+        const cellname = field.name.substring(this.name.length + 1);
+        fieldnode.dataset.whFormCellname = cellname;
+        const subname = this.valueNode.dataset.whFormName + "." + rowid + "." + cellname;
         if (fieldnode.dataset.whFormName)
           fieldnode.dataset.whFormName = subname;
         else
@@ -226,6 +263,6 @@ export default class ArrayField {
   }
 
   _queryAllFields(node: HTMLElement) {
-    return this.form._queryAllFields({ startnode: node, skipfield: this.valueNode });
+    return (this.form as FormBase)._queryAllFields({ startnode: node, skipfield: this.valueNode });  //FIXME get rid of 'as FormBase' to support array-in-array
   }
 }

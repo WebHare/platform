@@ -7,8 +7,28 @@ interface ArrayFormValue {
   contacts: Array<{
     name: string;
     photo?: { name: string };
+    upload?: { name: string };
     gender: string;
     wrd_dateofbirth: string;
+  }>;
+}
+
+interface ArrayFormShape {
+  text: string;
+  contacts: Array<{
+    name: string;
+    photo?: { name: string };
+    upload?: { name: string };
+    gender: string;
+    wrdDateofbirth: string;
+  }>;
+  contacts2: Array<{
+    name: string;
+    customcomp: unknown;
+  }>;
+  customarray: Array<{
+    name: string;
+    customcomp: unknown;
   }>;
 }
 
@@ -19,13 +39,14 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
 
       // Check the form handler
-      const formhandler = FormBase.getForNode(test.qR("form"))!;
+      const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
       test.assert(formhandler, "no formhandler available");
 
       // Check the empty value
       let result = await formhandler.getFormValue() as unknown as ArrayFormValue;
       test.eq("", result.text);
       test.eq(0, result.contacts.length);
+      test.eq({ text: "", contacts: [], contacts2: [], customarray: [] }, formhandler.data);
 
       // Fill the name field not in the array
       test.fill("input[name=text]", "not array");
@@ -77,6 +98,10 @@ test.registerTests(
       test.fill(test.qS(row, "input[type=text]")!, "another name");
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
+      test.qR(row, ".wh-form__imgedit").click();
+      await test.wait('ui');
+
+      prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
       test.qR(row, ".wh-form__uploadfield button").click();
       await test.wait('ui');
 
@@ -88,6 +113,25 @@ test.registerTests(
       test.eq("another name", result.contacts[1].name);
       test.assert(result.contacts[1].photo);
       test.eq("portrait_8.jpg", result.contacts[1].photo.name);
+      test.assert(result.contacts[1].upload);
+      test.eq("landscape_4.jpg", result.contacts[1].upload.name);
+
+      test.eqPartial({
+        text: "still not array",
+        contacts: [
+          {
+            name: "array name",
+            photo: undefined
+          }, {
+            name: "another name",
+          }
+        ]
+      }, formhandler.data);
+      test.eq("portrait_8.jpg", formhandler.data.contacts[1].photo?.name);
+      test.eq("landscape_4.jpg", formhandler.data.contacts[1].upload?.name);
+
+      //@ts-expect-error TS knows there is no 'noSuchField'
+      test.eq(undefined, result.contacts[0].noSuchField);
 
       // No more rows can be added
       test.assert(!test.canClick("[data-wh-form-group-for=contacts] .wh-form__arrayadd"));
@@ -120,7 +164,7 @@ test.registerTests(
         test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
         // Check the resulting result
-        const formhandler = FormBase.getForNode(test.qR("form"))!;
+        const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
         let result = await formhandler.getFormValue() as unknown as ArrayFormValue;
         test.eq("", result.text);
         test.eq(1, result.contacts.length);
@@ -175,7 +219,7 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
 
         // Check the prefilled value
-        const formhandler = FormBase.getForNode(test.qR("form"))!;
+        const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
         let result = await formhandler.getFormValue() as unknown as ArrayFormValue;
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);
@@ -223,10 +267,89 @@ test.registerTests(
         test.eq("2", result.contacts[1].gender);
         test.eq("2000-03-03", result.contacts[1].wrd_dateofbirth);
         test.assert(!result.contacts[1].photo);
+
+        //REDO the settings above but now through a nicer Form api
+
         test.click("button[type=submit]");
+
       },
       waits: ["ui"]
     },
+    "Test setting value client-side - NEW API",
+    async function () {
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
+
+      // Check the prefilled value through the new fields api
+      const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
+      test.eqPartial({
+        text: "prefilled name",
+        contacts: [
+          {
+            name: "first contact",
+          }
+        ]
+      }, formhandler.data);
+
+      test.assert(!("photo" in formhandler.data.contacts[0]), "The photo property should *not be there* as we don't have enough information from the server to be able to safely re-setValue it!");
+
+      // a prefilled image field is not visible in getFormValue - why would we have to redownload already submitted file ?
+      // test.assert(result.contacts[0].photo);
+      // test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
+
+      // Clear the array by setting the value to an empty array
+      formhandler.data.contacts = [];
+      test.eq(0, test.qSA(".wh-form__arrayrow").length);
+
+      test.fill("input[name=text]", "no longer prefilled");
+
+      test.eq("no longer prefilled", formhandler.data.text);
+      test.eq(0, formhandler.data.contacts.length);
+
+      // Set the value to an empty row
+      formhandler.data.contacts = [{}];
+      test.eq(1, test.qSA(".wh-form__arrayrow").length);
+
+      test.eq("no longer prefilled", formhandler.data.text);
+      test.eq(1, formhandler.data.contacts.length);
+      test.eq("", formhandler.data.contacts[0].name);
+      test.eq("0", formhandler.data.contacts[0].gender);
+      test.eq("", formhandler.data.contacts[0].wrdDateofbirth);
+      test.assert(!formhandler.data.contacts[0].photo);
+
+      // Set the value to two rows with values
+      formhandler.data.contacts = [{ name: "First person", gender: "1", wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: "2", wrdDateofbirth: "2000-03-03" }];
+      test.eq(2, test.qSA(".wh-form__arrayrow").length);
+
+      test.eq("no longer prefilled", formhandler.data.text);
+      test.eq(2, formhandler.data.contacts.length);
+      test.eq("First person", formhandler.data.contacts[0].name);
+      test.eq("1", formhandler.data.contacts[0].gender);
+      test.eq("2000-02-02", formhandler.data.contacts[0].wrdDateofbirth);
+      test.assert(!formhandler.data.contacts[0].photo);
+      test.eq("Another person", formhandler.data.contacts[1].name);
+      test.eq("2", formhandler.data.contacts[1].gender);
+      test.eq("2000-03-03", formhandler.data.contacts[1].wrdDateofbirth);
+      test.assert(!formhandler.data.contacts[1].photo);
+
+      //Set a photo - first by updating the property fully because not all Proxies are in place yet.
+      formhandler.data.contacts = [
+        formhandler.data.contacts[0],
+        {
+          ...formhandler.data.contacts[1], upload: new File(["het is een test #1"], "test1.txt")
+        }
+      ];
+      test.eq("test1.txt", formhandler.data.contacts[1].upload?.name);
+
+      //TODO properly update only the rows/values we're setting (ie Better Proxies) rather than rewriting all
+      /*
+      formhandler.data.contacts[1].upload = new File(["het is een test #2"], "test2.txt");
+      test.eq("test2.txt", formhandler.data.contacts[1].file?.name);
+*/
+
+      test.click("button[type=submit]");
+      await test.wait("ui");
+    },
+
     {
       test: async function () {
         // Check the submission result
@@ -243,6 +366,7 @@ test.registerTests(
         test.eq(2, result.contacts[1].gender);
         test.eq(/^2000-03-03/, result.contacts[1].wrd_dateofbirth);
         test.assert(!result.contacts[1].photo);
+        test.eqPartial({ filename: "test1.txt", "data": btoa("het is een test #1") }, result.contacts[1].upload);
         test.click("button[type=submit]");
       }
     },
@@ -253,7 +377,7 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
 
         // Check the prefilled value
-        const formhandler = FormBase.getForNode(test.qR("form"))!;
+        const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
         const result = await formhandler.getFormValue() as unknown as ArrayFormValue;
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);
@@ -293,7 +417,7 @@ test.registerTests(
         test.eq("no longer prefilled", result.text);
         test.eq(1, result.contacts.length);
         test.eq("not prefilled", result.contacts[0].name);
-        test.eq("portrait_8.jpg", result.contacts[0].photo.filename);
+        test.eq("portrait_8.jpg", result.contacts[0].upload.filename);
       }
     },
 
@@ -324,19 +448,19 @@ test.registerTests(
       test.eq(2, arrayholder.querySelectorAll(".wh-form__arrayrow").length);
 
       //TODO not sure if we should be hardcoding names like this... works for now but I'm not sure this is something we are suppposed to rely on
-      test.fill('[name="customarray-customarray.name-0"]', 'Name #1');
-      test.fill('[name="customarray-customarray.customcomp-0"][value="val2"]', true);
-      test.fill('[name="customarray-customarray.customcomp.sub-0"]', 'Sub #1');
+      test.fill('[name="customarray.0.name"]', 'Name #1');
+      test.fill('[name="customarray.0.customcomp"][value="val2"]', true);
+      test.fill('[name="customarray.0.customcomp.sub"]', 'Sub #1');
 
-      test.fill('[name="customarray-customarray.twolevel.customselect.select-0"]', 'lang-nl');
-      test.fill('[name="customarray-customarray.twolevel.textedit-0"]', 'TEXT 1');
+      test.fill('[name="customarray.0.twolevel.customselect.select"]', 'lang-nl');
+      test.fill('[name="customarray.0.twolevel.textedit"]', 'TEXT 1');
 
-      test.fill('[name="customarray-customarray.name-1"]', 'Name #2');
-      test.fill('[name="customarray-customarray.customcomp-1"][value="val1"]', true);
-      test.fill('[name="customarray-customarray.customcomp.sub-1"]', 'Sub #2');
+      test.fill('[name="customarray.1.name"]', 'Name #2');
+      test.fill('[name="customarray.1.customcomp"][value="val1"]', true);
+      test.fill('[name="customarray.1.customcomp.sub"]', 'Sub #2');
 
-      test.fill('[name="customarray-customarray.twolevel.customselect.select-1"]', 'abc');
-      test.fill('[name="customarray-customarray.twolevel.textedit-1"]', 'TEXT 2');
+      test.fill('[name="customarray.1.twolevel.customselect.select"]', 'abc');
+      test.fill('[name="customarray.1.twolevel.textedit"]', 'TEXT 2');
 
       // Submit
       test.click("button[type=submit]");
@@ -397,26 +521,28 @@ test.registerTests(
       // Add two rows
       test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="contacts"] .wh-form__arrayadd');
       test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="contacts"] .wh-form__arrayadd');
+      await test.sleep(1); //condition refreshing is currently async TODO can we go back to sync?
 
       // There should be a disabled 'color' subfield
-      const color = test.qR('[name="contacts-contacts.color-0"]');
+      const color = test.qR('[name="contacts.0.color"]');
       test.assert(test.canClick(color));
+      console.log(color, color.disabled);
       test.assert(color.disabled);
 
       // There should be an invisible 'other' subfield
-      const other = test.qR('[name="contacts-contacts.other-0"]');
+      const other = test.qR('[name="contacts.0.other"]');
       test.assert(!test.canClick(other));
       test.assert(other.disabled);
       test.assert(!other.required);
 
       // Check the second row as well
-      const color2 = test.qR('[name="contacts-contacts.color-1"]');
+      const color2 = test.qR('[name="contacts.1.color"]');
       test.assert(color2.disabled);
-      const other2 = test.qR('[name="contacts-contacts.other-1"]');
+      const other2 = test.qR('[name="contacts.1.other"]');
       test.assert(!test.canClick(other2));
 
       // The 'color' subfield should be enabled if the a date more than 18 years ago is entered
-      test.fill('[name="contacts-contacts.wrd_dateofbirth-0"]', "2000-01-01");
+      test.fill('[name="contacts.0.wrd_dateofbirth"]', "2000-01-01");
       await test.wait("ui");
       test.assert(!color.disabled);
       test.assert(!test.canClick(other));
@@ -425,7 +551,7 @@ test.registerTests(
       test.fill(color, -1);
       await test.wait("ui");
       test.assert(!test.canClick(other));
-      test.fill('[name="contacts-contacts.gender-0"]', 2);
+      test.fill('[name="contacts.0.gender"]', 2);
       await test.wait("ui");
       test.assert(test.canClick(other));
       test.assert(!other.disabled);
@@ -441,13 +567,13 @@ test.registerTests(
       test.assert(!test.canClick(other2));
 
       // Enable the second row's 'color' subfield
-      test.fill('[name="contacts-contacts.wrd_dateofbirth-1"]', "2000-01-01");
+      test.fill('[name="contacts.1.wrd_dateofbirth"]', "2000-01-01");
       await test.wait("ui");
       test.assert(!color2.disabled);
       test.assert(!test.canClick(other2));
 
       // Disable it again
-      test.fill('[name="contacts-contacts.wrd_dateofbirth-1"]', "2020-01-01");
+      test.fill('[name="contacts.1.wrd_dateofbirth"]', "2020-01-01");
       await test.wait("ui");
       test.assert(color2.disabled);
       test.assert(!test.canClick(other2));
