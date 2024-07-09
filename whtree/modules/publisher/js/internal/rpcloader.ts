@@ -7,11 +7,12 @@
 */
 import * as fs from "fs";
 import * as services from "@webhare/services";
+import { loadlib } from '@webhare/harescript';
 
 async function generateRPCWrappers(resourcePath, rpcdata) {
   const rpcfile = JSON.parse(rpcdata);
   const service = rpcfile.services[0];
-  const response = await services.callHareScript("mod::publisher/lib/internal/webdesign/rpcloader.whlib#GetServiceInfo", [service]);
+  const response = await loadlib("mod::publisher/lib/internal/webdesign/rpcloader.whlib").GetServiceInfo(service);
   const dependencies = [];
   const warnings = [];
 

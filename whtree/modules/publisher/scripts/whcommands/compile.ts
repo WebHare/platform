@@ -7,7 +7,8 @@
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { Bundle, RecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
-import * as services from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
+
 program.name('wh publisher:compile')
   .option('-v, --verbose', 'verbose log level')
   .option('--production', 'force production compile')
@@ -19,7 +20,7 @@ async function main() {
   const verbose = program.opts().verbose;
   const bundlename = program.args[0];
 
-  const bundle = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetBundle', [bundlename]) as Bundle;
+  const bundle = await loadlib('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib').GetBundle(bundlename) as Bundle;
   if (program.opts().development)
     bundle.isdev = true;
   if (program.opts().production)

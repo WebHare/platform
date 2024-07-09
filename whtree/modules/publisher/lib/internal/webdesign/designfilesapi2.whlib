@@ -259,7 +259,6 @@ PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
 
 PUBLIC RECORD FUNCTION GetBundle(STRING byoutputtag)
 {
-  OpenPrimary();
   RECORD bundle := SELECT * FROM GetPersistentBundles() WHERE outputtag = VAR byoutputtag;
   IF(NOT RecordExists(bundle))
     THROW NEW Exception(`No such bundle ${byoutputtag} registered`);

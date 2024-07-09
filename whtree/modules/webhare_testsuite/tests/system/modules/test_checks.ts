@@ -1,5 +1,6 @@
 import { systemConfigSchema } from "@mod-system/js/internal/generated/wrd/webhare";
-import { callHareScript, scheduleTimedTask, writeRegistryKey } from "@webhare/services";
+import { loadlib } from "@webhare/harescript/src/contextvm";
+import { scheduleTimedTask, writeRegistryKey } from "@webhare/services";
 import { omit } from "@webhare/std";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
@@ -33,7 +34,7 @@ async function testCheckAPI() {
   await whdb.commitWork();
 
   //Run some checks
-  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
+  await loadlib("mod::system/lib/checks.whlib").UpdateCheckStatus(
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check0", message_text: "Test #0 failed" },
@@ -41,7 +42,7 @@ async function testCheckAPI() {
       { type: "webhare_testsuite:check2", message_text: "Test #2 failed" },
       { type: "webhare_testsuite:check2", message_text: "should be ignored", metadata: null } //verify dupe elimination
     ]
-  ], { openPrimary: true });
+  );
 
   const checks1 = await listTestChecks("webhare_testsuite:checks");
   test.eqPartial([
@@ -52,7 +53,7 @@ async function testCheckAPI() {
   test.eq(checks1[0].wrdCreationDate, checks1[0].history[0].wrdCreationDate);
   test.eq(checks1[0].wrdCreationDate, checks1[1].wrdCreationDate);
 
-  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
+  await loadlib("mod::system/lib/checks.whlib").UpdateCheckStatus(
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
@@ -60,7 +61,7 @@ async function testCheckAPI() {
       { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" },
       { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "should be ignored" } //verifies dupe elimination
     ]
-  ], { openPrimary: true });
+  );
 
   const checks2 = await listTestChecks("webhare_testsuite:checks");
   test.eqPartial([
@@ -84,13 +85,13 @@ async function testCheckAPI() {
   test.assert(checks2[0].wrdLimitDate, "should now have a set limitdate on check[0]");
   test.eq(checks2[0].wrdLimitDate, checks2[0].history[1].wrdCreationDate);
 
-  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
+  await loadlib("mod::system/lib/checks.whlib").UpdateCheckStatus(
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
       { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" }
     ]
-  ], { openPrimary: true });
+  );
 
   const checks3 = await listTestChecks("webhare_testsuite:checks");
   test.eqPartial([
@@ -110,14 +111,14 @@ async function testCheckAPI() {
   test.assert(checks3[1].wrdLimitDate, "should now have a set limitdate on check[1]");
   test.eq(checks3[0].wrdLimitDate, checks3[0].history[1].wrdCreationDate);
 
-  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
+  await loadlib("mod::system/lib/checks.whlib").UpdateCheckStatus(
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check0", message_text: "Test #0 refailed" },
       { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
       { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" }
     ]
-  ], { openPrimary: true });
+  );
 
   const checks4 = await listTestChecks("webhare_testsuite:checks");
   test.eqPartial([
@@ -136,11 +137,9 @@ async function testCheckAPI() {
 
   //snooze that first issue
   const snoozeuntil = new Date(Date.now() + 10000);
-  await callHareScript("mod::system/lib/checks.whlib#SnoozeIssue", [
-    checks4[0].wrdId,
-    snoozeuntil,
-    { comment: "Stop bothering us" }
-  ], { openPrimary: true, autoCommit: true });
+  await whdb.beginWork();
+  await loadlib("mod::system/lib/checks.whlib").SnoozeIssue(checks4[0].wrdId, snoozeuntil, { comment: "Stop bothering us" });
+  await whdb.commitWork();
 
   const checks5 = await listTestChecks("webhare_testsuite:checks");
   test.eqPartial([
@@ -156,7 +155,9 @@ async function testCheckAPI() {
   ], checks5);
 
   //cancel snooze
-  await callHareScript("mod::system/lib/checks.whlib#UnsnoozeIssue", [checks4[0].wrdId], { openPrimary: true, autoCommit: true });
+  await whdb.beginWork();
+  await loadlib("mod::system/lib/checks.whlib").UnsnoozeIssue(checks4[0].wrdId);
+  await whdb.commitWork();
   test.eqPartial(omit(checks4, ["wrdModificationDate"]), await listTestChecks("webhare_testsuite:checks"));
 }
 

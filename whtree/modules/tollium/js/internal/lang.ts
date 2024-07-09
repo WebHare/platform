@@ -3,9 +3,10 @@
 
 import type * as esbuild from 'esbuild';
 import { CaptureLoadPlugin } from "@mod-publisher/js/internal/esbuild/compiletask";
-import { callHareScript, parseResourcePath, toResourcePath } from "@webhare/services";
+import { parseResourcePath, toResourcePath } from "@webhare/services";
 import * as fs from "node:fs";
-import { emplace } from '@webhare/std/collections';
+import { emplace } from '@webhare/std';
+import { loadlib } from '@webhare/harescript';
 
 type ModuleTids = { [tid: string]: string | ModuleTids };
 type ModuleTexts = { [language: string]: ModuleTids };
@@ -124,7 +125,7 @@ export async function readLanguageFile(module: string, language: string, filelis
 }
 
 async function getLanguageXML(modulename: string, language: string) {
-  const response = await callHareScript("mod::publisher/lib/internal/webdesign/rpcloader.whlib#GetLanguageFile", [modulename, language]) as {
+  const response = await loadlib("mod::publisher/lib/internal/webdesign/rpcloader.whlib").GetLanguageFile(modulename, language) as {
     diskpath: string;
     fallbacklanguage: string;
     texts: Array<{ tid: string; text: string }>;

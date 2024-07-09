@@ -1,10 +1,10 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
-import * as services from "@webhare/services";
 import { Configuration } from "@mod-system/js/internal/webserver/webconfig";
 import * as webserver from "@mod-system/js/internal/webserver/webserver";
 import * as net from "node:net";
 import * as undici from "undici";
+import { loadlib } from "@webhare/harescript";
 
 interface GetRequestDataResponse {
   method: string;
@@ -33,7 +33,7 @@ async function testOurWebserver() {
 
   const port_http = await getAvailableServerPort();
   const port_https = await getAvailableServerPort();
-  const config = (await services.callHareScript("mod::system/lib/internal/webserver/config.whlib#DownloadWebserverConfig", [], { openPrimary: true })) as Configuration;
+  const config = (await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig()) as Configuration;
   config.ports = [
     {
       port: port_http,
