@@ -20,7 +20,7 @@ export function init() {
 }
 
 export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string; wait_until: Date }) {
-  const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until });
+  const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
   if (!mutex)
     return { status: "timeout" };
 
