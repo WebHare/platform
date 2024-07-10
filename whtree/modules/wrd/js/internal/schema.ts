@@ -403,8 +403,12 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return new WRDModificationBuilder(wrdtype, [], null);
   }
 
-  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>): Promise<number> {
-    return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
+  insert<T extends keyof S & string>(type: T, value: Partial<Insertable<S[T]>>, options: { temp: true; importMode?: boolean }): Promise<number>;
+  insert<T extends keyof S & string>(type: T, value: Partial<Insertable<S[T]>>, options?: { temp?: boolean; importMode?: true }): Promise<number>;
+  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number>;
+
+  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
+    return checkPromiseErrorsHandled(this.getType(type).createEntity(value, options));
   }
 
   /** Updates fields of a specific entity
@@ -417,8 +421,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
    * ```
    */
-  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value));
+  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
+    return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value, options));
   }
 
   upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
@@ -539,12 +543,12 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateMetadata(newmetadata);
   }
 
-  async createEntity(value: Insertable<S[T]>): Promise<number> {
-    const res = await __internalUpdEntity(this, value, 0, {});
+  async createEntity(value: Insertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
+    const res = await __internalUpdEntity(this, value, 0, options || {});
     return res.entityId;
   }
 
-  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>): Promise<void> {
+  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
     if (typeof entity === "object") {
       const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
       if (matches.length !== 1)
@@ -555,7 +559,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
     if ("wrdId" in value)
       throw new Error(`An entity update may not set wrdId`);
-    await __internalUpdEntity(this, value as Insertable<S[T]>, entity, {});
+    await __internalUpdEntity(this, value as Insertable<S[T]>, entity, options || {});
   }
 
   async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {

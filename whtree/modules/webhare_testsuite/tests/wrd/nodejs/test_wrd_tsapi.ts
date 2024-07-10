@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
+import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@mod-wrd/js/internal/types";
 import { WRDSchema, listSchemas, openWRDSchemaById } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -227,7 +227,6 @@ async function testNewAPI() {
   test.eq({ testJsonRequired: { mixedCase: [randomData] } }, await schema.getFields("wrdPerson", secondperson, ["testJsonRequired"]));
 
   // wait until schemaById also knows testJsonRequired
-  console.log(`start wait`);
   await test.wait(async () => {
     try {
       await schemaById.query("wrdPerson").select(["testJsonRequired"]).where("wrdFirstName", "=", "first").execute();
@@ -870,7 +869,7 @@ async function testComparisons() {
   test.assert(newperson);
   await whdb.beginWork();
 
-  await schema.update("wrdPerson", newperson, { wrdCreationDate: null, wrdLimitDate: null });
+  await schema.update("wrdPerson", newperson, { wrdCreationDate: null, wrdLimitDate: null }, { importMode: true });
   test.eq([], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).execute());
   test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("active").execute());
   test.eq([], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("all").execute());
@@ -892,7 +891,7 @@ async function testComparisons() {
     wrdLimitDate: null,
     wrdDateOfBirth: null,
     wrdDateOfDeath: null
-  });
+  }, { importMode: true });
   test.eq([
     {
       wrdCreationDate: null,
@@ -908,7 +907,7 @@ async function testComparisons() {
   const tests = {
     wrdCreationDate: { values: [null, new Date(1), new Date(0), new Date(-1)] }, //we need to end with creationdate at -1 otherwise one of the tests will set limit < creation
     wrdLimitDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
-    wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
+    wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000), null] }, // need to end with null otherwise one of the tests will set death <= birth
     testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
     testDatetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
     testEnum: { values: [null, "enum1", "enum2"] },
@@ -927,7 +926,7 @@ async function testComparisons() {
   for (const [attr, { values }] of Object.entries(tests)) {
     for (const value of values) {
       const entityval = { [attr]: value };
-      await schema.update("wrdPerson", newperson, entityval);
+      await schema.update("wrdPerson", newperson, entityval, { importMode: true });
       //@ts-ignore -- it should be okay as we've matched the keys in const 'tests'.
       currentPersonValue[attr] = value;
       for (let othervalue of values as any[])
@@ -1039,7 +1038,7 @@ async function testSettingReuse() {
     }
   ];
   await schema.update("wrdPerson", newPerson, {
-    wrdCreationDate: null,
+    wrdCreationDate: new Date,
     wrdLimitDate: null,
     testArray: orgArray
   });
@@ -1083,6 +1082,122 @@ async function testSettingReuse() {
   await whdb.commitWork();
 }
 
+async function testImportMode() {
+  await whdb.beginWork();
+  type MySchema = {
+    testImportModeLink: {
+      wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+      wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+      enum: IsRequired<WRDAttr<WRDAttributeTypeId.Enum, { allowedvalues: "a" | "b" }>>;
+      enumArray: IsRequired<WRDAttr<WRDAttributeTypeId.EnumArray, { allowedvalues: "a" | "b" }>>;
+      statusRecord: IsRequired<WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedvalues: "a" | "b"; type: object }>>;
+      string: IsRequired<WRDAttributeTypeId.String>;
+      email: IsRequired<WRDAttributeTypeId.Email>;
+      url: IsRequired<WRDAttributeTypeId.URL>;
+      // ADDME: can we get wrdInfix and gender to be required?
+      boolean: IsRequired<WRDAttributeTypeId.Boolean>;
+      integer: IsRequired<WRDAttributeTypeId.Integer>;
+      domain: IsRequired<WRDAttributeTypeId.Domain>;
+      domainArray: IsRequired<WRDAttributeTypeId.DomainArray>;
+      date: IsRequired<WRDAttributeTypeId.Date>;
+      datetime: IsRequired<WRDAttributeTypeId.DateTime>;
+      time: IsRequired<WRDAttributeTypeId.Time>;
+      array: WRDAttr<WRDAttributeTypeId.Array, {
+        members: {
+          integer: IsRequired<WRDAttributeTypeId.Integer>;
+        };
+      }>;
+      json: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: object }>>;
+      hson: IsRequired<WRDAttributeTypeId.HSON>;
+      file: IsRequired<WRDAttributeTypeId.File>;
+      image: IsRequired<WRDAttributeTypeId.Image>;
+      richDocument: IsRequired<WRDAttributeTypeId.RichDocument>;
+      integer64: IsRequired<WRDAttributeTypeId.Integer64>;
+      money: IsRequired<WRDAttributeTypeId.Money>;
+      address: IsRequired<WRDAttributeTypeId.Address>;
+    } & WRDTypeBaseSettings;
+  };
+
+  const wrdschema = await getWRDSchema<MySchema>();
+  await wrdschema.createType("testImportModeDom", { metaType: "domain" });
+  const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" });
+  await link.createAttribute("enum", { attributeType: "enum", allowedValues: ["a", "b"], isRequired: true });
+  await link.createAttribute("enumArray", { attributeType: "enumArray", allowedValues: ["a", "b"], isRequired: true });
+  await link.createAttribute("statusRecord", { attributeType: "deprecatedStatusRecord", allowedValues: ["a", "b"], isRequired: true });
+  await link.createAttribute("string", { attributeType: "string", isRequired: true });
+  await link.createAttribute("email", { attributeType: "email", isRequired: true });
+  await link.createAttribute("url", { attributeType: "url", isRequired: true });
+  await link.createAttribute("boolean", { attributeType: "boolean", isRequired: true });
+  await link.createAttribute("integer", { attributeType: "integer", isRequired: true });
+  await link.createAttribute("domain", { attributeType: "domain", domain: "testImportModeDom", isRequired: true });
+  await link.createAttribute("domainArray", { attributeType: "domainArray", domain: "testImportModeDom", isRequired: true });
+  await link.createAttribute("date", { attributeType: "date", isRequired: true });
+  await link.createAttribute("datetime", { attributeType: "dateTime", isRequired: true });
+  await link.createAttribute("time", { attributeType: "time", isRequired: true });
+  await link.createAttribute("array", { attributeType: "array", isRequired: true });
+  await link.createAttribute("array.integer", { attributeType: "integer", isRequired: true });
+  await link.createAttribute("json", { attributeType: "json", isRequired: true });
+  await link.createAttribute("hson", { attributeType: "hson", isRequired: true });
+  await link.createAttribute("file", { attributeType: "file", isRequired: true });
+  await link.createAttribute("image", { attributeType: "image", isRequired: true });
+  await link.createAttribute("richDocument", { attributeType: "richDocument", isRequired: true });
+  await link.createAttribute("integer64", { attributeType: "integer64", isRequired: true });
+  await link.createAttribute("money", { attributeType: "money", isRequired: true });
+  await link.createAttribute("address", { attributeType: "address", isRequired: true });
+
+  const temp = await wrdschema.insert("testImportModeLink", {}, { temp: true });
+  const imp = await wrdschema.insert("testImportModeLink", {}, { importMode: true });
+
+  test.eq(null, await wrdschema.getFields("testImportModeLink", temp, "wrdLeftEntity", { historyMode: "unfiltered" }) as number | null);
+  test.eq(null, await wrdschema.getFields("testImportModeLink", imp, "wrdLeftEntity", { historyMode: "unfiltered" }) as number | null);
+
+  // bringing a temp to live should fail as not all required fields are initialized
+  await test.throws(/Required attribute "address" is missing/, wrdschema.update("testImportModeLink", temp, { wrdCreationDate: new Date, wrdLimitDate: null }));
+  // Init a field, and make sure another field is mentioned as missing
+  const temp2 = await wrdschema.insert("testImportModeLink", { address: { country: "NL" } }, { temp: true });
+  await test.throws(/Required attribute "array" is missing/, wrdschema.update("testImportModeLink", temp2, { wrdCreationDate: new Date, wrdLimitDate: null }));
+
+  await wrdschema.update("testImportModeLink", temp,
+    {
+      wrdCreationDate: null,
+      wrdLimitDate: null,
+      enum: null,
+      enumArray: [],
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      statusRecord: null,
+      string: "",
+      email: "",
+      url: "",
+      boolean: false,
+      integer: 0,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      domain: null,
+      domainArray: [],
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      date: null,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      datetime: null,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      time: null,
+      array: [],
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      json: null,
+      hson: null,
+      file: null,
+      image: null,
+      richDocument: null,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      integer64: 0,
+      money: new Money("0"),
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
+      address: null,
+    }, { importMode: true });
+
+  await whdb.commitWork();
+}
+
+
+
 test.run([
   testSupportAPI,
   async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
@@ -1096,4 +1211,5 @@ test.run([
   testGeneratedWebHareWRDAPI,
   testEventMasks,
   testSettingReuse,
+  testImportMode,
 ], { wrdauth: true });

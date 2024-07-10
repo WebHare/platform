@@ -182,7 +182,6 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
     for (const rootAttr of type.rootAttrMap.values())
       recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap, rootAttr.tag + ".");
   }
-
   return {
     schema,
     typeTagMap,

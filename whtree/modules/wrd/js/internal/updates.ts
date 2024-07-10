@@ -1,13 +1,13 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDType } from "./schema";
-import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells } from "./types";
+import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
 import { db, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
 import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
-import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { generateRandomId, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
@@ -19,9 +19,11 @@ import { wrdFinishHandler } from "./finishhandler";
 import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
 import { encodeHSON } from "@webhare/hscompat";
 import { ValueQueryChecker } from "./checker";
+import { runSimpleWRDQuery } from "./queries";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
+  importMode?: boolean;
   whfsmapper?: never;
   changeset?: number;
 };
@@ -114,7 +116,7 @@ async function doSplitEntityData<
           runningPromises.push(resolvedSettings);
         awaitableSettings.push(resolveRecursiveSettingsPromisesToSinglePromise(encoded.settings));
       }
-    } else if (attr.required && !checker.temp) {
+    } else if (!checker.entityId && attr.required && !checker.temp && !checker.importMode) {
       throw new Error(`Required attribute ${JSON.stringify(attr.tag)} is missing`);
     }
   }
@@ -503,7 +505,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
   const runningPromises = new Array<Promise<unknown>>();
   try {
     if (options.temp) {
-      if (!entityId)
+      if (entityId)
         throw new Error("Only new entities may be marked as temporary");
       if (entityData.wrdCreationDate || entityData.wrdLimitDate)
         throw new Error("Temporary entities may not have a creationdate or limitdate set");
@@ -550,7 +552,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       delete entityData.wrdId;
     }
 
-    const checker = new ValueQueryChecker(type.schema, type.tag, entityId || null, options.temp || false);
+    const checker = new ValueQueryChecker(type.schema, type.tag, entityId || null, options.temp || false, options.importMode || false);
 
     const splitData = await doSplitEntityData(type, schemadata, typeRec, entityData, checker, runningPromises);
     if (splitData?.entity.guid) {
@@ -590,8 +592,10 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .where("id", "=", entityId)
         .executeTakeFirst();
 
+
+
     const is_temp = isNew ? Boolean(options.temp) : Boolean(entityBaseInfo && entityBaseInfo.creationdate.getTime() === maxDateTimeTotalMsecs);
-    const is_temp_coming_alive = is_temp && !isNew && splitData.entity.limitdate && splitData.entity.limitdate.getTime() < maxDateTimeTotalMsecs;
+    const is_temp_coming_alive = is_temp && !isNew && splitData.entity.creationdate && splitData.entity.creationdate.getTime() < maxDateTimeTotalMsecs;
     let entity_limit = splitData.entity.limitdate;
     if (!entity_limit)
       entity_limit = entityBaseInfo?.limitdate ?? maxDateTime;
@@ -642,6 +646,28 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       }
     }
   */
+    if (is_temp_coming_alive && !options.importMode) {
+      const toCheck: RecordOutputMap<S[T]> = {};
+      let haveToCheck = false;
+      for (const rootAttr of typeRec.rootAttrMap) {
+        if (!rootAttr[1].required)
+          continue;
+        const key = rootAttr[0] as keyof typeof entityData & string;
+        if (entityData[key] !== undefined)
+          continue;
+        toCheck[key] = key;
+        haveToCheck = true;
+      }
+      if (haveToCheck) {
+        const curFields = (await runSimpleWRDQuery(type, toCheck, [{ field: "wrdId", condition: "=", value: entityId }], { mode: "unfiltered" }, 1))[0] as object;
+        for (const [field, value] of Object.entries(curFields)) {
+          const attrRec = typeRec.rootAttrMap.get(field)!;
+          const accessor = getAccessor(attrRec, typeRec.parentAttrMap);
+          if (!accessor.isSet(value as never))
+            throw new Error(`Required attribute ${JSON.stringify(field)} is missing`);
+        }
+      }
+    }
 
     // FIXME: handle temp_coming_alive
     /*
@@ -664,15 +690,20 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
 
     const finalCL = { ...entityBaseInfo, ...splitData.entity };
     if (!options.temp &&
+      !options.importMode &&
       finalCL.creationdate &&
       finalCL.limitdate &&
       finalCL.creationdate?.getTime() > finalCL.limitdate?.getTime()) {
       throw new Error(`wrdLimitDate is set before wrdCreationDate`);
     }
-    if (finalCL.dateofbirth && finalCL.dateofdeath && finalCL.dateofbirth.getTime() > finalCL.dateofdeath.getTime()) {
+    if (!options.importMode &&
+      finalCL.dateofbirth &&
+      finalCL.dateofdeath &&
+      finalCL.dateofdeath.getTime() > defaultDateTime.getTime() &&
+      finalCL.dateofbirth.getTime() > finalCL.dateofdeath.getTime()
+    ) {
       throw new Error(`wrdDateOfDeath is set before wrdDateOfBirth`);
     }
-
 
     if (isNew) {
       if (!entityId) {
