@@ -24,7 +24,8 @@ export {
   eqPartial,
   eqMatch,
   eqProps,
-  assert
+  assert,
+  throws
 } from '@webhare/test';
 
 export {
@@ -215,19 +216,6 @@ function testTrue(actual, explanation?: Annotation) {
 /** @deprecated Use test.assert(!condition) */
 function testFalse(actual, explanation?: Annotation) {
   test.eq(false, Boolean(actual), explanation);
-}
-
-
-export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
-export async function throws(func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
-//temporay wrapper to support old-style syntax
-export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2?: Promise<unknown> | (() => unknown) | Annotation, p3?: Annotation) {
-  if (p1 instanceof RegExp)
-    return await whtest.throws(p1, p2, p3);
-
-  const exc = await whtest.throws(/.*/, p1, p2);
-  console.warn("As soon as this module supports 5.2 only, explicitly specify the throw mask. Thrown was: " + exc.toString());
-  return exc;
 }
 
 export function findElementWithText(doc, tagname, text) {
