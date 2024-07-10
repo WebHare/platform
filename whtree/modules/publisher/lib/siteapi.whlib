@@ -2,7 +2,6 @@
 /** @topic sitedev/whfs */
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -313,9 +312,6 @@ STATIC OBJECTTYPE SiteObject
     RECORD currentrec := SELECT * FROM system.sites WHERE id = this->id;
     IF(NOT RecordExists(currentrec))
       THROW NEW Exception("No site #" || this->id || " in the database");
-
-    IF(CellExists(siterecupdate,'VERSIONINGPOLICY') AND siterecupdate.versioningpolicy != "")
-      OpenVersioningPolicy(siterecupdate.versioningpolicy); //validate it
 
     IF(CellExists(siterecupdate,'LOCKED') AND siterecupdate.locked != currentrec.locked)
       republishsite := TRUE;
