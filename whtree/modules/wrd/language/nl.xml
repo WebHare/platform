@@ -1013,7 +1013,7 @@
       </textgroup>
       <textgroup gid="common">   <!-- tolliumapps.payments.common -->
         <text tid="approved">Goedgekeurd</text>
-        <text tid="connect">Controleer verbinding</text>
+        <text tid="connect">Controleer en update verbinding</text>
         <text tid="connectionsucceeded">Verbinding gelukt</text>
         <text tid="failed">Mislukt</text>
         <text tid="incorrectcredentials">Verbinding niet gelukt - kloppen de inloggegevens?</text>

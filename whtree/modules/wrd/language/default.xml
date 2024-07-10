@@ -1013,7 +1013,7 @@
       </textgroup>
       <textgroup gid="common">   <!-- tolliumapps.payments.common -->
         <text tid="approved">Approved</text>
-        <text tid="connect">Check connection</text>
+        <text tid="connect">Check and update connection</text>
         <text tid="connectionsucceeded">Connection succeeded</text>
         <text tid="failed">Failed</text>
         <text tid="incorrectcredentials">Connection failed - incorrect credentials ?</text>
