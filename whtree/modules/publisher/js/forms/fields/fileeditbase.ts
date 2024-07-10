@@ -74,8 +74,8 @@ export default abstract class FileEditBase extends RegisteredFieldBase {
   }
   _updateEnabledStatus(nowenabled: boolean) {
   }
-  getValue() {
-    return this.hasChanged ? this.uploadedFile || { token: "" } : null;
+  getValue(): File | { token: "" } | undefined {
+    return this.hasChanged ? this.uploadedFile || { token: "" } : undefined;
   }
 
   setValue(value: File | null, options?: { ignoreInvalid: boolean }) {

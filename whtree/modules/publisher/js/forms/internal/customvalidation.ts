@@ -1,6 +1,6 @@
 import * as dompack from '@webhare/dompack';
 import "./form.lang.json";
-import { FieldErrorOptions, type FormFrontendMessage } from '../formbase';
+import type { FieldErrorOptions, FormFrontendMessage } from '../formbase';
 import { debugFlags } from '@webhare/env';
 import { getFieldDisplayName, getFieldNativeError } from '@webhare/forms/src/domsupport';
 

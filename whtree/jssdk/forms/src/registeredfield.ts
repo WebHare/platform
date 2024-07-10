@@ -5,16 +5,18 @@ export const rfSymbol = Symbol('RegisteredField');
 
 declare global {
   interface HTMLElement {
-    [rfSymbol]?: RegisteredFieldBase;
+    [rfSymbol]?: FormFieldAPI;
   }
 }
 
-/** Base class for fields added using dompack.register */
-export abstract class RegisteredFieldBase<NodeType extends HTMLElement = HTMLElement> {
-  protected readonly node: NodeType;
+export interface FormFieldAPI {
+  getValue(): unknown;
+  setValue(newvalue: unknown): void;
+}
 
-  constructor(node: NodeType) {
-    this.node = node;
+/** Base class for fields added using dompack.register */
+export abstract class RegisteredFieldBase<NodeType extends HTMLElement = HTMLElement> implements FormFieldAPI {
+  constructor(protected readonly node: NodeType) {
     this.node[rfSymbol] = this;
     if (!isFormControl(this.node) && !("whFormRegisteredField" in this.node.dataset)) {
       //this allows us to use a custom version of the 'whenDefined' customelements protocol.
@@ -24,5 +26,5 @@ export abstract class RegisteredFieldBase<NodeType extends HTMLElement = HTMLEle
 
   abstract getValue(): unknown;
 
-  abstract setValue(newvalue: unknown, options?: { ignoreInvalid: boolean }): boolean;
+  abstract setValue(newvalue: unknown): void;
 }

@@ -338,7 +338,8 @@
       <array name="contacts" max="2" min="1" title="Contacts">
         <hidden name="row_uid" title="Row UID" />
         <textedit name="name" title="Name" />
-        <upload name="photo" title="Photo" />
+        <imgedit name="photo" title="Photo" />
+        <upload name="upload" title="Upload" />
         <select name="gender" type="pulldown" rowkeytype="integer" title="Gender" />
         <date name="wrd_dateofbirth" title="DOB" />
         <checkbox name="confirm" label="Please confirm" title="" />
