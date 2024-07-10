@@ -38,7 +38,10 @@ declare global {
     basetestErrorList: ErrorEvent[];
     got_consent_analytics?: boolean;
     got_consent_remarketing?: boolean;
-    hasConsent?: (consent: string) => boolean | undefined;
+    webharetestcontainer: boolean;
+    gtm_consent?: string;
+    gtm_event_consent?: string;
+    hasConsent?: typeof consenthandler.hasConsent;
     whintegration_config: typeof whintegration.config;
     formrpc_submitForm: typeof formrpc.submitForm;
     formrpc_validateAddress: typeof verifyHareScriptAddress;

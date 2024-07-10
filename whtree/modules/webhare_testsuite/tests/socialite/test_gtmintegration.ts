@@ -1,8 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 
 async function waitForGTM() {
   return test.wait(() => Boolean(test.getWin().webharetestcontainer) //GTM-TN7QQM has been configured to set this
@@ -13,10 +9,10 @@ function forceResetConsent() {
   test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
 }
 
-function checkForGTM(opts) {
+function checkForGTM(opts: { selfhosted?: 1; remote?: 1; snippet?: 1 }) {
   test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted ? '' : 'NOT '}be loaded`);
   test.eq(opts.remote ? 1 : 0, test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote ? '' : 'NOT '}be loaded`);
-  test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
+  test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent?.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
 }
 
 test.registerTests(
@@ -79,9 +75,10 @@ test.registerTests(
       test.assert(!test.getWin().got_consent_analytics);
       test.assert(!test.getWin().got_consent_remarketing);
 
-      test.throws(test.getWin().hasConsent);
+      //@ts-expect-error TS also warns about not giving an argument to hasConsent
+      test.throws(/required a string/, test.getWin().hasConsent);
 
-      test.eq(undefined, test.getWin().hasConsent("remarketing"));
+      test.eq(undefined, test.getWin().hasConsent!("remarketing"));
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename); //already on the datalayer
       test.eq("unknown", test.getDoc().documentElement.dataset.whConsent);
 
@@ -91,9 +88,10 @@ test.registerTests(
       checkForGTM({ remote: 1 });
       test.eq("analytics", test.getWin().gtm_consent);
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
-      test.throws(test.getWin().hasConsent);
-      test.assert(!test.getWin().hasConsent("remarketing"));
-      test.assert(test.getWin().hasConsent("analytics"));
+      //@ts-expect-error TS also warns about not giving an argument to hasConsent
+      test.throws(/required a string/, test.getWin().hasConsent);
+      test.assert(!test.getWin().hasConsent!("remarketing"));
+      test.assert(test.getWin().hasConsent!("analytics"));
       test.assert(test.getWin().got_consent_analytics);
       test.assert(!test.getWin().got_consent_remarketing);
 
@@ -103,14 +101,14 @@ test.registerTests(
       test.eq("analytics", test.getWin().gtm_consent);
       test.assert(!test.qS(".mydialog"));
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
-      test.assert(!test.getWin().hasConsent("remarketing"));
-      test.assert(test.getWin().hasConsent("analytics"));
+      test.assert(!test.getWin().hasConsent!("remarketing"));
+      test.assert(test.getWin().hasConsent!("analytics"));
       test.assert(test.getWin().got_consent_analytics);
       test.assert(!test.getWin().got_consent_remarketing);
 
       //revoke consent
       test.getWin().revokeConsent();
-      test.assert(!test.getWin().hasConsent("analytics"));
+      test.assert(!test.getWin().hasConsent!("analytics"));
       test.eq("denied", test.getDoc().documentElement.dataset.whConsent);
       test.eq("denied", test.getWin().gtm_event_consent, "event should have triggered dynamic change");
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual&ga4_integration=none');
@@ -118,7 +116,7 @@ test.registerTests(
       test.eq("denied", test.getWin().gtm_consent);
       test.assert(!test.qS(".mydialog"));
       test.eq("denied", test.getDoc().documentElement.dataset.whConsent);
-      test.assert(!test.getWin().hasConsent("remarketing"));
+      test.assert(!test.getWin().hasConsent!("remarketing"));
 
       //test more specific settings
       test.getWin().whResetConsent();
@@ -129,8 +127,8 @@ test.registerTests(
 
       test.eq("analytics remarketing", test.getWin().gtm_consent);
       test.eq("analytics remarketing", test.getDoc().documentElement.dataset.whConsent);
-      test.assert(test.getWin().hasConsent("remarketing"));
-      test.assert(test.getWin().hasConsent("analytics"));
+      test.assert(test.getWin().hasConsent!("remarketing"));
+      test.assert(test.getWin().hasConsent!("analytics"));
       test.assert(test.getWin().got_consent_analytics);
       test.assert(test.getWin().got_consent_remarketing);
 
