@@ -3,6 +3,8 @@ import { isInputElement } from "./domsupport";
 import { nameToCamelCase, nameToSnakeCase } from "@webhare/hscompat/types";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
+import { omit, type AddressValue } from "@webhare/std";
+import type { RecursivePartial } from "@webhare/js-api-tools";
 
 export interface FormParent {
   __scheduleUpdateConditions(): void;
@@ -134,11 +136,12 @@ class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
   }
 }
 
-export abstract class FormFieldMap {
+export abstract class FormFieldMap<DataShape> {
   protected fieldmap = new Map<string, FormField>();
 
   constructor(protected fieldBaseName: string, nodes: HTMLElement[]) {
-    const groups = Map.groupBy(nodes, _ => nameToCamelCase(((_ as HTMLInputElement).name || _.dataset.whFormName || "").substring(fieldBaseName ? fieldBaseName.length + 1 : 0).split('.')[0]));
+    const subpos = fieldBaseName ? nameToSnakeCase(fieldBaseName).length + 1 : 0;
+    const groups = Map.groupBy(nodes, _ => nameToCamelCase(((_ as HTMLInputElement).name || _.dataset.whFormName || "").substring(subpos).split('.')[0]));
 
     for (const [name, items] of groups) {
       const fullName = (fieldBaseName ? fieldBaseName + '.' : '') + name;
@@ -173,8 +176,10 @@ export abstract class FormFieldMap {
         //   // this.fieldmap.set(name, new RegisteredFieldHandler(this, new AddressField(this, name, items)));
         //   continue;
         // }
-
-        this.fieldmap.set(name, new RecordFieldHandler(this, fullName, items));
+        if (items[0].matches('select[name$=".country"][data-orderingdata]')) //looks like address.whlib
+          this.fieldmap.set(name, new AddressFieldHandler(this, fullName, items));
+        else
+          this.fieldmap.set(name, new RecordFieldHandler(this, fullName, items));
         continue;
       }
 
@@ -204,10 +209,21 @@ export abstract class FormFieldMap {
   getFieldNames(): string[] {
     return [...this.fieldmap.keys()];
   }
+
+  /** Set a value for multiple fields
+   * @param data - The data to set
+   * @param ignoreUnknownFields - Do not throw if a field is not found in the form
+   */
+  assign(data: RecursivePartial<DataShape>, { ignoreUnknownFields = false } = {}) {
+    for (const [key, value] of Object.entries(data as object)) {
+      const field = this.getField(key, { allowMissing: ignoreUnknownFields });
+      if (field)
+        field.setValue(value);
+    }
+  }
 }
 
-
-export class RecordFieldHandler extends FormFieldMap implements FormField {
+export class RecordFieldHandler extends FormFieldMap<object> implements FormField {
   constructor(private form: FormParent, baseName: string, nodes: HTMLElement[]) {
     super(baseName, nodes);
   }
@@ -238,8 +254,38 @@ export class RecordFieldHandler extends FormFieldMap implements FormField {
   }
 }
 
+/* TODO cleanup... this is a workaround to translate nr_detail to houseNumber. ideally the server would just send house_number as field
+        name but that transition will take time. also we need a nice way to 'take over' addressifelds rather than fieldmapper special casing
+        its detection
+*/
+type OldAddressValue = Omit<AddressValue, "houseNumber"> & { nrDetail?: string };
+
+class AddressFieldHandler extends RecordFieldHandler {
+  constructor(form: FormParent, baseName: string, nodes: HTMLElement[]) {
+    super(form, baseName, nodes);
+  }
+
+  getValue(): unknown {
+    const val = super.getValue() as OldAddressValue;
+    if (val?.country === null)
+      return null;
+
+    ///@ts-expect-error ugly hack, not really worth overwriting with as
+    return val?.nrDetail !== undefined ? { ...omit(val, "nrDetail"), houseNumber: val.nrDetail } : val;
+  }
+
+  setValue(val: unknown) {
+    if (val === null) {
+      super.setValue({ country: null, city: "", street: "", zip: "", nrDetail: "", state: "" });
+      return;
+    }
+    ///@ts-expect-error ugly hack, not really worth overwriting with as
+    super.setValue(val?.houseNumber !== undefined ? { ...omit(val, "houseNumber"), nrDetail: val.houseNumber } : val);
+  }
+}
+
 export class FieldMapDataProxy implements ProxyHandler<object> {
-  constructor(private readonly form: FormFieldMap) {
+  constructor(private readonly form: FormFieldMap<object>) {
   }
   get(target: object, p: string) {
     //Don't attempt to validate getters... it will break various introspection calls (eg requesting constructor, checking for 'then'...)

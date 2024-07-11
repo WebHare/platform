@@ -3,6 +3,11 @@
 */
 export type RecursiveReadonly<T> = T extends Array<infer U> ? ReadonlyArray<RecursiveReadonly<U>> : T extends object ? { readonly [K in keyof T]: RecursiveReadonly<T[K]> } : T;
 
+/** Recursively apply `Partial<>`  on records in a type
+ * @typeParam T - Type to convert
+*/
+export type RecursivePartial<T> = T extends Array<infer U> ? Array<RecursivePartial<U>> : T extends object ? { [K in keyof T]?: RecursivePartial<T[K]> } : T;
+
 /** Convert the return type of a function to a promise
  * Inspired by https://stackoverflow.com/questions/50011616/typescript-change-function-type-so-that-it-returns-new-value
 */

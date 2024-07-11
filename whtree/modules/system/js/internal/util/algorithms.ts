@@ -39,11 +39,6 @@ export function freezeRecursive<T>(value: T): RecursiveReadonly<T> {
   return value as RecursiveReadonly<T>;
 }
 
-/** Recursively apply `Partial<>`  on records in a type
- * @typeParam T - Type to convert
-*/
-export type RecursivePartial<T> = T extends Array<infer U> ? Array<RecursivePartial<U>> : T extends object ? { [K in keyof T]?: RecursivePartial<T[K]> } : T;
-
 /** Returns the list of required keys of an object type
  * @typeParam T - Type to return the required keys of
  */

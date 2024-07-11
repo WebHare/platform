@@ -65,7 +65,7 @@ test.registerTests(
         const label_disabledpulldown = test.qR("label.wh-form__label[for=coretest-disabledpulldowntest]");
         const label_zwei = test.qR('label.wh-form__optionlabel[for=coretest-checkboxes-2]');
         const label_terms = test.qR('label.wh-form__optionlabel[for=coretest-agree]');
-        const label_twcustomselect = test.qR('label.wh-form__label[for="coretest-twolevel.customselect.select"]');
+        const label_twcustomselect = test.qR('label.wh-form__label[for="coretest-two_level_field.customselect.select"]');
         const field_address_country = test.qR(".wh-form__fields .wh-form__fieldline select[name='address.country']");
         const field_address_street = test.qR(".wh-form__fields .wh-form__fieldline input[name='address.street']");
         const field_address_nr_detail = test.qR(".wh-form__fields .wh-form__fieldline input[name='address.nr_detail']");
@@ -400,6 +400,15 @@ test.registerTests(
           radiotest: null,
           checkboxes: ["2"]
         }, formhandler.data);
+
+      //Test bulk setup
+      //@ts-expect-error TypeScript disapproves of blaBla
+      test.throws(/blaBla/, () => formhandler.assign({ blaBla: 15, radiotestnamelijk: 23 }));
+      //@ts-expect-error TypeScript still disapproves of blaBla. we still want to warn about potential errors
+      formhandler.assign({ blaBla: 15, radiotestnamelijk: 25 }, { ignoreUnknownFields: true });
+      test.eq(25, formhandler.data.radiotestnamelijk);
+      //@ts-expect-error TypeScript disapproves of blaBla
+      test.eq(undefined, formhandler.data.blaBla, "unknown fields are not retained");
     },
 
     {

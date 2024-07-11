@@ -225,7 +225,7 @@ function handleValidateAfterEvent(event: Event) {
   doValidation(event.target, true);
 }
 
-export default class FormBase<DataShape extends object = Record<string, unknown>> extends FormFieldMap {
+export default class FormBase<DataShape extends object = Record<string, unknown>> extends FormFieldMap<DataShape> {
   /** @deprecated Use node.elements if you want a true HTMLFormControlsCollection, use getElementByName since WH5.4+ for properly typed elements */
   readonly elements: HTMLFormControlsCollection;
   private _formsessionid = generateRandomId();

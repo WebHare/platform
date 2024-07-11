@@ -869,7 +869,7 @@ PUBLIC STATIC OBJECTTYPE ArrayForm EXTEND FormBase
                                    , [rowkey := 1, title := "Male"]
                                    , [rowkey := 2, title := "Female"]
                                    ];
-    ^customarray->^twolevel->field2->visiblecondition := DEFAULT RECORD; //FIXME support visible conditions on subfields (they need scoping/renaming), but out of scope for #1396
+    ^custom_array->^two_level_in_array->field2->visiblecondition := DEFAULT RECORD; //FIXME support visible conditions on subfields (they need scoping/renaming), but out of scope for #1396
   }
 
   RECORD FUNCTION Submit(RECORD extradata)
