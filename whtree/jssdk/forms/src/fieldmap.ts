@@ -3,6 +3,7 @@ import { isInputElement } from "./domsupport";
 import { nameToCamelCase, nameToSnakeCase } from "@webhare/hscompat/types";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
+import { omit, type AddressValue } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 
 export interface FormParent {
@@ -175,8 +176,10 @@ export abstract class FormFieldMap<DataShape> {
         //   // this.fieldmap.set(name, new RegisteredFieldHandler(this, new AddressField(this, name, items)));
         //   continue;
         // }
-
-        this.fieldmap.set(name, new RecordFieldHandler(this, fullName, items));
+        if (items[0].matches('select[name$=".country"][data-orderingdata]')) //looks like address.whlib
+          this.fieldmap.set(name, new AddressFieldHandler(this, fullName, items));
+        else
+          this.fieldmap.set(name, new RecordFieldHandler(this, fullName, items));
         continue;
       }
 
@@ -248,6 +251,36 @@ export class RecordFieldHandler extends FormFieldMap<object> implements FormFiel
 
   __scheduleUpdateConditions() {
     this.form.__scheduleUpdateConditions();
+  }
+}
+
+/* TODO cleanup... this is a workaround to translate nr_detail to houseNumber. ideally the server would just send house_number as field
+        name but that transition will take time. also we need a nice way to 'take over' addressifelds rather than fieldmapper special casing
+        its detection
+*/
+type OldAddressValue = Omit<AddressValue, "houseNumber"> & { nrDetail?: string };
+
+class AddressFieldHandler extends RecordFieldHandler {
+  constructor(form: FormParent, baseName: string, nodes: HTMLElement[]) {
+    super(form, baseName, nodes);
+  }
+
+  getValue(): unknown {
+    const val = super.getValue() as OldAddressValue;
+    if (val?.country === null)
+      return null;
+
+    ///@ts-expect-error ugly hack, not really worth overwriting with as
+    return val?.nrDetail !== undefined ? { ...omit(val, "nrDetail"), houseNumber: val.nrDetail } : val;
+  }
+
+  setValue(val: unknown) {
+    if (val === null) {
+      super.setValue({ country: null, city: "", street: "", zip: "", nrDetail: "", state: "" });
+      return;
+    }
+    ///@ts-expect-error ugly hack, not really worth overwriting with as
+    super.setValue(val?.houseNumber !== undefined ? { ...omit(val, "houseNumber"), nrDetail: val.houseNumber } : val);
   }
 }
 

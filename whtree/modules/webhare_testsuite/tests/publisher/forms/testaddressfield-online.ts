@@ -1,6 +1,8 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import { type verifyHareScriptAddress as VerifyAddressAPI } from '@webhare/forms/src/address';
+import { FormBase } from '@mod-publisher/js/forms';
+import type { AddressValue } from '@webhare/std/address';
 
 function getFormRPCRequests() {
   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
@@ -14,6 +16,16 @@ function testHasLookup(fieldname: string) {
 }
 
 const rawApiTests = 10;
+
+interface AddressFormShape {
+  address: AddressValue | null;
+  address2: AddressValue | null;
+  enablefields: boolean;
+  enablegroup: boolean;
+  neighbourhood: string;
+  visiblefields: boolean;
+  visiblegroup: boolean;
+}
 
 test.registerTests(
   [
@@ -134,6 +146,35 @@ test.registerTests(
       testNoLookup("address");
     },
 
+    'Check API',
+    async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
+      const formhandler = FormBase.getForNode<AddressFormShape>(test.qR('[data-wh-form-id="addressform"]'))!;
+      test.eq(null, formhandler.data.address);
+      test.eq(null, formhandler.data.address2);
+
+      formhandler.assign({ address: { country: "NL", houseNumber: "296" } });
+      test.eq({ country: "NL", zip: "", street: "", city: "", state: "", houseNumber: "296" }, formhandler.data.address);
+      await test.sleep(5);
+      testNoLookup("address");
+
+      formhandler.assign({ address: { country: "NL", houseNumber: "296", zip: "7521AM" } });
+      test.eq({ country: "NL", zip: "7521AM", street: "", city: "", state: "", houseNumber: "296" }, formhandler.data.address);
+      test.eq("NL", test.qR("#addressform-address\\.country").value);
+      await test.sleep(5);
+      testNoLookup("address");
+
+      formhandler.assign({ address: null });
+      test.eq(null, formhandler.data.address);
+      test.eq("", test.qR("#addressform-address\\.country").value);
+
+      //if we manually set country...
+      test.qR("#addressform-address\\.country").value = "NL";
+      //the other fields should still be empty
+      test.eq("", test.qR("#addressform-address\\.street").value);
+      test.eq({ country: "NL", zip: "", street: "", city: "", state: "", houseNumber: "" }, formhandler.data.address);
+    },
+
     'Check required subfields',
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
@@ -224,14 +265,18 @@ test.registerTests(
     'Check address validation',
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
+      const formhandler = FormBase.getForNode<AddressFormShape>(test.qR('[data-wh-form-id="addressform"]'))!;
+      test.eq(null, formhandler.data.address);
 
       // set country to NL
       test.fill("#addressform-address\\.country", "NL");
       // fill nr and zip
       test.fill("#addressform-address\\.nr_detail", "296");
       test.fill("#addressform-address\\.zip", "7521AM");
-      // address validation/completion should be triggered now
 
+      test.eq({ city: "", country: "NL", houseNumber: "296", state: "", street: "", zip: "7521AM" }, formhandler.data.address);
+
+      // address validation/completion should be triggered now
       await test.wait("ui");
       test.eq("Hengelosestraat", test.qR("#addressform-address\\.street").value);
       test.eq("Enschede", test.qR("#addressform-address\\.city").value);
