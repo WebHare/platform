@@ -4,6 +4,7 @@ import UploadField from '@mod-publisher/js/forms/fields/upload';
 import { SplitDateField, SplitTimeField } from '@mod-publisher/js/forms/fields/splitdatetime';
 import ImgEditField from '@mod-publisher/js/forms/fields/imgedit';
 import RTDField from '@mod-publisher/js/forms/fields/rtd';
+import * as embedvideo from '@mod-publisher/js/forms/fields/rtd/embedvideo';
 
 //import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 
@@ -15,8 +16,10 @@ import './forms.scss';
 //Enable forms and our builtin validation (starting with WebHare 4.23, validate:true will be the default)
 forms.setup({ validate: true });
 
+
 //Replaces upload fields with a nicer and edit-supporting version
-dompack.register(".wh-form__upload", node => new UploadField(node));
+if (location.href.includes('rtd=1') || location.href.includes('array=1'))
+  dompack.register(".wh-form__upload", node => new UploadField(node));
 
 //Replaces date fields with a split version
 dompack.register(".wh-form__date", node => new SplitDateField(node));
@@ -24,7 +27,9 @@ dompack.register(".wh-form__time", node => new SplitTimeField(node));
 
 //Enable the imgedit and/or rtd fields:
 dompack.register(".wh-form__imgedit", node => new ImgEditField(node));
-dompack.register(".wh-form__rtd", node => new RTDField(node));
+dompack.register(".wh-form__rtd", node => new RTDField(node, {
+  onInsertVideo: location.href.includes('video=1') ? embedvideo.insertVideo : undefined
+}));
 
 //enable the line below AND the googleRecaptcha import if you want to use this recaptcha. you'll also need to enable it in the site profile
 //googleRecaptcha.setupGoogleRecaptcha();

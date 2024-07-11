@@ -46,4 +46,12 @@
   <test script="testformfile-editconditions.whscr" />
   <jstest file="testvisibleconditions.ts" />
   <jstest file="testformfile-webtoolformhook-rpc.ts" />
+  <group name="jssite" site="webhare_testsuite.testsitejs">
+    <jstest name="testcore-plaincomponents" file="testcore.ts">
+      <arg value="plaincomponents" />
+    </jstest>
+    <jstest name="testcore-replacedcomponents" file="testcore.ts">
+      <arg value="replacedcomponents" />
+    </jstest>
+  </group>
 </group>
