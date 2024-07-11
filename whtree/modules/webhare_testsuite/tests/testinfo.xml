@@ -7,7 +7,6 @@
 
   <test name="publisher"  path="publisher/" />
   <test name="consilio"   path="consilio/"  />
-  <test name="publisher-versioning"  path="publisher-versioning/" />
   <test name="publisher-webdesign"  path="publisher-webdesign/" />
 
   <test name="socialite"  path="socialite/" />

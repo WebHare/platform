@@ -82,13 +82,6 @@
     <application name="human" screen="/screens/tests/human.xml#main">
       <accesscheck />
     </application>
-    <application name="testsiteversioning"
-                 icon="tollium:applications/versioning"
-                 startmacro="/lib/publisher/versioningapp.whlib#StartVersioningApp">
-      <accesscheck>
-        <requireright right="system:sysop" />
-      </accesscheck>
-    </application>
     <application name="demo" screen="tolliumapps/demo/main.xml#main" title="Demo &amp; dev">
       <accesscheck />
     </application>

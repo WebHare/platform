@@ -1582,7 +1582,6 @@
         <xs:element name="webfeature" type="WebFeature" />
         <xs:element name="virtualfs" type="VirtualFS" />
         <xs:element name="filemgrextension" type="FileMgrExtension" />
-        <xs:element name="versioningpolicy" type="VersioningPolicy" />
         <xs:element name="indexfield" type="PublisherIndexField" />
         <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
@@ -1728,12 +1727,6 @@
   <xs:complexType name="CustomNode">
     <xs:attribute name="name" type="xs:string" use="required" />
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
-    <xs:attributeGroup ref="ApplicabletoWebHare" />
-  </xs:complexType>
-
-  <xs:complexType name="VersioningPolicy">
-    <xs:attribute name="name" type="xs:string" use="required" />
-    <xs:attribute name="objectname" type="xs:string" use="required" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
 

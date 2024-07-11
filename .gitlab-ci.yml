@@ -71,11 +71,6 @@ testmodules:
   script:
     - addons/docker-build/testdocker.sh --tag=-external checkmodules
 
-testversioning:
-  stage: test
-  script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external publisher-versioning
-
 testpublisher:
   stage: test
   script:

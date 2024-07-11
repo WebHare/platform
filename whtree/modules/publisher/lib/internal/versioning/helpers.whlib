@@ -4,8 +4,6 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
-
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
@@ -13,30 +11,12 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 PUBLIC OBJECT FUNCTION GetVersioningPolicyForSite(INTEGER siteid)
 {
-  RETURN GetVersioningPolicyForSites([ siteid ]).policy;
+  RETURN DEFAULT OBJECT;
 }
 
 PUBLIC RECORD FUNCTION GetVersioningPolicyForSites(INTEGER ARRAY siteids)
 {
-  siteids := GetSortedSet(siteids);
-
-  RECORD ARRAY versioned :=
-      SELECT id, versioningpolicy
-        FROM system.sites
-       WHERE id IN siteids AND versioningpolicy != "";
-
-  IF (LENGTH(versioned) = 0)
-    RETURN [ policy := DEFAULT OBJECT ];
-
-  IF (LENGTH(versioned) = 1 AND LENGTH(siteids) = 1) // no mix of site with and without policy
-  {
-    RETURN [ policy := OpenVersioningPolicy(versioned[0].versioningpolicy) ];
-  }
-
-  //FIXME Rob suggested setting up a block-all policy for missing policy, might as well work with mixed
-
-  // Got mixed policies!
-  RETURN DEFAULT RECORD;
+  RETURN [ policy := DEFAULT OBJECT ];
 }
 
 /** @param files
@@ -46,29 +26,14 @@ PUBLIC RECORD FUNCTION GetVersioningPolicyForSites(INTEGER ARRAY siteids)
 */
 PUBLIC RECORD FUNCTION GetVersioningPolicyForFiles(RECORD ARRAY files)
 {
-  INTEGER ARRAY siteids :=
-      SELECT AS INTEGER ARRAY parentsite
-        FROM files
-       WHERE parent != 18;
-
-  INTEGER ARRAY deleted_files := SELECT AS INTEGER ARRAY id FROM files WHERE parent = 18;
-  IF (NOT IsDefaultValue(deleted_files))
-  {
-    siteids := siteids CONCAT
-        SELECT AS INTEGER ARRAY fs_site
-          FROM system.fs_versionevents
-         WHERE live_object IN deleted_files
-           AND iscurrent;
-  }
-
-  RETURN GetVersioningPolicyForSites(siteids);
+  RETURN [ policy := DEFAULT OBJECT ];
 }
 
 /** Returns the versioning policy for a file object
 */
 PUBLIC OBJECT FUNCTION GetVersioningPolicyForFileObject(OBJECT whfsfile)
 {
-  RETURN GetVersioningPolicyForFiles([ [ id := whfsfile->id, parent := whfsfile->parent, parentsite := whfsfile->parentsite ]]).policy;
+  RETURN DEFAULT OBJECT;
 }
 
 

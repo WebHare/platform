@@ -29,8 +29,6 @@ interface ListableSiteRow {
   cdnBaseURL: string;
   /// The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published
   webRoot: string;
-  /// Whether the site is under version control
-  versioningPolicy: string;
   /// Webdesign applied to a site
   webDesign: string;
   /// Activated webfeatures
@@ -48,7 +46,6 @@ const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatu
   "name": "name",
   "outputFolder": "outputfolder",
   "outputWeb": "outputweb",
-  "versioningPolicy": "versioningpolicy",
   "webRoot": "webroot"
 };
 
