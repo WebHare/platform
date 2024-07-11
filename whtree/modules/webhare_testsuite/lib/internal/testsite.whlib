@@ -179,7 +179,7 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                              CONCAT (options.addtwolevelfield ?
                                [ [ instanceid := "embedobj_twolevel"
                                  , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                           , fieldname := formpage->LookupComponent("twolevel")->GetAttribute("guid") || "$subfield"
+                                           , fieldname := formpage->LookupComponent("two_level_field")->GetAttribute("guid") || "$subfield"
                                            ]
                                  ]
                                ] : RECORD[])
@@ -1032,7 +1032,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     }
 
     OBJECT twolevelfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#twolevel");
-    twolevelfield->SetAttribute("name","twolevel");
+    twolevelfield->SetAttribute("name","two_level_field");
     twolevelfield->SetAttribute("title","TwoLevel field");
 
     OBJECT rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");

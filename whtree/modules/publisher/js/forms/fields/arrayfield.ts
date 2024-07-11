@@ -134,7 +134,7 @@ export default class ArrayField extends RegisteredFieldBase {
     if (!Array.isArray(newvalue))
       throw new Error(`Invalid value for array field '${this.name}': ${JSON.stringify(newvalue)}`);
 
-    // Remove all current rows (TODO optmize)
+    // Remove all current rows (TODO optimize)
     while (this.insertPoint.previousElementSibling?.classList.contains("wh-form__arrayrow"))
       this._removeRowNode(this.insertPoint.previousElementSibling);
 

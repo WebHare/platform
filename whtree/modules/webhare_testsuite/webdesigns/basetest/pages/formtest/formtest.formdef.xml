@@ -85,7 +85,7 @@
       <textedit name="nevervisible" title="I AM INVISIBLE" value="InvisValue" visible="false" />  <!-- static invisible -->
       <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue" />  <!-- dynamic invisible -->
       <address name="address" countrylist="NL BE CA" title="Address" />
-      <wt:twolevel name="twolevel" groupclasses="wh-testsuite-twolevel-groupclasses" title="" />
+      <wt:twolevel name="two_level_field" groupclasses="wh-testsuite-twolevel-groupclasses" title="" />
       <textarea name="textarea" minlength="3" maxlength="70" placeholder="Type a text in this area" title="Textarea" />
       <checkbox name="agree" labeltid=".terms" required="true" title="Agree?" />
       <checkbox name="condition_or_1" title="OR 1" />
@@ -353,10 +353,10 @@
         <textedit name="name" title="Name" />  <!-- shouldn't conflict with array above us -->
         <wt:tscustomcomp name="customcomp" title="customcomp" />
       </array>
-      <array name="customarray" title="Custom components">
+      <array name="custom_array" title="Custom components">
         <textedit name="name" title="Name" />
         <wt:tscustomcomp name="customcomp" title="customcomp" />
-        <wt:twolevel name="twolevel" title="twolevel" />
+        <wt:twolevel name="two_level_in_array" title="twolevel" />
       </array>
     </page>
   </form>

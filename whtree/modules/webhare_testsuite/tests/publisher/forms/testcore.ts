@@ -65,7 +65,7 @@ test.registerTests(
         const label_disabledpulldown = test.qR("label.wh-form__label[for=coretest-disabledpulldowntest]");
         const label_zwei = test.qR('label.wh-form__optionlabel[for=coretest-checkboxes-2]');
         const label_terms = test.qR('label.wh-form__optionlabel[for=coretest-agree]');
-        const label_twcustomselect = test.qR('label.wh-form__label[for="coretest-twolevel.customselect.select"]');
+        const label_twcustomselect = test.qR('label.wh-form__label[for="coretest-two_level_field.customselect.select"]');
         const field_address_country = test.qR(".wh-form__fields .wh-form__fieldline select[name='address.country']");
         const field_address_street = test.qR(".wh-form__fields .wh-form__fieldline input[name='address.street']");
         const field_address_nr_detail = test.qR(".wh-form__fields .wh-form__fieldline input[name='address.nr_detail']");
