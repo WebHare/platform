@@ -3,6 +3,7 @@ import { isInputElement } from "./domsupport";
 import { nameToCamelCase, nameToSnakeCase } from "@webhare/hscompat/types";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
+import type { RecursivePartial } from "@webhare/js-api-tools";
 
 export interface FormParent {
   __scheduleUpdateConditions(): void;
@@ -138,7 +139,8 @@ export abstract class FormFieldMap<DataShape> {
   protected fieldmap = new Map<string, FormField>();
 
   constructor(protected fieldBaseName: string, nodes: HTMLElement[]) {
-    const groups = Map.groupBy(nodes, _ => nameToCamelCase(((_ as HTMLInputElement).name || _.dataset.whFormName || "").substring(fieldBaseName ? fieldBaseName.length + 1 : 0).split('.')[0]));
+    const subpos = fieldBaseName ? nameToSnakeCase(fieldBaseName).length + 1 : 0;
+    const groups = Map.groupBy(nodes, _ => nameToCamelCase(((_ as HTMLInputElement).name || _.dataset.whFormName || "").substring(subpos).split('.')[0]));
 
     for (const [name, items] of groups) {
       const fullName = (fieldBaseName ? fieldBaseName + '.' : '') + name;
@@ -209,8 +211,8 @@ export abstract class FormFieldMap<DataShape> {
    * @param data - The data to set
    * @param ignoreUnknownFields - Do not throw if a field is not found in the form
    */
-  assign(data: Partial<DataShape>, { ignoreUnknownFields = false } = {}) {
-    for (const [key, value] of Object.entries(data)) {
+  assign(data: RecursivePartial<DataShape>, { ignoreUnknownFields = false } = {}) {
+    for (const [key, value] of Object.entries(data as object)) {
       const field = this.getField(key, { allowMissing: ignoreUnknownFields });
       if (field)
         field.setValue(value);

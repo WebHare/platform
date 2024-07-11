@@ -21,6 +21,8 @@ interface ArrayFormShape {
     upload?: { name: string };
     gender: string;
     wrdDateofbirth: string;
+    confirm: boolean;
+    favcolor: null | string;
   }>;
   contacts2: Array<{
     name: string;
@@ -29,6 +31,10 @@ interface ArrayFormShape {
   customArray: Array<{
     name: string;
     customcomp: unknown;
+    twoLevelInArray: {
+      customselect: string;
+      textedit: string;
+    };
   }>;
 }
 
@@ -306,7 +312,7 @@ test.registerTests(
       test.eq(0, formhandler.data.contacts.length);
 
       // Set the value to an empty row
-      formhandler.data.contacts = [{}];
+      formhandler.assign({ contacts: [{}] });
       test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
       test.eq("no longer prefilled", formhandler.data.text);
@@ -317,7 +323,7 @@ test.registerTests(
       test.assert(!formhandler.data.contacts[0].photo);
 
       // Set the value to two rows with values
-      formhandler.data.contacts = [{ name: "First person", gender: "1", wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: "2", wrdDateofbirth: "2000-03-03" }];
+      formhandler.assign({ contacts: [{ name: "First person", gender: "1", wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: "2", wrdDateofbirth: "2000-03-03" }] });
       test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
       test.eq("no longer prefilled", formhandler.data.text);
@@ -461,6 +467,43 @@ test.registerTests(
 
       test.fill('[name="custom_array.1.two_level_in_array.customselect.select"]', 'abc');
       test.fill('[name="custom_array.1.two_level_in_array.textedit"]', 'TEXT 2');
+
+      const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
+      test.eq({
+        "text": "prefilled name",
+        "contacts": [
+          {
+            "name": "first contact",
+            "gender": "0",
+            "wrdDateofbirth": "",
+            "confirm": false,
+            "favcolor": null
+          }
+        ],
+        "contacts2": [],
+        "customArray": [
+          {
+            "name": "Name #1",
+            "customcomp": {
+              "sub": "Sub #1"
+            },
+            "twoLevelInArray": {
+              "customselect": "lang-nl",
+              "textedit": "TEXT 1"
+            }
+          },
+          {
+            "name": "Name #2",
+            "customcomp": {
+              "sub": "Sub #2"
+            },
+            "twoLevelInArray": {
+              "customselect": "abc",
+              "textedit": "TEXT 2"
+            }
+          }
+        ]
+      }, formhandler.data);
 
       // Submit
       test.click("button[type=submit]");
