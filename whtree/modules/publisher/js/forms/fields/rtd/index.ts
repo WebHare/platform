@@ -11,7 +11,7 @@ import type { ExternalStructureDef } from '@mod-tollium/web/ui/components/riched
 import type { EditorBaseOptions } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
 import type RPCFormBase from '../../rpc';
 import type { RTEWidget } from '@mod-tollium/web/ui/components/richeditor/internal/types';
-import { RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
+import { JSFormElement } from '@webhare/forms/src/jsformelement';
 
 //FIXME  Are we sure we want to have one control handling both Free and Structured RTD? does the form RPC currently even support Free? might remove 'as' below if we dont eg insertVideo...
 
@@ -22,44 +22,46 @@ export interface RTDFieldOptions {
   rtdoptions?: EditorBaseOptions;
 }
 
-export default class RTDField extends RegisteredFieldBase {
+export class RTDFormElement extends JSFormElement<string> {
   rte: FreeEditor | StructuredEditor | null = null;
-  options: RTDFieldOptions;
-  _fieldgroup: HTMLElement | null;
+  // options: RTDFieldOptions;
+  // _fieldgroup: HTMLElement | null;
+  node;
+  onInsertVideo?: (node: HTMLElement) => void;
 
-  constructor(node: HTMLElement, options?: RTDFieldOptions) {
-    super(node);
+  constructor() {
+    super();
+    this.node = this;
     //@ts-ignore cleanup registration
     this.node.whRTDField = this;
-    this.options = { ...options };
+  }
 
-    const specifiedopts = JSON.parse(node.dataset.whRtdoptions || '{}') as { structure: ExternalStructureDef };
+  connectedCallback() {
+    const specifiedopts = JSON.parse(this.node.dataset.whRtdoptions || '{}') as { structure?: ExternalStructureDef };
     const structure = specifiedopts.structure || null;
-    const hidebuttons = this.options.hidebuttons ? this.options.hidebuttons : [];
+    const hidebuttons = this.node.getAttribute("hidebuttons")?.split(" ") || [];
 
-    if (!this.options.onInsertVideo)
-      hidebuttons.push('object-video');
     if (structure && !structure.blockstyles.some(style => style.type === "table"))
       hidebuttons.push("table");
     hidebuttons.push('object-insert');
     hidebuttons.push('action-showformatting');
 
-    //We shouldn't be waiting to receive enable/disable until the RTD is there
-    this._fieldgroup = this.node.closest(".wh-form__fieldgroup");
-    if (this._fieldgroup) {
-      this.node.dataset.whFormStateListener = "true";
-      this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
-    }
+    // //We shouldn't be waiting to receive enable/disable until the RTD is there
+    // this._fieldgroup = this.node.closest(".wh-form__fieldgroup");
+    // if (this._fieldgroup) {
+    //   this.node.dataset.whFormStateListener = "true";
+    //   this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
+    // }
 
     const rtdoptions: Partial<EditorBaseOptions> =
     {
       enabled: true,
       readonly: false,
-      structure: structure,
+      structure,
       allowtags: null,//data.allowtags.length ? data.allowtags : null
       hidebuttons: hidebuttons,
       editembeddedobjects: false,
-      ...this.options.rtdoptions
+      ...specifiedopts
     };
     //FIXME
     //, onStatechange: this._onRTEStateChange.bind(this)
@@ -82,7 +84,7 @@ export default class RTDField extends RegisteredFieldBase {
 
     this.rte = richeditor.createRTE(this.node, {
       ...rtdoptions,
-      enabled: this._getEnabled() //initial enabled state
+      enabled: !this.disabled //initial enabled state
     });
 
     //@ts-ignore -- we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
@@ -92,29 +94,25 @@ export default class RTDField extends RegisteredFieldBase {
     this.node.addEventListener('wh:richeditor-dirty', evt => dompack.dispatchCustomEvent(this.node, 'input', { bubbles: true, cancelable: false }));
   }
 
-  getValue(): string {
+  get value(): string {
     return this.rte ? this.rte.getValue() : this.node.innerHTML;
   }
 
-  setValue(newvalue: unknown, options?: { ignoreInvalid?: boolean }): boolean {
+  set value(newvalue: string) {
     if (typeof newvalue !== 'string')
-      if (options?.ignoreInvalid)
-        return false;
-      else
-        throw new Error(`Invalid value for RTE field: ${typeof newvalue}`);
+      throw new Error(`Invalid value for RTE field: ${typeof newvalue}`);
 
     if (this.rte)
       this.rte.setValue(newvalue);
     else
       this.node.innerHTML = newvalue;
-    return true;
   }
 
   async executeAction(evt: CustomEvent<{ action: string }>) {
-    if (evt.detail.action === 'object-video' && this.options.onInsertVideo) {
+    if (evt.detail.action === 'object-video' && this.onInsertVideo) {
       evt.stopPropagation();
       evt.preventDefault();
-      this.options.onInsertVideo(this.node);
+      this.onInsertVideo(this.node);
       return;
     }
   }
@@ -124,7 +122,7 @@ export default class RTDField extends RegisteredFieldBase {
     if (!formhandler)
       throw new Error(`RTE no longer associated with a form`);
 
-    const result = await (formhandler as RPCFormBase).invokeRPC(this.node.dataset.whFormName + '.insertVideoByUrl', url) as { success: boolean; embeddedobject?: RTEWidget };
+    const result = await (formhandler as RPCFormBase).invokeRPC(this.name + '.insertVideoByUrl', url) as { success: boolean; embeddedobject?: RTEWidget };
     if (!result.success)
       return { success: false, message: "Video URL not understood" };
 
@@ -132,12 +130,9 @@ export default class RTDField extends RegisteredFieldBase {
     return { success: true };
   }
 
-  _getEnabled() {
-    return !(this._fieldgroup && this._fieldgroup.classList.contains("wh-form__fieldgroup--disabled"));
-  }
-  _handleEnable(evt: Event) {
-    dompack.stop(evt);
-    this._updateEnabledStatus(this._getEnabled());
+  set disabled(disable: boolean) {
+    super.disabled = disable;
+    this._updateEnabledStatus(!disable);
   }
   _updateEnabledStatus(nowenabled: boolean) {
     this.rte?.setEnabled(nowenabled);
@@ -150,5 +145,23 @@ export default class RTDField extends RegisteredFieldBase {
   static getForNode(node: HTMLElement): RTDField | null {
     //@ts-ignore cleanup registration
     return (node.whRTDField as RTDField) || null;
+  }
+}
+
+export default class RTDField {
+  constructor(node: HTMLElement, options?: RTDFieldOptions) {
+    const hidebuttons = options?.hidebuttons || [];
+    if (!options?.onInsertVideo)
+      hidebuttons.push('object-video');
+    if (hidebuttons.length)
+      node.setAttribute("hidebuttons", hidebuttons.join(" "));
+
+    customElements.whenDefined("wh-form-rtd").then(() => {
+      if (options?.onInsertVideo) //TODO cleaner, use event handlers? RTD already has some action-eventhandler stuff though..
+        (node as RTDFormElement).onInsertVideo = options.onInsertVideo;
+    });
+
+    if (!customElements.get("wh-form-rtd"))
+      customElements.define("wh-form-rtd", RTDFormElement);
   }
 }

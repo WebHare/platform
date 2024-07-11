@@ -3,7 +3,7 @@
 import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "../internal/form.lang.json";
-import FileEditBase from './fileeditbase';
+import { FileEditElement as FileEditElementBase } from './fileeditbase';
 import './upload.css';
 
 
@@ -20,22 +20,17 @@ function getLabelText(node: HTMLElement) {
   return "";
 }
 
-
-export default class UploadField extends FileEditBase {
+//FIXME nicer class name? eg add form or field to these (and imgedit) class names?
+export class FileUploadFormElement extends FileEditElementBase {
   replacement;
   private _filenameinput;
   private _filenamefield;
   private _deletebutton;
   private _uploadbutton;
-  declare node: HTMLInputElement;
+  declare node: FileUploadFormElement;
 
-  constructor(node: HTMLElement) { //we can't set this to HTMLInputElement, breaks too much existing code: `dompack.register(".wh-form__upload", node => new UploadField(node))`
-    if ((node as HTMLInputElement).type !== "file")
-      throw new Error(`An UploadField must be bound to a field of type file`);
-
-    super(node);
-    if (!this.node)
-      return; //init cancelled
+  constructor() {
+    super();
 
     const label = getLabelText(this.node);
 
@@ -109,5 +104,14 @@ export default class UploadField extends FileEditBase {
   }
   getFieldValueLink() {
     return this.node.dataset.whFileurl || null;
+  }
+}
+
+//////// Legacy version. We expect existing users to migrate to the version above
+
+export default class UploadField {
+  constructor(node: HTMLElement) {
+    if (!customElements.get("wh-form-upload"))
+      customElements.define("wh-form-upload", FileUploadFormElement);
   }
 }

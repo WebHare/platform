@@ -14,7 +14,7 @@ test.registerTests(
     },
     'Reset RTE', //a partially completed testre.ts leaves behind a big image, pushing our test components outside the screen
     async function () {
-      const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
+      const rtebody = await test.waitForElement('[name="rtd"] .wh-rtd__body');
       rtebody.innerHTML = '<p class="normal">Initial state</p>';
       test.click('#submitbutton');
       await test.wait('ui');

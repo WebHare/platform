@@ -2,11 +2,11 @@ import * as test from "@mod-tollium/js/testframework";
 import * as rtetestapi from '@mod-tollium/js/testframework-rte';
 import { prepareUpload } from '@webhare/test-frontend';
 
-const videobuttonselector = '[data-wh-form-name="rtd"] [data-button="object-video"]';
-const tablebuttonselector = '[data-wh-form-name="rtd"] [data-button="table"]';
+const videobuttonselector = '[name="rtd"] [data-button="object-video"]';
+const tablebuttonselector = '[name="rtd"] [data-button="table"]';
 
 async function verifyBeagleVideo() {
-  const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
+  const rtebody = await test.waitForElement('[name="rtd"] .wh-rtd__body');
   test.eq(2, rtebody.querySelectorAll('p').length);
 
   const embobj = rtebody.querySelector('div.wh-rtd-embeddedobject');
@@ -18,7 +18,7 @@ async function verifyBeagleVideo() {
 }
 
 function verifyImage() {
-  const rtebody = test.qR('[data-wh-form-name="rtd"] .wh-rtd__body');
+  const rtebody = test.qR('[name="rtd"] .wh-rtd__body');
   test.eq(1, rtebody.querySelectorAll('p').length);
   test.eq(1, rtebody.querySelectorAll('img').length);
 
@@ -40,7 +40,7 @@ test.registerTests(
       //There is no table style defined in the rtd's structure so the button shouldn't be there
       test.eq(null, test.qS(tablebuttonselector), 'table button should not be present yet');
 
-      const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
+      const rtebody = await test.waitForElement('[name="rtd"] .wh-rtd__body');
       rtebody.innerHTML = '<p class="normal">Initial state</p>';
       test.click('#submitbutton');
       await test.wait('ui');
@@ -52,7 +52,7 @@ test.registerTests(
       name: 'Verify basic RTE content',
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1');
-        const rtebody = await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
+        const rtebody = await test.waitForElement('[name="rtd"] .wh-rtd__body');
         test.eq(1, rtebody.querySelectorAll('p').length);
         test.eq('Initial state', rtebody.querySelectorAll('p')[0].textContent);
       }
@@ -60,7 +60,7 @@ test.registerTests(
 
     'test RPC',
     async function () {
-      const rtebody = test.qR('[data-wh-form-name="rtd"] .wh-rtd__body');
+      const rtebody = test.qR('[name="rtd"] .wh-rtd__body');
       rtebody.innerHTML = '<p class="normal">Changed content</p>';
       test.eq(1, rtebody.querySelectorAll('p').length);
       test.eq('Changed content', rtebody.querySelectorAll('p')[0].textContent);
@@ -79,7 +79,7 @@ test.registerTests(
     {
       name: 'Insert beagle',
       test: function () {
-        rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een object"</p>');
+        rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een object"</p>');
         test.qR(videobuttonselector).click();
       },
       waits: ['ui']
@@ -114,9 +114,9 @@ test.registerTests(
     {
       name: 'Insert image!',
       test: async function () {
-        rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een afbeelding"</p>');
+        rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een afbeelding"</p>');
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
-        test.qR('[data-wh-form-name="rtd"] [data-button="img"]').click();
+        test.qR('[name="rtd"] [data-button="img"]').click();
       },
       waits: ['ui']
     },
@@ -144,7 +144,7 @@ test.registerTests(
         test.click('#rtdtest-enablefields');
         test.assert(!test.qR('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
-        const rtenode = test.qR('[data-wh-form-name="rtd"] .wh-rtd__stylescope');
+        const rtenode = test.qR('[name="rtd"] .wh-rtd__stylescope');
         test.assert(rtenode.classList.contains("wh-rtd--disabled"));
 
         test.click('#rtdtest-enablefields');
@@ -158,17 +158,17 @@ test.registerTests(
       name: 'Test error handling',
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&rtdrequired=1');
-        await test.waitForElement('[data-wh-form-name="rtd"] .wh-rtd__body');
-        rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal"><br data-wh-rte="bogus"/></p>');
+        await test.waitForElement('[name="rtd"] .wh-rtd__body');
+        rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal"><br data-wh-rte="bogus"/></p>');
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');
 
         const rtdgroup = test.qR('#rtdtest-rtd').closest('.wh-form__fieldgroup');
         test.assert(rtdgroup?.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
-        rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"(*0*)"<br data-wh-rte="bogus"/></p>');
+        rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal">"(*0*)"<br data-wh-rte="bogus"/></p>');
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
-        test.qR('[data-wh-form-name="rtd"] [data-button="img"]').click();
+        test.qR('[name="rtd"] [data-button="img"]').click();
         await test.wait('ui');
 
         test.click('#submitbutton'); //image should be removed. submit
@@ -177,5 +177,4 @@ test.registerTests(
         test.assert(!rtdgroup!.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
       }
     }
-
   ]);

@@ -110,6 +110,6 @@ test.registerTests(
     'Initially disabled imgedit',
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1');
-      test.assert(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'));
+      test.assert(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[disabled]'));
     }
   ]);

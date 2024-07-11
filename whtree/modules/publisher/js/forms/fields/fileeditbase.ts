@@ -7,7 +7,8 @@ import { FormBase, setFieldError } from '@mod-publisher/js/forms';
 import { isFormControl } from '@webhare/dompack';
 import { getFieldDisplayName } from '@webhare/forms/src/domsupport';
 import { isFile } from '@webhare/std';
-import { RegisteredFieldBase } from '@webhare/forms/src/registeredfield';
+import { JSFormElement } from '@webhare/forms/src/jsformelement';
+import type { FormFileValue } from '@webhare/forms/src/types';
 
 function isAcceptableType(fileType: string, masks: string[]) {
   if (masks.includes(fileType))
@@ -21,22 +22,19 @@ function isAcceptableType(fileType: string, masks: string[]) {
 }
 
 
-export default abstract class FileEditBase extends RegisteredFieldBase {
+export abstract class FileEditElement extends JSFormElement<FormFileValue> {
+  protected node: FileEditElement = this;
   readonly group: HTMLElement | null;
   hasChanged = false;
-  isrequired: boolean;
   busy = false;
 
   /** The current uploaded file. May not contain a useful value if hasChanged === false */
   uploadedFile: File | null = null;
 
-  constructor(node: HTMLElement) {
-    super(node);
+  constructor() {
+    super();
     this.group = this.node.closest<HTMLElement>(".wh-form__fieldgroup");
 
-    this.isrequired = (isFormControl(node) && node.required) || node.hasAttribute("data-wh-form-required");
-    //@ts-ignore does forms even pick up on this?
-    node.required = false;
     this.node.whFormsApiChecker = () => this._check();
     this.node.whUseFormGetValue = true;
 
@@ -56,7 +54,7 @@ export default abstract class FileEditBase extends RegisteredFieldBase {
     return this.uploadedFile !== null;
   }
   _check() {
-    if (this.isrequired && !this.isSet())
+    if (this.required && !this.isSet())
       setFieldError(this.node, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
     else
       setFieldError(this.node, "", { reportimmediately: false });
@@ -67,31 +65,28 @@ export default abstract class FileEditBase extends RegisteredFieldBase {
   }
   _handleRequire(evt: CustomEvent<{ required: boolean }>) {
     dompack.stop(evt);
-    this.isrequired = evt.detail.required;
+    this.required = evt.detail.required;
   }
   _getEnabled() {
     return !(isFormControl(this.node) && this.node.disabled) && !this.node.hasAttribute("data-wh-form-disabled");
   }
   _updateEnabledStatus(nowenabled: boolean) {
   }
-  getValue(): File | { token: "" } | undefined {
+  get value(): FormFileValue {
     return this.hasChanged ? this.uploadedFile || { token: "" } : undefined;
   }
 
-  setValue(value: File | null, options?: { ignoreInvalid: boolean }) {
+  set value(value: FormFileValue | null) { //FIXME get rid of token:"" to signify 'delete'. Use null instead
     if (value !== null && !isFile(value))
       throw new Error(`Incorrect value type received for ${getFieldDisplayName(this.node)} - expect File or null, got '${typeof value}'`);
 
     if (value && !this._isAcceptableType(value.type)) {
-      if (options?.ignoreInvalid)
-        return false;
       throw new Error(`File type ${value.type} is not acceptable for ${getFieldDisplayName(this.node)}`);
     }
 
     this.hasChanged = true;
     this.uploadedFile = value;
     this.uploadHasChanged();
-    return true;
   }
 
   _isAcceptableType(mimetype: string) {
@@ -109,7 +104,7 @@ export default abstract class FileEditBase extends RegisteredFieldBase {
   }
 
   async selectFile(evt: Event) {
-    if (!this._getEnabled())
+    if (this.disabled)
       return;
 
     evt.preventDefault();

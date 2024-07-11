@@ -5,20 +5,18 @@ import { throwError } from "@webhare/std";
 import { addDocEventListener, qR, qSA, type DocEvent, type FormControlElement } from "@webhare/dompack";
 import { parseCondition } from "@webhare/forms/src/domsupport";
 import type { FormCondition } from "@webhare/forms/src/types";
-import { RegisteredFieldBase } from "@webhare/forms/src/registeredfield";
 import { RecordFieldHandler, type FormParent } from "@webhare/forms/src/fieldmap";
 import type FormBase from "../formbase";
 
-export default class ArrayField extends RegisteredFieldBase {
+export default class ArrayField {
   valueNode: HTMLInputElement;
   name;
   nextrowid = 0;
   template;
   insertPoint;
 
-  constructor(private form: FormParent, node: HTMLElement, items: HTMLElement[]) {
+  constructor(private form: FormParent, private node: HTMLElement, items: HTMLElement[]) {
     node.dataset.whFormRegisteredField = "dynamic"; //just to keep the parent class happy
-    super(node);
     this.name = node.dataset.whFormGroupFor || throwError("Could not find name for arrayfield");
 
     // The template for new rows
@@ -44,19 +42,27 @@ export default class ArrayField extends RegisteredFieldBase {
     this._checkValidity();
   }
 
+
   addRow(): HTMLElement {
     // Instatiate a new row
     const newrow = this.template.content.cloneNode(true) as HTMLElement;
     (newrow.firstElementChild! as HTMLElement).dataset.whFormRowid = String(this.nextrowid++);
-    this._fixupRowNode(newrow.firstElementChild! as HTMLElement);
 
     // Insert the new row
     this.insertPoint.parentNode!.insertBefore(newrow, this.insertPoint);
-    dompack.registerMissed(this.insertPoint.previousElementSibling!);
+    const addedrow = this.insertPoint.previousElementSibling!;
+
+    /* If the form is relying on legacy dompack.register to go through ImgEditField and do the actual
+       customElements.define cal.... then the 'name' attributes won't actually work on the 'new' elements.
+       therefore dompack.registerMissed must run before _fixupRowNode */
+    dompack.registerMissed(addedrow);
+
+    this._fixupRowNode(addedrow as HTMLElement);
     this._checkValidity();
     this.form.__scheduleUpdateConditions();
     return this.insertPoint.previousSibling as HTMLElement;
   }
+
   /* seems a unused API ?.  .. if we need to provide this, just let people pass us a row node instead of understanding IDs
     removeRow(id)
     {
@@ -86,7 +92,7 @@ export default class ArrayField extends RegisteredFieldBase {
     const rowFields = (this.form as FormBase)._getFieldsToValidate(row) //FIXME get rid of 'as FormBase' to support array-in-array
       .filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
 
-    const rowBaseName = this.valueNode.dataset.whFormName + "." + row.dataset.whFormRowid;
+    const rowBaseName = this.valueNode.name + "." + row.dataset.whFormRowid;
     return new RecordFieldHandler(this.form, rowBaseName, rowFields);
   }
 
@@ -185,7 +191,7 @@ export default class ArrayField extends RegisteredFieldBase {
         // Rename fields
         const cellname = field.name.substring(this.name.length + 1);
         fieldnode.dataset.whFormCellname = cellname;
-        const subname = this.valueNode.dataset.whFormName + "." + rowid + "." + cellname;
+        const subname = this.valueNode.name + "." + rowid + "." + cellname;
         if (fieldnode.dataset.whFormName)
           fieldnode.dataset.whFormName = subname;
         else

@@ -9,7 +9,7 @@ import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, u
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormCondition } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
@@ -573,7 +573,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   private _shouldValidateField(el: HTMLElement) {
     //TODO maybe we can get rid of the data attributes by checking for explicit symbols like whFormsApiChecker
-    return (el.whFormsApiChecker || el.matches('input,select,textarea,*[data-wh-form-name],*[data-wh-form-custom-validator')) &&
+    return (el.whFormsApiChecker || el.matches('[name],input,select,textarea,*[data-wh-form-name],*[data-wh-form-custom-validator')) &&
       this._isPartOfForm(el);
   }
 
@@ -873,7 +873,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       }
 
       // Look for nodes that are explicit enable state (enablee/require) listeners, or that need to do so because they're real input controls
-      const inputtargets = dompack.qSA(formline, "[data-wh-form-state-listener='true'],input,select,textarea");
+      const inputtargets = dompack.qSA(formline, "[data-wh-form-state-listener='true'],input,select,textarea,[name]");
 
       for (const node of inputtargets) {
         //Record initial states
@@ -895,7 +895,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-enable", { bubbles: true, cancelable: true, detail: { enabled: node_enabled } })) {
             // Not cancelled, so run our default handler
-            if (isFormControl(node)) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
+            if (isFormFieldLike(node)) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
               node.disabled = !node_enabled;
             else if (node_enabled)
               node.removeAttribute("data-wh-form-disabled");
@@ -1223,12 +1223,12 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
         return deferred.promise;
       }
     }
-    if (!isFormControl(field)) {
+    if (!isFormFieldLike(field)) {
       console.error(`Cannot get value on non-FormControl`, field);
       return undefined; //TODO throw? but wasn't currently fatal
     }
 
-    if (field.type === 'file')     //We don't care for multiple yet, as our form RPC APIs don't support that either
+    if (field.matches('input[type=file]')) //We don't care for multiple yet, as our form RPC APIs don't support that either
       return (field as HTMLInputElement).files?.[0] || null;
 
     return field.value;
@@ -1248,10 +1248,12 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       // Event is not cancelled, set node value directly
     }
 
-    if (!isFormControl(fieldnode)) {
+    if (!isFormFieldLike(fieldnode)) {
       console.error(`Cannot set value on non-FormControl`, fieldnode, value);
       return; //TODO throw? but wasn't currently fatal
     }
+
+    //NOTE this blocks a lot of 'new sets' being done through setFieldValue, eg resetting an array by poiting it to []. which is fine for me, just use the data proxy..
     if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
       console.error(`Setting value of type ${typeof value} on a FormControl`, fieldnode, value);
       return; //TODO throw? but wasn't currently fatal
@@ -1260,7 +1262,10 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     const saveInteractive = this.isInteractive;
     try {
       this.isInteractive = false;
-      dompack.changeValue(fieldnode, value);
+      if (isFormControl(fieldnode))
+        dompack.changeValue(fieldnode, value);
+      else
+        fieldnode.value = value;
     } finally {
       this.isInteractive = saveInteractive;
     }

@@ -1,10 +1,10 @@
-import { type FormControlElement } from "@webhare/dompack";
-import { isInputElement } from "./domsupport";
+import { isFormFieldLike, isInputElement } from "./domsupport";
 import { nameToCamelCase, nameToSnakeCase } from "@webhare/hscompat/types";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
 import { omit, type AddressValue } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
+import type { FormFieldLike } from "./jsformelement";
 
 export interface FormParent {
   __scheduleUpdateConditions(): void;
@@ -23,7 +23,7 @@ interface FormField {
 }
 
 class HTMLFormFieldHandler implements FormField {
-  constructor(private form: FormParent, private readonly field: FormControlElement) {
+  constructor(private form: FormParent, private readonly field: FormFieldLike) {
   }
 
   getValue<T = unknown>(): T {
@@ -160,8 +160,8 @@ export abstract class FormFieldMap<DataShape> {
         }
       }
 
-      if (items.length > 1) { //TODO setup a plugin system/make this more elegant....
-        if (items[0].matches('input[type=checkbox]')) {
+      if (isFormFieldLike(items[0]) && items[0].name === nameToSnakeCase(fullName)) { //if no subname, it's the group leader ?
+        if (items[0].matches('input[type=checkbox]')) {//is it a checkbox group?
           const cboxgroup = items[0].closest(".wh-form__fieldgroup--checkboxgroup");
           if (cboxgroup) {
             this.fieldmap.set(name, new CheckboxGroupHandler(this, fullName, items as HTMLInputElement[]));
@@ -169,21 +169,16 @@ export abstract class FormFieldMap<DataShape> {
           }
         }
 
-        // if (items[0].closest(".wh-form__fieldgroup--addressfield")) {
-        //   // this.fieldmap.set(name, new RegisteredFieldHandler(this, new AddressField(this, name, items)));
-        //   continue;
-        // }
-        if (items[0].matches('select[name$=".country"][data-orderingdata]')) //looks like address.whlib
-          this.fieldmap.set(name, new AddressFieldHandler(this, fullName, items));
-        else
-          this.fieldmap.set(name, new RecordFieldHandler(this, fullName, items));
+        //this field is a simple HTML element. if multiple items, we'll assume the element speaks for its group
+        this.fieldmap.set(name, new HTMLFormFieldHandler(this, items[0]));
         continue;
       }
 
-      if (items[0][rfSymbol])
-        this.fieldmap.set(name, new RegisteredFieldHandler(this, items[0][rfSymbol]));
+      //We're an implciit record (even if with just one member)
+      if (items[0].matches('select[name$=".country"][data-orderingdata]')) //looks like address.whlib
+        this.fieldmap.set(name, new AddressFieldHandler(this, fullName, items));
       else
-        this.fieldmap.set(name, new HTMLFormFieldHandler(this, items[0] as FormControlElement));
+        this.fieldmap.set(name, new RecordFieldHandler(this, fullName, items));
     }
   }
 
@@ -267,8 +262,7 @@ class AddressFieldHandler extends RecordFieldHandler {
     if (val?.country === null)
       return null;
 
-    ///@ts-expect-error ugly hack, not really worth overwriting with as
-    return val?.nrDetail !== undefined ? { ...omit(val, "nrDetail"), houseNumber: val.nrDetail } : val;
+    return val?.nrDetail !== undefined ? { ...omit(val, ["nrDetail"]), houseNumber: val.nrDetail } : val;
   }
 
   setValue(val: unknown) {
@@ -276,8 +270,9 @@ class AddressFieldHandler extends RecordFieldHandler {
       super.setValue({ country: null, city: "", street: "", zip: "", nrDetail: "", state: "" });
       return;
     }
+
     ///@ts-expect-error ugly hack, not really worth overwriting with as
-    super.setValue(val?.houseNumber !== undefined ? { ...omit(val, "houseNumber"), nrDetail: val.houseNumber } : val);
+    super.setValue(val?.houseNumber !== undefined ? { ...omit(val, ["houseNumber"]), nrDetail: val.houseNumber } : val);
   }
 }
 

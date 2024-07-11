@@ -59,3 +59,6 @@ export type FormCondition = {
   matchtype: "NOT";
   condition: FormCondition;
 };
+
+//TOOD undefined signifies 'no change' but we should integrate that with tokens because undefined is hard to get/set
+export type FormFileValue = File | { token: "" } | undefined;
