@@ -43,6 +43,12 @@ PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata, RECORD options DEFAULTSTO
   {
     THROW NEW Exception(`The field 'country' is required in an address and must be a 2 character code`);
   }
+  IF(CellExists(indata,'housenumber'))
+    THROW NEW Exception(`Received address with 'houseNumber' field. This may be JS code attempting to talk directly with a HS API without renaming it to 'nr_detail' (and also not doing a recursive snake case conversion)`);
+  IF(CellExists(indata,'house_number'))
+    THROW NEW Exception(`Received address with 'house_number' field. This may be JS code attempting to talk directly with a HS API without renaming it to 'nr_detail'`);
+  IF(CellExists(indata,'nrdetail'))
+    THROW NEW Exception(`Received address with 'nrDetail' field. This may be JS code attempting to talk with a HS API without doing a recursive snake case conversion`);
 
   indata := PickCells(indata, stored_address_fields);
   indata.country := ToUppercase(indata.country);
