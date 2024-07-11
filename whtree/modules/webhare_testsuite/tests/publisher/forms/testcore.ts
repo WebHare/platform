@@ -402,10 +402,10 @@ test.registerTests(
         }, formhandler.data);
 
       //Test bulk setup
-      //@ts-expect-error TypeScript disapproves of blaBla
-      test.throws(/blaBla/, () => formhandler.assign({ blaBla: 15, radiotestnamelijk: 23 }));
-      //@ts-expect-error TypeScript still disapproves of blaBla. we still want to warn about potential errors
-      formhandler.assign({ blaBla: 15, radiotestnamelijk: 25 }, { ignoreUnknownFields: true });
+      //@ts-expect-error TypeScript disapproves of blaBla. And it will throw if you ask for it
+      test.throws(/blaBla/, () => formhandler.assign({ blaBla: 15, radiotestnamelijk: 23 }, { ignoreUnknownFields: false }));
+      //@ts-expect-error TypeScript still disapproves of blaBla. we still want to warn about potential errors. but we won't throw by default
+      formhandler.assign({ blaBla: 15, radiotestnamelijk: 25 });
       test.eq(25, formhandler.data.radiotestnamelijk);
       //@ts-expect-error TypeScript disapproves of blaBla
       test.eq(undefined, formhandler.data.blaBla, "unknown fields are not retained");

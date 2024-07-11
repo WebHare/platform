@@ -212,9 +212,9 @@ export abstract class FormFieldMap<DataShape> {
 
   /** Set a value for multiple fields
    * @param data - The data to set
-   * @param ignoreUnknownFields - Do not throw if a field is not found in the form
+   * @param ignoreUnknownFields - Do not throw if a field is not found in the form. This is the default
    */
-  assign(data: RecursivePartial<DataShape>, { ignoreUnknownFields = false } = {}) {
+  assign(data: RecursivePartial<DataShape>, { ignoreUnknownFields = true } = {}) {
     for (const [key, value] of Object.entries(data as object)) {
       const field = this.getField(key, { allowMissing: ignoreUnknownFields });
       if (field)
