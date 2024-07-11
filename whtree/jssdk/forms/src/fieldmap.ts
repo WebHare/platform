@@ -134,7 +134,7 @@ class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
   }
 }
 
-export abstract class FormFieldMap {
+export abstract class FormFieldMap<DataShape> {
   protected fieldmap = new Map<string, FormField>();
 
   constructor(protected fieldBaseName: string, nodes: HTMLElement[]) {
@@ -204,10 +204,21 @@ export abstract class FormFieldMap {
   getFieldNames(): string[] {
     return [...this.fieldmap.keys()];
   }
+
+  /** Set a value for multiple fields
+   * @param data - The data to set
+   * @param ignoreUnknownFields - Do not throw if a field is not found in the form
+   */
+  assign(data: Partial<DataShape>, { ignoreUnknownFields = false } = {}) {
+    for (const [key, value] of Object.entries(data)) {
+      const field = this.getField(key, { allowMissing: ignoreUnknownFields });
+      if (field)
+        field.setValue(value);
+    }
+  }
 }
 
-
-export class RecordFieldHandler extends FormFieldMap implements FormField {
+export class RecordFieldHandler extends FormFieldMap<object> implements FormField {
   constructor(private form: FormParent, baseName: string, nodes: HTMLElement[]) {
     super(baseName, nodes);
   }
@@ -239,7 +250,7 @@ export class RecordFieldHandler extends FormFieldMap implements FormField {
 }
 
 export class FieldMapDataProxy implements ProxyHandler<object> {
-  constructor(private readonly form: FormFieldMap) {
+  constructor(private readonly form: FormFieldMap<object>) {
   }
   get(target: object, p: string) {
     //Don't attempt to validate getters... it will break various introspection calls (eg requesting constructor, checking for 'then'...)
