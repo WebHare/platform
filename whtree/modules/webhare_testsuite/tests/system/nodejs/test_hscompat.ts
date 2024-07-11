@@ -5,7 +5,7 @@
 */
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase, wrdGuidToUUID, UUIDToWrdGuid } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, ToSnakeCase, ToCamelCase, toSnakeCase, toCamelCase, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType } from "@webhare/hscompat";
 import { compare, lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -351,9 +351,15 @@ async function testHSON() {
 
   testHSONEnDeCode('hson:{}', {});
 
-  testHSONEnDeCode('hson:va[]', []);
+  const emptyArray: unknown[] = [];
+  testHSONEnDeCode('hson:va[]', emptyArray as IPCMarshallableData);
+  setHareScriptType(emptyArray, VariableType.RecordArray);
+  testHSONEnDeCode('hson:ra[]', emptyArray as IPCMarshallableData);
+  setHareScriptType(emptyArray, VariableType.RecordArray); //setting it twice regressed once with 'Cannot redefine property: Symbol(Marshaller)'
+  testHSONEnDeCode('hson:ra[]', emptyArray as IPCMarshallableData);
 
   testHSONEnDeCode('hson:ia[]', getTypedArray(VariableType.IntegerArray, []));
+
 
   testHSONEnDeCode('hson:i64a[]', getTypedArray(VariableType.Integer64Array, []));
 

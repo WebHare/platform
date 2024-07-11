@@ -101,7 +101,7 @@ export function setHareScriptType<T>(variable: T, type: HareScriptType): T {
       throw new Error(`Cannot set an array type on an non-array`);
   }
 
-  Object.defineProperty(variable, Marshaller, { value: { type } });
+  Object.defineProperty(variable, Marshaller, { value: { type }, enumerable: false, configurable: true });
   return variable;
 }
 
