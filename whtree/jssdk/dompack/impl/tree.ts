@@ -85,7 +85,13 @@ export function isElement(node: unknown): node is Element {
   const proto = (node as Element).ownerDocument.defaultView?.Element;
   (because our iframes derive off about? not sure) so until someone finds the real answer, we'll do a heuristic
   */
+
+  /** Analyzing node.constructor.name doesn't work because custom elements don't necessarily have their constructor's name ending in Element
   return Boolean("ownerDocument" in node && node.constructor.name.match(/Element$/));
+  */
+
+  return Boolean("ownerDocument" in node && (node as Element).nodeType === 1);
+
 }
 
 /** Test whether node is a HTMLElement, even if it's in a different iframe */
