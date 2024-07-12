@@ -55,7 +55,7 @@ test.registerTests(
 
     {
       name: 'setenabled(false)',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
 
         test.assert(rte.hasFocus());
@@ -67,7 +67,7 @@ test.registerTests(
 
         test.assert(Boolean(win.rte.getBody().closest('.wh-rtd--disabled')));
         test.assert(!win.rte.getBody().closest('.wh-rtd--readonly'));
-        test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
+        rtetest.testEqSelHTMLEx(win, std_contents);
         test.assert(!test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
       }
     },
@@ -91,12 +91,12 @@ test.registerTests(
 
     {
       name: 'setreadonly(true)',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         win.rte.setReadonly(true);
 
         test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
         test.assert(Boolean(win.rte.getBody().closest('.wh-rtd--readonly')));
-        test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
+        rtetest.testEqSelHTMLEx(win, std_contents);
       }
     },
 

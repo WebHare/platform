@@ -639,6 +639,8 @@ DROP FUNCTION IF EXISTS webhare_proc_fs_objects_highestparent(_id int4)`
         ]
       ];
   trans->BeginWork();
+  trans->__ExecSQL(`SET client_min_messages TO WARNING`); /* Prevent log noise if the function doesn't exist */
+
   FOREVERY (RECORD rec FROM stored_procedures)
   {
     TRY
