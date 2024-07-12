@@ -4,6 +4,7 @@ import { verifyAddress, AddressValidationResult, AddressChecks } from './address
 import { ImgEditElement } from "@mod-publisher/js/forms/fields/imgedit";
 import { JSFormElement } from './jsformelement';
 import type { FormFileValue } from './types';
+import { getFormHandler } from './domsupport';
 
-export { FormBase, RPCFormBase, verifyAddress, ImgEditElement, JSFormElement, type FormFileValue };
-export type { AddressValidationResult, AddressChecks, };
+export { FormBase, RPCFormBase, verifyAddress, ImgEditElement, JSFormElement, getFormHandler };
+export type { AddressValidationResult, AddressChecks, FormFileValue };

@@ -1,10 +1,12 @@
 /* Support APIs to deal with DOM native form elements (eg input, select, textarea) */
 
+import type FormBase from '@mod-publisher/js/forms/formbase';
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isFormControl, isHTMLElement, qSA, type FormControlElement } from "@webhare/dompack";
 import type { FormCondition } from "./types";
 import { JSFormElement, type FormFieldLike } from "./jsformelement";
+import { throwError } from '@webhare/std';
 
 export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
 
@@ -123,4 +125,13 @@ export function getFormElementCandidates(basenode: HTMLElement, namePrefix: stri
     return candidates.filter(el => ((el as FormControlElement).name || el.dataset.whFormName || '').startsWith(namePrefix + '.'));
   else
     return candidates;
+}
+
+/** Get the handler for a form element */
+export function getFormHandler<FormType extends FormBase<object> = FormBase>(node: HTMLFormElement, options: { allowMissing: true }): FormType | null;
+export function getFormHandler<FormType extends FormBase<object> = FormBase>(node: HTMLFormElement, options?: { allowMissing?: boolean }): FormType;
+
+export function getFormHandler<FormType extends FormBase<object> = FormBase>(node: HTMLFormElement, { allowMissing = false } = {}): FormType | null {
+  //FIXME convert to Symbol? but make sure we work cross-realm (ie tests)
+  return (node.propWhFormhandler as FormType) || (allowMissing ? null : throwError('No form handler found for form'));
 }
