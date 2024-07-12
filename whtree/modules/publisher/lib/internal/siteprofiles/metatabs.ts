@@ -3,10 +3,8 @@ import { getType } from "@webhare/whfs/src/contenttypes";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import type { FieldLayout, ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
-import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
-import { nameToSnakeCase, toCamelCase } from "@webhare/hscompat/types";
+import { toCamelCase, toSnakeCase, isTruthy, type ToSnakeCase, nameToSnakeCase } from "@webhare/std";
 import type { CSPApplyRule, CSPContentType, CSPMember, CSPMemberOverride, CustomFieldsLayout } from "@webhare/whfs/src/siteprofiles";
-import { isTruthy } from "@webhare/std/collections";
 import { parseYamlComponent } from "./parser";
 
 interface MetadataSection {

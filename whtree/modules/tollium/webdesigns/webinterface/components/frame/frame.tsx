@@ -12,7 +12,7 @@ import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import { ApplicationBase, type BackendApplication } from '@mod-tollium/web/ui/js/application';
 import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
-import { isTruthy } from '@webhare/std/collections';
+import { isTruthy, toCamelCase } from '@webhare/std';
 import type ObjTabs from '../tabs/tabs';
 import ActionForwardBase from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
@@ -20,7 +20,6 @@ import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } 
 import type ObjAction from '../action/action';
 import { debugFlags } from '@webhare/env';
 import "./frame.scss";
-import { toCamelCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
 import type { KeyAttributeValue } from '@webhare/dompack';
 
 // Give each frame a unique identifier

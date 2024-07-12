@@ -24,13 +24,26 @@ export type ToCamelCase<T> =
   T extends object ? KeysToCamelCase<T> :
   T;
 
-export function nameToCamelCase(tag: string) {
-  return tag.replaceAll(/_[a-z]/g, c => c[1].toUpperCase());
-}
-export function nameToSnakeCase(tag: string) {
-  return tag.replaceAll(/[A-Z]/g, c => '_' + c.toLowerCase());
+/** Convert a snake_case_name to its corresponding camelCaseName
+ * @param name - Name to convert
+ * @returns Converted name
+*/
+export function nameToCamelCase(name: string) {
+  return name.replaceAll(/_[a-z]/g, c => c[1].toUpperCase());
 }
 
+/** Convert a camelCaseName to corresponding snake_case_name
+ * @param name - Name to convert
+ * @returns Converted name
+*/
+export function nameToSnakeCase(name: string) {
+  return name.replaceAll(/[A-Z]/g, c => '_' + c.toLowerCase());
+}
+
+/** Convert all keys to camel case recursively
+ * @param inp - Array or object to convert
+ * @returns Converted object
+*/
 export function toSnakeCase<T>(inp: T): ToSnakeCase<T> {
   if (Array.isArray(inp))
     return inp.map(toSnakeCase) as ToSnakeCase<T>;
@@ -39,6 +52,10 @@ export function toSnakeCase<T>(inp: T): ToSnakeCase<T> {
   return inp as ToSnakeCase<T>;
 }
 
+/** Convert all keys to snake case recursively
+ * @param inp - Array or object to convert
+ * @returns Converted object
+*/
 export function toCamelCase<T>(inp: T): ToCamelCase<T> {
   if (Array.isArray(inp))
     return inp.map(toCamelCase) as ToCamelCase<T>;

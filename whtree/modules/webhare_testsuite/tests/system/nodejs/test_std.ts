@@ -590,6 +590,22 @@ function testBigInt() {
   test.eq({ deep: 44n, deeper: [45n] }, std.parseTyped(std.stringify({ deep: 44n, deeper: [45n] }, { typed: true })));
 }
 
+function testCaseChanging() {
+  test.eq("message_text", std.nameToSnakeCase("messageText"));
+  test.eq("messageText", std.nameToCamelCase("message_text"));
+
+  test.typeAssert<test.Equals<{ message_text: string }, std.ToSnakeCase<{ messageText: string }>>>();
+  test.typeAssert<test.Equals<{ a_b: { c_d: string } }, std.ToSnakeCase<{ aB: { cD: string } }>>>();
+  test.typeAssert<test.Equals<{ _a_b_c: string }, std.ToSnakeCase<{ ABC: string }>>>();
+  test.typeAssert<test.Equals<{ messageText: string }, std.ToCamelCase<{ message_text: string }>>>();
+  test.typeAssert<test.Equals<{ aB: { cD: string } }, std.ToCamelCase<{ a_b: { c_d: string } }>>>();
+
+  test.eq({ message_text: "test" }, std.toSnakeCase({ messageText: "test" }));
+  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test" }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test" }] }));
+  test.eq({ messageText: "test" }, std.toCamelCase({ message_text: "test" }));
+  test.eq({ deepArray: [{}, { messageText: "test" }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test" }] }));
+}
+
 function testUUIDFallback() {
   //@ts-ignore - we explicitly want to break stuff so we can verify generateRandomId works without crypto.randomUUID (which is only available in secure contexts)
   crypto.randomUUID = undefined;
@@ -614,6 +630,7 @@ test.run([
   testPromises,
   "BigInt",
   testBigInt,
+  testCaseChanging,
   ...(typeof window !== "undefined" ? [
     "UUID fallback",
     testUUIDFallback  //can't run on nodejs

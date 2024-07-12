@@ -1,6 +1,6 @@
 /* Various 'how to name' things API */
 
-import { nameToSnakeCase } from "@webhare/hscompat/types";
+import { nameToSnakeCase } from "@webhare/std/types";
 
 /** Split a module scoped name
  *  @param name - Name to split

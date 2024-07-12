@@ -3,7 +3,7 @@ import { ResourceDescriptor, decodeScanData } from "@webhare/services/src/descri
 import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
 import { WebHareBlob } from "@webhare/services";
 import { createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
-import { nameToSnakeCase, nameToCamelCase } from "@webhare/hscompat/types";
+import { nameToSnakeCase, nameToCamelCase } from "@webhare/std/types";
 
 export interface WRDAttributeConfiguration_HS {
   id: number;
