@@ -1253,7 +1253,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       return; //TODO throw? but wasn't currently fatal
     }
 
-    //NOTE this blocks a lot of 'new sets' being done through setFieldValue, eg resetting an array by poiting it to []. which is fine for me, just use the data proxy..
+    //NOTE this blocks a lot of 'new sets' being done through setFieldValue, eg resetting an array by setting it to []. which is fine for me, just use the data proxy..
     if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
       console.error(`Setting value of type ${typeof value} on a FormControl`, fieldnode, value);
       return; //TODO throw? but wasn't currently fatal

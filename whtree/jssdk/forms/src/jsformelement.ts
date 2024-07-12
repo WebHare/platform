@@ -16,8 +16,8 @@ export abstract class JSFormElement<ValueType> extends HTMLElement implements Fo
   get required() {
     return this.hasAttribute('required');
   }
-  set required(disable: boolean) {
-    if (disable)
+  set required(required: boolean) {
+    if (required)
       this.setAttribute("required", "");
     else
       this.removeAttribute("required");

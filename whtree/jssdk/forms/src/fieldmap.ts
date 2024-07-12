@@ -174,7 +174,7 @@ export abstract class FormFieldMap<DataShape> {
         continue;
       }
 
-      //We're an implciit record (even if with just one member)
+      //We're an implicit record (even if with just one member)
       if (items[0].matches('select[name$=".country"][data-orderingdata]')) //looks like address.whlib
         this.fieldmap.set(name, new AddressFieldHandler(this, fullName, items));
       else

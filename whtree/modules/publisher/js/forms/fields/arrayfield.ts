@@ -53,7 +53,7 @@ export default class ArrayField {
     const addedrow = this.insertPoint.previousElementSibling!;
 
     /* If the form is relying on legacy dompack.register to go through ImgEditField and do the actual
-       customElements.define cal.... then the 'name' attributes won't actually work on the 'new' elements.
+       customElements.define call.... then the 'name' attributes won't actually work on the 'new' elements.
        therefore dompack.registerMissed must run before _fixupRowNode */
     dompack.registerMissed(addedrow);
 
