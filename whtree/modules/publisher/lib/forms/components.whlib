@@ -3,6 +3,10 @@
     @topic forms/baseclasses
 */
 
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
@@ -803,5 +807,48 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
   UPDATE PUBLIC MACRO __SetInfoText(RECORD newtext)
   {
     this->selectfield->__SetInfoText(newtext);
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseCustomFormField(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  RETURN CELL
+      [ ...fielddef
+      , contentswitty := parsecontext.resourcename != "" ? MakeAbsoluteResourcePath(parsecontext.resourcename, node->GetAttribute("contentswitty")) : ""
+      ];
+}
+
+PUBLIC STATIC OBJECTTYPE CustomFormFieldBase EXTEND FormFieldBase
+<
+  STRING contentswitty;
+  RECORD valueholder;
+
+  PUBLIC PROPERTY value(GetValue,SetValue);
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    IF(CellExists(field,'contentswitty')) // 3rd party components may derive from us but manually specify the witty
+      this->contentswitty := field.contentswitty;
+  }
+  UPDATE PUBLIC MACRO RenderFieldContent()
+  {
+    RECORD renderdata := CELL[ ...this->GetBaseRenderData()
+                             ];
+
+    EmbedWittyComponent(this->contentswitty, renderdata);
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN RecordExists(this->valueholder) ? this->valueholder.val : DEFAULT RECORD;
+  }
+  MACRO SetValue(VARIANT val)
+  {
+    this->valueholder := CELL[val];
+  }
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT val)
+  {
+    this->valueholder := CELL[val];
   }
 >;

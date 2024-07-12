@@ -113,3 +113,9 @@
     <button id="datetime_debugging" type="button">Datetime debugging</button>
   </div>
 [/component]
+
+[component simplefield]
+  <my-simple-field name="[name]">
+    <span class="answer">-</span> <button type="button">Set</button>
+  </my-simple-field>
+[/component]

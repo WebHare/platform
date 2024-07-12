@@ -409,4 +409,10 @@
     </page>
   </form>
 
+  <form name="customelements" jshandler="anyformhandler" objectname="formtest.whlib#CustomElementsForm">
+    <page>
+      <customfield name="simple_field" title="Simple field" contentswitty="formtest.witty:simplefield" />
+    </page>
+  </form>
+
 </formdefinitions>

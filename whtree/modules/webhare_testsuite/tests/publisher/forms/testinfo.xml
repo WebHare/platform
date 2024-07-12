@@ -53,5 +53,6 @@
     <jstest name="testcore-replacedcomponents" file="testcore.ts">
       <arg value="replacedcomponents" />
     </jstest>
+    <jstest file="testcustomelements.ts" />
   </group>
 </group>
