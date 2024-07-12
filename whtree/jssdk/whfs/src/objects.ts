@@ -139,6 +139,8 @@ export class WHFSObject {
   get whfsPath() { return this.dbrecord.whfspath; }
   get parentSite() { return this.dbrecord.parentsite; }
   get type() { return this._typens; }
+  get creationDate(): Date { return this.dbrecord.creationdate; }
+  get modificationDate(): Date { return this.dbrecord.modificationdate; }
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
@@ -185,6 +187,8 @@ export class WHFSObject {
 
     if (!Object.keys(storedata).length)
       return; //nothing to update
+
+    storedata.modificationdate ||= new Date();
 
     await db<PlatformDB>()
       .updateTable("system.fs_objects")
@@ -344,9 +348,9 @@ export class WHFSFolder extends WHFSObject {
     let existingfile = await this.openFile(name, { allowMissing: true });
     if (!existingfile)
       existingfile = await this.createFile(name, { ...requiredmetadata, ...options?.ifNew });
+    else
+      await existingfile.update({ ...requiredmetadata });
 
-    if (requiredmetadata)
-      await existingfile.update(requiredmetadata);
     return existingfile;
   }
 

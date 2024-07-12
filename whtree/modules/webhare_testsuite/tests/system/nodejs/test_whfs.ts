@@ -191,8 +191,13 @@ async function testWHFS() {
   test.eq(ensuredfolder.id, ensuredfolder2.id);
 
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
-  const ensuredfile2 = await tmpfolder.ensureFile("file1");
-  test.eq(ensuredfile.id, ensuredfile2.id);
+  test.eq(ensuredfile.creationDate, ensuredfile.modificationDate);
+
+  const now = new Date;
+  await test.sleep(1);//ensure clock progresses.
+  const ensuredfile2 = await tmpfolder.ensureFile("file1", { data: await ResourceDescriptor.from("Updated text") });
+  test.assert(ensuredfile2.modificationDate > now, "Modification date should be updated");
+  test.eq(ensuredfile2.creationDate, ensuredfile.creationDate, "Creation date should be unchanged");
 
   await whdb.commitWork();
 }

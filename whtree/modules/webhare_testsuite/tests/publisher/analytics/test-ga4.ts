@@ -1,33 +1,26 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-system/js/wh/testframework';
-
-async function waitForGTM() {
-  return test.wait(() => Boolean(test.getWin().webharetestcontainer) //GTM-TN7QQM has been configured to set this
-  );
-}
 
 function forceResetConsent() {
   test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
 }
 
-function checkForGTM(opts) {
+function checkForGTM(opts: { selfhosted: boolean; remote: boolean; snippet: boolean }) {
   test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted ? '' : 'NOT '}be loaded`);
   test.eq(opts.remote ? 1 : 0, test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote ? '' : 'NOT '}be loaded`);
-  test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
+  test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent?.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
 }
-function checkForAnonymizeIp(expect) {
+function checkForAnonymizeIp(expect: boolean) {
   const config = test.getWin().dataLayer.find(_ => _[0] === 'config');
   test.assert(config);
+  //@ts-expect-error datalayer typing needs to be reconsidered
   const anonymize_ip = config[2].anonymize_ip;
   test.eq(Boolean(expect), Boolean(anonymize_ip));
 }
 
-export function getAnalyticsHits(regex) {
+export function getAnalyticsHits(regex: RegExp) {
   return test.getWin().performance.getEntries().filter(entry => entry.name.match(/^https:\/\/.*\.google-analytics\.com\/g\/collect/) && entry.name.match(regex));
 }
-export function hasAnalyticsHit(regex) {
+export function hasAnalyticsHit(regex: RegExp) {
   return getAnalyticsHits(regex).length > 0;
 }
 
@@ -78,7 +71,7 @@ test.registerTests(
       test.assert(!test.getWin().got_consent_remarketing);
 
       // In case of no explicit and default consent, hasConsent must return undefined and <html> should have data-whConsent="unknown"
-      test.eq(undefined, test.getWin().hasConsent("remarketing"));
+      test.eq(undefined, test.getWin().hasConsent!("remarketing"));
       test.eq("unknown", test.getDoc().documentElement.dataset.whConsent);
 
       test.assert(!test.qS("script[src*='googletagmanager.com/gtag']")); // GA4 should not have been loaded yet
@@ -102,8 +95,8 @@ test.registerTests(
       test.assert(!test.getWin().got_consent_remarketing);
 
       // In case of no explicit and default consent, hasConsent must return undefined and <html> should have data-whConsent="unknown"
-      test.eq(true, test.getWin().hasConsent("analytics"));
-      test.eq(false, test.getWin().hasConsent("remarketing")); // in case of falling back to default (implicit) consent, we get false for fields which aren't in options.defaultconsent
+      test.eq(true, test.getWin().hasConsent!("analytics"));
+      test.eq(false, test.getWin().hasConsent!("remarketing")); // in case of falling back to default (implicit) consent, we get false for fields which aren't in options.defaultconsent
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
 
       test.assert(test.qS("script[src*='googletagmanager.com/gtag']")); // GA4 script should be loaded
@@ -115,8 +108,8 @@ test.registerTests(
 
       await new Promise(resolve => window.setTimeout(resolve, 0)); // wait for the await of the dialogapi to continue, otherwise our checks run before the consenthandler.setConsent call
 
-      test.eq(true, test.getWin().hasConsent("analytics"));
-      test.eq(true, test.getWin().hasConsent("remarketing"));
+      test.eq(true, test.getWin().hasConsent!("analytics"));
+      test.eq(true, test.getWin().hasConsent!("remarketing"));
 
       // Check whether the callbacks for each consent tag were received
       test.assert(test.getWin().got_consent_analytics);
