@@ -613,7 +613,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
       }
       CASE "array"
       {
-        Print(`<input class="wh-form__arrayinput" data-wh-form-name="${fielddescription.name}" data-wh-min="${fielddescription.min}" data-wh-max="${fielddescription.max}" />`);
+        Print(`<input class="wh-form__arrayinput" name="${fielddescription.name}" data-wh-min="${fielddescription.min}" data-wh-max="${fielddescription.max}" />`);
 
         Print(`<template><div class="wh-form__arrayrow">`);
         FOREVERY (OBJECT field FROM fielddescription.subfields)
@@ -730,12 +730,12 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
       }
       CASE "rtd"
       {
-        Print(`<div${idstr} class="wh-form__rtd" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-rtdoptions="${EncodeValue(EncodeJSON(fielddescription.rtdoptions))}"`);
+        Print(`<wh-form-rtd${idstr} class="wh-form__rtd" name="${EncodeValue(fielddescription.name)}" data-wh-rtdoptions="${EncodeValue(EncodeJSON(fielddescription.rtdoptions))}"`);
         IF(NOT fielddescription.enabled)
-          Print(` data-wh-form-disabled`);
-        Print(` data-wh-form-registered-field>`);
+          Print(` disabled`);
+        Print(`>`);
         Print(fielddescription.value);
-        Print(`</div>`);
+        Print(`</wh-form-rtd>`);
       }
       CASE "text"
       {
@@ -762,22 +762,24 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
            data-arialabel is combined with the description of what the current action will be when using click/space/enter
            (because we don't use a seperate button for this)
         */
-        Print(`<div${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
+
+        //Print(`<div ${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
+        Print(`<wh-form-imgedit ${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
         IF(NOT fielddescription.enabled)
-          Print(` data-wh-form-disabled`);
+          Print(` disabled`);
         IF(fielddescription.required)
-          Print(` data-wh-form-required aria-required`);
+          Print(` required aria-required`); //TODO *MUST* we use aria-required
         IF(RecordExists(fielddescription.value))
           Print(` data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
-        Print(` data-wh-form-registered-field>`);
-        Print(`<div class="wh-form__imgeditholder">`);
+        // Print(` data-wh-form-registered-field>`);
+        Print(`><div class="wh-form__imgeditholder">`);
         IF(RecordExists(fielddescription.value))
           Print(`<div class="wh-form__imgeditimg" style="background-image: url('${EncodeValue(fielddescription.value.link)}')"></div>`);
-        Print(`</div></div>`);
+        Print(`</div></wh-form-imgedit>`);
       }
       CASE "upload"
       {
-        Print(`<input${idstr} type="file" class="wh-form__upload"`);
+        Print(`<wh-form-upload ${idstr} class="wh-form__upload"`);
         Print(` name="${EncodeValue(fielddescription.name)}"`);
         IF(fielddescription.required)
           Print(` required`);
@@ -785,7 +787,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(` disabled`);
         IF(RecordExists(fielddescription.value))
           Print(` data-wh-fileurl="${EncodeValue(fielddescription.value.link)}" data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
-        Print(`${datasetstr}>`);
+        Print(`${datasetstr}></wh-form-upload>`);
       }
       CASE "pulldown"
       {

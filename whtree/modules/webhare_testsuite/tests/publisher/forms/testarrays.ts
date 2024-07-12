@@ -32,7 +32,7 @@ interface ArrayFormShape {
     name: string;
     customcomp: unknown;
     twoLevelInArray: {
-      customselect: string;
+      customselect: { select: string };
       textedit: string;
     };
   }>;
@@ -113,6 +113,7 @@ test.registerTests(
 
       // Check the resulting result
       result = await formhandler.getFormValue() as unknown as ArrayFormValue;
+      console.log(result);
       test.eq("still not array", result.text);
       test.eq(2, result.contacts.length);
       test.eq("array name", result.contacts[0].name);
@@ -237,7 +238,7 @@ test.registerTests(
 
         // Clear the array by setting the value to an empty array
         const arrayvalue = test.qR("[data-wh-form-group-for=contacts] .wh-form__arrayinput");
-        formhandler.setFieldValue(arrayvalue, []);
+        formhandler.data.contacts = [];
         test.eq(0, test.qSA(".wh-form__arrayrow").length);
 
         test.fill("input[name=text]", "no longer prefilled");
@@ -247,7 +248,7 @@ test.registerTests(
         test.eq(0, result.contacts.length);
 
         // Set the value to an empty row
-        formhandler.setFieldValue(arrayvalue, [{}]);
+        formhandler.assign({ contacts: [{}] });
         test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
         result = await formhandler.getFormValue() as unknown as ArrayFormValue;
@@ -259,7 +260,7 @@ test.registerTests(
         test.assert(!result.contacts[0].photo);
 
         // Set the value to two rows with values
-        formhandler.setFieldValue(arrayvalue, [{ name: "First person", gender: 1, wrd_dateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrd_dateofbirth: "2000-03-03" }]);
+        formhandler.assign({ contacts: [{ name: "First person", gender: "1", wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: "2", wrdDateofbirth: "2000-03-03" }] });
         test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
         result = await formhandler.getFormValue() as unknown as ArrayFormValue;
@@ -484,21 +485,18 @@ test.registerTests(
         "customArray": [
           {
             "name": "Name #1",
-            "customcomp": {
-              "sub": "Sub #1"
-            },
+            //Note that customcomp is completely incompatible with formhandler.data representation - as the checkbox without a deeper name is suggesting it's the group leader
+            "customcomp": false,
             "twoLevelInArray": {
-              "customselect": "lang-nl",
+              "customselect": { "select": "lang-nl" },
               "textedit": "TEXT 1"
             }
           },
           {
             "name": "Name #2",
-            "customcomp": {
-              "sub": "Sub #2"
-            },
+            "customcomp": true,
             "twoLevelInArray": {
-              "customselect": "abc",
+              "customselect": { "select": "abc" },
               "textedit": "TEXT 2"
             }
           }

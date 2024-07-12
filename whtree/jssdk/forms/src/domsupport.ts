@@ -1,9 +1,12 @@
 /* Support APIs to deal with DOM native form elements (eg input, select, textarea) */
 
+import type FormBase from '@mod-publisher/js/forms/formbase';
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isFormControl, isHTMLElement, qSA, type FormControlElement } from "@webhare/dompack";
 import type { FormCondition } from "./types";
+import { JSFormElement, type FormFieldLike } from "./jsformelement";
+import { throwError } from '@webhare/std';
 
 export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
 
@@ -11,13 +14,13 @@ export function isInputElement(field: Element): field is HTMLInputElement {
   return isHTMLElement(field) && field.tagName === 'INPUT';
 }
 
-export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
-  return isInputElement(field) && ["radio", "checkbox"].includes(field.type);
+/// Implements required, disabled, ..
+export function isFormFieldLike(control: HTMLElement): control is FormFieldLike {
+  return isFormControl(control as HTMLElement) || control instanceof JSFormElement;
 }
 
-///Test if the field is a valid target for various form APIs we have (it's a FormControlElement OR it has data-wh-form-name. We hope to someday merge those into 'real' inputs too)
-export function isValidFormFieldTarget(field: Element): field is HTMLElement {
-  return isFormControl(field) || Boolean(field instanceof HTMLElement && field.dataset.whFormName);
+export function isRadioOrCheckbox(field: Element): field is HTMLInputElement {
+  return isInputElement(field) && ["radio", "checkbox"].includes(field.type);
 }
 
 // Constrains the RadioNodeList type to only return HTMLInputElements. reduces number of casts we need
@@ -35,6 +38,21 @@ export function getFieldDisplayName(field: HTMLElement | ConstrainedRadioNodeLis
   if (field.classList.contains('wh-form__fieldgroup'))
     return `field group '${field.dataset.whFormGroupFor || field.id || '<unnamed>'}'`;
   return `${field.tagName} element '${field.id || '<unnamed>'}'`;
+}
+
+/** The WH Form rendering generates wh-form-upload elements. If no handler is detected for them, we downgrade them to input type=file before
+ *  the form actually sets up its handler (it's still safe to rewrite top level form elements then)
+*/
+export function downgradeUploadFields(form: HTMLElement) {
+  //WH Forms api generates
+  for (const uploadfield of qSA(form, "wh-form-upload")) {
+    const input = document.createElement("input");
+    input.type = "file";
+    for (const attr of uploadfield.attributes)
+      input.setAttribute(attr.name, attr.value);
+
+    uploadfield.replaceWith(input);
+  }
 }
 
 export function getErrorForValidity(field: FormControlElement): string {
@@ -102,9 +120,18 @@ export function getFormElementCandidates(basenode: HTMLElement, namePrefix: stri
   if (!parentForm)
     throw new Error('No form found for element');
 
-  const candidates = qSA<HTMLElement>(basenode, "input, select, textarea, [data-wh-form-registered-field]").filter(el => !("form" in el) || el.form === parentForm);
+  const candidates = qSA<HTMLElement>(basenode, "[name]").filter(el => !("form" in el) || el.form === parentForm);
   if (namePrefix)
     return candidates.filter(el => ((el as FormControlElement).name || el.dataset.whFormName || '').startsWith(namePrefix + '.'));
   else
     return candidates;
+}
+
+/** Get the handler for a form element */
+export function getFormHandler<FormType extends FormBase<object> = FormBase>(node: HTMLFormElement, options: { allowMissing: true }): FormType | null;
+export function getFormHandler<FormType extends FormBase<object> = FormBase>(node: HTMLFormElement, options?: { allowMissing?: boolean }): FormType;
+
+export function getFormHandler<FormType extends FormBase<object> = FormBase>(node: HTMLFormElement, { allowMissing = false } = {}): FormType | null {
+  //FIXME convert to Symbol? but make sure we work cross-realm (ie tests)
+  return (node.propWhFormhandler as FormType) || (allowMissing ? null : throwError('No form handler found for form'));
 }

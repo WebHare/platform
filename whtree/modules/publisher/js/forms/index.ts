@@ -4,13 +4,14 @@ import * as merge from './internal/merge';
 import { setFieldError, setupValidator } from './internal/customvalidation';
 import FormBase, { type FormSubmitEmbeddedResult } from './formbase';
 import RPCFormBase from './rpc';
-import { rfSymbol } from '@webhare/forms/src/registeredfield';
+import { sleep } from '@webhare/std';
+import { downgradeUploadFields } from '@webhare/forms/src/domsupport';
 
 export { FormBase, RPCFormBase, setFieldError, setupValidator, type FormSubmitEmbeddedResult };
 
 type FormHandlerFactory = (form: HTMLFormElement) => FormBase;
 
-const WarningIntervalMs = 5000;
+const firstWarningMs = 150, warningIntervalMs = 5000;
 const handlers: Record<string, FormHandlerFactory> = {
   "publisher:form": form => new FormBase(form),
   "publisher:rpc": form => new RPCFormBase(form)
@@ -22,23 +23,29 @@ async function scheduleFormSetup(form: HTMLFormElement, factory: FormHandlerFact
   using lock = dompack.flagUIBusy();
   void (lock);
 
-  let nextWarning = Date.now() + 5000;
+  const customEls = [...new Set(dompack.qSA(form, "[name]").map(_ => _.tagName.toLowerCase()))].filter(_ => _.includes("-"));
+  if (customEls.length) {
+    const initPromise = Promise.all(customEls.map(_ => customElements.whenDefined(_))).then(() => ({ timeout: false }));
 
-  for (; ;) {
-    const pendingFields = dompack.qSA('[data-wh-form-registered-field]').filter(_ => !_[rfSymbol]);
-    if (!pendingFields.length) {
-      factory(form);
-      return;
+    let nextWarning = Date.now() + firstWarningMs;
+    for (; ;) {
+      const timeoutPromise = sleep(new Date(nextWarning)).then(() => ({ timeout: true }));
+      const result = await Promise.race([initPromise, timeoutPromise]);
+      if (!result.timeout)
+        break;
+
+      const missing = customEls.filter(tag => !customElements.get(tag)).join(", ");
+      if (missing === 'wh-form-upload') {
+        console.warn(`Developers: we recommend explicitly registering a component for ".wh-form__upload"`);
+        downgradeUploadFields(form);
+        break;
+      }
+      console.warn(`Still waiting for the following custom elements to be defined in form ${form.id ?? form.dataset.whFormId}:`, missing);
+      nextWarning = Date.now() + warningIntervalMs;
     }
-
-    //keep waiting for all fields to be registered
-    if (nextWarning < Date.now()) {
-      console.log(`Form ${form.id} is still waiting for ${pendingFields.length} fields to be registered`, form, pendingFields);
-      nextWarning = Date.now() + WarningIntervalMs;
-    }
-
-    await new Promise(resolve => requestAnimationFrame(resolve));
   }
+
+  factory(form);
 }
 
 export function registerHandler(handlername: string, handler: FormHandlerFactory) {

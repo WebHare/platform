@@ -3,7 +3,7 @@
 import * as dompack from 'dompack';
 import { isHTMLElement, loadImage } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
-import FileEditBase from './fileeditbase';
+import { FileEditElement } from './fileeditbase';
 import './imgedit.css';
 import { wrapSerialized } from '@webhare/std';
 
@@ -21,13 +21,14 @@ export function readBackgroundUrl(imgnode: HTMLElement | null) {
   return "";
 }
 
-export default class ImgEditField extends FileEditBase {
+export class ImgEditElement extends FileEditElement {
   /** Hold the last created image URL so we can revoke it */
   private currentImgUrl = '';
+  declare node: ImgEditElement;
   deletebutton?: HTMLElement;
 
-  constructor(node: HTMLElement) {
-    super(node);
+  constructor() {
+    super();
     this.node.addEventListener('click', evt => this.selectFile(evt));
     this.node.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
@@ -108,7 +109,7 @@ export default class ImgEditField extends FileEditBase {
     if (!this._getEnabled())
       return;
 
-    this.setValue(null);
+    this.value = null;
     dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }
 
@@ -151,4 +152,13 @@ export default class ImgEditField extends FileEditBase {
 
     dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }, { coalesce: true });
+}
+
+//////// Legacy version. We expect existing users to migrate to the version above
+
+export default class ImgEditField {
+  constructor(node: HTMLElement) {
+    if (!customElements.get("wh-form-imgedit"))
+      customElements.define("wh-form-imgedit", ImgEditElement);
+  }
 }

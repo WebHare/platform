@@ -1,18 +1,13 @@
 import * as dompack from '@webhare/dompack';
 import * as dialogapi from 'dompack/api/dialog';
-import RTDField from './index';
+import { type RTDFormElement } from './index';
 import RPCFormBase from '../../rpc';
 import publisherFormService from "@webhare/forms/src/formservice";
 import type { FormSubmitEmbeddedResult } from '../../formbase';
 
 class EmbedVideoForm extends RPCFormBase {
-  dialog;
-  rtd;
-
-  constructor(node: HTMLFormElement, dialog: dialogapi.DialogBase, rtd: HTMLElement) {
+  constructor(node: HTMLFormElement, private dialog: dialogapi.DialogBase, private rtd: RTDFormElement) {
     super(node);
-    this.dialog = dialog;
-    this.rtd = rtd;
   }
 
   async onSubmitSuccess(result: FormSubmitEmbeddedResult<{
@@ -22,13 +17,13 @@ class EmbedVideoForm extends RPCFormBase {
     };
   }>) {
     if (result.video) {
-      await RTDField.getForNode(this.rtd)!.insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
+      this.rtd.insertVideoByURL('x-wh-embedvideo:' + result.video.network + ':' + result.video.videoid);
       this.dialog.resolve(null);
     }
   }
 }
 
-export async function insertVideo(rtd: HTMLElement) {
+export async function insertVideo(rtd: RTDFormElement) {
   const formloadlock = dompack.flagUIBusy();
   const formhandler = rtd.closest('form')?.propWhFormhandler;
   if (!formhandler) {
