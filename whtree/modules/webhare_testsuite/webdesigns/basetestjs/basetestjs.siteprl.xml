@@ -63,6 +63,19 @@
 
     <!-- Test a plugin -->
     <gtm account="GTM-TN7QQM" integration="selfhosted" launch="pagerender" />
+
+    <!-- shared for now -->
+    <formdefinitions path="../basetest/pages/formtest/formtest.formdef.xml" />
+
+    <!-- also load through a name to test that this name doesn't appear in the formid -->
+    <formdefinitions name="webhare_testsuite:formdefs" path="../basetest/pages/formtest/formtest.formdef.xml" />
+    <formdefinitions name="webhare_testsuite:global" path="../basetest/pages/formtest/global.formdef.xml" />
+
+  </apply>
+
+  <apply>
+    <to type="file"  pathmask="/testpages/formtest"/>
+    <sitelanguage lang="nl" />
   </apply>
 
   <apply>

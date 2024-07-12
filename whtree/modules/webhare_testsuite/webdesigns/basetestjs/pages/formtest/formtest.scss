@@ -1,0 +1,83 @@
+@import '~@mod-publisher/js/forms/styles';
+
+@at-root
+{
+  @include wh-form-flex;
+}
+.wh-form__label
+{
+  min-width:240px;
+}
+.wh-form__rtd
+{
+  min-height:320px;
+}
+@media (max-width: 505px)
+{
+  /* Order the inputs vertical from their labels */
+  .wh-form__fieldgroup
+  {
+    -ms-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+  /* Give the fields their full width back */
+  .wh-form__fields
+  {
+    width:100%;
+  }
+}
+
+.wh-form__imgedit
+{
+  width:250px;
+  height:250px;
+//  max-width:250px;
+//  max-height:250px;
+}
+
+.wh-form__error, .wh-form__fieldgroup--error
+{
+  color:red;
+}
+
+.multipageform__prefix
+{
+  padding:10px;
+  border:1px solid black;
+}
+
+/////////////  datepicker
+.datetime__picker__previous:after
+{
+  display:inline-block;
+  content:"<<";
+}
+.datetime__picker__next:after
+{
+  display:inline-block;
+  content:">>";
+}
+
+/////////////   simulate an annoying bar overlapping content
+html.cookiebar body:before //placeholder to reserve space
+{
+  content: "";
+  display:block;
+  height:166px;
+}
+html.cookiebar body:after //the actual cookie bar
+{
+  content:"I'm a sort of cookiebar overlay";
+  display:block;
+  position:fixed;
+  top:0;
+  height:166px;
+  width:100%;
+  background:blue;
+  color:#ffffff;
+}
+html.cookiebar .wh-anchor //fix anchors for proper scroll positioning when a cookiebar is present
+{
+  scroll-margin-top:166px;
+}

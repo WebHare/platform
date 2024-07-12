@@ -23,10 +23,7 @@ interface FormField {
 }
 
 class HTMLFormFieldHandler implements FormField {
-  private readonly field;
-
-  constructor(private form: FormParent, field: FormControlElement) {
-    this.field = field;
+  constructor(private form: FormParent, private readonly field: FormControlElement) {
   }
 
   getValue<T = unknown>(): T {
@@ -139,12 +136,12 @@ class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
 export abstract class FormFieldMap<DataShape> {
   protected fieldmap = new Map<string, FormField>();
 
-  constructor(protected fieldBaseName: string, nodes: HTMLElement[]) {
-    const subpos = fieldBaseName ? nameToSnakeCase(fieldBaseName).length + 1 : 0;
+  constructor(protected fieldName: string, nodes: HTMLElement[]) {
+    const subpos = fieldName ? nameToSnakeCase(fieldName).length + 1 : 0;
     const groups = Map.groupBy(nodes, _ => nameToCamelCase(((_ as HTMLInputElement).name || _.dataset.whFormName || "").substring(subpos).split('.')[0]));
 
     for (const [name, items] of groups) {
-      const fullName = (fieldBaseName ? fieldBaseName + '.' : '') + name;
+      const fullName = (fieldName ? fieldName + '.' : '') + name;
       if (!name) {
         console.error(`There are fields without a name:`, items);
         continue;
@@ -203,7 +200,7 @@ export abstract class FormFieldMap<DataShape> {
     if (options?.allowMissing)
       return null;
 
-    throw new Error(`Field '${name}' (with name/data-wh-form-name '${nameToSnakeCase((this.fieldBaseName ? this.fieldBaseName + '.' : "") + name)}') not found in this form`); //TODO report the fukll anme
+    throw new Error(`Field '${name}' (with name/data-wh-form-name '${nameToSnakeCase((this.fieldName ? this.fieldName + '.' : "") + name)}') not found in this form`); //TODO report the fukll anme
   }
 
   getFieldNames(): string[] {
@@ -212,9 +209,9 @@ export abstract class FormFieldMap<DataShape> {
 
   /** Set a value for multiple fields
    * @param data - The data to set
-   * @param ignoreUnknownFields - Do not throw if a field is not found in the form
+   * @param ignoreUnknownFields - Do not throw if a field is not found in the form. This is the default
    */
-  assign(data: RecursivePartial<DataShape>, { ignoreUnknownFields = false } = {}) {
+  assign(data: RecursivePartial<DataShape>, { ignoreUnknownFields = true } = {}) {
     for (const [key, value] of Object.entries(data as object)) {
       const field = this.getField(key, { allowMissing: ignoreUnknownFields });
       if (field)
@@ -241,7 +238,7 @@ export class RecordFieldHandler extends FormFieldMap<object> implements FormFiel
 
   setValue(newvalue: unknown): void {
     if (typeof newvalue !== 'object' || newvalue === null)
-      throw new Error(`Invalid value for record field: ${newvalue}`);
+      throw new Error(`Invalid value for record field '${this.fieldName}': ${newvalue}`);
 
     for (const [name, field] of this.fieldmap) {
       if (name in newvalue)
