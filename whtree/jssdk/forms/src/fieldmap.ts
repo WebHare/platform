@@ -1,7 +1,7 @@
-import { isFormFieldLike, isInputElement } from "./domsupport";
+import { isFormFieldLike } from "./domsupport";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
-import { omit, type AddressValue, nameToSnakeCase, nameToCamelCase } from "@webhare/std";
+import { omit, type AddressValue, nameToSnakeCase, nameToCamelCase, throwError, isDate } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { FormFieldLike } from "./jsformelement";
 
@@ -21,46 +21,98 @@ interface FormField {
   setValue(newvalue: unknown): void;
 }
 
+type ValueType = "number" | "boolean" | "date";
+
+function mapValue(type: ValueType, invalue: string) {
+  switch (type) {
+    case "number":
+      return parseFloat(invalue);
+    case "boolean":
+      return invalue === "true";
+    case "date":
+      return new Date(invalue);
+  }
+}
+
+function unmapValue(type: ValueType | undefined, invalue: unknown, fieldDescr: string) {
+  switch (type) {
+    case null:
+      if (typeof invalue !== "string")
+        throw new Error(`Invalid type ${typeof invalue} for string field ${fieldDescr}: ${invalue}`);
+      return invalue;
+
+    case "number":
+      if (typeof invalue !== "number")
+        throw new Error(`Invalid type ${typeof invalue} for number field ${fieldDescr}: ${invalue}`);
+      return String(invalue);
+
+    case "boolean":
+      if (typeof invalue !== "boolean")
+        throw new Error(`Invalid type ${typeof invalue} for boolean field ${fieldDescr}: ${invalue}`);
+      return String(invalue);
+
+    case "date":
+      if (!isDate(invalue))
+        throw new Error(`Invalid type ${typeof invalue} for date field ${fieldDescr}: ${invalue}`);
+      return invalue.toISOString();
+  }
+}
+
 class HTMLFormFieldHandler implements FormField {
+  valuetype?: ValueType;
+
   constructor(private form: FormParent, private readonly field: FormFieldLike) {
+    this.valuetype = field.dataset.whFormValueType as undefined | ValueType;
+    if (!this.valuetype && field.matches('input[type=number]'))
+      this.valuetype = "number";
   }
 
-  getValue<T = unknown>(): T {
-    if (isInputElement(this.field)) {
-      if (this.field.type === "number")
-        return this.field.valueAsNumber as T;
-      if (this.field.type === "checkbox")
-        return this.field.checked as T;
-    }
-    if (this.field.tagName === 'SELECT') {
-      const fieldAsSelect = this.field as HTMLSelectElement;
-      return (fieldAsSelect.selectedOptions[0]?.value ?? null) as T;
+  getValue(): unknown {
+    if (this.field.matches('input[type=checkbox]'))
+      return (this.field as HTMLInputElement).checked;
+
+    if (this.field.tagName === "SELECT") {
+      const selectedrow = (this.field as HTMLSelectElement).selectedOptions[0];
+      if (!selectedrow || selectedrow.dataset.whPlaceholder !== undefined)
+        return null; //didn't select a 'real' option
+
+      return this.valuetype ? mapValue(this.valuetype, selectedrow.value) : selectedrow.value;
     }
 
-    return this.field.value as T;
+    return this.valuetype ? mapValue(this.valuetype, this.field.value as string) : this.field.value;
   }
 
   setValue(newvalue: unknown): void {
-    if (isInputElement(this.field)) {
-      if (this.field.type === 'checkbox') {
-        //For convenience we're interpreting setting a checkbox as 'truthy' instead of explicit true/false
-        this.field.checked = Boolean(newvalue);
-        this.form.__scheduleUpdateConditions();
-      }
-    }
+    if (this.field.matches('input[type=checkbox]')) {
+      //For convenience we're interpreting setting a checkbox as 'truthy' instead of explicit true/false
+      const setvalue = Boolean(newvalue);
+      if (setvalue === (this.field as HTMLInputElement).checked)
+        return;
 
-    //FIXME type validation
-    this.field.value = newvalue as string;
+      (this.field as HTMLInputElement).checked = setvalue;
+    } else if (this.field.tagName === "SELECT" && newvalue === null) { //'null' resets the select to 'no value', so figure out if there's a placeholder row
+      const setvalue = (this.field as HTMLSelectElement).options[0]?.dataset.whPlaceholder !== undefined ? 0 : -1;
+      if ((this.field as HTMLSelectElement).selectedIndex === setvalue)
+        return;
+      (this.field as HTMLSelectElement).selectedIndex = setvalue;
+    } else {
+      const setvalue = this.valuetype ? unmapValue(this.valuetype, newvalue, this.field.name) : newvalue;
+      if (this.field.value === setvalue)
+        return;
+      this.field.value = setvalue;
+    }
     this.form.__scheduleUpdateConditions();
   }
 }
 
 class RadioFormFieldHandler implements FormField {
+  valuetype?: ValueType;
   constructor(private form: FormParent, private readonly name: string, private readonly rnodes: HTMLInputElement[]) {
+    this.valuetype = (rnodes[0].closest<HTMLElement>(".wh-form__fieldgroup") ?? throwError("RadioFormFieldHandler: Missing group")).dataset.whFormValueType as undefined | ValueType;
   }
   getValue(): unknown {
     const node = this.rnodes.find(_ => _.checked);
-    return (node ? node.value : null);
+    return (node ? this.valuetype ? mapValue(this.valuetype, node.value) : node.value : null);
   }
   setValue(newvalue: unknown): void {
     if (newvalue === null) {
@@ -69,37 +121,42 @@ class RadioFormFieldHandler implements FormField {
 
       this.form.__scheduleUpdateConditions();
       return;
-    } else {
-      if (typeof newvalue !== "string")
-        throw new Error(`Invalid value for radio group '${this.name}: ${newvalue}`);
-
-      const node = this.rnodes.find(_ => _.value === newvalue);
-      if (!node)
-        throw new Error(`No such value '${newvalue}' in radio group '${this.name}`);
-
-      node.checked = true;
-      this.form.__scheduleUpdateConditions();
     }
+
+    const myname = `radio group ${this.name}`;
+    const setvalue = unmapValue(this.valuetype, newvalue, myname);
+
+    const node = this.rnodes.find(_ => _.value === setvalue);
+    if (!node)
+      throw new Error(`No such value '${setvalue}' in radio group '${this.name}`);
+
+    node.checked = true;
+    this.form.__scheduleUpdateConditions();
   }
 }
 
 class CheckboxGroupHandler implements FormField {
+  valuetype?: ValueType;
   constructor(private form: FormParent, private readonly name: string, private readonly cboxes: HTMLInputElement[]) {
+    this.valuetype = (cboxes[0].closest<HTMLElement>(".wh-form__fieldgroup") ?? throwError("RadioFormFieldHandler: Missing group")).dataset.whFormValueType as undefined | ValueType;
   }
   getValue(): unknown {
-    return this.cboxes.filter(_ => _.checked).map(_ => _.value);
+    return this.cboxes.filter(_ => _.checked).map(_ => this.valuetype ? mapValue(this.valuetype, _.value) : _.value);
   }
   setValue(newvalue: unknown): void {
-    if (!Array.isArray(newvalue) || newvalue.some(_ => typeof _ !== 'string'))
-      throw new Error(`Invalid value for checkbox group '${this.name}': ${JSON.stringify(newvalue)}`);
+    const myname = `checkbox group '${this.name}'`;
+    if (!Array.isArray(newvalue))
+      throw new Error(`Value for ${myname} should be an array, got '${JSON.stringify(newvalue)}'`);
 
-    this.cboxes.forEach(_ => _.checked = newvalue.includes(_.value));
+    const toset = newvalue.map(_ => unmapValue(this.valuetype, _, myname));
+
+    this.cboxes.forEach(_ => _.checked = toset.includes(_.value));
     this.form.__scheduleUpdateConditions();
 
     //in case the error is caught and ignored (eg prefill), we'll update what we can
-    const missing = newvalue.filter(_ => !this.cboxes.some(cbox => cbox.value === _));
+    const missing = toset.filter(_ => !this.cboxes.some(cbox => cbox.value === _));
     if (missing.length)
-      throw new Error(`Invalid value(s) for checkbox group '${this.name}': ${missing.join(', ')}`);
+      throw new Error(`Invalid value(s) for ${myname}: ${missing.join(', ')}`);
   }
 }
 

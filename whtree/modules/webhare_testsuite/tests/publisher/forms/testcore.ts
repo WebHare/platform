@@ -1,8 +1,8 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as datetime from 'dompack/types/datetime';
-import FormBase from '@mod-publisher/js/forms/formbase';
 import { waitChange } from './lib/testhelpers';
 import type { AddressValue } from '@webhare/std';
+import { getFormData, getFormHandler, type FormBase } from '@webhare/forms';
 
 const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpulldown=1' : '';
 
@@ -20,13 +20,14 @@ function quickFillDefaultRequiredFields() {
 
 interface CoreFormShape {
   radiotestnamelijk: number;
+  radioboolean: boolean | null;
   address: AddressValue;
-  pulldowntest: null | "" | "1" | "2";
+  pulldowntest: null | 1 | 2;
   pulldown2test: null | "red";
-  pulldown3test: null | "";
+  pulldown3test: null | "red" | "green" | "blue";
   showradioy: boolean;
-  radiotest: null | "3" | "5";
-  checkboxes: Array<"1" | "2" | "3">;
+  radiotest: null | 3 | 5;
+  checkboxes: Array<1 | 2 | 3>;
 }
 
 test.registerTests(
@@ -42,6 +43,15 @@ test.registerTests(
 
         const form = test.qR<HTMLFormElement>("#coreform");
         test.assert(form.action.startsWith("javascript:"), "Action should be JavaScript");
+
+        const formhandler = getFormHandler<FormBase<CoreFormShape>>(form);
+        test.eqPartial({
+          radiotest: 3,
+          radioboolean: false,
+          pulldowntest: null,
+
+        }, formhandler.data);
+
 
         const richtext_h2 = test.qR(".wh-form__fields .wh-form__richtext h2");
         const richtext_p = test.qR(".wh-form__fields .wh-form__richtext p");
@@ -296,7 +306,7 @@ test.registerTests(
     {
       name: 'Test formapis',
       test: async function () {
-        const formhandler = FormBase.getForNode(test.qR('#coreform'));
+        const formhandler = getFormHandler(test.qR('#coreform'));
         test.assert(formhandler, 'no formhandler available');
 
         //test the form APIs
@@ -344,49 +354,42 @@ test.registerTests(
 
     'Test form field API',
     async function () {
-      const formhandler = FormBase.getForNode<CoreFormShape>(test.qR('#coreform'))!;
-
-      //Test the HTML field types
-      test.eq(21, formhandler.getField("radiotestnamelijk").getValue(), "type=number");
-      test.eqPartial({ city: "Enschede" }, formhandler.getField("address").getValue(), "type=text");
-      test.eq("", formhandler.getField("pulldowntest").getValue(), "type=text");
-      test.eq("red", formhandler.getField("pulldown2test").getValue(), "type=text");
-      test.eq("", formhandler.getField("pulldown3test").getValue(), "type=text");
-
-      test.eq(21, formhandler.data.radiotestnamelijk);
-      test.eq("Enschede", formhandler.data.address.city);
-      test.eq("", formhandler.data.pulldowntest);
-      test.eq("red", formhandler.data.pulldown2test);
-      test.eq("", formhandler.data.pulldown3test);
+      const data = getFormData<CoreFormShape>(test.qR('#coreform'));
+      test.eq(21, data.radiotestnamelijk, "type=number");
+      test.eq("Enschede", data.address.city, "type=text");
+      test.eq(null, data.pulldowntest, "type=text");
+      test.eq("red", data.pulldown2test, "type=text");
+      test.eq(null, data.pulldown3test, "type=text");
 
       //Test clearing pulldown. first via OUR code
-      formhandler.data.pulldowntest = null;
-      test.eq(-1, test.qR("[name=pulldowntest]").selectedIndex);
-      test.eq(null, formhandler.data.pulldowntest);
+      data.pulldowntest = null;
+      test.eq(0, test.qR("[name=pulldowntest]").selectedIndex);
+      test.eq(null, data.pulldowntest);
       //And via the DOM
+      test.qR("[name=pulldown3test]").selectedIndex = 0;
+      test.eq(null, data.pulldown3test);
       test.qR("[name=pulldown3test]").selectedIndex = -1;
-      test.eq(null, formhandler.data.pulldown3test);
+      test.eq(null, data.pulldown3test);
 
       //Test checkbox field
-      test.eq(true, formhandler.data.showradioy, "type=checkbox");
-      await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => formhandler.data.showradioy = false, "Unsetting showradioy should block the 'y' option");
+      test.eq(true, data.showradioy, "type=checkbox");
+      await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => data.showradioy = false, "Unsetting showradioy should block the 'y' option");
       test.eq(false, test.qR("#coretest-showradioy").checked);
 
       //Test checkboxes field
-      test.eq(['1', '3'], formhandler.data.checkboxes);
-      formhandler.data.checkboxes = ["2"];
-      test.eq(['2'], formhandler.data.checkboxes);
+      test.eq([1, 3], data.checkboxes);
+      data.checkboxes = [2];
+      test.eq([2], data.checkboxes);
 
       //Test the non-HTML field types (and condition updates)
-      test.eq("3", formhandler.data.radiotest, "RadioFormField");
-      await test.throws(/Invalid value for/, () => formhandler.getField("radiotest").setValue(5));
+      test.eq(3, data.radiotest, "RadioFormField");
       //@ts-expect-error Typescript also disapproves
-      await test.throws(/Invalid value for/, () => formhandler.data.radiotest = 5);
-      await waitChange(() => !test.qR("[name=opt5_select]").disabled, () => formhandler.data.radiotest = "5", "Setting radiotest to 5 should enable the opt5_select field");
-      await waitChange(() => test.qR("[name=opt5_select]").disabled, () => formhandler.data.radiotest = null, "Clearing the radio should disable the opt5_select field again");
+      await test.throws(/Invalid type string/, () => data.radiotest = "5");
+      await waitChange(() => !test.qR("[name=opt5_select]").disabled, () => data.radiotest = 5, "Setting radiotest to 5 should enable the opt5_select field");
+      await waitChange(() => test.qR("[name=opt5_select]").disabled, () => data.radiotest = null, "Clearing the radio should disable the opt5_select field again");
 
       test.eq(0, test.qSA("[name=radiotest]:checked").length);
-      test.eq(null, formhandler.data.radiotest);
+      test.eq(null, data.radiotest);
 
       //Verify that we can retrieve the formdata as full object
       test.eqPartial(
@@ -398,17 +401,18 @@ test.registerTests(
           pulldown3test: null,
           showradioy: false,
           radiotest: null,
-          checkboxes: ["2"]
-        }, formhandler.data);
+          checkboxes: [2]
+        }, data);
 
       //Test bulk setup
+      const formhandler = getFormHandler<FormBase<CoreFormShape>>(test.qR('#coreform'));
       //@ts-expect-error TypeScript disapproves of blaBla. And it will throw if you ask for it
       test.throws(/blaBla/, () => formhandler.assign({ blaBla: 15, radiotestnamelijk: 23 }, { ignoreUnknownFields: false }));
       //@ts-expect-error TypeScript still disapproves of blaBla. we still want to warn about potential errors. but we won't throw by default
       formhandler.assign({ blaBla: 15, radiotestnamelijk: 25 });
-      test.eq(25, formhandler.data.radiotestnamelijk);
+      test.eq(25, data.radiotestnamelijk);
       //@ts-expect-error TypeScript disapproves of blaBla
-      test.eq(undefined, formhandler.data.blaBla, "unknown fields are not retained");
+      test.eq(undefined, data.blaBla, "unknown fields are not retained");
     },
 
     {
@@ -429,31 +433,31 @@ test.registerTests(
       const label_option4 = test.qR(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-4]");
       const field_pulldowntest = test.qR(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
 
-      const formnode = test.qR('#coreform');
-      test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
+      const formnode = test.qR<HTMLFormElement>('#coreform');
+      test.assert(!(await getFormHandler(formnode)!.validate()).valid);
 
       label_option4.click();
       test.click('#coretest-requiredradio-x');
       test.fill('#coretest-email', 'pietje@example.com');
-      test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
+      test.assert(!(await getFormHandler(formnode)!.validate()).valid);
 
       field_pulldowntest.selectedIndex = 2;
       test.eq('2', field_pulldowntest.value);
-      test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
+      test.assert(!(await getFormHandler(formnode)!.validate()).valid);
       test.fill('#coretest-agree', true);
-      test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
+      test.assert(!(await getFormHandler(formnode)!.validate()).valid);
 
       test.fill('#coretest-setvalidator', 'raam');
-      test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid);
+      test.assert(!(await getFormHandler(formnode)!.validate()).valid);
 
       test.fill('#coretest-setvalidator', 'roos');
-      test.assert((await FormBase.getForNode(formnode)!.validate()).valid);
+      test.assert((await getFormHandler(formnode)!.validate()).valid);
 
       test.fill('#coretest-dateofbirth', '2099-01-01');
-      test.assert(!(await FormBase.getForNode(formnode)!.validate()).valid, 'Date checkValidity failed (perhaps the date validation polyfill broke)');
+      test.assert(!(await getFormHandler(formnode)!.validate()).valid, 'Date checkValidity failed (perhaps the date validation polyfill broke)');
 
       test.fill('#coretest-dateofbirth', '1979-06-13');
-      test.assert((await FormBase.getForNode(formnode)!.validate()).valid);
+      test.assert((await getFormHandler(formnode)!.validate()).valid);
       test.fillUpload(test.qS('#coretest-upload'), [{ filename: 'test.txt', mimetype: 'application/octet-stream', data: 'This is a text file' }]);
 
       const field_pulldown2test = test.qR(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
@@ -555,7 +559,7 @@ test.registerTests(
       test.qR('#coretest-disabledpulldowntest').disabled = false;
       test.qR('#coretest-disabledpulldowntest').value = "cant";
 
-      const formhandler = FormBase.getForNode(test.qR('#coreform'));
+      const formhandler = getFormHandler(test.qR('#coreform'));
 
       //we'll also test the 'extra submit data' passed to .submit see if it work
       await formhandler!.submit({ submitextradata: 5542 });

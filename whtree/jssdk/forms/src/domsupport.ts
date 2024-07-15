@@ -138,3 +138,11 @@ export function getFormHandler<FormType extends FormBase<object> = FormBase>(nod
   //FIXME convert to Symbol? but make sure we work cross-realm (ie tests)
   return (node.propWhFormhandler as FormType) || (allowMissing ? null : throwError('No form handler found for form'));
 }
+
+/** Get the data for a form element. Shorthand for getFormHandler\<FormBase\<Shape\>\>(xx).data */
+export function getFormData<DataShape extends object = Record<string, unknown>>(node: HTMLFormElement, options: { allowMissing: true }): DataShape | null;
+export function getFormData<DataShape extends object = Record<string, unknown>>(node: HTMLFormElement, options?: { allowMissing?: boolean }): DataShape;
+
+export function getFormData<DataShape extends object = Record<string, unknown>>(node: HTMLFormElement, { allowMissing = false } = {}): DataShape | null {
+  return getFormHandler<FormBase<DataShape>>(node, { allowMissing })?.data;
+}

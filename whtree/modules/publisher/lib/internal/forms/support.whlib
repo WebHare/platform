@@ -177,7 +177,7 @@ PUBLIC STRING FUNCTION UnmapValueType(STRING rowkeytype, VARIANT invalue, STRING
       IF (TypeID(invalue) != TypeID(DATETIME))
         THROW NEW Exception("Value must be of type DATETIME but got "||GetTypeName(TypeId(invalue)) );
 
-      mappedvalue := FormatISO8601Datetime(invalue,"day",(GetMsecondCount(invalue) % 1000) = 0 ? "seconds" : "milliseconds","UTC",FALSE);
+      mappedvalue := Substitute(EncodeJSON(invalue),'"',''); //Fast iso8601
     }
     DEFAULT
     {

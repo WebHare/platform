@@ -19,7 +19,7 @@ interface ArrayFormShape {
     name: string;
     photo?: { name: string };
     upload?: { name: string };
-    gender: string;
+    gender: 0 | 1 | 2;
     wrdDateofbirth: string;
     confirm: boolean;
     favcolor: null | string;
@@ -83,12 +83,11 @@ test.registerTests(
       test.eq("Your full name", test.qS(".wh-form__arrayrow input.wh-form__textinput")?.placeholder);
 
       // Check the resulting result
-      result = await formhandler.getFormValue() as unknown as ArrayFormValue;
-      test.eq("still not array", result.text);
-      test.eq(1, result.contacts.length);
-      test.eq("array name", result.contacts[0].name);
+      test.eq("still not array", formhandler.data.text);
+      test.eq(1, formhandler.data.contacts.length);
+      test.eq("array name", formhandler.data.contacts[0].name);
 
-      test.eq("2", result.contacts[0].gender);
+      test.eq(2, formhandler.data.contacts[0].gender);
 
       // Add another row
       test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
@@ -172,21 +171,19 @@ test.registerTests(
 
         // Check the resulting result
         const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
-        let result = await formhandler.getFormValue() as unknown as ArrayFormValue;
-        test.eq("", result.text);
-        test.eq(1, result.contacts.length);
-        test.eq("another name", result.contacts[0].name);
-        test.assert(result.contacts[0].photo);
-        test.eq("portrait_8.jpg", result.contacts[0].photo.name);
+        test.eq("", formhandler.data.text);
+        test.eq(1, formhandler.data.contacts.length);
+        test.eq("another name", formhandler.data.contacts[0].name);
+        test.assert(formhandler.data.contacts[0].photo);
+        test.eq("portrait_8.jpg", formhandler.data.contacts[0].photo.name);
 
         // Delete the last row
         test.click(test.qS(".wh-form__arraydelete")!);
         test.eq(0, test.qSA(".wh-form__arrayrow").length);
 
         // Check the resulting result
-        result = await formhandler.getFormValue() as unknown as ArrayFormValue;
-        test.eq("", result.text);
-        test.eq(0, result.contacts.length);
+        test.eq("", formhandler.data.text);
+        test.eq(0, formhandler.data.contacts.length);
 
         // The form should not be valid
         let validateResult = await formhandler.validate();
@@ -237,7 +234,6 @@ test.registerTests(
         // test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
 
         // Clear the array by setting the value to an empty array
-        const arrayvalue = test.qR("[data-wh-form-group-for=contacts] .wh-form__arrayinput");
         formhandler.data.contacts = [];
         test.eq(0, test.qSA(".wh-form__arrayrow").length);
 
@@ -260,7 +256,7 @@ test.registerTests(
         test.assert(!result.contacts[0].photo);
 
         // Set the value to two rows with values
-        formhandler.assign({ contacts: [{ name: "First person", gender: "1", wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: "2", wrdDateofbirth: "2000-03-03" }] });
+        formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrdDateofbirth: "2000-03-03" }] });
         test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
         result = await formhandler.getFormValue() as unknown as ArrayFormValue;
@@ -319,22 +315,22 @@ test.registerTests(
       test.eq("no longer prefilled", formhandler.data.text);
       test.eq(1, formhandler.data.contacts.length);
       test.eq("", formhandler.data.contacts[0].name);
-      test.eq("0", formhandler.data.contacts[0].gender);
+      test.eq(0, formhandler.data.contacts[0].gender);
       test.eq("", formhandler.data.contacts[0].wrdDateofbirth);
       test.assert(!formhandler.data.contacts[0].photo);
 
       // Set the value to two rows with values
-      formhandler.assign({ contacts: [{ name: "First person", gender: "1", wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: "2", wrdDateofbirth: "2000-03-03" }] });
+      formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrdDateofbirth: "2000-03-03" }] });
       test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
       test.eq("no longer prefilled", formhandler.data.text);
       test.eq(2, formhandler.data.contacts.length);
       test.eq("First person", formhandler.data.contacts[0].name);
-      test.eq("1", formhandler.data.contacts[0].gender);
+      test.eq(1, formhandler.data.contacts[0].gender);
       test.eq("2000-02-02", formhandler.data.contacts[0].wrdDateofbirth);
       test.assert(!formhandler.data.contacts[0].photo);
       test.eq("Another person", formhandler.data.contacts[1].name);
-      test.eq("2", formhandler.data.contacts[1].gender);
+      test.eq(2, formhandler.data.contacts[1].gender);
       test.eq("2000-03-03", formhandler.data.contacts[1].wrdDateofbirth);
       test.assert(!formhandler.data.contacts[1].photo);
 
@@ -475,7 +471,7 @@ test.registerTests(
         "contacts": [
           {
             "name": "first contact",
-            "gender": "0",
+            "gender": 0,
             "wrdDateofbirth": "",
             "confirm": false,
             "favcolor": null

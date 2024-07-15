@@ -150,6 +150,9 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
     throw new TestError("Expected type: " + t_expected + " actual type: " + t_actual + (path !== "" ? " at " + path : ""), annotation);
 
   if (typeof expected !== "object") {//simple value mismatch
+    if (typeof expected === "number" && isNaN(expected) && isNaN(actual as number))
+      return;
+
     if (typeof expected === "string" && typeof actual === "string") {
       printColoredTextDiff(expected, actual);
     }
