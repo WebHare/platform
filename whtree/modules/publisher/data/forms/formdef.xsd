@@ -491,15 +491,24 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <fai:formcomponent icon="tollium:applications/editor" linecomponent="true" tid="formcomponents.custom.name" />
+          <fai:formcomponent fieldobject="/lib/forms/components.whlib#CustomFormFieldBase"
+                             icon="tollium:applications/editor"
+                             linecomponent="true"
+                             parserfunc="/lib/forms/components.whlib#ParseCustomFormField"
+                             tid="formcomponents.custom.name" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="BaseAttributes" />
-      <xs:attribute name="fieldobject" type="xs:string" use="required">
+      <xs:attribute name="fieldobject" type="xs:string">
         <xs:annotation>
           <xs:documentation>
             Specifies the object that directly implements this field.
           </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="contentswitty" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Specifies the witty component rendering this field</xs:documentation>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>

@@ -150,7 +150,7 @@ OBJECTTYPE FormParser
     IF (RecordExists(comptype))
     {
       BOOLEAN iscustomfield := comptype.namespace = "http://www.webhare.net/xmlns/publisher/forms" AND comptype.name = "customfield";
-      STRING fieldobject := iscustomfield ? MakeAbsoluteResourcePath(this->resourcename, fld->GetAttribute("fieldobject")) : comptype.fieldobject;
+      STRING fieldobject := (iscustomfield ? MakeAbsoluteResourcePath(this->resourcename, fld->GetAttribute("fieldobject")) : "") ?? comptype.fieldobject;
 
       IF (fieldobject != "")
         addfield.fieldobject := PTR MakeObject(fieldobject, #1, #2, #3);
@@ -160,6 +160,7 @@ OBJECTTYPE FormParser
             , parsexmltiddirectly := PTR ParseXMLTidDirectly(this->resourcename, #1, #2, #3)
             , parsesubnode := PTR this->ParseFormContent(root, #1, gid, formdefinitions, formpage)
             , getinstance := this->validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
+            , resourcename := this->resourcename
             ]);
 
       addfield.conditionscope := comptype.conditionscope;

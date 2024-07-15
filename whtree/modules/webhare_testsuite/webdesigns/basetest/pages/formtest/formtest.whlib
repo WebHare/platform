@@ -30,7 +30,13 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
     IF(GetWebVariable("cookiebar")="1")
       INSERT "cookiebar" INTO this->webdesign->htmlclasses AT END;
 
-    IF(GetWebVariable("email")="1")
+    IF(GetWebVariable("form")!="")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
+           , [ anyform  := this->webdesign->GetWittyDataForForm(GetWebVariable("form"))
+             ]);
+    }
+    ELSE IF(GetWebVariable("email")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
            , [ anyform  := this->webdesign->GetWittyDataForForm("emailform")
@@ -941,3 +947,17 @@ PUBLIC MACRO RenderMultipagetestFirstpage(OBJECT page)
   page->RenderFields();
   Print(`</div>`);
 }
+
+PUBLIC STATIC OBJECTTYPE CustomElementsForm EXTEND FormBase
+<
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
+  {
+    OBJECT work := this->BeginWork();
+    work->Finish();
+
+    RETURN [ ok := work->HasFailed() ? 0 : 424140
+           , form := this->formvalue
+           , extradata := extradata
+           ];
+  }
+>;

@@ -4,6 +4,8 @@ import { create, onDomReady, qR, qS, qSA, register } from '@webhare/dompack';
 import { RPCFormBase, registerHandler, setupValidator } from '@mod-publisher/js/forms';
 
 import { fetchAsFile } from '@webhare/test-frontend';
+import "./simplefield";
+import { MySimpleField } from './simplefield';
 
 class CoreForm extends RPCFormBase {
   constructor(node: HTMLFormElement) {
@@ -136,3 +138,5 @@ register("#datetime_debugging", node => node.addEventListener("click", function 
     el.addEventListener("change", evt => console.log("Change event #%d on %s: %o", ++changecount, el.name, evt));
   });
 }));
+
+customElements.define('my-simple-field', MySimpleField);
