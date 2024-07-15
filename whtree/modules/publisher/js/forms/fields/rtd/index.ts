@@ -36,7 +36,7 @@ export class RTDFormElement extends JSFormElement<string> {
     this.node.whRTDField = this;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     const specifiedopts = JSON.parse(this.node.dataset.whRtdoptions || '{}') as { structure?: ExternalStructureDef };
     const structure = specifiedopts.structure || null;
     const hidebuttons = this.node.getAttribute("hidebuttons")?.split(" ") || [];
@@ -77,9 +77,10 @@ export class RTDFormElement extends JSFormElement<string> {
     //, bodyclass: data.bodyclass
     //, csscode: data.csscode
 
-    this.setupRTE(rtdoptions);
-  }
-  async setupRTE(rtdoptions: Partial<EditorBaseOptions>) {
+    //Mark the UI as busy while we're loading the RTE
+    using lock = dompack.flagUIBusy();
+    void (lock);
+
     const richeditor = await import('@mod-tollium/web/ui/components/richeditor') as typeof RichEditor;
 
     this.rte = richeditor.createRTE(this.node, {
