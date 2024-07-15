@@ -1,8 +1,7 @@
 import { isFormFieldLike, isInputElement } from "./domsupport";
-import { nameToCamelCase, nameToSnakeCase } from "@webhare/hscompat/types";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
-import { omit, type AddressValue } from "@webhare/std";
+import { omit, type AddressValue, nameToSnakeCase, nameToCamelCase } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { FormFieldLike } from "./jsformelement";
 

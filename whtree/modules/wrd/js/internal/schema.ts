@@ -14,7 +14,7 @@ import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
-import { nameToCamelCase } from "@webhare/hscompat/types";
+import { nameToCamelCase } from "@webhare/std/types";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 

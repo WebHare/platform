@@ -10,8 +10,7 @@ import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import type { SelectionMatch, TolliumCondition } from './types';
 import type { BackendApplication } from './application';
-import { generateRandomId } from '@webhare/std/platformbased';
-import { toSnakeCase } from '@webhare/hscompat/types'; //can't load @webhare/hscompat, it's for backends (and HS is indeed 'backend' in general)
+import { generateRandomId, toSnakeCase } from "@webhare/std";
 import type ObjAction from '@mod-tollium/webdesigns/webinterface/components/action/action';
 import type ObjForward from '@mod-tollium/webdesigns/webinterface/components/action/forward';
 
