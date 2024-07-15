@@ -4,6 +4,35 @@ LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 
+MACRO PrintRowkeyType(STRING type)
+{
+  STRING valuetype;
+  SWITCH(type)
+  {
+    CASE "","string"
+    {
+      RETURN;
+    }
+    CASE "integer"
+    {
+      valuetype := "number";
+    }
+    CASE "boolean"
+    {
+      valuetype := "boolean";
+    }
+    CASE "datetime"
+    {
+      valuetype := "date";
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown rowkeytype '${type}'`);
+    }
+  }
+  Print(` data-wh-form-value-type="${valuetype}"`);
+}
+
 PUBLIC BOOLEAN FUNCTION HasSubfields(RECORD groupdescription)
 {
   IF(NOT CellExists(groupdescription,'type'))
@@ -73,6 +102,7 @@ RECORD basefielddescription :=
   , enabledcondition       := ""
   , groupfor               := STRING[]
   , infotext               := DEFAULT RECORD
+  , rowkeytype             := ""
   ];
 
 //Normalize fields passed to the renderer
@@ -432,6 +462,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
         Print(` data-wh-form-${condition}-if="${EncodeValue(condval)}"`);
     }
     Print(` data-wh-form-group-for="${Detokenize(groupdescription.groupfor,' ')}"`);
+    PrintRowkeyType(groupdescription.rowkeytype);
 
     IF (groupdescription.type = "checkboxgroup")
     {
@@ -799,6 +830,8 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(` disabled`);
         IF(Length(fielddescription.autocomplete) > 0 )
           Print(` autocomplete="${EncodeValue(Detokenize(fielddescription.autocomplete, " "))}"`);
+        PrintRowkeyType(fielddescription.rowkeytype);
+
         Print(`${datasetstr}>`);
 
         // Add a 'placeholder' option if set
