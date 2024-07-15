@@ -715,9 +715,12 @@ STATIC OBJECTTYPE WHUserApi
     IF(grantedby != 0)
     {
       STRING grantorguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = grantedby;
+      IF(grantorguid = "")
+        THROW NEW Exception("No such WRD entity #" || grantedby || " (grantor)");
+
       grantorauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid=grantorguid;
       IF(grantorauthobjectid=0)
-        THROW NEW Exception("No authobject for user #" || grantedby || " (grantor");
+        THROW NEW Exception("No authobject for WRD entity #" || grantedby || " (grantor)");
     }
 
     STRING roleguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = role;
