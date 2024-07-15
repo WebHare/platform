@@ -9,7 +9,7 @@ import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, u
 import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormCondition } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
@@ -573,7 +573,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   private _shouldValidateField(el: HTMLElement) {
     //TODO maybe we can get rid of the data attributes by checking for explicit symbols like whFormsApiChecker
-    return (el.whFormsApiChecker || el.matches('[name],input,select,textarea,*[data-wh-form-name],*[data-wh-form-custom-validator')) &&
+    return (el.whFormsApiChecker || el.matches(`${queryFormFieldLike},*[data-wh-form-name],*[data-wh-form-custom-validator`)) &&
       this._isPartOfForm(el);
   }
 
@@ -873,7 +873,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       }
 
       // Look for nodes that are explicit enable state (enablee/require) listeners, or that need to do so because they're real input controls
-      const inputtargets = dompack.qSA(formline, "[data-wh-form-state-listener='true'],input,select,textarea,[name]");
+      const inputtargets = dompack.qSA(formline, `${queryFormFieldLike},[data-wh-form-state-listener='true']`);
 
       for (const node of inputtargets) {
         //Record initial states

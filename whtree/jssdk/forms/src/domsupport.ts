@@ -10,6 +10,9 @@ import { throwError } from '@webhare/std';
 
 export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
 
+//Query elements that are likely to be formfieldlike. Anything with a [name] but not eg button (and not data-wh-form-name which usually relies on getformvalue events)
+export const queryFormFieldLike = `[name]:not(button)`;
+
 export function isInputElement(field: Element): field is HTMLInputElement {
   return isHTMLElement(field) && field.tagName === 'INPUT';
 }
@@ -120,7 +123,7 @@ export function getFormElementCandidates(basenode: HTMLElement, namePrefix: stri
   if (!parentForm)
     throw new Error('No form found for element');
 
-  const candidates = qSA<HTMLElement>(basenode, "[name]").filter(el => !("form" in el) || el.form === parentForm);
+  const candidates = qSA<HTMLElement>(basenode, queryFormFieldLike).filter(el => !("form" in el) || el.form === parentForm);
   if (namePrefix)
     return candidates.filter(el => ((el as FormControlElement).name || el.dataset.whFormName || '').startsWith(namePrefix + '.'));
   else
