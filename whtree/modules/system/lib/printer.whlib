@@ -253,10 +253,18 @@ RECORD FUNCTION __GeneratePDFFrom(STRING link, RECORD wrappedfile, RECORD option
                                  ], options, [ enums := [ pdfengine := ["chrome"]
                                                         , media := ["print","screen"]
                                                         ]
+                                             , optional := pdf_defaultsettings_optionals
                                              ]);
 
+
   OBJECT pdfgen := NEW ChromePDFAPI();
-  RECORD result := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFrom(link, wrappedfile, CELL[ options.media, options.margin, options.cookies, options.embeddedfiles, options.format, options.width, options.height, options.pageranges, options.invokeifdone ]), options.timeout));
+  RECORD result := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFrom(link, wrappedfile, CELL
+      [ ...options
+      , DELETE getlog
+      , DELETE filename
+      , DELETE pdfengine
+      , DELETE timeout
+      ]), options.timeout));
   RECORD pdf := WrapBlob(result.pdf, options.filename);
   IF(NOT options.getlog)
     RETURN pdf;
