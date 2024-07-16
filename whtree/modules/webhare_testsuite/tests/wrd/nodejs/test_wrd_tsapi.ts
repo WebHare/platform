@@ -17,7 +17,8 @@ import { isChange } from "@mod-wrd/js/internal/schema";
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { Money } from "@webhare/std";
+import { Money, type AddressValue } from "@webhare/std";
+import type { PSPAddressFormat } from "@webhare/psp-base";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -123,6 +124,9 @@ function testSupportAPI() {
   test.eq(false, wrdsupport.isValidWRDTag("1A"));
   test.eq(true, wrdsupport.isValidWRDTag("A1"));
   test.eq(true, wrdsupport.isValidWRDTag("A"));
+
+  //address types should match not considering transitional nrDetail field (TODO which we can remove once all are WH5.6)
+  test.typeAssert<test.Equals<AddressValue, Omit<PSPAddressFormat, "nrDetail">>>();
 }
 
 interface TestRecordDataInterface {
