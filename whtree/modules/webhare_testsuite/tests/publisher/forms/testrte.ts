@@ -17,12 +17,14 @@ async function verifyBeagleVideo() {
   test.assert(!embobj.querySelector('.wh-rtd-editbutton'));
 }
 
-function verifyImage() {
+async function verifyImage() {
   const rtebody = test.qR('[name="rtd"] .wh-rtd__body');
   test.eq(1, rtebody.querySelectorAll('p').length);
   test.eq(1, rtebody.querySelectorAll('img').length);
 
-  const imgobj = test.qR(rtebody, 'img');
+  const imgobj = test.qR<HTMLImageElement>(rtebody, 'img');
+  //wait for the image to be loaded!
+  await test.wait(() => imgobj.complete);
   test.eq(450, Math.round(imgobj.getBoundingClientRect().width));
 }
 
@@ -123,8 +125,8 @@ test.registerTests(
 
     {
       name: 'Verify image',
-      test: function () {
-        verifyImage();
+      test: async function () {
+        await verifyImage();
         test.click('#submitbutton');
       },
       waits: ['ui']
@@ -134,7 +136,7 @@ test.registerTests(
       name: 'Verify image after reload',
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1');
-        verifyImage();
+        await verifyImage();
       }
     },
 

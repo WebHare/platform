@@ -2247,9 +2247,10 @@ STATIC OBJECTTYPE WRDDBValue
   }
 >;
 
-BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT condition, BOOLEAN jsmode)
+BOOLEAN FUNCTION CheckEnumUserInput(OBJECT wrdtype, RECORD attr, VARIANT user_input, OBJECT condition, BOOLEAN jsmode)
 {
   STRING match_type := condition->match_type;
+  STRING attrname := `enumeration attribute '${attr.tag}' in '${ToLowercase(`${wrdtype->wrdschema->tag}:${wrdtype->tag}`)}'`;
   IF (match_type = "IN")
   {
     IF (jsmode)
@@ -2259,15 +2260,15 @@ BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT cond
         IF (TypeID(v) = TypeID(RECORD) AND IsDefaultValue(v))
           user_input[#v] := "";
         ELSE IF (TypeID(v) != TypeID(STRING))
-          THROW NEW Exception(`Matchtype 'IN' requires a string array value for enumeration attribute '${attr.tag}'`);
+          THROW NEW Exception(`Matchtype 'IN' requires a string array value for ${attrname}`);
       user_input := STRING ARRAY(user_input);
     }
     IF(TypeID(user_input) != TypeID(STRING ARRAY))
-      THROW NEW Exception(`Matchtype 'IN' requires a string array value for enumeration attribute '${attr.tag}'`);
+      THROW NEW Exception(`Matchtype 'IN' requires a string array value for ${attrname}`);
     IF(NOT condition->ignoreallowedvalues)
       FOREVERY(STRING val FROM user_input)
         IF(val !="" AND NOT IsAllowedEnumValue(val, attr.allowedvalues))
-          THROW NEW Exception(`Value '${val}' is not an acceptable value for enumeration attribute '${attr.tag}'`);
+          THROW NEW Exception(`Value '${val}' is not an acceptable value for ${attrname}`);
     RETURN TRUE;
   }
   ELSE IF(match_type IN ['=','!='])
@@ -2275,21 +2276,21 @@ BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT cond
     IF (jsmode AND TypeID(user_input) = TypeID(RECORD) AND IsDefaultValue(user_input))
       user_input := "";
     IF(TypeID(user_input) != TypeID(STRING))
-      THROW NEW Exception(`Matchtype '${match_type}' requires a string value for enumeration attribute '${attr.tag}'`);
+      THROW NEW Exception(`Matchtype '${match_type}' requires a string value for ${attrname}`);
     IF(NOT condition->ignoreallowedvalues)
       IF(user_input != "" AND NOT IsAllowedEnumValue(user_input, attr.allowedvalues))
-        THROW NEW Exception(`Value '${user_input}' is not an acceptable value for enumeration attribute '${attr.tag}'`);
+        THROW NEW Exception(`Value '${user_input}' is not an acceptable value for ${attrname}`);
     RETURN TRUE;
   }
   ELSE IF(match_type = "LIKE")
   {
     IF(TypeID(user_input) != TypeID(STRING))
-      THROW NEW Exception(`Matchtype '${match_type}' requires a string value for enumeration attribute '${attr.tag}'`);
+      THROW NEW Exception(`Matchtype '${match_type}' requires a string value for ${attrname}`);
     // ADDME: check if at least one allowed value matches? could be expensive check.
     RETURN TRUE;
   }
   ELSE
-    THROW NEW Exception(`The match type '${match_type}' is not allowed for attribute '${attr.tag}'`);
+    THROW NEW Exception(`The match type '${match_type}' is not allowed for ${attrname}`);
 }
 
 STATIC OBJECTTYPE WRDDBEnumSingleValue EXTEND WRDDBValue
@@ -2355,7 +2356,7 @@ STATIC OBJECTTYPE WRDDBEnumSingleValue EXTEND WRDDBValue
   }
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
-    RETURN CheckEnumUserInput(this->attr, user_input, condition, this->jsmode);
+    RETURN CheckEnumUserInput(this->wrdtype, this->attr, user_input, condition, this->jsmode);
   }
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
   {
@@ -3724,7 +3725,7 @@ STATIC OBJECTTYPE WRDDBStatusRecordValue EXTEND WRDDBValue
 
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
-    RETURN CheckEnumUserInput(this->attr, user_input, condition, FALSE);
+    RETURN CheckEnumUserInput(this->wrdtype, this->attr, user_input, condition, FALSE);
   }
   UPDATE PUBLIC BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)
   {

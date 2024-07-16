@@ -1,5 +1,7 @@
 <?wh
 LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/screenbase.whlib";
@@ -33,17 +35,24 @@ PUBLIC STATIC OBJECTTYPE ConfigJS EXTEND PSPSettingsExtensionBase
   }
   MACRO DoConnect()
   {
-    RECORD result := CallJS("@mod-wrd/js/internal/paymentbridge.ts#connectPSP", ^methodsettings->^driver->value, ^methodsettings->^configuration->value);
-    IF(result.error != "")
+    TRY
     {
-      this->owner->RunSimpleScreen("error", result.error);
-      RETURN;
-    }
+      RECORD result := CallJS("@mod-wrd/js/internal/paymentbridge.ts#connectPSP", ^methodsettings->^driver->value, ^methodsettings->^configuration->value);
+      IF(result.error != "")
+      {
+        this->owner->RunSimpleScreen("error", result.error);
+        RETURN;
+      }
 
-    this->methods := result.methods;
-    this->islive := result.islive;
-    this->ProcessConfig();
-    this->owner->RunSimpleScreen("info", GetTid("wrd:tolliumapps.payments.common.connectionsucceeded"));
+      this->methods := result.methods;
+      this->islive := result.islive;
+      this->ProcessConfig();
+      this->owner->RunSimpleScreen("info", GetTid("wrd:tolliumapps.payments.common.connectionsucceeded"));
+    }
+    CATCH(OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
+    }
   }
 >;
 
