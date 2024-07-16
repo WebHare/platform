@@ -7,7 +7,9 @@ export interface PSPAddressFormat {
   street?: string;
   //city
   city?: string;
-  //house number and any suffix, if not included in street address
+  //houseNumber including any suffix, if not included in street address
+  houseNumber?: string;
+  /** @deprecated old name for houseNumber */
   nrDetail?: string;
   //ZIP code
   zip?: string;
@@ -70,8 +72,8 @@ export interface PSPRequest extends PSPPrecheckRequest {
 export interface PSPPrecheckResult {
   /// Any errors?
   errors?: Array<{
-    /// Affected field field
-    field: "wrdContactEmail";
+    /// Affected field
+    field?: "wrdContactEmail";
     /// Error message for user
     error: string;
     /// Internal description
