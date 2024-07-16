@@ -32,6 +32,19 @@ PUBLIC CONSTANT RECORD pdf_defaultsettings :=
     , margin := DEFAULT RECORD // [ top := "", left := "", right := "", bottom := "" ]
     , preferCSSPageSize := TRUE
     , devtoolsurl := ""
+    , headertemplate := ""
+    , footertemplate := ""
+    ];
+
+// The following can be overwritten by wh-chromepdf-* meta/template tags in the HTML head
+PUBLIC CONSTANT STRING ARRAY pdf_defaultsettings_optionals :=
+    [ "margin"
+    , "format"
+    , "width"
+    , "height"
+    , "headertemplate"
+    , "footertemplate"
+    , "displayheaderfooter"
     ];
 
 //We should be called through printer.whlib, not directyl!
@@ -165,6 +178,15 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
       TRY
       {
         STRING val := AWAIT this->page->"$eval"(`meta[name=wh-chromepdf-${prop}]`, `element => { return element.getAttribute("value"); }`);
+        options := CellUpdate(options, prop, val);
+      }
+      CATCH; // $eval throws if the selector didn't match an element
+    }
+    FOREVERY (STRING prop FROM [ "headertemplate", "footertemplate" ])
+    {
+      TRY
+      {
+        STRING val := AWAIT this->page->"$eval"(`template[name=wh-chromepdf-${prop}]`, `element => { return element.innerHTML; }`);
         options := CellUpdate(options, prop, val);
       }
       CATCH; // $eval throws if the selector didn't match an element
@@ -316,14 +338,21 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     {
       options := AWAIT this->GotoThePage(url, options);
 
+      RECORD org_this_options := this->options;
       RECORD pageoptions := AWAIT this->ParsePageOptions();
       RECORD finaloptions := CELL[ ...pageoptions
                                  , ...options
                                  , margin := CELL[ ...pageoptions.margin
-                                                 , ...options.margin
+                                                 , ...CellExists(options, "margin") ? options.margin : CELL[]
                                                  ]
                                  , DELETE invokeifdone
                                  ];
+
+      // If the header or footer template was set by the wh-chromepdf-* template tags and are still enabled after the merge, we should display the header/footer
+      IF (org_this_options.headertemplate = "" AND pageoptions.headertemplate != "" AND finaloptions.headertemplate != "")
+        finaloptions.displayheaderfooter := TRUE;
+      IF (org_this_options.footertemplate = "" AND pageoptions.footertemplate != "" AND finaloptions.footertemplate != "")
+        finaloptions.displayheaderfooter := TRUE;
 
       //https://devdocs.io/puppeteer/index#pagepdfoptions
       BLOB pdf := AWAIT this->page->PDF(finaloptions);

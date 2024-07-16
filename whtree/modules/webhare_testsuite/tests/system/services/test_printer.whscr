@@ -59,6 +59,28 @@ STRING bgdoc := `<!DOCTYPE html>
   </body>
 </html>`;
 
+STRING doc2 := `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="wh-chromepdf-margin-top" value="1cm" />
+    <meta name="wh-chromepdf-margin-left" value="2.3cm" />
+    <meta name="wh-chromepdf-margin-right" value="2.8cm" />
+    <meta name="wh-chromepdf-margin-bottom" value="2cm" />
+    <meta name="wh-chromepdf-width" value="10cm" /></head>
+    <meta name="wh-chromepdf-height" value="10cm" /></head>
+    <template name="wh-chromepdf-headertemplate"><div style="width:100%; text-align:right; font-size:12px;">HEADER: <span class='pageNumber'></span>/<span class='totalPages'></span></div></template>
+    <template name="wh-chromepdf-footertemplate"><div style="width:100%; text-align:right; font-size:12px;">FOOTER: <span class='pageNumber'></span>/<span class='totalPages'></span></div></template>
+    <style>
+      html,body { background-color: transparent; }
+      html { font: 45px Arial; color: #000000; }
+    </style>
+  </head>
+  <body>
+    NOT A TEAPOT.
+    <script src="${GetprimaryWebHareInterfaceURL()}.webhare_testsuite/tests/system/printertest.js"></script>
+  </body>
+</html>`;
+
 
 MACRO TestPDFs()
 {
@@ -143,21 +165,54 @@ MACRO TestPDFFromURL()
 
 MACRO TestPDFFromBlob()
 {
-  BLOB data := GetWebhareResource("mod::webhare_testsuite/web/tests/system/pdf.html");
-  BLOB webharebsvg := GetWebhareResource("mod::webhare_testsuite/web/tests/system/webhare.b.svg");
+  {
+    BLOB data := GetWebhareResource("mod::webhare_testsuite/web/tests/system/pdf.html");
+    BLOB webharebsvg := GetWebhareResource("mod::webhare_testsuite/web/tests/system/webhare.b.svg");
 
-  RECORD result := GeneratePDFFromFile(WrapBlob(data,"pdf.html"), [ printbackground := FALSE
-                                                                  , embeddedfiles := [[ href := "webhare.b.svg"
-                                                                                      , contenttype := "image/svg+xml"
-                                                                                      , data := webharebsvg
+    RECORD result := GeneratePDFFromFile(WrapBlob(data,"pdf.html"), [ printbackground := FALSE
+                                                                    , embeddedfiles := [[ href := "webhare.b.svg"
+                                                                                        , contenttype := "image/svg+xml"
+                                                                                        , data := webharebsvg
+                                                                                        ]
                                                                                       ]
-                                                                                     ]
-                                                                  ]);
-  RECORD ARRAY images := ExportPDFToImages(result.data);
+                                                                    ]);
+    RECORD ARRAY images := ExportPDFToImages(result.data);
 
-  TestEq(1,Length(images));
-  Testeq("page-1.jpg", images[0].filename);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]);
+    TestEq(1,Length(images));
+    Testeq("page-1.jpg", images[0].filename);
+    testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]);
+  }
+
+  // test wh-chromepdf-* settings
+  {
+    RECORD result := GeneratePDFFromFile(WrapBlob(StringToBlob(doc2),"pdf.html"),
+        [ printbackground := FALSE
+        ]);
+
+    RECORD ARRAY images := ExportPDFToImages(result.data);
+
+    TestEq(1,Length(images));
+    Testeq("page-1.jpg", images[0].filename);
+    testfw->CompareWithImage(images[0].data, Resolve("testdata/doc2webpage.png"), [ maxmse := 1457, resizeimgifneeded := TRUE ]);
+  }
+
+  {
+    RECORD result := GeneratePDFFromFile(WrapBlob(StringToBlob(doc2),"pdf.html"),
+        [ printbackground := FALSE
+        , margin := [ top := "1cm", left := "1cm", right := "1cm", bottom := "1cm" ]
+        , width := "12cm"
+        , height := "12cm"
+        , headertemplate := ""
+        , footertemplate := ""
+        ]);
+
+    RECORD ARRAY images := ExportPDFToImages(result.data);
+
+    TestEq(1,Length(images));
+    Testeq("page-1.jpg", images[0].filename);
+    testfw->CompareWithImage(images[0].data, Resolve("testdata/doc2webpage-2.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]);
+  }
+
 }
 
 MACRO TestPDFFromBlobWithFonts()
