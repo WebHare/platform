@@ -24,7 +24,7 @@ STRING FUNCTION MapField(STRING infield)
 
 RECORD ARRAY FUNCTION MapErrors(RECORD ARRAY inerrors)
 {
-  RETURN SELECT field := MapField(field), error, description := comment FROM inerrors;
+  RETURN SELECT field := CellExists(inerrors,'field') ? MapField(inerrors.field) : "", error, description := comment FROM inerrors;
 }
 
 PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
@@ -47,6 +47,7 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
       THROW NEW Exception(`Method '${paymentmethod.paymentoptiontag}' not found`);
 
     RECORD customerinfo := this->GetCustomerInfo(paymentmethod, [ requirements := selectedmethod.requirements ]);
+
     RETURN CELL[ ...paymentmethod
                , ...customerinfo
                , wrdpersonentity := ObjectExists(paymentmethod.wrdpersonentity) ? paymentmethod.wrdpersonentity->id : 0
