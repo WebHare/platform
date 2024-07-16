@@ -1,9 +1,18 @@
 import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
-import type { PSPDriver, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
+import type { PSPAddressFormat, PSPDriver, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { createResponseInfoFromResponse } from "@webhare/router/src/response";
 import { stringify, type Money } from "@webhare/std";
+
+type HsAddressFormat = {
+  street: string;
+  city: string;
+  nr_detail: string;
+  zip: string;
+  state: string;
+  country: string;
+};
 
 type HsCheckInfo = {
   paymentoptiontag: string;
@@ -18,9 +27,17 @@ type HsCheckInfo = {
   capturefrom: unknown;
   capturedate: Date;
   wrdpersonentity: number;
-  billingaddress: unknown;
-  shippingaddress: unknown;
-  orderlines: unknown[];
+  billingaddress: HsAddressFormat;
+  shippingaddress: HsAddressFormat;
+  orderlines: Array<{
+    linetotal: Money;
+    vatamount: Money;
+    vatpercentage: Money;
+    amount: number;
+    title: string;
+    type: "shipping" | "payment" | "";
+    vatincluded: boolean;
+  }>;
   extrapspdata: Record<string, unknown>;
   wrd_initials: string;
   wrd_firstname: string;
@@ -41,6 +58,22 @@ type HsPaymentInfo = HsCheckInfo & {
   returnurl: string;
   orderid: string;
 };
+
+function mapAddress(address: HsAddressFormat): PSPAddressFormat | undefined {
+  if (!address?.country)
+    return undefined;
+
+  return {
+    street: address.street,
+    city: address.city,
+    houseNumber: address.nr_detail,
+    //TODO remove in the future
+    nrDetail: address.nr_detail,
+    zip: address.zip,
+    state: address.state,
+    country: address.country
+  };
+}
 
 async function openPSP(driver: string, configAsJSON: string): Promise<PSPDriver | { error: string }> {
   let config;
@@ -81,6 +114,18 @@ function buildPaymentCheck(hsPaymentInfo: HsCheckInfo): PSPPrecheckRequest {
     ipAddress: hsPaymentInfo.ipaddress || undefined,
     //as we assume both sides will coordinate we're not bothering with json - you'll know if both sides support camelcase props..
     extraPspData: hsPaymentInfo.extrapspdata,
+    billingAddress: mapAddress(hsPaymentInfo.billingaddress),
+    shippingaddress: mapAddress(hsPaymentInfo.shippingaddress),
+    orderLines: hsPaymentInfo.orderlines.map(line => ({
+      type: line.type,
+      title: line.title,
+      sku: "",
+      quantity: line.amount,
+      lineTotal: line.linetotal,
+      vatPercentage: line.vatpercentage,
+      vatTotal: line.vatamount,
+      vatIncluded: line.vatincluded
+    })),
   };
 
   if (!req.method)
