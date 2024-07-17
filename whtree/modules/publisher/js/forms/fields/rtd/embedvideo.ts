@@ -23,7 +23,7 @@ class EmbedVideoForm extends RPCFormBase {
   }
 }
 
-export async function insertVideo(rtd: RTDFormElement) {
+export async function insertVideo(rtd: HTMLElement) {
   const formloadlock = dompack.flagUIBusy();
   const formhandler = rtd.closest('form')?.propWhFormhandler;
   if (!formhandler) {
@@ -35,7 +35,7 @@ export async function insertVideo(rtd: RTDFormElement) {
   const dialog = dialogapi.createDialog();
   dialog.contentnode!.innerHTML = formdata.html;
 
-  new EmbedVideoForm(dompack.qR(dialog.contentnode!, 'form'), dialog, rtd);
+  new EmbedVideoForm(dompack.qR(dialog.contentnode!, 'form'), dialog, rtd as RTDFormElement);
   formloadlock.release();
 
   await dialog.runModal();
