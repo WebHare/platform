@@ -1583,6 +1583,7 @@ STATIC OBJECTTYPE WittyMailComposer
     options := ValidateOptions([ rawwittytags := FALSE
                                , wittyhyperlinks := FALSE
                                , htmlpostprocessor := DEFAULT MACRO PTR
+                               , rtdtype := "" //FIXME actually honor this and render the RTD restricted by type (ie no taking innerhtmp)
                                , __mergecontext := this->mergecontext
                                ], options);
     IF(NOT RecordExists(rtdtext))
