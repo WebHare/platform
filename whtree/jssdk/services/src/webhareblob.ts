@@ -53,9 +53,9 @@ export abstract class WebHareBlob {
     return await text(await this.getStream());
   }
 
-  /** @deprecated This is likely always inefficient but providing arrayBuffer eases the HareScriptBlob transition */
+  /** Get the blob contents as an ArrayBuffer. You should be careful with this API on large blobs (especially 10MB and above) as
+   * they will be fully loaded into the JavaScript heap and may cause memory pressure. */
   async arrayBuffer(): Promise<ArrayBuffer> {
-    //FIXME decide whether this should stay or go, or be replaced by eg Uint8Array ?
     return await arrayBuffer(await this.getStream());
   }
 
