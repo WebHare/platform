@@ -15,6 +15,8 @@
     All embeddedable assets (eg image cache) should move to /.wh/ea/ - this will help when designing rate limits and error handling (ie: users should
     rarely if ever land on a /.wh/ea, requesting 10 real pages in a second is highly suspect, 10 embedded assets in a second isn't)
 
+    Static assets part of the core WebHare 'p'latform should be placed under /.wh/ea/p/
+
     Modules that add similar embeddable assets should do so under /.wh/ea/mod/<modulename>/
 
     All under `/.wh/dev/` will be assigned to the standard 'dev' module (mod::dev/web/wh-dev/)
@@ -26,6 +28,7 @@
 
     -->
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
+    <webrule path="allroots:/.wh/ea/p/" match="initial" handlebydir="web/wh-assets/" priority="after" />
     <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" />
   </backend>
 

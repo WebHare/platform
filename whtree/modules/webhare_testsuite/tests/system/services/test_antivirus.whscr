@@ -155,12 +155,12 @@ MACRO TestPublisherFormVirus()
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
 
   RECORD submitrec := [ firstname := "Corona"
-                      , upload := [ filename := "novirus.txt"
+                      , upload := [[ filename := "novirus.txt"
                                   , link := GetDataUrl(StringToBlob("Not a virus, honest!"), "text/plain")
-                                  ]
-                      , imgedit := [ filename := "goudvis.png"
+                                  ]]
+                      , imgedit := [[ filename := "goudvis.png"
                                    , link :=  GetDataUrl(gifvirus,"image/gif")
-                                   ]
+                                   ]]
                       , email := "testfw+virus1@beta.webhare.net"
                       ];
 
@@ -169,13 +169,13 @@ MACRO TestPublisherFormVirus()
   TestEq(FALSE, res.success);
   TestEqMembers([[ name := "imgedit", message := "This file looks suspicious and can unfortunately not be uploaded" ]], res.errors, "*");
 
-  submitrec.imgedit := DEFAULT RECORD;
+  submitrec.imgedit := DEFAULT RECORD ARRAY;
   res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
 
-  submitrec.upload := [ filename := "virus.txt"
-                      , link := GetDataUrl(StringToBlob(todaysvirus), "text/plain")
-                      ];
+  submitrec.upload := [[ filename := "virus.txt"
+                       , link := GetDataUrl(StringToBlob(todaysvirus), "text/plain")
+                      ]];
   res := tester->SubmitForm(submitrec);
   TestEq(FALSE, res.success);
 

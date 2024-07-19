@@ -54,7 +54,7 @@ test.registerTests(
 
       if (replacedcomponents) {
         test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
-        await test.wait('ui');
+        // await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
         test.assert(!disabled_options.includes("1"));

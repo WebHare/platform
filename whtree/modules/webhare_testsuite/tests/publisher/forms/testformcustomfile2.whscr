@@ -81,9 +81,9 @@ PUBLIC MACRO CustomForm()
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
 
   RECORD submitrec := [ firstname := "P. Giménez & Henkie 😇"
-                      , upload := [ filename := "allstar.txt"
+                      , upload := [[ filename := "allstar.txt"
                                   , link := "data:text/plain,someBODY"
-                                  ]
+                                  ]]
                       , checkboxes := ["copt1","copt3"]
                       , date := "2017-06-22"
                       , address := [ country := "NL"
@@ -225,12 +225,12 @@ PUBLIC MACRO CustomForm()
   TestEq(1, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ])));
 
   submitrec := [ firstname := "Pietje"
-               , upload := [ filename := "allstar.txt"
+               , upload := [[ filename := "allstar.txt"
                            , link := "data:text/plain,someBODY"
-                           ]
-               , imgedit := [ filename := "goudvis.png"
+                           ]]
+               , imgedit := [[ filename := "goudvis.png"
                             , link := GetDataUrl(GetWebhareResource("mod::system/web/tests/goudvis.png"), "image/png")
-                            ]
+                            ]]
                , checkboxes := ["copt1","copt3"]
                , date := "2017-06-22"
                , address := [ country := "NL"
@@ -318,9 +318,9 @@ MACRO CustomForm_SuppressMail()
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
 
   RECORD submitrec := [ firstname := "Pietje"
-                      , upload := [ filename := "allstar.txt"
+                      , upload := [[ filename := "allstar.txt"
                                   , link := "data:text/plain,someBODY"
-                                  ]
+                                  ]]
                       , date := "2017-11-22"
                       , "address.country" := "NL"
                       , "address.street" := "Hengelosestraat"
@@ -544,9 +544,9 @@ MACRO CustomFormApplyTest()
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
 
   RECORD submitrec := [ firstname := "P. Giménez & Henkie 😇"
-                      , upload := [ filename := "allstar.txt"
+                      , upload := [[ filename := "allstar.txt"
                                   , link := "data:text/plain,someBODY"
-                                  ]
+                                  ]]
                       , checkboxes := ["copt1","copt3"]
                       , date := "2017-06-22"
                       , address := [ country := "NL"

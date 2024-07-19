@@ -160,12 +160,12 @@ PUBLIC MACRO FillInForm()
   TestEq(rendertree, rendertree2);
 
   RECORD submitrec := [ firstname := "Piëtje"
-                      , upload := [ filename := "allstar.txt"
+                      , upload := [[ filename := "allstar.txt"
                                   , link := "data:text/plain,someBODY"
-                                  ]
-                      , imgedit := [ filename := "goudvis.png"
+                                  ]]
+                      , imgedit := [[ filename := "goudvis.png"
                                    , link := GetDataUrl(GetWebhareResource("mod::system/web/tests/goudvis.png"), "image/png")
-                                   ]
+                                   ]]
                       , date := "2017-06-22"
                       , checkboxes := ["copt1","copt3"]
                       , coptsub3 := "coptsub3-text"

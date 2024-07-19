@@ -15,11 +15,8 @@ PUBLIC STATIC OBJECTTYPE ImgEditField EXTEND FileEditFieldBase
                ];
   }
 
-  UPDATE MACRO SetValue(RECORD val)
+  UPDATE STRING FUNCTION GetUCFileLink(STRING baseurl, RECORD file)
   {
-    FileEditFieldBase::SetValue(val);
-    IF(RecordExists(val) AND CellExists(this->pvt_value,'__BLOBSOURCE') AND this->pvt_value.__blobsource != "")
-      this->pvt_url := GetCachedImageLink(this->pvt_value, [ method := "none", fixorientation := TRUE ]);
+    RETURN GetCachedImageLink(file, [ baseurl := baseurl, method := "none", fixorientation := TRUE ]);
   }
 >;
-

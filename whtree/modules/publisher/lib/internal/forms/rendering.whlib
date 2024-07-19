@@ -785,7 +785,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           this->webdesign->RenderRTD(fielddescription.richvalue);
         Print(`</div>`);
       }
-      CASE "imgedit"
+      CASE "imgedit","upload"
       {
         /* We must set data-wh-form-state-listener="true" during rendering to the element that will receive
            data-wh-form-disabled otherwise we may race to receive dynamic disabling events during form construction
@@ -794,31 +794,20 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
            (because we don't use a seperate button for this)
         */
 
-        //Print(`<div ${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
-        Print(`<wh-form-imgedit ${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
+        STRING el := fielddescription.type = "imgedit" ? "wh-form-imgedit" : "wh-form-upload";
+
+        Print(`<${el} ${idstr} class="wh-form__${fielddescription.type}" name="${EncodeValue(fielddescription.name)}"`);
         IF(NOT fielddescription.enabled)
           Print(` disabled`);
         IF(fielddescription.required)
-          Print(` required aria-required`); //TODO *MUST* we use aria-required
+          Print(` required aria-required`); //TODO *MUST* we use aria-required when we're a custom element but still use 'required' too?
+        IF(fielddescription.maxfiles > 1)
+          Print(` max-files="${fielddescription.maxfiles}"`);
+        IF(fielddescription.accept != "")
+          Print(` accept="${EncodeValue(fielddescription.accept)}"`);
         IF(RecordExists(fielddescription.value))
-          Print(` data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
-        // Print(` data-wh-form-registered-field>`);
-        Print(`><div class="wh-form__imgeditholder">`);
-        IF(RecordExists(fielddescription.value))
-          Print(`<div class="wh-form__imgeditimg" style="background-image: url('${EncodeValue(fielddescription.value.link)}')"></div>`);
-        Print(`</div></wh-form-imgedit>`);
-      }
-      CASE "upload"
-      {
-        Print(`<wh-form-upload ${idstr} class="wh-form__upload"`);
-        Print(` name="${EncodeValue(fielddescription.name)}"`);
-        IF(fielddescription.required)
-          Print(` required`);
-        IF(NOT fielddescription.enabled)
-          Print(` disabled`);
-        IF(RecordExists(fielddescription.value))
-          Print(` data-wh-fileurl="${EncodeValue(fielddescription.value.link)}" data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
-        Print(`${datasetstr}></wh-form-upload>`);
+          Print(` value="${EncodeValue(EncodeJSON((SELECT filename, link FROM fielddescription.value),cell["fileName"]))}"`);
+        Print(`${datasetstr}></${el}>`);
       }
       CASE "pulldown"
       {
