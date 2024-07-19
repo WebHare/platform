@@ -495,6 +495,10 @@ async function testCollections() {
   const map2 = new Map<string | symbol, unknown>();
   test.eq("Horse", std.emplace(map2, Symbol(), { insert: () => "Horse" }));
 
+  const testobj = new File(["test!"], "test.txt");
+  const weakmap3 = new WeakMap<File, string>;
+  test.eq("testurl", std.emplace(weakmap3, testobj, { insert: () => "testurl" }));
+
   const array = [1, 2, 3, 4, 5];
 
   while (array[0] !== 5)

@@ -12,7 +12,7 @@ export interface EmplaceHandler<ValueType> {
  * @throws If the key is not found and no insert handler is provided
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cannot specify this without using any
-export function emplace<T extends Map<any, any>>(map: T, key: T extends Map<infer K, any> ? K : never, handler?: T extends Map<any, infer V> ? EmplaceHandler<V> : never): T extends Map<any, infer V> ? V : never {
+export function emplace<T extends Map<any, any> | WeakMap<any, any>>(map: T, key: T extends Map<infer K, any> | WeakMap<any, any> ? K : never, handler?: T extends Map<any, infer V> | WeakMap<any, any> ? EmplaceHandler<V> : never): T extends Map<any, infer V> | WeakMap<any, any> ? V : never {
   let current = map.get(key);
   if (current !== undefined) {
     if (handler?.update) {
