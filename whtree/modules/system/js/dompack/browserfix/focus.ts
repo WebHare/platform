@@ -67,6 +67,8 @@ export function canFocusTo(node: Element, { ignoreInertAttribute = false } = {})
 
   if ((node as HTMLElement).contentEditable === "true")
     return true;
+  if (node.shadowRoot?.delegatesFocus)
+    return true;
 
   return (node as HTMLElement).tabIndex >= 0 && !(node as HTMLInputElement).disabled && !(node.tagName === 'A' && !(node as HTMLAnchorElement).href);
 }

@@ -362,9 +362,26 @@ function setMouseCursor(x, y) {
 //like getElementFromPoint, but sees through shadow roots
 function getDeepElementFromPoint(doc: Document | ShadowRoot, px: number, py: number) {
   const el = doc.elementFromPoint(px, py);
+  if (!doc.contains(el)) //we got something outside this root
+    return el; //then return it. this happens if the targetted item is inert
   if (el && el.shadowRoot?.elementFromPoint)
     return getDeepElementFromPoint(el.shadowRoot, px, py) ?? el;
   return el;
+}
+
+function deepContains(parent: Node, el: Node) {
+  for (let findroot = el; findroot; findroot = findroot.parentNode ?? (findroot as unknown as ShadowRoot).host) //also walk out of shadowdoms
+    if (findroot === parent)
+      return true;
+  return false;
+}
+
+
+/// Is the element still in the DOM (even if shadow?)
+function isInDeepDom(el: Node) {
+  if (!el.ownerDocument)
+    return false;
+  return deepContains(el.ownerDocument.documentElement, el)
 }
 
 export function getValidatedElementFromPoint(doc: Document, px: number, py: number, expectelement: boolean): Element | null {
@@ -422,16 +439,6 @@ export function getValidatedElementFromPoint(doc: Document, px: number, py: numb
   return el;
 }
 
-/// Is the element still in the DOM (even if shadow?)
-function isInDeepDom(el: Node) {
-  if (!el.ownerDocument)
-    return false;
-  for (let findroot = el; findroot; findroot = findroot.parentNode ?? (findroot as unknown as ShadowRoot).host) //also walk out of shadowdoms
-    if (findroot === el.ownerDocument.documentElement)
-      return true;
-
-  return false;
-}
 
 /** Returns the position from a part with an element and optionally x/y position within that element
     @return
@@ -631,7 +638,7 @@ function validateMouseDownTarget(part, elhere, position) {
     while (wantedtotarget && wantedtotarget.inert)
       wantedtotarget = wantedtotarget.parentNode; //if you're targeting an inert node, we should expect you to be targeting its first non-inert parent
 
-    if (!wantedtotarget.contains(elhere)) {
+    if (!deepContains(wantedtotarget, elhere)) {
       console.log("Wanted to target: ", wantedtotarget, " at " + position.x + "," + position.y, " but actual element is:", elhere, part);
 
       console.log("Original target", wantedtotarget, part.el.nodeName, convertbndrec(part.el));
@@ -1284,7 +1291,7 @@ export function canClick(element: ValidElementTarget, options?: ElementTargetOpt
   const elhere = getDeepElementFromPoint(element.ownerDocument, atpos.x, atpos.y);
 
   //console.log('canClick', element,atpos,elhere,element.getBoundingClientRect(), elhere && elhere.getBoundingClientRect());
-  return element.contains(elhere);
+  return deepContains(element, elhere);
 }
 
 /** Simulate an incoming external file drag */
