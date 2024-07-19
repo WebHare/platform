@@ -115,3 +115,9 @@ body
     display: none;
   }
 }
+
+
+html.dompack--debug-focus *:focus {
+  outline: 2px solid red !important;
+  outline-offset: -1px;
+}
