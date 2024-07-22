@@ -199,6 +199,14 @@ async function testNewAPI() {
   const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
   const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
+  //prevent creating WRD style guids
+  await test.throws(/Invalid wrdGuid:/, schema.update("wrdPerson", secondperson, { wrdGuid: "badbadvalue" }));
+  await test.throws(/Invalid wrdGuid:/, schema.update("wrdPerson", secondperson, { wrdGuid: "wrd:0123456789ABCDEF0123456789ABCDEF" }));
+  const secondPersonGuid2 = generateRandomId("uuidv4"); //verify we're allowed to set the guid
+  await schema.update("wrdPerson", secondperson, { wrdGuid: secondPersonGuid2 });
+  test.eq(secondperson, await schema.find("wrdPerson", { wrdGuid: secondPersonGuid2 }));
+  test.eq(null, await schema.find("wrdPerson", { wrdGuid: secondPersonGuid }));
+
   // find should throw when finding multiple matches
   test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
 
@@ -245,7 +253,7 @@ async function testNewAPI() {
   test.eq(firstperson, await schema.search("wrdPerson", "wrdFirstName", "first"));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE"));
   test.eq(null, await schema.search("wrdPerson", "wrdFirstName", "FIRST"));
-  test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid));
+  test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid2));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", "female"));
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "other"));
   test.eq(deletedperson, await schema.search("wrdPerson", "wrdGender", "other", { historyMode: "all" }));
