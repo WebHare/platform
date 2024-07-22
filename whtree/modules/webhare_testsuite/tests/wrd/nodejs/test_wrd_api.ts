@@ -311,6 +311,16 @@ async function testUnique() {
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testInteger64: 4 }));
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testArray: [{ email: "pietje@beta.webhare.net" }] })); //"Issue #479"
 
+  await wrdschema.update("testUniques", pietje, { testFree: "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }); //looks like UUID. confused the PG driver
+  test.eq(pietje, await wrdschema.find("testUniques", { "testFree": "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }));
+  test.eq(null, await wrdschema.find("testUniques", { "testFree": "A8E64800-9854-4cf1-a7be-49ac3f6d380a" }));
+  test.eq(null, await wrdschema.search("testUniques", "testFree", "A8E64800-9854-4cf1-a7be-49ac3f6d380a"));
+  //@ts-expect-error TODO improve 'any' typing support, matchCase not picked up now
+  test.eq(null, await wrdschema.search("testUniques", "testFree", "A8E64800-9854-4cf1-a7be-49ac3f6d380a", { matchCase: true }));
+  //@ts-expect-error TODO improve 'any' typing support, matchCase not picked up now
+  test.eq(pietje, await wrdschema.search("testUniques", "testFree", "A8E64800-9854-4cf1-a7be-49ac3f6d380a", { matchCase: false }));
+  test.eq({ wrdId: pietje }, await wrdschema.query("testUniques").select(["wrdId"]).where("testFree", "=", "A8E64800-9854-4cf1-a7be-49ac3f6d380a", { matchCase: false }).executeRequireExactlyOne());
+
   await whdb.commitWork();
 
   //Test whether the database is actually enforcing these contraints by using 2 parallel connections
@@ -361,6 +371,8 @@ async function testUnique() {
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
   test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "=", "tRaNS@beTA.webhare.net").execute());
   test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA*").execute());
+  test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA?webhare?net").execute());
+  test.eq([], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA?webhare?net?").execute());
   test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentions", "PIETje@beta.webhare.net").execute());
   test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentionsany", ["pietje@beta.WEBHARE.net"]).execute());
   await whdb.commitWork();

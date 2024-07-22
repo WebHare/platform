@@ -7,11 +7,20 @@ import {
   PostgresQueryResult,
 } from 'kysely';
 
-import { Connection, GlobalTypeMap, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo } from './../vendor/postgresql-client/src/index';
+import { Connection, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo, DataTypeMap } from './../vendor/postgresql-client/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
 import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, Float8Type, MoneyType, TidType, WHTimestampType } from "./types";
 import { getIntlConnection } from '../vendor/postgresql-client/src/connection/intl-connection';
+import { ArrayVarcharType, VarcharType } from '../vendor/postgresql-client/src/data-types/varchar-type';
+import { ArrayBoolType, BoolType } from '../vendor/postgresql-client/src/data-types/bool-type';
+import { ArrayByteaType, ByteaType } from '../vendor/postgresql-client/src/data-types/bytea-type';
+import { ArrayInt4Type, Int4Type } from '../vendor/postgresql-client/src/data-types/int4-type';
+import { ArrayInt8Type, Int8Type } from '../vendor/postgresql-client/src/data-types/int8-type';
+import { ArrayInt2Type, Int2Type } from '../vendor/postgresql-client/src/data-types/int2-type';
+import { ArrayOidType, OidType, VectorOidType } from '../vendor/postgresql-client/src/data-types/oid-type';
+import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgresql-client/src/data-types/int2-vector-type';
+import { ArrayCharType, CharType } from '../vendor/postgresql-client/src/data-types/char-type';
 
 let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;
@@ -24,15 +33,37 @@ interface PGConnectionDebugEvent {
   args?: unknown[];
 }
 
+export const whdbTypeMap = new DataTypeMap();
+
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
 async function configureWHDBClient(pg: Connection) {
   // Run the typemap registration and blob oid lookup only once
   await (configurationPromise ??= (async () => {
-    //For the WHDB a NUMERIC is always a Number. this might not be that future proof..
-    GlobalTypeMap.register([MoneyType, ArrayMoneyType]);
-    GlobalTypeMap.register([Float8Type, ArrayFloat8Type]);
-    GlobalTypeMap.register([TidType, ArrayTidType]);
-    GlobalTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
+
+    /* Be sure to run wh.database.wasm.primitivevalues when modifying this table. Order matters when we send types, autodetect will prefer the last-registered types
+       Prefer the order in data-type-map.ts. Use wh psql and \d to figure out types on an existing table
+
+       For the WHDB a NUMERIC is always a Number. this might not be that future proof..
+       */
+
+    whdbTypeMap.register([OidType, VectorOidType, ArrayOidType]);
+    whdbTypeMap.register([BoolType, ArrayBoolType]);
+    whdbTypeMap.register([Float8Type, ArrayFloat8Type]);
+    whdbTypeMap.register([MoneyType, ArrayMoneyType]);
+    whdbTypeMap.register([Int2Type, ArrayInt2Type]); //we don't use this type ourselves, but looks like the WHDB layer may pick it when sending id IN ... ?
+    whdbTypeMap.register([Int4Type, ArrayInt4Type]);
+    whdbTypeMap.register([Int8Type, ArrayInt8Type]);
+
+    whdbTypeMap.register([ByteaType, ArrayByteaType]);
+    whdbTypeMap.register([Int2VectorType, ArrayInt2VectorType]);//needed to read PG catalogs
+    whdbTypeMap.register({ ...VarcharType, name: "name", oid: DataTypeOIDs.name }); //needed to read PG catalogs
+    whdbTypeMap.register({ ...VarcharType, name: "text", oid: DataTypeOIDs.text }); //I don't think we use 'text' columns in a WebHare DB, but we *do* cast to ::text on occassion
+    whdbTypeMap.register([VarcharType, ArrayVarcharType]);
+    whdbTypeMap.register([CharType, ArrayCharType]); //needed to read PG catalogs
+
+    whdbTypeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
+    whdbTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
+
 
     const bloboidquery = await pg.query(
       `SELECT t.oid, t.typname
@@ -44,7 +75,7 @@ async function configureWHDBClient(pg: Connection) {
     if (bloboidquery.rows) {
       configuration = { bloboid: bloboidquery.rows[0][0] };
       BlobType.oid = configuration.bloboid;
-      GlobalTypeMap.register(BlobType);
+      whdbTypeMap.register(BlobType);
     } else
       throw new Error(`Could not find webhare_blob type`);
   })());
@@ -90,6 +121,7 @@ export class WHDBPgClient {
       const queryoptions: QueryOptions = {
         params: [],
         utcDates: true,
+        typeMap: whdbTypeMap,
         fetchCount: 4294967295 //TODO we should probably go for cursors instead
       };
 
