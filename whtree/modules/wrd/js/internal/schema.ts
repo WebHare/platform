@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, sql } from "@webhare/whdb";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
@@ -440,7 +440,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
    * ```
    */
-  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: WhereValueOptions<S[T], F, WhereConditions<S[T], F> & "=">["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], F, WhereConditions<S[T], F> & "=">, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
@@ -449,7 +449,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * @param query - Query object (field-value pairs)
    * @param options - Options for the search
    */
-  find<T extends keyof S & string>(type: T, query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+  find<T extends keyof S & string>(type: T, query: MatchObjectQueryable<S[T]>, options?: { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).find(query, options));
   }
 
@@ -591,7 +591,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return [newId, true];
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+  async search<F extends AttrRef<S[T]>>(field: F, value: WhereValueOptions<S[T], F, WhereConditions<S[T], F> & "=">["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], F, WhereConditions<S[T], F> & "=">, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     const historyMode = toHistoryData(options?.historyMode ?? "now");
     type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
     const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], historyMode, 1);
@@ -602,7 +602,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
    * @param query - Query object (field-value pairs)
    * @param options - Options for the search
    */
-  find(query: MatchObjectQueryable<S[T]>, options?: { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+  find(query: MatchObjectQueryable<S[T]>, options?: { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     const baseQuery = this.schema.query(this.tag).select("wrdId").match(query).historyMode(options?.historyMode ?? "now");
     return baseQuery.executeRequireAtMostOne() as Promise<number | null>;
   }
@@ -821,7 +821,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
  */
 export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
 export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; start: Date; limit: Date } | null;
-type GetOptionsIfExists<T, Fallback> = T extends { options?: unknown } ? T["options"] : Fallback;
+type GetOptionsIfExists<T, Fallback> = T extends { options?: any } ? T["options"] : Fallback;
 
 type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
 type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;
@@ -863,7 +863,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
    * const result = await schema.query("wrdPerson").select("wrdId").where("wrdBirthDate", "&lt;", new Date(1980, 0, 1)).execute();
    * ```
    */
-  where<Field extends WhereFields<S[T]>, Condition extends WhereConditions<S[T], Field>>(field: Field, condition: Condition, value: WhereValueOptions<S[T], Field, Condition>["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], Field, Condition>, undefined>): WRDModificationBuilder<S, T> {
+  where<Field extends WhereFields<S[T]>, Condition extends WhereConditions<S[T], Field>>(field: Field, condition: Condition, value: WhereValueOptions<S[T], Field, Condition>["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], Field, Condition>, object>): WRDModificationBuilder<S, T> {
     return new WRDModificationBuilder<S, T>(this.type, [...this.wheres, { field, condition, value, options }], this._historyMode);
   }
 
@@ -1042,7 +1042,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this._historyMode, this._limit);
   }
 
-  where<Field extends WhereFields<S[T]>, Condition extends WhereConditions<S[T], Field>>(field: Field, condition: Condition, value: WhereValueOptions<S[T], Field, Condition>["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], Field, Condition>, undefined>): WRDSingleQueryBuilder<S, T, O> {
+  where<Field extends WhereFields<S[T]>, Condition extends WhereConditions<S[T], Field>>(field: Field, condition: Condition, value: WhereValueOptions<S[T], Field, Condition>["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], Field, Condition>, object>): WRDSingleQueryBuilder<S, T, O> {
     return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options }], this._historyMode, this._limit);
   }
 
