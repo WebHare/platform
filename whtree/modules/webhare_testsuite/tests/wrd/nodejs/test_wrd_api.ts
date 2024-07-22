@@ -311,6 +311,10 @@ async function testUnique() {
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testInteger64: 4 }));
   await test.throws(/Unique constraint/, wrdschema.insert("testUniques", { testArray: [{ email: "pietje@beta.webhare.net" }] })); //"Issue #479"
 
+  await wrdschema.update("testUniques", pietje, { testFree: "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }); //looks like UUID. confused the PG driver
+  test.eq(pietje, await wrdschema.find("testUniques", { "testFree": "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }));
+  test.eq(null, await wrdschema.find("testUniques", { "testFree": "A8E64800-9854-4cf1-a7be-49ac3f6d380a" }));
+
   await whdb.commitWork();
 
   //Test whether the database is actually enforcing these contraints by using 2 parallel connections
