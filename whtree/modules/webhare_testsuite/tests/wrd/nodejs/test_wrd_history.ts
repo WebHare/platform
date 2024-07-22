@@ -26,7 +26,7 @@ async function testChanges() { //  tests
 
   await whdb.beginWork();
 
-  // TODO testframeowrk should manage the beta test unit
+  // TODO testframework should manage the beta test unit
   const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
 
   // Create a person with some testdata
