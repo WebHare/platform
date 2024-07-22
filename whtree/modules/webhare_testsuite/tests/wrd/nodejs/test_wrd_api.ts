@@ -314,6 +314,12 @@ async function testUnique() {
   await wrdschema.update("testUniques", pietje, { testFree: "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }); //looks like UUID. confused the PG driver
   test.eq(pietje, await wrdschema.find("testUniques", { "testFree": "a8e64800-9854-4cf1-a7be-49ac3f6d380a" }));
   test.eq(null, await wrdschema.find("testUniques", { "testFree": "A8E64800-9854-4cf1-a7be-49ac3f6d380a" }));
+  test.eq(null, await wrdschema.search("testUniques", "testFree", "A8E64800-9854-4cf1-a7be-49ac3f6d380a"));
+  //@ts-expect-error TODO improve 'any' typing support, matchCase not picked up now
+  test.eq(null, await wrdschema.search("testUniques", "testFree", "A8E64800-9854-4cf1-a7be-49ac3f6d380a", { matchCase: true }));
+  //@ts-expect-error TODO improve 'any' typing support, matchCase not picked up now
+  test.eq(pietje, await wrdschema.search("testUniques", "testFree", "A8E64800-9854-4cf1-a7be-49ac3f6d380a", { matchCase: false }));
+  test.eq({ wrdId: pietje }, await wrdschema.query("testUniques").select(["wrdId"]).where("testFree", "=", "A8E64800-9854-4cf1-a7be-49ac3f6d380a", { matchCase: false }).executeRequireExactlyOne());
 
   await whdb.commitWork();
 

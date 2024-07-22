@@ -308,11 +308,13 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const linkfrom = await type.$get("linkfrom") as number;
     const linkto = await type.$get("linkto") as number;
     const metatype = await type.$get("metatype") as number;
+    const keepHistoryDays = await type.$get("keephistorydays") as number;
 
     return {
       left: linkfrom ? await this.__getTypeTag(linkfrom) : null,
       right: linkto ? await this.__getTypeTag(linkto) : null,
-      metaType: WRDMetaTypes[metatype - 1]
+      metaType: WRDMetaTypes[metatype - 1],
+      keepHistoryDays
     };
   }
 
@@ -438,7 +440,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
    * ```
    */
-  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
@@ -819,7 +821,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
  */
 export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'active' because that doesn't really suggest 'time' as much as 'now' or 'at'
 export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; start: Date; limit: Date } | null;
-type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
+type GetOptionsIfExists<T, Fallback> = T extends { options?: unknown } ? T["options"] : Fallback;
 
 type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
 type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;

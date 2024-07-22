@@ -258,9 +258,14 @@ async function testNewAPI() {
   test.eq(deletedperson, await schema.find("wrdPerson", { wrdGender: "other" }, { historyMode: "unfiltered" }));
 
   await whdb.beginWork();
-  await schema.update("wrdPerson", secondperson, { wrdGender: null });
+  await schema.update("wrdPerson", secondperson, { wrdGender: null, testFree: "FrEE" });
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", null));
   await whdb.commitWork();
+
+  //Test search and matchase
+  test.eq(null, await schema.search("wrdPerson", "testFree", "free", { matchCase: true }));
+  test.eq(secondperson, await schema.search("wrdPerson", "testFree", "free", { matchCase: false }));
+  test.eq({ wrdId: secondperson }, await schema.query("wrdPerson").select(["wrdId"]).where("testFree", "=", "free", { matchCase: false }).executeRequireExactlyOne());
 
   //Test enrich and history modes
   test.eq([

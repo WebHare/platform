@@ -273,15 +273,15 @@ function getAttrBaseCells<T extends keyof typeof baseAttrCells>(tag: string, all
 }
 
 type WRDDBStringConditions = {
-  condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string; options?: { matchcase?: boolean };
+  condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string; options?: { matchCase?: boolean };
 } | {
-  condition: "in"; value: readonly string[]; options?: { matchcase?: boolean };
+  condition: "in"; value: readonly string[]; options?: { matchCase?: boolean };
 } | {
-  condition: "like"; value: string; options?: { matchcase?: boolean };
+  condition: "like"; value: string; options?: { matchCase?: boolean };
 } | {
-  condition: "mentions"; value: string; options?: { matchcase?: boolean };
+  condition: "mentions"; value: string; options?: { matchCase?: boolean };
 } | {
-  condition: "mentionsany"; value: readonly string[]; options?: { matchcase?: boolean };
+  condition: "mentionsany"; value: readonly string[]; options?: { matchCase?: boolean };
 };
 
 class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRDDBStringConditions> {
@@ -292,7 +292,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
-    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    const caseInsensitive = cv.options?.matchCase === false; //matchcase defauls to true
     if (caseInsensitive)
       value = value.toUpperCase();
     if (cv.condition === "in" || cv.condition === "mentionsany") {
@@ -309,7 +309,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
   }
 
   isCaseInsensitve(cv: WRDDBStringConditions) {
-    return cv.options?.matchcase === false; //matchcase defaults to true;
+    return cv.options?.matchCase === false; //matchcase defaults to true;
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
@@ -397,7 +397,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
-    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    const caseInsensitive = cv.options?.matchCase === false; //matchcase defauls to true
     if (caseInsensitive)
       value = value.toUpperCase();
     if (cv.condition === "in" || cv.condition === "mentionsany") {
@@ -414,7 +414,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
   }
 
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
-    const caseInsensitive = cv.options?.matchcase === false; //matchcase defauls to true
+    const caseInsensitive = cv.options?.matchCase === false; //matchcase defauls to true
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
     if (db_cv.condition === "like") {
