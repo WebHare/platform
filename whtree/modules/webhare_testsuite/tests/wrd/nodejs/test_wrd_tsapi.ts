@@ -133,13 +133,13 @@ interface TestRecordDataInterface {
   x: string;
 }
 
-async function testNewAPI() {
-  type Extensions = {
-    wrdPerson: {
-      testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
-    } & WRDTypeBaseSettings;
-  };
+type Extensions = {
+  wrdPerson: {
+    testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
+  } & WRDTypeBaseSettings;
+};
 
+async function testNewAPI() {
   const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
   const schemaById = await openWRDSchemaById(await schema.getId());
   test.assert(schemaById);
@@ -605,8 +605,36 @@ async function testBaseTypes() {
   await whdb.commitWork();
 
   test.eq({ domainSecret: settings.domainSecret, issuer: "https://example.net" }, await getSchemaSettings(schema, ["domainSecret", "issuer"]));
-
 }
+
+async function testBadValues() {
+  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+
+  await whdb.beginWork();
+
+  const unit_id = (await schema.find("whuserUnit", { wrdTag: "TAG" }))!;
+  const testperson = await schema.insert("wrdPerson", { whuserUnit: unit_id, testJsonRequired: { mixedCase: [] }, wrdContactEmail: "testBadVals@beta.webhare.net" });
+  //NOTE: Prefer falsy values to detect too early elimination
+  const testBads: Array<{
+    field: string;
+    badVals: unknown[];
+  }> = [
+      //FIXME test the full set of attributes
+      { field: "wrdDateOfBirth", badVals: [false, 0, "", 0n, Symbol(), undefined, {}, new Date("")] },
+      { field: "testDate", badVals: [false, 0, "", 0n, Symbol(), undefined, {}, new Date("")] },
+      { field: "testDatetime", badVals: [false, 0, "", 0n, Symbol(), undefined, {}, new Date("")] },
+    ];
+
+  for (const step of testBads) {
+    //we want to see at least the attribute name and the words 'invalid' and 'value' in an error:
+    const failregex = new RegExp(`Invalid\\b.*\\bvalue\\b.*${step.field}`, "i");
+    for (const badVal of step.badVals)
+      await test.throws(failregex, schema.update("wrdPerson", testperson, { [step.field]: badVal }), () => `Expected ${step.field} to fail with ${JSON.stringify(badVal)}`);
+  }
+
+  await whdb.rollbackWork();
+}
+
 
 async function testTSTypes() {
   const schema = await getExtendedWRDSchema();
@@ -1221,6 +1249,7 @@ test.run([
   testTSTypes,
   testNewAPI,
   testBaseTypes,
+  testBadValues,
   testOrgs,
   testUpsert,
   testTypeSync,
