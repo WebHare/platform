@@ -11,12 +11,12 @@ export type ChangesWHFSLinks = Array<{ id: number; linktype: number; data: IPCMa
 export type Changes<T extends string | number | null> = {
   entity?: T;
   oldsettings: {
-    entityrec: Omit<EntityRec, "leftentity" | "rightentity"> & { leftentity: T; rightentity: T } | null;
+    entityrec: Omit<EntityRec, "leftentity" | "rightentity" | "guid"> & { leftentity: T; rightentity: T; guid: string } | null;
     settings: ChangesSettings<T>;
     whfslinks: ChangesWHFSLinks;
   };
   modifications: {
-    entityrec: Omit<EntityPartialRec, "leftentity" | "rightentity"> & { leftentity?: T; rightentity?: T };
+    entityrec: Omit<EntityPartialRec, "leftentity" | "rightentity" | "guid"> & { leftentity?: T; rightentity?: T; guid?: string };
     settings: ChangesSettings<T>;
     whfslinks: ChangesWHFSLinks;
     deletedsettings: number[];

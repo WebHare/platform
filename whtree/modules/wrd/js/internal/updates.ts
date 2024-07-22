@@ -8,7 +8,7 @@ import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingW
 import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { generateRandomId, omit } from "@webhare/std";
+import { generateRandomId, omit, stringify } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -17,7 +17,6 @@ import { WebHareBlob } from "@webhare/services";
 import { Changes, ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";
 import { wrdFinishHandler } from "./finishhandler";
 import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
-import { encodeHSON } from "@webhare/hscompat";
 import { ValueQueryChecker } from "./checker";
 import { runSimpleWRDQuery } from "./queries";
 
@@ -495,6 +494,15 @@ async function validateSettings<
 }
 */
 
+function serializeChangeEntity<T>(entity: T & { guid: Buffer }): Omit<T, "guid"> & { guid: string };
+function serializeChangeEntity<T>(entity: T & { guid?: Buffer }): Omit<T, "guid"> & { guid?: string };
+
+function serializeChangeEntity<T>(entity: T & { guid?: Buffer }): Omit<T, "guid"> & { guid?: string } {
+  if ("guid" in entity)
+    return { ...entity, guid: encodeWRDGuid(entity.guid!) };
+  else //@ts-ignore We know guid is not in entity
+    return entity;
+}
 
 export async function __internalUpdEntity<S extends SchemaTypeDefinition, T extends keyof S & string>(
   type: WRDType<S, T>,
@@ -918,12 +926,12 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           const changeId = await nextVal("wrd.changes.id");
           const changes: Changes<number | null> = {
             oldsettings: {
-              entityrec: orgentityrec || null,
+              entityrec: orgentityrec ? serializeChangeEntity(orgentityrec) : null,
               settings: [],
               whfslinks: [],
             },
             modifications: {
-              entityrec: entityrecchanges,
+              entityrec: serializeChangeEntity(entityrecchanges),
               settings: [],
               whfslinks: [],
               deletedsettings: getTypedArray(VariableType.IntegerArray, deletedSettingIds),
@@ -952,12 +960,12 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
 
           const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
 
-          const encoded_oldsettings = encodeHSON(mappedChanges.oldsettings);
-          const encoded_modifications = encodeHSON(mappedChanges.modifications);
+          const encoded_oldsettings = stringify(mappedChanges.oldsettings, { typed: true });
+          const encoded_modifications = stringify(mappedChanges.modifications, { typed: true });
 
           let encoded_source = "";
           if (historyDebugging)
-            encoded_source = encodeHSON({ stacktrace: getStackTrace() });
+            encoded_source = stringify({ stacktrace: getStackTrace() }, { typed: true });
 
           let changeset = options.changeset ?? wrdFinishHandler().getAutoChangeSet(schemadata.schema.id);
           if (!changeset) {
@@ -972,7 +980,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           await db<PlatformDB>()
             .insertInto("wrd.changes")
             .values({
-              //id: changeId,
+              id: changeId,
               creationdate: now,
               changeset,
               type: typeRec.id,

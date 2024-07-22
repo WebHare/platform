@@ -2938,9 +2938,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     // Get the changes and decode the raw data
     RECORD ARRAY changes :=
         SELECT *
-             , oldsettings :=   DecodeHSON(BlobToString(oldsettings_blob) ?? oldsettings)
-             , modifications := DecodeHSON(BlobToString(modifications_blob) ?? modifications)
-             , source :=        source != "" ? DecodeHSON(source) : LENGTH(source_blob) != 0 ? DecodeHSONBlob(source_blob) : DEFAULT RECORD
+             , oldsettings :=   ReadAnyFromDatabase(oldsettings, oldsettings_blob)
+             , modifications := ReadAnyFromDatabase(modifications, modifications_blob)
+             , source :=        ReadAnyFromDatabase(source, source_blob)
           FROM wrd.changes
          WHERE changeset = changesetid
                AND type = this->typerec.id
@@ -2994,8 +2994,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF (CellExists(change.modifications, "whfslinks"))
       {
         orgwhfslinks := change.oldsettings.whfslinks;
-        newwhfslinks :=
-            change.modifications.whfslinks CONCAT
+        newwhfslinks := RECORD ARRAY(change.modifications.whfslinks) CONCAT
             SELECT * FROM change.oldsettings.whfslinks WHERE id NOT IN expiredsettings;
       }
 
@@ -3028,6 +3027,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
       RECORD ARRAY org_attrs := options.allfieldsinoriginal ? acc.fields : modified_attrs;
 
+      newsettings := EnforceStructure([[parentsetting := 0i64, attribute := 0, ordering := 0]], newsettings);
       // rebuild modified attributes
       RECORD modifications := CELL
           [ ...this->ParseSettings(modified_attrs, newsettings, newwhfslinks, linkgetter, [ rowdata := modentityrec ])
@@ -3038,8 +3038,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF (RecordExists(oldentityrec))
       {
         RECORD ARRAY org_basefields := options.allfieldsinoriginal ? acc.base_fields : modified_basefields;
+        RECORD ARRAY inoldsettings := EnforceStructure([[parentsetting := 0i64, attribute := 0, ordering := 0]], change.oldsettings.settings);
         oldsettings := CELL
-            [ ...this->ParseSettings(org_attrs, change.oldsettings.settings, orgwhfslinks, linkgetter, [ rowdata := oldentityrec ])
+            [ ...this->ParseSettings(org_attrs, inoldsettings, orgwhfslinks, linkgetter, [ rowdata := oldentityrec ])
             , ...GenerateBaseFields(org_basefields, oldentityrec, options.jsmode)
             ];
       }
@@ -3050,7 +3051,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           , when :=       change.creationdate
           , oldsettings
           , modifications
-          , changetype := CellExists(modifications, "wrd_limitdate") AND modifications.wrd_limitdate != MAX_DATETIME
+          , changetype := CellExists(modifications, "wrd_limitdate") AND modifications.wrd_limitdate != MAX_DATETIME AND modifications.wrd_limitdate != DEFAULT DATETIME
                               ? CellExists(modifications, "wrd_id")
                                   ? "newclose"
                                   : "close"
@@ -3601,12 +3602,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
             changes := this->MapChangesIdsToRefs(changes);
 
-            STRING encoded_oldsettings := EncodeHSON(changes.oldsettings);
-            STRING encoded_modifications := EncodeHSON(changes.modifications);
-
-            STRING encoded_source;
-            IF (historydebugging)
-              encoded_source := EncodeHSON([ stacktrace := GetAsyncStackTrace() ]);
+            RECORD encoded_oldsettings := PrepareAnyForDatabase(changes.oldsettings);
+            RECORD encoded_modifications := PrepareAnyForDatabase(changes.modifications);
+            RECORD encoded_source := PrepareAnyForDatabase(historydebugging ? [ stacktrace := GetAsyncStackTrace() ] : DEFAULT RECORD);
 
             INTEGER changeset := options.changeset ?? GetWRDCommitHandler()->GetAutoChangeSet(this->__typerec.wrd_schema);
             IF (changeset = 0)
@@ -3619,14 +3617,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                 [ id :=                 changeid
                 , creationdate :=       now
                 , changeset
-                , type :=               this->typerec.id
                 , entity :=             is_new ? setguid : changes.oldsettings.entityrec.guid
-                , oldsettings :=        Length(encoded_oldsettings) <= 4096 ? encoded_oldsettings : ""
-                , oldsettings_blob :=   Length(encoded_oldsettings) > 4096 ? StringToBlob(encoded_oldsettings) : DEFAULT BLOB
-                , modifications :=      Length(encoded_modifications) <= 4096 ? encoded_modifications : ""
-                , modifications_blob := Length(encoded_modifications) > 4096 ? StringToBlob(encoded_modifications) : DEFAULT BLOB
-                , source :=             Length(encoded_source) <= 4096 ? encoded_source : ""
-                , source_blob :=        Length(encoded_source) > 4096 ? StringToBlob(encoded_source) : DEFAULT BLOB
+                , type :=               this->typerec.id
+                , oldsettings :=        encoded_oldsettings.stringpart
+                , oldsettings_blob :=   encoded_oldsettings.blobpart
+                , modifications :=      encoded_modifications.stringpart
+                , modifications_blob := encoded_modifications.blobpart
+                , source :=             encoded_source.stringpart
+                , source_blob :=        encoded_source.blobpart
                 , summary :=            Detokenize(GetSortedSet(changed_attrs), ",")
                 ] INTO wrd.changes;
           }
@@ -3714,7 +3712,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     VARIANT defaultval := GetArrayTypeDefaultElement(TypeID(list));
     IF (CellExists(changes, "entity"))
       INSERT changes.entity INTO list AT END;
-    FOREVERY (RECORD rec FROM changes.oldsettings.settings CONCAT changes.modifications.settings)
+    FOREVERY (RECORD rec FROM RECORD ARRAY(changes.oldsettings.settings) CONCAT RECORD ARRAY(changes.modifications.settings))
       IF (rec.setting != defaultval)
         INSERT rec.setting INTO list AT END;
     IF (CellExists(changes.oldsettings.entityrec, "leftentity"))
@@ -3795,7 +3793,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     FOREVERY (RECORD change FROM changes)
     {
       blobids := blobids CONCAT SELECT AS INTEGER ARRAY blobdata
-                                  FROM (change.oldsettings.settings CONCAT change.modifications.settings) AS settings
+                                  FROM RECORD ARRAY(change.oldsettings.settings) CONCAT RECORD ARRAY(change.modifications.settings) AS settings
                                  WHERE CellExists(settings,'blobdata') AND GetCell(settings,'blobdata') != 0; //GetCell to avoid optimization warning
     }
 
