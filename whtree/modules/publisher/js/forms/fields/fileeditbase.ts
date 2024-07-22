@@ -121,7 +121,7 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
     evt.preventDefault();
 
     if (this.disabled || this.currentFiles.length >= this.maxFiles)
-      return; //should'nt even have been offered?
+      return; //should not even have been offered?
 
     const accept = this.getAttribute("accept")?.split(',') ?? [];
     using lock = dompack.flagUIBusy();
@@ -136,7 +136,7 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
 
   private async processUpload(uploader: SingleFileUploader) {
     if (this.disabled || this.currentFiles.length >= this.maxFiles)
-      return; //should'nt even have been offered?
+      return; //should not even have been offered?
 
     if (!this._isAcceptableType(uploader.file.type)) {
       //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
