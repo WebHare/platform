@@ -6,3 +6,8 @@ html
 }
 
 //H1 etc font styling should be added to shared/rtd/rtd.css
+
+html.dompack--debug-focus *:focus {
+  outline: 2px solid red !important;
+  outline-offset: -1px;
+}

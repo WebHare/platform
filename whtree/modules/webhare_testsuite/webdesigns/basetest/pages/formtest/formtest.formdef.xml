@@ -139,6 +139,8 @@
       <upload name="file" title="File" />
       <checkbox name="showfile2" title="Show file #2" />
       <upload name="file2" required="true" title="File #2" />
+      <imgedit name="imgs" title="Images" maxfiles="4" />
+      <upload name="files" title="Files" maxfiles="4" />
     </page>
   </form>
 

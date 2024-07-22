@@ -7,6 +7,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -54,20 +55,75 @@ STRING FUNCTION GetFileInfo(RECORD filerec)
 ///@private
 PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
 <
-  RECORD pvt_value;
-  STRING pvt_url;
+  RECORD ARRAY pvt_files;
 
   ///Acceptable mimetype masks
   PUBLIC STRING ARRAY accept; //TODO: suport extensions too?
   ///Custom error message to show when not accepting
   PUBLIC STRING accepterror;
+  ///Maximum # of files. Defaults to 1. Setting it to above 1 changes the value to an array (the 'files' property will always be an array)
+  PUBLIC INTEGER maxfiles;
 
-  PUBLIC PROPERTY value(this->pvt_value, SetValue);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY files(GetFiles, SetFiles);
 
-  MACRO SetValue(RECORD val)
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
   {
-    this->pvt_value := val;
-    this->pvt_url := "";
+    this->maxfiles := CellExists(field,'maxfiles') ? field.maxfiles : 1;
+  }
+
+  RECORD ARRAY FUNCTION GetFiles()
+  {
+    RETURN this->pvt_files;
+  }
+
+  STRING FUNCTION GetUCFileLink(STRING baseurl, RECORD file)
+  {
+    RETURN GetCachedFileLink(file, [ baseurl := baseurl, filename := file.filename ]);
+  }
+
+  STRING FUNCTION GetFileLink(STRING baseurl, INTEGER idx, RECORD file)
+  {
+    IF(CellExists(file,'__BLOBSOURCE') AND file.__blobsource != "")
+      RETURN this->GetUCFileLink(baseurl, file);
+    ELSE
+      RETURN "x-original-file:" || (file.hash ?? ToString(idx)) || ":" || EncodeURL(file.filename);
+  }
+
+  MACRO SetFiles(RECORD ARRAY infiles)
+  {
+    IF(Length(infiles) > 0)
+    {
+      STRING baseurl := IsRequest() ? UnpackURL(GetRequestURL()).origin || "/" : GetPrimaryWebhareInterfaceURL();
+      //Assign a working url if possible, otherwise just 'a url' so we can recognize re-receiving this value
+      infiles := SELECT *
+                      , link := this->GetFileLink(baseurl, #infiles, infiles)
+                   FROM infiles;
+    }
+    this->pvt_files := infiles;
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    IF(this->maxfiles > 1)
+      RETURN this->files;
+    ELSE
+      RETURN PickFirst(this->files);
+  }
+
+  MACRO SetValue(VARIANT val)
+  {
+    IF(this->maxfiles > 1)
+      IF(TYPEID(val) != TYPEID(RECORD ARRAY))
+        THROW NEW Exception("Multi-file upload requires a RECORD ARRAY");
+      ELSE
+        this->files := val;
+    ELSE
+      IF(TYPEID(val) != TYPEID(RECORD))
+        THROW NEW Exception("Single-file upload requires a RECORD ");
+      ELSE
+        this->files := RecordExists(val) ? RECORD[val] : DEFAULT RECORD ARRAY;
   }
   UPDATE PUBLIC RECORD FUNCTION GetComposableData()
   {
@@ -90,13 +146,6 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
     RECORD base := this->GetBaseRenderData();
     RECORD dataset := base.dataset;
 
-    IF(Length(this->accept) > 0)
-    {
-      dataset := CELL[ ...dataset
-                     , "wh-accept" := Detokenize(this->accept,',')
-                     ];
-    }
-
     IF(this->accepterror != "")
     {
       dataset := CELL[ ...dataset
@@ -106,28 +155,34 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
     }
 
     RETURN CELL[ ...base
-               , value := RecordExists(this->pvt_value) ? CELL[...this->pvt_value, DELETE data, link := this->pvt_url ] : DEFAULT RECORD
+               , value := (SELECT *, DELETE data FROM this->files)
                , type := "upload"
                , dataset
+               , this->maxfiles
+               , accept := Length(this->accept) > 0 ? Detokenize(this->accept, ', ') : ""
                ];
   }
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
     FormFieldBase::ValidateValue(work);
-    IF(RecordExists(this->pvt_value) AND Length(this->accept) > 0) //mimetype filter is active
+    IF(Length(this->accept) > 0) //mimetype filter is active
+      FOREVERY(RECORD file FROM this->pvt_files)
+        //TODO Specialize error if all masks are of type image/* and what you uploaded is not an image at all!
+        IF(NOT IsAcceptableType(file.mimetype, this->accept)) //TODO explain which file, number or filename?
+          work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.badfiletype"));
+
+    IF(Length(this->pvt_files) > this->maxfiles) //the error is not fully applicable, but how did you avoid the client side validation anyway.. this just protects our virusscan loop
+      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.maxarray", ToString(this->maxfiles)));
+
+    IF(NOT work->HasFailed() AND Length(this->pvt_files) > 0)
+      FOREVERY(RECORD file FROM this->pvt_files)
     {
-      //TODO Specialize error if all masks are of type image/* and what you uploaded is not an image at all!
-      IF(NOT IsAcceptableType(this->pvt_value.mimetype, this->accept))
-        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.badfiletype"));
-    }
-    IF(NOT work->HasFailed() AND RecordExists(this->pvt_value))
-    {
-      RECORD scanresult := RunAntivirusScan(this->pvt_value.data);
+      RECORD scanresult := RunAntivirusScan(file.data);
       IF(scanresult.errorcode != "noscannersavailable")
       {
-        RECORD auditdetails := CELL[ client_filename := this->pvt_value.filename
-                                   , client_mimetype := this->pvt_value.mimetype
-                                   , filehash := ToLowercase(EncodeBase16(GetHashForBlob(this->pvt_value.data, "SHA-256")))
+        RECORD auditdetails := CELL[ client_filename := file.filename
+                                   , client_mimetype := file.mimetype
+                                   , filehash := ToLowercase(EncodeBase16(GetHashForBlob(file.data, "SHA-256")))
                                    , field := this->name
                                    , scanresult.errorcode
                                    , scanresult.detail
@@ -145,31 +200,38 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
   }
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
-    IF(NOT RecordExists(jsdata)) //signals 'no change'
-      RETURN;
-
-    IF(CellExists(jsdata,'link') AND jsdata.link LIKE "data:*") //Old format uploads. Race during upgrade to 5.6?
+    RECORD ARRAY setfiles;
+    FOREVERY(RECORD file FROM RECORD ARRAY(jsdata))
     {
-      this->pvt_value := WrapBlob(ParseDataURL(jsdata.link).data, jsdata.filename);
-      this->pvt_url := "";
-      RETURN;
+      IF(CellExists(file,'link') AND TYPEID(file.link) = TYPEID(STRING))
+      {
+        IF(file.link LIKE "data:*") //Old format uploads. Race during upgrade to 5.6? or someone trying to use the file edit backend code with data: urks
+        {
+          INSERT CELL[ ...WrapBlob(ParseDataURL(file.link).data, file.filename)
+                     , file.link
+                     ] INTO setfiles AT END;
+        }
+        ELSE
+        {
+          RECORD source := SELECT * FROM this->files WHERE link = file.link; //it's the same!
+          IF(NOT RecordExists(source))
+            source := GetWrappedSourceFromURL(file.link); //Still recognizing it as an existing image, maybe moddate changed
+          IF(RecordExists(source))
+            INSERT CELL[ ...source, file.link ] INTO setfiles AT END;
+        }
+      }
+      ELSE IF(CellExists(file,'file') AND CellExists(file.file,'token'))
+      {
+        //refers to an uploaded file
+       RECORD upload := GetUploadedFile(file.file.token);
+       INSERT CELL[...WrapBlob(upload.data, file.file.name),link := ""] INTO setfiles AT END;
+      }
     }
-
-    IF(jsdata.token = "") ///signals deletion
-    {
-      this->pvt_value := DEFAULT RECORD;
-    }
-    ELSE
-    {
-      //TODO cleanup all related uploads when form succesfully submitted
-      RECORD upload := GetUploadedFile(jsdata.token);
-      this->pvt_value := WrapBlob(upload.data, jsdata.name);
-      this->pvt_url := "";
-    }
+    this->pvt_files := setfiles;
   }
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
   {
-    RETURN RecordExists(this->pvt_value);
+    RETURN Length(this->pvt_files) > 0;
   }
   UPDATE PUBLIC RECORD FUNCTION GetStorageValue()
   {
@@ -272,12 +334,11 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
 
 PUBLIC STATIC OBJECTTYPE UploadField EXTEND FileEditFieldBase
 <
-  UPDATE MACRO SetValue(RECORD val)
-  {
-    FileEditFieldBase::SetValue(val);
-    IF(RecordExists(val) AND CellExists(this->pvt_value,'__BLOBSOURCE') AND this->pvt_value.__blobsource != "")
-    {
-      this->pvt_url := GetCachedFileLink(this->pvt_value, [ filename := val.filename ]);
-    }
-  }
 >;
+
+
+PUBLIC RECORD FUNCTION ParseFormUpload(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  INSERT CELL maxfiles := node->HasAttribute("maxfiles") ? ParseXSInt(node->GetAttribute("maxfiles")) : 1 INTO fielddef;
+  RETURN fielddef;
+}

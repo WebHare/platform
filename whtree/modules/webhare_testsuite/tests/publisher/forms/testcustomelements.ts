@@ -26,4 +26,28 @@ async function testSimpleElement() {
   test.eq({ answer: 28 }, serverresponse.form.simple_field);
 }
 
-test.run([testSimpleElement]);
+async function testAttributeSyncingSimple() {
+  //Test the disabled attribute
+  test.eq(false, test.qR("my-simple-field").disabled);
+  test.qR("my-simple-field").setAttribute("disabled", "disabled");
+  test.eq(true, test.qR("my-simple-field").disabled);
+  test.eq(true, test.qR("my-simple-field").matches(":disabled"));
+  test.qR("my-simple-field").removeAttribute("disabled");
+  test.eq(false, test.qR("my-simple-field").disabled);
+  test.eq(false, test.qR("my-simple-field").matches(":disabled"));
+
+  //Test the required attribute
+  test.eq(false, test.qR("my-simple-field").required);
+  test.qR("my-simple-field").setAttribute("required", "required");
+  test.eq(true, test.qR("my-simple-field").required);
+  // Doesn't look like its possible to have :required CSS selector work. elementInternals customStateSet doesn't work for it
+  // test.eq(true, test.qR("my-simple-field").matches(":required"));
+  test.qR("my-simple-field").removeAttribute("required");
+  test.eq(false, test.qR("my-simple-field").required);
+  // test.eq(false, test.qR("my-simple-field").matches(":required"));
+}
+
+test.run([
+  testSimpleElement,
+  testAttributeSyncingSimple,
+]);

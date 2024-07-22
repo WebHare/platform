@@ -1,13 +1,14 @@
 import * as test from "@mod-system/js/wh/testframework";
 import FormBase from "@mod-publisher/js/forms/formbase";
 import { prepareUpload } from '@webhare/test-frontend';
+import type { FormFileValue } from "@webhare/forms/src/types";
 
 interface ArrayFormValue {
   text: string;
   contacts: Array<{
     name: string;
-    photo?: { name: string };
-    upload?: { name: string };
+    photo: FormFileValue[];
+    upload: FormFileValue[];
     gender: string;
     wrd_dateofbirth: string;
   }>;
@@ -17,8 +18,8 @@ interface ArrayFormShape {
   text: string;
   contacts: Array<{
     name: string;
-    photo?: { name: string };
-    upload?: { name: string };
+    photo: FormFileValue[];
+    upload: FormFileValue[];
     gender: 0 | 1 | 2;
     wrdDateofbirth: string;
     confirm: boolean;
@@ -103,11 +104,11 @@ test.registerTests(
       test.fill(test.qS(row, "input[type=text]")!, "another name");
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
-      test.qR(row, ".wh-form__imgedit").click();
+      test.click(test.qR(row, "wh-form-imgedit"));
       await test.wait('ui');
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
-      test.qR(row, ".wh-form__uploadfield button").click();
+      test.click(test.qR(row, "wh-form-upload"));
       await test.wait('ui');
 
       // Check the resulting result
@@ -117,24 +118,24 @@ test.registerTests(
       test.eq(2, result.contacts.length);
       test.eq("array name", result.contacts[0].name);
       test.eq("another name", result.contacts[1].name);
-      test.assert(result.contacts[1].photo);
-      test.eq("portrait_8.jpg", result.contacts[1].photo.name);
+      test.assert(result.contacts[1].photo[0]);
+      test.eq("portrait_8.jpg", result.contacts[1].photo[0].fileName);
       test.assert(result.contacts[1].upload);
-      test.eq("landscape_4.jpg", result.contacts[1].upload.name);
+      test.eq("landscape_4.jpg", result.contacts[1].upload[0].fileName);
 
       test.eqPartial({
         text: "still not array",
         contacts: [
           {
             name: "array name",
-            photo: undefined
+            photo: []
           }, {
             name: "another name",
           }
         ]
       }, formhandler.data);
-      test.eq("portrait_8.jpg", formhandler.data.contacts[1].photo?.name);
-      test.eq("landscape_4.jpg", formhandler.data.contacts[1].upload?.name);
+      test.eq("portrait_8.jpg", formhandler.data.contacts[1].photo[0].fileName);
+      test.eq("landscape_4.jpg", formhandler.data.contacts[1].upload[0].fileName);
 
       //@ts-expect-error TS knows there is no 'noSuchField'
       test.eq(undefined, result.contacts[0].noSuchField);
@@ -175,7 +176,7 @@ test.registerTests(
         test.eq(1, formhandler.data.contacts.length);
         test.eq("another name", formhandler.data.contacts[0].name);
         test.assert(formhandler.data.contacts[0].photo);
-        test.eq("portrait_8.jpg", formhandler.data.contacts[0].photo.name);
+        test.eq("portrait_8.jpg", formhandler.data.contacts[0].photo[0].fileName);
 
         // Delete the last row
         test.click(test.qS(".wh-form__arraydelete")!);
@@ -253,7 +254,7 @@ test.registerTests(
         test.eq("", result.contacts[0].name);
         test.eq("0", result.contacts[0].gender);
         test.eq("", result.contacts[0].wrd_dateofbirth);
-        test.assert(!result.contacts[0].photo);
+        test.assert(result.contacts[0].photo.length === 0);
 
         // Set the value to two rows with values
         formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrdDateofbirth: "2000-03-03" }] });
@@ -265,11 +266,11 @@ test.registerTests(
         test.eq("First person", result.contacts[0].name);
         test.eq("1", result.contacts[0].gender);
         test.eq("2000-02-02", result.contacts[0].wrd_dateofbirth);
-        test.assert(!result.contacts[0].photo);
+        test.assert(result.contacts[0].photo.length === 0);
         test.eq("Another person", result.contacts[1].name);
         test.eq("2", result.contacts[1].gender);
         test.eq("2000-03-03", result.contacts[1].wrd_dateofbirth);
-        test.assert(!result.contacts[1].photo);
+        test.assert(result.contacts[1].photo.length === 0);
 
         //REDO the settings above but now through a nicer Form api
 
@@ -289,15 +290,10 @@ test.registerTests(
         contacts: [
           {
             name: "first contact",
+            photo: [{ fileName: "imgeditfile.jpeg", file: null }]
           }
         ]
       }, formhandler.data);
-
-      test.assert(!("photo" in formhandler.data.contacts[0]), "The photo property should *not be there* as we don't have enough information from the server to be able to safely re-setValue it!");
-
-      // a prefilled image field is not visible in getFormValue - why would we have to redownload already submitted file ?
-      // test.assert(result.contacts[0].photo);
-      // test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
 
       // Clear the array by setting the value to an empty array
       formhandler.data.contacts = [];
@@ -317,7 +313,7 @@ test.registerTests(
       test.eq("", formhandler.data.contacts[0].name);
       test.eq(0, formhandler.data.contacts[0].gender);
       test.eq("", formhandler.data.contacts[0].wrdDateofbirth);
-      test.assert(!formhandler.data.contacts[0].photo);
+      test.assert(formhandler.data.contacts[0].photo.length === 0);
 
       // Set the value to two rows with values
       formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrdDateofbirth: "2000-03-03" }] });
@@ -328,20 +324,21 @@ test.registerTests(
       test.eq("First person", formhandler.data.contacts[0].name);
       test.eq(1, formhandler.data.contacts[0].gender);
       test.eq("2000-02-02", formhandler.data.contacts[0].wrdDateofbirth);
-      test.assert(!formhandler.data.contacts[0].photo);
+      test.assert(formhandler.data.contacts[0].photo.length === 0);
       test.eq("Another person", formhandler.data.contacts[1].name);
       test.eq(2, formhandler.data.contacts[1].gender);
       test.eq("2000-03-03", formhandler.data.contacts[1].wrdDateofbirth);
-      test.assert(!formhandler.data.contacts[1].photo);
+      test.assert(formhandler.data.contacts[1].photo.length === 0);
 
       //Set a photo - first by updating the property fully because not all Proxies are in place yet.
       formhandler.data.contacts = [
         formhandler.data.contacts[0],
         {
-          ...formhandler.data.contacts[1], upload: new File(["het is een test #1"], "test1.txt")
+          ...formhandler.data.contacts[1],
+          upload: [{ file: new File(["het is een test #1"], "test1.txt") }] as FormFileValue[] //alsotest whether the API fixes fileName
         }
       ];
-      test.eq("test1.txt", formhandler.data.contacts[1].upload?.name);
+      test.eq("test1.txt", formhandler.data.contacts[1].upload[0].fileName);
 
       //TODO properly update only the rows/values we're setting (ie Better Proxies) rather than rewriting all
       /*
@@ -400,7 +397,7 @@ test.registerTests(
         test.fill(test.qS(row, "input[type=text]")!, "not prefilled");
 
         prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
-        test.qR(row, ".wh-form__uploadfield button").click();
+        test.click(test.qR(row, ".wh-form__upload"));
         await test.wait('ui');
 
         // Delete the first row
@@ -466,7 +463,7 @@ test.registerTests(
       test.fill('[name="custom_array.1.two_level_in_array.textedit"]', 'TEXT 2');
 
       const formhandler = FormBase.getForNode<ArrayFormShape>(test.qR("form"))!;
-      test.eq({
+      test.eqPartial({
         "text": "prefilled name",
         "contacts": [
           {

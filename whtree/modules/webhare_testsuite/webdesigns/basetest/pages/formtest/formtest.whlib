@@ -576,7 +576,8 @@ PUBLIC STATIC OBJECTTYPE RTDForm EXTEND FormBase
     ^file->enabledcondition := [ matchtype := "HASVALUE", field := "enablefields", value := TRUE ];
     ^file2->visiblecondition := [ matchtype := "HASVALUE", field := "showfile2", value := TRUE ];
 
-    this->Prefill();
+    IF(IsRequest() AND GetFormWebVariable("mode") != "writeonly")
+      this->Prefill();
 
     IF(IsRequest() AND GetFormWebVariable("disabled")="1")
     {
@@ -639,10 +640,13 @@ PUBLIC STATIC OBJECTTYPE RTDForm EXTEND FormBase
       }
     }
     work->Finish();
+
     RETURN [ htmltext := RecordExists(^rtd->value) ? BlobToSTring(^rtd->value.htmltext) : ""
-           , img := CellDelete(^img->value, 'DATA')
-           , file := CellDelete(^file->value, 'DATA')
-           , file2 := CellDelete(^file2->value, 'DATA')
+           , img := OmitCells(^img->value, ['DATA'])
+           , file := OmitCells(^file->value, ['DATA'])
+           , file2 := OmitCells(^file2->value, ['DATA'])
+           , imgs := (SELECT AS RECORD ARRAY OmitCells(rows, ['DATA']) FROM ^imgs->value AS rows)
+           , files := (SELECT AS RECORD ARRAY OmitCells(rows, ['DATA']) FROM ^files->value AS rows)
            ];
   }
 >;

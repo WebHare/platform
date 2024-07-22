@@ -11,7 +11,7 @@ import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
-import type { FormCondition } from '@webhare/forms/src/types';
+import type { FormCondition, FormFileValue } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 
 //Suggestion or error messages
@@ -824,7 +824,6 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     for (const formgroup of dompack.qSA(this.node, ".wh-form__fieldgroup")) {
       const groupPage = formgroup.closest<HTMLElement>(".wh-form__page");
       const visible = (!groupPage || !hiddenPages.includes(groupPage)) && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
-
       if (!visible)
         hiddengroups.push(formgroup);
 
@@ -914,8 +913,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-require", { bubbles: true, cancelable: true, detail: { required: node_required } })) {
             // Not cancelled, so run our default handler
-            if (isFormControl(node)) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
-              if (node.type !== 'checkbox') //don't set required on checkboxes, that doesn't do what you want
+            if (isFormFieldLike(node)) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
+              if (!isFormControl(node) || node.type !== 'checkbox') //don't set required on checkboxes, that doesn't do what you want
                 node.required = node_required;
             } else if (node_required)
               node.setAttribute("data-wh-form-required", "");
@@ -1229,7 +1228,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     }
 
     if (field.matches('input[type=file]')) //We don't care for multiple yet, as our form RPC APIs don't support that either
-      return (field as HTMLInputElement).files?.[0] || null;
+      return [...(field as HTMLInputElement).files || []].map(file => ({ fileName: file.name, file: file, link: null })) satisfies FormFileValue[];
 
     return field.value;
   }

@@ -1,15 +1,24 @@
 import * as test from '@mod-system/js/wh/testframework';
 import { loadImage } from '@webhare/dompack';
-import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';
 import { prepareUpload } from '@webhare/test-frontend';
 import { waitChange } from './lib/testhelpers';
+import { getFormData, type FormFileValue } from '@webhare/forms';
+
+interface RTDForm {
+  file: FormFileValue[];
+  file2: FormFileValue[];
+  files: FormFileValue[];
+  img: FormFileValue[];
+  imgs: FormFileValue[];
+}
 
 test.registerTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&mode=writeonly'); //writeonly: dont read any existing state on first render, or earlier tests will interfere
     },
+
     'Reset image',
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
@@ -18,11 +27,11 @@ test.registerTests(
     },
     {
       test: async function () {
-        const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        test.assert(img, 'no image present');
-        test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');
-        test.assert(test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
-        const imgurl = readBackgroundUrl(img);
+        const imgCompRoot = test.qR('#rtdtest-img').shadowRoot;
+        test.assert(imgCompRoot);
+        test.assert(imgCompRoot.querySelector('img'), 'no image present');
+        test.assert(imgCompRoot.querySelector('.image__deletebutton'), 'no delete button');
+        const imgurl = imgCompRoot.querySelector('img')?.src;
         test.assert(imgurl, 'no image url');
         const imginfo = await loadImage(imgurl);
         test.eq(450, Math.floor(imginfo.naturalWidth)); //should be portrait even though we uploaded landscape
@@ -42,11 +51,11 @@ test.registerTests(
       name: 'Verify reloaded image',
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
-        //wait for image to load
-        const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        test.assert(img, 'no image present #2');
-        test.assert(test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
-        const imgurl = readBackgroundUrl(img);
+
+        const imgCompRoot = test.qR('#rtdtest-img').shadowRoot;
+        test.assert(imgCompRoot);
+        test.assert(imgCompRoot.querySelector('img'), 'no image present #2');
+        const imgurl = imgCompRoot.querySelector('img')?.src;
         test.assert(imgurl, 'no image url');
         const imginfo = await loadImage(imgurl);
         test.eq(450, Math.floor(imginfo.naturalWidth)); //should be portrait even though we uploaded landscape
@@ -61,36 +70,35 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
 
         //wait for image to load
-        let img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        test.assert(img, 'no image present #3');
-        test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
+
+        const imgCompRoot = test.qR('#rtdtest-img').shadowRoot;
+        test.assert(imgCompRoot);
+        test.assert(imgCompRoot.querySelector('img'), 'no image present #3');
+        test.assert(imgCompRoot.querySelector('.image__deletebutton'), 'no delete button');
 
         test.click('#rtdtest-enablefields');
         test.assert(!test.qR('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
+        test.assert(!test.canClick(test.qR(imgCompRoot, '.image__deletebutton')));
 
-        test.click('#rtdtest-img .wh-form__imgeditdelete');
-
-        img = test.qS('#rtdtest-img .wh-form__imgeditimg');
-        test.assert(img, 'image should still be present - delete should have been ignored as the field was enabled');
-
-        test.assert(test.qR("#rtdtest-img").hasAttribute("data-wh-form-disabled"));
+        test.assert(test.qR("#rtdtest-img").hasAttribute("disabled"));
         test.click('#rtdtest-enablefields');
 
         test.assert(test.qR('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
 
-        test.assert(!test.qR("#rtdtest-img").hasAttribute("data-wh-form-disabled"));
+        test.assert(!test.qR("#rtdtest-img").hasAttribute("disabled"));
 
-        await waitChange(() => !test.qS('#rtdtest-img .wh-form__imgeditimg'), () => test.click('#rtdtest-img .wh-form__imgeditdelete'), 'image should have gone away after clicking delete');
-        test.assert(!test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'delete button still present');
-        test.assert(!test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
+        await waitChange(() => !test.qS(imgCompRoot, 'img'), () => test.click(test.qR(imgCompRoot, '.image__deletebutton')), 'image should have gone away after clicking delete');
+        test.assert(!test.qS(imgCompRoot, '.image__deletebutton'), 'delete button still present');
       }
     },
     {
       name: 'Test error handling',
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&imgrequired=1');
+        const imgCompRoot = test.qR('#rtdtest-img').shadowRoot!;
         test.focus('#rtdtest-img');
-        test.click('.wh-form__imgeditdelete'); //kill image
+        test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');
 
@@ -104,6 +112,34 @@ test.registerTests(
         await test.wait('ui');
 
         test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
+      }
+    },
+
+    'Test multi image',
+    async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&mode=writeonly'); //drop stored data
+      const imgsCompRoot = test.qR('#rtdtest-imgs').shadowRoot!;
+      prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
+      test.qR(imgsCompRoot, '.image--placeholder').click();
+      await test.wait('ui');
+
+      prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
+      test.qR(imgsCompRoot, '.image--placeholder').click();
+      await test.wait('ui');
+
+      const formdata = getFormData<RTDForm>(test.qR('#rtdform'));
+      test.eqPartial({
+        imgs: [{ fileName: "portrait_8.jpg" }, { fileName: "landscape_4.jpg" },]
+      }, formdata);
+
+      test.click('#submitbutton');
+      await test.wait('ui');
+
+      {
+        const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent || '');
+        test.eqPartial({
+          imgs: [{ filename: "portrait_8.jpg" }, { filename: "landscape_4.jpg" },]
+        }, serverreponse);
       }
     },
 

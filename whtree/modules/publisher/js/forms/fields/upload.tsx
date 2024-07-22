@@ -5,105 +5,59 @@ import { getTid } from "@mod-tollium/js/gettid";
 import "../internal/form.lang.json";
 import { FileEditElement as FileEditElementBase } from './fileeditbase';
 import './upload.css';
+import { isFile } from '@webhare/std';
 
 
-function getLabelText(node: HTMLElement) {
-  let label;
-  if (node.id !== "") {
-    const labelnode = document.querySelector(`label[for="${node.id}"]`);
-    if (labelnode)
-      label = labelnode.textContent;
-
-    return label;
-  }
-
-  return "";
-}
 
 //FIXME nicer class name? eg add form or field to these (and imgedit) class names?
 export class FileUploadFormElement extends FileEditElementBase {
-  replacement;
-  private _filenameinput;
-  private _filenamefield;
-  private _deletebutton;
-  private _uploadbutton;
-  declare node: FileUploadFormElement;
-
   constructor() {
     super();
-
-    const label = getLabelText(this.node);
-
-    this.node.addEventListener("click", e => this.selectFile(e)); //we still need to intercept clicks, even if we're hiding it
-    this.node.addEventListener('dompack:takefocus', evt => this._takeFocus(evt));
-    this.replacement = <div class="wh-form__uploadfield" on={{ click: (e: MouseEvent) => this.selectFile(e) }}>
-      {this._filenameinput =
-        <span class="wh-form__uploadfieldinputholder">
-          {this._filenamefield =
-            <input class="wh-form__uploadfieldfilename" type="text"
-              placeholder={getTid("publisher:site.forms.upload-emptytext")}
-              aria-label={label}
-              disabled
-            />
-          }
-          {this._deletebutton =
-            <span class="wh-form__uploadfielddelete"
-              aria-label={getTid("publisher:site.forms.upload-remove")}
-              tabindex="0"
-              role="button"
-              on={{ click: (evt: Event) => this._doDelete(evt), keypress: (evt: KeyboardEvent) => this._checkForDelete(evt) }}
-            />
-          }
-        </span>
-      }
-      {this._uploadbutton = <button type="button" class="wh-form__uploadfieldselect wh-form__button"><span class="wh-form__buttonlabel">{getTid("publisher:site.forms.selectfile")}</span></button>}
-    </div>;
-
-    dompack.before(this.node, this.replacement);
-
     this.refresh();
-    this._afterConstruction();
-  }
-  _updateEnabledStatus(nowenabled: boolean) {
-    this._uploadbutton.disabled = !nowenabled;
-  }
-  _takeFocus(evt: Event) {
-    evt.preventDefault();
-    dompack.focus(this.replacement.querySelector("button"));
   }
 
-  // check whether the delete button was activated through a keypress
-  _checkForDelete(evt: KeyboardEvent) {
-    // We only interested when the enter or space key was pressed
-    if (evt.keyCode !== 13 && evt.keyCode !== 32)
-      return;
-
-    this._doDelete(evt);
+  #constructFileHolder() {
+    const fileholder = document.createElement("div");
+    fileholder.classList.add('file');
+    return fileholder;
   }
 
-  _doDelete(evt: Event) {
-    dompack.stop(evt);
-    if (!this._getEnabled())
-      return;
-
-    this.node.dataset.whFilename = '';
-    this.node.dataset.whFileurl = '';
-    this.refresh();
-    dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
-  }
-  uploadHasChanged() {
-    this.refresh();
-    dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
-  }
-  isSet() {
-    return Boolean(this.hasChanged ? this.uploadedFile : this.node.dataset.whFilename);
-  }
   refresh() {
-    this._filenamefield.value = (this.hasChanged ? this.uploadedFile?.name : this.node.dataset.whFilename) || '';
-    this.replacement.classList.toggle("wh-form__uploadfield--hasfile", this.isSet());
-  }
-  getFieldValueLink() {
-    return this.node.dataset.whFileurl || null;
+    const nodes = [];
+
+    for (const [idx, file] of this.currentFiles.entries()) {
+      const fileholder = this.#constructFileHolder();
+
+      // const label = getLabelText(this.node);
+      // aria-label={label}
+      const filename = isFile(file) ? file.name : file.fileName;
+      /* for ease of 'form like' presentation, we're currently using an <input>. but quite hacky, eg. we need readonly to have it not interfere with clicks. */
+      const filenamefield =
+        <input class="file__name" type="text" value={filename} readonly
+        />;
+
+      const deletebutton = <span class="file__deletebutton" />;
+      this.setupDeleteButton(deletebutton, idx);
+
+      fileholder.append(filenamefield, deletebutton);
+      nodes.push(fileholder);
+    }
+
+    if (this.currentFiles.length < this.maxFiles) {
+      const fileholder = this.#constructFileHolder();
+      fileholder.classList.add('file--placeholder');
+
+      const filenamefield =
+        <input class="file__name" type="text" value={getTid("publisher:site.forms.upload-emptytext")} readonly
+        />;
+
+      const uploadbutton = <button type="button" class="wh-form__uploadfieldselect wh-form__button"><span class="wh-form__buttonlabel">{getTid("publisher:site.forms.selectfile")}</span></button>;
+      this.setupUploadButton(fileholder);
+      fileholder.append(filenamefield, uploadbutton);
+      nodes.push(fileholder);
+    }
+
+    this.maindiv.replaceChildren(...nodes);
   }
 }
 

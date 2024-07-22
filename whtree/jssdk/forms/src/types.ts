@@ -60,5 +60,15 @@ export type FormCondition = {
   condition: FormCondition;
 };
 
-//TOOD undefined signifies 'no change' but we should integrate that with tokens because undefined is hard to get/set
-export type FormFileValue = File | { token: "" } | undefined;
+/** A file/image value in a form. link or file is set depending on whether the resource is currently available clientside
+ *  or serverside (the latter happens when editing an existing form value)
+ */
+export type FormFileValue = {
+  fileName: string;
+  file: File;
+  link: null;
+} | {
+  fileName: string;
+  file: null;
+  link: string;
+};

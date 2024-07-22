@@ -3,10 +3,8 @@ import { SingleFileUploader, requestFile } from "@webhare/upload";
 
 import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
-import { FormBase, setFieldError } from '@mod-publisher/js/forms';
-import { isFormControl } from '@webhare/dompack';
+import { setFieldError } from '@mod-publisher/js/forms';
 import { getFieldDisplayName } from '@webhare/forms/src/domsupport';
-import { isFile } from '@webhare/std';
 import { JSFormElement } from '@webhare/forms/src/jsformelement';
 import type { FormFileValue } from '@webhare/forms/src/types';
 
@@ -22,24 +20,32 @@ function isAcceptableType(fileType: string, masks: string[]) {
 }
 
 
-export abstract class FileEditElement extends JSFormElement<FormFileValue> {
-  protected node: FileEditElement = this;
+export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
+  root;
+  maindiv;
   readonly group: HTMLElement | null;
-  hasChanged = false;
-  busy = false;
 
-  /** The current uploaded file. May not contain a useful value if hasChanged === false */
-  uploadedFile: File | null = null;
+  /** The current uploaded files */
+  protected currentFiles = new Array<FormFileValue>;
+  /** Maximum number of files */
+  protected maxFiles;
 
   constructor() {
     super();
-    this.group = this.node.closest<HTMLElement>(".wh-form__fieldgroup");
+    this.root = this.attachShadow({ mode: 'open', delegatesFocus: true });
+    this.maindiv = document.createElement("div");
+    this.maindiv.inert = this.disabled;
 
-    this.node.whFormsApiChecker = () => this._check();
-    this.node.whUseFormGetValue = true;
+    const csslink = document.createElement("link");
+    csslink.rel = "stylesheet";
+    csslink.href = "/.wh/ea/p/forms/controls.css";
+    this.root.append(csslink, this.maindiv);
 
-    this.node.addEventListener('wh:form-enable', evt => this._handleEnable(evt));
-    this.node.addEventListener('wh:form-require', evt => this._handleRequire(evt));
+    this.group = this.closest<HTMLElement>(".wh-form__fieldgroup");
+    this.whFormsApiChecker = () => this._check();
+    this.maxFiles = parseInt(this.getAttribute("max-files")!) || 1;
+    if (this.getAttribute("value"))
+      this.#setValue(JSON.parse(this.getAttribute("value")!));
 
     if (this.group) {
       this.group.addEventListener("dragover", evt => evt.preventDefault());
@@ -47,51 +53,59 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue> {
       this.group.addEventListener("drop", evt => this.doDrop(evt));
     }
   }
-  _afterConstruction() { //all derived classes must invoke this at the end of their constructor
-    this._updateEnabledStatus(this._getEnabled()); //set current status, might already be disabled
-  }
-  isSet() {
-    return this.uploadedFile !== null;
+  abstract refresh(): void;
+  isSet(): boolean {
+    return this.currentFiles.length > 0;
   }
   _check() {
     if (this.required && !this.isSet())
-      setFieldError(this.node, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
+      setFieldError(this, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
     else
-      setFieldError(this.node, "", { reportimmediately: false });
-  }
-  _handleEnable(evt: CustomEvent<{ enabled: boolean }>) {
-    dompack.stop(evt);
-    this._updateEnabledStatus(evt.detail.enabled);
-  }
-  _handleRequire(evt: CustomEvent<{ required: boolean }>) {
-    dompack.stop(evt);
-    this.required = evt.detail.required;
-  }
-  _getEnabled() {
-    return !(isFormControl(this.node) && this.node.disabled) && !this.node.hasAttribute("data-wh-form-disabled");
-  }
-  _updateEnabledStatus(nowenabled: boolean) {
-  }
-  get value(): FormFileValue {
-    return this.hasChanged ? this.uploadedFile || { token: "" } : undefined;
+      setFieldError(this, "", { reportimmediately: false });
   }
 
-  set value(value: FormFileValue | null) { //FIXME get rid of token:"" to signify 'delete'. Use null instead
-    if (value !== null && !isFile(value))
-      throw new Error(`Incorrect value type received for ${getFieldDisplayName(this.node)} - expect File or null, got '${typeof value}'`);
+  get disabled(): boolean {
+    return super.disabled;
+  }
 
-    if (value && !this._isAcceptableType(value.type)) {
-      throw new Error(`File type ${value.type} is not acceptable for ${getFieldDisplayName(this.node)}`);
+  set disabled(disable: boolean) {
+    super.disabled = disable;
+    this.maindiv.inert = disable;
+  }
+
+  get value(): FormFileValue[] {
+    return this.currentFiles;
+  }
+
+  #setValue(value: Array<Partial<FormFileValue>>) { //taking a partial so we can do a better job at fixing missing fields from incorrect callers
+    //updates the value but does not fire events/refresh()
+    const toset: FormFileValue[] = [];
+
+    for (const row of value) {
+      if (row?.file) {
+        if (!this._isAcceptableType(row.file.type))
+          throw new Error(`File type ${row.file.type} is not acceptable for ${getFieldDisplayName(this)}`);
+        toset.push({ fileName: row.fileName || row.file.name, file: row.file, link: null });
+      } else if (row?.link) {
+        toset.push({ fileName: row.fileName || "", file: null, link: row.link });
+      } else {
+        throw new Error(`Incorrect value type received for ${getFieldDisplayName(this)} - expect 'file' or 'link' to be set`);
+      }
+
+      if (toset.length >= this.maxFiles)
+        break;
     }
+    this.currentFiles = toset;
+  }
 
-    this.hasChanged = true;
-    this.uploadedFile = value;
-    this.uploadHasChanged();
+  set value(value: FormFileValue[]) {
+    this.#setValue(value);
+    this.refresh();
   }
 
   _isAcceptableType(mimetype: string) {
-    return !this.node.dataset.whAccept
-      || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
+    const accept = this.getAttribute("accept")?.split(',').map(mask => mask.trim()) ?? [];
+    return !accept.length || isAcceptableType(mimetype, accept);
   }
 
   private doDrop(evt: DragEvent) {
@@ -103,13 +117,13 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue> {
       this.processUpload(new SingleFileUploader(files[0]));
   }
 
-  async selectFile(evt: Event) {
-    if (this.disabled)
-      return;
-
+  async uploadFile(evt: Event) {
     evt.preventDefault();
 
-    const accept = this.node.dataset.whAccept?.split(',') ?? [];
+    if (this.disabled || this.currentFiles.length >= this.maxFiles)
+      return; //should not even have been offered?
+
+    const accept = this.getAttribute("accept")?.split(',') ?? [];
     using lock = dompack.flagUIBusy();
     void (lock);
 
@@ -120,28 +134,43 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue> {
     await this.processUpload(uploader);
   }
 
-  /** Allow derived classes to update their UI after the `uploadedFile` has changed. */
-  protected uploadHasChanged() {
-  }
-
   private async processUpload(uploader: SingleFileUploader) {
-    const formNode = this.node.closest('form');
-    const form = formNode ? FormBase.getForNode(formNode) : null;
-    if (!form)
-      throw new Error(`Upload control is missing its form`);
+    if (this.disabled || this.currentFiles.length >= this.maxFiles)
+      return; //should not even have been offered?
 
     if (!this._isAcceptableType(uploader.file.type)) {
       //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
-      const msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
-      setFieldError(this.node, msg, { reportimmediately: true });
+      const msg = this.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
+      setFieldError(this, msg, { reportimmediately: true });
       return;
     }
 
-    this.hasChanged = true;
-    this.uploadedFile = uploader.file;
-    this.node.dataset.whFilename = uploader.file.name;
-    this.node.dataset.whFiletype = uploader.file.type;
+    this.currentFiles.push({ fileName: uploader.file.name, file: uploader.file, link: null });
+    this.refresh();
+    dompack.dispatchCustomEvent(this, 'change', { bubbles: true, cancelable: false });
+  }
 
-    await this.uploadHasChanged();
+  protected deleteFile(evt: Event, idx: number) {
+    if (evt)
+      dompack.stop(evt);
+
+    this.currentFiles.splice(idx, 1);
+    this.refresh();
+    dompack.dispatchCustomEvent(this, 'change', { bubbles: true, cancelable: false });
+  }
+
+  protected setupUploadButton(button: HTMLElement) {
+    button.addEventListener("click", evt => this.uploadFile(evt));
+  }
+
+  protected setupDeleteButton(button: HTMLElement, idx: number) {
+    button.addEventListener("click", evt => this.deleteFile(evt, idx));
+    button.addEventListener("keypress", evt => {
+      if (evt.key === "Enter" || evt.key === " ")
+        this.deleteFile(evt, idx);
+    });
+    button.ariaLabel = getTid("publisher:site.forms.imgedit-remove");
+    button.tabIndex = 0;
+    button.role = "button";
   }
 }

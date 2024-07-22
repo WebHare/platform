@@ -347,9 +347,7 @@ export class FieldMapDataProxy implements ProxyHandler<object> {
   ownKeys(target: object): ArrayLike<string | symbol> {
     return this.form.getFieldNames();
   }
-  getOwnPropertyDescriptor(target: unknown, prop: string) { // allow ownKeys to actually return to Object.keys
-    const val = this.form.getField(prop, { allowMissing: true })?.getValue();
-    //Suppress undefined values (where we cannot safely re-set them, eg images in Object.keys
-    return { enumerable: val !== undefined, configurable: true };
+  getOwnPropertyDescriptor(target: unknown, prop: string) { // allows ownKeys to actually return to Object.keys
+    return { enumerable: true, configurable: true };
   }
 }
