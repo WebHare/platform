@@ -41,7 +41,7 @@ async function configureWHDBClient(pg: Connection) {
   await (configurationPromise ??= (async () => {
 
     /* Be sure to run wh.database.wasm.primitivevalues when modifying this table. Order matters when we send types, autodetect will prefer the last-registered types
-       Prefer the order in data-type-map.ts. Use wh psql and \d to figure out types on an existing tabler
+       Prefer the order in data-type-map.ts. Use wh psql and \d to figure out types on an existing table
 
        For the WHDB a NUMERIC is always a Number. this might not be that future proof..
        */
