@@ -22,4 +22,9 @@ export class MySimpleField extends JSFormElement<MySimpleFieldValue> {
   setAnswer() {
     this.value = { answer: this.value.answer + 14 };
   }
+  /** Invoked whenever disabled/required states change */
+  protected refreshState() {
+    for (const comp of this.querySelectorAll("button"))
+      comp.disabled = this.disabled;
+  }
 }
