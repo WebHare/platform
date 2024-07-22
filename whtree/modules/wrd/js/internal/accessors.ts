@@ -319,7 +319,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
     if (db_cv.condition === "like") {
-      db_cv.value = db_cv.value.replaceAll(/[\\%_]/g, "\\$&").replaceAll("*", "%").replaceAll(".", "_");
+      db_cv.value = db_cv.value.replaceAll(/[\\%_]/g, "\\$&").replaceAll("*", "%").replaceAll("?", "_");
     }
 
     // rewrite mentions and mentionsany to supported conditions

@@ -365,6 +365,8 @@ async function testUnique() {
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
   test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "=", "tRaNS@beTA.webhare.net").execute());
   test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA*").execute());
+  test.eq([{ wrdId: person1 }], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA?webhare?net").execute());
+  test.eq([], await wrdschema.query("testUniques").select(["wrdId"]).where("testEmail", "like", "tRaNS@beTA?webhare?net?").execute());
   test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentions", "PIETje@beta.webhare.net").execute());
   test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentionsany", ["pietje@beta.WEBHARE.net"]).execute());
   await whdb.commitWork();
