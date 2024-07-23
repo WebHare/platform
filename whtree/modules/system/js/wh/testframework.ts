@@ -25,7 +25,8 @@ export {
   eqMatch,
   eqProps,
   assert,
-  throws
+  throws,
+  waitToggled
 } from '@webhare/test';
 
 export {

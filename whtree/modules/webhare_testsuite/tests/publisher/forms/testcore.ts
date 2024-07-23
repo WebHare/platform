@@ -1,6 +1,5 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as datetime from 'dompack/types/datetime';
-import { waitChange } from './lib/testhelpers';
 import type { AddressValue } from '@webhare/std';
 import { getFormData, getFormHandler, type FormBase } from '@webhare/forms';
 
@@ -373,7 +372,11 @@ test.registerTests(
 
       //Test checkbox field
       test.eq(true, data.showradioy, "type=checkbox");
-      await waitChange(() => test.qR("#coretest-requiredradio-y").disabled, () => data.showradioy = false, "Unsetting showradioy should block the 'y' option");
+      await test.waitToggled({
+        test: () => test.qR("#coretest-requiredradio-y").disabled,
+        run: () => data.showradioy = false,
+      }, "Unsetting showradioy should block the 'y' option");
+
       test.eq(false, test.qR("#coretest-showradioy").checked);
 
       //Test checkboxes field
@@ -385,8 +388,14 @@ test.registerTests(
       test.eq(3, data.radiotest, "RadioFormField");
       //@ts-expect-error Typescript also disapproves
       await test.throws(/Invalid type string/, () => data.radiotest = "5");
-      await waitChange(() => !test.qR("[name=opt5_select]").disabled, () => data.radiotest = 5, "Setting radiotest to 5 should enable the opt5_select field");
-      await waitChange(() => test.qR("[name=opt5_select]").disabled, () => data.radiotest = null, "Clearing the radio should disable the opt5_select field again");
+      await test.waitToggled({
+        test: () => !test.qR("[name=opt5_select]").disabled,
+        run: () => data.radiotest = 5
+      }, "Setting radiotest to 5 should enable the opt5_select field");
+      await test.waitToggled({
+        test: () => test.qR("[name=opt5_select]").disabled,
+        run: () => data.radiotest = null
+      }, "Clearing the radio should disable the opt5_select field again");
 
       test.eq(0, test.qSA("[name=radiotest]:checked").length);
       test.eq(null, data.radiotest);

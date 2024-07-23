@@ -5,7 +5,7 @@ import Ajv2019 from "ajv/dist/2019";
 import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-import { Money, isDate, isError, isPromise } from "@webhare/std";
+import { Money, isDate, isError, isPromise, sleep } from "@webhare/std";
 
 export type { LoadTSTypeOptions } from "./testsupport";
 
@@ -572,6 +572,10 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
 //We want to make clear ('assert') that wait will not return falsy values
 export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 
+/** Wait for a condition to become truthy
+ * @param waitfor - A function/promiose that should resolve to true for the wait to finish
+ * @returns The value that the waitfor function last resolved to
+ */
 export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
@@ -611,6 +615,43 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
     }
   }
 }
+
+/** Wait for a condition from false to true when executing a specific code.
+ *
+ * This is generally equivalent to `assert(!test); run(); wait(test);` but helps prevent mistakes if the two test conditions weren't identical, or if they became true because of another side effect rather than the run() function.
+ *
+ * @param test - A function that should resolve to falsy value before run() is invoked (tested immediatley and after one tick), and to a truthy value once run() has completed
+ * @param run - The function to run
+*/
+export async function waitToggled<T>({ test, run }: {
+  test: () => T | Promise<T>;
+  run: () => unknown | Promise<unknown>;
+}, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
+
+  //Evaluate immediately
+  let result = test();
+  if (isPromise(result)) //TODO guard with timeout - share with wait()
+    result = await result;
+
+  if (result)
+    throw new TestError("waitToggled: the test condition is already initially true", options?.annotation);
+
+  await sleep(1);
+
+  //Re-evaluate
+  result = test();
+  if (isPromise(result)) //TODO guard with timeout - share with wait()
+    result = await result;
+
+  if (result)
+    throw new TestError("waitToggled: the test condition became true before we even got to invoke the action!", options?.annotation);
+
+  await run();
+  return await wait(test, options);
+}
+
 
 // from https://github.com/Microsoft/TypeScript/issues/27024
 export type EqualsInternal<X, Y> =
