@@ -8,6 +8,7 @@ export interface FormFieldLike extends HTMLElement {
 /** Base class for customElements that need to act as WebHare (Publisher) form elements */
 export abstract class JSFormElement<ValueType> extends HTMLElement implements FormFieldLike {
   static formAssociated = true;
+  static observedAttributes = ["required", "disabled"];
 
   // #internals = this.attachInternals();
 
@@ -29,6 +30,8 @@ export abstract class JSFormElement<ValueType> extends HTMLElement implements Fo
       this.setAttribute("required", "");
     else
       this.removeAttribute("required");
+
+    this.refreshState();
   }
 
   get disabled(): boolean {
@@ -39,7 +42,18 @@ export abstract class JSFormElement<ValueType> extends HTMLElement implements Fo
       this.setAttribute("disabled", "");
     else
       this.removeAttribute("disabled");
+
+    this.refreshState();
   }
 
   abstract value: ValueType;
+
+  /** Invoked whenever disabled/required states change */
+  protected refreshState() {
+  }
+
+  attributeChangedCallback(name: string, oldValue: unknown, newValue: unknown) {
+    if (["disabled", "required"].includes(name))
+      this.refreshState();
+  }
 }

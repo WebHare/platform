@@ -64,13 +64,8 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
       setFieldError(this, "", { reportimmediately: false });
   }
 
-  get disabled(): boolean {
-    return super.disabled;
-  }
-
-  set disabled(disable: boolean) {
-    super.disabled = disable;
-    this.maindiv.inert = disable;
+  protected refreshState() {
+    this.maindiv.inert = this.disabled;
   }
 
   get value(): FormFileValue[] {

@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOpera
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -1426,6 +1426,8 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
   }
 
   validateInput(value: (true extends Required ? Date : Date | null), checker: ValueQueryChecker, attrPath: string) {
+    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
+      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
@@ -1500,6 +1502,8 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
   }
 
   validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
+    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
+      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
@@ -1545,6 +1549,8 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
   }
 
   validateInput(value: (true extends Required ? Date : Date | null), checker: ValueQueryChecker, attrPath: string) {
+    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
+      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
@@ -1636,6 +1642,8 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
   }
 
   validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
+    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
+      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     // FIXME: check temp mode
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDatetime or maxDatetime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use null`);
@@ -1704,6 +1712,8 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
   }
 
   validateInput(value: Date, checker: ValueQueryChecker, attrPath: string) {
+    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
+      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (!value)
       throw new Error(`Not allowed to use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs)

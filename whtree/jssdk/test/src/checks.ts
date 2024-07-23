@@ -320,7 +320,7 @@ async function throwsAsync(expect: RegExp, promise: Promise<unknown>, annotation
 //handle the failure of throws(Async)
 function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): never {
   //If we get here, no exception occurred
-  const error = new TestError(`testThrows fails: Expected function to throw ${expect.toString()} `);
+  const error = new TestError(`testThrows fails: Expected function to throw ${expect.toString()}`, annotation);
 
   onLog("Expected exception: ", expect.toString());
   if (retval === undefined)

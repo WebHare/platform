@@ -2,6 +2,7 @@ import * as test from '@webhare/test-frontend';
 import FormBase from '@mod-publisher/js/forms/formbase';
 import type { MySimpleFieldValue } from '@mod-webhare_testsuite/webdesigns/basetestjs/pages/formtest/simplefield';
 import { getFormHandler } from '@webhare/forms';
+import { waitChange } from './lib/testhelpers';
 
 
 interface CustomElementFormShape {
@@ -29,7 +30,8 @@ async function testSimpleElement() {
 async function testAttributeSyncingSimple() {
   //Test the disabled attribute
   test.eq(false, test.qR("my-simple-field").disabled);
-  test.qR("my-simple-field").setAttribute("disabled", "disabled");
+  await waitChange(() => test.qR("my-simple-field").disabled, () => test.qR("my-simple-field").setAttribute("disabled", "disabled"));
+
   test.eq(true, test.qR("my-simple-field").disabled);
   test.eq(true, test.qR("my-simple-field").matches(":disabled"));
   test.qR("my-simple-field").removeAttribute("disabled");

@@ -94,9 +94,13 @@ async function doSplitEntityData<
   //      fieldsData.wrdModificationDate = null;
   for (const [tag, attr] of typeRec.rootAttrMap) {
     // FIXME: implement & handle attr.ishiddenbyparent
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const toSet = (fieldsData as any)[tag];
-    if (toSet !== undefined) {
+    if (tag in fieldsData) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toSet = (fieldsData as any)[tag];
+      if (toSet === undefined) //we don't want to absorb errors. point out odd values!
+        throw new Error(`Invalid value 'undefined' for attribute ${JSON.stringify(attr.tag)}`);
+      if (typeof toSet === 'symbol')
+        throw new Error(`Invalid symbol value for attribute ${JSON.stringify(attr.tag)}`);
       if (attr.isreadonly)
         throw new Error(`Trying to set attribute ${JSON.stringify(attr.tag)}, which is readonly`);
 
