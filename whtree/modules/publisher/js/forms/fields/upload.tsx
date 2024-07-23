@@ -1,5 +1,3 @@
-/* import ImgEditField from '@mod-publisher/js/forms/fields/imgedit';
-*/
 import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "../internal/form.lang.json";
@@ -33,10 +31,10 @@ export class FileUploadFormElement extends FileEditElementBase {
       const filename = isFile(file) ? file.name : file.fileName;
       /* for ease of 'form like' presentation, we're currently using an <input>. but quite hacky, eg. we need readonly to have it not interfere with clicks. */
       const filenamefield =
-        <input class="file__name" type="text" value={filename} readonly
+        <input part="filename" class="file__name" type="text" value={filename} readonly
         />;
 
-      const deletebutton = <span class="file__deletebutton" />;
+      const deletebutton = <button part="button deletebutton" class="deletebutton file__deletebutton" />;
       this.setupDeleteButton(deletebutton, idx);
 
       fileholder.append(filenamefield, deletebutton);
@@ -47,13 +45,9 @@ export class FileUploadFormElement extends FileEditElementBase {
       const fileholder = this.#constructFileHolder();
       fileholder.classList.add('file--placeholder');
 
-      const filenamefield =
-        <input class="file__name" type="text" value={getTid("publisher:site.forms.upload-emptytext")} readonly
-        />;
-
-      const uploadbutton = <button type="button" class="wh-form__uploadfieldselect wh-form__button"><span class="wh-form__buttonlabel">{getTid("publisher:site.forms.selectfile")}</span></button>;
+      const uploadbutton = <button part="button selectbutton" type="button" class="wh-form__uploadfieldselect wh-form__button"><span class="wh-form__buttonlabel">{getTid("publisher:site.forms.selectfile")}</span></button>;
       this.setupUploadButton(fileholder);
-      fileholder.append(filenamefield, uploadbutton);
+      fileholder.append(uploadbutton);
       nodes.push(fileholder);
     }
 

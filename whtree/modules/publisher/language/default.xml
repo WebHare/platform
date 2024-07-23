@@ -1397,6 +1397,7 @@
       <text tid="title">Verification</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="imgedit-explain-upload">Drag and drop files here or click to upload</text>
       <text tid="imgedit-groupelement-replace"><param p="1"/>, Replace image</text>
       <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload image</text>
       <text tid="imgedit-remove">Remove image</text>

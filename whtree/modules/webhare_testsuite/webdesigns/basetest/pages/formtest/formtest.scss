@@ -1,5 +1,12 @@
 @import '~@mod-publisher/js/forms/styles';
 
+:root {
+  --wh-form-imgedit-padding: 8px;    //padding from image to the edge
+  --wh-form-imgedit-margin: 15px;    //margin between images (in a multi-image field)
+  --wh-form-imgedit-width: 150px;    //width for image (place)holder
+  --wh-form-imgedit-height: 150px;   //height for image (place)holder
+}
+
 @at-root
 {
   @include wh-form-flex;
@@ -37,11 +44,6 @@
 
 with this:
 */
-
-wh-form-imgedit::part(image) {
-  width:250px;
-  height:250px;
-}
 
 
 .wh-form__error, .wh-form__fieldgroup--error
