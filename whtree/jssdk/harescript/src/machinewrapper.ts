@@ -24,8 +24,8 @@ export class HSVMWrapper implements HSVM_HSVMSource {
 
   constructor(vm: HareScriptVM, script: string) {
     this.vm = new WeakRef(vm);
-    if (debugFlags.vmlifecycle)
-      console.log(`[${vm.currentgroup}] HSVMWrapper created`);
+    if (debugFlags.vmlifecycle) //also report whether this VM's mainloop will block
+      console.log(`[${vm.currentgroup}] HSVMWrapper created, mainloop: ${vm.__unrefMainTimer ? "non-blocking" : "retaining"}`);
     vmfinalizer.register(this, vm, this);
     this.done = vm.run(script);
   }
