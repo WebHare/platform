@@ -1,3 +1,4 @@
+import { CodeContext } from "@webhare/services/src/codecontexts";
 import * as stacktrace_parser from "stacktrace-parser";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
@@ -183,9 +184,16 @@ async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
 }
 
 
+async function testLingeringContext() {
+  const lingering = new CodeContext("lingering", {});
+  test.eq(42, lingering.run(() => 42));
+  test.eq([17, 42, 999], await lingering.run(async () => await loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999])));
+}
+
 test.run([
   testTypeAPIs,
   testVarMemory,
   testCalls,
-  testMutex
+  testMutex,
+  testLingeringContext
 ]);

@@ -1,4 +1,4 @@
-import { ensureScopedResource, getScopedResource, isRootCodeContext } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
 import { HSVMCallsProxy, HSVMObject, invokeOnVM } from "./wasm-proxies";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { HSVMWrapper, createVM } from "./machinewrapper";
@@ -7,7 +7,7 @@ const HSVMSymbol = Symbol("HSVM");
 
 async function allocateCodeContextHSVM() {
   /// this makes sure the eventloop won't keep the process alive as the global root context (and its HSVM) is never discarded
-  const vm = await createVM({ __unrefMainTimer: isRootCodeContext() });
+  const vm = await createVM({ __unrefMainTimer: true });
   await vm.loadlib("mod::system/lib/database.whlib").openPrimary(); //JS has prepared it anwyway, so open it
   return vm;
 }
