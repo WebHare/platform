@@ -15,6 +15,7 @@ import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 import { nameToCamelCase } from "@webhare/std/types";
+import { wrdFinishHandler } from "./finishhandler";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -698,7 +699,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   private async __deleteEntities(ids: number[]): Promise<void> {
+    const schemadata = await this.schema.__ensureSchemaData();
+    const typeRec = schemadata.typeTagMap.get(this.tag);
+    if (!typeRec)
+      throw new Error(`No such type ${JSON.stringify(this.tag)}`);
+
     await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "=", sql`any(${ids})`).execute();
+    for (const id of ids)
+      wrdFinishHandler().entityDeleted(schemadata.schema.id, typeRec.id, id);
     return;
   }
 
