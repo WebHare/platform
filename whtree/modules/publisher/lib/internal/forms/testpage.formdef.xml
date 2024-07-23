@@ -64,9 +64,6 @@
           <textedit name="checkboxaddendum2" title='if other' placeholder="Type a text" />
         </option>
       </select>
-      <group name="addressgroup" title="Address field">
-        <address name="address" title="Address" countrylist="NL BE" options="nl-zip-suggest" />
-      </group>
       <rtd name="rtd" title="RTD" rtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype"/>
       <imgedit name="imgedit" title="Image edit"/>
       <checkbox name="agree1" title="With title" label="I agree with any terms or conditions"/>
@@ -78,6 +75,11 @@
           <p>Second page</p>
         </body>
       </richtext>
+      <group name="addressgroup" title="Address field">
+        <address name="address" title="Address" countrylist="NL BE" options="nl-zip-suggest" />
+      </group>
+      <upload name="multiupload" title="Up to 4 files" maxfiles="4" />
+      <imgedit name="multiimage" title="Up to 8 images" maxfiles="8" />
     </page>
   </form>
 </formdefinitions>

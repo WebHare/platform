@@ -3,4 +3,26 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 
 PUBLIC OBJECTTYPE TestPageForm EXTEND FormBase
 <
+  MACRO NEW()
+  {
+    //Disable components not enabled by user in the formtest, eg showing a wh-form-rtd that's missing in the JS code will break
+    RECORD ARRAY checkcomps :=
+       [[ allow := TRUE, qname := "http://www.webhare.net/xmlns/publisher/forms#rtd", comps := OBJECT[^rtd]]
+       ,[ allow := TRUE, qname := "http://www.webhare.net/xmlns/publisher/forms#upload", comps := OBJECT[^upload,^multiupload]]
+       ,[ allow := TRUE, qname := "http://www.webhare.net/xmlns/publisher/forms#imgedit", comps := OBJECT[^imgedit,^multiimage]]
+       ];
+
+    RECORD ARRAY applies := this->formapplytester->__GetAppliesForcell("WEBTOOLSFORMRULES");
+    FOREVERY (RECORD apply FROM applies)
+      FOREVERY (RECORD comp FROM checkcomps)
+        FOREVERY (RECORD rule FROM SELECT * FROM apply.webtoolsformrules WHERE webtoolsformrules.comp = "component")
+          IF (comp.qname LIKE rule.type)
+            checkcomps[#comp].allow := rule.allow;
+
+    FOREVERY(RECORD tocheck FROM checkcomps)
+      IF(NOT tocheck.allow)
+        FOREVERY(OBJECT comp FROM tocheck.comps)
+          comp->visible := FALSE;
+
+  }
 >;
