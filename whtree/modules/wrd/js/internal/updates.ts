@@ -8,17 +8,17 @@ import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingW
 import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { generateRandomId, omit, stringify } from "@webhare/std";
+import { generateRandomId, omit, } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getBestMatch, getStackTrace } from "@webhare/js-api-tools";
-import { WebHareBlob } from "@webhare/services";
 import { Changes, ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";
 import { wrdFinishHandler } from "./finishhandler";
 import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
 import { ValueQueryChecker } from "./checker";
 import { runSimpleWRDQuery } from "./queries";
+import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
@@ -960,22 +960,15 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
 
           const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
 
-          const encoded_oldsettings = stringify(mappedChanges.oldsettings, { typed: true });
-          const encoded_modifications = stringify(mappedChanges.modifications, { typed: true });
-
-          let encoded_source = "";
-          if (historyDebugging)
-            encoded_source = stringify({ stacktrace: getStackTrace() }, { typed: true });
+          const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
+          const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
+          const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);
 
           let changeset = options.changeset ?? wrdFinishHandler().getAutoChangeSet(schemadata.schema.id);
           if (!changeset) {
             changeset = await createChangeSet(schemadata.schema.id, now);
             wrdFinishHandler().setAutoChangeSet(schemadata.schema.id, changeset);
           }
-
-          const oldSettingsByteLength = Buffer.byteLength(encoded_oldsettings);
-          const modificationsByteLength = Buffer.byteLength(encoded_modifications);
-          const sourceByteLength = Buffer.byteLength(encoded_source);
 
           await db<PlatformDB>()
             .insertInto("wrd.changes")
@@ -985,12 +978,12 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
               changeset,
               type: typeRec.id,
               entity: splitData.entity.guid ?? orgentityrec!.guid,
-              oldsettings: oldSettingsByteLength <= 4096 ? encoded_oldsettings : "",
-              oldsettings_blob: oldSettingsByteLength > 4096 ? WebHareBlob.from(encoded_oldsettings) : null,
-              modifications: modificationsByteLength <= 4096 ? encoded_modifications : "",
-              modifications_blob: modificationsByteLength > 4096 ? WebHareBlob.from(encoded_modifications) : null,
-              source: sourceByteLength <= 4096 ? encoded_source : "",
-              source_blob: sourceByteLength > 4096 ? WebHareBlob.from(encoded_source) : null,
+              oldsettings,
+              oldsettings_blob,
+              modifications,
+              modifications_blob,
+              source,
+              source_blob,
               summary: [...changed_attrs].sort().join(","),
             })
             .execute();

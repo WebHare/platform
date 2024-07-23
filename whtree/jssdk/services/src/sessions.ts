@@ -1,35 +1,15 @@
 import { generateRandomId } from "@webhare/std/platformbased";
-import { SessionScopes, WebHareBlob, toFSPath } from "./services";
-import { convertWaitPeriodToDate, parseTyped, stringify, type WaitPeriod } from "@webhare/std";
-import { db, isWorkOpen, onFinishWork, uploadBlob } from "@webhare/whdb";
+import { SessionScopes, toFSPath } from "./services";
+import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
+import { db, isWorkOpen, onFinishWork } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import type { UploadInstructions, UploadManifest } from "@webhare/upload";
 import * as fs from "node:fs/promises";
 import { openAsBlob } from "node:fs";
+import { prepareAnyForDatabase, readAnyFromDatabase } from "@webhare/whdb/src/formats";
 
 const DefaultChunkSize = 5 * 1024 * 1024;
 const DefaultUploadExpiry = "P1D";
-
-async function prepareSessionData(indata: NonNullable<object>): Promise<{ data: string; datablob: WebHareBlob | null }> {
-  const text = stringify(indata, { typed: true });
-  if (text.length <= 4096)
-    return { data: text, datablob: null };
-
-  const datablob = WebHareBlob.from(text);
-  await uploadBlob(datablob);
-  return { data: "json", datablob };
-}
-
-async function readAnyFromDatabase(data: string, datablob: WebHareBlob | null): Promise<NonNullable<object>> {
-  if (!data && datablob?.size) //JSON data would have had 'json' in the data member
-    throw new Error("Attempting to decode HSON data from a session. Set the json: true flag on the session instead!");
-
-  const input = data === "json" ? (await datablob?.text() ?? 'null') : data;
-  if (input.startsWith("hson:"))
-    throw new Error("Attempting to decode HSON data from a session. Set the json: true flag on the session instead!");
-
-  return parseTyped(input);
-}
 
 export interface SessionOptions {
   //Reuse an existing (expired) session id
@@ -56,7 +36,7 @@ export async function createServerSession<S extends string>(scope: S, data: S ex
     await closeServerSession(options.sessionId);
 
   const sessionid = options?.sessionId || generateRandomId();
-  const store = await prepareSessionData(data);
+  const store = await prepareAnyForDatabase(data);
   await db<PlatformDB>().insertInto("system.sessions").values({ sessionid, scope, created, expires, autoextend: 0, ...store }).execute();
   return sessionid;
 }
@@ -75,7 +55,7 @@ export async function getServerSession(scope: string, sessionId: string): Promis
     return null;
   if (sessdata.scope !== scope)
     throw new Error(`Incorrect scope '${scope}' for session '${sessionId}'`);
-  return await readAnyFromDatabase(sessdata.data, sessdata.datablob);
+  return await readAnyFromDatabase(sessdata.data, sessdata.datablob, { failHSON: "Attempting to decode HSON data from a session. Set the json: true flag on the session instead!" });
 }
 
 export async function updateServerSession<S extends string>(scope: S, sessionId: string, data: S extends keyof SessionScopes ? SessionScopes[S] : object): Promise<void> {
@@ -88,7 +68,7 @@ export async function updateServerSession<S extends string>(scope: S, sessionId:
   if (sessdata.scope !== scope)
     throw new Error(`Incorrect scope '${scope}' for session '${sessionId}'`);
 
-  const store = await prepareSessionData(data);
+  const store = await prepareAnyForDatabase(data);
   await db<PlatformDB>().updateTable("system.sessions").where("sessionid", "=", sessionId).set(store).execute();
 }
 
