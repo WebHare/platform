@@ -1,7 +1,6 @@
 import * as test from '@mod-system/js/wh/testframework';
 import { loadImage } from '@webhare/dompack';
 import { prepareUpload } from '@webhare/test-frontend';
-import { waitChange } from './lib/testhelpers';
 import { getFormData, type FormFileValue } from '@webhare/forms';
 
 interface RTDForm {
@@ -88,7 +87,10 @@ test.registerTests(
 
         test.assert(!test.qR("#rtdtest-img").hasAttribute("disabled"));
 
-        await waitChange(() => !test.qS(imgCompRoot, 'img'), () => test.click(test.qR(imgCompRoot, '.image__deletebutton')), 'image should have gone away after clicking delete');
+        await test.waitToggled({
+          test: () => !test.qS(imgCompRoot, 'img'),
+          run: () => test.click(test.qR(imgCompRoot, '.image__deletebutton'))
+        }, 'image should have gone away after clicking delete');
         test.assert(!test.qS(imgCompRoot, '.image__deletebutton'), 'delete button still present');
       }
     },

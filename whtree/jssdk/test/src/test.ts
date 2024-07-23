@@ -4,22 +4,25 @@ export { run } from './testrunner';
 export {
   assert,
   eq,
-  eqPartial,
   eqMatch,
+  eqPartial,
   eqProps,
-  throws,
-  setupLogging,
-  wait,
+  loadJSONSchema,
   loadTSType,
-  loadJSONSchema, typeAssert
+  setupLogging,
+  throws,
+  typeAssert,
+  wait,
+  waitToggled,
 } from './checks';
+
 export type {
-  Equals,
-  RevEquals,
   Assignable,
+  Equals,
   Extends,
   RecursiveOrRegExp,
-  RecursivePartialOrRegExp
+  RecursivePartialOrRegExp,
+  RevEquals,
 } from './checks';
 
 export { sleep } from '@webhare/std';

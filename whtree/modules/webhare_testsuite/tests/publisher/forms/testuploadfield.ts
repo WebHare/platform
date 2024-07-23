@@ -1,7 +1,6 @@
 import { prepareUpload } from '@webhare/test-frontend';
 import * as test from '@mod-system/js/wh/testframework';
 import { getFormData, type FormFileValue } from '@webhare/forms';
-import { waitChange } from './lib/testhelpers';
 
 function getUploadField() { //get the replament field, not the original input
   return test.qR('#rtdtest-file').shadowRoot!;
@@ -67,7 +66,10 @@ test.registerTests(
         const filenameinput = test.qR(getUploadField(), '.file__name');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
 
-        await waitChange(() => !test.qS(getUploadField(), '.file:not(.file--placeholder) .file__name'), () => test.click(test.qR(getUploadField(), '.file__deletebutton')), 'should be no more file present after delete');
+        await test.waitToggled({
+          test: () => !test.qS(getUploadField(), '.file:not(.file--placeholder) .file__name'),
+          run: () => test.click(test.qR(getUploadField(), '.file__deletebutton'))
+        }, 'should be no more file present after delete');
         test.assert(!test.qS(getUploadField(), '.file__deletebutton'), 'delete button still present');
       }
     },
