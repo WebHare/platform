@@ -409,6 +409,9 @@ async function testStrings() {
   test.eq("http://beta.webhare.net/abcdef#../ghi", std.joinURL("http://beta.webhare.net/", "/abcdef#../ghi"));
   test.eq("http://beta.webhare.net/abcdef?//ghi", std.joinURL("http://beta.webhare.net/", "/abcdef?//ghi"));
   test.eq("http://beta.webhare.net/?http://example.net", std.joinURL("http://beta.webhare.net/", "?http://example.net"));
+
+  test.eq("TéST0-9_()A", std.toCLocaleUppercase("tésT0-9_()a"));
+  test.eq("tÉst0-9_()a", std.toCLocaleLowercase("TÉSt0-9_()A"));
 }
 
 function testEmails() {

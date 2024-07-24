@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOpera
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -294,14 +294,14 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
     const caseInsensitive = cv.options?.matchCase === false; //matchcase defauls to true
     if (caseInsensitive)
-      value = value.toUpperCase();
+      value = toCLocaleUppercase(value);
     if (cv.condition === "in" || cv.condition === "mentionsany") {
       if (caseInsensitive) {
-        return cv.value.some(v => value === v.toUpperCase());
+        return cv.value.some(v => value === toCLocaleUppercase(v));
       } else
         return cv.value.includes(value);
     }
-    const cmpvalue = caseInsensitive ? cv.value.toUpperCase() : cv.value;
+    const cmpvalue = caseInsensitive ? toCLocaleUppercase(cv.value) : cv.value;
     if (cv.condition === "like") {
       return isLike(value, cmpvalue);
     }
@@ -330,9 +330,9 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
 
     if (caseInsensitive) {
       if (db_cv.condition === "in")
-        db_cv.value = db_cv.value.map(v => v.toUpperCase());
+        db_cv.value = db_cv.value.map(v => toCLocaleUppercase(v));
       else
-        db_cv.value = db_cv.value.toUpperCase();
+        db_cv.value = toCLocaleUppercase(db_cv.value);
     }
 
     if (db_cv.condition === "in" && !db_cv.value.length)
@@ -399,14 +399,14 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
   matchesValue(value: string, cv: WRDDBStringConditions): boolean {
     const caseInsensitive = cv.options?.matchCase === false; //matchcase defauls to true
     if (caseInsensitive)
-      value = value.toUpperCase();
+      value = toCLocaleUppercase(value);
     if (cv.condition === "in" || cv.condition === "mentionsany") {
       if (caseInsensitive) {
-        return cv.value.some(v => value === v.toUpperCase());
+        return cv.value.some(v => value === toCLocaleUppercase(v));
       } else
         return cv.value.includes(value);
     }
-    const cmpvalue = caseInsensitive ? cv.value.toUpperCase() : cv.value;
+    const cmpvalue = caseInsensitive ? toCLocaleUppercase(cv.value) : cv.value;
     if (cv.condition === "like") {
       return isLike(value, cmpvalue);
     }
@@ -429,9 +429,9 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
 
     if (caseInsensitive) {
       if (db_cv.condition === "in")
-        db_cv.value = db_cv.value.map(v => v.toUpperCase());
+        db_cv.value = db_cv.value.map(v => toCLocaleUppercase(v));
       else
-        db_cv.value = db_cv.value.toUpperCase();
+        db_cv.value = toCLocaleUppercase(db_cv.value);
     }
 
     if (db_cv.condition === "in" && !db_cv.value.length)
@@ -2202,7 +2202,7 @@ class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparab
       throw new Error(`AddressValue should not contain housenumber for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use houseNumber instead (did you route the address value through HareScript?)`);
     if (value.country?.length !== 2)
       throw new Error(`The field 'country' is required in an address for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} and must be a 2 character code`);
-    if (value.country !== value.country.toUpperCase())
+    if (value.country !== toCLocaleUppercase(value.country))
       throw new Error(`The field 'country' must be uppercase for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 

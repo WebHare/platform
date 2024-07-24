@@ -374,6 +374,18 @@ async function testUnique() {
   test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentions", "PIETje@beta.webhare.net").execute());
   test.eq([{ wrdId: pietje }], await wrdschema.query("testUniques").select(["wrdId"]).where("testArray.email", "mentionsany", ["pietje@beta.WEBHARE.net"]).execute());
   await whdb.commitWork();
+
+  await whdb.beginWork();
+  await wrdschema.getType("testUniques").createAttribute("uuidUnique", { attributeType: "string", isUnique: true });
+  await wrdschema.update("testUniques", person1, { uuidUnique: "a8e64800-9854-4cf1-a7be-49ac3f6d380a" });
+
+  await wrdschema.update("testUniques", pietje, { testFree: "Tést" });
+  test.eq(null, await wrdschema.search("testUniques", "testFree", "tést"));
+  test.eq(pietje, await wrdschema.search("testUniques", "testFree", "tést", { matchCase: false }));
+  // case insensitive compare is done with the C-locale, so this is not a match with `Tést`
+  await wrdschema.insert("testUniques", { testFree: "TÉST" });
+
+  await whdb.commitWork();
 }
 
 async function testReferences() {
