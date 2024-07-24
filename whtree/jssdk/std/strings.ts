@@ -269,3 +269,19 @@ export function isValidUrl(url: string): boolean {
     return false;
   }
 }
+
+/** Uppercases a string using the C-locale (so ony the characters a-z are uppercased)
+ * @param str - String to uppercase
+ * @returns Uppercased string
+ */
+export function toCLocaleUppercase(str: string) {
+  return str.replaceAll(/[a-z]+/g, part => part.toUpperCase());
+}
+
+/** Lowercases a string using the C-locale (so ony the characters A-Z are lowercased)
+ * @param str - String to lowercase
+ * @returns Lowercased string
+ */
+export function toCLocaleLowercase(str: string) {
+  return str.replaceAll(/[A-Z]+/g, part => part.toLowerCase());
+}
