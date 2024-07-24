@@ -383,7 +383,7 @@ async function testUnique() {
   test.eq(null, await wrdschema.search("testUniques", "testFree", "tést"));
   test.eq(pietje, await wrdschema.search("testUniques", "testFree", "tést", { matchCase: false }));
   // case insensitive compare is done with the C-locale, so this is not a match with `Tést`
-  await wrdschema.update("testUniques", person1, { testFree: "TÉST" });
+  await wrdschema.insert("testUniques", { testFree: "TÉST" });
 
   await whdb.commitWork();
 }
