@@ -164,7 +164,7 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
         expect_tid := expect_parenthesis;
 
       // Skip if first parameter of GetTid is not a STRING
-      IF(NOT RecordExists(expect_tid) OR Left(expect_tid.token,1) NOT IN ["'",'"'])
+      IF(NOT RecordExists(expect_tid) OR Left(expect_tid.token,1) NOT IN ["'",'"','`'])
         CONTINUE;
 
       STRING tid := DecodeJava(Substring(expect_tid.token, 1, Length(expect_tid.token)-2));
