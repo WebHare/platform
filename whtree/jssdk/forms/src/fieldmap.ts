@@ -70,6 +70,8 @@ class HTMLFormFieldHandler implements FormField {
   getValue(): unknown {
     if (this.field.matches('input[type=checkbox]'))
       return (this.field as HTMLInputElement).checked;
+    if (this.field.matches('input[type=date]'))
+      return (this.field as HTMLInputElement).valueAsDate;
 
     if (this.field.tagName === "SELECT") {
       const selectedrow = (this.field as HTMLSelectElement).selectedOptions[0];
@@ -90,6 +92,10 @@ class HTMLFormFieldHandler implements FormField {
         return;
 
       (this.field as HTMLInputElement).checked = setvalue;
+    } else if (this.field.matches('input[type=date]')) {
+      if ((this.field as HTMLInputElement)?.valueAsDate?.getTime() === (newvalue as Date | null)?.getTime())
+        return;
+      (this.field as HTMLInputElement).valueAsDate = newvalue as Date;
     } else if (this.field.tagName === "SELECT" && newvalue === null) { //'null' resets the select to 'no value', so figure out if there's a placeholder row
       const setvalue = (this.field as HTMLSelectElement).options[0]?.dataset.whPlaceholder !== undefined ? 0 : -1;
       if ((this.field as HTMLSelectElement).selectedIndex === setvalue)
