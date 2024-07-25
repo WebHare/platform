@@ -7,6 +7,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 PUBLIC RECORD FUNCTION GetLanguageFile(STRING module, STRING langcode)
 {
+  __EnableTidCacheInvalidation();
   RECORD response := __GetLanguageFile(module, langcode);
   RETURN CELL [ ...response
               , diskpath := GetWebHareResourceDiskPath(response.resource)
