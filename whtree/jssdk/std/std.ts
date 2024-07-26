@@ -5,7 +5,7 @@ export { encodeString, decodeString, escapeRegExp, wildcardsToRegExp, stringify,
 export { generateRandomId } from "./platformbased";
 export { shuffle, emplace, pick, omit, isTruthy, mapGroupBy, objectGroupBy, type EmplaceHandler } from "./collections";
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
-export { addDuration, parseDuration, convertWaitPeriodToDate, type Duration, type WaitPeriod } from "./datetime";
+export { addDuration, parseDuration, convertWaitPeriodToDate, isValidDate, isValidTime, type Duration, type WaitPeriod } from "./datetime";
 export { isDate, isBlob, isFile, isError, isPromise } from "./quacks";
 export { type AddressValue } from "./address";
 

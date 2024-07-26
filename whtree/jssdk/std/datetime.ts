@@ -91,3 +91,22 @@ export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }:
 
   throw new Error("Invalid wait duration - it must either be an absolute date, 0, a number of milliseconds or Infinity");
 }
+
+/** Check whether the specified parts make a valid and reasonable (usually 1600+) date */
+export function isValidDate(year: number, month: number, day: number, { minYear = 1601 } = {}) {
+  if (!(year >= minYear && year <= 9999 && month >= 1 && month <= 12 && day >= 1 && day <= 31
+    && Number.isSafeInteger(year) && Number.isSafeInteger(month) && Number.isSafeInteger(day)))
+    return false;
+  if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
+    return false;
+  const isleapyear = (year % 400) === 0 || ((year % 100) !== 0 && (year % 4) === 0);
+  if (month === 2 && day > (isleapyear ? 29 : 28))
+    return false;
+  return true;
+}
+
+/** Check whether the specified parts make a reasonable time (does not consider the leap second a valid time) */
+export function isValidTime(hour: number, minute: number, second: number, msec: number) {
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59 && msec >= 0 && msec <= 999
+    && Number.isSafeInteger(hour) && Number.isSafeInteger(minute) && Number.isSafeInteger(second) && Number.isSafeInteger(msec);
+}

@@ -10,6 +10,7 @@ import { setupValidator } from './customvalidation';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";
 import { formatDate, parseISODate } from './datehelpers';
+import { isValidDate } from '@webhare/std';
 
 function validateCheckboxGroup(groupnode: HTMLElement) {
   const nodes = dompack.qSA<HTMLInputElement>(groupnode, "input[type='checkbox']");
@@ -38,23 +39,12 @@ function validateRadioGroup(groupnode: HTMLElement) {
   }
 }
 
-function isValidDate(year, month, day) {
-  if (isNaN(year) || isNaN(month) || isNaN(day) || year < 100 || year > 9999 || month < 1 || month > 12 || day < 1 || day > 31)
-    return false;
-  if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
-    return false;
-  const isleapyear = (year % 400) === 0 || ((year % 100) !== 0 && (year % 4) === 0);
-  if (month === 2 && day > (isleapyear ? 29 : 28))
-    return false;
-  return true;
-}
-
 export function reformatDate(datestr: string): string {
   const parsed = parseISODate(datestr);
   return parsed ? formatDate("D-M-Y", parsed.year, parsed.month, parsed.day) : "";
 }
 
-function validateDate(date) {
+function validateDate(date: HTMLInputElement) {
   if (date.getAttribute('type') !== 'date') //it's no longer a date field
     return '';
   if (!date.value) //any required checks should be handled by the HTML5 compat layer, nothing for us to check

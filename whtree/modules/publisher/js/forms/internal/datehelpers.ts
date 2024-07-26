@@ -1,8 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import { isValidDate, isValidTime } from '@webhare/std';
 
 export function formatDate(dateformat: string, year: number, month: number, day: number): string {
-  if (!isValidDate(year, month, day))
+  if (!isValidDate(year, month, day, { minYear: 1 }))
     return '';
 
   let output = '';
@@ -30,7 +29,7 @@ export function formatISODate(year: number, month: number, date: number) {
   return formatDate("Y-M-D", year, month, date);
 }
 
-export function formatISOTime(hour, minute, second, msec) {
+export function formatISOTime(hour: number, minute: number, second: number | null, msec: number | null) {
   if (!isValidTime(hour, minute, second !== null ? second : 0, msec !== null ? msec : 0))
     return '';
 
@@ -40,24 +39,6 @@ export function formatISOTime(hour, minute, second, msec) {
   if (msec !== null)
     time += '.' + ('00' + msec).slice(-3);
   return time;
-}
-
-//FIXME dupe from webharefields.es - do we need low level date libs ?
-export function isValidDate(year, month, day) {
-  if (!(year > 0 && year <= 9999 && month >= 1 && month <= 12 && day >= 1 && day <= 31)) //note: also tests for NaN
-    return false;
-  if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
-    return false;
-  const isleapyear = (year % 400) === 0 || ((year % 100) !== 0 && (year % 4) === 0);
-  if (month === 2 && day > (isleapyear ? 29 : 28))
-    return false;
-  return true;
-}
-
-export function isValidTime(hour, minute, second, msec) {
-  if (!(hour >= 0 && hour <= 23 && minute >= 0 && minute <= 60 && second >= 0 && second <= 60 && msec >= 0 && msec <= 999))
-    return false; //note: also tests for NaN
-  return true;
 }
 
 export interface DateParts {
@@ -74,8 +55,7 @@ export function parseDate(format: string, newdate: string, options?: { nofail: b
   const setdate = newdate.replace(/[./]/g, '-');
   const parts = setdate.split('-');
 
-  if (parts.length === 3)//parseable
-  {
+  if (parts.length === 3) { //parseable
     format = format.toLowerCase();
     const dayoffset = format.indexOf('d');
     const monthoffset = format.indexOf('m');
@@ -107,7 +87,7 @@ export function parseDate(format: string, newdate: string, options?: { nofail: b
 }
 
 //compare two dates. return -1 if lhs<rhs, 0 if lhs==rhs, 1 if lhs>rhs
-export function compareDate(lhs, rhs) {
+export function compareDate(lhs: DateParts | null, rhs: DateParts | null) {
   if (!lhs)
     return rhs ? -1 : 0; //if rhs is set, <null> is before anything. oterhwise equal
   else if (!rhs)
@@ -126,12 +106,12 @@ export function parseISODate(newdate: string, options?: { nofail: boolean }) {
   return parseDate('y-m-d', newdate, options);
 }
 
-export function getLocalToday() {
+export function getLocalToday(): DateParts {
   const today = new Date;
   return { year: today.getFullYear(), month: 1 + today.getMonth(), day: today.getDate() };
 }
 
-export function parseISOTime(intime, options) {
+export function parseISOTime(intime: string, { nofail = false } = {}) {
   const split = intime.match(/^([0-9]+):([0-9]+)(:([0-9]+))?(\.([0-9]+))?$/);
   if (split) {
     const hour = parseInt(split[1], 10);
@@ -140,13 +120,13 @@ export function parseISOTime(intime, options) {
     const msec = parseInt(split[6] || "0", 10);
     return { hour, minute, second, msec };
   }
-  if (options && options.nofail)
+  if (nofail)
     return undefined;
 
   throw new Error(`Invalid time value: '${intime}'`);
 }
 
-export function getWeekNumber(jsdate) {
+export function getWeekNumber(jsdate: Date) {
   jsdate = new Date(jsdate); //don't modify the caller's date!
   jsdate.setHours(0, 0, 0, 0);
   // Thursday in current week decides the year.
@@ -161,17 +141,17 @@ export function getWeekNumber(jsdate) {
 // {
 
 // }
-export function makeJSLocalDate(dateparts) {
+export function makeJSLocalDate(dateparts: DateParts) {
   return new Date(dateparts.year - 1900, dateparts.month - 1, dateparts.day);
 }
 
-export function makeJSUTCDate(dateparts) {
+export function makeJSUTCDate(dateparts: DateParts) {
   return new Date(Date.UTC(dateparts.year, dateparts.month - 1, dateparts.day));
 }
 
-export function formatJSLocalISODate(dateobj) {
+export function formatJSLocalISODate(dateobj: Date) {
   return dateobj.getFullYear() + '-' + ('0' + (dateobj.getMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getDate()).slice(-2);
 }
-export function formatJSUTCISODate(dateobj) {
+export function formatJSUTCISODate(dateobj: Date) {
   return dateobj.getUTCFullYear() + '-' + ('0' + (dateobj.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getUTCDate()).slice(-2);
 }

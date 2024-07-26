@@ -6,6 +6,7 @@ import * as domevents from "dompack/src/events";
 import * as whintegration from "@mod-system/js/wh/integration";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isLive } from "@webhare/env";
+import { isValidDate } from '@webhare/std';
 import "../internal/form.lang.json";
 
 import "./splitdatetime.scss";
@@ -43,18 +44,6 @@ function formatDate(dateformat, dateparts) {
 
 function formatISODate(dateparts) {
   return formatDate("Y-M-D", dateparts);
-}
-
-//FIXME dupe from webharefields.es - do we need low level date libs ?
-function isValidDate(year, month, day) {
-  if (year < 100 || year > 9999 || month < 1 || month > 12 || day < 1 || day > 31)
-    return false;
-  if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
-    return false;
-  const isleapyear = (year % 400) === 0 || ((year % 100) !== 0 && (year % 4) === 0);
-  if (month === 2 && day > (isleapyear ? 29 : 28))
-    return false;
-  return true;
 }
 
 function parseDate(format, newdate, nofail) {
