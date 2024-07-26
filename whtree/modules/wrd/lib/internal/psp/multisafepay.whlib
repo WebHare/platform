@@ -5,7 +5,6 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 

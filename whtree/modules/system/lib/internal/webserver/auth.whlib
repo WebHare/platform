@@ -2,14 +2,12 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";

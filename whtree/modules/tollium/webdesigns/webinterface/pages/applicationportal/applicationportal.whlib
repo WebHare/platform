@@ -23,12 +23,10 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/modules/althooks.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/backend/apps.whlib";
 LOADLIB "mod::system/lib/internal/backend/newsapi.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
-LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";

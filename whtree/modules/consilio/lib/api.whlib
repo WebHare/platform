@@ -15,7 +15,6 @@ LOADLIB "mod::consilio/lib/internal/opensearch.whlib" EXPORT SearchUnavailableEx
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 

@@ -10,9 +10,7 @@ LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";

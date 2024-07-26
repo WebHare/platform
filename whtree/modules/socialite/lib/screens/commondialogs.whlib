@@ -1,15 +1,8 @@
 ﻿<?wh
-LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/geo.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::socialite/lib/api.whlib";
-LOADLIB "mod::socialite/lib/database.whlib";
 LOADLIB "mod::socialite/lib/google/maps-v3.whlib";
-
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 
 
 

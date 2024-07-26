@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";

@@ -4,7 +4,6 @@
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "wh::javascript.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog, UpdateAuditContext;
 LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib";

@@ -4,7 +4,6 @@ LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
 
 PUBLIC STATIC OBJECTTYPE WrappedJSDesign EXTEND WebDesignBase
 <

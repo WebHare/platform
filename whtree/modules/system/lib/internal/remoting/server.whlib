@@ -16,7 +16,6 @@ LOADLIB "mod::system/lib/internal/remoting/rpclibhandler.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
 LOADLIB "mod::system/lib/internal/remoting/transports.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 

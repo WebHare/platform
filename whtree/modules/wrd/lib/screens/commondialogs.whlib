@@ -10,7 +10,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/dialogs.whlib";
 
-LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/commondialogs.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";

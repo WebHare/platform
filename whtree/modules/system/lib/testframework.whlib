@@ -14,7 +14,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/fetch.whlib";
-LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
