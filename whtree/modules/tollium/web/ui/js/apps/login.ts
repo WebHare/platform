@@ -465,10 +465,10 @@ class LoginApp {
   handleSubmitInstruction(instr: NavigateInstruction, callback: () => void) {
     if (instr.type === "reload") {
       //no need to execute the submit instruction, it just redirects back to the shell..
-      this.app.terminateApplication();
       getIndyShell().wrdauth.refresh();
       getIndyShell().wrdauth.setupPage();
-      getIndyShell().executeShell();
+      getIndyShell().executeShell(); //this will prepare the dashboard app
+      this.app.terminateApplication(); //and now we can terminate, application.length will stay above 0, preventing a window.close
       callback();
     } else {
       navigateTo(instr);
