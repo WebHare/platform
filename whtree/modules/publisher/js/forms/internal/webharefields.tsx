@@ -1,5 +1,3 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import { qSA } from 'dompack';
 import * as datetime from 'dompack/types/datetime';
@@ -56,15 +54,16 @@ function validateDate(date: HTMLInputElement) {
     return getTid("publisher:site.forms.commonerrors.default");
 
   const normalizeddate = ('0000' + year).substr(-4) + '-' + ('00' + month).substr(-2) + '-' + ('00' + day).substr(-2);
-  if (date.getAttribute("min") && normalizeddate < date.getAttribute("min"))
-    return getTid("publisher:site.forms.commonerrors.min", reformatDate(date.getAttribute("min"))) + "NARF";
-  if (date.getAttribute("max") && normalizeddate > date.getAttribute("max"))
-    return getTid("publisher:site.forms.commonerrors.max", reformatDate(date.getAttribute("max"))) + "NARF";
+  const min = date.getAttribute("min"), max = date.getAttribute("max");
+  if (min && normalizeddate < min)
+    return getTid("publisher:site.forms.commonerrors.min", reformatDate(min));
+  if (max && normalizeddate > max)
+    return getTid("publisher:site.forms.commonerrors.max", reformatDate(max));
 
   return '';
 }
 
-function validateTime(time) {
+function validateTime(time: HTMLInputElement) {
   if (time.getAttribute('type') !== 'time') //it's no longer a time field
     return '';
   if (!time.value) //any required checks should be handled by the HTML5 compat layer, nothing for us to check
@@ -78,23 +77,24 @@ function validateTime(time) {
   return '';
 }
 
-export function setup(form) {
-  for (const datecontrol of qSA(form, 'input[type=date]')) {
-    ['whMin', 'whMax', 'whValue'].filter(field => Boolean(datecontrol.dataset[field])).forEach(field => {
-      //parse 'now' or 'now+5d'. be able to extract '+5d'
-      const datematch = datecontrol.dataset[field].match(/^now((\+|-)\d+d)?$/);
+export function setup(form: HTMLElement) {
+  for (const datecontrol of qSA<HTMLInputElement>(form, 'input[type=date]')) {
+    for (const field of ['whMin', 'whMax', 'whValue'])
+      if (datecontrol.dataset[field]) {
+        //parse 'now' or 'now+5d'. be able to extract '+5d'
+        const datematch = datecontrol.dataset[field]!.match(/^now((\+|-)\d+d)?$/);
 
-      if (datematch) {
-        const propname = field.substr(2).toLowerCase();
-        let thedate;
-        if (datematch[1])
-          thedate = new Date(Date.now() + parseInt(datematch[1]) * 86400 * 1000);
-        else
-          thedate = new Date;
+        if (datematch) {
+          const propname = field.substr(2).toLowerCase();
+          let thedate;
+          if (datematch[1])
+            thedate = new Date(Date.now() + parseInt(datematch[1]) * 86400 * 1000);
+          else
+            thedate = new Date;
 
-        datecontrol[propname] = datetime.getISOLocalDate(thedate);
+          (datecontrol as unknown as Record<string, string>)[propname] = datetime.getISOLocalDate(thedate);
+        }
       }
-    });
 
     if (datecontrol.type !== 'date' && !datecontrol.whValidationPolyfilled) { //this browser doesn't natively support date fields
       datecontrol.whValidationPolyfilled = true;
@@ -103,22 +103,19 @@ export function setup(form) {
     }
   }
 
-  for (const timecontrol of qSA(form, 'input[type=time]')) {
-    ['whValue'].filter(field => Boolean(timecontrol.dataset[field])).forEach(field => {
-      //parse 'now'
-      //ADDME: Support for stuff like 'now + 15 minutes' 'next whole hour + 2.5 hours'?
-      const timematch = timecontrol.dataset[field].match(/^now$/);
+  for (const timecontrol of qSA<HTMLInputElement>(form, 'input[type=time][data-wh-value]')) {
+    //parse 'now'
+    //ADDME: Support for stuff like 'now + 15 minutes' 'next whole hour + 2.5 hours'?
+    const timematch = timecontrol.dataset.whValue!.match(/^now$/);
 
-      if (timematch) {
-        const propname = field.substr(2).toLowerCase();
-        const thedate = new Date;
+    if (timematch) {
+      const thedate = new Date;
 
-        let propvalue = ('0' + thedate.getHours()).substr(-2) + '-' + ('0' + thedate.getMinutes()).substr(-2);
-        if (parseInt(timecontrol.getAttribute("step") || '0') % 60) //step not multiple of 60? seconds
-          propvalue += '-' + ('0' + thedate.getSeconds()).substr(-2);
-        timecontrol[propname] = propvalue;
-      }
-    });
+      let propvalue = ('0' + thedate.getHours()).substr(-2) + '-' + ('0' + thedate.getMinutes()).substr(-2);
+      if (parseInt(timecontrol.getAttribute("step") || '0') % 60) //step not multiple of 60? seconds
+        propvalue += '-' + ('0' + thedate.getSeconds()).substr(-2);
+      timecontrol.value = propvalue;
+    }
 
     if (timecontrol.type !== 'time' && !timecontrol.whValidationPolyfilled) { //this browser doesn't natively support time fields
       timecontrol.whValidationPolyfilled = true;
