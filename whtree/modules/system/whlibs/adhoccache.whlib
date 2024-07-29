@@ -4,7 +4,6 @@
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/wasm.whlib";
 
 //FIXME these should be in libvm, but are in libwebhare at this moment...
 RECORD FUNCTION GetAdhocCacheData(RECORD cachetag) __ATTRIBUTES__(EXTERNAL);

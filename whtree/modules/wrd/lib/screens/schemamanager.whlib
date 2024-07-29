@@ -1,7 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::files.whlib";
-
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";

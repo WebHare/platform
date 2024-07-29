@@ -1,16 +1,12 @@
 <?wh
 
 LOADLIB "wh::money.whlib";
-LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-
-LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 
 PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
 <

@@ -31,7 +31,7 @@ LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 LOADLIB "mod::publisher/tolliumapps/objectprops/tasks.whlib";
 
-LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 

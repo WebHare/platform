@@ -4,7 +4,6 @@
 LOADLIB "wh::internal/ber.whlib";
 LOADLIB "wh::internal/interface.whlib" EXPORT GenerateUFS128BitId;
 LOADLIB "wh::internal/libz.whlib";
-LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::files.whlib";
 
 /** @short Cryptography APIs

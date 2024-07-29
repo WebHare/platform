@@ -3,10 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
-LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";

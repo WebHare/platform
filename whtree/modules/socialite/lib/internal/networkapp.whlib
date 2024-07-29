@@ -1,14 +1,10 @@
 ﻿<?wh
 LOADLIB "wh::dbase/transaction.whlib";
-LOADLIB "wh::datetime.whlib";
-LOADLIB "mod::socialite/lib/database.whlib";
 LOADLIB "mod::socialite/lib/networkapi/facebookv3.whlib";
 LOADLIB "mod::socialite/lib/networkapi/linkedin_v2.whlib";
 LOADLIB "mod::socialite/lib/networkapi/youtube.whlib";
 LOADLIB "mod::socialite/lib/networkapi/vimeo.whlib";
 LOADLIB "mod::socialite/lib/networkapi/instagram.whlib";
-
-LOADLIB "mod::socialite/lib/internal/support.whlib";
 
 
 

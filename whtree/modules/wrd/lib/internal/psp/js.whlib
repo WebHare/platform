@@ -1,8 +1,6 @@
 <?wh
 LOADLIB "wh::javascript.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";

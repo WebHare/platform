@@ -18,7 +18,6 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
-LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT SetFlagsInPublished, GetFlagsFromPublished, IsPublish, GetErrorFromPublished, GetOncePublishedFromPublished, TestFlagFromPublished
                                                           , PublishedFlag_OncePublished, PublishedFlag_Scheduled, PublishedFlag_Warning, PublishedFlag_HasWebDesign
                                                           , PublishedFlag_StripExtension, PublishedFlag_HasPublicDraft, PublishedFlag_SubmittedForApproval;

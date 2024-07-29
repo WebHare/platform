@@ -7,7 +7,6 @@ LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/testfw/forms.whlib" EXPORT OpenFormsapiFormTester;
 
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";

@@ -11,10 +11,6 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
-LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
-
 
 MACRO RunWRDAuthPageWitty(OBJECT webcontext, STRING component, RECORD data)
 {
