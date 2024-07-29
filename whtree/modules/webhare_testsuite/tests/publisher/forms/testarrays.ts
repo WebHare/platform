@@ -21,7 +21,7 @@ interface ArrayFormShape {
     photo: FormFileValue[];
     upload: FormFileValue[];
     gender: 0 | 1 | 2;
-    wrdDateofbirth: string;
+    wrdDateofbirth: Date | null;
     confirm: boolean;
     favcolor: null | string;
   }>;
@@ -257,7 +257,7 @@ test.registerTests(
         test.assert(result.contacts[0].photo.length === 0);
 
         // Set the value to two rows with values
-        formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrdDateofbirth: "2000-03-03" }] });
+        formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: new Date("2000-02-02") }, { name: "Another person", gender: 2, wrdDateofbirth: new Date("2000-03-03") }] });
         test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
         result = await formhandler.getFormValue() as unknown as ArrayFormValue;
@@ -312,22 +312,22 @@ test.registerTests(
       test.eq(1, formhandler.data.contacts.length);
       test.eq("", formhandler.data.contacts[0].name);
       test.eq(0, formhandler.data.contacts[0].gender);
-      test.eq("", formhandler.data.contacts[0].wrdDateofbirth);
+      test.eq(null, formhandler.data.contacts[0].wrdDateofbirth);
       test.assert(formhandler.data.contacts[0].photo.length === 0);
 
       // Set the value to two rows with values
-      formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrdDateofbirth: "2000-03-03" }] });
+      formhandler.assign({ contacts: [{ name: "First person", gender: 1, wrdDateofbirth: new Date("2000-02-02") }, { name: "Another person", gender: 2, wrdDateofbirth: new Date("2000-03-03") }] });
       test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
       test.eq("no longer prefilled", formhandler.data.text);
       test.eq(2, formhandler.data.contacts.length);
       test.eq("First person", formhandler.data.contacts[0].name);
       test.eq(1, formhandler.data.contacts[0].gender);
-      test.eq("2000-02-02", formhandler.data.contacts[0].wrdDateofbirth);
+      test.eq(new Date("2000-02-02"), formhandler.data.contacts[0].wrdDateofbirth);
       test.assert(formhandler.data.contacts[0].photo.length === 0);
       test.eq("Another person", formhandler.data.contacts[1].name);
       test.eq(2, formhandler.data.contacts[1].gender);
-      test.eq("2000-03-03", formhandler.data.contacts[1].wrdDateofbirth);
+      test.eq(new Date("2000-03-03"), formhandler.data.contacts[1].wrdDateofbirth);
       test.assert(formhandler.data.contacts[1].photo.length === 0);
 
       //Set a photo - first by updating the property fully because not all Proxies are in place yet.
@@ -469,7 +469,7 @@ test.registerTests(
           {
             "name": "first contact",
             "gender": 0,
-            "wrdDateofbirth": "",
+            "wrdDateofbirth": null,
             "confirm": false,
             "favcolor": null
           }

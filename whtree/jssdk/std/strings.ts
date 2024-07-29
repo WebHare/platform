@@ -166,10 +166,6 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
   return result;
 }
 
-/** @deprecated Use the more generic stringify instead in 5.4 (and consider your target!) */
-export function stableStringify(arg: unknown, replacer?: JSONReplacerArgument, space?: string | number) {
-  return stringify(arg, { replacer, space, stable: true });
-}
 /** Decode JSON with types (Generated using stringify with typed:true ) */
 export function parseTyped(input: string) {
   return JSON.parse(input, (key, value) => {
