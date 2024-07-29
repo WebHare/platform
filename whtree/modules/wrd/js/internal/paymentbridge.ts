@@ -3,7 +3,7 @@ import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { PSPAddressFormat, PSPDriver, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { createResponseInfoFromResponse } from "@webhare/router/src/response";
-import { stringify, type Money } from "@webhare/std";
+import { parseTyped, stringify, type Money } from "@webhare/std";
 
 type HsAddressFormat = {
   street: string;
@@ -178,7 +178,7 @@ export async function processReturnURL(driver: string, configAsJSON: string, pay
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.processReturn(paymeta ? JSON.parse(paymeta) : null, await newWebRequestFromInfo(req));
+  const retval = await psp.processReturn(paymeta ? parseTyped(paymeta) : null, await newWebRequestFromInfo(req));
   return retval;
 }
 
@@ -190,7 +190,7 @@ export async function processPush(driver: string, configAsJSON: string, paymeta:
   if (!psp.processPush)
     return null;
 
-  const retval = await psp.processPush(paymeta ? JSON.parse(paymeta) : null, await newWebRequestFromInfo(req));
+  const retval = await psp.processPush(paymeta ? parseTyped(paymeta) : null, await newWebRequestFromInfo(req));
   return {
     ...retval,
     response: await createResponseInfoFromResponse(retval.response)
@@ -202,6 +202,6 @@ export async function checkStatus(driver: string, configAsJSON: string, paymeta:
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.checkStatus(paymeta ? JSON.parse(paymeta) : null);
+  const retval = await psp.checkStatus(paymeta ? parseTyped(paymeta) : null);
   return retval;
 }
