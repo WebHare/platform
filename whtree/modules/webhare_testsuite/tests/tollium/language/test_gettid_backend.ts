@@ -38,7 +38,10 @@ async function tidCompilerTest() {
   test.eq('Use <a href="x-test:a&amp;b">this link</a> to choose a new password', getHTMLTid("webhare_testsuite:test.hrefparam2", "x-test:a&b"));
 
   test.eq(["Dit is ", ["b", { children: ["bold"] }], ["br", {}], "volgende", ["br", {}], "regel"], getTid("webhare_testsuite:test.richtext", { render: (t, o) => [t, o] }));
-  test.eq(["Use ", ["a", { href: "x-test:a&amp;b", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["x-test:a&b"], { render: (tag: string, props: object) => [tag, props] }));
+  //links are copied verbatim, no corrections:
+  test.eq(["Use ", ["a", { href: "x-test:a&b", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["x-test:a&b"], { render: (tag: string, props: object) => [tag, props] }));
+  test.eq(["Use ", ["a", { href: "x-test:a b", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["x-test:a b"], { render: (tag: string, props: object) => [tag, props] }));
+  test.eq(["Use ", ["a", { href: "https://beta.webhare.net/a b%20c", children: ["this link"] }], " to choose a new password"], getTid("webhare_testsuite:test.hrefparam2", ["https://beta.webhare.net/a b%20c"], { render: (tag: string, props: object) => [tag, props] }));
 
   // Builtins
   test.eq(await loadlib("wh::datetime.whlib").getLanguageDatetimeStrings("nl"), getTidForLanguage("nl", "tollium:tilde.locale.datetimestrings"));
