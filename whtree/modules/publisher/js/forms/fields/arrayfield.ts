@@ -1,35 +1,66 @@
-import * as dompack from "dompack";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import "./arrayfield.css";
 import { throwError } from "@webhare/std";
-import { addDocEventListener, qR, qSA, type DocEvent, type FormControlElement } from "@webhare/dompack";
-import { parseCondition } from "@webhare/forms/src/domsupport";
+import { addDocEventListener, qS, qSA, type DocEvent, registerMissed, stop } from "@webhare/dompack";
+import { getFieldName, getFormElementCandidates, getFormHandler, parseCondition, setFieldName } from "@webhare/forms/src/domsupport";
 import type { FormCondition } from "@webhare/forms/src/types";
 import { RecordFieldHandler, type FormParent } from "@webhare/forms/src/fieldmap";
 import type FormBase from "../formbase";
+import { setup } from "../internal/webharefields";
+
+
+function fixupConditionRecursive(node: HTMLElement, condition: FormCondition, mapping: Map<string, string>): boolean {
+  switch (condition.matchtype) {
+    case "AND":
+    case "OR":
+      {
+        let anychanges = false;
+        for (const subcondition of condition.conditions)
+          anychanges = fixupConditionRecursive(node, subcondition, mapping) || anychanges;
+        return anychanges;
+      }
+    case "NOT":
+      {
+        return fixupConditionRecursive(node, condition.condition, mapping);
+      }
+    default:
+      {
+        const newName = mapping.get(condition.field);
+        if (newName && node.querySelector(`[name="${newName}"]`)) {
+          condition.field = newName;
+          return true;
+        }
+      }
+  }
+  return false;
+}
+
+type NewType = FormParent;
 
 export default class ArrayField {
   valueNode: HTMLInputElement;
-  name;
   nextrowid = 0;
   template;
-  insertPoint;
+  insertPoint: HTMLElement;
+  arrayBaseName;
 
-  constructor(private form: FormParent, private node: HTMLElement, items: HTMLElement[]) {
+  constructor(private handler: NewType, private node: HTMLElement, items: HTMLElement[], private name: string) {
     node.dataset.whFormRegisteredField = "dynamic"; //just to keep the parent class happy
-    this.name = node.dataset.whFormGroupFor || throwError("Could not find name for arrayfield");
+    this.arrayBaseName = node.dataset.whFormGroupFor || throwError("Missing array base name");
 
-    // The template for new rows
-    this.template = qR<HTMLTemplateElement>(node, "template");
-
+    // The template for new rows. If we have arrays-in-array, it will still be the first <template>
+    this.template = qS<HTMLTemplateElement>(node, "template") || throwError("Missing array template");
     // The node before which to add new rows
-    this.insertPoint = qR(node, ".wh-form__arrayadd");
+    this.insertPoint = this.template.parentNode!.lastElementChild! as HTMLElement;
+    if (!this.insertPoint.matches(".wh-form__arrayadd"))
+      throw new Error("Missing array insert point");
 
     // Event handler for add/delete button clicks
+    this.insertPoint.addEventListener("click", event => this.onAddRow(event));
     addDocEventListener(node, "click", event => this._onClick(event));
 
     // Proxy node for getting/setting properties and receiving events
-    this.valueNode = qR<HTMLInputElement>(node, "input.wh-form__arrayinput");
+    this.valueNode = qS<HTMLInputElement>(node, "input.wh-form__arrayinput") ?? throwError("Missing array input");
     this.valueNode.whUseFormGetValue = true;
     this.valueNode.addEventListener("wh:form-getvalue", event => this._onGetValue(event));
     //@ts-expect-error wh:form-setvalue isn't defined - but it'll go away anyway
@@ -42,6 +73,12 @@ export default class ArrayField {
     this._checkValidity();
   }
 
+  get form(): FormBase {
+    const form = getFormHandler(this.node.closest("form") ?? throwError("Could not find <form>")) ?? throwError("Could not find form for arrayfield");
+    if (!form._getFieldsToValidate) //avoid calling into formbase from our constructor, it may not be there yet...
+      throw new Error("The <form> is not ready yet");
+    return form;
+  }
 
   addRow(): HTMLElement {
     // Instatiate a new row
@@ -50,12 +87,13 @@ export default class ArrayField {
 
     // Insert the new row
     this.insertPoint.parentNode!.insertBefore(newrow, this.insertPoint);
-    const addedrow = this.insertPoint.previousElementSibling!;
+    const addedrow = this.insertPoint.previousElementSibling! as HTMLElement;
 
     /* If the form is relying on legacy dompack.register to go through ImgEditField and do the actual
        customElements.define call.... then the 'name' attributes won't actually work on the 'new' elements.
        therefore dompack.registerMissed must run before _fixupRowNode */
-    dompack.registerMissed(addedrow);
+    registerMissed(addedrow);
+    setup(addedrow);
 
     this._fixupRowNode(addedrow as HTMLElement);
     this._checkValidity();
@@ -72,14 +110,12 @@ export default class ArrayField {
         this._removeRowNode(node);
     }
   */
-  _onClick(event: DocEvent<MouseEvent>) {
-    // Check if the add button was clicked
-    if (event.target.closest(".wh-form__arrayadd")) {
-      event.preventDefault();
-      this.addRow();
-      return;
-    }
 
+  private onAddRow(event: Event) {
+    stop(event);
+    this.addRow();
+  }
+  _onClick(event: DocEvent<MouseEvent>) {
     // Check if a delete button was clicked
     const delNode = event.target.closest(".wh-form__arraydelete");
     if (delNode) {
@@ -89,16 +125,14 @@ export default class ArrayField {
   }
 
   getRowHandler(row: HTMLElement): RecordFieldHandler {
-    const rowFields = (this.form as FormBase)._getFieldsToValidate(row) //FIXME get rid of 'as FormBase' to support array-in-array
-      .filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
-
+    const rowFields = getFormElementCandidates(row, this.name).filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
     const rowBaseName = this.valueNode.name + "." + row.dataset.whFormRowid;
-    return new RecordFieldHandler(this.form, rowBaseName, rowFields);
+    return new RecordFieldHandler(this.handler, rowBaseName, rowFields);
   }
 
   getValue() {
     const rows = [];
-    for (const row of dompack.qSA(this.node, ".wh-form__arrayrow")) {
+    for (const row of qSA(this.node, ".wh-form__arrayrow").filter(n => n.parentNode === this.template.parentNode)) {
       const handler = this.getRowHandler(row);
       const rowval = handler.getValue();
       rows.push(rowval);
@@ -113,7 +147,7 @@ export default class ArrayField {
 
     // Create a promise for each row that resolves with the combined value of all fields in the row
     const valuePromises = [];
-    for (const row of dompack.qSA(this.node, ".wh-form__arrayrow")) {
+    for (const row of qSA(this.node, ".wh-form__arrayrow").filter(n => n.parentNode === this.template.parentNode)) {
       const rowFields = this._queryAllFields(row);
       // Create a promise for each of the row's subfields to get its value
       const rowPromises = rowFields.map(field => (this.form as FormBase)._getQueryiedFieldValue(field)); //FIXME get rid of 'as FormBase' to support array-in-array
@@ -185,62 +219,46 @@ export default class ArrayField {
 
     // Rename all fields to avoid duplicate field names
     const mapping = new Map<string, string>;
-    for (const field of this._queryAllFields(node))
-      for (const fieldnode of (field.multi ? field.nodes : [field.node])) {
+    for (const fieldnode of getFormElementCandidates(node, this.arrayBaseName)) {
 
-        // Rename fields
-        const cellname = field.name.substring(this.name.length + 1);
-        fieldnode.dataset.whFormCellname = cellname;
-        const subname = this.valueNode.name + "." + rowid + "." + cellname;
-        if (fieldnode.dataset.whFormName)
-          fieldnode.dataset.whFormName = subname;
-        else
-          (fieldnode as FormControlElement).name = subname;
-        mapping.set(field.name, subname);
-
-        // Rename id's to make them unique; update the labels within the field's fieldgroup to point to the new id
-        if (fieldnode.id) {
-          const labelnodes = qSA<HTMLLabelElement>(node, `label[for="${fieldnode.id}"]`);
-          fieldnode.id += "-" + rowid;
-          for (const labelnode of labelnodes)
-            labelnode.htmlFor = fieldnode.id;
-        }
+      // Leave embedded arrayfields alone! Except if this is specifically the wh-form__arrayinput one level down
+      const nodeArray = fieldnode.closest(".wh-form__fieldgroup--array");
+      if (nodeArray && nodeArray !== this.node && !(fieldnode.matches(".wh-form__arrayinput") && (nodeArray.parentNode! as HTMLElement).closest(".wh-form__fieldgroup--array") === this.node)) {
+        // console.log("Skipping", fieldnode, "as it's not in our array");
+        continue;
       }
 
-    // Rewrite conditions after all fields have been renamed
-    for (const type of ["visible", "enabled", "required"]) {
-      for (const conditionnode of qSA(node, `[data-wh-form-${type}-if]`)) {
-        const condition = parseCondition(conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`]!);
-        if (this._fixupConditionRecursive(node, condition, mapping))
-          conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`] = JSON.stringify({ c: condition });
+      // Rename fields
+      const fieldname = getFieldName(fieldnode);
+      // When rendering, the fields simply have their arrayname prefixed in their name=, see InstantiateField in array.whlib (TODO seems dangerous, eg preset radio buttons interfering with each other?
+      // So we'll just take the part after the first dot as the cellname
+      fieldnode.dataset.whFormCellname ||= fieldname.substring(this.arrayBaseName.length + 1);
+
+      const cellname: string = fieldnode.dataset.whFormCellname;
+      const subname = this.valueNode.name + "." + rowid + "." + cellname;
+      // console.log("for", this.name, "rename", fieldname, "to", subname, fieldnode);
+      setFieldName(fieldnode, subname);
+      mapping.set(fieldname, subname);
+
+      // Rename id's to make them unique; update the labels within the field's fieldgroup to point to the new id
+      if (fieldnode.id) {
+        const labelnodes = qSA<HTMLLabelElement>(node, `label[for="${fieldnode.id}"]`);
+        fieldnode.id += "-" + rowid;
+        for (const labelnode of labelnodes)
+          labelnode.htmlFor = fieldnode.id;
+      }
+
+      // Rewrite conditions after all fields have been renamed
+      for (const type of ["visible", "enabled", "required"]) {
+        for (const conditionnode of qSA(node, `[data-wh-form-${type}-if]`)) {
+          const condition = parseCondition(conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`]!);
+          if (fixupConditionRecursive(node, condition, mapping))
+            conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`] = JSON.stringify({ c: condition });
+        }
       }
     }
-  }
 
-  _fixupConditionRecursive(node: HTMLElement, condition: FormCondition, mapping: Map<string, string>): boolean {
-    switch (condition.matchtype) {
-      case "AND":
-      case "OR":
-        {
-          let anychanges = false;
-          for (const subcondition of condition.conditions)
-            anychanges = this._fixupConditionRecursive(node, subcondition, mapping) || anychanges;
-          return anychanges;
-        }
-      case "NOT":
-        {
-          return this._fixupConditionRecursive(node, condition.condition, mapping);
-        }
-      default:
-        {
-          const newName = mapping.get(condition.field);
-          if (newName && node.querySelector(`[name="${newName}"]`)) {
-            condition.field = newName;
-            return true;
-          }
-        }
-    }
-    return false;
+    this.getRowHandler(node); //initializes deeper arrays. fieldmap should probably be handling this and build a full mapping top to botom...
   }
 
   _removeRowNode(node: Element) {

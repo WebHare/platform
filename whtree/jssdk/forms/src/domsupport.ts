@@ -31,6 +31,19 @@ export function isRadioNodeList(el: RadioNodeList | Element): el is ConstrainedR
   return el instanceof RadioNodeList;
 }
 
+export function getFieldName(field: HTMLElement): string {
+  return field.dataset.whFormName || (field as HTMLInputElement).name || '';
+}
+
+export function setFieldName(field: HTMLElement, newname: string) {
+  if (field.dataset.whFormName !== undefined)
+    field.dataset.whFormName = newname;
+  else if ((field as HTMLInputElement).name !== undefined)
+    (field as HTMLInputElement).name = newname;
+  else
+    throw new Error('Cannot set name on field without existing name');
+}
+
 export function getFieldDisplayName(field: HTMLElement | ConstrainedRadioNodeList): string {
   if (isRadioNodeList(field))
     return `radiogroup '${(field.item(0) as HTMLInputElement)?.name || (field.item(0) as HTMLElement)?.id || '<unnamed>'}'`;
@@ -47,7 +60,6 @@ export function getFieldDisplayName(field: HTMLElement | ConstrainedRadioNodeLis
  *  the form actually sets up its handler (it's still safe to rewrite top level form elements then)
 */
 export function downgradeUploadFields(form: HTMLElement) {
-  //WH Forms api generates
   for (const uploadfield of qSA(form, "wh-form-upload")) {
     const input = document.createElement("input");
     input.type = "file";
@@ -125,7 +137,7 @@ export function getFormElementCandidates(basenode: HTMLElement, namePrefix: stri
 
   const candidates = qSA<HTMLElement>(basenode, queryFormFieldLike).filter(el => !("form" in el) || el.form === parentForm);
   if (namePrefix)
-    return candidates.filter(el => ((el as FormControlElement).name || el.dataset.whFormName || '').startsWith(namePrefix + '.'));
+    return candidates.filter(el => getFieldName(el).startsWith(namePrefix + '.'));
   else
     return candidates;
 }

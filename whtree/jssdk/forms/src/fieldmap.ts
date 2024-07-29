@@ -1,4 +1,4 @@
-import { isFormFieldLike } from "./domsupport";
+import { getFieldName, isFormFieldLike } from "./domsupport";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
 import { omit, type AddressValue, nameToSnakeCase, nameToCamelCase, throwError, isDate } from "@webhare/std";
@@ -178,16 +178,10 @@ class RegisteredFieldHandler implements FormField {
   }
 }
 
-class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
-  private baseName;
-
+export class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
   constructor(form: FormParent, private node: HTMLElement, items: HTMLElement[]) {
-    node[rfSymbol] ||= new ArrayField(form, node, items);
+    node[rfSymbol] ||= new ArrayField(form, node, items, getFieldName(items[0]));
     super(form, node[rfSymbol]);
-
-    this.baseName = node.dataset.whFormGroupFor!;
-    if (!this.baseName)
-      throw new Error("ArrayFieldHandler: Missing base name");
   }
 
   __scheduleUpdateConditions() {

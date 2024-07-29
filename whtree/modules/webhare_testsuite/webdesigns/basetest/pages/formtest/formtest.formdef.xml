@@ -359,6 +359,9 @@
         <textedit name="name" title="Name" />
         <wt:tscustomcomp name="customcomp" title="customcomp" />
         <wt:twolevel name="two_level_in_array" title="twolevel" />
+        <array name="sub_array" title="Friend list">
+          <textedit name="friend" title="Friend" />
+        </array>
       </array>
     </page>
   </form>

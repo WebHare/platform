@@ -176,6 +176,7 @@
       <xs:element ref="richtext" />
       <xs:element ref="address" />
       <xs:element ref="captcha" />
+      <xs:element ref="array" />
     </xs:choice>
   </xs:group>
 
@@ -184,7 +185,6 @@
       <xs:choice maxOccurs="unbounded" minOccurs="0">
         <xs:group ref="LineComponents" />
         <xs:group ref="BlockComponents" />
-        <xs:element ref="array" />
         <xs:any namespace="##other" processContents="strict" />
       </xs:choice>
     </xs:sequence>

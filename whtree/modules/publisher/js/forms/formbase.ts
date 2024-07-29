@@ -38,6 +38,7 @@ declare global {
     propWhFormhandler?: FormBase<object>;
     whFormsApiChecker?: () => Promise<void> | void;
     whUseFormGetValue?: boolean;
+    whValidationPolyfilled?: boolean;
     __didPlaceholderWarning?: boolean;
   }
 

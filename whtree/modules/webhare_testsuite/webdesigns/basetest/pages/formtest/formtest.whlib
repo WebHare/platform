@@ -795,7 +795,7 @@ PUBLIC STATIC OBJECTTYPE WorkHandlingErrorsForm EXTEND FormBase
   }
 >;
 
-MACRO SetValueMember(OBJECT prop, RECORD ARRAY suggesteddata)
+MACRO SetValueMember(OBJECT prop, RECORD ARRAY suggesteddata) //PTR for TestThrows
 {
   prop->value := suggesteddata;
 }
@@ -848,10 +848,11 @@ PUBLIC STATIC OBJECTTYPE ArrayForm EXTEND FormBase
       ^text->value := "prefilled name";
       TestThrowsLike("*must be of type STRING*", PTR SetValueMember(^contacts, [[ name := 42 ]])); //should throw, invalid type
 
-      SetValueMember(^contacts, [ [ name := "first contact"
-                                  , photo := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg")->GetWrapped()
-                                  ]
-                                ]);
+      ^contacts->value := [ [ name := "first contact"
+                            , photo := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg")->GetWrapped()
+                            ]
+                          ];
+      ^custom_array->value := [[ name := "row 1", sub_array := [[ friend := "pietje"], [friend := "jantje"]]]];
 
       TestEQ(DEFAULT DATETIME, ^contacts->value[0].wrd_dateofbirth);
     }

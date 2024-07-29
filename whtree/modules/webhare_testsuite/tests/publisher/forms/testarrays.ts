@@ -36,6 +36,9 @@ interface ArrayFormShape {
       customselect: { select: string };
       textedit: string;
     };
+    subArray: Array<{
+      friend: string;
+    }>;
   }>;
 }
 
@@ -236,6 +239,7 @@ test.registerTests(
 
         // Clear the array by setting the value to an empty array
         formhandler.data.contacts = [];
+        formhandler.data.customArray = [];
         test.eq(0, test.qSA(".wh-form__arrayrow").length);
 
         test.fill("input[name=text]", "no longer prefilled");
@@ -292,11 +296,13 @@ test.registerTests(
             name: "first contact",
             photo: [{ fileName: "imgeditfile.jpeg", file: null }]
           }
-        ]
+        ],
+        customArray: [{ name: "row 1", subArray: [{ friend: "pietje" }, { friend: "jantje" }] }]
       }, formhandler.data);
 
       // Clear the array by setting the value to an empty array
       formhandler.data.contacts = [];
+      formhandler.data.customArray = [];
       test.eq(0, test.qSA(".wh-form__arrayrow").length);
 
       test.fill("input[name=text]", "no longer prefilled");
@@ -389,7 +395,7 @@ test.registerTests(
 
         // Add a row
         test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
-        test.eq(2, test.qSA(".wh-form__arrayrow").length);
+        test.eq(5, test.qSA(".wh-form__arrayrow").length);
 
         // Fill the array's second row's fields and the not-array name field
         test.fill("input[name=text]", "no longer prefilled");
@@ -402,7 +408,7 @@ test.registerTests(
 
         // Delete the first row
         test.click(test.qS(".wh-form__arraydelete")!);
-        test.eq(1, test.qSA(".wh-form__arrayrow").length);
+        test.eq(4, test.qSA(".wh-form__arrayrow").length);
 
         test.click("button[type=submit]");
       },
@@ -441,11 +447,11 @@ test.registerTests(
     "Test custom component inside arrays",
     async function () {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
-      test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="custom_array"] .wh-form__arrayadd');
-      test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="custom_array"] .wh-form__arrayadd');
+      test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="custom_array"] > * > .wh-form__arrayadd');
+      test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="custom_array"] > * > .wh-form__arrayadd');
 
       const arrayholder = test.qR('.wh-form__fieldgroup--array[data-wh-form-group-for="custom_array"]');
-      test.eq(2, arrayholder.querySelectorAll(".wh-form__arrayrow").length);
+      test.eq(5, arrayholder.querySelectorAll(".wh-form__arrayrow").length);
 
       //TODO not sure if we should be hardcoding names like this... works for now but I'm not sure this is something we are suppposed to rely on
       test.fill('[name="custom_array.0.name"]', 'Name #1');
@@ -477,6 +483,9 @@ test.registerTests(
         "contacts2": [],
         "customArray": [
           {
+            "name": "row 1",
+          },
+          {
             "name": "Name #1",
             //Note that customcomp is completely incompatible with formhandler.data representation - as the checkbox without a deeper name is suggesting it's the group leader
             "customcomp": false,
@@ -503,19 +512,22 @@ test.registerTests(
       const result = JSON.parse(test.qR("#dynamicformsubmitresponse").textContent!);
       test.assert(result.ok);
 
-      test.eq("Name #1", result.value.custom_array[0].name);
-      test.assert(!result.value.custom_array[0].customcomp.c1);
-      test.assert(result.value.custom_array[0].customcomp.c2);
-      test.eq("Sub #1", result.value.custom_array[0].customcomp.subvalue);
-      // test.eq("lang-nl", result.value.custom_array[0].two_level_in_array.field1); //FIXME - support ANOTHER component sublevel in arrays...
-      test.eq("TEXT 1", result.value.custom_array[0].two_level_in_array.field2);
+      test.eq("row 1", result.value.custom_array[0].name);
+      test.eq("jantje", result.value.custom_array[0].sub_array[1].friend);
 
-      test.eq("Name #2", result.value.custom_array[1].name);
-      test.assert(result.value.custom_array[1].customcomp.c1);
-      test.assert(!result.value.custom_array[1].customcomp.c2);
-      test.eq("Sub #2", result.value.custom_array[1].customcomp.subvalue);
-      // test.eq("abc", result.value.custom_array[1].two_level_in_array.field1); //FIXME - support ANOTHER component sublevel in arrays...
-      test.eq("TEXT 2", result.value.custom_array[1].two_level_in_array.field2);
+      test.eq("Name #1", result.value.custom_array[1].name);
+      test.assert(!result.value.custom_array[1].customcomp.c1);
+      test.assert(result.value.custom_array[1].customcomp.c2);
+      test.eq("Sub #1", result.value.custom_array[1].customcomp.subvalue);
+      // test.eq("lang-nl", result.value.custom_array[1].two_level_in_array.field1); //FIXME - support ANOTHER component sublevel in arrays...
+      test.eq("TEXT 1", result.value.custom_array[1].two_level_in_array.field2);
+
+      test.eq("Name #2", result.value.custom_array[2].name);
+      test.assert(result.value.custom_array[2].customcomp.c1);
+      test.assert(!result.value.custom_array[2].customcomp.c2);
+      test.eq("Sub #2", result.value.custom_array[2].customcomp.subvalue);
+      // test.eq("abc", result.value.custom_array[2].two_level_in_array.field1); //FIXME - support ANOTHER component sublevel in arrays...
+      test.eq("TEXT 2", result.value.custom_array[2].two_level_in_array.field2);
     },
 
     "Test labels within array rows",

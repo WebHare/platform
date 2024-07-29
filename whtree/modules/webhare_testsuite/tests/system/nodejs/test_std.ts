@@ -277,6 +277,46 @@ function testDateTime() {
 
   const later = std.convertWaitPeriodToDate("P1DT5H"), estimate_later = Date.now() + 29 * 60 * 60 * 1000; //29 hours
   test.assert(estimate_later - 1000 <= later.getTime() && later.getTime() <= estimate_later + 1000);
+
+  test.assert(std.isValidDate(2024, 12, 31));
+  test.assert(std.isValidDate(2024, 1, 1));
+  test.assert(std.isValidDate(2024, 2, 29));
+  test.assert(std.isValidDate(1601, 2, 28));
+
+  test.assert(!std.isValidDate(1600, 12, 31));
+  test.assert(!std.isValidDate(2024, 12, 32));
+  test.assert(!std.isValidDate(2023.5, 12, 31));
+  test.assert(!std.isValidDate(2024, 11.25, 31));
+  test.assert(!std.isValidDate(2024, 12, 30.222));
+  test.assert(!std.isValidDate(999, 12, 31));
+  test.assert(!std.isValidDate(99, 12, 31));
+  test.assert(!std.isValidDate(1, 12, 31));
+  test.assert(!std.isValidDate(-1, 12, 31));
+  test.assert(!std.isValidDate(2024, 11, 31));
+  test.assert(!std.isValidDate(2024, 0, 1));
+  test.assert(!std.isValidDate(2025, 2, 29));
+  test.assert(!std.isValidDate(2024, 2, 30));
+  test.assert(!std.isValidDate(2024, NaN, 31));
+  test.assert(!std.isValidDate(NaN, 12, 31));
+  test.assert(!std.isValidDate(2024, 12, NaN));
+  //@ts-expect-error TS doesn't like null either
+  test.assert(!std.isValidDate(2024, 12, null));
+
+  test.assert(std.isValidTime(23, 59, 59, 999));
+  test.assert(std.isValidTime(0, 0, 0, 0));
+  test.assert(!std.isValidTime(23, 59, 59, 1000));
+  test.assert(!std.isValidTime(23, 59, 60, 0));
+  test.assert(!std.isValidTime(0, 0, 0, -1));
+  test.assert(!std.isValidTime(0, 0, 0, NaN));
+  test.assert(!std.isValidTime(0, 0, NaN, 0));
+  test.assert(!std.isValidTime(0, NaN, 0, 0));
+  test.assert(!std.isValidTime(NaN, 0, 0, 0));
+  //@ts-expect-error TS doesn't like null either
+  test.assert(!std.isValidTime(null, 0, 0, 0));
+  test.assert(!std.isValidTime(0, 0, 0, 0.5));
+  test.assert(!std.isValidTime(0, 0, 0.5, 0));
+  test.assert(!std.isValidTime(0, 0.5, 0, 0));
+  test.assert(!std.isValidTime(0.5, 0, 0, 0));
 }
 
 function testUFS(decoded: string, encoded: string) {
