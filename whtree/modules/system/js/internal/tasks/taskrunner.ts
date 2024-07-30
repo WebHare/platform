@@ -13,6 +13,7 @@ interface TaskInfo {
   taskrunner: string;
   dbid: number;
   data: unknown;
+  failures: number;
 }
 
 
@@ -52,7 +53,7 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
 
   try {
     const target = await loadJSFunction<TaskFunction>(taskinfo.taskrunner);
-    const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.data);
+    const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.failures, taskinfo.data);
     const taskresponse = await target(req) as TaskResponse;
 
     switch (taskresponse.type) {

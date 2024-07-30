@@ -43,12 +43,7 @@ export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskRe
 export type TaskFunction = (req: TaskRequest<unknown>) => Promise<TaskResponse>;
 
 export class TaskRequest<TaskDataType, TaskResultType = unknown> {
-  readonly taskdata: TaskDataType;
-  readonly taskid: number;
-
-  constructor(taskid: number, taskdata: TaskDataType) {
-    this.taskid = taskid;
-    this.taskdata = taskdata;
+  constructor(readonly taskid: number, readonly numFailures: number, readonly taskdata: TaskDataType) {
   }
 
   resolveByCancellation(retval: TaskResultType, error: string): TaskResponse {

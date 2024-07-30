@@ -93,9 +93,34 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
   RetryPendingManagedTasksByIds([taskid]);
   testfw->CommitWork();
 
+  iF(javascript)
+  {
+    //wait for task to report 'failed once'
+    WHILE(TRUE)
+    {
+      TRY
+      {
+        RetrieveManagedTaskResult(taskid, MAX_DATETIME);
+      }
+      CATCH(OBJECT e)
+      {
+        IF(e->what LIKE "*Failed once*")
+          BREAK;
+        Sleep(50);
+      }
+    }
+
+    //restart immediately
+    testfw->BeginWork();
+    RetryPendingManagedTasksByIds([taskid]);
+    testfw->CommitWork();
+  }
+
+  // wait for the final failure
   TestThrowsLike(javascript ? "*Task attempted to abort*" : "*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME, [accepttempfailure := TRUE]));
+
   taskinfo := DescribeManagedTask(taskid);
-  TestEq(2, taskinfo.failures);
+  TestEq(javascript ? 3 : 2, taskinfo.failures);
   TestEq(TRUE, taskinfo.finished < GetCurrentDatetime(), "task should now be ignored for further requeueing");
 
   TestEq(0, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := TRUE ])));
@@ -396,7 +421,7 @@ ASYNC MACRO TestWaitableAction_JS()
   AWAIT TestWaitableAction(TRUE);
 }
 
-RunTestframework([ PTR TestEphemeralTasks
+ RunTestframework([ PTR TestEphemeralTasks
                  , PTR TestFailingTask("hs")
                  , PTR TestFailingTask("js")
                  , PTR TestWaitableAction_HS
