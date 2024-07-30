@@ -42,7 +42,7 @@ export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskRe
 
 export type TaskFunction = (req: TaskRequest<unknown>) => Promise<TaskResponse>;
 
-export class TaskRequest<TaskDataType, TaskResultType = unknown> {
+export class TaskRequest<TaskDataType, TaskResultType extends object | null = object | null> {
   constructor(readonly taskid: number, readonly numFailures: number, readonly taskdata: TaskDataType) {
   }
 
@@ -51,15 +51,15 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
   }
 
   resolveByCompletion(result?: TaskResultType): TaskResponse {
-    return { type: "finished", result };
+    return { type: "finished", result: result ?? null };
   }
 
   resolveByPermanentFailure(error: string, { result }: { result?: object } = {}): TaskResponse {
-    return { type: "failed", error, result };
+    return { type: "failed", error, result: result ?? null };
   }
 
   resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
-    return { type: "failedtemporarily", error, result, nextretry: nextRetry ?? null, trace: getStackTrace() };
+    return { type: "failedtemporarily", error, result: result ?? null, nextretry: nextRetry ?? null, trace: getStackTrace() };
   }
 
   resolveByRestart(when: Date, { newData, auxData }: { newData?: unknown; auxData?: unknown } = {}): TaskResponse {

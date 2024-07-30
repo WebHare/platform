@@ -56,6 +56,9 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
     const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.failures, taskinfo.data);
     const taskresponse = await target(req) as TaskResponse;
 
+    if (typeof taskresponse.result !== "object")
+      throw new Error(`Task response result is not an object|null, but ${typeof taskresponse.result}`);
+
     switch (taskresponse.type) {
       case "finished":
         await finalizeTaskResult(taskinfo, { lasterrors: "", finished: new Date, ...await splitretval(taskresponse.result) });
