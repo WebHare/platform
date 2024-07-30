@@ -320,6 +320,7 @@ PUBLIC RECORD FUNCTION DescribeManagedTask(INTEGER taskid)
          , finished := taskinfo.finished
          , lasterrors := taskinfo.lasterrors
          , stacktrace := taskinfo.stacktrace
+         , iterations := taskinfo.iterations
          , failures := taskinfo.failures
          , retval := taskinfo.shortretval = "" ? DEFAULT RECORD : DecodeHSONorJSONRecord(taskinfo.shortretval="long" ? taskinfo.longretval : taskinfo.shortretval)
          , data := data

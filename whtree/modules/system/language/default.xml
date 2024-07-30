@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="common">   <!-- common -->
     <text tid="deleted">(deleted)</text>
     <text tid="filter">Filter</text>
@@ -843,8 +843,10 @@
         <textgroup gid="managedtask">   <!-- screens.monitor.managedtasks.managedtask -->
           <text tid="creationdate">Queued at</text>
           <text tid="datatab">Task data</text>
+          <text tid="failures">Failures</text>
           <text tid="finished">Finished at</text>
           <text tid="id">Database id</text>
+          <text tid="iterations">Iterations</text>
           <text tid="lasterrors">Last errors</text>
           <text tid="managedtask">Managed task properties</text>
           <text tid="manualcall">Manual call</text>
