@@ -7,6 +7,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
@@ -249,8 +250,8 @@ MACRO TestMarkAsTemporaryFailure(STRING engine)
 
     IF (itr != 0)
     {
-      UPDATE system.managedtasks
-         SET iterations := itr
+      UPDATE system_internal.managedtasks
+         SET failures := itr
        WHERE id = taskid;
     }
 
@@ -262,7 +263,7 @@ MACRO TestMarkAsTemporaryFailure(STRING engine)
     INTEGER ARRAY exp_interval_mins := [ 15, 30, 60, 2 * 60, 4 * 60, 8 * 60, 24 * 60, 24 * 60 ];
     DATETIME expected := exp_interval_mins[itr] >= 24 * 60
         ? AddDaysToDate(exp_interval_mins[itr] / (24 * 60), taskstart)
-        : AddTimeToDate(exp_interval_mins[itr], taskstart);
+        : AddTimeToDate(exp_interval_mins[itr] * 60000, taskstart);
 
     TestEQ(TRUE, descr.nextattempt >= expected);
 
