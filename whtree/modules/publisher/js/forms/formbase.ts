@@ -424,8 +424,13 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     fieldgroup.classList.toggle("wh-form__fieldgroup--" + type, Boolean(field_with_message));
 
     // Lookup the error message from the field metadata
-    if (error) //mark the field has having failed at one point. we will now switch to faster updating error state
-      field.classList.add('wh-form__field--everfailed');
+    if (error) { //mark the field has having failed at one point. we will now switch to faster updating error state
+      if (!field.classList.contains('wh-form__field--everfailed')) {
+        if (debugFlags.fhv)
+          console.log('[fhv] marking as everfailed', field, 'because of error', error);
+        field.classList.add('wh-form__field--everfailed');
+      }
+    }
 
     // if the error is plain text, convert it to a element containing the text
     if (error && !(error instanceof Node))
