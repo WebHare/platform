@@ -200,6 +200,16 @@ test.registerTests(
         test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
         test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
+        validateResult = await formhandler.validate();
+        test.assert(!validateResult.valid);
+
+        // Field 'name' should be in error, just like its group. but not the whole array!
+        const onlyrow = test.qR(".wh-form__arrayrow");
+        test.assert(test.qR(onlyrow, '[data-wh-form-group-for="contacts.name"]').classList.contains("wh-form__fieldgroup--error"));
+        test.assert(!test.qR(onlyrow, '[data-wh-form-group-for="contacts.name"]').closest(".wh-form__fieldgroup--array")?.classList.contains("wh-form__fieldgroup--error"));
+
+        test.fill(test.qR(onlyrow, '[data-wh-form-cellname="name"]'), "Pjotr");
+
         // The form should now be valid
         validateResult = await formhandler.validate();
         test.assert(validateResult.valid);
@@ -216,7 +226,7 @@ test.registerTests(
         result = result.value;
         test.eq("", result.text);
         test.eq(1, result.contacts.length);
-        test.eq("", result.contacts[0].name);
+        test.eq("Pjotr", result.contacts[0].name);
         test.assert(!result.contacts[0].photo);
       }
     },
@@ -605,6 +615,10 @@ test.registerTests(
 
       // Fill the 'other' subfield and submit
       test.fill(other, "Yellow");
+
+      for (const row of test.qSA(".wh-form__arrayrow"))
+        test.fill(test.qR(row, '[data-wh-form-cellname="name"]'), "Pjotr");
+
       test.click("button[type=submit]");
       await test.wait("ui");
 

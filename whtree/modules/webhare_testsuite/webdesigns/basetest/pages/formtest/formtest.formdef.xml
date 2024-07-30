@@ -339,7 +339,7 @@
       <textedit name="text" title="A text" />
       <array name="contacts" max="2" min="1" title="Contacts">
         <hidden name="row_uid" title="Row UID" />
-        <textedit name="name" title="Name" />
+        <textedit name="name" title="Name" required="true" />
         <imgedit name="photo" title="Photo" />
         <upload name="upload" title="Upload" />
         <select name="gender" type="pulldown" rowkeytype="integer" title="Gender" />
