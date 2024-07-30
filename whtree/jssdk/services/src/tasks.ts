@@ -3,6 +3,7 @@ import { loadlib } from "@webhare/harescript";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, onFinishWork, sql } from "@webhare/whdb";
 import { openBackendService } from "@webhare/services";
+import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 
 interface TaskResponseFinished {
   type: "finished";
@@ -26,6 +27,7 @@ interface TaskResponseFailedTemporarily {
   result: unknown;
   error: string;
   nextretry?: Date | null;
+  trace: StackTrace;
 }
 
 interface TaskResponseRestart {
@@ -62,7 +64,7 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
   }
 
   resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
-    return { type: "failedtemporarily", error, result, nextretry: nextRetry ?? null };
+    return { type: "failedtemporarily", error, result, nextretry: nextRetry ?? null, trace: getStackTrace() };
   }
 
   resolveByRestart(when: Date, { newData, auxData }: { newData?: unknown; auxData?: unknown } = {}): TaskResponse {
