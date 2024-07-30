@@ -141,7 +141,7 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
         handler->OnPaymentFinalized(newpaymentvalue);
     }
 
-    UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME WHERE uuid = paymentobject->paymentuuid AND COLUMN paymententity = VAR paymententity->id;
+    UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME, error := "" WHERE uuid = paymentobject->paymentuuid AND COLUMN paymententity = VAR paymententity->id;
   }
   RETURN TRUE;
 }
