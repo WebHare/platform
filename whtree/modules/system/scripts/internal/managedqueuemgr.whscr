@@ -19,6 +19,8 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
+CONSTANT INTEGER restartdelay := 1000;
+
 INTEGER restart_workers_after := 15 * 60 * 1000; //restart workers after
 INTEGER nextworkeruid := 0;
 BOOLEAN debug, profileworkers;
@@ -88,7 +90,7 @@ RECORD FUNCTION ParseOutputForStackTrace(STRING output)
   RETURN retval;
 }
 
-MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
+MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal, RECORD status)
 {
   // Log javascript exceptions here, javascript runner does not have access to logs
   // Errors such as no-such-task do not have executeinfo
@@ -135,7 +137,7 @@ MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
   }
   ELSE
   {
-    controller->RegisterTaskError(item, error, trace, isfatal);
+    controller->RegisterTaskError(item, error, trace, isfatal, status);
   }
 }
 
@@ -298,7 +300,7 @@ STATIC OBJECTTYPE ManagedWorker
         IF(debug)
           Print("Failing crashing task of " || this->GetType() || " worker #" || this->uid || `, active task: ${this->GetCurrentTaskId()}\n`);
         RECORD out := ParseOutputForStackTrace(this->fulloutput);
-        FailTask(this->pvt_activetask, out.output, out.trace, FALSE);
+        FailTask(this->pvt_activetask, out.output, out.trace, FALSE, DEFAUlT RECORD);
         this->pvt_activetask := DEFAULT OBJECT;
       }
 
@@ -325,7 +327,7 @@ STATIC OBJECTTYPE ManagedWorker
       Print(`Worker #${this->uid} got timeout on ${this->GetCurrentTaskLabel()}\n`);
 
     STRING timeoutstr := (this->activetask->timeout % 1000) = 0 ? `${this->activetask->timeout / 1000}s` : `${this->activetask->timeout}ms`;
-    FailTask(this->activetask, `Task has timed out after ${timeoutstr}`, RECORD[], FALSE);
+    FailTask(this->activetask, `Task has timed out after ${timeoutstr}`, RECORD[], FALSE, DEFAULT RECORD);
 
     // Terminate the process immediately, and make sure no other tasks are accepted anymore
     this->proc->Terminate();
@@ -392,7 +394,7 @@ STATIC OBJECTTYPE ManagedWorker
         Print(`Worker #${this->uid} was terminated while running ${this->GetCurrentTaskLabel()}, scheduling call to mark as failed\n`);
 
       // Schedule a FailTask call (it opens work, but this call can also be run inside of work)
-      ScheduleMicroTask(PTR FailTask(this->pvt_activetask, "Task was cancelled or removed from the database", RECORD[], FALSE));
+      ScheduleMicroTask(PTR FailTask(this->pvt_activetask, "Task was cancelled or removed from the database", RECORD[], FALSE, DEFAULT RECORD));
       this->pvt_activetask := DEFAULT OBJECT;
     }
   }
@@ -534,7 +536,7 @@ STATIC OBJECTTYPE ManagedWorker
 
     IF (status.type = "taskfailed")
     {
-      FailTask(this->activetask, status.error, RECORD ARRAY(status.trace), status.isfatal);
+      FailTask(this->activetask, status.error, RECORD ARRAY(status.trace), status.isfatal, status);
     }
     ELSE IF (status.type = "taskdone")
     {
@@ -1082,7 +1084,7 @@ STATIC OBJECTTYPE QueueMgr
       @param stacktrace Error stacktrace
       @param isfatal Whether the error is fatal
   */
-  PUBLIC MACRO RegisterTaskError(OBJECT item, STRING output, RECORD ARRAY stacktrace, BOOLEAN isfatal)
+  PUBLIC MACRO RegisterTaskError(OBJECT item, STRING output, RECORD ARRAY stacktrace, BOOLEAN isfatal, RECORD status)
   {
     STRING trace;
     IF (LENGTH(stacktrace) != 0)
@@ -1097,18 +1099,59 @@ STATIC OBJECTTYPE QueueMgr
       }
     }
 
+    /* Here's the TS version, written earlier for taskrunner.ts but we're now merging the execution paths first
+
+        const minNextRetry = new Date(Date.now() + restartdelay);
+        let nextRetry = !taskresponse.nextretry || taskresponse.nextretry.getTime() > minNextRetry.getTime() ? taskresponse.nextretry || null : minNextRetry;
+        console.error(minNextRetry, taskresponse.nextretry, nextRetry);
+
+        const curdata = await db<PlatformDB>().selectFrom("system.managedtasks").select(["failures", "iterations"]).where("id", "=", taskinfo.dbid).executeTakeFirstOrThrow();
+        if (!nextRetry) {
+          if (curdata.failures >= 6)
+            nextRetry = addDuration(new Date, "P1D");
+          else
+            nextRetry = new Date(Date.now() + (failreschedule << curdata.failures));
+        }
+
+        await finalizeTaskResult(taskinfo, {
+          nextattempt: new Date(nextRetry),
+          iterations: curdata.iterations + 1,
+          failures: curdata.failures + 1,
+          lasterrors: taskresponse.error,
+          ...await splitretval(taskresponse.result)
+        });
+
+    */
     GetPrimary()->BeginWork();
     DATETIME now := GetCurrentDatetime();
-    IF(item->taskdata.maxfailures >= 0 AND item->taskdata.failures >= item->taskdata.maxfailures)
+    RECORD curtaskinfo := SELECT failures FROM system_internal.managedtasks WHERE id = item->taskdata.id;
+
+    IF(item->taskdata.maxfailures >= 0 AND curtaskinfo.failures >= item->taskdata.maxfailures)
       isfatal := TRUE;
 
-    DATETIME plannextattempt := isfatal ? DEFAULT DATETIME : AddTimeToDate(MIN[](INTEGER[item->taskdata.failreschedule, this->maxfailreschedule]), now);
+    DATETIME nextretry;
+    IF(NOT isfatal)
+    {
+      IF(CellExists(status,'nextretry') AND TypeID(status.nextretry) = TYPEID(DATETIME) AND status.nextretry NOT IN [DEFAULT DATETIME,MAX_DATETIME])
+        nextretry := Max[](DATETIME[ status.nextretry, GetCurrentDatetime()]);
+      ELSE IF(CellExists(status,'nextretry') AND TypeID(status.nextretry) = TYPEID(STRING))
+        nextretry := Max[](DATETIME[ MakeDateFromText(status.nextretry), GetCurrentDatetime()]);
+      ELSE IF (curtaskinfo.failures >= 6)
+        nextretry := AddDaysToDate(1, GetCurrentDatetime());
+      ELSE
+        nextretry := AddTimeToDate(item->taskdata.failreschedule * (1 BITLSHIFT curtaskinfo.failures), GetCurrentDatetime());
+    }
+
+    STRING result := CellExists(status,'retval') AND RecordExists(status.retval) ? EncodeHSON(status.retval) : "";
     UPDATE system_internal.managedtasks
-           SET nextattempt := plannextattempt
+           SET nextattempt := nextretry
              , finished := isfatal ? now : finished
              , lasterrors := Left(output,4096)
              , stacktrace := trace
-             , failures := failures + 1
+             , failures := curtaskinfo.failures + 1
+             , iterations := iterations + 1
+             , shortretval :=   Length(result) > 1000 ? "long" : result
+             , longretval :=    Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
          WHERE id = item->taskdata.id;
 
     item->stage := "finished";
@@ -1205,7 +1248,7 @@ STATIC OBJECTTYPE QueueMgr
     }
     CATCH(OBJECT e)
     {
-      FailTask(item, e->what, e->trace, TRUE);
+      FailTask(item, e->what, e->trace, TRUE, DEFAULT RECORD);
     }
   }
 

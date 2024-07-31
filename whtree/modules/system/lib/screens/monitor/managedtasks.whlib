@@ -252,7 +252,10 @@ PUBLIC STATIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
     ^creationdate->value := task.creationdate;
     ^nextattempt->value := task.nextattempt;
     ^finished->value := task.finished;
+    ^failures->value := ToString(task.failures);
+    ^iterations->value := ToString(task.iterations);
     ^notbefore->value := task.notbefore = DEFAULT DATETIME ? "" : this->GetTid(".notbefore", this->contexts->user->FormatDateTime(task.notbefore, "seconds", TRUE, TRUE));
+    ^lasterrorsbox->visible := task.lasterrors != "";
     ^lasterrors->value := task.lasterrors;
     ^data->value := showdata;
     ^retval->value := task.retval;

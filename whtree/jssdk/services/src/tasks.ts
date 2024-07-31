@@ -3,29 +3,31 @@ import { loadlib } from "@webhare/harescript";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, onFinishWork, sql } from "@webhare/whdb";
 import { openBackendService } from "@webhare/services";
+import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 
 interface TaskResponseFinished {
   type: "finished";
-  result: unknown;
+  result: object | null;
 }
 
 interface TaskResponseCancelled {
   type: "cancelled";
-  result: unknown;
+  result: object | null;
   error: string;
 }
 
 interface TaskResponseFailed {
   type: "failed";
-  result: unknown;
+  result: object | null;
   error: string;
 }
 
 interface TaskResponseFailedTemporarily {
   type: "failedtemporarily";
-  result: unknown;
+  result: object | null;
   error: string;
   nextretry?: Date | null;
+  trace: StackTrace;
 }
 
 interface TaskResponseRestart {
@@ -40,13 +42,8 @@ export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskRe
 
 export type TaskFunction = (req: TaskRequest<unknown>) => Promise<TaskResponse>;
 
-export class TaskRequest<TaskDataType, TaskResultType = unknown> {
-  readonly taskdata: TaskDataType;
-  readonly taskid: number;
-
-  constructor(taskid: number, taskdata: TaskDataType) {
-    this.taskid = taskid;
-    this.taskdata = taskdata;
+export class TaskRequest<TaskDataType, TaskResultType extends object | null = object | null> {
+  constructor(readonly taskid: number, readonly numFailures: number, readonly taskdata: TaskDataType) {
   }
 
   resolveByCancellation(retval: TaskResultType, error: string): TaskResponse {
@@ -54,15 +51,15 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
   }
 
   resolveByCompletion(result?: TaskResultType): TaskResponse {
-    return { type: "finished", result };
+    return { type: "finished", result: result ?? null };
   }
 
   resolveByPermanentFailure(error: string, { result }: { result?: object } = {}): TaskResponse {
-    return { type: "failed", error, result };
+    return { type: "failed", error, result: result ?? null };
   }
 
   resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
-    return { type: "failedtemporarily", error, result, nextretry: nextRetry ?? null };
+    return { type: "failedtemporarily", error, result: result ?? null, nextretry: nextRetry ?? null, trace: getStackTrace() } satisfies TaskResponseFailedTemporarily;
   }
 
   resolveByRestart(when: Date, { newData, auxData }: { newData?: unknown; auxData?: unknown } = {}): TaskResponse {

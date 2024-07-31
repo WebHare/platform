@@ -9,6 +9,8 @@ interface PingTask {
 
 export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> {
   await beginWork();
+  if (req.numFailures === 1)
+    return req.resolveByTemporaryFailure("Failed once!");
   if (req.taskdata.ping === "CANCEL")
     return req.resolveByCancellation(req.taskdata, "ping=CANCEL");
   if (req.taskdata.ping === "ABORT")

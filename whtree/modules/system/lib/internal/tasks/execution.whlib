@@ -10,9 +10,6 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 
-CONSTANT INTEGER failreschedule := 15 * 60 * 1000;
-CONSTANT INTEGER restartdelay := 1000;
-
 OBJECT FUNCTION PrepareTask(RECORD taskinfo, BOOLEAN debug, RECORD setmeta)
 {
   OBJECT taskrunner := MakeObject(taskinfo.objectname);
@@ -100,6 +97,7 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
              , taskdata    := RecordExists(resolution.options.newdata) ? EncodeHSON(resolution.options.newdata) : managedtasks.taskdata
              , auxdata     := RecordExists(resolution.options.auxdata) ? EncodeHSONBlob(resolution.options.auxdata) : managedtasks.auxdata
              , lasterrors  := ""
+             , failures    := 0 // a succesful restart should cancel the failure/backoff timer
            WHERE id = taskinfo.dbid
                  AND NOT iscancelled; //do not restart tasks marked as cancelled (which may happen in parallel, especially in CI)
   }
@@ -135,38 +133,14 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
     IF(debug)
       Print("Task said '" || resolution.type || "'\n");
 
-    DATETIME now := GetCurrentDatetime();
-
-    IF (TypeID(resolution.nextretry) = TypeID(RECORD))
-      resolution := CELL[ ...resolution, nextretry := MAX_DATETIME ];
-
-    // At least restartdelay spacing between retries
-    DATETIME minnextretry := AddTimeToDate(restartdelay, GetCurrentDatetime());
-    DATETIME nexttry := MAX[]([ minnextretry, resolution.nextretry ]);
-
-    // No nexttry specified?
-    IF (nexttry = MAX_DATETIME)
-    {
-      // Use exponential backoff: 15m, 30m, 60m, 2u, 4u, 8u. After that, 1 day between attempts
-      INTEGER currentiteration :=
-          SELECT AS INTEGER iterations
-            FROM system_internal.managedtasks
-           WHERE id = taskinfo.dbid;
-
-      IF (currentiteration >= 6)
-        nexttry := AddDaysToDate(1, GetCurrentDatetime());
-      ELSE
-        nexttry := AddTimeToDate(failreschedule * (1 BITLSHIFT currentiteration), GetCurrentDatetime());
-    }
-
-    STRING result := RecordExists(resolution.result) ? EncodeHSON(resolution.result) : "";
-    UPDATE system_internal.managedtasks
-       SET nextattempt :=   nexttry
-         , iterations :=    iterations + 1
-         , lasterrors :=    resolution.error
-         , shortretval :=   Length(result) > 1000 ? "long" : result
-         , longretval :=    Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
-     WHERE id = taskinfo.dbid;
+    trans->RollbackWork();
+    RETURN CELL[ type := "taskfailed"
+               , error := resolution.error
+               , nextretry := resolution.nextretry
+               , result := resolution.result
+               , isfatal := FALSE
+               , trace := resolution.trace
+               ];
   }
   ELSE
   {

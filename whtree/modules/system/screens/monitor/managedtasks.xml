@@ -102,17 +102,27 @@
     <body spacers="none">
       <split type="vertical">
         <part spacers="all">
-          <text name="id" />
-          <text name="tasktype" />
-          <datetime name="creationdate" type="datetime" precision="seconds" readonly="true" storeutc="true" />
-          <line>
-            <datetime name="nextattempt" type="datetime" precision="seconds" readonly="true" storeutc="true" />
-            <text name="notbefore" title="" />
-          </line>
-          <datetime name="finished" type="datetime" precision="seconds" readonly="true" storeutc="true" />
-          <text name="timeout" />
-          <textedit name="manualcall" width="1pr" enabled="false" />
-          <textarea name="lasterrors" height="1pr" enabled="false" />
+          <grid>
+            <cell width="1pr">
+              <text name="id" />
+              <text name="tasktype" />
+              <datetime name="creationdate" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+              <line>
+                <datetime name="nextattempt" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+                <text name="notbefore" title="" />
+              </line>
+              <datetime name="finished" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+              <text name="timeout" />
+              <textedit name="manualcall" width="1pr" enabled="false" />
+            </cell>
+            <cell width="1pr">
+              <text name="iterations" />
+              <text name="failures" />
+            </cell>
+          </grid>
+          <box name="lasterrorsbox" tid=".lasterrors" checkbox="false" hr="false" layout="left">
+            <textarea name="lasterrors" height="1pr" enabled="false" title=""/>
+          </box>
         </part>
         <part>
           <tabs height="1pr">
