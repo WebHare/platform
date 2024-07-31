@@ -7,24 +7,24 @@ import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 
 interface TaskResponseFinished {
   type: "finished";
-  result: unknown;
+  result: object | null;
 }
 
 interface TaskResponseCancelled {
   type: "cancelled";
-  result: unknown;
+  result: object | null;
   error: string;
 }
 
 interface TaskResponseFailed {
   type: "failed";
-  result: unknown;
+  result: object | null;
   error: string;
 }
 
 interface TaskResponseFailedTemporarily {
   type: "failedtemporarily";
-  result: unknown;
+  result: object | null;
   error: string;
   nextretry?: Date | null;
   trace: StackTrace;
@@ -59,7 +59,7 @@ export class TaskRequest<TaskDataType, TaskResultType extends object | null = ob
   }
 
   resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
-    return { type: "failedtemporarily", error, result: result ?? null, nextretry: nextRetry ?? null, trace: getStackTrace() };
+    return { type: "failedtemporarily", error, result: result ?? null, nextretry: nextRetry ?? null, trace: getStackTrace() } satisfies TaskResponseFailedTemporarily;
   }
 
   resolveByRestart(when: Date, { newData, auxData }: { newData?: unknown; auxData?: unknown } = {}): TaskResponse {

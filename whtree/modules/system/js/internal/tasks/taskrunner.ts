@@ -56,8 +56,9 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
     const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.failures, taskinfo.data);
     const taskresponse = await target(req) as TaskResponse;
 
-    if (typeof taskresponse.result !== "object")
-      throw new Error(`Task response result is not an object|null, but ${typeof taskresponse.result}`);
+    if (typeof taskresponse.result !== "object") {
+      throw new Error(`Task response result is not an object|null, but ${typeof (taskresponse as { result: unknown }).result}`);
+    }
 
     switch (taskresponse.type) {
       case "finished":
