@@ -290,7 +290,7 @@ MACRO TestMarkAsTemporaryFailure(STRING engine)
         ? AddDaysToDate(exp_interval_mins[itr] / (24 * 60), taskstart)
         : AddTimeToDate(exp_interval_mins[itr] * 60000, taskstart);
 
-    TestEQ(TRUE, descr.nextattempt >= expected);
+    TestAssert(descr.nextattempt >= expected AND descr.nextattempt <  AddTimeToDate(60000,expected), `Iteration ${itr} expected ${EncodeJSON(expected)} got ${EncodeJSON(descr.nextattempt)}`);
 
     testfw->BeginWork();
     CancelManagedTasks([ taskid ]);
