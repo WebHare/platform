@@ -127,9 +127,14 @@ export interface PSPDriver<PayMetaType = unknown> {
   connect(): Promise<PSPSetup | { error: string }>;
   /** Precheck as much as we can before actually starting the payment. This is usally part of form validation before the actual payment starts */
   precheckPayment?(request: PSPPrecheckRequest): Promise<PSPPrecheckResult>;
-  /** Starts the payment. If succesful we generally return a redirect to an external payment portal */
+  /** Starts the payment. If succesful we generally return a redirect to an external payment portal
+   * @returns Metadata to store for later status checks
+  */
   startPayment(request: PSPRequest): Promise<PSPPayResult<PayMetaType>>;
-  /** Process the user returning from the payment portal */
+  /** Process the user returning from the payment portal
+   * @param paymeta - Data cached after sending a payment request to the API to be able to request the status later (eg a transaction id)
+   * @param req - Current request landing on the return page
+  */
   processReturn(paymeta: PayMetaType, req: PSPWebRequest): Promise<PSPCheckResult>;
   /** Process a push/notification directly from the payment portal */
   processPush?(paymeta: PayMetaType, req: PSPWebRequest): Promise<PSPPushResult>;

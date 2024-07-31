@@ -9,6 +9,7 @@ interface TestDriverConfig {
 
 interface TestDriverPayMeta {
   paymentSession: string;
+  orig: { creationDate: Date };
 }
 
 export class TestDriver implements PSPDriver<TestDriverPayMeta> {
@@ -60,7 +61,7 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
 
     return {
       navigateTo: { type: "redirect", url: "/.wrd/endpoints/psp/test-payment.shtml?s=" + paymentSession },
-      paymentMetadata: { paymentSession }
+      paymentMetadata: { paymentSession, orig: { creationDate: new Date } }
     };
   }
 
@@ -79,7 +80,12 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
     return {};
   }
 
-  translateStatus(sessinfo: Record<string, unknown>): PSPCheckResult {
+  #translateStatus(paymeta: TestDriverPayMeta, sessinfo: Record<string, unknown>): PSPCheckResult {
+    if (!paymeta.orig.creationDate.getTime)
+      throw new Error("Creation date not properly stored as time");
+    if (paymeta.orig.creationDate.getTime() < (Date.now() - 86400000))
+      throw new Error("Creation date more than 24 hours ago?!");
+
     if (sessinfo.approval === "yes")
       return { setStatus: "approved", cardIssuer: (sessinfo.cardissuer || "") as string, cardNumber: (sessinfo.cardnumber || "") as string };
     if (sessinfo.approval === "no")
@@ -96,7 +102,7 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
     if (!sessinfo)
       throw new Error("Session has expired");
 
-    return this.translateStatus(sessinfo);
+    return this.#translateStatus(paymeta, sessinfo);
   }
 
   async processPush(paymeta: TestDriverPayMeta, req: PSPWebRequest): Promise<PSPPushResult> {
@@ -113,7 +119,7 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
     }
 
     return {
-      ...this.translateStatus(sessinfo),
+      ...this.#translateStatus(paymeta, sessinfo),
       response: new Response("It is done", { headers: { "content-type": "text/plain" } })
     };
   }
@@ -123,6 +129,6 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
     if (!sessinfo || (sessinfo.expires && sessinfo.expires < new Date))
       return { setStatus: "failed" };
 
-    return this.translateStatus(sessinfo);
+    return this.#translateStatus(paymeta, sessinfo);
   }
 }
