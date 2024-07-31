@@ -55,11 +55,30 @@ function getLanguageFile(module: string, langCode: string): CompiledLanguageFile
   return compiled;
 }
 
-export function getTid(tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
-  return getTidForLanguage(getTidLanguage(), tid, p1, p2, p3, p4);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for generics
+export type GetTidRenderFunc<Result extends object = object> = ((tag: keyof HTMLElementTagNameMap, props: { children?: any[]; href?: string }, ...childNodes: any[]) => Result);
+export type GetTidOptions = { langCode?: string; render?: GetTidRenderFunc | "fragment" };
+
+type GetTidArgumentTypes = [GetTidOptions?] | [TidParam[], GetTidOptions?] | [TidParam?, TidParam?, TidParam?, TidParam?];
+
+function toHTMLNode(tag: string, props: { href?: string; children?: Array<string | Node> }): Node {
+  const node = document.createElement(tag);
+  if (props.href)
+    node.setAttribute("href", props.href);
+  if (props.children)
+    node.append(...props.children);
+  return node;
 }
 
-export function getTidForLanguage(langcode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
+function wrapInFragment(children: Array<string | Node>): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  fragment.append(...children);
+  return fragment;
+}
+
+
+function getTidInternal(tid: string, params: TidParam[], options?: GetTidOptions): string | Array<string | object> | DocumentFragment {
   if (tid === "") {
     return "";
   }
@@ -70,14 +89,42 @@ export function getTidForLanguage(langcode: string, tid: string, p1: TidParam = 
     return decodeString(tid.substring(2), "html");
   }
 
-  return calcTIDForLanguage(langcode.toLowerCase(), tid, [p1, p2, p3, p4], false);
+  const langCode = options?.langCode?.toLowerCase() || getTidLanguage();
+  if (options?.render) {
+    if (options.render === "fragment") {
+      const nodes = calcTIDForLanguage(langCode, tid, params, true, toHTMLNode) as Array<string | Node>;
+      return wrapInFragment(nodes);
+    }
+    return calcTIDForLanguage(langCode, tid, params, true, options.render);
+  } else
+    return calcTIDForLanguage(langCode, tid, params, false, null).join("");
 }
 
-export function getHTMLTid(tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
-  return getHTMLTidForLanguage(getTidLanguage(), tid, p1, p2, p3, p4);
+export function getTid(tid: string, options?: GetTidOptions & { render?: undefined }): string;
+export function getTid<VNode extends object>(tid: string, options?: GetTidOptions & { render?: GetTidRenderFunc<VNode> }): string | Array<string | VNode>;
+export function getTid(tid: string, options?: GetTidOptions & { render?: "fragment" }): DocumentFragment;
+export function getTid(tid: string, param: TidParam[], options?: GetTidOptions & { render?: undefined }): string;
+export function getTid<VNode extends object>(tid: string, param: TidParam[], options?: GetTidOptions & { render?: GetTidRenderFunc<VNode> }): string | Array<string | VNode>;
+export function getTid(tid: string, param: TidParam[], options?: GetTidOptions & { render?: "fragment" }): DocumentFragment;
+export function getTid(tid: string, p1?: TidParam, p2?: TidParam, p3?: TidParam, p4?: TidParam): string;
+
+export function getTid(tid: string, ...p: GetTidArgumentTypes): string | Array<string | object> | DocumentFragment {
+  if (Array.isArray(p[0])) // case: param: TidParam[], options?: GetTidOptions)
+    return getTidInternal(tid, p[0], p[1] as GetTidOptions);
+  if (p[0] && typeof p[0] === "object") // case: options: GetTidOptions
+    return getTidInternal(tid, [], p[0]);
+  return getTidInternal(tid, p as Array<TidParam | undefined>, {});
 }
 
-export function getHTMLTidForLanguage(langcode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
+export function getTidForLanguage(langCode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
+  return getTidInternal(tid, [p1, p2, p3, p4], { langCode });
+}
+
+export function getHTMLTid(tid: string, ...params: TidParam[]): string {
+  return getHTMLTidForLanguage(getTidLanguage(), tid, ...params);
+}
+
+export function getHTMLTidForLanguage(langCode: string, tid: string, ...params: TidParam[]): string {
   if (tid === "") {
     return "";
   }
@@ -88,7 +135,7 @@ export function getHTMLTidForLanguage(langcode: string, tid: string, p1: TidPara
     return tid.substring(2);
   }
 
-  return calcTIDForLanguage(langcode.toLowerCase(), tid, [p1, p2, p3, p4], true);
+  return calcTIDForLanguage(langCode, tid, params, true, null).join("");
 }
 
 export function getTIDListForLanguage(langcode: string, gid: string) {
@@ -128,15 +175,18 @@ export function getTIDListForLanguage(langcode: string, gid: string) {
 
 function cannotFind(tid: string) {
   if (debugFlags.sut)
-    return tid.substring(tid.lastIndexOf("."));
+    return [tid.substring(tid.lastIndexOf("."))];
 
-  return `(cannot find text: ${tid})`;
+  return [`(cannot find text: ${tid})`];
 }
+function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: null): string[];
+function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: GetTidRenderFunc): Array<string | object>;
 
-function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<string | number | null>, rich: boolean) {
+
+function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: GetTidRenderFunc | null): Array<string | object> {
   tid = getCanonicalTid(tid.toLowerCase());
   if (tid === "tollium:tilde.locale.datetimestrings") {
-    return getLanguageDatetimeStrings(langcode);
+    return [getLanguageDatetimeStrings(langcode)];
   }
 
   // convert null to "", numbers to strings
@@ -146,7 +196,7 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<stri
   if (modsep === -1) {
     if (isLive || debugFlags.gtd)
       console.warn(`Missing module name in call for tid '${tid}'`);
-    return `(missing module name in tid: ${tid})`;
+    return [`(missing module name in tid: ${tid})`];
   }
 
   const module = tid.substring(0, modsep);
@@ -155,7 +205,7 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<stri
 
   if (langcode === "debug") {
     const debugtid = `{${[tid, ...params].join("|")}}`;
-    return rich ? encodeString(debugtid, "html") : debugtid;
+    return [rich ? encodeString(debugtid, "html") : debugtid];
   }
 
   const compiled = getLanguageFile(module, langcode);
@@ -166,13 +216,13 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: Array<stri
     if (!fallbackMatch && (!isLive || debugFlags.gtd)) {
       console.warn(`Cannot find text ${tid} for language ${langcode}, also tried fallback language '${compiled.fallbackLanguage}'`);
     }
-    return fallbackMatch ? executeCompiledTidText(fallbackMatch, params, rich) : cannotFind(tid);
+    return fallbackMatch ? executeCompiledTidText(fallbackMatch, params, rich, render) : cannotFind(tid);
   }
 
   if (!match && (!isLive || debugFlags.gtd)) {
     console.warn(`Cannot find text ${tid} for language ${langcode}, no fallback language`);
   }
-  return match ? executeCompiledTidText(match, params, rich) : cannotFind(tid);
+  return match ? executeCompiledTidText(match, params, rich, render) : cannotFind(tid);
 }
 
 function getCanonicalTid(tid: string) {
@@ -185,46 +235,56 @@ function getCanonicalTid(tid: string) {
   return tid;
 }
 
-function executeCompiledTidText(text: string | LanguagePart[], params: string[], rich: boolean) {
-  if (typeof text === "string") {
-    return rich ? encodeString(text, "html") : text;
-  }
+function renderString(tok: string, rich: boolean, render: GetTidRenderFunc | null) {
+  return rich ?
+    render ?
+      tok.split(/(\n)/).map(part => part !== "\n" ? part : render("br", {})).filter(_ => _) :
+      [encodeString(tok, "html")] :
+    [tok];
+}
 
-  let output = "";
+function executeCompiledTidText(text: string | LanguagePart[], params: string[], rich: boolean, render: GetTidRenderFunc | null): Array<object | string> {
+  if (typeof text === "string")
+    return renderString(text, rich, render);
+
+  const parts = new Array<object | string>;
   for (const tok of text) {
     if (typeof tok === "string") {
-      output += rich ? encodeString(tok, "html") : tok;
+      parts.push(...renderString(tok, rich, render));
     } else if (typeof tok === "number") {
       if (tok >= 1) {
         const get_param = params[tok - 1];
         if (get_param) {
-          output += rich ? encodeString(get_param, "html") : get_param;
+          parts.push(...renderString(get_param, rich, render));
         }
       }
     } else if (tok.t === "tag") {
-      const sub = executeCompiledTidText(tok.subs, params, rich);
-      output += rich ? `<${tok.tag}>${sub}</${tok.tag}>` : sub;
+      const sub = executeCompiledTidText(tok.subs, params, rich, render);
+      if (rich && render)
+        parts.push(render(tok.tag as keyof HTMLElementTagNameMap, { children: sub }));
+      else
+        parts.push(rich ? `<${tok.tag}>${sub}</${tok.tag}>` : sub);
     } else if (tok.t === "ifparam") {
       const get_param = params[tok.p - 1] || "";
-      output += executeCompiledTidText(get_param.toUpperCase() === tok.value.toUpperCase() ? tok.subs : tok.subselse, params, rich);
+      parts.push(...executeCompiledTidText(get_param.toUpperCase() === tok.value.toUpperCase() ? tok.subs : tok.subselse, params, rich, render));
     } else if (tok.t === "a") {
-      const sub = executeCompiledTidText(tok.subs, params, rich);
+      const sub = executeCompiledTidText(tok.subs, params, rich, render);
       if (rich) {
         let link = tok.link;
         if (tok.linkparam > 0 && tok.linkparam <= params.length) {
           link = params[tok.linkparam - 1] || link;
         }
         if (link) {
-          output += `<a href="${encodeString(link, "attribute")}">${sub}</a>`;
+          parts.push(render ? render("a", { href: link, children: sub }) : `<a href="${encodeString(link, "attribute")}">${sub}</a>`);
         } else {
-          output += sub;
+          parts.push(...sub);
         }
       } else {
-        output += sub;
+        parts.push(sub);
       }
     }
   }
-  return output;
+  return parts;
 }
 
 function flattenRecursiveLanguageTexts(text: RecursiveLanguageTexts, pathsofar: string, result: Map<string, LanguageText>): void {

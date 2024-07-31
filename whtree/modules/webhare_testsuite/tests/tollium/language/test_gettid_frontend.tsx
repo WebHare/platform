@@ -1,9 +1,9 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
 import getTid, { registerTexts } from "@mod-tollium/js/gettid";
 import * as domdebug from "dompack/src/debug";
+import { jsxcreate } from "@webhare/dompack";
+import type { RecursiveLanguageTexts } from "@webhare/gettid/src/types";
+import * as dompack from "@webhare/dompack";
 
 //To enable gettid debugging, enable 'gtd' in the debug flags
 
@@ -57,8 +57,7 @@ test.registerTests([
     // NOTE: getTid expects all language texts to be well-formed as they're generated automatically from the language files and
     //       it doesn't check for unexpected end-of-string of unbalanced {i}'s, so we're not going to test that
 
-    const substitute_texts =
-    {
+    const substitute_texts: RecursiveLanguageTexts = {
       "param": {
         "enumerate": [1, ' ', 2, ' ', 3, ' ', 4],
         "order": [3, ' ', 1, ' ', 4, ' ', 2]
@@ -66,7 +65,7 @@ test.registerTests([
       "ifparam": {
         "simple_true": [{ t: "ifparam", p: 1, value: "aap", subs: [2], subselse: [] }],
         "simple_false": [{ t: "ifparam", p: 1, value: "noot", subs: [2], subselse: [] }],
-        "nested": [{ t: "ifparam", p: 1, value: "aap", subs: [{ t: "ifparam", p: 2, value: "noot", subs: [3] }] }]
+        "nested": [{ t: "ifparam", p: 1, value: "aap", subs: [{ t: "ifparam", p: 2, value: "noot", subs: [3], subselse: [] }], subselse: [] }]
       },
       "else": {
         "simple_true": [{ t: "ifparam", p: 1, value: "aap", subs: [2], subselse: [3] }],
@@ -153,11 +152,10 @@ test.registerTests([
   function () {
     getTid.tidLanguage = "nl";
 
-    const html_texts =
-    {
+    const html_texts: RecursiveLanguageTexts = {
       "tags": [{ t: "tag", tag: "b", subs: ["Vet!"] }],
       "encoding": `Codeer <tag> en &lt;`,
-      "params": [{ t: "a", link: "http://b-lex.nl/?quot=&quot;&amp;aap=&lt;noot&gt;", subs: [1] }]
+      "params": [{ t: "a", link: "http://b-lex.nl/?quot=&quot;&amp;aap=&lt;noot&gt;", subs: [1], linkparam: 0, target: "_blank" }]
     };
 
     registerTexts("html", "nl", html_texts);
@@ -170,6 +168,13 @@ test.registerTests([
     test.eq("Codeer <tag> en &lt;", getTid("html:encoding"));
     test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, getTid.html("html:params", "<hr/>\n"));
     test.eq("<hr/>\n", getTid("html:params", "<hr/>\n"));
+
+    console.log(`render with jsxcreate`, getTid("html:params", ["<hr/>\n"], { render: jsxcreate }));
+    console.log(`render with fragment`, getTid("html:params", ["<hr/>\n"], { render: "fragment" }));
+
+
+    test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, (<div>{getTid("html:params", ["<hr/>\n"], { render: jsxcreate })}</div>).innerHTML);
+    test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, (<div>{getTid("html:params", ["<hr/>\n"], { render: "fragment" })}</div>).innerHTML);
   },
 
   "Generated tids",

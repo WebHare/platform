@@ -1,4 +1,4 @@
-export type TidParam = string | number | null;
+export type TidParam = string | number | null | undefined;
 
 export interface Tag {
   t: "tag";
