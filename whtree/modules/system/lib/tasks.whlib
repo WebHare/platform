@@ -102,7 +102,7 @@ PUBLIC OBJECTTYPE ManagedTaskBase
           [ nextretry :=   MAX_DATETIME
           ], options);
 
-    this->pvt_resolution := CELL[ type := "failedtemporarily", result := retval, error, options.nextretry ];
+    this->pvt_resolution := CELL[ type := "failedtemporarily", result := retval, error, options.nextretry, trace := GetStackTrace() ];
   }
 
   /** Report that this task has definitely failed. It will not be requeued and excessive failed tasks will generate an error in monitoring

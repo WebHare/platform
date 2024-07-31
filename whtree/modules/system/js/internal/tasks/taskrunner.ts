@@ -3,7 +3,7 @@ import { loadJSFunction } from "../resourcetools";
 import { System_Managedtasks, PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import bridge from "../whmanager/bridge";
-import { addDuration, pick } from "@webhare/std";
+import { pick } from "@webhare/std";
 import { parseTrace } from "@webhare/js-api-tools";
 import { IPCMarshallableData, encodeHSON } from "../whmanager/hsmarshalling";
 
@@ -13,10 +13,8 @@ interface TaskInfo {
   taskrunner: string;
   dbid: number;
   data: unknown;
+  failures: number;
 }
-
-const failreschedule = 15 * 60 * 1000;
-const restartdelay = 1000;
 
 
 async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Managedtasks>, { skipCancelled }: { skipCancelled?: boolean } = {}) {
@@ -55,7 +53,7 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
 
   try {
     const target = await loadJSFunction<TaskFunction>(taskinfo.taskrunner);
-    const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.data);
+    const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.failures, taskinfo.data);
     const taskresponse = await target(req) as TaskResponse;
 
     switch (taskresponse.type) {
@@ -71,23 +69,15 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
       }
 
       case "failedtemporarily": {
-        const minNextRetry = new Date(Date.now() + restartdelay);
-        let nextRetry = !taskresponse.nextretry || taskresponse.nextretry.getTime() > minNextRetry.getTime() ? taskresponse.nextretry || null : minNextRetry;
-
-        const iterations = (await db<PlatformDB>().selectFrom("system.managedtasks").select("iterations").where("id", "=", taskinfo.dbid).executeTakeFirst())?.iterations || 0;
-        if (!nextRetry) {
-          if (iterations >= 6)
-            nextRetry = addDuration(new Date, "P1D");
-          else
-            nextRetry = new Date(Date.now() + (failreschedule << iterations));
-        }
-
-        await finalizeTaskResult(taskinfo, {
-          nextattempt: new Date(nextRetry),
-          iterations: iterations + 1,
-          lasterrors: taskresponse.error,
-          ...await splitretval(taskresponse.result)
-        });
+        await rollbackWork();
+        return {
+          type: "taskfailed",
+          error: taskresponse.error,
+          nextretry: taskresponse.nextretry,
+          result: taskresponse.result,
+          isfatal: false,
+          trace: taskresponse.trace
+        };
       } break;
 
       case "restart": {
@@ -100,6 +90,7 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
         await finalizeTaskResult(taskinfo, {
           nextattempt: nextRetry,
           iterations: iterations + 1,
+          failures: 0, //a succesful iteration resets the failure count
           ...(taskresponse.newData === undefined ? {} : { taskdata: encodeHSON(taskresponse.newData as IPCMarshallableData) }),
           ...(taskresponse.auxData === undefined ? {} : { auxdata: WebHareBlob.from(encodeHSON(taskresponse.auxData as IPCMarshallableData)) }),
           lasterrors: "",

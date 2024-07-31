@@ -34,7 +34,7 @@
     <managedtask type="ping" failreschedule="4000" objectname="lib/internal/tasks.whlib#pingtask" />
     <managedtask type="ping_js" failreschedule="4000" taskrunner="tests/system/queues/data/testtasks.ts#pingJS" />
     <managedtask type="pingretry2" maxfailures="1" objectname="lib/internal/tasks.whlib#pingtask" />
-    <managedtask type="pingretry2_js" maxfailures="1" taskrunner="tests/system/queues/data/testtasks.ts#pingJS" />
+    <managedtask type="pingretry2_js" maxfailures="2" taskrunner="tests/system/queues/data/testtasks.ts#pingJS" />
     <managedtask type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask" />
     <managedtask type="cancellable_js" taskrunner="tests/system/queues/data/testtasks.ts#cancellabletaskJS" />
     <managedtask type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask" />

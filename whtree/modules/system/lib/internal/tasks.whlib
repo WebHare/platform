@@ -156,6 +156,7 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
   {
     INSERT CELL data := taskdata.taskdata
               , options := taskdata.options
+              , failures := 0 //ephemeral tasks do not support tempfailures (and will be phased out completely anyway)
            INTO executeinfo;
   }
   ELSE
@@ -163,7 +164,8 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
     RECORD taskrec :=
         SELECT COLUMN taskdata
              , auxdata
-          FROM system.managedtasks
+             , failures
+          FROM system_internal.managedtasks
          WHERE id = VAR taskdata.id;
 
     IF (NOT RecordExists(taskrec))
@@ -176,6 +178,7 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
     INSERT CELL dbid := taskdata.id
               , data := data
               , options := DEFAULT RECORD
+              , failures := taskrec.failures
            INTO executeinfo;
   }
   RETURN executeinfo;

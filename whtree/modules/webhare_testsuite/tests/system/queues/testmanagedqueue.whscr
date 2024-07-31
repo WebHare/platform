@@ -7,6 +7,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
@@ -92,9 +93,34 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
   RetryPendingManagedTasksByIds([taskid]);
   testfw->CommitWork();
 
+  iF(javascript)
+  {
+    //wait for task to report 'failed once'
+    WHILE(TRUE)
+    {
+      TRY
+      {
+        RetrieveManagedTaskResult(taskid, MAX_DATETIME);
+      }
+      CATCH(OBJECT e)
+      {
+        IF(e->what LIKE "*Failed once*")
+          BREAK;
+        Sleep(50);
+      }
+    }
+
+    //restart immediately
+    testfw->BeginWork();
+    RetryPendingManagedTasksByIds([taskid]);
+    testfw->CommitWork();
+  }
+
+  // wait for the final failure
   TestThrowsLike(javascript ? "*Task attempted to abort*" : "*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME, [accepttempfailure := TRUE]));
+
   taskinfo := DescribeManagedTask(taskid);
-  TestEq(2, taskinfo.failures);
+  TestEq(javascript ? 3 : 2, taskinfo.failures);
   TestEq(TRUE, taskinfo.finished < GetCurrentDatetime(), "task should now be ignored for further requeueing");
 
   TestEq(0, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := TRUE ])));
@@ -249,8 +275,8 @@ MACRO TestMarkAsTemporaryFailure(STRING engine)
 
     IF (itr != 0)
     {
-      UPDATE system.managedtasks
-         SET iterations := itr
+      UPDATE system_internal.managedtasks
+         SET failures := itr
        WHERE id = taskid;
     }
 
@@ -262,9 +288,9 @@ MACRO TestMarkAsTemporaryFailure(STRING engine)
     INTEGER ARRAY exp_interval_mins := [ 15, 30, 60, 2 * 60, 4 * 60, 8 * 60, 24 * 60, 24 * 60 ];
     DATETIME expected := exp_interval_mins[itr] >= 24 * 60
         ? AddDaysToDate(exp_interval_mins[itr] / (24 * 60), taskstart)
-        : AddTimeToDate(exp_interval_mins[itr], taskstart);
+        : AddTimeToDate(exp_interval_mins[itr] * 60000, taskstart);
 
-    TestEQ(TRUE, descr.nextattempt >= expected);
+    TestAssert(descr.nextattempt >= expected AND descr.nextattempt <  AddTimeToDate(60000,expected), `Iteration ${itr} expected ${EncodeJSON(expected)} got ${EncodeJSON(descr.nextattempt)}`);
 
     testfw->BeginWork();
     CancelManagedTasks([ taskid ]);
@@ -395,7 +421,7 @@ ASYNC MACRO TestWaitableAction_JS()
   AWAIT TestWaitableAction(TRUE);
 }
 
-RunTestframework([ PTR TestEphemeralTasks
+ RunTestframework([ PTR TestEphemeralTasks
                  , PTR TestFailingTask("hs")
                  , PTR TestFailingTask("js")
                  , PTR TestWaitableAction_HS
