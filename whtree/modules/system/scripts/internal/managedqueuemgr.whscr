@@ -1132,11 +1132,11 @@ STATIC OBJECTTYPE QueueMgr
     DATETIME nextretry;
     IF(NOT isfatal)
     {
-      IF(CellExists(status,'nextretry') AND TypeID(status.nextretry) = TYPEID(DATETIME))
+      IF(CellExists(status,'nextretry') AND TypeID(status.nextretry) = TYPEID(DATETIME) AND status.nextretry NOT IN [DEFAULT DATETIME,MAX_DATETIME])
         nextretry := Max[](DATETIME[ status.nextretry, GetCurrentDatetime()]);
       ELSE IF(CellExists(status,'nextretry') AND TypeID(status.nextretry) = TYPEID(STRING))
         nextretry := Max[](DATETIME[ MakeDateFromText(status.nextretry), GetCurrentDatetime()]);
-      ELSE IF (curtaskinfo.failures >= 4)
+      ELSE IF (curtaskinfo.failures >= 6)
         nextretry := AddDaysToDate(1, GetCurrentDatetime());
       ELSE
         nextretry := AddTimeToDate(item->taskdata.failreschedule * (1 BITLSHIFT curtaskinfo.failures), GetCurrentDatetime());
