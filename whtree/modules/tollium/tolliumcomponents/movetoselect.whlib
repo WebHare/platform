@@ -12,6 +12,7 @@ PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
   FUNCTION PTR __onsourcefilter;
   PUBLIC PROPERTY columns(^sourcelist->columns, SetColumns);
   PUBLIC PROPERTY onsourcefilter(__onsourcefilter, SetOnSourceFilter);
+  PUBLIC PROPERTY sortcolumn(^sourcelist->sortcolumn, SetSortColumn);
 
   MACRO NEW()
   {
@@ -63,6 +64,12 @@ PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
     ^sourcelist->columns := cols;
     ^selectionlist->columns := cols;
     this->rows := RECORD[];
+  }
+
+  MACRO SetSortColumn(STRING colname)
+  {
+    ^sourcelist->sortcolumn := colname;
+    ^selectionlist->sortcolumn := colname;
   }
 
   RECORD ARRAY FUNCTION GetSourceRows()
