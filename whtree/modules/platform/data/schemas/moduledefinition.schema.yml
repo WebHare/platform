@@ -117,6 +117,9 @@ definitions:
           controllerFactory:
             description: "Function to create a controller for this service which will create the clients. Must satisfy ServiceControllerFactoryFunction"
             type: string
+          coreService:
+            description: "Core services start up during WebHare bootup (and may find database and other configuration to still be incomplete!)"
+            type: boolean
 
   Connect:
     type: object

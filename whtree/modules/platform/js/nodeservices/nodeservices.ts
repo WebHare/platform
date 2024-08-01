@@ -14,6 +14,7 @@ const activeServices: Record<string, WebHareService> = {};
 
 program.name("nodeservices").
   option("--debug", "Enable debugging").
+  option("--core", "Run core services").
   argument("[service]", "Service to debug").
   parse(process.argv);
 
@@ -75,17 +76,23 @@ async function main() {
     if (!service)
       throw new Error(`Unknown service ${service}`);
 
+    const servicename = service.coreService ? "platform:coreservices" : "platform:nodeservices";
+
     //TODO make this optional?
     //Suppress the service in nodeservices
-    const nodeservices = await openBackendService("platform:nodeservices");
+    const nodeservices = await openBackendService(servicename);
     await nodeservices.suppress(service.name);
     launchService(service);
   } else {
-    runBackendService("platform:nodeservices", client => new Client, { dropListenerReference: true });
+    const servicename = program.opts().core ? "platform:coreservices" : "platform:nodeservices";
+    runBackendService(servicename, client => new Client, { dropListenerReference: true });
+
     for (const service of backendservices) {
-      const srv = await launchService(service);
-      if (srv)
-        activeServices[service.name] = srv;
+      if (service.coreService === Boolean(program.opts().core)) {
+        const srv = await launchService(service);
+        if (srv)
+          activeServices[service.name] = srv;
+      }
     }
   }
 }

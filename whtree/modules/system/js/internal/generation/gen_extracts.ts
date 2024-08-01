@@ -24,6 +24,7 @@ export interface AssetPack {
 
 export interface BackendServiceDescriptor {
   name: string;
+  coreService: boolean;
   clientFactory: string;
   controllerFactory: string;
 }
@@ -186,6 +187,7 @@ export function generateServices(context: GenerateContext): string {
     for (const [servicename, servicedef] of Object.entries(mod.modYml?.backendServices ?? [])) {
       retval.backendServices.push({
         name: `${mod.name}:${servicename}`,
+        coreService: servicedef.coreService || false,
         clientFactory: resolveResource(mod.resourceBase, servicedef.clientFactory || ""),
         controllerFactory: resolveResource(mod.resourceBase, servicedef.controllerFactory || "")
       });
@@ -201,6 +203,7 @@ export function generateServices(context: GenerateContext): string {
 
       retval.backendServices.push({
         name: `${mod.name}:${getAttr(backendservice, "name")}`,
+        coreService: false,
         clientFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "clientfactory")),
         controllerFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "controllerfactory"))
       });

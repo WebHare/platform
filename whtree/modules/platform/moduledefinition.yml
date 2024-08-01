@@ -10,6 +10,7 @@ managedServices:
     script: js/nodeservices/nodeservices.ts
     run: always
 
+
 backendServices:
   openapiservice:
     clientFactory: "mod::system/js/internal/openapi/openapiservice.ts#getServiceInstance"
@@ -21,6 +22,7 @@ backendServices:
     clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
   configuration:
     controllerFactory: js/configure/configservice.ts#createConfigManager
+    coreService: true
 
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices

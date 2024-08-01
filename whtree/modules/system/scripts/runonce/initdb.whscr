@@ -295,7 +295,7 @@ IF(GetEnvironmentVariable("WEBHARE_CI") != "")
     WriteRegistryKey("system.services.smtp.mailfrom", "defaultmailfrom@beta.webhare.net");
 }
 
-UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation!
+UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation! and a CreateAppliedPromise "siteprofilerefs" through UpdateSiteMetadata
 
 UpdateGeneratedFiles(["config"]);
 

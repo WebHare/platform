@@ -54,7 +54,14 @@ const defaultServices: Record<string, ServiceDefinition> = {
     startIn: Stage.StartupScript,
     stopIn: Stage.ShuttingDown, //it'll otherwise quickly cause other scripts to crash with a lost connection
     run: "always"
-  }
+  },
+  /// Handle core node services (only platform may register these)
+  "platform:coreservices": {
+    cmd: getRawCommand("mod::platform/js/nodeservices/nodeservices.ts", undefined, ["--core"]),
+    startIn: Stage.StartupScript,
+    stopIn: Stage.ShuttingDown,
+    run: "always"
+  },
 };
 
 export function getSpawnSettings(serviceManagerId: string, service: ServiceDefinition) {
@@ -75,12 +82,16 @@ export function getSpawnSettings(serviceManagerId: string, service: ServiceDefin
   };
 }
 
-function getServiceCommand(mod: ModDefYML, servicedef: ManagedServices[number]): string[] {
-  if (servicedef?.script.endsWith(".sh"))
-    return [toFSPath(resolveResource(mod.baseResourcePath, servicedef.script)), ...(servicedef?.arguments ?? [])];
+function getRawCommand(resourcePath: string, engine: "native" | "wasm" | undefined, args: string[]) {
+  if (resourcePath.endsWith(".sh"))
+    return [toFSPath(resourcePath), ...args];
 
-  const runner = servicedef?.script.endsWith(".whscr") && servicedef?.engine === "wasm" ? "runwasm" : "run";
-  return ["wh", runner, resolveResource(mod.baseResourcePath, servicedef.script), ...(servicedef?.arguments ?? [])];
+  const runner = resourcePath.endsWith(".whscr") && engine === "wasm" ? "runwasm" : "run";
+  return ["wh", runner, resourcePath, ...args];
+}
+
+function getServiceCommand(mod: ModDefYML, servicedef: ManagedServices[number]): string[] {
+  return getRawCommand(resolveResource(mod.baseResourcePath, servicedef.script), servicedef.engine, servicedef.arguments || []);
 }
 
 export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
