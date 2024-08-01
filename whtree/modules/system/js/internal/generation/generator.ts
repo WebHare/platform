@@ -163,22 +163,26 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   if (targets.includes('extract') || targets.includes('all'))
     await generateFiles(extracts, context, options);
 
-  const otherfiles = await listOtherGeneratedFiles();
-  const togenerate = targets.includes('all') ? otherfiles : otherfiles.filter(file => targets.includes(file.type));
-  await generateFiles(togenerate, context, options);
-
-  //Remove old files
   const { installedBaseDir, builtinBaseDir, platformGeneratedDir } = getPaths();
   const keepfiles = new Set<string>([
     join(installedBaseDir, "config/config.json"),
     ...schemas.map(file => file.path),
-    ...extracts.map(file => file.path),
-    ...otherfiles.map(file => file.path)
+    ...extracts.map(file => file.path)
   ]);
 
-  await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-  await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-  await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+  if (targets.includes('openapi') || targets.includes('whdb') || targets.includes('wrd') || targets.includes('all')) {
+    const otherfiles = await listOtherGeneratedFiles();
+    otherfiles.forEach(file => keepfiles.add(file.path));
+    const togenerate = targets.includes('all') ? otherfiles : otherfiles.filter(file => targets.includes(file.type));
+    await generateFiles(togenerate, context, options);
+  }
+
+  //Remove old files - but only if we have a full view of which files there should be
+  if (targets.includes('all')) {
+    await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+    await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+    await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+  }
   return;
 }
 

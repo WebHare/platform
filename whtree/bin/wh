@@ -351,7 +351,8 @@ case $INSTR in
       echo
     fi
 
-    # envvar WEBHARE_DEBUG should be treated as an 'initial' value so we move it
+    # envvar WEBHARE_DEBUG should be treated as an 'initial' value so we move it so you can eg 'WEBHARE_DEBUG=startup wh console'
+    # and still disable the flag later. otherwise it would be sticky as WEBHARE_DEBUG is otherwise inherited by all processes
     if [ -n "$WEBHARE_DEBUG" ]; then
       export __WEBHARE_DEBUG_INITIALSETTING="$WEBHARE_DEBUG"
       WEBHARE_DEBUG=""
