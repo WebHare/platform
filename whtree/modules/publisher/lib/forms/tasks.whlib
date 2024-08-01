@@ -86,7 +86,7 @@ PUBLIC STATIC OBJECTTYPE FormHandlerTaskBase EXTEND ManagedTaskBase
     THROW NEW Exception("The task did not override FormHandlerTaskBase::RunFormTask");
   }
 
-  //FIXME required because STATIC is still buggy
+  /** @deprecated synchronous cancellation should be generally be replaced with resolveByCompletion or resolveByPermanentFailure */
   UPDATE PUBLIC MACRO ResolveByCancellation(RECORD retval, STRING error)
   {
     ManagedTaskBase::ResolveByCancellation(retval, error);
@@ -105,4 +105,3 @@ PUBLIC STATIC OBJECTTYPE FormHandlerTaskBase EXTEND ManagedTaskBase
   }
 
 >;
-

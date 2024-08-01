@@ -1004,6 +1004,8 @@ STATIC OBJECTTYPE QueueMgr
          - it is finished (normal flow, task exists in db with finished != default datetime)
          - task is deleted (task is gone from db)
          In the last 2 cases, we terminate the worker immediately
+
+         FIXME above is incorrect. we're also killing workers for tasks that are cancelled. *even* if they synchronously self cancelled
       */
       INTEGER ARRAY taskids := SELECT AS INTEGER ARRAY id FROM runninggonetasks;
 
@@ -1146,12 +1148,13 @@ STATIC OBJECTTYPE QueueMgr
     UPDATE system_internal.managedtasks
            SET nextattempt := nextretry
              , finished := isfatal ? now : finished
-             , lasterrors := Left(output,4096)
+             , lasterrors := managedtasks.iscancelled ? lasterrors : Left(output,4096)
              , stacktrace := trace
              , failures := curtaskinfo.failures + 1
              , iterations := iterations + 1
-             , shortretval :=   Length(result) > 1000 ? "long" : result
-             , longretval :=    Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
+             //do not overwrite retvals for already-cancelled tasks, we'll be destroying their result
+             , shortretval := managedtasks.iscancelled ? shortretval : Length(result) > 1000 ? "long" : result
+             , longretval := managedtasks.iscancelled ? longretval : Length(result) > 1000 ? StringToBlob(result) : DEFAULT BLOB
          WHERE id = item->taskdata.id;
 
     item->stage := "finished";
