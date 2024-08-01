@@ -12,7 +12,7 @@ export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> 
   if (req.numFailures === 1)
     return req.resolveByTemporaryFailure("Failed once!");
   if (req.taskdata.ping === "CANCEL")
-    return req.resolveByCancellation(req.taskdata, "ping=CANCEL");
+    return req.resolveByCancellation({ data: req.taskdata }, "ping=CANCEL");
   if (req.taskdata.ping === "ABORT")
     process.exit(162);
   if (req.taskdata.ping === "THROWNOW" && await readRegistryKey("webhare_testsuite.tests.taskthrownow"))

@@ -77,6 +77,9 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
   testfw->CommitWork();
 
   TestThrowsLike("*ping=CANCEL*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME)); //cancels because we told it to
+  Sleep(200); //sleep a bit, give managedqueuemgr a chance to overwrite the reuslt
+  RECORD fullres := RetrieveManagedTaskResult(taskid, MAX_DATETIME, [ acceptcancel := TRUE ]);
+  TestEq("CANCEL", fullres.data.ping);
 
   testfw->BeginWork();
   taskid := ScheduleManagedTask(taskretryname, [ ping := "ABORT" ]);
