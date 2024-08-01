@@ -160,12 +160,6 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
 
   protected setupDeleteButton(button: HTMLElement, idx: number) {
     button.addEventListener("click", evt => this.deleteFile(evt, idx));
-    button.addEventListener("keypress", evt => {
-      if (evt.key === "Enter" || evt.key === " ")
-        this.deleteFile(evt, idx);
-    });
     button.ariaLabel = getTid("publisher:site.forms.imgedit-remove");
-    button.tabIndex = 0;
-    button.role = "button";
   }
 }

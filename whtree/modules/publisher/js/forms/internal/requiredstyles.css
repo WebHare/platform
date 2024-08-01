@@ -26,9 +26,3 @@
 {
   display:none;
 }
-
-/* Required so image styling (Eg neutral.css) doesn't blow up the styling if you didn't include imgedit itself */
-.wh-form__imgedit
-{
-  position:relative;
-}

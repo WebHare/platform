@@ -1397,6 +1397,7 @@
       <text tid="title">Verificatie</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="imgedit-explain-upload">Sleep bestanden hier of klik om te uploaden</text>
       <text tid="imgedit-groupelement-replace"><param p="1"/>, Vervang afbeelding</text>
       <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload afbeelding</text>
       <text tid="imgedit-remove">Verwijder afbeelding2</text>

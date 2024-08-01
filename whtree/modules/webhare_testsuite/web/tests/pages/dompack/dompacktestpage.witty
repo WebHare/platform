@@ -248,3 +248,19 @@
     </ul>
   </div>
 [/component]
+
+[component vars]
+<style>
+:root {
+  --myvar1: 10px;
+  --myvar2: Hey everybody;
+  --myvar3: "'hi' everyone";
+  --myvar4: 'Hi "e\\very\\one"';
+  --myvar5: "'Hi' \"ever\\yone\"";
+  --myvar6: " Hey everybody ";
+</style>
+
+<div id="div1">Div 1</div>
+<div id="div2">Div 2</div>
+
+[/component]

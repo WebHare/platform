@@ -1,9 +1,9 @@
 /* import ImgEditField from '@mod-publisher/js/forms/fields/imgedit';
 */
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import { FileEditElement } from './fileeditbase';
-import './imgedit.css';
 import { emplace } from '@webhare/std';
+import { getTid } from '@webhare/gettid';
 
 let revoker: FinalizationRegistry<string> | undefined;
 const cachedURLs = new WeakMap<File, string>();
@@ -26,26 +26,17 @@ export class ImgEditElement extends FileEditElement {
     super();
     // this.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
+    this.maindiv.classList.add("images");
     this.refresh();
-  }
-
-  #constructImgHolder() {
-    const imgholder = document.createElement("div");
-    imgholder.classList.add('image');
-    //@ts-ignore TS thinks part is readonly, but it references https://developer.mozilla.org/en-US/docs/Web/API/Element/part which even has an example changing 'part' TODO report to https://github.com/microsoft/TypeScript-DOM-lib-generator
-    imgholder.part = "image";
-    return imgholder;
   }
 
   refresh() {
     const nodes = [];
     for (const [idx, file] of this.currentFiles.entries()) {
-      const imgholder = this.#constructImgHolder();
-      const img = document.createElement("img");
-      img.className = 'image__img';
-      img.src = file.link ?? createFileURL(file.file);
+      const imgholder = dompack.create("div", { class: "image", part: "image" });
+      const img = dompack.create("img", { class: 'image__img', src: file.link ?? createFileURL(file.file) });
 
-      const deletebutton = <div class="image__deletebutton" />;
+      const deletebutton = dompack.create("button", { part: "button deletebutton", class: "deletebutton image__deletebutton" });
       this.setupDeleteButton(deletebutton, idx);
 
       imgholder.append(img, deletebutton);
@@ -54,8 +45,15 @@ export class ImgEditElement extends FileEditElement {
 
     if (this.currentFiles.length < this.maxFiles) {
       //add an extra 'image' which is the placeholder for additional uploads
-      const imgholder = this.#constructImgHolder();
-      imgholder.classList.add('image--placeholder');
+      const imgholder = dompack.create("div", { class: "image image--placeholder", part: "image placeholder" });
+      const contentwrapper = dompack.create("div", { class: "image__content" });
+      const uploadicon = dompack.create("div", { class: "image__uploadicon", part: "uploadicon" });
+      const explain = dompack.create("div", {
+        class: "image__explain",
+        textContent: dompack.getCSSVariable("--wh-form-imgedit-explain", this) || getTid("publisher:site.forms.imgedit-explain-upload")
+      });
+      imgholder.append(contentwrapper);
+      contentwrapper.append(uploadicon, explain);
       imgholder.tabIndex = 0;
       this.setupUploadButton(imgholder);
       nodes.push(imgholder);

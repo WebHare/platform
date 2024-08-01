@@ -1,30 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
   <defs>
-    <linearGradient id="file-paper-gradient" gradientUnits="userSpaceOnUse" x1="5.9205" y1="6.643" x2="29.3585" y2="30.081">
-      <stop offset="0" style="stop-color:#ffffff"/>
-      <stop offset="1" style="stop-color:#f2f2f2"/>
-    </linearGradient>
-    <g id="file-fill" style="fill:url(&quot;#file-paper-gradient&quot;);">
-      <path d="M30,12l0,17c0,1-1,1-1,1H11c-1,0-1-1-1-1V3c0,0,0-1,1-1h9"/>
-    </g>
-    <path id="file-corner" d="M32,1c0-1-1-1-1-1h-6.2c-0.3,0-0.6,0-0.7,0.3c-0.1,0.3-0.1,0.6,0.2,0.8l6.5,6.1c0.2,0.2,0.6,0.3,0.8,0.2C31.8,7.2,32,6.9,32,6.6"/>
-    <path id="file-outline" d="M21,0H10C8,0,8,2,8,2v28c0,0,0,2,2,2h20c2,0,2-2,2-2V11L21,0zM30,29c0,0,0,1-1,1H11c-1,0-1-0.6-1-0.9V3c0,0,0-1,1-1h9l10,10L30,29z"/>
+    <style>
+      .cls-1 {
+        fill: #4a4a4a;
+      }
+    </style>
   </defs>
+  <!-- Generator: Adobe Illustrator 28.6.0, SVG Export Plug-In . SVG Version: 1.2.0 Build 709)  -->
   <g>
-    <use xlink:href="#file-fill" fill="#ffffff"/>
-    <use xlink:href="#file-outline" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
-    <use xlink:href="#file-corner" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0"/>
-    <linearGradient id="skygradient" gradientUnits="userSpaceOnUse" x1="20" y1="30" x2="20" y2="2.0005">
-      <stop offset="0" style="stop-color:#DAF4FF"/>
-      <stop offset="1" style="stop-color:#C6E5FF"/>
-    </linearGradient>
-    <linearGradient id="mountainsgradient" gradientUnits="userSpaceOnUse" x1="10" y1="21.1436" x2="30" y2="21.1436">
-      <stop offset="0" style="stop-color:#81CE2E"/>
-      <stop offset="1" style="stop-color:#73B670"/>
-    </linearGradient>
-    <path fill="url(#skygradient)" d="M20,2h-9.1C10.4,2,10,2.3,10,2.8v25.3c0,0.8,0.1,1.8,1,1.8h18c0.6,0,1-0.4,1-1l0-17L20,2z"/>
-    <path fill="url(#mountainsgradient)" d="M20.135,20.375C11.325,19.69,10,12.287,10,12.287V27.93c0,0.6,0,2.054,1.01,2.07h18.013C29.797,30,30,29.625,30,29C30,29,24.543,20.718,20.135,20.375z"/>
-    <path d="M14.714,30.069h14.24c0.58,0,1.046-0.483,1.046-1.083V17.599" fill="#ffffff"/>
+    <g id="Layer_1">
+      <g id="Layer_1-2" data-name="Layer_1">
+        <path class="cls-1" d="M24,11.1c-.7-2.4-3-4.1-5.6-4.1h-.7c-1.1-1.5-3.4-1.8-5.3-1.8-3.9,0-7,2.8-7.7,6.7-1.6,1.1-2.7,2.9-2.7,4.6,0,3,2.5,5.4,5.6,5.4h4.4v-2h-4.4c-2.2,0-3.6-1.8-3.6-3.5s.9-2.4,2.2-3.1l.5-.2v-.5c.2-3.6,2.6-5.6,5.6-5.6s3.7.3,5.1,2.1h0c.3-.2.8-.2,1.2-.2,2,0,3.6,1.5,3.8,3.4v1.1c.1,0,1.2-.3,1.2-.3.4-.1.8-.2,1.2-.2,2.1,0,3.9,1.6,3.9,3.5s-1.8,3.5-3.9,3.5h-6.8v2h6.8c3.2,0,5.8-2.5,5.8-5.4s-2.6-5.5-5.9-5.5"/>
+        <path class="cls-1" d="M15,11l-4.8,6.5c-.1.2,0,.4.2.4h3.5v9c0,.6.4,1,1,1h0c.6,0,1-.4,1-1v-9h3.5c.2,0,.4-.2.2-.4"/>
+      </g>
+    </g>
   </g>
 </svg>

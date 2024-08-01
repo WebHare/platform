@@ -1,69 +1,99 @@
-.image--placeholder {
-  position: relative;
-  border:1px solid #acacac;
+* {
+  box-sizing: border-box;
+}
 
-  &:after
-  {
-    content:"";
-    position:absolute;
-    background:url(upload.svg) center no-repeat;
-    opacity:0.5;
-    width:100%;
-    height:100%;
-    top:0;
-    left:0;
-    cursor:pointer;
-  }
+:host(wh-form-imgedit) {
+  display:inline-block;
+}
+
+:host(wh-form-imgedit)::before {  /* this block fixes top alignmenton of the label for an imgedit */
+  content: "\a0";
+  visibility: hidden;
+  display: block;
+  height: 0;
+}
+
+:host(wh-form-imgedit) button {
+  cursor: pointer;
+}
+
+.images {
+  display: inline-flex;
+  flex-wrap:wrap;
 }
 
 .image {
-  position: relative;
-  display: inline-block;
+  width: var(--wh-form-imgedit-width, 150px);
+  height: var(--wh-form-imgedit-height, 150px);
+
+  border: 1px solid #777;
+  border-radius: 2px;
+
+  display: flex;
+  align-items: center;
+  text-align: center;
+
+  position:relative;
+
+  padding: var(--wh-form-imgedit-margin, 8px);
+  font-size: var(--wh-form-imgedit-font-size, 80%);
+  line-height: var(--wh-form-imgedit-line-height, 120%);
 }
 
-:where([part=image]) {
-  width:125px;
-  height:125px;
+.image__uploadicon {
+  display:inline-block;
+  width:50px;
+  height:50px;
+  margin-bottom:20px;
+  background: url(upload.svg) center no-repeat;
+  cursor: pointer;
 }
 
 .image__img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
+
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+
+}
+
+.deletebutton {
+  appearance: none;
+  border:none;
+  width:30px;
+  height:30px;
+  color: white;
+  background: black url(delete.svg) center/16px 16px no-repeat;
 }
 
 .image__deletebutton {
   position:absolute;
-  top:0;
+  bottom:0;
   right:0;
-  background:black;
-  color:white;
-  padding:4px;
-
-  &:before
-  {
-    content:"X";
-  }
 }
 
 
+:host(wh-form-upload) {
+  display: inline-block;
+}
+
+:host(wh-form-upload) * {
+  box-sizing: border-box;
+}
+
+:host(wh-form-upload)>div {
+  display: contents;
+}
+
+:host(wh-form-upload) button {
+  cursor: pointer;
+}
 
 .file {
-  position: relative;
+  display: flex;
+  height: 100%;
 }
 
-.file__deletebutton
-{
-  position:absolute;
-  top:0;
-  right:0;
-  background:black;
-  color:white;
-  padding:3px;
-  font-size:70%;
-
-  &:before
-  {
-    content:"X";
-  }
+.file__name {
+  flex: 1 1 auto;
 }
