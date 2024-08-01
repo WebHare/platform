@@ -418,14 +418,20 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
        otherwise whe'll look for the first node which has a message.
     */
     const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector<HTMLElement>(".wh-form__field--" + type);
-    let error = (field_with_message ? getError(field_with_message) : null) || null;
+    //Do not pick up errors from deeper groups (array rows)
+    let error = (field_with_message && field_with_message.closest(".wh-form__fieldgroup") === fieldgroup ? getError(field_with_message) : null) || null;
 
     // Now mark the whole .wh-form__fieldgroup as having an error/suggestion
-    fieldgroup.classList.toggle("wh-form__fieldgroup--" + type, Boolean(field_with_message));
+    fieldgroup.classList.toggle("wh-form__fieldgroup--" + type, Boolean(error));
 
     // Lookup the error message from the field metadata
-    if (error) //mark the field has having failed at one point. we will now switch to faster updating error state
-      field.classList.add('wh-form__field--everfailed');
+    if (error) { //mark the field has having failed at one point. we will now switch to faster updating error state
+      if (!field.classList.contains('wh-form__field--everfailed')) {
+        if (debugFlags.fhv)
+          console.log('[fhv] marking as everfailed', field, 'because of error', error);
+        field.classList.add('wh-form__field--everfailed');
+      }
+    }
 
     // if the error is plain text, convert it to a element containing the text
     if (error && !(error instanceof Node))
