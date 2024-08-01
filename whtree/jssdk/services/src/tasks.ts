@@ -46,6 +46,7 @@ export class TaskRequest<TaskDataType, TaskResultType extends object | null = ob
   constructor(readonly taskid: number, readonly numFailures: number, readonly taskdata: TaskDataType) {
   }
 
+  /** @deprecated synchronous cancellation should be generally be replaced with resolveByCompletion or resolveByPermanentFailure */
   resolveByCancellation(retval: TaskResultType, error: string): TaskResponse {
     return { type: "cancelled", result: retval, error: error };
   }
