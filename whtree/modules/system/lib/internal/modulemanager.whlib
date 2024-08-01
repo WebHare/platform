@@ -610,12 +610,15 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
     IF (NOT must_run)
       CONTINUE;
 
-    LogDebug("system:modulemanager", `Start runonce script: ${module.name}: ${phase}: ${rec.script}`);
+    LogDebug("system:modulemanager", CELL[ type := "runonce-start", module := module.name, phase, rec.script ]);
+    DATETIME start := GetCurrentDateTime();
     IF(showinfo)
       Print(`>> ${module.name}: ${phase}: ${rec.script}\n`);
 
     // Go and run.
     RECORD res := LaunchScript(rec.script, DEFAULT STRING ARRAY);
+    INTEGER runtime_ms := GetMsecsDifference(start, GetCurrentDateTime());
+
     retval.error := retval.error OR res.error;
     IF (res.output != "")
     {
@@ -623,7 +626,9 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
       retval.messages := retval.messages CONCAT Tokenize(res.output, "\n");
     }
 
-    LogDebug("system:modulemanager", `Finished runonce script: ${module.name}: ${phase}: ${rec.script}`, retval, res);
+    LogDebug("system:modulemanager", CELL[ type := "runonce-finish", module := module.name, phase, rec.script, start, runtime_ms, retval, res]);
+    IF(showinfo)
+      Print(`>> ${module.name}: ${phase}: ${rec.script} finished (${runtime_ms} ms)\n`);
     ClearAllSchemaCaches();
 
     IF(NOT res.error)
