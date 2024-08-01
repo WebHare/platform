@@ -12,7 +12,7 @@ updateDebugConfig(getFullConfigFile().debugsettings || null);
 addConfigUpdateHandler(() => updateDebugConfig(getFullConfigFile().debugsettings || null));
 
 // Prefill the debug flags with the contents of the WEBHARE_DEBUG environment variable
-for (const flag of env.WEBHARE_DEBUG?.split(',') || [])
+for (const flag of [...(env.WEBHARE_DEBUG?.split(',') ?? []), ...(env.__WEBHARE_DEBUG_INITIALSETTING?.split(',') ?? [])])
   if (flag)
     debugFlags[flag] = true;
 
