@@ -75,6 +75,7 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
 <
   RECORD __value;
   OBJECT authport;
+  OBJECT authport_wait;
   OBJECT waitscreen;
   PUBLIC MACRO PTR onauthorize;
   PUBLIC MACRO PTR oncheck;
@@ -111,6 +112,11 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
   }
   MACRO EndCurrentAuth()
   {
+    IF (ObjectExists(this->authport_wait))
+    {
+      this->authport_wait->Cancel();
+      this->authport_wait := DEFAULT OBJECT;
+    }
     IF(ObjectExists(this->authport))
     {
       this->authport->Close();
@@ -121,6 +127,10 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
       this->waitscreen->tolliumresult := "close";
       this->waitscreen := DEFAULT OBJECT;
     }
+  }
+  RECORD FUNCTION IgnoreCancel(OBJECT e)
+  {
+    RETURN DEFAULT RECORD;
   }
   MACRO DoAuthorize(OBJECT browser)
   {
@@ -133,7 +143,9 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
 
     STRING state := "ipc:" || EncryptForThisServer("system:oauth2.portname", portname); //don't expose arbitrary port connectors
 
-    this->authport->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->HandleConnection(authinfo, #1));
+
+    this->authport_wait := this->authport->AsyncWaitRead(MAX_DATETIME);
+    this->authport_wait->Then(PTR this->HandleConnection(authinfo, #1), PTR this->IgnoreCancel);
     browser->SendURL(UpdateURLVariables(authinfo.__oauth2_authflow.url, [ state := state ]));
 
     this->waitscreen := this->contexts->screen->LoadScreen(Resolve("webapis.xml#oauth2wait"), CELL[ authinfo, state ]);
