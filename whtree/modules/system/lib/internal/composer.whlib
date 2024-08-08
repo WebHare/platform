@@ -71,7 +71,10 @@ PUBLIC MACRO RestructureEmailForCompatibility(OBJECT dom)
     IF(NOT tab->HasAttribute("align"))
     {
       //FIXME proper style parser - we should read the final margin-left/margin-right
-      IF(style LIKE "*margin: 0 auto;*" OR style lIKE "*margin: 0 auto 0;*")
+      IF(style LIKE "*margin: 0 auto;*"
+         OR style lIKE "*margin: 0 auto 0;*"
+         OR style lIKE "*margin: 0px auto;*"
+         OR style lIKE "*margin: 0px auto 0px;*")
         tab->SetAttribute("align","center");
     }
   }
