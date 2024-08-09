@@ -122,7 +122,7 @@ MACRO TestBasics()
 MACRO TestAssetpackManifest()
 {
   //TODO verify a gzip version is available too of the manifest (accept-encoding gzip or something like that)
-  STRING manifesturl := ResolvetoAbsoluteURL(testfw->GetTestSite()->webroot, `/.ap/webhare_testsuite.basetest/apmanifest.json`);
+  STRING manifesturl := ResolvetoAbsoluteURL(GetPrimaryWebhareInterfaceURL(), `/.ap/webhare_testsuite.basetest/apmanifest.json`);
   TestEq(TRUE, testfw->browser->GotoWebPage(manifesturl));
   RECORD manifest := DecodeJSONBlob(testfw->browser->content);
 
@@ -132,13 +132,13 @@ MACRO TestAssetpackManifest()
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.mjs"));
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(testfw->GetTestSite()->webroot));
-  TestEq([ jslink := "/.ap/webhare_testsuite.basetest/ap.mjs", outputtag := "webhare_testsuite:basetest", jstype := "module" ], ExtractBundleOutputTag(testfw->browser->document));
 }
 
 MACRO TestAssetpackManifestModule()
 {
+  TestEq(TRUE, testfw->browser->GotoWebPage(testfw->GetTestSite()->webroot));
+  TestEq([ jslink := "/.ap/webhare_testsuite.basetest/ap.mjs", outputtag := "webhare_testsuite:basetest", jstype := "module" ], ExtractBundleOutputTag(testfw->browser->document));
+
   //TODO verify a gzip version is available too of the manifest (accept-encoding gzip or something like that)
   OBJECT testsitejs := OpenSiteByName("webhare_testsuite.testsitejs");
   STRING manifesturl := ResolvetoAbsoluteURL(testsitejs->webroot, `/.ap/webhare_testsuite.basetestjs/apmanifest.json`);
@@ -158,8 +158,8 @@ MACRO TestAssetpackManifestModule()
 }
 
 RunTestframework([ PTR PrepTest
+                 , PTR TestAssetpackManifest
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR TestBasics
-                 , PTR TestAssetpackManifest
                  , PTR TestAssetpackManifestModule
                  ]);
