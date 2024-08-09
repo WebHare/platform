@@ -135,7 +135,8 @@ STRING FUNCTION GetTokenDisplayText(RECORD token, BOOLEAN withcomments)
     }
     CASE "dimension"
     {
-      RETURN ((token.value = "0") ? "0" : token.value || token.unit);
+      // calc() needs compatible units, omitting the unit for "0" can result in errors
+      RETURN token.value || token.unit;
     }
     CASE "percentage"
     {

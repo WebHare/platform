@@ -369,7 +369,7 @@ div#touchesscroll div.touchevent
   margin: 20px 20px 0 20px;
   font: 16px "Arial Narrow", Arial, Helvetica, sans-serif;
   color: #b2b2b2;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 0px 2px 0px rgba(0, 0, 0, 0.5);
 }
 
 #introtext #chalkwelcome
