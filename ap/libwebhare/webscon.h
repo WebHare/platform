@@ -145,6 +145,8 @@ struct BLEXLIB_PUBLIC Request : RequestRoute
         Blex::DateTime condition_ifmodifiedsince;
         ///Accept gzip Content-Encoding
         bool accept_contentencoding_gzip;
+        ///Accept br (brotli) Content-Encoding
+        bool accept_contentencoding_brotli;
         ///Status of the requested path
         Blex::PathStatus filestatus;
         ///All acces rules applicable so far, with the most recent rule last.

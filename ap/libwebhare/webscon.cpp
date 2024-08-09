@@ -1096,6 +1096,7 @@ void Request::Reset()
         fixcase=false;
         request_start = 0;
         accept_contentencoding_gzip = false;
+        accept_contentencoding_brotli = false;
         header_debugging = false;
         header_debugtags.clear();
 }
