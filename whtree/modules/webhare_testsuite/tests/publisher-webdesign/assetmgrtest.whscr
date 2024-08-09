@@ -128,9 +128,11 @@ MACRO TestAssetpackManifest()
 
   // dumpvalue(manifest.assets,'boxed');
 
-  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.mjs.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
+  TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT compressed AND (subpath LIKE "*.gz" OR subpath LIKE "*.br")), "no unmarked compressed version in the dependent assets please");
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.mjs"));
+  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.mjs.gz"));
+  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.mjs.br"));
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
 }
 

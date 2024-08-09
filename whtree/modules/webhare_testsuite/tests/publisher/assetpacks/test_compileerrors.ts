@@ -6,6 +6,7 @@
 import * as test from '@webhare/test';
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as zlib from "node:zlib";
 
 import { loadlib } from "@webhare/harescript";
 import { AssetPackManifest, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
@@ -37,6 +38,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     if (!entrypoint.endsWith('.scss')) {
       test.assert(manifest.assets.find(file => file.subpath === 'ap.mjs' && !file.compressed && !file.sourcemap));
       test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.gz' && file.compressed && !file.sourcemap));
+      test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.br' && file.compressed && !file.sourcemap));
     }
 
     manifest.assets.forEach(file => {
@@ -142,6 +144,29 @@ async function testCompileerrors() {
     test.assert(missingdeps.includes(path.join(backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my2.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss.scss")));
+  }
+
+  console.log("verify compression");
+  {
+    const result = await compileAdhocTestBundle(__dirname + "/dependencies/chunks", false);
+    test.assert(result.haserrors === false);
+
+    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    // console.log(filedeps);
+    test.assert(filedeps.includes(path.join(__dirname, "/dependencies/chunks.ts")));
+    test.assert(filedeps.includes(path.join(__dirname, "/dependencies/async.ts")));
+    test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
+
+    const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
+    // console.log(manifest.assets);
+    const chunks = manifest.assets.filter(file => file.subpath.match(/^async-.*mjs$/));
+    test.eq(1, chunks.length, "Expecting only one additional chunk to be generated");
+    const chunkAsBr = manifest.assets.find(file => file.subpath === chunks[0].subpath + ".br");
+    test.assert(chunkAsBr);
+
+    const origsource = fs.readFileSync("/tmp/compileerrors-build-test/" + chunks[0].subpath.toLowerCase()).toString();
+    const decompressedsource = zlib.brotliDecompressSync(fs.readFileSync("/tmp/compileerrors-build-test/" + chunkAsBr.subpath.toLowerCase())).toString();
+    test.eq(origsource, decompressedsource);
   }
 
   console.log("browser override in package.json works");
