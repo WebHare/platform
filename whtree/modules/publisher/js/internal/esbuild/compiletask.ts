@@ -13,6 +13,7 @@ import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
 
 const compressGz = promisify(zlib.gzip);
+const compressBrotli = promisify(zlib.brotliCompress);
 
 /* TODO likewise addd Brotli, but WH can't serve it yet anyway
 const compressBr = promisify(zlib.brotliCompress);
@@ -421,6 +422,13 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
       finalpack.set(subpath + '.gz', await compressGz(file.contents));
       assetoverview.assets.push({
         subpath: subpath + '.gz',
+        compressed: true,
+        sourcemap: subpath.endsWith(".map")
+      });
+
+      finalpack.set(subpath + '.br', await compressBrotli(file.contents));
+      assetoverview.assets.push({
+        subpath: subpath + '.br',
         compressed: true,
         sourcemap: subpath.endsWith(".map")
       });

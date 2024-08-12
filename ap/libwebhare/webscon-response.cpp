@@ -348,20 +348,30 @@ void Connection::SendFile(std::string const &filename)
                         // Sending the whole file
 
                         // Check if a compressed version of this file exists
+                        std::unique_ptr< Blex::MmapFile > outmmap_file_brotli(Blex::MmapFile::OpenRO(filename + ".br", true));
                         std::unique_ptr< Blex::MmapFile > outmmap_file_gz(Blex::MmapFile::OpenRO(filename + ".gz", true));
-                        if (outmmap_file_gz.get())
+                        if (outmmap_file_gz.get() || outmmap_file_brotli.get())
                         {
                                 // When a compressed version exists, send a 'Vary: Accept-Encoding' header
                                 // We want both the compressed and uncompressed version to be cached
                                 AddHeader("Vary", 4, "Accept-Encoding", 15, true);
 
+                                // Only send the brotli version if the client accepts it, and prefer it over gzip
+                                if (request->accept_contentencoding_brotli && outmmap_file_brotli.get())
+                                {
+                                        outmmap_file.swap(outmmap_file_brotli);
+                                        filelen = outmmap_file->GetFilelength();
+                                        AddHeader("Content-Encoding", 16, "br", 2, false);
+                                }
+
                                 // Only send the gzip version if the client accepts it
-                                if (request->accept_contentencoding_gzip)
+                                else if (request->accept_contentencoding_gzip && outmmap_file_gz.get())
                                 {
                                         outmmap_file.swap(outmmap_file_gz);
                                         filelen = outmmap_file->GetFilelength();
                                         AddHeader("Content-Encoding", 16, "gzip", 4, false);
                                 }
+
                         }
 
                         range_start = 0;

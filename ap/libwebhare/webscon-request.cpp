@@ -769,6 +769,7 @@ void Connection::HTTPHeader_Host(char const*   begin, char const*   end)
 void Connection::HTTPHeader_AcceptEncoding(char const*   begin, char const*   end)
 {
         static const char str_gzip[]={"gzip"};
+        static const char str_brotli[]={"br"};
 
         while (begin != end)
         {
@@ -811,6 +812,8 @@ void Connection::HTTPHeader_AcceptEncoding(char const*   begin, char const*   en
 
                 if (is_accepted && Blex::StrCaseCompare(coding.c_str(), coding.c_str() + coding.size(), str_gzip, str_gzip + sizeof str_gzip - 1) == 0)
                     request->accept_contentencoding_gzip = true;
+                if (is_accepted && Blex::StrCaseCompare(coding.c_str(), coding.c_str() + coding.size(), str_brotli, str_brotli + sizeof str_brotli - 1) == 0)
+                    request->accept_contentencoding_brotli = true;
         }
 }
 

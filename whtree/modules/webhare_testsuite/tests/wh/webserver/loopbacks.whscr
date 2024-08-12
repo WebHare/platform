@@ -208,6 +208,24 @@ MACRO TestAcceptEncoding()
   TestEq("127", testfw->browser->GetResponseHeader("Content-Length"));
   TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"));
   TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static.html", [[ field := "Accept-Encoding", value := "br" ]], DEFAULT BLOB));
+
+  TestEq("127", testfw->browser->GetResponseHeader("Content-Length"));
+  TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"));
+  TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static2.html", [[ field := "Accept-Encoding", value := "gzip" ]], DEFAULT BLOB));
+
+  TestEq("127", testfw->browser->GetResponseHeader("Content-Length"));
+  TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"));
+  TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("GET", betabaseurl || "static2.html", [[ field := "Accept-Encoding", value := "br" ]], DEFAULT BLOB));
+
+  TestEq("65", testfw->browser->GetResponseHeader("Content-Length"));
+  TestEq("br", testfw->browser->GetResponseHeader("Content-Encoding"));
+  TestEq("Accept-Encoding", testfw->browser->GetResponseHeader("Vary"));
 }
 
 MACRO TestHead()
