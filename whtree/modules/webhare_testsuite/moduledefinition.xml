@@ -321,7 +321,7 @@
                title="WH testsuite: pwatest"
                hidden="true"
                siteprofile="webdesigns/pwatest/pwatest.siteprl.xml">
-      <assetpack compatibility="es2016" entrypoint="webdesigns/pwatest/pwatest" supportedlanguages="en" />  <!-- FIXME aftercompiletask="webharedev_pwa:rebuildpages" ?? -->
+      <assetpack entrypoint="webdesigns/pwatest/pwatest" supportedlanguages="en" />  <!-- FIXME aftercompiletask="webharedev_pwa:rebuildpages" ?? -->
     </webdesign>
     <webdesign name="alttest"
                title="WH testsuite: selftest 'attest'"
