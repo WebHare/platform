@@ -478,10 +478,7 @@ RECORD FUNCTION GetCacheableTypeData(RECORD typerec, STRING langcode)
   INTEGER ARRAY __consiliolinkcheckattrs :=
       SELECT AS INTEGER ARRAY id
        FROM __final_attrs
-      WHERE attributetype IN [ VAR wrd_attributetype_richdocument
-                             , VAR wrd_attributetype_whfsintextlink
-                             , VAR wrd_attributetype_url
-                             ] OR checklinks;
+      WHERE checklinks;
   INTEGER ARRAY __whfslinkattrs :=
       SELECT AS INTEGER ARRAY id
        FROM __final_attrs

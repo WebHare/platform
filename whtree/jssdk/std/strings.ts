@@ -246,15 +246,19 @@ export function isValidUrl(url: string): boolean {
   // test: no control characters or spaces (0x00 - 0x20)
   // test: starts with 'scheme' ':' anychar +
   // test: scheme only has letters, numbers, '-', '.' or '+' (and is not empty)
-  // test: HareScript tests for http/https schema, hostname is not empty and port is in range 1-65535
+  // test: HareScript tests for http/https schema, hostname is not empty and preceded with '//' and port is in range 1-65535
   // For JavaScript, we'll just check if the URL constructor throws and that the port is not 0
 
   // eslint-disable-next-line no-control-regex
-  const unpacked = url.match(/^([-.+a-zA-Z0-9]*):[^\x00-\x20]+$/);
+  const unpacked = url.match(/^([-.+a-zA-Z0-9]*):([^\x00-\x20]+)$/);
   if (!unpacked)
     return false;
   if (unpacked[1] !== "http" && unpacked[1] !== "https")
     return true;
+  // Explicit check for double slash after colon (new URL just converts missing or single slash to double slash, but the
+  // HareScript implementation doesn't allow this)
+  if (!unpacked[2].startsWith("//"))
+    return false;
   try {
     // The URL constructor throws on invalid URLs
     const parsed = new URL(url);
