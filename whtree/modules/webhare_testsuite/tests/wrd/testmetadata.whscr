@@ -6,6 +6,9 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
+
+LOADLIB "mod::consilio/lib/reports.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
@@ -13,9 +16,9 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
+
 
 //Save types and attributes
 RECORD FUNCTION ExtractSchemaMetadata(OBJECT wrdschema)
@@ -85,10 +88,45 @@ MACRO Setup()
   free1 := persontype->GetAttribute("FREE1");
   TestEq(TRUE, free1.checklinks);
 
-  persontype->CreateAttribute("RICHDOC1", "RICHDOCUMENT", [title:="Rich document 1", checklinks := FALSE]);
+  persontype->CreateAttribute("RICHDOC1", "RICHDOCUMENT", [title:="Rich document 1" ]);
   RECORD richdoc1 := persontype->GetAttribute("RICHDOC1");
-  TestEq(FALSE, richdoc1.checklinks);
+  TestEq(TRUE, richdoc1.checklinks);
 
+  //Check that links are checked in both attributes
+  OBJECT person := persontype->CreateEntity(
+      [ free1 := "http://example.org"
+      , richdoc1 := [htmltext := StringToBlob(`<p><a href="http://example.com">example</a></p>`)]
+      , wrd_contact_email := "linktest@beta.webhare.net"
+      ]);
+  testfw->CommitWork();
+
+  RECORD ARRAY checkedlinks := GetWRDLinkCheckReport([ entity := person->id ]);
+  TestEq("http://example.org", SELECT AS STRING url FROM checkedlinks WHERE referrer = "FREE1");
+  TestEq("http://example.com", SELECT AS STRING url FROM checkedlinks WHERE referrer = "RICHDOC1");
+
+  testfw->BeginWork();
+  persontype->UpdateAttribute("RICHDOC1", [checklinks := FALSE]);
+  richdoc1 := persontype->GetAttribute("RICHDOC1");
+  TestEq(FALSE, richdoc1.checklinks);
+  testfw->CommitWork();
+
+  //Check that links from richdoc1 are removed
+  checkedlinks := GetWRDLinkCheckReport([ entity := person->id ]);
+  TestEq("http://example.org", SELECT AS STRING url FROM checkedlinks WHERE referrer = "FREE1");
+  TestEq("", SELECT AS STRING url FROM checkedlinks WHERE referrer = "RICHDOC1");
+
+  //Regression: Update the person, should not have added a link for richdoc1
+  testfw->BeginWork();
+  persontype->UpdateEntity(person->id,
+      [ free1 := "http://example.net"
+      , richdoc1 := [htmltext := StringToBlob(`<p><a href="http://example.nl">example</a></p>`)]
+      ]);
+  testfw->CommitWork();
+  checkedlinks := GetWRDLinkCheckReport([ entity := person->id ]);
+  TestEq("http://example.net", SELECT AS STRING url FROM checkedlinks WHERE referrer = "FREE1");
+  TestEq("", SELECT AS STRING url FROM checkedlinks WHERE referrer = "RICHDOC1");
+
+  testfw->BeginWork();
   TestThrowsLike("*llegal key*", PTR wrdschema->GetSchemaSetting("myteststr"));
   TestThrowsLike("*llegal key*", PTR wrdschema->SetSchemaSetting("myteststr", "My test string!"));
   TestThrowsLike("*llegal key*", PTR wrdschema->GetSchemaSetting("wrd:mytest str"));
