@@ -510,11 +510,16 @@ function testUrls() {
   const validUrls = [
     "http://nu.nl/",
     "HtTp://nu.nl/",
+    "http://nu.nl",
     "HtTp://nu.nl:65535/"
   ];
   const invalidUrls = [
     "<URL:http://nu.nl/>",
     "<FTP:http://nu.nl/>",
+    "http:nu.nl/",
+    "http:nu.nl",
+    "http:/nu.nl/",
+    "http:/nu.nl",
     "http://nu.nl/\t",
     "http://nu.nl/met spatie",
     "http://nu.nl:65536/",
