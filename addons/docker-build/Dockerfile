@@ -105,6 +105,8 @@ RUN --mount=type=tmpfs,target=/tmp/ \
 ARG CI_COMMIT_SHA
 ARG CI_COMMIT_REF_NAME
 ARG CI_PIPELINE_ID
+ARG WEBHARE_VERSION
 LABEL com.webhare.webhare.git-commit-sha="$CI_COMMIT_SHA" \
       com.webhare.webhare.git-commit-ref="$CI_COMMIT_REF_NAME" \
-      com.webhare.webhare.pipelineid="$CI_PIPELINE_ID"
+      com.webhare.webhare.pipelineid="$CI_PIPELINE_ID" \
+      com.webhare.webhare.version="$WEBHARE_VERSION"
