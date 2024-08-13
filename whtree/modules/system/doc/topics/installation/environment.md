@@ -125,9 +125,6 @@ Signals a started service process that it's being invoked by `wh service debug`
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner
 
-### WEBHARE_ALLOWEPHEMERAL
-Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlayfs.
-
 ### RUNKIT_TARGET_SLUG
 Override the hostname in the PS1 prompt. Usually set by `runkit wh shell` with container information
 

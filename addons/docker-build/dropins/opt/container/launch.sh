@@ -36,15 +36,6 @@ mkdir -p /opt/whdata/output /opt/whdata/installedmodules
 # Create tmp storage dir, webhare-docker-config.xml refers to this
 mkdir -p /opt/whdata/tmp
 
-# Test for ephemeral storage
-if [ -z "$WEBHARE_ALLOWEPHEMERAL" ]; then
-  WHDATAFS="`stat -f -c %T /opt/whdata/`"
-  if [ "$WHDATAFS" == "overlayfs" ]; then
-    echo "Cowardly refusing to run on ephemeral storage. Set WEBHARE_ALLOWEPHEMERAL=1 if you really want this"
-    exit 1
-  fi
-fi
-
 # Ensure webhare owns /opt/whdata and that it's masked from 'other' users
 chgrp whdata /opt/whdata
 chmod o-rwx /opt/whdata
