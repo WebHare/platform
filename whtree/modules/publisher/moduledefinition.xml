@@ -611,7 +611,6 @@
 
       <!-- TODO proper name because 'sharedworker' isn't really a proper name for a non-browser environment -->
       <assetpack name="pwaserviceworker"
-                 compatibility="es2016"
                  entrypoint="webfeatures/pwa/pwaserviceworker"
                  environment="sharedworker"
                  supportedlanguages="en"

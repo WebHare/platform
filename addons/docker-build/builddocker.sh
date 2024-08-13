@@ -142,6 +142,17 @@ DOCKERBUILDARGS+=(plain)
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR")
 
+if [ -z "$CI_COMMIT_SHA" ]; then
+  # Not a CI build, try to get git commit and branch
+  # Also note that Runkit expects a com.webhare.webhare.git-commit-ref label to be present to recognize the image as a WebHare image
+  # so this is the path used by Escrow builds to actually set this information
+  CI_COMMIT_SHA="`cd $SOURCEDIR ; git rev-parse HEAD 2> /dev/null`"
+  CI_COMMIT_REF_NAME="`cd $SOURCEDIR ; git rev-parse --abbrev-ref HEAD 2> /dev/null`"
+  if [ -n "$CI_COMMIT_SHA$CI_COMMIT_REF_NAME" ]; then
+    echo "Building from git, branch '$CI_COMMIT_REF_NAME', commit '$CI_COMMIT_SHA'"
+  fi
+fi
+
 # Record CI information so we can verify eg. if this image really matches the most recent build
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("CI_COMMIT_SHA=$CI_COMMIT_SHA")
@@ -149,15 +160,8 @@ DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME")
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("CI_PIPELINE_ID=$CI_PIPELINE_ID")
-
-if [ -z "$CI_COMMIT_SHA" ]; then
-  # Not a CI build, try to get git commit and branch
-  CI_COMMIT_SHA="`cd $SOURCEDIR ; git rev-parse HEAD 2> /dev/null`"
-  CI_COMMIT_REF_NAME="`cd $SOURCEDIR ; git rev-parse --abbrev-ref HEAD 2> /dev/null`"
-  if [ -n "$CI_COMMIT_SHA$CI_COMMIT_REF_NAME" ]; then
-    echo "Building from git, branch '$CI_COMMIT_REF_NAME', commit '$CI_COMMIT_SHA'"
-  fi
-fi
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("WEBHARE_VERSION=$WEBHARE_VERSION")
 
 # Grab the main build dirs
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)
