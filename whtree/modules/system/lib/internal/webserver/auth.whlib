@@ -29,9 +29,6 @@ PUBLIC OBJECT FUNCTION GetCurrentUserAPI()
 
 PUBLIC BOOLEAN FUNCTION TryOauthLogin()
 {
-  IF (GetClientRequestUrl() NOT LIKE "https://*" AND GetDtapStage()!="development")
-    RETURN FALSE;
-
   STRING access_token := GetWebVariable("access_token");
   IF (access_token = "")
   {

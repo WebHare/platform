@@ -1063,6 +1063,14 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->_PrintRobotTag();
   }
 
+  PUBLIC RECORD FUNCTION GetAssetPackLinks()
+  {
+    RETURN GetAssetPackLinks(this->assetpack,
+      CELL[ designroot := this->pvt_targetsite->cdnbaseurl != "" ? this->designcdnrooturl : this->pvt_linkmode="absolute" ? ResolveToAbsoluteURL(this->baseurl, this->designrooturl) : ""
+          , cachebuster := this->assetcachebuster
+          ]);
+  }
+
   MACRO _PrintRobotTag()
   {
     STRING ARRAY tagparts;

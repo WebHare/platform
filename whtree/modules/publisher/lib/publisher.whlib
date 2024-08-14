@@ -872,15 +872,11 @@ PUBLIC RECORD FUNCTION MakeIntExtExternalLink(STRING href)
   RETURN [ internallink := 0, externallink := href, append := "" ];
 }
 
-PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION GetAssetPackLinks(STRING assetpack, RECORD options)
 {
   options := ValidateOptions(CELL[ designroot := ""
                                  , cachebuster := ""
                                  ], options);
-
-  STRING jssettings;
-  IF(options.designroot != "")
-    jssettings := jssettings || ' crossorigin="anonymous"';
 
   STRING bundlebaseurl := "/.ap/" || Substitute(assetpack, ':', '.') || "/";
   IF(options.cachebuster != "")
@@ -888,7 +884,19 @@ PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD opti
   IF(options.designroot != "")
     bundlebaseurl := ResolveToAbsoluteURL(options.designroot, bundlebaseurl);
 
-  STRING scriptsrc := bundlebaseurl || "ap.mjs";
-  RETURN `<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`
-         || `<script src="${EncodeValue(scriptsrc)}"${jssettings} type="module" async></script>`;
+  RETURN CELL[ crossorigin := options.designroot != ""
+             , csslink := bundlebaseurl || "ap.css"
+             , jslink := bundlebaseurl || "ap.mjs"
+             ];
+}
+
+PUBLIC STRING FUNCTION GetAssetpackIntegrationCode(STRING assetpack, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD links := GetAssetPackLinks(assetpack, options);
+  STRING jssettings;
+  IF(links.crossorigin)
+    jssettings := jssettings || ' crossorigin="anonymous"';
+
+  RETURN `<link rel="stylesheet" href="${EncodeValue(links.csslink)}">`
+         || `<script src="${EncodeValue(links.jslink)}" type="module" async></script>`;
 }

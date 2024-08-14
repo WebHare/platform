@@ -104,7 +104,7 @@ create_container()
     echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
   fi
 
-  # Allow whdata to be mounted on ephemeral (overlayfs) storage
+  # Allow whdata to be mounted on ephemeral (overlayfs) storage. This parameter is needed for WH 4.25 - WH 5.5
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
   # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
