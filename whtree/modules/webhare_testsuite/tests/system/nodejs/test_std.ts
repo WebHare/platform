@@ -511,7 +511,19 @@ function testUrls() {
     "http://nu.nl/",
     "HtTp://nu.nl/",
     "http://nu.nl",
-    "HtTp://nu.nl:65535/"
+    "HtTp://nu.nl:65535/",
+    "http://www.b-lex.com/",
+    "http://www.b-lex.com/test/test",
+    "https://www.b-lex.com/",
+    "http://www.b-lex.com",
+    "aaa:aa",
+    "aaa:aa:aa",
+    "aa-a:aa:aa",
+    "http://aa:aa@www.b-lex.com/",
+    "http://aa:aa:@www.b-lex.com/",
+    "http://:aa@www.b-lex.com/",
+    "http://aa:@www.b-lex.com/",
+    "http://aa@www.b-lex.com:8000/",
   ];
   const invalidUrls = [
     "<URL:http://nu.nl/>",
@@ -525,6 +537,14 @@ function testUrls() {
     "http://nu.nl:65536/",
     "http://nu.nl:0/",
     "http:///",
+    ":",
+    "aaa",
+    "aaa:",
+    "aa_a:aa:aa",
+    "http://aaa:aa:aa/",
+    "http://aa@www.b-lex.com:xx/",
+    "http://aa@www.b-lex.com:/",
+    "http://",
   ];
 
   for (const url of validUrls)

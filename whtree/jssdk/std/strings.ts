@@ -238,6 +238,121 @@ export function joinURL(baseurl: string, path: string) {
   return baseurl + (path.startsWith("/") ? path : "/" + path);
 }
 
+function unpackUrl(inUrl: string) {
+  const retval = {
+    inUrl,
+    scheme: "",
+    schemeSpecificPart: "",
+    user: "",
+    password: "",
+    host: "",
+    port: 0,
+    urlPathSlash: false,
+    urlPath: "",
+    secure: false,
+    specifiedPort: false,
+    isDefaultPort: false,
+    origin: "",
+  };
+  let missingSlash = false;
+  const firstColon = inUrl.indexOf(":");
+  if (firstColon < 0) {
+    retval.scheme = inUrl;
+    return retval;
+  }
+
+  retval.scheme = decodeURIComponent(inUrl.substring(0, firstColon)).toLowerCase();
+  inUrl = inUrl.substring(firstColon + 1);
+  retval.schemeSpecificPart = inUrl;
+
+  if (!retval.schemeSpecificPart.startsWith("//")) //not an internet host format
+    return retval;
+
+  inUrl = inUrl.substring(2);
+
+  //Find the first slash, it terminates the user..port part
+  let firstSlash = inUrl.indexOf("/");
+  if (firstSlash < 0)
+    firstSlash = inUrl.length;
+
+  const firstAt = inUrl.indexOf("@");
+  if (firstAt >= 0 && firstAt < firstSlash) {
+    //Username and possible password are present
+    const pwdColon = inUrl.indexOf(":");
+    if (pwdColon >= 0 && pwdColon < firstAt) {
+      retval.user = decodeURIComponent(inUrl.substring(0, pwdColon));
+      retval.password = decodeURIComponent(inUrl.substring(pwdColon + 1, firstAt));
+    } else {
+      retval.user = decodeURIComponent(inUrl.substring(0, firstAt));
+    }
+    inUrl = inUrl.substring(firstAt + 1);
+    firstSlash = inUrl.indexOf("/");
+    if (firstSlash < 0)
+      firstSlash = inUrl.length;
+  }
+
+  //Common mistake, at least in http* urls, specifying a ? right after the URL (ADDME perhaps this shoud apply for all URLs? check rfc)
+  if (retval.scheme === "http" || retval.scheme === "https") {
+    const firstQuestionMark = inUrl.indexOf("?");
+    if (firstQuestionMark >= 0 && firstQuestionMark < firstSlash) {
+      firstSlash = firstQuestionMark;
+      missingSlash = true;
+    }
+  }
+
+  let closingBracket = 0;
+  if (inUrl.startsWith("[")) //RFC3986 IP-literal
+    closingBracket = inUrl.indexOf("]");
+
+  if (closingBracket > 0) { //Indeed an IP-literal
+    retval.host = decodeURIComponent(inUrl.substring(1, closingBracket));
+    if (inUrl[closingBracket + 1] === ':') //port follows
+      retval.port = parseInt(decodeURIComponent(inUrl.substring(closingBracket + 2, firstSlash - 1)), 0) || 0;
+    else
+      retval.port = getSchemeDefaultPort(retval.scheme);
+  } else {
+    const portColon = inUrl.indexOf(":");
+    if (portColon >= 0 && portColon < firstSlash) {
+      retval.host = decodeURIComponent(inUrl.substring(0, portColon));
+      retval.port = parseInt(decodeURIComponent(inUrl.substring(portColon + 1, firstSlash)), 0) || 0;
+      retval.specifiedPort = true;
+      retval.isDefaultPort = retval.port === getSchemeDefaultPort(retval.scheme);
+    } else {
+      retval.host = decodeURIComponent(inUrl.substring(0, firstSlash));
+      retval.port = getSchemeDefaultPort(retval.scheme);
+      retval.isDefaultPort = true;
+    }
+  }
+
+  retval.urlPathSlash = !(missingSlash || firstSlash === inUrl.length);
+  retval.urlPath = inUrl.substring(firstSlash + (missingSlash ? 0 : 1));
+  retval.secure = ["aas", "ftps", "https", "imaps", "ldaps", "shttp", "sips", "ssh", "sftp"].includes(retval.scheme);
+  if (retval.host)
+    retval.origin = retval.scheme + "://" + retval.host + (retval.isDefaultPort ? "" : ":" + retval.port);
+  return retval;
+}
+
+function getSchemeDefaultPort(scheme: string) {
+  switch (scheme) {//port numbers from RFC1738
+    case "ftp": return 21;
+    case "http": return 80;
+    case "ws": return 80;
+    case "gopher": return 70;
+    case "nntp": return 119;
+    case "telnet": return 23;
+    case "wais": return 210;
+    case "prospero": return 1525;
+    //well known protocols
+    case "https": return 443;
+    case "wss": return 443;
+    case "ldap": return 389;
+    case "ldaps": return 636;
+    case "smtp": return 25;
+    default: return 0;
+  }
+}
+
+
 /** Test whether an URL is a valid url. This function verifies that an URL looks
  * like an URL. If the scheme is recognized, more  stringent checks are performed
  * @returns True if the url appears to be a well-formed url
@@ -246,28 +361,18 @@ export function isValidUrl(url: string): boolean {
   // test: no control characters or spaces (0x00 - 0x20)
   // test: starts with 'scheme' ':' anychar +
   // test: scheme only has letters, numbers, '-', '.' or '+' (and is not empty)
-  // test: HareScript tests for http/https schema, hostname is not empty and preceded with '//' and port is in range 1-65535
-  // For JavaScript, we'll just check if the URL constructor throws and that the port is not 0
+  // Unpack url
+  // test: for http/https schema, hostname is not empty and port is in range 1-65535
 
   // eslint-disable-next-line no-control-regex
-  const unpacked = url.match(/^([-.+a-zA-Z0-9]*):([^\x00-\x20]+)$/);
-  if (!unpacked)
+  if (!url.match(/^[-.+a-zA-Z0-9]+:[^\x00-\x20]+$/))
     return false;
-  if (unpacked[1] !== "http" && unpacked[1] !== "https")
+  const unpacked = unpackUrl(url);
+  if (unpacked.scheme !== "http" && unpacked.scheme !== "https")
     return true;
-  // Explicit check for double slash after colon (new URL just converts missing or single slash to double slash, but the
-  // HareScript implementation doesn't allow this)
-  if (!unpacked[2].startsWith("//"))
+  if (unpacked.port < 1 || unpacked.port > 65535 || !unpacked.host)
     return false;
-  try {
-    // The URL constructor throws on invalid URLs
-    const parsed = new URL(url);
-    if (parsed.port && parseInt(parsed.port) < 1)
-      return false;
-    return true;
-  } catch (e) {
-    return false;
-  }
+  return true;
 }
 
 /** Uppercases a string using the C-locale (so only the ASCII characters a-z are uppercased)
