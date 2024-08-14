@@ -229,6 +229,12 @@ MACRO UrlTest()
   TestEq(FALSE, IsValidURL("http://nu.nl:65536/"));
   TestEq(FALSE, IsValidURL("http://nu.nl:0/"));
   TestEq(FALSE, IsValidURL("http:///"));
+  TestEq(TRUE, IsValidURL("aaa:aa"));
+  TestEq(TRUE, IsValidURL("aaa:aa:aa"));
+  TestEq(TRUE, IsValidURL("aa-a:aa:aa"));
+  TestEq(FALSE, IsValidURL(":"));
+  TestEq(FALSE, IsValidURL("aaa"));
+  TestEq(FALSE, IsValidURL("aa_a:aa:aa"));
 
   CloseTest("TestInternet: URLs");
 }
@@ -356,7 +362,9 @@ MACRO InternetTest()
 
   TestEq(FALSE, IsValidPlainHTTPURL("http://aaa:aa:aa/"));
 
+  TestEq(FALSE, IsValidPlainHTTPURL("aaa:aa"));
   TestEq(FALSE, IsValidPlainHTTPURL("aaa:aa:aa"));
+  TestEq(FALSE, IsValidPlainHTTPURL("aa-a:aa:aa"));
 
   TestEq(TRUE, IsValidPlainHTTPURL("https://www.b-lex.com/"));
 
