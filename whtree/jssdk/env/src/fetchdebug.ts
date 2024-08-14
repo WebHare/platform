@@ -4,8 +4,12 @@ import { generateRandomId } from "@webhare/std";
 let hookedfetch = false;
 
 function sanitizeBody(body: unknown) {
+  if (body instanceof ArrayBuffer) {
+    const view = new Uint8Array(body.slice(0, 5000)); //show the bytes but filter unprintable as '.'
+    return Array.from(view).map(v => v >= 32 && v < 127 ? String.fromCharCode(v) : ".").join("");
+  }
   if (typeof body !== 'string') {
-    return typeof body;
+    return `[${typeof body}]`;
   }
   body = body.substring(0, 5000).replaceAll("\r", " ").replaceAll("\n", " ");
   return body;
@@ -33,17 +37,31 @@ async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo |
   if (!debugFlags.wrq)
     return originalfetch(input, init);
 
-  const method = (init?.method || "GET").padEnd(7);
+  const method = (init?.method || (input as Request)?.method || "GET").padEnd(7);
   const url = input instanceof URL ? input.toString() : typeof input === "string" ? input : input.url;
   const headers = new Headers(typeof input === "object" && !(input instanceof URL) ? input.headers : init?.headers);
-  const body = typeof input === "object" && !(input instanceof URL) ? input.body : init?.body;
+  let body = typeof input === "object" && !(input instanceof URL) ? input.body : init?.body;
   const debugrequestid = generateRandomId();
 
   console.log(`[wrq] ${debugrequestid} ${method} ${url}`);
   if (headers)
     console.log(`[wrq] ${debugrequestid} headers ${headersToString(headers)}`);
-  if (body)
+  if (body) {
+    if (body instanceof ReadableStream) {
+      //convert the ReadableStream to ArrayBuffer so we can print AND send it (TODO ideally 'tee' the stream and just grab the first 5K bytes)
+      const reader = body.getReader();
+      const chunks = [];
+      for (; ;) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        chunks.push(value);
+      }
+      body = await new Blob(chunks).arrayBuffer();
+      init = { ...init, body };
+    }
     console.log(`[wrq] ${debugrequestid} body    ${sanitizeBody(body)}`);
+  }
 
   const fetchresult = await originalfetch(input, init); //TODO log responses as well (if safe/applicable, eg not binary or Very Long... and we probably should wait for the first json()/text()/body() call? but at least log the status and time!)
   console.log(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statusText} ${getResponseSummary(fetchresult)}`);
