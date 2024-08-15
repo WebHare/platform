@@ -1301,10 +1301,12 @@
         <text tid="confirm-unsnooze">Weet je zeker dat je de geselecteerde snoozes wil verwijderen?</text>
         <text tid="datetime">Datum &amp; tijd</text>
         <text tid="details">Details</text>
+        <text tid="editcustomcheckmessages">Handmatige berichten</text>
         <text tid="event">Gebeurtenis</text>
         <text tid="general">Algemeen</text>
         <text tid="gototask">Ga naar</text>
         <text tid="history">Geschiedenis</text>
+        <text tid="intervalchecks-scheduled">De intervalchecks zijn ingepland</text>
         <text tid="lastsnoozedby">Gesnoozed door</text>
         <text tid="lastsnoozemessage">Snooze reden</text>
         <text tid="message">Foutmelding</text>
@@ -1313,6 +1315,9 @@
         <text tid="multiplemessages">(meerdere foutmeldingen)</text>
         <text tid="noerrors">Er zijn geen problemen bekend</text>
         <text tid="platform">Platform</text>
+        <text tid="recheck">Opnieuw checken</text>
+        <text tid="recheck-scheduled">Een recheck voor dit probleem is ingepland</text>
+        <text tid="runintervalchecks">Intervalchecks inplannen</text>
         <text tid="server">Serverversie</text>
         <text tid="since">Sinds</text>
         <text tid="snooze">Snooze</text>
@@ -1326,6 +1331,32 @@
         <text tid="wh_user">Gebruiker</text>
         <text tid="when">Wanneer</text>
         <text tid="withhistory">Toon geschiedenis</text>
+        <textgroup gid="customcheckmessages">   <!-- tolliumapps.dashboard.platform.customcheckmessages -->
+          <text tid="allconditionsmatch">Aan alle voorwaarden is voldaan</text>
+          <text tid="atleastonedaterequired">Tenminste één datum is verplicht</text>
+          <text tid="conditionfails">Niet voldaan aan voorwaarde '<param p="1"/>', huidige waarde: <param p="2"/></text>
+          <text tid="conditions">Condities</text>
+          <text tid="customcheckmessage">Handmatig check bericht</text>
+          <text tid="customcheckmessages">Handmatige check berichten</text>
+          <text tid="date">Datumreeks, vanaf</text>
+          <text tid="daterange_fromdate">Vanaf</text>
+          <text tid="daterange_untildate">Tot</text>
+          <text tid="message">Melding</text>
+          <text tid="moduleversion">Moduleversie</text>
+          <text tid="moduleversion_module">Module</text>
+          <text tid="moduleversion_semver_range">Versierange (semver)</text>
+          <text tid="nosuchmodule">Module bestaat niet</text>
+          <text tid="notavalidsemverrange">Deze waarde is geen geldige semver range</text>
+          <text tid="result">Resultaat</text>
+          <text tid="until">tot</text>
+          <text tid="webhareversion">WebHare versie range (semver):</text>
+          <text tid="webhareversion_semver_range">Versierange (semver)</text>
+          <textgroup gid="conditiontypes">   <!-- tolliumapps.dashboard.platform.customcheckmessages.conditiontypes -->
+            <text tid="fromdate">Datumrange</text>
+            <text tid="moduleversion">Moduleversie</text>
+            <text tid="webhareversion">WebHare versie</text>
+          </textgroup>
+        </textgroup>
         <textgroup gid="eventtypes">   <!-- tolliumapps.dashboard.platform.eventtypes -->
           <text tid="change">Wijziging</text>
           <text tid="dismiss">Verworpen</text>

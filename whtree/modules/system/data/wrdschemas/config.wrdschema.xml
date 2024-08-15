@@ -120,4 +120,12 @@
     </attributes>
   </attachment>
 
+  <object tag="custom_check_messages">
+    <attributes>
+      <free tag="wrd_title" required="true" description="Message text" />
+      <json tag="conditions" typedeclaration="mod::system/data/wrdschemas/config_types.ts#ManualCheckMessagesConditions" />
+    </attributes>
+  </object>
+
+
 </schemadefinition>
