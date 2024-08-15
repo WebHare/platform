@@ -14,9 +14,14 @@
       <action name="details">
         <enableon source="results" min="1" max="1" onexecute="dodetails" />
       </action>
+      <action name="recheck">
+        <enableon source="results" min="1" max="1" checkflags="canrecheck" onexecute="dorecheck" />
+      </action>
       <action name="unsnooze">
         <enableon source="results" min="1" checkflags="canunsnooze" onexecute="dounsnooze" />
       </action>
+      <action name="runintervalchecks" onexecute="DoRunIntervalChecks" />
+      <action name="editcustomcheckmessages" onexecute="DoEditCustomCheckMessages" />
     </actions>
 
     <menus>
@@ -24,6 +29,7 @@
         <item action="details" />
         <item action="snooze" />
         <item action="unsnooze" />
+        <item action="recheck" />
         <divider />
         <item action="gototask" disablemode="hidden" />
       </menu>
@@ -37,15 +43,15 @@
                 borders="none"
                 defaultbutton="detailsbutton"
                 emptytid=".noerrors"
-                flags="canjumpto cansnooze canunsnooze"
+                flags="canjumpto cansnooze canunsnooze canrecheck"
                 icons="tollium:status/warning tollium:status/schedule"
                 ongetrows="ongeterrors"
                 openaction="details"
                 rowiconname="rowicon"
+                rowkeytype="entityid"
                 selectcontextmenu="contextmenu"
                 selectmode="multiple"
-                sortcolumn="message"
-                rowkeytype="entityid">
+                sortcolumn="message">
             <column name="since" type="datetime" width="18x" storeutc="true" />
             <column name="stopped" type="datetime" width="18x" storeutc="true" />
             <column name="message" type="text" width="2pr" />
@@ -55,10 +61,14 @@
         <cell borders="left" spacers="left right">
           <checkbox name="withhistory" labeltid=".withhistory" onchange="onwithhistorychange" title="" />
           <button name="detailsbutton" width="1pr" action="details" tid=".details" />
+          <button width="1pr" action="recheck" />
           <button width="1pr" action="gototask" tid=".gototask" />
           <spacer height="1gr" />
           <button width="1pr" action="snooze" />
           <button width="1pr" action="unsnooze" />
+          <spacer height="1gr" />
+          <button width="1pr" action="runintervalchecks" />
+          <button width="1pr" action="editcustomcheckmessages" />
         </cell>
       </grid>
       <panel name="mainpanel" borders="top" spacers="left bottom">
@@ -106,6 +116,124 @@
         <column name="message" type="text" width="1pr" />
         <column name="wh_user" type="text" width="20x" />
       </list>
+    </body>
+  </screen>
+
+  <screen name="customcheckmessages"
+          width="120x"
+          height="30x"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".customcheckmessages">
+    <body>
+      <wrd:entitiesedit name="customcheckmessages"
+                        height="1pr"
+                        entityeditscreen="#customcheckmessage"
+                        onmaprows="OnMapCustomCheckMessageRows"
+                        wrdtype="custom_check_messages">
+        <column name="wrd_title" type="text" tid=".message" />
+        <column name="conditions" type="text" />
+      </wrd:entitiesedit>
+    </body>
+  </screen>
+
+  <screen name="customcheckmessage" width="100x" footerbuttons="ok cancel" gid=".customcheckmessages">
+    <compositions>
+      <wrd:entity name="entity" getfields="conditions" onload="GotLoad" wrdtype="custom_check_messages" />
+      <dirtylistener name="dirtylistener" ondirty="GotAnyChange" />
+    </compositions>
+
+    <body>
+      <heading tid=".message" />
+      <line layout="left">
+        <textarea composition="entity" cellname="wrd_title" width="1pr" errorlabeltid=".message" required="true" title="" />
+      </line>
+      <heading tid=".conditions" />
+      <grid>
+        <col width="12px" />
+        <col />
+        <row>
+          <cell colspan="2">
+            <line>
+              <checkbox name="webhareVersion"
+                        dirtylistener="dirtylistener"
+                        enablecomponents="webhareVersion_semver_range"
+                        labeltid=".webhareversion"
+                        title="" />
+              <textedit name="webhareVersion_semver_range"
+                        width="1pr"
+                        dirtylistener="dirtylistener"
+                        errorlabeltid=".webhareversion_semver_range"
+                        required="true"
+                        title="" />
+            </line>
+          </cell>
+        </row>
+        <row>
+          <cell />
+          <cell />
+        </row>
+        <row>
+          <cell colspan="2">
+            <line>
+              <checkbox name="dateRange"
+                        dirtylistener="dirtylistener"
+                        enablecomponents="dateRange_fromdate dateRange_untildate"
+                        labeltid=".date"
+                        title="" />
+              <datetime name="dateRange_fromdate"
+                        type="datetime"
+                        dirtylistener="dirtylistener"
+                        errorlabeltid=".daterange_fromdate"
+                        precision="minutes"
+                        storeutc="true"
+                        title="" />
+              <text title="" valuetid=".until" />
+              <datetime name="dateRange_untildate"
+                        type="datetime"
+                        dirtylistener="dirtylistener"
+                        errorlabeltid=".daterange_untildate"
+                        precision="minutes"
+                        storeutc="true"
+                        title="" />
+            </line>
+          </cell>
+        </row>
+        <row>
+          <cell />
+          <cell />
+        </row>
+        <row>
+          <cell colspan="2">
+            <line>
+              <checkbox name="moduleVersion"
+                        dirtylistener="dirtylistener"
+                        enablecomponents="moduleVersion_module moduleVersion_semver_range"
+                        labeltid=".moduleversion"
+                        title="" />
+              <combobox name="moduleVersion_module"
+                        dirtylistener="dirtylistener"
+                        errorlabeltid=".moduleversion_module"
+                        required="true"
+                        title="" />
+              <textedit name="moduleVersion_semver_range"
+                        width="1pr"
+                        dirtylistener="dirtylistener"
+                        errorlabeltid=".moduleversion_semver_range"
+                        required="true"
+                        title="" />
+            </line>
+          </cell>
+        </row>
+        <row>
+          <cell />
+          <cell />
+        </row>
+      </grid>
+      <heading tid=".result" />
+      <line layout="left">
+        <text name="checkresult" title="" />
+      </line>
     </body>
   </screen>
 
