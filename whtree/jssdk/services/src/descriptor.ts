@@ -13,9 +13,21 @@ import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
-const outputFormats = [null, "image/jpeg", "image/gif", "image/png"] as const;
+const outputFormats = [null, "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const;
 
-type ResizeMethodName = typeof packMethods[number];
+const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
+const DefaultMediaType = "application/octet-stream";
+const BitmapImageTypes = ["image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"];
+const MapBitmapImageTypes: Record<string, string> = {
+  "jpeg": "image/jpeg",
+  "png": "image/png",
+  "gif": "image/gif",
+  "webp": "image/webp",
+  "heif": "image/avif"
+};
+
+export type ResizeMethodName = typeof packMethods[number];
+export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type LinkMethod = {
   allowAnyExtension?: boolean;
@@ -32,7 +44,7 @@ export type ResizeMethod = {
   quality?: number;
   hBlur?: number;
   vBlur?: number;
-  format?: Exclude<typeof outputFormats[number], null>;
+  format?: OutputFormatName;
   fixOrientation?: boolean;
   bgColor?: number | "transparent";
   noForce?: boolean;
@@ -117,6 +129,8 @@ const mimeToExt: Record<string, string> = {
   "image/png": ".png",
   "image/jpeg": ".jpg",
   "image/svgx+xml": ".svg",
+  "image/webp": ".webp",
+  "image/avif": ".avif",
 
   "application/zip": ".zip",
 
@@ -194,14 +208,6 @@ type SerializedScanData = {
   f?: string;
 };
 
-const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
-const DefaultMediaType = "application/octet-stream";
-const BitmapImageTypes = ["image/png", "image/jpeg", "image/gif"];
-const MapBitmapImageTypes: Record<string, string> = {
-  "jpeg": "image/jpeg",
-  "png": "image/png",
-  "gif": "image/gif"
-};
 
 function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
   return "#" + (("0" + r.toString(16)).slice(-2) + ("0" + g.toString(16)).slice(-2) + ("0" + b.toString(16)).slice(-2)).toUpperCase();

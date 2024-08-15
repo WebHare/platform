@@ -201,7 +201,8 @@ async function testResourceDescriptors() {
       width: 385,
       height: 236,
       rotation: null,
-      dominantColor: null
+      dominantColor: null,
+      extension: ".png"
     }, fish.getMetaData());
   }
 
@@ -214,6 +215,28 @@ async function testResourceDescriptors() {
       height: 236,
       dominantColor: "#080808"
     }, fish.getMetaData());
+  }
+
+  {
+    const webp = await services.ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.webp", { getImageMetadata: true });
+    test.eqPartial({
+      mediaType: "image/webp",
+      hash: null,
+      width: 428,
+      height: 284,
+      extension: ".webp"
+    }, webp.getMetaData());
+  }
+
+  {
+    const avif = await services.ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.avif", { getImageMetadata: true });
+    test.eqPartial({
+      mediaType: "image/avif",
+      hash: null,
+      width: 428,
+      height: 284,
+      extension: ".avif"
+    }, avif.getMetaData());
   }
 
   {
