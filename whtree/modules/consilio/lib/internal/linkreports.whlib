@@ -168,23 +168,56 @@ STRING FUNCTION GetLinkText(OBJECT htmldoc, STRING setting)
   RETURN ObjectExists(res) ? res->childrentext : "";
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetLinksForWRDEntity(INTEGER entityid)
+// Get the type of the entity and its base types
+INTEGER ARRAY FUNCTION GetTypesOfWRDEntity(INTEGER entityid)
 {
-  INTEGER ARRAY attrids :=
-      SELECT AS INTEGER ARRAY attrs.id
-        FROM wrd.attrs
-           , wrd.entities
-       WHERE attrs.type = entities.type
-             AND entities.id = entityid;
-  RETURN GetLinksForWRDEntityAttributes(entityid, attrids);
+  INTEGER ARRAY types;
+  RECORD typerec := SELECT type, parenttype FROM wrd.types, wrd.entities WHERE entities.id = entityid AND entities.type = types.id;
+  IF (RecordExists(typerec))
+  {
+    INSERT typerec.type INTO types AT END;
+    INTEGER parenttype := typerec.parenttype;
+    WHILE (parenttype != 0)
+    {
+      INSERT parenttype INTO types AT END;
+      parenttype := SELECT AS INTEGER COLUMN parenttype FROM wrd.types WHERE id = VAR parenttype;
+    }
+  }
+  RETURN types;
+
 }
 
-RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER ARRAY attrids)
+PUBLIC RECORD ARRAY FUNCTION GetLinksForWRDEntities(INTEGER ARRAY entityids)
+{
+  INTEGER ARRAY types := SELECT AS INTEGER ARRAY type FROM wrd.entities WHERE id IN entityids;
+
+  INTEGER ARRAY worklist := types;
+  WHILE (TRUE)
+  {
+    INTEGER ARRAY parenttypes := SELECT AS INTEGER ARRAY parenttype FROM wrd.types WHERE id IN worklist AND parenttype NOT IN VAR types;
+    IF (IsDefaultValue(parenttypes))
+      BREAK;
+    types := types CONCAT worklist;
+    worklist := parenttypes;
+  }
+
+  INTEGER ARRAY attrids := SELECT AS INTEGER ARRAY attrs.id FROM wrd.attrs WHERE attrs.type IN types;
+  RETURN GetLinksForWRDEntityAttributes(entityids, attrids);
+}
+
+
+PUBLIC RECORD ARRAY FUNCTION GetLinksForWRDEntity(INTEGER entityid)
+{
+  RETURN GetLinksForWRDEntities([ entityid ]);
+}
+
+RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER ARRAY entityids, INTEGER ARRAY attrids)
 {
   DATETIME now := GetCurrentDateTime();
 
   RECORD ARRAY direct_settings :=
-      SELECT checked_links.url
+      SELECT wrd_id := entity_settings.entity
+           , checked_links.url
            , checked_links.status
            , checked_links.checked
            , checked_objectlinks.text
@@ -195,14 +228,15 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
            , consilio.checked_objectlinks
            , wrd.entity_settings
            , wrd.attrs
-       WHERE entity_settings.entity = entityid
+       WHERE entity_settings.entity IN entityids
              AND entity_settings.attribute = attrs.id
              AND attrs.id IN attrids
              AND checked_objectlinks.link = checked_links.id
              AND checked_objectlinks.wrd_entity_setting = entity_settings.id;
 
   RECORD ARRAY wrd_fs_settings :=
-      SELECT fs_settings.id
+      SELECT wrd_id := entity_settings.entity
+           , fs_settings.id
            , name := attrs.tag
            , attrs.parent
            , fs_settings.blobdata
@@ -216,7 +250,7 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
            , wrd.entity_settings_whfslink
            , wrd.entity_settings
            , wrd.attrs
-       WHERE entity_settings.entity = entityid
+       WHERE entity_settings.entity IN entityids
              AND entity_settings.attribute = attrs.id
              AND attrs.id IN attrids
              AND entity_settings_whfslink.id = entity_settings.id
@@ -229,7 +263,8 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
   {
     INTEGER64 ARRAY fs_setting_ids := SELECT AS INTEGER64 ARRAY id FROM wrd_fs_settings;
     RECORD ARRAY fs_settings :=
-        SELECT links.url
+        SELECT wrd_fs_settings.wrd_id
+             , links.url
              , links.status
              , links.checked
              , objectlinks.text
@@ -290,6 +325,7 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE  11 { RETURN GetTid("consilio:report.linkcheck.status.internallinknonexisting"); }
     CASE  12 { RETURN GetTid("consilio:report.linkcheck.status.internallinknotpublished"); }
     CASE  13 { RETURN GetTid("consilio:report.linkcheck.status.invalidurl"); }
+    CASE  14 { RETURN GetTid("consilio:report.linkcheck.status.denylisted"); }
     // 1xx: Informational
     CASE 100 { RETURN GetTid("consilio:report.linkcheck.status.continue"); }
     CASE 101 { RETURN GetTid("consilio:report.linkcheck.status.switchingprotocols"); }
