@@ -6,8 +6,12 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::util/semver.whlib";
+LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
 
 LOADLIB "mod::consilio/lib/internal/checks.whlib";
 
@@ -35,6 +39,77 @@ PUBLIC RECORD FUNCTION GetWHVersionInfo()
   RETURN CELL [ versionname
               , built := TrimWhitespace(`${versioninfo.builddate} ${versioninfo.buildtime}`)
               ];
+}
+
+PUBLIC RECORD FUNCTION CheckCustomMessageConditions(RECORD ARRAY conditions)
+{
+  RECORD ARRAY result;
+  FOREVERY (RECORD cond FROM conditions)
+  {
+    SWITCH (cond.type)
+    {
+      CASE "webhareVersion"
+        {
+          STRING whversion := GetWebhareVersionInfo().version;
+          INSERT CELL
+              [ cond.type
+              , cond.semver_range
+              , current := whversion
+              , parsed := CELL[ cond.semver_range ]
+              , matches := VersionSatisfiesRange(whversion, cond.semver_range)
+              ] INTO result AT END;
+        }
+      CASE "dateRange"
+        {
+          DATETIME date_from, date_until := MAX_DATETIME;
+
+          // ADDME: add shared parser for date_range (and use it for the interface too)
+          OBJECT p := NEW StringParser(cond.date_range);
+          p->ParseWhileInSet(" ");
+          IF (p->TryParse(">="))
+          {
+            p->ParseWhileInSet(" ");
+            date_from := MakeDateFromText(p->ParseWhileInSet("0123456789TZ-:."));
+          }
+          p->ParseWhileInSet(" ");
+          IF (p->TryParse("<"))
+          {
+            p->ParseWhileInSet(" ");
+            date_until := MakeDateFromText(p->ParseWhileInSet("0123456789TZ-:."));
+          }
+          p->ParseWhileInSet(" ");
+          RECORD parsed := p->eof ? CELL[ date_from, date_until ] : DEFAULT RECORD;
+          DATETIME now := GetCurrentDateTime();
+          INSERT CELL
+              [ cond.type
+              , cond.date_range
+              , current := FormatISO8601DateTime(GetCurrentDatetime())
+              , parsed
+              , matches := RecordExists(parsed) AND date_from <= now AND date_until > now
+              ] INTO result AT END;
+        }
+      CASE "moduleVersion"
+        {
+          RECORD module := SELECT * FROM GetWebHareModules() WHERE name = cond.module;
+          STRING version := RecordExists(module) ? module.version : "";
+          INSERT CELL
+              [ cond.type
+              , cond.module
+              , cond.semver_range
+              , current := version
+              , parsed := CELL[ cond.semver_range ]
+              , matches := RecordExists(module) AND VersionSatisfiesRange(version, cond.semver_range)
+              ] INTO result AT END;
+        }
+    }
+  }
+
+  RECORD failingcondition := SELECT * FROM result WHERE NOT matches;
+  RETURN CELL
+      [ parsed := result
+      , matches := NOT RecordExists(failingcondition)
+      , failingcondition
+      ];
 }
 
 RECORD ARRAY FUNCTION RunDevelopmentChecks()
@@ -117,6 +192,36 @@ ASYNC FUNCTION GetPersistentQueueStatus(STRING service, INTEGER timeout)
     }
   }
   RETURN RECORD[];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetCustomCheckResults()
+{
+  TRY
+  {
+    OBJECT wrdschema := OpenWRDSchema("system:config");
+    RECORD ARRAY checks := wrdschema->^custom_check_messages->RunQuery(
+      [ outputcolumns := CELL[ "wrd_id", "wrd_title", "conditions" ]
+      ]);
+
+    RECORD ARRAY results;
+    FOREVERY(RECORD check FROM checks)
+    {
+      IF (CellExists(check.conditions, "CONDITIONS") AND CheckCustomMessageConditions(check.conditions.conditions).matches)
+      {
+        INSERT
+            [ msg := `:${check.wrd_title}`
+            , messagetag := [ type := "system:custommessagechecks", id := check.wrd_id ]
+            ] INTO results AT END;
+      }
+    }
+
+    RETURN results;
+  }
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e);
+    RETURN RECORD[];
+  }
 }
 
 ASYNC FUNCTION GetPersistentQueueStatusInternal(STRING serviceport)
@@ -337,6 +442,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   messages := messages CONCAT RunWebserverChecks();
   messages := messages CONCAT RunConsilioChecks();
   messages := messages CONCAT GetHotFixCheckResult();
+  messages := messages CONCAT GetCustomCheckResults();
   messages := messages CONCAT SELECT msg := ":" || msg
                                    , messagetag := CELL[ type := "system:validation", resourcename, line ]
                                    , jumpto := CELL[ app := "system:codeview", target := CELL[ resourcename, line, col ]]

@@ -1487,10 +1487,12 @@
         <text tid="confirm-unsnooze">Are you sure you want to remove the selected snoozes?</text>
         <text tid="datetime">Date &amp; time</text>
         <text tid="details">Details</text>
+        <text tid="editcustomcheckmessages">Manual check messages</text>
         <text tid="event">Event</text>
         <text tid="general">General</text>
         <text tid="gototask">Go to</text>
         <text tid="history">History</text>
+        <text tid="intervalchecks-scheduled">The interval checks have been scheduled</text>
         <text tid="lastsnoozedby">Snoozed by</text>
         <text tid="lastsnoozemessage">Snooze message</text>
         <text tid="message">Error message</text>
@@ -1499,6 +1501,9 @@
         <text tid="multiplemessages">(multiple error messages)</text>
         <text tid="noerrors">There are no known issues</text>
         <text tid="platform">Platform</text>
+        <text tid="recheck">Recheck</text>
+        <text tid="recheck-scheduled">A recheck for this issue has been scheduled</text>
+        <text tid="runintervalchecks">Schedule interval checks</text>
         <text tid="server">Server version</text>
         <text tid="since">Since</text>
         <text tid="snooze">Snooze</text>
@@ -1512,6 +1517,32 @@
         <text tid="wh_user">User</text>
         <text tid="when">When</text>
         <text tid="withhistory">Show history</text>
+        <textgroup gid="customcheckmessages">   <!-- tolliumapps.dashboard.platform.customcheckmessages -->
+          <text tid="allconditionsmatch">All conditions match</text>
+          <text tid="atleastonedaterequired">At least one date is required</text>
+          <text tid="conditionfails">The condition '<param p="1"/>' does not match, current value: <param p="2"/></text>
+          <text tid="conditions">Conditions</text>
+          <text tid="customcheckmessage">Manual check message</text>
+          <text tid="customcheckmessages">Manual check messages</text>
+          <text tid="date">Date range, from</text>
+          <text tid="daterange_fromdate">From</text>
+          <text tid="daterange_untildate">Until</text>
+          <text tid="message">Message</text>
+          <text tid="moduleversion">Module version</text>
+          <text tid="moduleversion_module">Module</text>
+          <text tid="moduleversion_semver_range">Version range (semver)</text>
+          <text tid="nosuchmodule">No such module</text>
+          <text tid="notavalidsemverrange">This value is not a valid semver range</text>
+          <text tid="result">Result</text>
+          <text tid="until">until</text>
+          <text tid="webhareversion">WebHare version range (semver):</text>
+          <text tid="webhareversion_semver_range">Versie range (semver)</text>
+          <textgroup gid="conditiontypes">   <!-- tolliumapps.dashboard.platform.customcheckmessages.conditiontypes -->
+            <text tid="fromdate">Date range</text>
+            <text tid="moduleversion">Module version</text>
+            <text tid="webhareversion">WebHare version</text>
+          </textgroup>
+        </textgroup>
         <textgroup gid="eventtypes">   <!-- tolliumapps.dashboard.platform.eventtypes -->
           <text tid="change">Change</text>
           <text tid="dismiss">Dismissed</text>
