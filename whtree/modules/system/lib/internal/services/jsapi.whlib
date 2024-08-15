@@ -11,7 +11,11 @@ LOADLIB "mod::wrd/lib/auth.whlib";
 PUBLIC RECORD FUNCTION RPC_GetCheckResult(STRING url)
 {
   OBJECT wrdauthplugin := GetWRDAuthPlugin(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ]);
-  BOOLEAN issupervisor := wrdauthplugin->GetCurrentWebhareUser()->HasRight("system:supervisor");
+  OBJECT currentuser := wrdauthplugin->GetCurrentWebhareUser();
+  IF (NOT ObjectExists(currentuser))
+    RETURN [ privileged := FALSE ];
+
+  BOOLEAN issupervisor := currentuser->HasRight("system:supervisor");
   IF(NOT issupervisor)
     RETURN [ privileged := FALSE ];
 
