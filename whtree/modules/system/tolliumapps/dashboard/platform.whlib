@@ -1,17 +1,24 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/semver.whlib";
+LOADLIB "wh::util/stringparser.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
 
 PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 <
@@ -102,8 +109,9 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
               , canjumpto :=    RecordExists(jump_to)
               , cansnooze :=    ismanageable AND NOT snoozed
               , canunsnooze :=  ismanageable AND snoozed
+              , canrecheck :=   ismanageable AND CellExists(row, "CHECK_TASK") AND row.check_task != ""
               , rowicon :=      snoozed ? 2 : stopped = DEFAULT DATETIME ? 1 : 0
-           FROM GetCurrentCheckIssues( [ withhistory := ^withhistory->value ]);
+           FROM GetCurrentCheckIssues( [ withhistory := ^withhistory->value ]) AS row;
 
     RETURN messages;
   }
@@ -140,6 +148,27 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
       UnsnoozeIssue(id);
 
     work->Finish();
+  }
+
+  MACRO DoRecheck()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    ScheduleTimedTask(^results->selection[0].check_task);
+    IF (work->Finish())
+      this->RunSimpleScreen("info", this->GetTid(".recheck-scheduled"));
+  }
+
+  MACRO DoRunIntervalChecks()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    ScheduleTimedTask("system:intervalchecks");
+    IF (work->Finish())
+      this->RunSimpleScreen("info", this->GetTid(".intervalchecks-scheduled"));
+  }
+
+  MACRO DoEditCustomCheckMessages()
+  {
+    this->RunScreen("platform.xml#customcheckmessages", DEFAULT RECORD);
   }
 >;
 
@@ -248,5 +277,186 @@ PUBLIC STATIC OBJECTTYPE Details EXTEND TolliumScreenBase
       ^lastsnoozedby->visible := FALSE;
       ^lastsnoozemessage->visible := FALSE;
     }
+  }
+>;
+
+STRING FUNCTION MapConditionType(STRING type)
+{
+  SWITCH (type)
+  {
+    CASE "webhareVersion"       { RETURN GetTid("system:tolliumapps.dashboard.platform.customcheckmessages.conditiontypes.webhareversion"); }
+    CASE "dateRange"             { RETURN GetTid("system:tolliumapps.dashboard.platform.customcheckmessages.conditiontypes.fromdate"); }
+    CASE "moduleVersion"        { RETURN GetTid("system:tolliumapps.dashboard.platform.customcheckmessages.conditiontypes.moduleversion"); }
+    DEFAULT                     { RETURN type; }
+  }
+}
+
+STRING FUNCTION EncodeCondition(RECORD conditionrow)
+{
+  SWITCH (conditionrow.type)
+  {
+    CASE "webhareVersion"
+      {
+        RETURN conditionrow.semver_range;
+      }
+    CASE "dateRange"
+      {
+        RETURN conditionrow.date_range;
+      }
+    CASE "moduleVersion"
+      {
+        RETURN conditionrow.module || " " || conditionrow.semver_range;
+      }
+    DEFAULT
+      {
+        RETURN "";
+      }
+  }
+}
+
+STRING FUNCTION EncodeMultipleConditions(RECORD ARRAY conditions)
+{
+  RETURN Detokenize((SELECT AS STRING ARRAY `${MapConditionType(type)}: ${EncodeCondition(conditions)}` FROM conditions), ", ");
+}
+
+PUBLIC STATIC OBJECTTYPE CustomCheckMessages EXTEND TolliumScreenBase
+< MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("system:config");
+  }
+
+  MACRO Init(RECORD data)
+  {
+  }
+
+  RECORD ARRAY FUNCTION OnMapCustomCheckMessageRows(RECORD ARRAY baserows)
+  {
+    RETURN
+        SELECT *
+             , conditions := EncodeMultipleConditions(conditions.conditions)
+          FROM baserows;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CustomCheckMessage EXTEND WRDEntityEditScreenBase
+< BOOLEAN initializing;
+
+  UPDATE MACRO Init(RECORD data)
+  {
+    ^moduleVersion_module->options := ToRecordArray(GetInstalledModuleNames(), "TITLE");
+    this->initializing := TRUE;
+    WRDEntityEditScreenBase::Init(data);
+    this->initializing := FALSE;
+    this->GotAnyChange();
+  }
+
+  MACRO GotAnyChange()
+  {
+    IF (this->initializing)
+      RETURN;
+
+    OBJECT feedback := this->BeginFeedback();
+    RECORD ARRAY conditions := this->ReadConditionsFromComponents(feedback);
+    IF (feedback->HasFailed())
+    {
+      ^checkresult->value := ObjectExists(feedback->errors[0].comp)
+          ? `${feedback->errors[0].comp->errorlabel ?? feedback->errors[0].comp->title}: ${feedback->errors[0].text}`
+          : feedback->errors[0].text;
+    }
+    ELSE
+    {
+      RECORD fails := CheckCustomMessageConditions(conditions).failingcondition;
+      IF (RecordExists(fails))
+      {
+        STRING name := fails.type;
+        SWITCH (fails.type)
+        {
+          CASE "webhareVersion" { name := this->GetTid(".webhareversion"); }
+          CASE "dateRange" { name := this->GetTid(".date"); }
+          CASE "moduleVersion" { name := this->GetTid(".moduleversion"); fails.current := fails.current ?? this->GetTid(".nosuchmodule"); }
+        }
+        ^checkresult->value := this->GetTid(".conditionfails", name, fails.current);
+      }
+      ELSE
+        ^checkresult->value := this->GetTid(".allconditionsmatch");
+    }
+    feedback->Cancel();
+    ^dirtylistener->ClearDirty();
+  }
+
+  RECORD FUNCTION GotLoad(RECORD data)
+  {
+    this->InitConditionsView(data.conditions.conditions);
+    RETURN data;
+  }
+
+  MACRO InitConditionsView(RECORD ARRAY conditions)
+  {
+    RECORD ARRAY parsed := CheckCustomMessageConditions(conditions).parsed;
+    FOREVERY (RECORD row FROM parsed)
+    {
+      IF (NOT RecordExists(row.parsed))
+        CONTINUE;
+
+      SWITCH (row.type)
+      {
+        CASE "webhareVersion"
+          {
+            ^webhareVersion->value := TRUE;
+            ^webhareVersion_semver_range->value := row.semver_range;
+          }
+        CASE "dateRange"
+          {
+            ^dateRange_fromdate->value := row.parsed.date_from;
+            IF (row.parsed.date_from != MAX_DATETIME)
+              ^dateRange_untildate->value := row.parsed.date_until;
+          }
+        CASE "moduleVersion"
+          {
+            ^moduleVersion->value := TRUE;
+            ^moduleVersion_module->value := row.module;
+            ^moduleVersion_semver_range->value := row.semver_range;
+          }
+      }
+    }
+  }
+
+  RECORD ARRAY FUNCTION ReadConditionsFromComponents(OBJECT work)
+  {
+    RECORD ARRAY conditions;
+    IF (^webhareversion->value)
+    {
+      IF (IsValueSet(ImportJS("semver")->validRange(^webhareVersion_semver_range->value)))
+        INSERT CELL[ type := "webhareVersion", semver_range := ^webhareVersion_semver_range->value ] INTO conditions AT END;
+      ELSE IF (ObjectExists(work))
+        work->AddErrorFor(^webhareVersion_semver_range, this->GetTid(".notavalidsemverrange"));
+    }
+    IF (^dateRange->value)
+    {
+      IF (IsValueSet(^dateRange_fromdate->value) OR IsValueSet(^dateRange_untildate->value))
+      {
+        STRING date_range := "";
+        IF (IsValueSet(^dateRange_fromdate->value))
+          date_range := ">= " || FormatISO8601DateTime(^dateRange_fromdate->value) || " ";
+        IF (IsValueSet(^dateRange_untildate->value))
+          date_range := date_range || "< " || FormatISO8601DateTime(^dateRange_untildate->value) || " ";
+        INSERT CELL[ type := "dateRange", date_range := TrimWhitespace(date_range) ] INTO conditions AT END;
+      }
+      ELSE IF (ObjectExists(work))
+        work->AddErrorFor(^dateRange_fromdate, this->GetTid(".atleastonedaterequired"));
+    }
+    IF (^moduleVersion->value)
+    {
+      IF (IsValueSet(ImportJS("semver")->validRange(^moduleVersion_semver_range->value)))
+        INSERT CELL[ type := "moduleVersion", module := ^moduleVersion_module->value, semver_range := ^moduleVersion_semver_range->value ] INTO conditions AT END;
+      ELSE IF (ObjectExists(work))
+        work->AddErrorFor(^moduleVersion_semver_range, this->GetTid(".notavalidsemverrange"));
+    }
+    RETURN conditions;
+  }
+
+  UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue)
+  {
+    RETURN CELL[ ...updatevalue, conditions := [ conditions := this->ReadConditionsFromComponents(work) ] ];
   }
 >;
