@@ -2,12 +2,9 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/otp.whlib";
-LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -17,7 +14,6 @@ LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/tasks.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
