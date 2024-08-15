@@ -325,6 +325,7 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE  11 { RETURN GetTid("consilio:report.linkcheck.status.internallinknonexisting"); }
     CASE  12 { RETURN GetTid("consilio:report.linkcheck.status.internallinknotpublished"); }
     CASE  13 { RETURN GetTid("consilio:report.linkcheck.status.invalidurl"); }
+    CASE  14 { RETURN GetTid("consilio:report.linkcheck.status.denylisted"); }
     // 1xx: Informational
     CASE 100 { RETURN GetTid("consilio:report.linkcheck.status.continue"); }
     CASE 101 { RETURN GetTid("consilio:report.linkcheck.status.switchingprotocols"); }
