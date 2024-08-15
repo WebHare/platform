@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
@@ -85,6 +86,14 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
   IF (url LIKE "*://linkchecker.test/expect-???/*") //mocks for testing
   {
     RETURN [ code := ToInteger(Tokenize(Tokenize(url,'-')[1],'/')[0], 0) ];
+  }
+
+  RECORD denylistcheck := RunModuleHookTarget("consilio:fetcher_blacklist", CELL[ indexid := 0, contentsourceid := 0, url, action := "linkcheck_to", pattern := "" ]);
+  IF (denylistcheck.pattern != "")
+  {
+    IF (options.debug)
+      PRINT(`Checking url ${EncodeJSON(url)} denied by denylist pattern ${EncodeJSON(denylistcheck.pattern)}\n`);
+    RETURN [ code := 14 ];
   }
 
   //Perhaps we already know the server is dead ?

@@ -613,7 +613,7 @@ PUBLIC STATIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
     INTEGER toopen := source->selection.rowkey; //note: works on both multi and single selects due to record array to record cast
     IF(NOT this->tolliumuser->HasRightOn("system:fs_browse",toopen))
     {
-      this->RunMessageBox(".norightsforpublisher");
+      this->RunSimpleScreen("info", GetTid("publisher:commondialogs.messageboxes.norightsforpublisher"));
       RETURN;
     }
     RunPublisherFileManager(this, toopen);

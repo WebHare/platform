@@ -49,6 +49,10 @@ MACRO TestServerStatus()
   result := CheckLink(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.webhare_testsuite/tests/consilio/head-broken.shtml?head=404&get=200"));
   TestEq("", result.errorcode);
   TestEq(404, result.code);
+
+  // robots.txt is always denylisted
+  result := CheckLink(`http://example.com/robots.txt`);
+  TestEQ(14, result.code);
 }
 
 RunTestFramework( [ PTR TestServerStatus
