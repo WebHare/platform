@@ -626,7 +626,8 @@ setup_buildsystem()
       # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
       CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
       if [ "$DEPSFILE" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ]; then
-      export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR" # homebrew filters most env vars
+        export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR" # homebrew filters most env vars
+        export HOMEBREW_WEBHARE_CHECKEDOUT_TO="$WEBHARE_CHECKEDOUT_TO"
         echo -n "Brew: "
         if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
         echo "$TODAY" > "$CHECKFILE"
