@@ -9,15 +9,21 @@ if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
   exit 1
 fi
 
-GETFILE=pdfbox-app-2.0.25.jar
+ASSETROOT="$1"
+GETVERSION="$2"
+
+GETFILE=pdfbox-app-$GETVERSION.jar
 mkdir -p "$WHBUILD_DOWNLOADCACHE"
 DLPATH="$WHBUILD_DOWNLOADCACHE/$GETFILE"
 DESTPATH="$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/pdfbox-app.jar
 
-if ! curl -fsS -o "$DLPATH" -z "$DLPATH" https://build.webhare.dev/whbuild/$GETFILE ; then
-  rm -f "$DLPATH"
-  echo "Download failed"
-  exit 1
+if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
+  echo "Primary download failed, attempting fallback location"
+  if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "https://dlcdn.apache.org/pdfbox/${GETVERSION}/${GETFILE}" ; then
+    rm -f "$DLPATH"
+    echo "Download failed"
+    exit 1
+  fi
 fi
 
 

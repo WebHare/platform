@@ -170,3 +170,8 @@ Number of processors to use (the `make -j` parameter). Estimated based on CPU co
 
 ### WHBUILD_DEBUG
 Set to build debug versions of WebHare C++ components
+
+### WHBUILD_ASSETROOT
+Path to external dependencies. Defaults to https://build.webhare.dev/whbuild/
+
+Set to an invalid URL to test build fallback URLs, eg: `WHBUILD_ASSETROOT="https://123xyz.invalid/" wh builddocker`

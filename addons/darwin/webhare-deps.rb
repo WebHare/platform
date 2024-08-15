@@ -1,10 +1,13 @@
 # typed: false
 # frozen_string_literal: true
 
+# This is a dummy formula that is used to install the dependencies for WebHare
 class WebhareDeps < Formula
   desc "WebHare dependency descriptions"
   homepage "https://www.webhare.dev/"
-  url "https://build.webhare.dev/whbuild/dummy.tar.gz"
+
+  # dummy.tar.gz is an empty tar.gz, but we need to provide brew with *something*
+  url "file://" + ENV["HOMEBREW_WEBHARE_CHECKEDOUT_TO"] + "/addons/darwin/dummy.tar.gz"
   version "1"
   sha256 "6d888e48bcda88870b318feee151d42ace8054fb5cd9a10df56786348cc61628"
 

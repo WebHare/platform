@@ -69,20 +69,22 @@ RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
     --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
     /bin/bash /setup-imagebase.sh # 2023-06-05
 
+ARG WHBUILD_ASSETROOT
+
 # Install pdfbox
 RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
-    /bin/bash /setup-pdfbox.sh
+    /bin/bash /setup-pdfbox.sh $WHBUILD_ASSETROOT 2.0.32
 
 # Install TIKA
 RUN --mount=type=bind,source=/setup-tika.sh,target=/setup-tika.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
-    /bin/bash /setup-tika.sh
+    /bin/bash /setup-tika.sh $WHBUILD_ASSETROOT 2.9.2
 
 # Install OpenSearch
 RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
-    /bin/bash /setup-opensearch.sh
+    /bin/bash /setup-opensearch.sh $WHBUILD_ASSETROOT 2.16.0
 
 # Add dropins (service management scripts etc)
 ADD dropins /
