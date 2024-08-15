@@ -3468,6 +3468,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::R:SV", EM_Syscall));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYNCSYSCALL::R:SV", EM_Syscall));
 
 #ifdef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIAD",EM_WaitForMultipleUntil));

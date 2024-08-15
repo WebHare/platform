@@ -8,6 +8,7 @@ LOADLIB "wh::internal/callbacks.whlib";
 
 //This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
 RECORD FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+RECORD FUNCTION __EM_SYNCSYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 MACRO __EM_SYSCALL_RESOLVE(INTEGER requestid, INTEGER mode, VARIANT param) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 RECORD ARRAY pendingpromises;
@@ -114,6 +115,21 @@ PUBLIC VARIANT FUNCTION EM_Syscall(STRING call, RECORD data DEFAULTSTO DEFAULT R
   INSERT CELL[ defer.resolve, defer.reject, id := res.promiseid ] INTO pendingpromises AT END;
   RETURN defer.promise;
 }
+
+/* Synchronous variant of EM_Syscall, if the syscall returns a promise execution of the VM is suspended until that promise resolves.
+   Re-entering the VM is disallowed when calling this function, as reentrancy support needs a running HareScript event loop.
+*/
+PUBLIC VARIANT FUNCTION EM_SyncSyscall(STRING call, RECORD data DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD res := __EM_SYNCSYSCALL(call, data);
+  IF(NOT RecordExists(res))
+    RETURN DEFAULT RECORD; //signals no WASM
+  IF(res.result = "unknown")
+    THROW NEW WasmInvalidSyscallException(`No such EM Syscall '${call}'`);
+
+  RETURN res.value;
+}
+
 
 RECORD emstate := EM_SYSCALL("init") ?? [ iswasm := FALSE ];
 
