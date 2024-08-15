@@ -8,7 +8,6 @@
     <messagebox name="deleteconfirm" icon="question" buttons="yes no" />
     <messagebox name="deletesitesconfirm" icon="question" buttons="yes no" />
     <messagebox name="recyclesitesconfirm" icon="question" buttons="yes no" />
-    <messagebox name="norightsforpublisher" icon="information" buttons="ok" />
     <messagebox name="cannotopenlink" icon="information" buttons="ok" />
     <messagebox name="cannotopencontentlisting" icon="information" buttons="ok" />
     <messagebox name="cannotfindobjecteditor" icon="warning" buttons="ok" />

@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl">
   <textgroup gid="catalog">   <!-- catalog -->
     <text tid="publisher">Publisher</text>
     <textgroup gid="blacklist">   <!-- catalog.blacklist -->
@@ -294,6 +294,7 @@
         <text tid="continue">Continue</text>
         <text tid="couldnotconnect">Kan geen verbinding maken met de server</text>
         <text tid="created">Created</text>
+        <text tid="denylisted">Staat op de uitzonderingslijst</text>
         <text tid="expectationfailed">Expectation failed</text>
         <text tid="forbidden">Geen toegang</text>
         <text tid="found">Found</text>
