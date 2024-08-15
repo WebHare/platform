@@ -7,19 +7,31 @@
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
 # wh builddocker && wh testdocker --sh --tag=-external -w local consilio
 
-GETFILE=opensearch-2.6.0-linux-x64.tar.gz
-DLPATH=/tmp/downloads/$GETFILE
+ASSETROOT="$1"
+GETVERSION="$2"
 
-if [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
-else
+if [ "$(uname -m)" == "x86_64" ]; then
   export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  GETFILE=opensearch-${GETVERSION}-linux-x64.tar.gz
+  FALLBACKURL=https://artifacts.opensearch.org/releases/bundle/opensearch/${GETVERSION}/${GETFILE}
+elif [ "$(uname -m)" == "aarch64" ]; then
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+  GETFILE=opensearch-${GETVERSION}-linux-arm64.tar.gz
+  FALLBACKURL=https://artifacts.opensearch.org/releases/bundle/opensearch/${GETVERSION}/${GETFILE}
+else
+  echo "This script does not support machine: '$(uname -m)'"
+  exit 1
 fi
 
-if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
-  rm -f $DLPATH
-  echo "Download failed"
-  exit 1
+DLPATH=/tmp/downloads/$GETFILE
+
+if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
+  echo "Primary download failed, attempting fallback location"
+  if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${FALLBACKURL}" ; then
+    rm -f "$DLPATH"
+    echo "Download failed"
+    exit 1
+  fi
 fi
 
 mkdir /opt/opensearch
@@ -47,7 +59,5 @@ if [ "$RETVAL" != "0" ]; then
   echo "Install failed? Errorcode $RETVAL from analysis-icu installation"
   exit 1
 fi
-
-
 
 exit 0

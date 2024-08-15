@@ -9,15 +9,21 @@ if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
   exit 1
 fi
 
-GETFILE=tika-app-2.3.0.jar
+ASSETROOT="$1"
+GETVERSION="$2"
+
+GETFILE="tika-app-$GETVERSION.jar"
 mkdir -p "$WHBUILD_DOWNLOADCACHE"
 DLPATH="$WHBUILD_DOWNLOADCACHE/$GETFILE"
 DESTPATH="$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/tika-app.jar
 
-if ! curl -fsS -o "$DLPATH" -z "$DLPATH" https://build.webhare.dev/whbuild/$GETFILE ; then
-  rm -f "$DLPATH"
-  echo "Download failed"
-  exit 1
+if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
+  echo "Primary download failed, attempting fallback location"
+  if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "https://dlcdn.apache.org/tika/${GETVERSION}/${GETFILE}" ; then
+    rm -f "$DLPATH"
+    echo "Download failed"
+    exit 1
+  fi
 fi
 
 

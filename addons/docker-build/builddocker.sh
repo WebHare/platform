@@ -139,8 +139,11 @@ DOCKERBUILDARGS+=(--progress)
 DOCKERBUILDARGS+=(plain)
 
 [ -n "$WEBHARE_NODE_MAJOR" ] || die "WEBHARE_NODE_MAJOR not set"
+[ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR")
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("WHBUILD_ASSETROOT=$WHBUILD_ASSETROOT")
 
 if [ -z "$CI_COMMIT_SHA" ]; then
   # Not a CI build, try to get git commit and branch
