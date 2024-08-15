@@ -492,6 +492,30 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       promiseid: 0
     });
   });
+  wasmmodule.registerAsyncExternalFunction("__EM_SYNCSYSCALL::R:SV", async (vm, id_set, var_func, var_data) => {
+    const func = var_func.getString();
+    const data = var_data.getJSValue();
+    if (!(syscalls as SysCallsModule)[func]) {
+      id_set.setJSValue({ result: "unknown" });
+      return;
+    }
+    vm.inSyncSyscall = true;
+    try {
+      let value = (syscalls as SysCallsModule)[func](vm, data);
+
+      if (isPromise(value))  //looks like a promise
+        value = await value;
+      if (value === undefined)
+        value = false;
+      id_set.setJSValue({
+        result: "ok",
+        value,
+        promiseid: 0
+      });
+    } finally {
+      vm.inSyncSyscall = false;
+    }
+  });
   wasmmodule.registerExternalMacro("__EM_SYSCALL_RESOLVE:::IIV", (vm, var_requestid, var_mode, var_param) => {
     const requestid = var_requestid.getInteger();
     const reqidx = vm.pendingFunctionRequests.findIndex(_ => _.id === requestid);

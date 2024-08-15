@@ -159,7 +159,8 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
 
 OBJECT invokeservice;
 
-/** Invoke a specific JavaScript function. Directly in WASM mode but through a central service in Native mode
+/** Invoke a specific JavaScript function. Through a central service in Native mode and
+    directly in WASM mode (with reentrancy disallowed)
     @param name lib#name to call. Case sensitive!
     @return The result of the function call. Promises are evaluated immediately
     */
@@ -174,7 +175,7 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
 
   IF(IsWasm())
   {
-    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args ]));  //TODO or would we need a synchronous (don't let any harescript async code run) version for maximum compatibility?
+    RETURN EM_SyncSyscall("jsCall", CELL[ lib, name, args ]);
   }
 
   IF(NOT ObjectExists(invokeservice))

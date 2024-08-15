@@ -213,6 +213,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   __unrefMainTimer: boolean;
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
   contexts = new Map<symbol, { close?: () => void }>;
+  inSyncSyscall = false;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -600,6 +601,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
       @param isfunction - Whether to call a function or macro
    */
   async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar): Promise<unknown> {
+    if (this.inSyncSyscall)
+      throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
+
     //FIXME check if we really want to bother with HSMVars as currently its just a lot of extra cloning
     const defer = Promise.withResolvers<unknown | undefined>();
     const id = ++this.syscallPromiseIdCounter;
