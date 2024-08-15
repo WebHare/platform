@@ -788,6 +788,8 @@ PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
     CASE "image/png"        { RETURN ".png"; }
     CASE "image/jpeg"       { RETURN ".jpg"; }
     CASE "image/svgx+xml"   { RETURN ".svg"; }
+    CASE "image/webp"       { RETURN ".webp"; }
+    CASE "image/avif"       { RETURN ".avif"; }
 
     CASE "application/zip"  { RETURN ".zip"; }
 
@@ -870,7 +872,7 @@ PUBLIC RECORD FUNCTION ScanBlob(BLOB toscan, STRING filename DEFAULTSTO "", RECO
   IF(RecordExists(typeinfo.imginfo) AND base.mimetype LIKE "image/*")
   {
     IF(IsWASM())
-    {
+    { //TODO for AVIF and HEIC we're now going through analyzeImage twice ... at least its in-process
       RECORD imginfo := WaitForPromise(ImportJS("@webhare/services/src/descriptor.ts")->analyzeImage(toscan, options.extractdominantcolor));
       //deal with potential nulls
       imginfo := EnforceStructure([ width := 0, height := 0, rotation := 0, mirrored := FALSE, dominantcolor := "", mediatype := "" ], imginfo);

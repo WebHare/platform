@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::javascript.whlib";
 
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -29,6 +30,11 @@ INTEGER entityid1, entityid2;
 
 MACRO ImgCacheTest()
 {
+  // Verify AVIF and WEBP support in ScanBlob
+  TesteqMembers([width := 428, height:= 284, extension := ".jpg", mimetype := "image/jpeg"], ScanBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.jpg")),'*');
+  TesteqMembers([width := 428, height:= 284, extension := ".webp", mimetype := "image/webp"], ScanBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.webp")),'*');
+  TesteqMembers([width := 428, height:= 284, extension := ".avif", mimetype := "image/avif"], ScanBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.avif")),'*');
+
   // Verify calculations
   TestEqMembers(
      [ item := [cc := 456 ]],
