@@ -12,7 +12,7 @@
 
   <servicemanager>
     <!-- update the tag when new mimetypes arrive -->
-    <runonce script="scripts/runonce/initmimetypes.whscr" tag="init_mimetypes_20230705" when="aftertablecreation" />
+    <runonce script="scripts/runonce/initmimetypes.whscr" tag="init_mimetypes_20240815" when="aftertablecreation" />
 
     <!-- initialize core DB structure and create standard folders -->
     <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20240219" when="afterregistryupdate" />
