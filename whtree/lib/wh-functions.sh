@@ -689,11 +689,13 @@ setup_buildsystem()
   fi
 
   if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
+    # TODO find a nice way to share URL and versions with Docker file
+    [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
     # Additional dependencies
-    if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh ; then
+    if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh" "$WHBUILD_ASSETROOT" 2.0.32 ; then
       echo "setup-pdfbox failed"
     fi
-    if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh ; then
+    if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh" "$WHBUILD_ASSETROOT" 2.9.2; then
       echo "setup-tika failed"
     fi
   fi
