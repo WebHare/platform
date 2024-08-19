@@ -234,6 +234,8 @@ export class Email extends BaseEditable {
         const node = dompack.create('a',
           {
             href: "mailto:" + address,
+            target: "_blank",
+            rel: "noreferrer",
             textContent: address,
             className: "text"
           });
@@ -266,6 +268,7 @@ export class URL extends BaseEditable {
           {
             href: url,
             target: "_blank",
+            rel: "noreferrer",
             textContent: url,
             className: "text"
           });
