@@ -3,6 +3,7 @@ FROM       ubuntu:20.04 AS base
 MAINTAINER WebHare bv <info@webhare.com>
 
 ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
+ARG WHBUILD_NODE_URL
 
 # Environment variables
 ENV LC_ALL=C \
@@ -22,7 +23,7 @@ ENV LC_ALL=C \
 RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
     --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
     --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
-    /bin/bash /setup-imagebase.sh # 2024-08-19
+    WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2024-08-19
 
 ################# STAGE 1 - builder image
 FROM       base AS builder
