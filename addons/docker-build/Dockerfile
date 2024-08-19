@@ -1,43 +1,8 @@
-################# STAGE 1 - builder image
-FROM       ubuntu:20.04 AS builder
+################# STAGE 0 - base image. shared between builder and runner
+FROM       ubuntu:20.04 AS base
 MAINTAINER WebHare bv <info@webhare.com>
 
 ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
-
-# Environment variables
-ENV LC_ALL=C \
-  WEBHARE_IN_DOCKER=1 \
-  WEBHARE_BUILDDIR=/opt/whbuild/ \
-  WEBHARE_DIR=/opt/wh/whtree \
-  WEBHARE_CHECKEDOUT_TO=/opt/wh \
-  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-  WHBUILD_ALLOW=1 \
-  WHBUILD_BUILDROOT=/tmp/compile \
-  WHBUILD_DOWNLOADCACHE=/tmp/downloads \
-  WHBUILD_NODEPS=1 \
-  WHBUILD_LTO=1 \
-  WHBUILD_WASMLTO=1 \
-  WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR
-
-# Base image setup
-RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
-    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
-    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
-    /bin/bash /setup-builder.sh # 2023-06-05
-
-# Add base source code and stuff needed to compile it
-COPY tocompile/ /opt/wh/
-
-# Build those parts.
-RUN --mount=type=tmpfs,target=/opt/whbuild \
-    --mount=type=tmpfs,target=/tmp \
-    --mount=type=cache,id=compile,target=/tmp/compile  \
-    /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
-
-################# STAGE 2 - application image
-FROM       ubuntu:20.04 AS appimage
-
-ARG WEBHARE_NODE_MAJOR # Depend on this setting to let imagebase.sh download the proper node
 
 # Environment variables
 ENV LC_ALL=C \
@@ -54,6 +19,41 @@ ENV LC_ALL=C \
   PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
+    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
+    /bin/bash /setup-imagebase.sh # 2024-08-19
+
+################# STAGE 1 - builder image
+FROM       base AS builder
+
+# Environment variables
+ENV \
+  WEBHARE_BUILDDIR=/opt/whbuild/ \
+  WHBUILD_ALLOW=1 \
+  WHBUILD_BUILDROOT=/tmp/compile \
+  WHBUILD_NODEPS=1 \
+  WHBUILD_LTO=1 \
+  WHBUILD_WASMLTO=1
+
+# Base image setup
+RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
+    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
+    /bin/bash /setup-builder.sh # 2024-08-19
+
+# Add base source code and stuff needed to compile it
+COPY tocompile/ /opt/wh/
+
+# Build those parts.
+RUN --mount=type=tmpfs,target=/opt/whbuild \
+    --mount=type=tmpfs,target=/tmp \
+    --mount=type=cache,id=compile,target=/tmp/compile  \
+    /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
+
+    ################# STAGE 2 - application image
+FROM       base AS appimage
+
 # Expose usual WebHare hostingports
 EXPOSE 13684
 
@@ -63,11 +63,6 @@ CMD [ "/opt/container/launch.sh" ]
 
 # We no longer mark /opt/whdata as a volume so we can do our sanity check whether it really lives on a persistent volume
 # VOLUME /opt/whdata
-
-RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
-    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
-    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
-    /bin/bash /setup-imagebase.sh # 2023-06-05
 
 ARG WHBUILD_ASSETROOT
 

@@ -13,119 +13,37 @@
 # stunnel: some modules use it for connectivity. must be a stunnel version with PSK support
 # liberation-fonts: fonts that look like Arial, Times New Roman, Courier New
 
-
 # Fail on any error
 set -eo pipefail
 
-export DEBIAN_FRONTEND=noninteractive
-export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+# 2023-05-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
 
-# Setup users
-useradd --system --uid 20002 --user-group opensearch
-useradd --system --uid 20003 --user-group postgres
-
-apt-get update
-apt-get install -y software-properties-common curl gnupg ca-certificates
-add-apt-repository universe
-
-# From https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md#example-cache-apt-packages
-rm -f /etc/apt/apt.conf.d/docker-clean
-echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-
-# Chrome headless sometimes crashes if fonts are missing. Not sure why, but see https://bugs.chromium.org/p/chromium/issues/detail?id=695212
-# Note that in the end, this still didn't seem to fix it, so perhaps fonts-open-sans can go away again
-
-# nodesource key & repositoty
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${WEBHARE_NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
-
-apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
-add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
-( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
-
-
-# Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
-# usermod -d /opt/whdata/home/root root - doesn't work:  'usermod: user root is currently used by process 1'
-cat /etc/passwd | sed -e 's/:\/root:/:\/opt\/whdata\/home\/root:/' > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
-
-# Group for WebHare's data directory. Not fully used yet, but keeps chrome out of it
-groupadd --gid 20000 whdata
-
-# User and group for Chrome. We really want to keep a browser far away from our data
-groupadd --gid 20001 chrome
-useradd --create-home --uid 20001 --gid 20001 --shell /bin/false chrome
-
-# User and group for opensearch. already created in dockerfile, we just need to make sure opensearch can access its data folder
-# ES has 20002
-adduser opensearch whdata
-
-# User and group for postgres. already created in dockerfile, we just need to make sure postgresql can access its data folder
-# postgres has 20003
-adduser postgres whdata
-
-# Verify recent CVEs are fixed. Sending through temp file to fix a 'E: Sub-process pager received signal 13.'
-TEMPCHANGELOG="/tmp/changelog-$$.txt"
-apt-get changelog openssl > $TEMPCHANGELOG
-if ! ( grep -q CVE-2021-3449 < $TEMPCHANGELOG ) ; then
-  echo CVE fixes not applied
-  exit 1
-fi
-echo Updates are verified
-
-# 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
-# 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
-# 2022-08-05: Added 'jq' to parse webhare.version
-# 2023-5-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
-
+# We don't ship the builder image to WebHare prod or CI, so there's no need to keep it small
 PACKAGES="automake
     autoconf
     ccache
-    certbot
-    cron
-    fontconfig
-    fonts-open-sans
-    libfreetype6
     libfreetype6-dev
     g++
-    gettext-base
     libgif-dev
-    libtool
     git
     inotify-tools
-    jq
-    openjdk-17-jre-headless
+    libtool
     libaio1
-    lftp
     libcurl4-openssl-dev
     libmaxminddb-dev
     libicu-dev
     libjpeg-turbo8
     libjpeg-turbo8-dev
-    libpdfbox2-java
-    libpng16-16
     libpng-dev
     libpq-dev
     libssl-dev
     libtiff-dev
-    locales-all
     make
-    nodejs
-    openssl
     libpixman-1-dev
     pkg-config
-    postgresql-client-11
-    procps
-    psmisc
     python
     rapidjson-dev
-    software-properties-common
-    tar
-    unzip
-    valgrind
-    vim
-    zip
-    "
+"
 
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES ); then
   echo "APT-GET failed"
@@ -146,7 +64,7 @@ cd make-4.4.1
 ./configure
 make install
 
-#install emscripten
+#install emscripten. for releases see https://github.com/emscripten-core/emscripten/tags
 cd /opt
 git clone https://github.com/emscripten-core/emsdk.git
 cd /opt/emsdk
