@@ -1,4 +1,5 @@
 ﻿<?wh
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/graphics-tags.whlib";
 
@@ -68,6 +69,24 @@ STRING FUNCTION ReadFromTIFF(INTEGER filehandle, INTEGER start, INTEGER length)
 {
   SetFilePointer(filehandle, start);
   RETURN ReadFrom(filehandle, length);
+}
+
+RECORD FUNCTION MakeAnalyzedImage(BLOB imgdata)
+{
+  //TODO use coreservices, not the nodeservices invokeservice, so early startup code is safe
+  RECORD analyzeresult := CallJS("@webhare/services/src/descriptor.ts#analyzeImage", imgdata);
+  IF(analyzeresult.mediatype NOT LIKE "image/*")
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL [ ...MakeFile(analyzeresult.mediatype)
+              , imginfo := CELL[ height := INTEGER(analyzeresult.height)
+                               , width := INTEGER(analyzeresult.width)
+                               , bpp := 24 //FIXME detect too ? are we axtually using this?
+                               , rotation := 0 //TODO?
+                               , mirrored := FALSE  //TODO?
+                               , refpoint := DEFAULT RECORD
+                               ]
+              ];
 }
 
 RECORD FUNCTION MakeTIFFFile(STRING header, INTEGER filehandle)
@@ -389,7 +408,8 @@ PUBLIC RECORD FUNCTION __DetectFileType(BLOB filedata, STRING filename)
       filetype := MakeBitmapFile(fileheader);
     ELSE IF(Left(fileheader,4)="II*\0" OR Left(fileheader,4)="MM\0*")
       filetype := MakeTiffFile(fileheader, filehandle);
-
+    ELSE IF(Left(fileheader,12) LIKE "RIFF????WEBP")
+      filetype := MakeAnalyzedImage(filedata);
     //Audio
     ELSE IF(Left(fileheader,6)="\x23\x21\x41\x4D\x52\x0A")
       filetype := MakeFile("audio/amr");
@@ -400,10 +420,14 @@ PUBLIC RECORD FUNCTION __DetectFileType(BLOB filedata, STRING filename)
             OR (Left(fileheader,8) LIKE "????ftyp") // detect the "ftyp" atom (which identifies the type of encoding used)
           )
     {
+      IF(Left(fileheader,12) LIKE "????ftypavif") //Not guaranteed? but a good heuristic..
+        filetype := MakeAnalyzedImage(filedata);
       // since mp4 is derived from the Quicktime mov format,
       // the only easy way to keep them apart from eachother is looking at the file extension
-      IF (ext = ".mov")
+      ELSE IF (ext = ".mov")
         RETURN MakeFile("video/quicktime");
+      ELSE IF (ext = ".avif") //first heuristic failed...
+        filetype :=  MakeAnalyzedImage(filedata); //cannot RETURN, we need to connect with the octet-stream fallback if MakeAnalyzedImage fails
       ELSE
         RETURN MakeFile("video/mp4");
     }

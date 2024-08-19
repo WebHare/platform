@@ -3,7 +3,6 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::graphics/filters.whlib";
@@ -110,7 +109,6 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
     OBJECT lock := OpenLocalLockManager()->LockLocalMutex("system:unifedcachehost_" || imagebucket);
 
     //TODO we might not need to do temporary files ourselves. StoreDiskFile's overwrite mode does an atomic replace by default
-    STRING temppath := path || ".$$" || GenerateUFS128BitId();
     INTEGER imghandle;
     TRY
     {
@@ -121,57 +119,20 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
       IF(data.datatype=1)
         content := this->ProcessImage(dbdata, data.item);
 
-      imghandle := CreateDiskFile(temppath, TRUE, TRUE);
-      IF (imghandle <= 0)
-      {
-        CreateDiskDirectoryRecursive(GetDirectoryFromPath(temppath), TRUE);
-        imghandle := CreateDiskFile(temppath, TRUE, TRUE);
+      CreateDiskDirectoryRecursive(GetDirectoryFromPath(path), TRUE);
+      StoreDiskFile(path, content, [ overwrite := TRUE]);
       }
-      IF (imghandle <= 0)
-      {
-        IF(this->trace)
-          Print("Temporary file creation failed. See error logs for more information.\n");
-
-        THROW NEW Exception("I/O error creating temporary image path " || temppath);
-      }
-      //Write the image to the temp file
-      SendBlobTo(imghandle, content);
-    }
-    CATCH(OBJECT e)
+    FINALLY
     {
-      IF(imghandle > 0)
-      {
-        CloseDiskFile(imghandle);
-        DeleteDiskFile(temppath);
-      }
       lock->Release();
-      THROW e;
-    }
-    IF (NOT CloseDiskFile(imghandle))
-    {
-      IF(this->trace)
-        Print("I/O error writing temporary file. See error logs for more information.\n");
-
-      DeleteDiskFile(temppath);
-      lock->Release();
-      THROW NEW Exception("I/O error writing image to " || temppath);
     }
 
-    DATETIME now := GetCurrentDatetime();
-    IF (NOT MoveDiskPath(temppath, path))
-    {
-      //LogWebserverError("I/O error moving image " || temppath || " to " || path || " (conflict?)");
-      path := temppath;
-    }
+    DATETIME modified := GetDiskFileProperties(path).modified;
 
     IF(this->trace)
-    {
-      STRING ourlm := FormatHTTPDatetime(now);
-      Print("Image is generated. Last modified: " || ourlm || "\n");
-    }
+      Print("Image is generated. Last modified: " || FormatHTTPDatetime(modified) || "\n");
 
-    lock->Release();
-    RETURN [ modified := GetDiskFileProperties(path).modified
+    RETURN CELL[ modified
            , data := GetDiskResource(path)
            ];
   }
