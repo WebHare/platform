@@ -49,6 +49,8 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
     INSERT CELL "wh-pwa-uid" := GenerateUFS128BitId() INTO this->webdesign->htmldata;
     INSERT CELL "wh-pwa-fileid" := ToString(webdesign->targetobject->id) INTO this->webdesign->htmldata;
     this->UpdatePWASettings();
+
+    this->AddPublicAssets("mod::platform/web/wh-assets/forms/");
   }
 
   UPDATE PUBLIC MACRO HookObjectProps(OBJECT objectprops)
@@ -66,14 +68,18 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
   /** Add a resource directory */
   PUBLIC MACRO AddPublicAssets(STRING resourcebase)
   {
-    IF(resourcebase NOT LIKE "mod::?*/webdesigns/?*/web/*")
-      THROW NEW Exception(`Invalid asset path - ${resourcebase} does not have a public URL`);
-
     FOREVERY(RECORD entry FROM ReadWebHareResourceFolder(resourcebase))
       IF(entry.isfolder)
+      {
         this->AddPublicAssets(entry.resourcepath);
+      }
       ELSE
-        this->AddAsset(GetModuleResourceURL(entry.resourcepath));
+      {
+        STRING targeturl := GetModuleResourceURL(entry.resourcepath);
+        IF(targeturl = "")
+          THROW NEW Exception(`Asset ${entry.resourcepath} does not have a public URL`);
+        this->AddAsset(targeturl);
+      }
   }
 
   ///Add an aditional URL we want to be in our package

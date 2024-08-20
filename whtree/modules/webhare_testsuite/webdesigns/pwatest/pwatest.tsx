@@ -3,7 +3,7 @@ import 'dompack/browserfix/reset.css';
 
 import '@mod-system/js/wh/errorreporting'; //log JS errors to notice log
 
-// import './shared/forms/forms';
+import './shared/forms/forms';
 // import './shared/rtd/rtd';
 import './pwatest.scss';
 

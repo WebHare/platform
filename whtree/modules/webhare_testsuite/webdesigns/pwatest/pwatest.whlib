@@ -34,11 +34,14 @@ PUBLIC OBJECTTYPE PwatestPage EXTEND PWAPageBase
     this->AddPWAPublicAssets("mod::webhare_testsuite/webdesigns/pwatest/web/mypath/");
     this->AddPWAExclusion("../exclusiontestpage/");
 
-    RETURN PTR EmbedWittyComponent(Resolve("pwatest.witty:pwatest"),
+    RECORD wittydata :=
       [ publishedat := FormatISO8601Datetime(GetCurrentDatetime(),"","milliseconds")
       , myimglink := myimg.link
       , mytextfile := GetModuleResourceURL("mod::webhare_testsuite/webdesigns/pwatest/web/mypath/deeperpath/public.txt")
-      ]);
+      , testpage_form := this->webdesign->OpenForm("publisher:testpages#testpage")->GetWittyData()
+      ];
+
+    RETURN PTR EmbedWittyComponent(Resolve("pwatest.witty:pwatest"), wittydata);
   }
 >;
 
