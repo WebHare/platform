@@ -145,6 +145,11 @@ DOCKERBUILDARGS+=("WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR")
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WHBUILD_ASSETROOT=$WHBUILD_ASSETROOT")
 
+if [ -n "$WHBUILD_NODE_URL" ]; then
+  DOCKERBUILDARGS+=(--build-arg)
+  DOCKERBUILDARGS+=("WHBUILD_NODE_URL=$WHBUILD_NODE_URL")
+fi
+
 if [ -z "$CI_COMMIT_SHA" ]; then
   # Not a CI build, try to get git commit and branch
   # Also note that Runkit expects a com.webhare.webhare.git-commit-ref label to be present to recognize the image as a WebHare image

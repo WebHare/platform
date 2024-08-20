@@ -13,9 +13,9 @@
 # stunnel: some modules use it for connectivity. must be a stunnel version with PSK support
 # liberation-fonts: fonts that look like Arial, Times New Roman, Courier New
 
-
 # Fail on any error
 set -eo pipefail
+PACKAGES=()
 
 export DEBIAN_FRONTEND=noninteractive
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
@@ -32,15 +32,26 @@ add-apt-repository universe
 rm -f /etc/apt/apt.conf.d/docker-clean
 echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
-# nodesource key & repository
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${WEBHARE_NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+# Allow using a nightly build of node, eg:
+# WEBHARE_NODE_MAJOR=23 WHBUILD_NODE_URL=https://nodejs.org/download/nightly/v23.0.0-nightly202408194f94397650/node-v23.0.0-nightly202408194f94397650-linux-arm64.tar.xz wh builddocker
+if [ -n "$WHBUILD_NODE_URL" ]; then
+  pushd /opt
+  curl --fail "$WHBUILD_NODE_URL" | tar Jx
+  ln -s /opt/node-*/bin/* /usr/local/bin/
+  popd
+else
+  # nodesource key & repository
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${WEBHARE_NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 
+  PACKAGES+=(nodejs)
+fi
+
+# postgres key & repository
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
-
 
 # Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
 # usermod -d /opt/whdata/home/root root - doesn't work:  'usermod: user root is currently used by process 1'
@@ -73,16 +84,14 @@ echo Updates are verified
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version
-# 2023-05-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
 # 2023-08-23: Restore openssh-server, our test_sftp needs it (and sftp needs a ssh client)
 
-PACKAGES="certbot
+PACKAGES+=(certbot
     cron
     fontconfig
     libfreetype6
     gettext-base
     libgif7
-    libtool
     git
     inotify-tools
     jq
@@ -95,13 +104,11 @@ PACKAGES="certbot
     libmaxminddb0
     libicu66
     libjpeg-turbo8
-    libpdfbox2-java
     libpng16-16
     libpq5
     libssl1.1
     libtiff5
     locales-all
-    nodejs
     openssh-server
     openssl
     libpixman-1-0
@@ -117,10 +124,9 @@ PACKAGES="certbot
     unzip
     valgrind
     vim
-    zip
-    "
+    zip)
 
-if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES ); then
+if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKAGES[@]}" ); then
   echo "APT-GET failed"
   exit 1
 fi
