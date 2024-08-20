@@ -279,6 +279,9 @@ async function onFetch(event: FetchEvent) {
 }
 
 async function ourFetch(event: FetchEvent) {
+  if (!event.request.url.match(/^https?:\/\//))
+    return fetch(event.request); //Not a real web fetch, eg might be a chrome-extension:// URL. ignore anything not HTTP related
+
   const pwasettings = await getSwStoreValue("pwasettings");
   if (pwasettings && pwasettings.excludeurls && pwasettings.excludeurls.length) {
     for (const exclusionmask of pwasettings.excludeurls)
@@ -298,7 +301,7 @@ async function ourFetch(event: FetchEvent) {
   }
 
   //FIXME should we log errors for things we HAD to download manually?
-  addToSwLog({ event: 'miss', url: event.request.url });
+  addToSwLog({ event: "miss", url: event.request.url });
   logToAllClients("warn", "[Service Worker] Unexpected cache miss for " + event.request.url);
   const response = await fetch(event.request);
   //Do NOT put in cache.. make the error repeatable
