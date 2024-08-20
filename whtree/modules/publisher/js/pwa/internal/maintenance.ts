@@ -1,9 +1,6 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as idb from 'idb';
 
-export async function deleteDatabase(appname) {
+export async function deleteDatabase(appname: string) {
   try {
     await idb.deleteDB('pwadb-' + appname);
   } catch (e) {
@@ -11,7 +8,7 @@ export async function deleteDatabase(appname) {
   }
 }
 
-export async function clearCache(appname) {
+export async function clearCache(appname: string) {
   try {
     const cache = await window.caches.open("pwacache-" + appname);
     for (const key of await cache.keys())
@@ -27,4 +24,3 @@ export async function unregisterServiceWorkers() {
   for (const reg of currentregistrations)
     await reg.unregister();
 }
-

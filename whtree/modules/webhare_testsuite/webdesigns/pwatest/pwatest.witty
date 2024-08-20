@@ -32,6 +32,12 @@ Realisatie: WebHare bv
     <span id="mytextfilelink" data-textfilelink="[mytextfile]" ?>
   </p>
 
+  <details>
+    <summary>PWA Form</summary>
+    <pre id="pwaform"></pre>
+    [testpage_form.FORMRENDER]
+  </details>
+
   <div style="position:absolute;top:0;right:0;background-color:#000000;color:#fff;font-size:20px;padding:5px 7px 6px 10px;border-radius:0 0 0 50%" data-app-activatedebugmenu="4:3000">D</div>
 
 [/component]

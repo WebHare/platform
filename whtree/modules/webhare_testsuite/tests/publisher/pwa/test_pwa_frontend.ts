@@ -1,9 +1,6 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-system/js/wh/testframework";
-import * as dompack from 'dompack';
 import * as pwatests from '@mod-publisher/js/pwa/tests';
+import { throwError } from "@webhare/std/std";
 
 test.registerTests(
   [
@@ -28,45 +25,45 @@ test.registerTests(
     "check for update",
     async function () {
       test.click('#checkforupdate');
-      await test.wait(() => test.qS("#pwa-update-status").textContent !== 'Checking...');
-      test.eq("we are uptodate", test.qS("#pwa-update-status").textContent);
+      await test.wait(() => test.qR("#pwa-update-status").textContent !== 'Checking...');
+      test.eq("we are uptodate", test.qR("#pwa-update-status").textContent);
 
       await pwatests.touchPage(); //to trigger a refresh
 
       test.click('#checkforupdate');
-      await test.wait(() => test.qS("#pwa-update-status").textContent !== 'Checking...');
-      test.eq("UPDATE AVAILABLE", test.qS("#pwa-update-status").textContent);
+      await test.wait(() => test.qR("#pwa-update-status").textContent !== 'Checking...');
+      test.eq("UPDATE AVAILABLE", test.qR("#pwa-update-status").textContent);
     },
 
     "apply update",
     async function () {
-      const clock = test.qS("#pwa-published-at").textContent;
+      const clock = test.qR("#pwa-published-at").textContent;
 
       console.log("RELOADING");
       await test.load(test.getTestSiteRoot() + 'pwatest/');
-      await test.wait(() => test.qS("#pwa-offline"));
-      test.eq(clock, test.qS("#pwa-published-at").textContent, "Shouldnt see the updated file yet, we're supposed to be offline - make sure 'Bypass for network' is not enabled in devtools>app>sw");
+      await test.wait(() => test.qR("#pwa-offline"));
+      test.eq(clock, test.qR("#pwa-published-at").textContent, "Shouldnt see the updated file yet, we're supposed to be offline - make sure 'Bypass for network' is not enabled in devtools>app>sw");
 
       test.click('#downloadupdate');
-      await test.wait(() => test.qS("#pwa-update-status").textContent !== 'Downloading...');
-      test.eq("DOWNLOAD COMPLETE", test.qS("#pwa-update-status").textContent);
+      await test.wait(() => test.qR("#pwa-update-status").textContent !== 'Downloading...');
+      test.eq("DOWNLOAD COMPLETE", test.qR("#pwa-update-status").textContent);
 
       test.click('#updatenow');
       console.log("move clock from", clock);
 
       await test.wait("pageload");
       await test.wait(() => test.qS("#pwa-offline"));
-      test.eq(false, clock === test.qS("#pwa-published-at").textContent);
+      test.eq(false, clock === test.qR("#pwa-published-at").textContent);
     },
 
     "get image",
     async function () {
       const deferred = Promise.withResolvers();
-      test.qS("#myimglink").onload = deferred.resolve;
-      test.qS("#myimglink").src = test.qS("#myimglink").dataset.imglink;
+      test.qR("#myimglink").onload = deferred.resolve;
+      test.qR("#myimglink").src = test.qR("#myimglink").dataset.imglink ?? throwError("Missing imglink");
       await deferred.promise;
 
-      const textfile = await test.getWin().fetch(test.qS("#mytextfilelink").dataset.textfilelink);
+      const textfile = await test.getWin().fetch(test.qR("#mytextfilelink").dataset.textfilelink ?? throwError("Missing textfilelink"));
       test.eq("This is a public text file", (await textfile.text()).trim());
       // test.qS("#textfilelink").src = ;
 
@@ -96,12 +93,12 @@ test.registerTests(
 
     "test force refresh",
     async function () {
-      const clock = test.qS("#pwa-published-at").textContent;
+      const clock = test.qR("#pwa-published-at").textContent;
 
       await pwatests.forceRefresh(); //to trigger a refresh
       await test.load(test.getTestSiteRoot() + 'pwatest/');
       await test.wait('pageload');
-      test.eq(false, clock === test.qS("#pwa-published-at").textContent);
+      test.eq(false, clock === test.qR("#pwa-published-at").textContent);
       // await test.wait( () => test.qS("#pwa-published-at").textContent !== clock);
     },
 

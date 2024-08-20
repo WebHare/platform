@@ -1,9 +1,6 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+let appname: string;
 
-let appname;
-
-export function setAppName(newappname) {
+export function setAppName(newappname: string) {
   appname = newappname;
 }
 

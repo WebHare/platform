@@ -203,14 +203,24 @@ PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
 {
   IF(resourcename LIKE "moduleroot::?*" AND GetDTAPStage() = "development")
     THROW NEW Exception(`Resource paths starting with moduleroot:: are deprecated`);
-  IF(resourcename NOT LIKE "moduleroot::?*/webdesigns/?*/web/*" AND resourcename NOT LIKE "mod::?*/webdesigns/?*/web/*")
-    RETURN "";
 
-  resourcename := Substring(resourcename, resourcename LIKE "mod::*" ? 5 : 12);
-  STRING ARRAY pathtoks := Tokenize(resourcename,'/');
-  IF(pathtoks[0]="" OR pathtoks[1]!="webdesigns" OR pathtoks[2]="" OR pathtoks[3]!="web")
-    RETURN "";
-  RETURN "/.publisher/sd/" || pathtoks[0] || '/' || pathtoks[2] || "/" || Detokenize(ArraySlice(pathtoks,4),'/');
+  IF(resourcename LIKE "mod::?*/webdesigns/?*/web/*")
+  {
+    resourcename := Substring(resourcename, resourcename LIKE "mod::*" ? 5 : 12);
+    STRING ARRAY pathtoks := Tokenize(resourcename,'/');
+    IF(pathtoks[0]="" OR pathtoks[1]!="webdesigns" OR pathtoks[2]="" OR pathtoks[3]!="web")
+      RETURN "";
+
+    //Note that our EncodeURL doesn't encode slashes, so this is safe to do:
+    RETURN EncodeURL("/.publisher/sd/" || pathtoks[0] || '/' || pathtoks[2] || "/" || Detokenize(ArraySlice(pathtoks,4),'/'));
+  }
+
+  IF(resourcename LIKE "mod::platform/web/wh-assets/*")  //used by eg. pwaplugin to include all form control assdets
+  {
+    RETURN EncodeURL("/.wh/ea/p/" || Substring(resourcename, 28));
+  }
+
+  RETURN "";
 }
 
 PUBLIC VARIANT FUNCTION __GetExtractedConfig(STRING name)
