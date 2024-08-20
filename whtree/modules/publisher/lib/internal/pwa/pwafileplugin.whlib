@@ -29,6 +29,7 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
 
     this->webdesign->jsobjconfig :=
       CELL[ ...this->webdesign->jsobjconfig
+          //must match interface PublishedPWASSettings
           , pwasettings := [ apptoken := this->apptoken
                            , addurls := this->addurls
                            , excludeurls := this->excludeurls

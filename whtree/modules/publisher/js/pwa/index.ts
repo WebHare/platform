@@ -1,5 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+/* eslint-disable no-alert */ //TODO avoid the alert()s though. require dompack dialogs?
 
 import * as pxl from "@mod-consilio/js/pxl";
 import * as dompack from 'dompack';
@@ -8,23 +7,24 @@ import './internal/debugmenu';
 import * as settings from './internal/settings';
 
 const appbase = location.href.indexOf("?") > -1 ? location.href.split('?')[0] : location.href.split('#')[0];
-let didinit;
+let didinit = false;
 
 //set up a promise we'll use to signal succesful offline mode
-const offlinedeferred = Promise.withResolvers();
-let swregistration;
+const offlinedeferred = Promise.withResolvers<void>();
+let swregistration: ServiceWorkerRegistration | undefined;
 
 function getAppName() {
   //we'll assume the webdesignname is the appname
-  const settings = whintegration.config.designroot.match(/^\/.publisher\/sd\/([^\/]*)\/([^\/]*)\/$/);
-  const module = settings[1];
-  const webdesign = settings[2];
+  //TODO clean this up. designroot is undocumented, appname should be in PWASSettings
+  const settings2 = (whintegration.config as unknown as { designroot: string }).designroot.match(/^\/.publisher\/sd\/([^/]*)\/([^/]*)\/$/)!;
+  const module = settings2[1];
+  const webdesign = settings2[2];
   return module + ':' + webdesign;
 }
 
 settings.setAppName(getAppName());
 
-function sendSWRequestTo(sw, type, data) {
+function sendSWRequestTo(sw: ServiceWorker, type: string, data?: object) {
   return new Promise((resolve, reject) => {
     const msg_chan = new MessageChannel();
     msg_chan.port1.onmessage = event => {
@@ -40,9 +40,12 @@ function sendSWRequestTo(sw, type, data) {
   });
 }
 
-async function sendSWRequest(type, data) {
+//TODO type the SWRequest protocol properly
+async function sendSWRequest(type: string, data?: object) {
   //wait for SW to be available. (waiting for ready isn't safe, it may pick up an already installed SW but doesn't mean that onReady is done
   await offlinedeferred.promise;
+  if (!swregistration?.active)
+    throw new Error("ServiceWorker registration failed");
   return sendSWRequestTo(swregistration.active, type, data);
 }
 
@@ -62,7 +65,11 @@ export async function updateApplication() {
 }
 
 
-export async function onReady(initfunction, options) {
+export async function onReady(initfunction: () => void, options?: {
+  reportusage?: boolean;
+  onAvailableOffline?: () => void;
+  onOfflineFailed?: (e: Error) => void;
+}) {
   if (didinit)
     throw new Error("pwalib.onReady should be invoked only once");
 
@@ -79,28 +86,22 @@ export async function onReady(initfunction, options) {
     return;
   }
 
-
-  options = {
-    reportusage: false,
-    ...options
-  };
-
-  if (options.reportusage) {
+  if (options?.reportusage) {
     //determinate app name. we should probably get Versioninfo and webhare/other version numbers too
     pxl.sendPxlEvent("publisher:pwastart", { ds_appname: settings.getAppName() });
   }
 
   //wait for dompack to be ready...
-  await new Promise(resolve => dompack.onDomReady(resolve));
+  await new Promise<void>(resolve => dompack.onDomReady(resolve));
 
   //we can now run initialization which can do some basic UI setup
   initfunction();
 
   //bind it to user given clalbacks
-  if (options.onAvailableOffline)
-    offlinedeferred.promise = offlinedeferred.promise.then(() => options.onAvailableOffline());
-  if (options.onOfflineFailed) //we need to chain our catch to the new promise above or we risk a "unhandled rejection" - https://stackoverflow.com/questions/52409326/unhandled-promise-rejection-despite-catching-the-promise
-    offlinedeferred.promise = offlinedeferred.promise.catch(e => options.onOfflineFailed(e));
+  if (options?.onAvailableOffline)
+    offlinedeferred.promise = offlinedeferred.promise.then(() => options.onAvailableOffline!());
+  if (options?.onOfflineFailed) //we need to chain our catch to the new promise above or we risk a "unhandled rejection" - https://stackoverflow.com/questions/52409326/unhandled-promise-rejection-despite-catching-the-promise
+    offlinedeferred.promise = offlinedeferred.promise.catch(e => options.onOfflineFailed!(e));
 
   //and we can start registration
   if (!("serviceWorker" in navigator)) {
@@ -119,10 +120,9 @@ export async function onReady(initfunction, options) {
   try {
     swregistration = await navigator.serviceWorker.register(swurl, { scope: appbase });
 
-    if (swregistration.installing) //detect an installing worker going straight to redundant
-    {
-      swregistration.installing.addEventListener("statechange", event => {
-        if (event.target.state === "redundant")
+    if (swregistration.installing) { //detect an installing worker going straight to redundant
+      swregistration.installing.addEventListener("statechange", () => {
+        if (swregistration?.installing?.state === "redundant")
           offlinedeferred.reject(new Error("The serviceWorker failed to install"));
       });
     }
@@ -150,12 +150,13 @@ async function precheckExistingWorkers() {
         });
 }
 
-function onServiceWorkerMessage(event) {
+function onServiceWorkerMessage(event: MessageEvent) {
   if (event.data.type === 'forceRefresh') {
-    location.reload(true);
+    location.reload();
     return;
   }
   if (event.data.type === "log") {
+    //@ts-ignore TODO ugly, cleanup up
     console[event.data.loglevel]("[From ServiceWorker] " + event.data.message);
     return;
   }

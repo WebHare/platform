@@ -1,19 +1,16 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import "./debugmenu.scss";
 import * as settings from './settings';
 import * as maintenance from './maintenance';
 
-let debuglayer;
+let debuglayer: HTMLDivElement | undefined;
 
 async function clearCache() {
   await maintenance.clearCache(settings.getAppName());
   //location.reload(true);
 }
 async function restartApp() {
-  location.reload(true);
+  location.reload();
 }
 async function unregisterServiceWorkers() {
   await maintenance.unregisterServiceWorkers();
@@ -33,21 +30,20 @@ export function runPWADebugMenu() {
       </div>
     </div>;
 
-  document.body.appendChild(debuglayer);
+  document.body.appendChild(debuglayer!);
 }
 
 
-let activatetouches = [];
-let expectnumtouches;
-let expecttaptime;
+let activatetouches: number[] = [];
+let expectnumtouches = Infinity;
+let expecttaptime = Infinity;
 
-function testMenuTap(event) {
+function testMenuTap(event: Event) {
   activatetouches.push(Date.now());
   activatetouches = activatetouches.slice(-expectnumtouches);
 
-  const totaltime = (activatetouches.at(-1) - activatetouches[0]);
-  if ((activatetouches.at(-1) - activatetouches[0]) < expecttaptime) // fast enough
-  {
+  const totaltime = (activatetouches.at(-1)! - activatetouches[0]);
+  if (totaltime) { // fast enough
     if (activatetouches.length > 1)
       dompack.stop(event);
 
@@ -57,9 +53,12 @@ function testMenuTap(event) {
 }
 
 dompack.register("[data-app-activatedebugmenu]", node => {
-  const settings = node.dataset.appActivatedebugmenu.split(':');
-  expectnumtouches = parseInt(settings[0]);
-  expecttaptime = parseInt(settings[1]);
+  const settings2 = node.dataset.appActivatedebugmenu?.split(':');
+  if (!settings2)
+    return;
+
+  expectnumtouches = parseInt(settings2[0]);
+  expecttaptime = parseInt(settings2[1]);
   if (!expecttaptime || !expectnumtouches)
     return;
 

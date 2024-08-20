@@ -1,20 +1,37 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
 // Declare us as a service worker to TypeScript (load webworker types and inform TS that 'self' is actually a ServiceWorker)
 /// <reference lib="webworker"/>
 declare const self: ServiceWorkerGlobalScope;
 
+import type { AssetPackManifest } from '@mod-publisher/js/internal/esbuild/compiletask';
 // when developing, to explicitly recompile our package: wh assetpack recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 import { generateRandomId } from "@webhare/std";
-const serviceworkerurl = new URL(location.href);
-const appname = serviceworkerurl.searchParams.get('app');
-if (!appname)
-  throw new Error("Unknown app name");
+import { throwError } from '@webhare/std';
+import type { IDBPDatabase } from 'idb';
 
-const debugassetpacks = serviceworkerurl.searchParams.get('debug') === '1';
+const serviceworkerurl = new URL(location.href);
+const appname: string = serviceworkerurl.searchParams.get('app') ?? throwError("Unknown app name");
+const debugassetpacks: boolean = serviceworkerurl.searchParams.get('debug') === '1';
 
 const logprefix = `[SW ${appname} ${generateRandomId()}] `;
+
+interface ClientVersionInfo {
+  pwauid: string | null;
+  pwafileid: number | null;
+}
+
+interface ServerVersionInfo {
+  updatetok: string;
+  forcerefresh: string;
+  pwauid: string;
+}
+
+interface PublishedPWASSettings { //see UpdatePWASettings
+  apptoken: string;
+  addurls: string[];
+  excludeurls: string[];
+}
+
 
 ////////////////////////////////
 //
@@ -22,12 +39,17 @@ const logprefix = `[SW ${appname} ${generateRandomId()}] `;
 //
 // tests require that we don't keep it open indefinitely
 //
-let opendb, opendbpromise, opendbcloser, opendbusers, swstorecache = {};
+
+let opendb: IDBPDatabase<pwadb.PWADB> | undefined;
+let opendbpromise: Promise<IDBPDatabase<pwadb.PWADB>> | undefined;
+let opendbcloser: NodeJS.Timeout | undefined;
+let opendbusers = 0;
+const swstorecache: Record<string, unknown> = {};
 
 async function openDatabase() {
   if (opendbcloser) {
     clearTimeout(opendbcloser);
-    opendbcloser = 0;
+    opendbcloser = undefined;
   }
 
   if (!opendbpromise) {
@@ -45,11 +67,11 @@ function scheduleDatabaseClose() {
   opendbcloser = setTimeout(timeoutDatabaseConnection, 1000);
 }
 function timeoutDatabaseConnection() {
-  opendb.close();
-  opendbpromise = null;
+  opendb?.close();
+  opendbpromise = undefined;
 }
 
-async function addToSwLog(data) {
+async function addToSwLog(data: object) {
   const db = await openDatabase();
   try {
     await db.add('pwa-swlog', { date: new Date(), ...data });
@@ -57,18 +79,28 @@ async function addToSwLog(data) {
     scheduleDatabaseClose();
   }
 }
-async function getSwStoreValue(key) {
+
+interface SWStoreKeys {
+  debugassetpacks: boolean;
+  currentversion: ServerVersionInfo;
+  forcerefresh: Date;
+  installscope: string;
+  pwasettings: PublishedPWASSettings;
+  issuereports: IssueReport[];
+}
+
+async function getSwStoreValue<Key extends keyof SWStoreKeys>(key: Key): Promise<SWStoreKeys[Key] | undefined> {
   if (key in swstorecache) //if we still persisted the key, return it. we can currently assume noone changes indexdb behind our back
-    return swstorecache[key];
+    return swstorecache[key] as SWStoreKeys[Key] | undefined;
 
   const db = await openDatabase();
   try {
-    return await db.get('pwa-keyval', key);
+    return await db.get('pwa-keyval', key) as SWStoreKeys[Key] | undefined;
   } finally {
     scheduleDatabaseClose();
   }
 }
-async function setSwStoreValue(key, value) {
+async function setSwStoreValue(key: string, value: unknown) {
   const db = await openDatabase();
   try {
     swstorecache[key] = value;
@@ -78,11 +110,19 @@ async function setSwStoreValue(key, value) {
   }
 }
 
-function getWHConfig(pagetext) //extract and parse the wh-config tag
-{
+function getWHConfig(pagetext: string): {
+  obj: {
+    pwasettings: PublishedPWASSettings;
+  };
+  //FIXME the other whconfig props
+} {
+  //extract and parse the wh-config tag
   const scriptpos = pagetext.indexOf('<script type="application/json" id="wh-config">');
   const scriptend = pagetext.indexOf('</script>', scriptpos);
-  return JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47));
+  const retval = JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47));
+  if (!retval.obj.pwasettings)
+    throw new Error("pwasettings not found in this page's settings. Is it properly derived from PWAPageBase?");
+  return retval;
 }
 
 async function downloadApplication() {
@@ -121,19 +161,15 @@ async function downloadApplication() {
   const mainpage = await mainpagefetch;
   const mainpagetext = await mainpage.text();
   const whconfig = getWHConfig(mainpagetext);
-  if (!whconfig.obj.pwasettings)
-    throw new Error("pwasettings not found in this page's settings. Is it properly derived from PWAPageBase?");
-
   const moreassets = whconfig.obj.pwasettings.addurls;
-  const manifest = await (await manifestfetch).json();
-  manifest.assets = manifest.assets.filter(el => !el.compressed && !el.sourcemap);
-  manifest.assets.forEach(el => el.path = assetbasedir + el.subpath);
+  const manifest = await (await manifestfetch).json() as AssetPackManifest;
+  const currentassets = new Set([...baseassets, ...moreassets]);
+  const getassets = manifest.assets.filter(el => !el.compressed && !el.sourcemap).
+    map(el => ({ ...el, path: assetbasedir + el.subpath })).
+    //scrap the ones we already have
+    filter(_ => !currentassets.has(_.path));
 
-  //scrap the ones we already have
-  for (const asset of [...baseassets, ...moreassets])
-    manifest.assets = manifest.assets.filter(el => el.path !== asset);
-
-  moreassets.push(...manifest.assets.map(el => el.path));
+  moreassets.push(...getassets.map(el => el.path));
 
   //this might lead us to get more assets..
   if (moreassets.length) {
@@ -186,13 +222,13 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-async function logToAllClients(loglevel, message) {
+async function logToAllClients(loglevel: "warn", message: string) {
   console.log(`${logprefix}${message}`);
   const clients = await self.clients.matchAll();
   clients.forEach(client => client.postMessage({ type: "log", loglevel, message }));
 }
 
-async function startBackgroundVersionCheck(data) {
+async function startBackgroundVersionCheck(data: ClientVersionInfo) {
   console.log(`${logprefix}startBackgroundVersionCheck`, data);
   const versioninfo = await checkVersion({
     pwauid: data?.pwauid || null,
@@ -271,19 +307,21 @@ async function ourFetch(event: FetchEvent) {
 
 self.addEventListener('fetch', onFetch);
 
-async function checkVersion(clientversioninfo) {
+async function checkVersion(clientversioninfo: ClientVersionInfo) {
   const pwasettings = await getSwStoreValue("pwasettings");
+  if (!pwasettings)
+    throw new Error("No PWASettings found in the store");
   const checkurl = "/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(pwasettings.apptoken);
   const versionresponse = await fetch(checkurl); //FIXME ensure we avoid caches
-  const versioninfo = await versionresponse.json();
+  const versioninfo = await versionresponse.json() as ServerVersionInfo;
 
   const currentversion = await getSwStoreValue("currentversion");
   const forcerefresh = await getSwStoreValue("forcerefresh");
   console.log(`${logprefix}checkversion`, { currentversion, clientversioninfo });
   return {
     needsupdate: (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid !== versioninfo.pwauid)
-      || versioninfo.updatetok !== currentversion.updatetok,
-    forcerefresh: new Date(versioninfo.forcerefresh) > forcerefresh
+      || versioninfo.updatetok !== currentversion?.updatetok,
+    forcerefresh: forcerefresh && new Date(versioninfo.forcerefresh) > forcerefresh
   };
 }
 
@@ -292,7 +330,7 @@ async function downloadUpdate() {
   return null;
 }
 
-async function clientLoading(data) {
+async function clientLoading(data: ClientVersionInfo) {
   startBackgroundVersionCheck(data); //no need to wait on this
 }
 
@@ -325,28 +363,35 @@ async function onMessage(event: MessageEvent) {
 
 let sendingissuereport = false;
 
-async function sendIssueReport(body) {
+interface IssueReport {
+  appname: string;
+  debugassetpacks: boolean;
+  when: Date;
+  [key: string]: unknown;
+}
+
+async function sendIssueReport(body: object) {
   if (sendingissuereport)
     return;
 
   try {
     sendingissuereport = true;
 
-    let lastissuereports = await getSwStoreValue("issuereports") || [];
+    let lastissuereports = await getSwStoreValue("issuereports") ?? new Array<IssueReport>;
 
-    if (lastissuereports.length >= 3 && (lastissuereports[0].when - new Date) < 3 * 60 * 10000) {
+    if (lastissuereports.length >= 3 && (lastissuereports[0].when.getTime() - Date.now()) < 3 * 60 * 10000) {
       console.log(`${logprefix}suppressing report, 3rd oldest report less than 3 minutes ago`, body);
       return;
     }
 
-    body = {
+    const issuebody = {
       ...body,
       appname: appname,
       debugassetpacks: debugassetpacks,
       when: new Date
     };
 
-    lastissuereports.push(body);
+    lastissuereports.push(issuebody);
     if (lastissuereports.length > 3)
       lastissuereports = lastissuereports.slice(-3);
 
@@ -354,7 +399,7 @@ async function sendIssueReport(body) {
     await fetch('/.publisher/common/pwa/issuereport.shtml',
       {
         method: 'post',
-        body: JSON.stringify(body),
+        body: JSON.stringify(issuebody),
         headers: {
           'Content-Type': 'application/json'
         }
@@ -367,11 +412,10 @@ async function sendIssueReport(body) {
 }
 
 self.onerror = function (error) {
-  console.error("Error", error, error.trace);
+  console.error("Error", error);
   sendIssueReport({
     type: "error",
-    error: error.message,
-    trace: error.trace
+    error: error.message
   });
 };
 
