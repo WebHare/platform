@@ -5,6 +5,8 @@
 #
 # We need to be in shell script as TypeScript isn't available yet - we're bootstrapping TS support!
 
+set -eo pipefail
+
 RUNSHRINKWRAP=""
 
 while [[ $1 =~ ^-.* ]]; do
@@ -15,7 +17,6 @@ while [[ $1 =~ ^-.* ]]; do
     echo "Illegal option $1"
     exit 1
   fi
-  shift
 done
 
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
