@@ -177,6 +177,9 @@ PUBLIC OBJECTTYPE PublisherBrowseForObjectArray EXTEND TolliumComponentBase
       //this->moveupaction->enableon := [ [ source := this->currentview, min := 1, max := 1, checkflags := [ "canmoveup" ], onexecute := PTR this->MoveUpValue(), requirefocus := FALSE, frameflags := DEFAULT STRING ARRAY ] ];
       //this->movedownaction->enableon := [ [ source := this->currentview, min := 1, max := 1, checkflags := [ "canmovedown" ], onexecute := PTR this->MoveDownValue(), requirefocus := FALSE, frameflags := DEFAULT STRING ARRAY ] ];
     }
+
+    // Make sure value is set to the current view
+    this->SetFileIds(this->pvt_files);
   }
 
   PRIVATE INTEGER ARRAY FUNCTION GetFileIds()
