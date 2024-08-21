@@ -48,7 +48,8 @@ export interface PxlOptions {
   beacon: boolean;
 }
 
-const eventname_regex = /^[\w:]+$/;
+//event names must match isValidModuleScopedName, but we won't do the module name checks here. also isValidModuleScopedName lives in @webhare/services so..
+const eventname_regex = /^([a-z0-9][-a-z0-9_]*[a-z0-9]):([a-z0-9][-.a-z0-9_]*[a-z0-9])$/;
 const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
 /*TODO: Not sure yet what the new maximum URL length will be
 const max_data_length = 600; // The maximum number of bytes stored for the request*/
@@ -96,7 +97,7 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   if (typeof eventname !== "string")
     return pxlFailed(`Invalid eventname name '${eventname}', expected string, got ${typeof eventname}`);
   if (!eventname_regex.test(eventname))
-    return pxlFailed(`Invalid eventname name '${eventname}', must only contain letters, digits, underscores and colons`);
+    return pxlFailed(`Invalid eventname name '${eventname}', must be a valid module:event name`);
   if (data && typeof data !== "object")
     return pxlFailed(`Invalid data, expected object, got ${typeof data}`);
 
