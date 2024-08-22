@@ -61,28 +61,29 @@ function stripUnneededDecimals(num: number, decimals: number) {
   return { num, decimals };
 }
 
-/** Convert a price of any format to a price parts object
-    @param money - Either an integer number, string with a number of a price object
-    @returns Price parts object
+/** Convert a money of any format to a split number object
+    @param money - Either an integer number or string with a number
+    @returns Split number object
 */
-function splitPrice(money: MoneyParameter): SplitNumber {
+function splitValue(money: MoneyParameter): SplitNumber {
   if (typeof money === 'number') {
     if (money !== Math.floor(money))
-      throw new Error("Passing a non-integer number to splitPrice");
+      throw new Error("Non-integer number passed");
     if (!Number.isSafeInteger(money))
       throw new Error(`The value ${money} is outside the safe value range`);
     return { num: money, decimals: 0 };
   }
   if (typeof money !== 'string')
-    throw new Error("splitPrice should receive either number or string, got " + money);
+    throw new Error("Number or string expected, got " + money);
 
-  const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/) ?? money.match(/^(-)?()(\.[0-9]{1,5})$/);
+  const split = money.match(/^(-)?([0-9]*)(\.([0-9]{0,5})([0-9]*))?$/);
   if (!split)
-    throw new Error(`splitPrice received illegal price: '${money}'`);
+    throw new Error(`Illegal money value received: '${money}'`);
 
   const sign = split[1] === '-' ? -1 : 1;
-  const decimals = split[3] ? split[3].length - 1 : 0;
-  const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
+  const decimals = split[3] ? split[4].length : 0;
+  // If there are more than 5 decimals, round up (using halfExpand strategy)
+  const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[4] || '')) || 0) + (split[5]?.[0] >= '5' ? 1 : 0));
   if (!Number.isSafeInteger(num))
     throw new Error(`The value '${money}' is outside the safe value range`);
 
@@ -104,10 +105,10 @@ function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number, 
 
   // Ensure we have enough leading 0's to render the first integer digit
   if (astext.length <= decimals)
-    astext = '00000000000000000000'.substr(0, decimals + 1 - astext.length) + astext;
+    astext = '00000000000000000000'.substring(0, decimals + 1 - astext.length) + astext;
   // make sure we have enough 0's to show mindecimals
   if (decimals < mindecimals) {
-    astext += '00000000000000000000'.substr(0, mindecimals - decimals);
+    astext += '00000000000000000000'.substring(0, mindecimals - decimals);
     decimals = mindecimals;
   }
 
@@ -138,7 +139,7 @@ export class Money {
 
   private static parseParameter(param: MoneyParameter): string {
     if (typeof param === "string")
-      return param;
+      return toText(splitValue(param), ".", 0, "");
     if (Money.isMoney(param))
       return (param as unknown as { value: string }).value;
 
@@ -252,7 +253,7 @@ export class Money {
 
   /** format a price amount. extend # of decimals to specified # if not enough */
   format(format?: MoneyFormatOptions): string {
-    return toText(splitPrice(this.value),
+    return toText(splitValue(this.value),
       format?.decimalSeparator ?? ".",
       format?.minDecimals ?? 2,
       format?.thousandsSeparator ?? "");
