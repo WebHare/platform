@@ -78,35 +78,36 @@ function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number) 
   return astext;
 }
 
-/** Convert a price of any format to a price parts object
-    @param money - Either an integer number, string with a number of a price object
-    @returns Price parts object
+/** Convert a money of any format to a split number object
+    @param money - Either an integer number or string with a number
+    @returns Split number object
 */
-function splitPrice(money: FinmathInput): SplitNumber {
+function splitValue(money: FinmathInput): SplitNumber {
   if (typeof money === 'number') {
     if (money !== Math.floor(money))
-      throw new Error("Passing a non-integer number to splitPrice");
+      throw new Error("Non-integer number passed");
     if (!Number.isSafeInteger(money))
       throw new Error(`The value ${money} is outside the safe value range`);
     return { num: money, decimals: 0 };
   }
   if (typeof money !== 'string')
-    throw new Error("splitPrice should receive either number or string, got " + money);
+    throw new Error("Number or string expected, got " + money);
 
-  const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/) ?? money.match(/^(-)?()(\.[0-9]{1,5})$/);
+  const split = money.match(/^(-)?([0-9]*)(\.([0-9]{0,5})([0-9]*))?$/);
   if (!split)
-    throw new Error(`splitPrice received illegal price: '${money}'`);
+    throw new Error(`Illegal money value received: '${money}'`);
 
   const sign = split[1] === '-' ? -1 : 1;
-  const decimals = split[3] ? split[3].length - 1 : 0;
-  const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
+  const decimals = split[3] ? split[4].length : 0;
+  // If there are more than 5 decimals, round up (using halfExpand strategy)
+  const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[4] || '')) || 0) + (split[5]?.[0] >= '5' ? 1 : 0));
   if (!Number.isSafeInteger(num))
     throw new Error(`The value '${money}' is outside the safe value range`);
 
   return stripUnneededDecimals(num, decimals);
 }
 
-/** Convert price parts into a string
+/** Convert split number into a string
 */
 function joinPrice(parts: SplitNumber): string {
   return toText(parts, '.', 0);
@@ -147,13 +148,13 @@ function __add(lhs: SplitNumber, rhs: SplitNumber) {
 /** Adds two numbers together
 */
 export function add(amount1: FinmathInput, amount2: FinmathInput): string {
-  return joinPrice(__add(splitPrice(amount1), splitPrice(amount2)));
+  return joinPrice(__add(splitValue(amount1), splitValue(amount2)));
 }
 
 /** Subtracts a number from another number
 */
 export function subtract(amount: FinmathInput, tosubtract: FinmathInput) {
-  const lhs = splitPrice(amount), rhs = splitPrice(tosubtract);
+  const lhs = splitValue(amount), rhs = splitValue(tosubtract);
   rhs.num = -rhs.num;
   return joinPrice(__add(lhs, rhs));
 }
@@ -166,7 +167,7 @@ function __multiply(lhs: SplitNumber, rhs: SplitNumber) {
 /** Multiplies two numbers together
 */
 export function multiply(amount1: FinmathInput, amount2: FinmathInput): string {
-  const lhs = splitPrice(amount1), rhs = splitPrice(amount2);
+  const lhs = splitValue(amount1), rhs = splitValue(amount2);
   return joinPrice(__multiply(lhs, rhs));
 }
 
@@ -176,7 +177,7 @@ export function multiply(amount1: FinmathInput, amount2: FinmathInput): string {
     @returns Returns 0 if amount1 === amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
 */
 export function cmp(amount1: FinmathInput, amount2: FinmathInput) {
-  const diff = __add(splitPrice(amount1), __multiply(splitPrice(amount2), { num: -1, decimals: 0 }));
+  const diff = __add(splitValue(amount1), __multiply(splitValue(amount2), { num: -1, decimals: 0 }));
   return diff.num < 0 ? -1 : diff.num === 0 ? 0 : 1;
 }
 
@@ -186,7 +187,7 @@ export function cmp(amount1: FinmathInput, amount2: FinmathInput) {
     @returns Percentage of the amount
 */
 export function getPercentageOfAmount(amount: FinmathInput, perc: FinmathInput) {
-  const lhs = splitPrice(amount), rhs = splitPrice(perc);
+  const lhs = splitValue(amount), rhs = splitValue(perc);
   const result = __multiply(lhs, rhs);
   result.decimals += 2;
   return joinPrice(normalize(result));
@@ -202,7 +203,7 @@ function normalize(amount: SplitNumber) {
 
 /// format a price amount. extend # of decimals to specified # if not enough
 export function formatPrice(money: FinmathInput, decimalpoint: string, decimals: number) {
-  return toText(splitPrice(money), decimalpoint, decimals);
+  return toText(splitValue(money), decimalpoint, decimals);
 }
 
 /** Rounds integer to multiple, exposed for testing only
@@ -290,8 +291,8 @@ export function __roundIntegerToMultiple(value: number, roundunit: number, mode:
     @returns The rounded value
 */
 export function roundToMultiple(value: FinmathInput, unit: FinmathInput, mode: RoundMode) {
-  const split_value = splitPrice(value);
-  const split_unit = splitPrice(unit);
+  const split_value = splitValue(value);
+  const split_unit = splitValue(unit);
 
   const requiredecimals = Math.max(split_value.decimals, split_unit.decimals);
   adjustDecimals(split_value, requiredecimals);
@@ -310,7 +311,7 @@ export function min(amount: FinmathInput, ...amounts: FinmathInput[]) {
   for (const val of amounts)
     if (cmp(amount, val) > 0)
       amount = val;
-  return joinPrice(splitPrice(amount));
+  return joinPrice(splitValue(amount));
 }
 
 /** Returns the maximum of all the arguments
@@ -322,7 +323,7 @@ export function max(amount: FinmathInput, ...amounts: FinmathInput[]) {
   for (const val of amounts)
     if (cmp(amount, val) < 0)
       amount = val;
-  return joinPrice(splitPrice(amount));
+  return joinPrice(splitValue(amount));
 }
 
 /** Returns a power of 10
@@ -346,7 +347,7 @@ function getNonNegativePowerOf10(exp: number) {
     @returns Divided value, with 5 decimals of precision
 */
 export function divide(value: FinmathInput, divisor: FinmathInput) {
-  const lhs = splitPrice(value), rhs = splitPrice(divisor);
+  const lhs = splitValue(value), rhs = splitValue(divisor);
   const mul10exp = lhs.decimals - rhs.decimals - 5;
   const mulfactor = mul10exp < 0 ? getNonNegativePowerOf10(-mul10exp) : 1;
   const roundunit = mul10exp > 0 ? getNonNegativePowerOf10(mul10exp) : 1;
