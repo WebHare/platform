@@ -48,6 +48,7 @@ function testMoney() {
   test.eq('"-1000000000"', JSON.stringify(new Money("-1000000000")));
   test.eq('"1000000000"', JSON.stringify(Money.fromNumber(1_000_000_000)));
   test.eq('"-1000000000"', JSON.stringify(Money.fromNumber(-1_000_000_000)));
+  test.throws(/Illegal money value/, () => new Money("test"));
 
   test.eq("-3.33", JSON.parse(std.stringify(new Money("-3.33"))));
   test.eq({ "$stdType": "Money", "money": "-3.33" }, JSON.parse(std.stringify(new Money("-3.33"), { typed: true })));
@@ -64,6 +65,14 @@ function testMoney() {
   test.eq('"15.5"', JSON.stringify(Money.fromNumber(15.5)));
   test.throws(/Money value '1000000000000' is out of range/, () => Money.fromNumber(1_000_000_000_000));
   test.throws(/Money value '-1000000000000' is out of range/, () => Money.fromNumber(-1_000_000_000_000));
+  test.eq('"2.3"', JSON.stringify(Money.fromNumber(2.3000000000000003)));
+  test.eq('"2.3"', JSON.stringify(Money.fromNumber(2.300004999999999)));
+  test.eq('"2.30001"', JSON.stringify(Money.fromNumber(2.3000050000000000)));
+  test.eq('"2.30001"', JSON.stringify(Money.fromNumber(2.300009999999999)));
+  test.eq('"-2.3"', JSON.stringify(Money.fromNumber(-2.300004999999999)));
+  test.eq('"-2.30001"', JSON.stringify(Money.fromNumber(-2.3000050000000000)));
+  test.eq('"-2.30001"', JSON.stringify(Money.fromNumber(-2.300009999999999)));
+  test.eq(new Money("2.3"), Money.fromNumber(2.3000000000000003));
 
   // testPresentation
   test.eq("0.00", new Money("0").format());
