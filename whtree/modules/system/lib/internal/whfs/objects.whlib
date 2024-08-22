@@ -22,8 +22,6 @@ LOADLIB "mod::system/lib/internal/whfs/export.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-///
-
 /** Looks up an object from a path relative to another object
     @param(object %WHFSFolder) relativeto Base object
     @param findpath Path to look up
@@ -807,6 +805,20 @@ OBJECTTYPE WHFSObject
     IF(NOT CellExists(newmetadata,"modifiedby"))
       INSERT CELL modifiedby := GetEffectiveUserID() INTO newmetadata;
 
+    IF(NOT this->isfolder)
+    {
+      BOOLEAN going_to_published := (NOT this->isfolder) AND (NOT IsPublish(oldversion.published)) AND IsPublish(newpublished); //going from non-publish to published
+      BOOLEAN data_update := CellExists(newmetadata,'data'); //content replacement
+
+      //If we're going to publish but firstpublishdate was never set, set it to now (as close to the intended first publish as possible)
+      IF(oldversion.firstpublishdate = DEFAULT DATETIME AND IsPublish(newpublished))
+        INSERT CELL firstpublishdate := now INTO newmetadata;
+
+      //Re-enabling something that was offline (esp for a while) should show as an 'update'. so we'll always update last_publish when going_to_published
+      IF(going_to_published OR data_update)
+        INSERT CELL lastcontentupdate := now INTO newmetadata;
+    }
+
     IF (isrename)
     {
       commithandler->ObjectRename(oldversion.parentsite, oldversion.parent, this->pvt_id);
@@ -1316,7 +1328,10 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
     OBJECT commithandler := GetWHFSCommitHandler();
     IF (CellExists(metadata, "PUBLISHED") AND IsPublish(metadata.published))
+    {
       commithandler->FileRepublish(this->parentsite, metadata.parent, metadata.id);
+      metadata := CELL[ ...metadata, firstpublishdate := metadata.creationdate, lastcontentupdate := metadata.creationdate ];
+    }
 
     INSERT metadata INTO system.fs_objects;
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
@@ -1694,6 +1709,8 @@ OBJECTTYPE WHFSFile EXTEND WHFSObject
 
   /// First publication date. Please note that WebHare versions before 3.13 never recorded this, and have usually set it to the creationdate of the file
   PUBLIC PROPERTY firstpublishdate(this->pvt_fsobjectdata.firstpublishdate,-);
+  /// Last content udpate date. Please note that WebHare versions before 5.6 never recorded this, and have usually set it to the firstpublishdate of the file
+  PUBLIC PROPERTY lastcontentupdate(this->pvt_fsobjectdata.lastcontentupdate,-);
   /// Last publication date.
   PUBLIC PROPERTY lastpublishdate(this->pvt_fsobjectdata.lastpublishdate,-);
 
@@ -1806,7 +1823,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid, RECORD options DEFAULTSTO 
                          , name, title, description, keywords, scandata
                          , creationdate, modificationdate, modifiedby
                          , type, indexdoc, filelink, externallink, isactive, ispinned, ordering
-                         , publish, published, firstpublishdate, lastpublishdate
+                         , publish, published, firstpublishdate, lastpublishdate, lastcontentupdate
                       FROM system.fs_objects
                      WHERE fs_objects.id = VAR findid;
 

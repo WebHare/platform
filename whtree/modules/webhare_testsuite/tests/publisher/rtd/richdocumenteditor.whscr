@@ -2,13 +2,11 @@
 
 LOADLIB "wh::files.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 
 OBJECT FUNCTION Rte()
@@ -88,6 +86,9 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq(DEFAULT DATETIME, testfile->firstpublishdate);
+  TestAssert(testfile->lastcontentupdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update lastContentUpdate");
 
   //////////////////////////////////////////////////////////////////////////////
   /// reader
@@ -119,6 +120,10 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // Publish the document
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestAssert(DEFAULT DATETIME != testfile->firstpublishdate);
+  TestEq(testfile->firstpublishdate, testfile->lastcontentupdate);
 
   // Test custom preview handler
   topscreen->contexts->editdocumentapi->onpreview := PTR OnView;
@@ -161,6 +166,10 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
+  OBJECT testfile_state2 := OpenWHFSObject(testfile->id);
+  //verify no change yet
+  TestEq(testfile->firstpublishdate, testfile_state2->firstpublishdate);
+  TestEq(testfile->lastcontentupdate, testfile_state2->lastcontentupdate);
 
   //////////////////////////////////////////////////////////////////////////////
   /// reader
@@ -189,6 +198,9 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
+  testfile_state2 := OpenWHFSObject(testfile->id);
+  TestEq(testfile->firstpublishdate, testfile_state2->firstpublishdate);
+  TestAssert(testfile_state2->lastcontentupdate > testfile_state2->firstpublishdate);
 
   RETURN DEFAULT RECORD;
 }

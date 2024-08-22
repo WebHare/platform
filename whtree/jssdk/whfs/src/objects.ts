@@ -319,6 +319,7 @@ export class WHFSFolder extends WHFSObject {
         isfolder: Boolean(type.foldertype),
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
         firstpublishdate: defaultDateTime,
+        lastcontentupdate: defaultDateTime,
         lastpublishdate: defaultDateTime,
         lastpublishsize: 0,
         lastpublishtime: 0,
