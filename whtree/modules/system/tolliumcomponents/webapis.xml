@@ -22,7 +22,7 @@
     <body>
       <textedit name="clientid" minwidth="60x" width="1pr" required="true" />
       <textedit name="clientsecret" width="1pr" required="true" />
-      <textedit name="callbackurl" width="1pr" enabled="false">
+      <textedit name="callbackurl" width="1pr" required="true">
         <button type="icon" action="copycallbackurl" icon="tollium:actions/copy" />
       </textedit>
     </body>
