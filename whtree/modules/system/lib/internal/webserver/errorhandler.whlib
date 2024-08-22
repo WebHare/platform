@@ -129,7 +129,7 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
   IF (NOT HavePrimaryTransaction())
     OpenPrimary();
 
-  IF(errorcode = 500 AND (IsDebugTagEnabled("etr") OR IsWHDebugOptionSet("etr")))
+  IF(errorcode = 500 AND IsDebugTagEnabled("etr"))
   {
     MakeFunctionPtr(Resolve("errorhandler-hserror.whlib#GenerateHarescriptErrorPage"))(harescriptinfo);
     RETURN;
