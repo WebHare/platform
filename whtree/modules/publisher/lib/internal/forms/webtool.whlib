@@ -442,7 +442,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     }
 
     // Merge result fields into result page RTD's
-    INSERT CELL richvalues := this->__MergeThankYouPageRTDFields() INTO result;
+    INSERT CELL richvalues := this->MergeThankYouPageRTDFields(extradata) INTO result;
 
     // If this is a confirmation or a duplicate submission, the form is opened on the thankyou page, without being submitted,
     // so we'll pre-render the RTD contents, filling the merge fields before rendering the form
@@ -544,7 +544,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     {
       this->__StraightToThankyouPage();
       confirmationhandler.handlerobject->RunConfirmationUpdates(results);
-      this->__RenderThankYouFields(this->__MergeThankYouPageRTDFields());
+      this->__RenderThankYouFields(this->MergeThankYouPageRTDFields());
     }
 
     RETURN TRUE;
@@ -561,7 +561,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     RETURN this->pvt_results;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION __MergeThankYouPageRTDFields()
+  RECORD ARRAY FUNCTION MergeThankYouPageRTDFields(RECORD extradata DEFAULTSTO DEFAULT RECORD)
   {
     RECORD ARRAY richvalues;
     IF (MemberExists(this->formcontext, "__mergefields"))
@@ -569,6 +569,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       OBJECT formdefinition := OpenFormFileDefinition(OpenWHFSObject(this->__form.webtoolformid), [ formname := this->__form.name ]);
       RECORD mergedata := this->GetWittyResultData();
       OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata, applytester := this->formcontext->targetapplytester ], this->formlanguagecode);
+      mergefields->extradata := extradata;
 
       OBJECT oldmergefields := this->formcontext->__mergefields;
       this->formcontext->__mergefields := mergefields;
