@@ -1,0 +1,35 @@
+import { beginWork, commitWork, sql } from "@webhare/whdb";
+import { db } from "@webhare/whdb";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { defaultDateTime } from "@webhare/hscompat/datetime";
+
+async function fixLastUpdate() {
+  //List all current files that have a firstPublishDate but no lastUpdateDate
+  const fixfiles = await db<PlatformDB>().
+    selectFrom("system.fs_objects").
+    select(["id", "parent"]).
+    where("firstpublishdate", ">", defaultDateTime).
+    where("lastcontentupdate", "=", defaultDateTime).
+    execute();
+
+  const sortfiles = fixfiles.sort((a, b) => ((a.parent || 0) - (b.parent || 0)) || (a.id - b.id));
+
+  //group so we can split them over transactions
+  for (const group of Map.groupBy(sortfiles, (item, idx) => Math.floor(idx / 1000)).values()) {
+    await beginWork();
+    const groupfiles = await db<PlatformDB>().
+      selectFrom("system.fs_objects").
+      select(["id", "firstpublishdate", "lastcontentupdate"]).
+      where("id", "=", sql`any(${group.map((item) => item.id)})`).
+      where("lastcontentupdate", "=", defaultDateTime).
+      execute();
+
+    for (const file of groupfiles) {
+      await db<PlatformDB>().updateTable("system.fs_objects").set({ lastcontentupdate: file.firstpublishdate }).where("id", "=", file.id).execute();
+    }
+
+    await commitWork();
+  }
+}
+
+fixLastUpdate();
