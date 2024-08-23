@@ -250,7 +250,8 @@ MACRO PublishOnOffTest()
   TestEq(12,imgfile->type);
   TestEq(FALSE, imgfile->publish);
   TestEq(DEFAULT DATETIME, imgfile->firstpublishdate);
-  TestEq(DEFAULT DATETIME, imgfile->lastcontentupdate);
+  TestEq(imgfile->creationdate, imgfile->lastcontentupdate);
+  TestEq(imgfile->modificationdate, imgfile->lastcontentupdate);
   imgfile->UpdateMetadata([publish:=TRUE]);
   imgfile := OpenWHFSObject(imgfile->id);
   TestEq(TRUE, imgfile->publish);
@@ -270,6 +271,9 @@ MACRO PublishOnOffTest()
   imgfile->UpdateMetadata([publish:=FALSE]);
 
   OBJECT imgfile2 := firstfolder->CreateFile( [ name := "cmyk_kikkertje2", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg")]);
+  TestEq(imgfile2->firstpublishdate, DEFAULT DATETIME);
+  TestEq(imgfile2->creationdate, imgfile2->modificationdate);
+  TestEq(imgfile2->lastcontentupdate, imgfile2->modificationdate, "lastcontentupdate should match moddate/creationdate as we already supplied content");
   UPDATE system.fs_objects SET firstpublishdate := MakeDate(2017,1,1) WHERE id = imgfile2->id;
   imgfile2->Refresh();
   imgfile2->UpdateMetadata([publish:=TRUE]);

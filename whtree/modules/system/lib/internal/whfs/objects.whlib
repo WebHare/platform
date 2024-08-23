@@ -1327,10 +1327,20 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     metadata := this->FixupNewObjectMetadata(metadata, FALSE);
 
     OBJECT commithandler := GetWHFSCommitHandler();
-    IF (CellExists(metadata, "PUBLISHED") AND IsPublish(metadata.published))
+    BOOLEAN initialpublish := CellExists(metadata, "PUBLISHED") AND IsPublish(metadata.published);
+    BOOLEAN initialdata := CellExists(metadata, "DATA") AND Length(metadata.data) > 0;
+    IF (initialpublish)
     {
       commithandler->FileRepublish(this->parentsite, metadata.parent, metadata.id);
-      metadata := CELL[ ...metadata, firstpublishdate := metadata.creationdate, lastcontentupdate := metadata.creationdate ];
+      metadata := CELL[ ...metadata
+                      , firstpublishdate := metadata.creationdate
+                      ];
+    }
+    IF (initialpublish OR initialdata)
+    {
+      metadata := CELL[ ...metadata
+                      , lastcontentupdate := metadata.creationdate
+                      ];
     }
 
     INSERT metadata INTO system.fs_objects;
