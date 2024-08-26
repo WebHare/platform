@@ -36,22 +36,32 @@ export function isValidName(name: string, { allowSlashes = false }: { allowSlash
 }
 
 const PublishedFlag_OncePublished = 100000;
+// PUBLIC INTEGER PublishedFlag_Scheduled:= 200000;
+// PUBLIC INTEGER PublishedFlag_Warning:= 400000;
+// PUBLIC INTEGER PublishedFlag_HasWebDesign:= 800000; //this file depends on a <webdesign> or template, so it needs to be republished even if template=0
+// PUBLIC INTEGER PublishedFlag_StripExtension:= 1600000; //strip the extension from the file's url
+// PUBLIC INTEGER PublishedFlag_HasPublicDraft:= 3200000; //there are drafts associated with the file
+// PUBLIC INTEGER PublishedFlag_SubmittedForApproval:= 6400000; //the draft has been submitted for approval (versioning)
 
 function testFlagFromPublished(published: number, flag_to_test: number) {
   return ((published % (flag_to_test * 2)) / flag_to_test) === 1;
 }
 
-function getErrorFromPublished(published: number) {
+function getPrioOrErrorFromPublished(published: number) {
   return published % 100000;
 }
 
-/** @returns True if the file was erver succesfully published (its file.url cell is valid) */
+function isPriority(prioOrError: number) { //related to IsQueuedForPublication
+  return prioOrError > 0 && prioOrError <= 100;
+}
+
+/** @returns True if the file was ever succesfully published (its file.url cell is valid) */
 function getOncePublishedFromPublished(published: number) {
   return testFlagFromPublished(published, PublishedFlag_OncePublished);
 }
 
 export function isPublish(published: number) {
-  return getErrorFromPublished(published) !== 0 || getOncePublishedFromPublished(published);
+  return getPrioOrErrorFromPublished(published) !== 0 || getOncePublishedFromPublished(published);
 }
 
 export function formatPathOrId(path: number | string) {
@@ -64,4 +74,38 @@ export function isReadonlyWHFSSpace(path: string) {
     path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/") ||
     path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONARCHIVE/") ||
     path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/");
+}
+
+export const PubPrio_Scheduled = 6;  //put on queue because of a scheduled task
+export const PubPrio_DirectEdit = 11;  //put on queue because of user action (edit, replace)
+export const PubPrio_FolderRepub = 16;  //put on queue because of a republish on this folder (or root folder of a republish_all)
+export const PubPrio_SubFolderRepub = 21;  //put on queue because of a republish of parent folder
+
+type PubPrio = typeof PubPrio_Scheduled | typeof PubPrio_DirectEdit | typeof PubPrio_FolderRepub | typeof PubPrio_SubFolderRepub;
+
+
+/** Converts publisher status to trigger a republish
+    @param published - Current published status
+    @param firsttime - Whether this is the first time the file is published at this place.
+    @param enablePublishIfDisabled - If the file is currently not published (from the published parameter), and
+           enable_publish_if_disabled is TRUE, the file will be republished
+    @param setPrio - Priority to republish the file
+    @returns New publisher status
+*/
+export function convertToWillPublish(published: number, firsttime: boolean, enablePublishIfDisabled: boolean, setPrio: PubPrio) {
+  const curPrioOrError = getPrioOrErrorFromPublished(published);
+  const oncePublished = getOncePublishedFromPublished(published);
+
+  if (!isPublish(curPrioOrError) && !enablePublishIfDisabled)
+    return published;
+
+  // Never decrease existing priority
+  if (isPriority(curPrioOrError) && curPrioOrError < setPrio) //is it a priority ?
+    setPrio = curPrioOrError as PubPrio; //if the current priority is higher, keep it
+
+  published = (published - curPrioOrError) + setPrio;
+  if (firsttime && oncePublished)
+    published -= PublishedFlag_OncePublished;
+
+  return published;
 }
