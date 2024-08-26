@@ -139,12 +139,25 @@ async function testWHFS() {
   test.eq(newFile.id, openNewFile.id);
   test.eq("testfile", newFile.name);
   test.eq("My MD File", newFile.title);
+  test.eq(false, newFile.publish);
+  test.eq(null, newFile.firstPublishDate);
+  test.eq(null, newFile.contentModificationDate);
 
-  const goldFish = await tmpfolder.createFile("goldfish.png", { data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png") });
+  await newFile.update({ publish: true });
+  const openNewFile_state2 = await openFile(newFile.id);
+  test.assert(openNewFile_state2.modificationDate > openNewFile.modificationDate);
+  test.eq(openNewFile_state2.modificationDate, openNewFile_state2.firstPublishDate);
+  test.eq(openNewFile_state2.modificationDate, openNewFile_state2.contentModificationDate);
+  test.eq(true, openNewFile_state2.publish);
+
+  const goldFish = await tmpfolder.createFile("goldfish.png", { data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true });
   test.eq("image/png", goldFish.data.mediaType);
   test.eq(385, goldFish.data.width);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldFish.data.hash);
   test.eq("goldfish.png", goldFish.data.fileName);
+  test.eq(true, goldFish.publish);
+  test.eq(goldFish.creationDate, goldFish.firstPublishDate);
+  test.eq(goldFish.creationDate, goldFish.contentModificationDate);
 
   await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg") });
   const openedGoldFish = await openFile(goldFish.id);
@@ -153,17 +166,30 @@ async function testWHFS() {
   test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', openedGoldFish.data.hash);
   test.eq("goldfish.png", openedGoldFish.data.fileName, "a file's resource name is fixed to its fsobject");
 
+  const goldFish2 = await tmpfolder.createFile("goldfish2.png", { data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, firstPublishDate: new Date(2020, 1, 1), contentModificationDate: new Date(2021, 1, 1) });
+  test.eq(new Date(2020, 1, 1), goldFish2.firstPublishDate);
+  test.eq(new Date(2021, 1, 1), goldFish2.contentModificationDate);
+  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), firstPublishDate: new Date(2022, 1, 1) });
+  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), contentModificationDate: new Date(2023, 1, 1) });
+  test.eq(new Date(2022, 1, 1), goldFish2.firstPublishDate);
+  test.eq(new Date(2023, 1, 1), goldFish2.contentModificationDate);
+
   const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);
   test.eq("This is a test", await openNewFile2.data.resource.text());
   test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("text/plain", openNewFile2.data.mediaType);
+  test.eq(false, newFile2.publish);
+  test.eq(newFile2.creationDate, newFile2.contentModificationDate);
+  test.eq(null, newFile2.firstPublishDate);
 
   await openNewFile2.update({ data: await ResourceDescriptor.from("Updated text") });
   test.eq("Updated text", await openNewFile2.data.resource.text());
   test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("Updated text", await (await openFile(newFile2.id)).data.resource.text());
   test.eq("text/plain", await (await openFile(newFile2.id)).data.mediaType);
+  test.assert(openNewFile2.modificationDate > newFile2.modificationDate);
+  test.eq(openNewFile2.modificationDate, openNewFile2.contentModificationDate);
 
   //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor. eg if given we should also copy/preserve refpoints
 

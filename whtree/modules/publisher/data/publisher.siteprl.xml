@@ -571,6 +571,8 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/savedurlhistory">
     <datetime name="creationdate" />
     <datetime name="modificationdate" />
+    <datetime name="firstpublishdate" />
+    <datetime name="contentmodificationdate" />
     <integer name="originalid" />
     <integer name="modifiedby" />
     <string name="path" />

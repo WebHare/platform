@@ -5,7 +5,7 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { excludeKeys, formatPathOrId, isPublish, isValidName } from "./support";
+import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PubPrio_DirectEdit } from "./support";
 import * as std from "@webhare/std";
 import type { WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -50,7 +50,7 @@ interface ListableFsObjectRow {
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
   keywords: string;
   /// The date and time in UTC when this file was first published
-  // firstPublishDate: Date;
+  firstPublishDate: Date;
   /// The date and time in UTC when this file was last published
   // lastPublishDate: Date;
   /// The size of the item since its last publication
@@ -61,8 +61,10 @@ interface ListableFsObjectRow {
   // scanData: string;
   /// The id of the user that modified this item last.
   // modifiedBy: number | null;
-  /// The date and time in UTC when this file was last modified
+  /// The date and time in UTC when any file (meta)data was last modified
   modificationDate: Date;
+  /// The date and time in UTC when this file's content was last modified
+  contentModificationDate: Date;
   /// The name for this file, which must be unique inside its parent folder
   name: string;
   /// Relative ordering of this file
@@ -95,6 +97,9 @@ export interface CreateFSObjectMetadata {
 export interface CreateFileMetadata extends CreateFSObjectMetadata {
   keywords?: string;
   data?: ResourceDescriptor | null;
+  publish?: boolean;
+  firstPublishDate?: Date;
+  contentModificationDate?: Date;
 }
 
 export type CreateFolderMetadata = CreateFSObjectMetadata;
@@ -163,7 +168,9 @@ export class WHFSObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data"]); //we need to upcast to be able to remove 'data'
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data", "publish", "firstPublishDate", "contentModificationDate"]); //we need to upcast to be able to remove 'data'
+    const moddate = storedata.modificationdate || new Date;
+
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
       if (!type)
@@ -171,11 +178,34 @@ export class WHFSObject {
 
       storedata.type = type.id || null; //#0 can't be stored so convert to null
     }
+
+    if (this.isFile) {
+      if ((metadata as UpdateFileMetadata).firstPublishDate)
+        storedata.firstpublishdate = (metadata as UpdateFileMetadata).firstPublishDate;
+      if ((metadata as UpdateFileMetadata).contentModificationDate)
+        storedata.contentmodificationdate = (metadata as UpdateFileMetadata).contentModificationDate;
+    }
+
+    if (this.isFile && (metadata as UpdateFileMetadata).publish) {
+      //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
+
+      const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
+      if (curfields && !isPublish(curfields.published)) {
+        storedata.published = convertToWillPublish(this.dbrecord.published, true, true, PubPrio_DirectEdit);
+        if (!storedata.contentmodificationdate)
+          storedata.contentmodificationdate = moddate;
+        if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
+          storedata.firstpublishdate = moddate;
+      }
+    }
+
     if ((metadata as UpdateFileMetadata).data && this.isFile) {
       const resdescr = (metadata as UpdateFileMetadata)?.data;
       if (resdescr) {
         storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
         storedata.data = resdescr?.resource || null;
+        if (!storedata.contentmodificationdate)
+          storedata.contentmodificationdate = moddate;
       } else {
         storedata.scandata = '';
       }
@@ -188,8 +218,7 @@ export class WHFSObject {
     if (!Object.keys(storedata).length)
       return; //nothing to update
 
-    storedata.modificationdate ||= new Date();
-
+    storedata.modificationdate = moddate;
     await db<PlatformDB>()
       .updateTable("system.fs_objects")
       .where("id", "=", this.id)
@@ -203,6 +232,12 @@ export class WHFSObject {
 export class WHFSFile extends WHFSObject {
   get publish() {
     return isPublish(this.dbrecord.published);
+  }
+  get firstPublishDate(): Date | null {
+    return this.dbrecord.firstpublishdate === defaultDateTime ? null : this.dbrecord.firstpublishdate;
+  }
+  get contentModificationDate(): Date | null {
+    return this.dbrecord.contentmodificationdate === defaultDateTime ? null : this.dbrecord.contentmodificationdate;
   }
   get data(): ResourceDescriptor {
     const meta: ResourceMetaDataInit = {
@@ -219,7 +254,9 @@ export class WHFSFile extends WHFSObject {
 
 const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> = {
   "creationDate": "creationdate",
+  "contentModificationDate": "contentmodificationdate",
   "description": "description",
+  "firstPublishDate": "firstpublishdate",
   "sitePath": "fullpath",
   "whfsPath": "whfspath",
   "parentSite": "parentsite",
@@ -305,6 +342,10 @@ export class WHFSFolder extends WHFSObject {
       }
     }
 
+    //FIXME validate whether type is valid for publiaction
+    const initialPublish: boolean = (metadata as CreateFileMetadata)?.publish || false;
+    const initialData: boolean = data ? data.size > 0 : false;
+
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
@@ -318,13 +359,14 @@ export class WHFSFolder extends WHFSObject {
         externallink: "",
         isfolder: Boolean(type.foldertype),
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
-        firstpublishdate: defaultDateTime,
+        firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate ?? (initialPublish ? creationdate : defaultDateTime),
+        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModificationDate ?? (initialPublish || initialData ? creationdate : defaultDateTime),
         lastpublishdate: defaultDateTime,
         lastpublishsize: 0,
         lastpublishtime: 0,
         scandata,
         ordering: 0,
-        published: 0,
+        published: initialPublish ? PubPrio_DirectEdit : 0,
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
         data: data

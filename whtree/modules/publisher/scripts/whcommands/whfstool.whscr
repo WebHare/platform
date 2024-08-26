@@ -16,9 +16,8 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", type := "switch" ]
                                                      , [ name := "pin", type := "switch" ]
                                                      , [ name := "striprtdextension", type := "switch" ]
-                                                     , [ name := "saveurlhistory", type := "switch" ]
-                                                     , [ name := "restoreurlhistory", type := "switch" ]
-                                                     , [ name := "__restoremodificationdatefromurlhistory", type := "switch" ]
+                                                     , [ name := "savemeta", type := "switch" ]
+                                                     , [ name := "restoremeta", type := "stringopt" ]
                                                      , [ name := "unpin", type := "switch" ]
                                                      , [ name := "reindex", type := "switch" ]
                                                      , [ name := "dryrun", type := "switch" ]
@@ -30,6 +29,13 @@ IF (NOT RecordExists(args) OR Length(args.paths) = 0)
   --dryrun     Do not commit changes to the database
   --recursive  Apply to subdirectories too
   path         The whfs path(s) to process
+
+  Actions:
+  --pin / --unpin      Add/remove pins
+  --striprtdextension  Remove the .rtd file extension
+  --savemeta           Save url history and creation/update dates to an exportable instance
+  --restoremeta=...    Restore specific metadata. Comma separated list of 'urlhistory', 'modificationdate', 'firstpublishdate' or 'contentmodificationdate'
+  --reindex            Reindex for Publisher search
 
 <?wh
   SetConsoleExitCode(1);
@@ -44,9 +50,10 @@ IF(args.pin AND args.unpin)
 
 OBJECT trans := OpenPrimary();
 OBJECT saveurlhistorytype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/savedurlhistory");
-BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory OR args.restoreurlhistory OR args.striprtdextension OR args.reindex);
+BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.savemeta OR args.restoremeta != "" OR args.striprtdextension OR args.reindex);
+STRING ARRAY restorefields := Tokenize(args.restoremeta, ",");
 
-IF((args.restoreurlhistory OR args.__restoremodificationdatefromurlhistory) AND args.saveurlhistory)
+IF(args.restoremeta != "" AND args.savemeta)
   TerminateScriptWithError("save and restore cannot be mixed");
 
 INTEGER ARRAY startobjids;
@@ -120,7 +127,7 @@ RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
         }
       }
     }
-    IF(args.saveurlhistory)
+    IF(args.savemeta)
     {
       INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM objects;
       RECORD ARRAY history := SELECT urlhistory.creationdate
@@ -134,6 +141,8 @@ RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
                                    , modificationdate
                                    , modifiedby
                                    , path := whfspath
+                                   , firstpublishdate
+                                   , contentmodificationdate
                                 FROM system.fs_objects
                                WHERE id IN VAR ids;
 
@@ -154,26 +163,42 @@ RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
         INSERT obj.originalid INTO updatedids AT END;
       }
     }
-    IF(args.restoreurlhistory)
+    IF(args.restoremeta != "")
     {
-      objects := saveurlhistorytype->Enrich(objects, "ID", [ "urlhistory" ]);
+      objects := saveurlhistorytype->Enrich(objects, "ID", [ "urlhistory", "modificationdate", "firstpublishdate", "contentmodificationdate" ]);
       FOREVERY(RECORD obj FROM objects)
-        FOREVERY(RECORD row FROM obj.urlhistory)
+      {
+        RECORD metaupdates;
+        FOREVERY(STRING field FROM restorefields)
         {
-          AddURLHistoryEntry(obj.id, row.url LIKE "//*" ? "https:" || row.url : row.url);
-          INSERT obj.id INTO updatedids AT END;
+          SWITCH(field)
+          {
+            CASE "urlhistory"
+            {
+              FOREVERY(RECORD row FROM obj.urlhistory)
+              {
+                AddURLHistoryEntry(obj.id, row.url LIKE "//*" ? "https:" || row.url : row.url);
+                INSERT obj.id INTO updatedids AT END;
+              }
+            }
+            CASE "modificationdate"
+            {
+              metaupdates := CellInsert(metaupdates, field, GetCell(obj, field));
+            }
+            CASE "firstpublishdate", "contentmodificationdate"
+            {
+              IF(NOT obj.isfolder)
+                metaupdates := CellInsert(metaupdates, field, GetCell(obj, field));
+            }
+            DEFAULT
+            {
+              TerminateScriptWithError(`Unknown field to restore '${field}'`);
+            }
+          }
         }
-    }
-    IF(args.__restoremodificationdatefromurlhistory)
-    {
-      objects := saveurlhistorytype->Enrich(objects, "ID", [ "modificationdate" ]);
-      FOREVERY(RECORD obj FROM objects)
-        IF(obj.modificationdate != DEFAULT DATETIME)
-        {
-          //UPDATE system.fs_objects SET modificationdate := obj.modificationdate WHERE id = obj.id;
-          OpenWHFSObject(obj.id)->UpdateMetadata([ modificationdate := obj.modificationdate ]);
-          INSERT obj.id INTO updatedids AT END;
-        }
+        IF(RecordExists(metaupdates))
+          OpenWHFSObject(obj.id)->UpdateMetadata(metaupdates);
+      }
     }
 
     IF(args.dryrun)

@@ -1,4 +1,4 @@
-import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
+import { beginWork, commitWork } from "@webhare/whdb";
 import { WRDSchema, listSchemas } from "@webhare/wrd";
 
 async function fixWHUserDisabled() {

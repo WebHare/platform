@@ -197,6 +197,7 @@ PUBLIC SCHEMA
     , INTEGER "highestparent" AS "parentsite" __ATTRIBUTES__(READONLY)
     , INTEGER "indexdoc" NULL := 0
     , DATETIME "firstpublishdate"
+    , DATETIME "contentmodificationdate"
     , DATETIME "lastpublishdate"
     , INTEGER "lastpublishsize"
     , INTEGER "lastpublishtime"

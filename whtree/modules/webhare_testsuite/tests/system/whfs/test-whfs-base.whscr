@@ -245,15 +245,61 @@ MACRO PublishOnOffTest()
   testfw->BeginWork();
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
-
   OBJECT imgfile := firstfolder->CreateFile( [ name := "cmyk_kikkertje", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg")]);
 
   TestEq(12,imgfile->type);
   TestEq(FALSE, imgfile->publish);
+  TestEq(DEFAULT DATETIME, imgfile->firstpublishdate);
+  TestEq(imgfile->creationdate, imgfile->contentmodificationdate);
+  TestEq(imgfile->modificationdate, imgfile->contentmodificationdate);
   imgfile->UpdateMetadata([publish:=TRUE]);
+  imgfile := OpenWHFSObject(imgfile->id);
   TestEq(TRUE, imgfile->publish);
+  TestEq(imgfile->modificationdate, imgfile->firstpublishdate);
+  TestEq(imgfile->modificationdate, imgfile->contentmodificationdate);
   imgfile->UpdateMetadata([publish:=FALSE]);
   TestEq(FALSE, imgfile->publish);
+
+  OBJECT imgfile_state2 := OpenWHFSObject(imgfile->id);
+  TestEq(imgfile->firstpublishdate, imgfile_state2->firstpublishdate, "Depublishing should not change these properties");
+  TestEq(imgfile->contentmodificationdate, imgfile_state2->contentmodificationdate);
+
+  imgfile->UpdateMetadata([publish:=TRUE]);
+  OBJECT imgfile_state3 := OpenWHFSObject(imgfile->id);
+  TestEq(imgfile_state3->firstpublishdate, imgfile->firstpublishdate);
+  TestEq(imgfile_state3->contentmodificationdate, imgfile->modificationdate,"Returning to published state counts as an update");
+  imgfile->UpdateMetadata([publish:=FALSE]);
+
+  OBJECT imgfile2 := firstfolder->CreateFile( [ name := "cmyk_kikkertje2", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg")]);
+  TestEq(imgfile2->firstpublishdate, DEFAULT DATETIME);
+  TestEq(imgfile2->creationdate, imgfile2->modificationdate);
+  TestEq(imgfile2->contentmodificationdate, imgfile2->modificationdate, "contentmodificationdate should match moddate/creationdate as we already supplied content");
+  UPDATE system.fs_objects SET firstpublishdate := MakeDate(2017,1,1) WHERE id = imgfile2->id;
+  imgfile2->Refresh();
+  imgfile2->UpdateMetadata([publish:=TRUE]);
+  TestEq(MakeDate(2017,1,1), imgfile2->firstpublishdate, "Should copy from 'old' firstpublishdate metadata");
+  TestEq(imgfile2->contentmodificationdate, imgfile2->modificationdate);
+
+  OBJECT imgfile3 := firstfolder->CreateFile( [ name := "cmyk_kikkertje3", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg"), publish := TRUE ]);
+  TestEq(imgfile3->creationdate, imgfile3->modificationdate);
+  TestEq(imgfile3->creationdate, imgfile3->firstpublishdate);
+  TestEq(imgfile3->creationdate, imgfile3->contentmodificationdate);
+
+  //The API allows to update firstpublishdate and contentmodificationdate
+  DATETIME startupdates := GetCurrentDatetime();
+  Sleep(1);
+  imgfile3->UpdateMetaData(CELL[ firstpublishdate := MakeDate(2017,1,1) ]);
+  imgfile3->UpdateMetaData(CELL[ contentmodificationdate := MakeDate(2018,1,1) ]);
+  TestEq(MakeDate(2017,1,1), imgfile3->firstpublishdate);
+  TestEq(MakeDate(2018,1,1), imgfile3->contentmodificationdate);
+  TestAssert(imgfile3->modificationdate > startupdates);
+  imgfile3 := OpenWHFSObject(imgfile3->id);
+  TestEq(MakeDate(2017,1,1), imgfile3->firstpublishdate);
+  TestEq(MakeDate(2018,1,1), imgfile3->contentmodificationdate);
+
+  OBJECT imgfile4 := firstfolder->CreateFile( [ name := "cmyk_kikkertje4", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg"), publish := TRUE, firstpublishdate := MakeDate(2015,1,1), contentmodificationdate := MakeDate(2016,1,1) ]);
+  TestEq(MakeDate(2015,1,1), imgfile4->firstpublishdate);
+  TestEq(MakeDate(2016,1,1), imgfile4->contentmodificationdate);
 
   OBJECT templatefile := firstfolder->CreateFile( [ name := "blabla.tpl", data := StringToBlob("<?wh LOADLIB 'mod::publisher/lib/template-v2.whlib';")]);
   TestEq(28,templatefile->type);
