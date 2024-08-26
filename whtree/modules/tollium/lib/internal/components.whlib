@@ -74,7 +74,7 @@ PUBLIC MACRO ExecuteDebugAction(OBJECT screen, RECORD action, VARIANT data)
     }
     CASE "fsobjectid"
     {
-      MakeFunctionPtr("mod::pubolisher/lib/dialogs.whlib#RunFSObjectInspectDialog")(screen, data);
+      MakeFunctionPtr("mod::publisher/lib/dialogs.whlib#RunFSObjectInspectDialog")(screen, data);
     }
     DEFAULT
     {
