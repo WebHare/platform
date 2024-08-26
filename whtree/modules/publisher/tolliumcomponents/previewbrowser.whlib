@@ -450,40 +450,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       OBJECT sourceitem := OpenWHFSObject(this->previewfileid);
       IF (sourceitem->parentsite != 0 AND TestFlagFromPublished(sourceitem->published, PublishedFlag_HasPublicDraft))
       {
-        OBJECT policy := GetVersioningPolicyForFileObject(sourceitem);
-        IF (ObjectExists(policy))
-        {
-          RECORD data :=
-              [ id :=         sourceitem->id
-              , isfolder :=   sourceitem->isfolder
-              , published :=  sourceitem->published
-              ];
-
-          data := policy->EnrichWithObjectPolicy([ data ]);
-          have_messages := TRUE;
-          IF (data.draftlocked)
-          {
-            ^withdrawrequest->visible := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
-            ^revertdraft->visible := FALSE;
-            ^submitdraft->visible := FALSE;
-            ^versioningmessage->value := GetTid("publisher:versioning.preview.haspendingrequestforapproval");
-          }
-          ELSE
-          {
-            STRING warntype := GetVersioningDraftWarning(sourceitem);
-            SWITCH (warntype)
-            {
-              CASE "normal"     { ^versioningmessage->value := GetTid("publisher:versioning.preview.hasversioneddraft"); }
-              CASE "justdenied" { ^versioningmessage->value := GetTid("publisher:versioning.preview.hasjustdeniedversioneddraft"); }
-              DEFAULT           { THROW NEW Exception(`Unhandled draft warn type '${warntype}'`); }
-            }
-            ^withdrawrequest->visible := FALSE;
-            ^revertdraft->visible := warntype = "justdenied";
-            ^submitdraft->visible := warntype != "justdenied";
-          }
-
-          ^versioneventslistener->masks := [ "system:versionevent." || sourceitem->parentsite || "." || sourceitem->id ];
-        }
       }
     }
     ^versioninginfo->visible := have_messages;

@@ -95,8 +95,7 @@ PUBLIC INTEGER ARRAY FUNCTION DoFilemanagerUpload(OBJECT tolliumscreen, INTEGER 
       OBJECT res := uploadtofolder->CreateFile(filemeta); //ADDME: Allow 'publish:=true' to be set and createfile do the 'thinking' worwk
       IF(ObjectExists(res))
       {
-        OBJECT sitepolicy := GetVersioningPolicyForFileObject(res);
-        UpdateMetadataForPolicy(sitepolicy, res, DEFAULT RECORD,
+        UpdateMetadataForPolicy(DEFAULT OBJECT, res, DEFAULT RECORD,
             [ modifypublished :=  PTR ConvertToWillPublish(#1, FALSE, TRUE, PubPrio_DirectEdit)
             ]);
 

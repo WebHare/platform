@@ -280,9 +280,7 @@ PUBLIC STATIC OBJECTTYPE BulkReceiveOperation
               {
                 // Must record in draft metadata, cancel the move plan
                 OBJECT file := OpenWHFSObject(rec.sourceid);
-
-                OBJECT sitepolicy := GetVersioningPolicyForFileObject(file);
-                UpdateMetadataForPolicy(sitepolicy, file, [ parent := rec.destparent, name := rec.name ]);
+                UpdateMetadataForPolicy(DEFAULT OBJECT, file, [ parent := rec.destparent, name := rec.name ]);
 
                 IF (LENGTH(plan) != 1)
                   THROW NEW CopyMoveException(this, "NOTALLOWEDOPERATIONINVERSIONEDSITE", OpenWHFSObject(rec.destparent));

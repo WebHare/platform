@@ -121,23 +121,6 @@ PUBLIC MACRO DoFSDownload(OBJECT frame, OBJECT fileobj, OBJECT downloadhandler)
       , data :=   fileobj->data
       ];
 
-  // Versioned site, and we have a draft?
-  OBJECT policy := GetVersioningPolicyForFileObject(fileobj);
-  IF (ObjectExists(policy))
-  {
-    OBJECT draft := GetPublicDraft(fileobj->id);
-    IF (ObjectExists(draft))
-    {
-      // There is a draft. See if the 'data' field is versioned for this file. If so, send that one
-      OBJECT filepolicy := policy->EnrichWithObjectPolicy([ [ id := fileobj->id, isfolder := FALSE, published := fileobj->published ]])[0].policy;
-      RECORD fields := filepolicy->Getfields();
-      IF ("data" IN fields.versioned_fields)
-        props.data := draft->fsobject->data;
-
-      // Do not get the 'name' field from the draft
-    }
-  }
-
   RECORD fileprops := ScanBlob(props.data, props.name);
   downloadhandler->SendFile(props.data, fileprops.mimetype, props.name);
 }
@@ -328,7 +311,7 @@ PUBLIC RECORD FUNCTION GetSubmitRequestApprovalMetadata(OBJECT tolliumscreen, OB
   IF (ObjectExists(file) AND ObjectExists(options.policy))
     THROW NEW Exception("Specifying policy is only allowed when file is not known");
 
-  OBJECT policy := ObjectExists(file) ? GetVersioningPolicyForFileObject(file) : options.policy;
+  OBJECT policy := ObjectExists(file) ? DEFAULT OBJECT : options.policy;
   IF (NOT ObjectExists(policy))
     THROW NEW Exception("Could not determine versioning policy");
 
@@ -347,22 +330,7 @@ PUBLIC RECORD FUNCTION GetSubmitRequestApprovalMetadata(OBJECT tolliumscreen, OB
 
 PUBLIC MACRO SubmitApprovalRequestFromMetadata(OBJECT work, OBJECT file, RECORD metadata)
 {
-  OBJECT policy := GetVersioningPolicyForFileObject(file);
-  OBJECT draft := GetPublicDraft(file->id);
-
-  IF (NOT ObjectExists(draft))
-    RETURN; // FIXME: add error to work
-
-  file->Refresh();
-  RECORD enriched := policy->EnrichWithObjectPolicy([ [ id := file->id, isfolder := file->isfolder, published := file->published ]])[0];
-  IF (enriched.draftlocked)
-    RETURN; // FIXME: add error to work
-
-  SubmitApprovalRequestForDraft(draft,
-      [ userobject :=   metadata.userobject
-      , message :=      metadata.description
-      , expirydate :=   metadata.expirydate
-      ]);
+  THROW NEW Exception("FIXME - this function is now uncallable");
 }
 
 /** @param tolliumscreen

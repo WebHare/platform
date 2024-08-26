@@ -325,8 +325,7 @@ PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER AR
     FOREVERY (INTEGER id FROM todraft)
     {
       OBJECT liveobject := OpenWHFSObject(id);
-      OBJECT sitepolicy := GetVersioningPolicyForFileObject(liveobject);
-      UpdateMetadataForPolicy(sitepolicy, liveobject, [ parent := 0 ]);
+      UpdateMetadataForPolicy(DEFAULT OBJECT, liveobject, [ parent := 0 ]);
     }
   }
 

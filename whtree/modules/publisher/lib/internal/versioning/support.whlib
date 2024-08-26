@@ -205,46 +205,8 @@ PUBLIC MACRO SubmitApprovalRequestForDraft(OBJECT draftobject, RECORD options)
   // Set the submitted for approval flag
   source->UpdateMetadata([ published := SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, TRUE) ], [ ifreadonly := "update" ]);
 
-  // Get the policy for the object
-  OBJECT policy := GetVersioningPolicyForFileObject(source);
-
-  IF (NOT ObjectExists(policy))
-    THROW NEW Exception("Cannot accept create approval request outside versioned sites");
-
-  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
-        [ [ id := source->id
-          , isfolder := source->isfolder
-          , published := source->published
-          ]
-        ])[0].policy;
-
-  INTEGER type := "type" IN filepolicy->GetFields().versioned_fields
-      ? draftobject->fs_object->type
-      : source->type;
-
-  IF (IsDefaultValue(policy->FilterAllowedFSObjectTypes([ type ])))
-    THROW NEW Exception("This type of file or folder cannot be versioned");
-
-  // Make sure all non-versioned fields are reflected in the draft
-  UpdateSubmittedDraft(draftobject, filepolicy->GetFields());
-
-  RECORD newurlandfullpath := GetNewURLAndFullPath(filepolicy, draftobject);
-
-  CreateVersioningEvent(
-      OpenWHFSObject(draftobject->source),
-      draftobject,
-      VersionEventType_Request,
-      options.userobject,
-      options.message,
-      0,
-      GetCurrentDateTime(),
-      [ tag := options.tag
-      , newfullpath :=    newurlandfullpath.newfullpath
-      , newurl :=         newurlandfullpath.newurl
-      , versionnumber :=  policy->CalculateNextVersionNumber("request", (lastevent ?? [ versionnumber := ""]).versionnumber)
-      , orgparentsite :=  orgparentsite
-      , expirydate :=     options.expirydate
-      ]);
+  // Get the policy for the object - FIXME this function is now uncallable
+  THROW NEW Exception("Cannot accept create approval request outside versioned sites");
 }
 
 PUBLIC MACRO CancelApprovalRequestForDraft(OBJECT draftobject)
@@ -890,4 +852,3 @@ PUBLIC RECORD FUNCTION GetLastVersionApplyEvent(INTEGER fileid)
          AND iscurrent
          AND eventtype = VersionEventType_AcceptApply;
 }
-

@@ -29,13 +29,6 @@ PUBLIC RECORD FUNCTION GetVersioningPolicyForFiles(RECORD ARRAY files)
   RETURN [ policy := DEFAULT OBJECT ];
 }
 
-/** Returns the versioning policy for a file object
-*/
-PUBLIC OBJECT FUNCTION GetVersioningPolicyForFileObject(OBJECT whfsfile)
-{
-  RETURN DEFAULT OBJECT;
-}
-
 
 
 /** @param work
