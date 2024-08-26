@@ -18,13 +18,13 @@ PUBLIC CONSTANT RECORD oauthbaseoptions := CELL[ clientid := ""
                                                , clientsecret := ""
                                                , clientregistrykey := ""
                                                , rpclogsource := ""
+                                               , redirecturl := ""
                                                ];
 
 PUBLIC CONSTANT RECORD oauth2options := CELL[ ...oauthbaseoptions
                                             , clientcomponent := DEFAULT OBJECT
                                             , authorizeurl := ""
                                             , authtokenurl := ""
-                                            , redirecturl := ""
                                             ];
 
 // Autorization with PKCE code verifier: https://www.rfc-editor.org/rfc/rfc7636
@@ -92,6 +92,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
           this->oauthconfig.clientid := this->oauthconfig.clientcomponent->value.clientid;
         IF(this->oauthconfig.clientsecret = "")
           this->oauthconfig.clientsecret := this->oauthconfig.clientcomponent->value.clientsecret;
+        IF(this->oauthconfig.redirecturl = "")
+          this->oauthconfig.redirecturl := this->oauthconfig.clientcomponent->value.redirecturl;
       }
     }
 
@@ -105,6 +107,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
           this->oauthconfig.clientid := keyinfo.clientid;
         IF(this->oauthconfig.clientsecret = "")
           this->oauthconfig.clientsecret := keyinfo.clientsecret;
+        IF(this->oauthconfig.redirecturl = "")
+          this->oauthconfig.redirecturl := keyinfo.redirecturl;
       }
     }
 

@@ -10,6 +10,7 @@ LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webapi/geonames.whlib";
 LOADLIB "mod::system/lib/webapi/oauth2.whlib";
@@ -42,7 +43,7 @@ PUBLIC OBJECTTYPE Oauth2Client EXTEND TolliumFragmentBase
 
   MACRO SetValue(RECORD val)
   {
-    this->__value := RecordExists(val) ? EnforceStructure( [ clientid := "", clientsecret := "" ], val) : DEFAULT RECORD;
+    this->__value := RecordExists(val) ? EnforceStructure( [ clientid := "", clientsecret := "", redirecturl := "" ], val) : DEFAULT RECORD;
     ^clientid->value := RecordExists(this->__value) ? this->__value.clientid : "";
   }
   MACRO DoConfigureClient()
@@ -57,17 +58,24 @@ PUBLIC STATIC OBJECTTYPE ConfigureClient EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
+    ^callbackurl->options :=
+      [[ title := GetDefaultOauth2RedirectURL() ]
+      ,[ title := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/endpoints/oauth2.shtml") ] //5.3 URL
+      ];
+
     IF(RecordExists(data.value))
     {
       ^clientid->value := data.value.clientid;
       ^clientsecret->value := data.value.clientsecret;
+      ^callbackurl->value := data.value.redirecturl;
     }
-    ^callbackurl->value := GetDefaultOauth2RedirectURL();
+    IF(^callbackurl->value = "")
+      ^callbackurl->value := ^callbackurl->options[0].title;
   }
   RECORD FUNCTION Submit()
   {
     OBJECT work := this->BeginFeedback();
-    RETURN work->Finish() ? CELL[ clientid := ^clientid->value, clientsecret := ^clientsecret->value ] : DEFAULT RECORD;
+    RETURN work->Finish() ? CELL[ clientid := ^clientid->value, clientsecret := ^clientsecret->value, redirecturl := ^callbackurl->value ] : DEFAULT RECORD;
   }
 >;
 
