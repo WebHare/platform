@@ -250,8 +250,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       ^metapart->visible := TRUE;
     }
 
-    this->siteversioningpolicy := this->contexts->applytester->GetVersioningPolicy();
-
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
 
     FOREVERY(STRING requiredprop FROM requiredapiproperties)
@@ -527,45 +525,15 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       @return savemode
       "unversioned-published": Site is not versioned, file is now published.
       "unversioned-unpublished": Site is not versioned, file is now not published
-      "versioned-locked": Site is versioned, file has a pending request for approval and rtd data is now locked
-      "versioned-locked-editlive": Site is versioned, file has a pending request for approval, but rtd data can be edited in live object
-      "versioned-editlive": Site is versioned, rtd data is not protected (can be edited in live object)
-      "versioned-editdraft": Site is versioned, rtd data is protected, must be edited in draft
   */
   STRING FUNCTION GetSaveMode()
   {
     // See if the current draft is locked for
-    IF (NOT ObjectExists(this->siteversioningpolicy))
-    {
-      this->frame->flags.cancancelrequest := FALSE;
-      IF (SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = this->itemid)
-        RETURN "unversioned-published";
-      ELSE
-        RETURN "unversioned-unpublished";
-    }
-
-    RECORD data := SELECT id, isfolder, parent, published FROM system.fs_objects WHERE id = this->itemid;
-    data := this->siteversioningpolicy->EnrichWithObjectPolicy([ data ], [ returnpolicyafteraccept := TRUE ])[0];
-
-    RECORD fields := data.policy->GetFields();
-
-    // If the draft is locked and the rich document metadata is versioned in the current or the new policy,
-    // the document mey not be edited
-    IF (data.draftlocked)
-    {
-      this->frame->flags.cancancelrequest := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
-      RECORD fields_after_accept := data.policyafteraccept->GetFields();
-
-      IF (this->filetype IN fields.versioned_contenttypes
-          OR this->filetype IN fields_after_accept.versioned_contenttypes)
-        RETURN "versioned-locked";
-    }
-
     this->frame->flags.cancancelrequest := FALSE;
-    IF (this->filetype IN fields.versioned_contenttypes)
-      RETURN "versioned-editdraft";
-
-    RETURN data.draftlocked ? "versioned-locked-editlive" : "versioned-editlive";
+    IF (SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = this->itemid)
+      RETURN "unversioned-published";
+    ELSE
+      RETURN "unversioned-unpublished";
   }
 
   BOOLEAN FUNCTION ExecuteSave(BOOLEAN withpublish, RECORD approval_metadata)

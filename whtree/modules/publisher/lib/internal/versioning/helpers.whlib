@@ -9,11 +9,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 
-PUBLIC OBJECT FUNCTION GetVersioningPolicyForSite(INTEGER siteid)
-{
-  RETURN DEFAULT OBJECT;
-}
-
 PUBLIC RECORD FUNCTION GetVersioningPolicyForSites(INTEGER ARRAY siteids)
 {
   RETURN [ policy := DEFAULT OBJECT ];

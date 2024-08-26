@@ -87,122 +87,7 @@ RECORD ARRAY FUNCTION GetModifications(INTEGER versionevent)
       ? ConvertToWillPublish(0, FALSE, TRUE, PubPrio_DirectEdit)
       : 0;
 
-  OBJECT policy := GetVersioningPolicyForSite(sel.fs_site);
-  OBJECT filepolicy := policy->EnrichWithObjectPolicy([ [ id :=         sel.live_object
-                                                        , isfolder :=   draft_data.isfolder
-                                                        , published :=  org_published
-                                                        ]
-                                                      ])[0].policy;
-  RECORD fields := filepolicy->GetFields();
-  RECORD ARRAY mods;
-  BOOLEAN have_parent_change;
-  FOREVERY (STRING field FROM fields.versioned_fields)
-  {
-    STRING changecontent;
-    IF (field = "published")
-    {
-      BOOLEAN org_prop := (org_metadata.flags BITAND DraftFlag_Publish) != 0;
-      BOOLEAN draft_prop := (draft_metadata.flags BITAND DraftFlag_Publish) != 0;
-      IF (org_prop = draft_prop)
-        CONTINUE;
-      STRING org_str := org_prop ? GetTid("publisher:tolliumapps.versioning.prop-published-true") : GetTid("publisher:tolliumapps.versioning.prop-published-false");
-      STRING draft_str := draft_prop ? GetTid("publisher:tolliumapps.versioning.prop-published-true") : GetTid("publisher:tolliumapps.versioning.prop-published-false");
-      changecontent := org_str || " -> " || draft_str;
-    }
-    ELSE IF (field = "indexdoc")
-    {
-      BOOLEAN org_prop := (org_metadata.flags BITAND DraftFlag_WasIndex) != 0;
-      BOOLEAN draft_prop := org_prop;
-      IF ((draft_metadata.flags BITAND DraftFlag_MakeIndex) != 0)
-        draft_prop := TRUE;
-      ELSE IF ((draft_metadata.flags BITAND DraftFlag_UnmarkAsIndex) != 0)
-        draft_prop := FALSE;
-      IF (org_prop = draft_prop)
-        CONTINUE;
-      STRING org_str := org_prop ? GetTid("publisher:tolliumapps.versioning.prop-indexdoc-true") : GetTid("publisher:tolliumapps.versioning.prop-indexdoc-false");
-      STRING draft_str := draft_prop ? GetTid("publisher:tolliumapps.versioning.prop-indexdoc-true") : GetTid("publisher:tolliumapps.versioning.prop-indexdoc-false");
-      changecontent := org_str || " -> " || draft_str;
-    }
-    ELSE
-    {
-      VARIANT draft_prop := GetCell(draft_data, field);
-      VARIANT org_prop := CellExists(org_data, field) ? GetCell(org_data, field) : draft_prop;
-      IF (field = "data"
-              ? GetHashForBlob(org_prop, "SHA-1") = GetHashForBlob(draft_prop, "SHA-1")
-              : org_prop = draft_prop)
-        CONTINUE;
-      ELSE IF (field = "ispinned")
-      {
-        STRING org_str := org_prop ? GetTid("publisher:tolliumapps.versioning.prop-ispinned-true") : GetTid("publisher:tolliumapps.versioning.prop-ispinned-false");
-        STRING draft_str := draft_prop ? GetTid("publisher:tolliumapps.versioning.prop-ispinned-true") : GetTid("publisher:tolliumapps.versioning.prop-ispinned-false");
-        changecontent := org_str || " -> " || draft_str;
-      }
-      ELSE IF (field = "parent")
-      {
-        STRING oldfullpath := org_version.isdelete ? GetTid("publisher:tolliumapps.versioning.deleted") : org_version.newfullpath;
-        STRING newfullpath := draft_prop = 0 ? GetTid("publisher:tolliumapps.versioning.deleted") : sel.newfullpath;
-        changecontent := `${oldfullpath} -> ${newfullpath}`;
-      }
-      ELSE IF (TypeID(org_prop) = TypeID(STRING))
-      {
-        // Don't fill changecontent for field data (type = BLOB)
-        changecontent := EncodeValue(org_prop) || "' -> '" || EncodeValue(draft_prop) || "'";
-      }
-      // Possible fields at the moment:
-      // [ "name", "parent", "title", "description", "publish", "keywords", "ispinned", "data" ]
-    }
-    INSERT
-        [ rowkey :=         field
-        , typeicon :=       field = "parent" OR field = "name"
-                                ? draft_metadata.parent = 0
-                                      ? 3
-                                      : 2
-                                : field = "published"
-                                      ? 4
-                                      : field = "name"
-                                            ? 2
-                                            : field = "data"
-                                                ? 5
-                                                : 1
-        , changetype :=     field = "parent"
-                                ? draft_metadata.parent = 0
-                                      ? GetTid("publisher:tolliumapps.versioning.type-deletion")
-                                      : GetTid("publisher:tolliumapps.versioning.type-location")
-                                : field = "published"
-                                      ? GetTid("publisher:tolliumapps.versioning.type-publication")
-                                      : field = "name"
-                                            ? GetTid("publisher:tolliumapps.versioning.type-name")
-                                            : field = "data"
-                                                  ? GetTid("publisher:tolliumapps.versioning.type-data")
-                                                  : GetTid("publisher:tolliumapps.versioning.type-properties", field)
-        , changecontent :=  changecontent
-        ] INTO mods AT END;
-    IF (field = "parent")
-      have_parent_change := TRUE;
-  }
-  // If there is a 'parent' change, ignore the 'name' change
-  IF (have_parent_change)
-    DELETE FROM mods WHERE rowkey = "name";
-  IF (RecordExists(org_version))
-  {
-    FOREVERY (INTEGER type FROM fields.versioned_contenttypes)
-    {
-      OBJECT whfs_type := OpenWHFSTypeById(type);
-      RECORD typeorg_data := whfs_type->GetInstanceData(org_version.draft_object);
-      RECORD typedraft_data := whfs_type->GetInstanceData(sel.draft_object);
-      RECORD cmp := whfs_type->CompareInstanceDataUpdates(typeorg_data, typedraft_data);
-      IF (RecordExists(cmp)) // changes present
-      {
-        INSERT
-            [ rowkey :=         "contenttype-" || type
-            , typeicon :=       5
-            , changetype :=     GetTid("publisher:tolliumapps.versioning.type-properties")
-            , changecontent :=  ""
-            ] INTO mods AT END;
-      }
-    }
-  }
-  RETURN mods;
+  THROW NEW Exception("This function is uncallable"); //FIXME
 }
 
 
@@ -210,150 +95,7 @@ MACRO InspectPolicy(OBJECT parent, INTEGER versioningevent, INTEGER siteid)
 {
   INTEGER live_id  := SELECT AS INTEGER live_object FROM system.fs_versionevents WHERE id = versioningevent;
   INTEGER draft_id := SELECT AS INTEGER draft_object FROM system.fs_versionevents WHERE id = versioningevent;
-  OBJECT policy := GetVersioningPolicyForSite(siteid);
-
-  RECORD live_data :=
-     SELECT *
-       FROM system.fs_objects
-      WHERE id = live_id;
-
-  RECORD draft_data :=
-     SELECT *
-       FROM system.fs_objects
-      WHERE id = draft_id;
-
-  IF(NOT RecordExists(live_data) OR NOT RecordExists(draft_data))
-    THROW NEW Exception("Cannot locate FS Objects needed for comparison!");
-
-  RECORD draft_metadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(draft_id);
-  draft_data := MakeReplacedRecord(draft_data, draft_metadata);
-  IF ((draft_metadata.flags BITAND DraftFlag_Publish) = 0)
-    draft_data.published := ConvertToWontPublish(draft_data.published);
-  ELSE IF (NOT IsPublish(draft_data.published))
-    draft_data.published := ConvertToWillPublish(draft_data.published, FALSE, TRUE, PubPrio_DirectEdit);
-  draft_data.publish := IsPublish(draft_data.published);
-  /// grab the correct policy:
-  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
-        [ [ id := live_data.id
-          , isfolder := live_data.isfolder
-          , published := live_data.published
-          ]
-        ])[0].policy;
-
-  RECORD fields := filepolicy->GetFields();
-  RECORD cached := policy->cached_policy;
-  RECORD allfields;
-  FOREVERY(RECORD pol FROM UnpackRecord(cached))
-    allfields := CellInsert(allfields, pol.name, pol.value->GetFields());
-
-  RECORD ARRAY instancedatachanges;
-  RECORD ARRAY difference;
-
-  /// Now DIFF!
-  RECORD ARRAY changes;
-  RECORD ARRAY leftside := UnpackRecord(draft_data);
-  /// Only generate diff entries for fields that have actually changed, so rightside is leading
-  RECORD ARRAY rightside := UnpackRecord(live_data);
-  FOREVERY(RECORD field FROM rightside)
-  {
-    IF(ToLowerCase(field.name) NOT IN fields.versioned_fields)
-      CONTINUE;/// Skip uninteresting fields
-    VARIANT val := field.value;
-    VARIANT compare := (SELECT value FROM leftside WHERE name = field.name).value;
-    IF(EncodeHSON(compare) != EncodeHSON(val))
-      INSERT [ field := field.name, left := compare, right := val, versioned := TRUE ] INTO changes AT END;
-  }
-  IF(Length(changes) > 0)
-    INSERT [ type := -1, namespace := "Versioned base fields", diff := changes ] INTO difference AT END;
-  /// Reset the changes:
-  changes := DEFAULT RECORD ARRAY;
-
-  /// Unversioned base fields:
-  FOREVERY(RECORD field FROM rightside)
-  {
-    IF(ToLowerCase(field.name) IN fields.versioned_fields)
-      CONTINUE;/// Skip uninteresting fields
-    VARIANT val := field.value;
-    VARIANT compare := (SELECT value FROM leftside WHERE name = field.name).value;
-    IF(EncodeHSON(compare) != EncodeHSON(val))
-      INSERT [ field := field.name, left := compare, right := val, versioned := TRUE ] INTO changes AT END;
-  }
-  IF(Length(changes) > 0)
-    INSERT [ type := -2, namespace := "Unversioned base fields", diff := changes ] INTO difference AT END;
-  /// Reset the changes:
-  changes := DEFAULT RECORD ARRAY;
-
-  /// Now to generate diffs for all relevant instance data:
-  FOREVERY (INTEGER contenttype FROM fields.versioned_contenttypes)
-  {
-    OBJECT type := OpenWHFSTypeById(contenttype);
-    /// Use the normal API to get at any changed fields, avoid the snake's nest of figuring that out ourselves:
-    RECORD verifieddifference := type->CompareInstanceDataUpdates(type->GetInstanceData(live_data.id), type->GetInstanceData(draft_data.id));
-
-    RECORD ARRAY contentchanges;
-    RECORD ARRAY contentleftside := UnpackRecord(type->GetInstanceData(live_data.id));
-    /// Only generate diff entries for fields that have actually changed:
-    RECORD ARRAY contentrightside := UnpackRecord(MakeReplacedRecord(type->GetInstanceData(draft_data.id), verifieddifference));
-    FOREVERY(RECORD field FROM contentrightside)
-    {
-      VARIANT val := field.value;
-      VARIANT compare := (SELECT value FROM contentleftside WHERE name = field.name).value;
-      IF(EncodeHSON(compare) != EncodeHSON(val))
-        INSERT [ field := field.name, left := compare, right := val, versioned := field.name IN fields.versioned_fields ] INTO contentchanges AT END;
-    }
-    IF(Length(contentchanges) > 0)
-      INSERT [ type := type->id, namespace := type->namespace, diff := contentchanges ] INTO difference AT END;
-  }
-
-  /// Create a somewhat readable diff:
-  STRING instancediff;
-  FOREVERY(RECORD diff FROM difference)
-  {
-    IF(diff.type < 0)
-      CONTINUE;/// Don't include base data in the textual diff
-
-    instancediff := instancediff || Length(diff.diff) || " changes in contenttype " || diff.namespace || ":\n";
-    FOREVERY(RECORD change FROM diff.diff)
-    {
-      instancediff := instancediff || " +" || change.field || " (" || GetTypeName(TypeID(change.left)) || ", " || (change.versioned? "versioned" : "unversioned") || "):\n";
-      IF(TypeID(change.left) = TypeID(change.right) AND TypeID(change.left) = TypeID(STRING))
-      {
-        instancediff := instancediff || " - '" || change.left || "'\n";
-        instancediff := instancediff || " + '" || change.right || "'\n";
-      }
-      ELSE IF(TypeID(change.left) = TypeID(change.right))
-      {
-        instancediff := instancediff || "---\n" || Substitute(AnyToString(change.left, "tree"), "+", "  -") || "\n";
-        instancediff := instancediff || "+++\n" || Substitute(AnyToString(change.right, "tree"), "+", "  +") || "\n";
-      }
-      ELSE
-      {
-        instancediff := instancediff || "- " || Substitute(AnyToString(change.left, "tree"), "+", "  -") || "\n";
-        instancediff := instancediff || "+ " || Substitute(AnyToString(change.right, "tree"), "+", "  +") || "\n";
-      }
-    }
-  }
-
-  STRING contentdiff;
-  /// FIXME: properly find out if blobiscontent is TRUE (useless check otherwise)
-  contentdiff := SimpleTextDiff(BlobToString(live_data.data), BlobToString(draft_data.data)) ?? "No changes";
-  OBJECT screen := parent->LoadScreen(".diffview", [ diff := "Instance data:\n\n"
-                                                        || instancediff
-                                                        || "\n============================\nContent ("
-                                                        || ("DATA" IN fields.versioned_fields ? "versioned" : "unversioned")
-                                                        || "):\n\n"
-                                                        || contentdiff
-                                                 , diffarray := difference
-                                                 , policy := filepolicy
-                                                 , cachedpolicy := cached
-                                                 , policyfields := filepolicy->GetFields()
-                                                 , fsobject := live_data.id
-                                                 , fsdraft := draft_data.id
-                                                 , event := versioningevent
-                                                 , site_id := siteid
-                                                 ]);
-  screen->frame->title := "Inspect \"" || live_data.name || "\"";
-  screen->RunModal();
+  THROW NEW Exception("This function is uncallable"); //FIXME
 }
 
 PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
@@ -382,9 +124,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->site := OpenSiteByName(data.sitename);
     IF (NOT ObjectExists(this->site))
       THROW NEW Exception(`Could not open site '${data.sitename}'`);
-    this->policy := GetVersioningPolicyForSite(this->site->id);
-    IF(NOT ObjectExists(this->policy))
-      THROW NEW Exception(`No versioning policy for '${data.sitename}' - is versioning enabled ?`);
+    THROW NEW Exception(`No versioning policy for '${data.sitename}' - is versioning enabled ?`);
 
     this->configdata := this->policy->GetReviewAppConfig(
         [ controller := this->tolliumcontroller
@@ -885,17 +625,7 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
     this->siteid := SELECT AS INTEGER fs_site FROM rows WHERE fs_site != 0;
     rows := SELECT * FROM rows WHERE when >= from_date AND when < to_date;
 
-    this->policy := GetVersioningPolicyForSite(this->siteid);
-    rows := this->contexts->userapi->EnrichUsers("USER", rows, [ celltype := "authobjectid", rightouterjoin := TRUE ]);
-
-    this->listener->masks := [ "system:versionevent." || this->siteid || "." || this->liveobject->id ];
-
-    this->configdata := this->policy->GetReviewAppConfig(
-        [ controller := this->tolliumcontroller
-        , sitename :=   OpenSite(this->siteid)->name
-        ]);
-
-    this->versionevents->rows := rows;
+    THROW NEW Exception("This function is uncallable"); //FIXME
   }
 
   MACRO OnSelectRequest()

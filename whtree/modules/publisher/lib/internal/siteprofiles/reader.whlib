@@ -1732,7 +1732,7 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   PUBLIC OBJECT FUNCTION GetVersioningPolicy()
   {
-    RETURN GetVersioningPolicyForSite(RecordExists(this->objinfo.site) ? this->objinfo.site.id : 0);
+    RETURN DEFAULT OBJECT;
   }
 >;
 

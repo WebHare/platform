@@ -188,8 +188,6 @@ PUBLIC STATIC OBJECTTYPE VersioningPolicyBase
   {
     IF (NOT CellExists(this->policy_cache, name))
       THROW NEW Exception("Unknown object policy type '" || name || "'");
-    IF (NOT objectpolicy EXTENDSFROM VersioningObjectPolicyBase)
-      THROW NEW Exception("Object policy object must extend from VersioningObjectPolicyBase");
 
     this->policy_cache := CellUpdate(this->policy_cache, name, objectpolicy);
   }

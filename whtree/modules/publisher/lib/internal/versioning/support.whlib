@@ -30,7 +30,7 @@ PUBLIC MACRO EnableSiteVersionHistory(OBJECT siteobj, OBJECT user, STRING versio
 
   siteobj->UpdateSiteMetadata([ versioningpolicy := versioningpolicy ]);
 
-  OBJECT policy := GetVersioningPolicyForSite(siteobj->id);
+  OBJECT policy;
 
   // No object in the site may have a task
   INTEGER ARRAY all_objects := [ INTEGER(siteobj->id) ] CONCAT siteobj->rootobject->GetDescendantObjectIds();
@@ -40,48 +40,7 @@ PUBLIC MACRO EnableSiteVersionHistory(OBJECT siteobj, OBJECT user, STRING versio
     THROW NEW Exception("Cannot enable versioning, file '" || task.whfspath || "' still has a task");
 
   // Get the list of objects that need to be approved
-  INTEGER ARRAY to_approve := policy->GetPossibleVersionedObjects(all_objects);
-
-  // See if any of those has a public draft
-  IF(options.deletedrafts)
-  {
-    DELETE FROM system.fs_objects WHERE id IN to_approve AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
-  }
-  ELSE
-  {
-    RECORD draft :=
-        SELECT whfspath
-          FROM system.fs_objects
-         WHERE id IN to_approve AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
-
-    IF (RecordExists(draft))
-      THROW NEW Exception("Cannot enable versioning, can't approve file '" || draft.whfspath || "' because it has a public draft");
-  }
-
-  // All checks done
-
-  FOREVERY (INTEGER fileid FROM to_approve)
-  {
-    OBJECT file := OpenWHFSObject(fileid);
-    IF(NOT ObjectExists(file))
-      CONTINUE; //deleted by deletedrafts
-
-    TRY
-    {
-      OBJECT draft := CreateDraft(file, fileid, TRUE);
-
-      SubmitApprovalRequestForDraft(draft, [ userobject := user, message := "Initial import request", expirydate := options.expirydate ]);
-      AcceptApprovalRequestForDraft(draft, [ userobject := user, message := "Initial import approval" ]);
-    }
-    CATCH (OBJECT e)
-    {
-      e->what := e->what || ` (when approving file ${file->whfspath})`;
-      THROW;
-    }
-  }
-
-  // Clear all caches on commit
-  GetPrimary()->BroadcastOnCommit("system:clearcaches", DEFAULT RECORD);
+  THROW NEW Exception("This function is uncallable"); //FIXME
 }
 
 PUBLIC MACRO CreateVersioningEvent(OBJECT live_file, OBJECT draft, INTEGER type, OBJECT user, STRING comment, INTEGER requestid, DATETIME now, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -276,70 +235,7 @@ PUBLIC MACRO AcceptApprovalRequestForDraft(OBJECT draftobject, RECORD options)
 
   // Get the policy for the object BEFORE creating the accept versioning event - that one changes the policy
   OBJECT source := OpenWHFSObject(draftobject->source);
-  OBJECT policy := GetVersioningPolicyForSite(request.fs_site);
-
-  IF (NOT ObjectExists(policy))
-  {
-    DumpValue(request, "tree");
-    THROW NEW Exception("Cannot accept approval request outside versioned sites");
-  }
-
-  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
-        [ [ id := source->id
-          , isfolder := source->isfolder
-          , published := source->published
-          ]
-        ])[0].policy;
-
-  RECORD fields := filepolicy->GetFields();
-
-  // Finish any outstanding approval requests
-  UPDATE system.fs_versionevents
-     SET finished := now
-   WHERE id = request.id;
-
-  // Move the draft to the persistent storage
-  UPDATE system.fs_objects
-     SET parent := 17
-   WHERE id = draftobject->fsobject->id;
-
-  // Save original fullpath and url
-  RECORD versionevent_options :=
-      [ orgfullpath :=    source->isactive ? source->fullpath : ""
-      , orgurl :=         source->url
-      , versionnumber :=  policy->CalculateNextVersionNumber("acceptrequest", request.versionnumber)
-      , orgparentsite :=  request.fs_site
-      , expirydate :=     request.expirydate
-      ];
-
-  // Apply the draft fields, indicated by the policy. Refresh the source whfsobject, its data has changed
-  ApplyDraftByVersionedFields(draftobject, fields);
-  source->Refresh();
-
-  // Create a draft with the contents after apply
-  OBJECT applied_draft := CreateDraft(source, source->id, TRUE);
-
-  // Copy the flags from the old draft (except wasindex, need that from the new draft)
-  RECORD metadata := whfs_draftmetadata->GetInstanceData(draftobject->id);
-  RECORD newmetadata := whfs_draftmetadata->GetInstanceData(applied_draft->id);
-  newmetadata.flags :=
-      (metadata.flags BITAND BITNEG DraftFlag_WasIndex) +
-      (newmetadata.flags BITAND DraftFlag_WasIndex);
-  whfs_draftmetadata->SetInstanceData(applied_draft->id, newmetadata, [ ifreadonly := "update" ]);
-
-  // Move that draft to the persistent storage too
-  UPDATE system.fs_objects
-     SET parent := 17
-   WHERE id = applied_draft->fsobject->id;
-
-  CreateVersioningEvent(source, applied_draft, VersionEventType_AcceptApply, options.userobject, options.message, request.id, now, versionevent_options);
-
-  // The file does not have a public draft anymore, and isn't submitted for approval anymore.
-  source->Refresh();
-  INTEGER newpublished := SetFlagsInPublished(
-                              SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, FALSE),
-                              PublishedFlag_HasPublicDraft, FALSE);
-  source->UpdateMetadata([ published := newpublished ], [ ifreadonly := "update" ]);
+  THROW NEW Exception("Cannot accept approval request outside versioned sites");
 }
 
 /** Denies a request for approval
@@ -367,52 +263,7 @@ PUBLIC MACRO DenyApprovalRequestForDraft(OBJECT draftobject, RECORD options)
 
   // Get the policy for the object
   OBJECT source := OpenWHFSObject(draftobject->source);
-  OBJECT policy := GetVersioningPolicyForSite(request.fs_site);
-
-  IF (NOT ObjectExists(policy))
-    THROW NEW Exception("Cannot accept create approval request outside versioned sites");
-
-  OBJECT filepolicy := policy->EnrichWithObjectPolicy(
-        [ [ id := source->id
-          , isfolder := source->isfolder
-          , published := source->published
-          ]
-        ])[0].policy;
-
-  RECORD newurlandfullpath := GetNewURLAndFullPath(filepolicy, draftobject);
-
-  // Finish any outstanding approval requests
-  UPDATE system.fs_versionevents
-     SET finished := GetCurrentDateTime()
-   WHERE id = request.id;
-
-  // Move the submitted version into the version history
-  UPDATE system.fs_objects
-     SET parent := whconstant_whfsid_versionhistory
-   WHERE id = draftobject->id;
-
-  UPDATE system.fs_objects
-     SET published := SetFlagsInPublished(published, PublishedFlag_SubmittedForApproval, FALSE)
-   WHERE id = draftobject->source;
-
-  CreateVersioningEvent(
-      OpenWHFSObject(draftobject->source),
-      draftobject,
-      VersionEventType_FinalDenial,
-      options.userobject,
-      options.message,
-      request.id,
-      now,
-      [ newfullpath :=    newurlandfullpath.newfullpath
-      , newurl :=         newurlandfullpath.newurl
-      , versionnumber :=  policy->CalculateNextVersionNumber("denyrequest", request.versionnumber)
-      , orgparentsite :=  request.fs_site
-      , expirydate :=     request.expirydate
-      ]);
-
-  // Clone the old draft as new public draft if we were updateing a published version
-  IF(source->publish)
-    __CloneDraftAsPublicDraft(draftobject->id);
+  THROW NEW Exception("Cannot accept create approval request outside versioned sites");
 }
 
 /** Updates a sumbitted draft so its non-versioned fields reflect the current live object

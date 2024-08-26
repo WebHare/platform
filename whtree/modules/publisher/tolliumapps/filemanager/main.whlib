@@ -844,7 +844,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
     STRING policyid := ToString(item.parentsite);
     IF (NOT CellExists(this->sitepolicies, policyid))
-      this->sitepolicies := CellInsert(this->sitepolicies, policyid, GetVersioningPolicyForSite(item.parentsite));
+      this->sitepolicies := CellInsert(this->sitepolicies, policyid, DEFAULT OBJECT);
     OBJECT policy := GetCell(this->sitepolicies, policyid);
     IF (NOT ObjectExists(policy))
       RETURN FALSE;

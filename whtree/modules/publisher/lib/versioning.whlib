@@ -21,22 +21,6 @@ PUBLIC MACRO RunVersionedFileRestore(OBJECT controller, INTEGER deletedfileid)
   IF (NOT RecordExists(versionevent))
     THROW NEW Exception(`No such deleted file #${deletedfileid}`);
 
-  OBJECT policy := GetVersioningPolicyForSite(versionevent.fs_site);
-  OBJECT siteobj := OpenSite(versionevent.fs_site);
-
-  RECORD configdata := policy->GetReviewAppConfig(
-      [ controller := controller
-      , sitename :=   siteobj->name
-      ]);
-
-  OBJECT live_object := OpenWHFSObject(deletedfileid);
-  IF (live_object->parent != 18)
-    THROW NEW Exception(`Cannot restore file #${deletedfileid}, it is not in deleted items store`);
-
-
-  RECORD vdata := policy->EnrichWithVersionData([ [ id := deletedfileid ] ]);
-  IF (vdata.has_openrequest)
-    THROW NEW Exception(`Cannot restore this file #${deletedfileid}, it already has an open request`);
-
-  DoVersionedRestoreInternal(controller, siteobj->id, policy, configdata, live_object);
+  OBJECT policy;
+  THROW NEW Exception("This function is uncallable"); //FIXME
 }

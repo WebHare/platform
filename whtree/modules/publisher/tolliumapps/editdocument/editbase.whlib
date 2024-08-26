@@ -80,9 +80,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   /// Parent folder of the new/edited object
   OBJECT parentfolder;
 
-  // Versioning policy for the current site
-  OBJECT siteversioningpolicy;
-
   RECORD basesettings;
 
   BOOLEAN FUNCTION IsReadOnly(OBJECT fsobj)
@@ -222,7 +219,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     IF(^description->enabled AND ^description->visible)
       updates := CELL[...updates, description := ^description->value ];
 
-    IF(RecordExists(updates) AND NOT ObjectExists(this->siteversioningpolicy))
+    IF(RecordExists(updates))
       OpenWHFSObject(targetobject)->UpdateMetadata(updates);
   }
 
