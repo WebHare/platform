@@ -88,7 +88,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   testfile := OpenWHFSObject(testfile->id);
   TestEq(DEFAULT DATETIME, testfile->firstpublishdate);
-  TestAssert(testfile->lastcontentupdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update lastContentUpdate");
+  TestAssert(testfile->contentmodificationdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update contentModificationDate");
 
   //////////////////////////////////////////////////////////////////////////////
   /// reader
@@ -123,7 +123,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   testfile := OpenWHFSObject(testfile->id);
   TestAssert(DEFAULT DATETIME != testfile->firstpublishdate);
-  TestEq(testfile->firstpublishdate, testfile->lastcontentupdate);
+  TestEq(testfile->firstpublishdate, testfile->contentmodificationdate);
 
   // Test custom preview handler
   topscreen->contexts->editdocumentapi->onpreview := PTR OnView;
@@ -169,7 +169,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   OBJECT testfile_state2 := OpenWHFSObject(testfile->id);
   //verify no change yet
   TestEq(testfile->firstpublishdate, testfile_state2->firstpublishdate);
-  TestEq(testfile->lastcontentupdate, testfile_state2->lastcontentupdate);
+  TestEq(testfile->contentmodificationdate, testfile_state2->contentmodificationdate);
 
   //////////////////////////////////////////////////////////////////////////////
   /// reader
@@ -200,7 +200,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   testfile_state2 := OpenWHFSObject(testfile->id);
   TestEq(testfile->firstpublishdate, testfile_state2->firstpublishdate);
-  TestAssert(testfile_state2->lastcontentupdate > testfile_state2->firstpublishdate);
+  TestAssert(testfile_state2->contentmodificationdate > testfile_state2->firstpublishdate);
 
   RETURN DEFAULT RECORD;
 }

@@ -152,7 +152,7 @@ PUBLIC STATIC OBJECTTYPE Reader
 
     RECORD filescan := SELECT published
                             , COLUMN errordata
-                            , lastcontentupdate
+                            , contentmodificationdate
                             , lastpublishtime
                             , firstpublishdate
                             , lastpublishdate
@@ -224,8 +224,8 @@ PUBLIC STATIC OBJECTTYPE Reader
 
       IF(filescan.firstpublishdate = DEFAULT DATETIME)
         INSERT CELL firstpublishdate := now INTO fileupdate;
-      IF(filescan.lastcontentupdate = DEFAULT DATETIME)
-        INSERT CELL lastcontentupdate := filescan.firstpublishdate ?? now INTO fileupdate;
+      IF(filescan.contentmodificationdate = DEFAULT DATETIME)
+        INSERT CELL contentmodificationdate := filescan.firstpublishdate ?? now INTO fileupdate;
 
       fileupdate := CELL[ ...fileupdate
                         , lastpublishtime := totaltime

@@ -256,7 +256,7 @@ STRING ARRAY FUNCTION GetUpdatableMetadataFields(BOOLEAN folder)
   IF(folder)
     base := base CONCAT [ "INDEXDOC" ];
   ELSE
-    base := base CONCAT [ "DATA", "EXTERNALLINK", "PUBLISH", "PUBLISHED", "WRAPPED", "SCANDATA", "FIRSTPUBLISHDATE", "LASTCONTENTUPDATE" ];
+    base := base CONCAT [ "DATA", "EXTERNALLINK", "PUBLISH", "PUBLISHED", "WRAPPED", "SCANDATA", "FIRSTPUBLISHDATE", "CONTENTMODIFICATIONDATE" ];
   RETURN base;
 }
 
@@ -816,7 +816,7 @@ OBJECTTYPE WHFSObject
 
       //Re-enabling something that was offline (esp for a while) should show as an 'update'. so we'll always update last_publish when going_to_published
       IF(going_to_published OR data_update)
-        INSERT CELL lastcontentupdate := now INTO newmetadata;
+        INSERT CELL contentmodificationdate := now INTO newmetadata;
     }
 
     IF (isrename)
@@ -1335,8 +1335,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     IF (initialpublish AND (NOT CellExists(metadata, "FIRSTPUBLISHDATE") OR metadata.firstpublishdate = DEFAULT DATETIME))
       metadata := CELL[ ...metadata, firstpublishdate := metadata.creationdate ];
 
-    IF ((initialpublish OR initialdata) AND (NOT CellExists(metadata, "LASTCONTENTUPDATE") OR metadata.lastcontentupdate = DEFAULT DATETIME))
-      metadata := CELL[ ...metadata, lastcontentupdate := metadata.creationdate ];
+    IF ((initialpublish OR initialdata) AND (NOT CellExists(metadata, "CONTENTMODIFICATIONDATE") OR metadata.contentmodificationdate = DEFAULT DATETIME))
+      metadata := CELL[ ...metadata, contentmodificationdate := metadata.creationdate ];
 
     INSERT metadata INTO system.fs_objects;
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
@@ -1715,7 +1715,7 @@ OBJECTTYPE WHFSFile EXTEND WHFSObject
   /// First publication date. Please note that WebHare versions before 3.13 never recorded this, and have usually set it to the creationdate of the file
   PUBLIC PROPERTY firstpublishdate(this->pvt_fsobjectdata.firstpublishdate,-);
   /// Last content update date. Please note that WebHare versions before 5.6 never recorded this, and have usually set it to the firstpublishdate of the file
-  PUBLIC PROPERTY lastcontentupdate(this->pvt_fsobjectdata.lastcontentupdate,-);
+  PUBLIC PROPERTY contentmodificationdate(this->pvt_fsobjectdata.contentmodificationdate,-);
   /// Last publication date.
   PUBLIC PROPERTY lastpublishdate(this->pvt_fsobjectdata.lastpublishdate,-);
 
@@ -1828,7 +1828,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid, RECORD options DEFAULTSTO 
                          , name, title, description, keywords, scandata
                          , creationdate, modificationdate, modifiedby
                          , type, indexdoc, filelink, externallink, isactive, ispinned, ordering
-                         , publish, published, firstpublishdate, lastpublishdate, lastcontentupdate
+                         , publish, published, firstpublishdate, lastpublishdate, contentmodificationdate
                       FROM system.fs_objects
                      WHERE fs_objects.id = VAR findid;
 

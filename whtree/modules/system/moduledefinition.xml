@@ -936,7 +936,7 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:datetime name="firstpublishdate">
         <d:documentation>The date and time in UTC when this file was first published</d:documentation>
       </d:datetime>
-      <d:datetime name="lastcontentupdate">
+      <d:datetime name="contentmodificationdate">
         <d:documentation>The date and time in UTC when this file last had its content updated</d:documentation>
       </d:datetime>
       <d:datetime name="lastpublishdate">

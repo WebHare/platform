@@ -264,7 +264,7 @@ ASYNC MACRO TestSaveToUnpublishedSite()
 
   testfile := OpenWHFSObject(testfile->id);
   TestAssert(testfile->firstpublishdate > publishedafter);
-  TestEq(testfile->firstpublishdate, testfile->lastcontentupdate);
+  TestEq(testfile->firstpublishdate, testfile->contentmodificationdate);
 
 }
 
