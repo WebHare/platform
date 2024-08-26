@@ -21,9 +21,6 @@
         <enableon source="tasks" min="1" max="1" />
       </action>
       <action name="gotopublishedurl" onexecute="dogotopublishedurl" title="" />
-      <action name="requestapproval" onexecute="dorequestapproval" />
-      <action name="canceldraft" onexecute="docanceldraft" title="" />
-      <action name="cancelrequest" onexecute="docancelrequest" title="" />
       <action name="restore" onexecute="dorestore" title="" />
     </actions>
 
@@ -33,21 +30,6 @@
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">
-      <panel name="versioningmessagesbox" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right" visible="false">
-        <panel name="versioningmessagepanel" width="1pr" height="1pr" layout="left">
-          <line>
-            <text name="versioningmessage" width="1pr" title="" value="" wordwrap="true" />
-            <text name="revertdraft" action="canceldraft" title="" valuetid="versioning.revertdraft" visible="false" />
-            <text name="withdrawrequest"
-                  action="cancelrequest"
-                  title=""
-                  valuetid="versioning.withdrawrequest"
-                  visible="false" />
-            <text name="restoreitem" action="restore" title="" valuetid="versioning.restore" visible="false" />
-          </line>
-        </panel>
-        <text name="versioningmovemessage" title="" value="" />
-      </panel>
       <grid name="tablistgrid" height="1pr">
         <cell name="tablistcell" width="25x">
           <list name="tablist"
@@ -199,7 +181,6 @@
 
     <footer layout="right">
       <line>
-        <button name="requestapproval_button" action="requestapproval" tid=".requestapproval" visible="false" />
         <button name="ok_button" tid="~ok" tolliumresult="ok" />
         <button name="cancel_button" tid="~cancel" tolliumresult="cancel" />
       </line>
