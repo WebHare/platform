@@ -15,31 +15,31 @@ test.run([
     let baseurl = "https://example.org", url, vars;
 
     // Test valid event names, parameters not specified should not appear on the url
-    url = pxl.makePxlURL(baseurl, "test")!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test")!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pe"));
-    test.eq("test", vars.get("pe"));
+    test.eq("webhare_testsuite:test", vars.get("pe"));
 
-    url = pxl.makePxlURL(baseurl, "test_event")!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test_event")!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pe"));
-    test.eq("test_event", vars.get("pe"));
+    test.eq("webhare_testsuite:test_event", vars.get("pe"));
 
     url = pxl.makePxlURL(baseurl, "test:event")!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pe"));
     test.eq("test:event", vars.get("pe"));
 
-    url = pxl.makePxlURL(baseurl, "1")!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:e1")!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pe"));
-    test.eq("1", vars.get("pe"));
+    test.eq("webhare_testsuite:e1", vars.get("pe"));
 
     // Test different data types
-    url = pxl.makePxlURL(baseurl, "test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true })!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pe"));
-    test.eq("test", vars.get("pe"));
+    test.eq("webhare_testsuite:test", vars.get("pe"));
     test.assert(vars.has("ds_1"));
     test.eq("test", vars.get("ds_1"));
     test.assert(vars.has("dn_fun"));
@@ -50,10 +50,10 @@ test.run([
     test.eq("true", vars.get("db_boel"));
 
     // Test different data type default values
-    url = pxl.makePxlURL(baseurl, "test", { ds_1: "", dn_fun: 0, db_boel: false })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", { ds_1: "", dn_fun: 0, db_boel: false })!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pe"));
-    test.eq("test", vars.get("pe"));
+    test.eq("webhare_testsuite:test", vars.get("pe"));
     test.assert(vars.has("ds_1"));
     test.eq("", vars.get("ds_1"));
     test.assert(vars.has("dn_fun"));
@@ -62,38 +62,38 @@ test.run([
     test.eq("false", vars.get("db_boel"));
 
     // Test identifier
-    url = pxl.makePxlURL(baseurl, "test", null, { donottrack: "1" })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { donottrack: "1" })!;
     vars = new URL(url).searchParams;
     test.assert(!vars.has("pi"));
-    url = pxl.makePxlURL(baseurl, "test", null, { donottrack: "0" })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { donottrack: "0" })!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pi"));
     const id = vars.get("pi");
 
     pxl.setPxlOptions({ donottrack: "1" });
-    url = pxl.makePxlURL(baseurl, "test")!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test")!;
     vars = new URL(url).searchParams;
     test.assert(!vars.has("pi"));
 
     pxl.setPxlOptions({ donottrack: "0" });
-    url = pxl.makePxlURL(baseurl, "test", null, { donottrack: "1" })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { donottrack: "1" })!;
     vars = new URL(url).searchParams;
     test.assert(!vars.has("pi"));
-    url = pxl.makePxlURL(baseurl, "test")!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test")!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("pi"));
     test.eq(id, vars.get("pi"));
 
     // Test not overwriting existing url variables
     baseurl = "https://example.org/?test=1&other=some%26thing";
-    url = pxl.makePxlURL(baseurl, "test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true })!;
     vars = new URL(url).searchParams;
     test.assert(vars.has("test"));
     test.eq("1", vars.get("test"));
     test.assert(vars.has("other"));
     test.eq("some&thing", vars.get("other"));
     test.assert(vars.has("pe"));
-    test.eq("test", vars.get("pe"));
+    test.eq("webhare_testsuite:test", vars.get("pe"));
     test.assert(vars.has("ds_1"));
     test.eq("test", vars.get("ds_1"));
     test.assert(vars.has("dn_fun"));
@@ -113,21 +113,21 @@ test.run([
 
     // Test invalid data field names
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "event", { ds: "test" }));
+    test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { ds: "test" }));
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "event", { "1": "test" }));
+    test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { "1": "test" }));
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "event", { "a:b": "test" }));
+    test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { "a:b": "test" }));
 
     // Test invalid data field values
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: 42 }));
+    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { ds_1: 42 }));
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: true }));
+    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { ds_1: true }));
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: { b: "test" } }));
+    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { ds_1: { b: "test" } }));
     //@ts-expect-error -- plus runtime should catch it
-    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: new Date() }));
+    test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "webhare_testsuite:event", { ds_1: new Date() }));
 
     // Test max url length (access log stores 600 bytes of request url)
     /*TODO: Not sure yet what the new maximum URL length will be
@@ -146,7 +146,7 @@ test.run([
   async function () {
     pxlId = pxl.getPxlId();
     const eventId = Math.floor(Math.random() * 65536);
-    pxlEvent = `testevent:${eventId}`;
+    pxlEvent = `webhare_testsuite:testevent_${eventId}`;
 
     // Send an event with explicit id
     startTime = new Date();
