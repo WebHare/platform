@@ -24,6 +24,7 @@ PUBLIC RECORD ARRAY FUNCTION ParseFormHandlers(OBJECT root, STRING resourcename,
     RECORD match := GetFormHandlerDef(handlernode->namespaceuri, handlernode->localname, [ nofail := TRUE ]);
 
     RECORD handler := CELL[ handlertype := `${match.namespace}#${match.name}`
+                          , handlertypename := match.title
                           //ADDME introduce 'name' for handlers, but to find references to the old "name" we're not adding it yet
                           , guid := handlernode->GetAttribute("guid")
                           , condition := ObjectExists(formdefinitions) ? formdefinitions->GetConditionAttribute(handlernode, "conditionid") : DEFAULT RECORD

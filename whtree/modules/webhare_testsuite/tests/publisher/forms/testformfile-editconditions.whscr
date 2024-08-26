@@ -198,6 +198,36 @@ ASYNC MACRO TestEditConditions()
   // Save and publish
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
+  // Select and delete the 'radiobuttons' question
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[2];
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("{item}:Delete"));
+
+  // Try to save and publish
+  AWAIT ExpectScreenChange(+1, PTR TTClick("Publish"));
+  STRING message := MemberExists(topscreen,'message') ? topscreen->message : topscreen->^message->value;
+  TestEQLike("*sure*save*publish?", message, "The message in the messagebox does not match");
+  AWAIT ExpectScreenChange(0, PTR GetCell(topscreen->buttonmap,"YES")->TolliumClick(), [ allowscreenchangeafter := TRUE ]);
+  // Expect a 'condition source deleted' message
+  message := MemberExists(topscreen,'message') ? topscreen->message : topscreen->^message->value;
+  TestEQLike("*required*dependency*Page 1*First name*refers to a deleted field", message, "The message in the messagebox does not match");
+  AWAIT ExpectScreenChange(-1, PTR GetCell(topscreen->buttonmap,"OK")->TolliumClick(), [ allowscreenchangeafter := TRUE ]);
+
+  // Edit the textedit question
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[3];
+  TestEq("First name", TT("doceditor->questions")->selection.title);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  // The required condition field should show a 'condition source deleted' message
+  TestEqLike("*dependency refers*deleted field", TT("requiredcondition!condition")->value);
+  TestEq(DEFAULT RECORD, TT("requiredcondition")->value); // value is cleared when condition is invalid
+  // Clear the required condition
+  TTClick("requiredcondition!clear");
+  TestEq("", TT("requiredcondition!condition")->value);
+  TestEq(DEFAULT RECORD, TT("requiredcondition")->value);
+  // Save the question
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  // Save and publish
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
   // Close the editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 }

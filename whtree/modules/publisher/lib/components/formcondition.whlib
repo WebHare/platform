@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "mod::publisher/lib/forms/conditions.whlib";
+
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -93,9 +95,17 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
 
   MACRO SetValue(RECORD value)
   {
-    this->condition->value := this->contexts->formcomponentapi->FormatFormCondition(value);
-    IF(this->condition->value = "")
-      value := DEFAULT RECORD;  //If FormatFormCondition returns an empty string, it was an empty or incompatible value
+    TRY
+    {
+      this->condition->value := this->contexts->formcomponentapi->FormatFormCondition(value);
+    }
+    CATCH (OBJECT<ConditionValidationException> e)
+    {
+      // If a ConditionValidationException is thrown, there was an error in the condition (probably a deleted condition
+      // source field), show the error and clear the value
+      this->condition->value := GetTid(e->errortid);
+      value := DEFAULT RECORD;
+    }
 
     IF(EncodeHSON(value) = EncodeHSON(this->pvt_value)) //no change
       RETURN;
@@ -605,7 +615,10 @@ PUBLIC STATIC OBJECTTYPE FormConditionColumn EXTEND TolliumListColumnBase
 
   UPDATE PUBLIC VARIANT FUNCTION TranslateValue(VARIANT condition)
   {
-    RETURN this->list->contexts->formcomponentapi->FormatFormCondition(condition);
+    TRY
+      RETURN this->list->contexts->formcomponentapi->FormatFormCondition(condition);
+    CATCH (OBJECT<ConditionValidationException> e)
+      RETURN GetTid(e->errortid);
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetExpectedInputType()
