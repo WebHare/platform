@@ -1487,6 +1487,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         CASE "formcomponents"
         {
           STRING xsd := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("xmlschema"));
+          IF(xsd != "" AND NOT RecordExists(RetrieveWebHareResource(xsd, [ allowmissing := TRUE ])))
+            this->AddError(subchild, `Cannot find form definition file '${xsd}'`);
 
           RECORD rec :=
               [ uri :=              subchild->GetAttribute("namespace")

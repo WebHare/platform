@@ -198,7 +198,14 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
     CATCH (OBJECT e)
     {
       IF (e NOT EXTENDSFROM RPCInvalidArgsException)
+      {
         LogHarescriptException(e);
+        IF(NOT IsDebugTagEnabled("etr"))
+        {
+          e := NEW Exception("Error ID: " || GetCurrentGroupId());
+          e->trace := RECORD[];
+        }
+      }
 
       encoded_result := transport->EncodeException(e, reqdata.requesttoken);
     }
@@ -237,4 +244,3 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
     RETURN DEFAULT OBJECT;
   }
 }
-
