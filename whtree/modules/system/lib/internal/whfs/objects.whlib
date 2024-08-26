@@ -256,7 +256,7 @@ STRING ARRAY FUNCTION GetUpdatableMetadataFields(BOOLEAN folder)
   IF(folder)
     base := base CONCAT [ "INDEXDOC" ];
   ELSE
-    base := base CONCAT [ "DATA", "EXTERNALLINK", "PUBLISH", "PUBLISHED", "WRAPPED", "SCANDATA" ];
+    base := base CONCAT [ "DATA", "EXTERNALLINK", "PUBLISH", "PUBLISHED", "WRAPPED", "SCANDATA", "FIRSTPUBLISHDATE", "LASTCONTENTUPDATE" ];
   RETURN base;
 }
 
@@ -1330,18 +1330,13 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     BOOLEAN initialpublish := CellExists(metadata, "PUBLISHED") AND IsPublish(metadata.published);
     BOOLEAN initialdata := CellExists(metadata, "DATA") AND Length(metadata.data) > 0;
     IF (initialpublish)
-    {
       commithandler->FileRepublish(this->parentsite, metadata.parent, metadata.id);
-      metadata := CELL[ ...metadata
-                      , firstpublishdate := metadata.creationdate
-                      ];
-    }
-    IF (initialpublish OR initialdata)
-    {
-      metadata := CELL[ ...metadata
-                      , lastcontentupdate := metadata.creationdate
-                      ];
-    }
+
+    IF (initialpublish AND (NOT CellExists(metadata, "FIRSTPUBLISHDATE") OR metadata.firstpublishdate = DEFAULT DATETIME))
+      metadata := CELL[ ...metadata, firstpublishdate := metadata.creationdate ];
+
+    IF ((initialpublish OR initialdata) AND (NOT CellExists(metadata, "LASTCONTENTUPDATE") OR metadata.lastcontentupdate = DEFAULT DATETIME))
+      metadata := CELL[ ...metadata, lastcontentupdate := metadata.creationdate ];
 
     INSERT metadata INTO system.fs_objects;
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);

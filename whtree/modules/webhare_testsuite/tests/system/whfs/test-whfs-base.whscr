@@ -285,6 +285,22 @@ MACRO PublishOnOffTest()
   TestEq(imgfile3->creationdate, imgfile3->firstpublishdate);
   TestEq(imgfile3->creationdate, imgfile3->lastcontentupdate);
 
+  //The API allows to update firstpublishdate and lastcontentupdate
+  DATETIME startupdates := GetCurrentDatetime();
+  Sleep(1);
+  imgfile3->UpdateMetaData(CELL[ firstpublishdate := MakeDate(2017,1,1) ]);
+  imgfile3->UpdateMetaData(CELL[ lastcontentupdate := MakeDate(2018,1,1) ]);
+  TestEq(MakeDate(2017,1,1), imgfile3->firstpublishdate);
+  TestEq(MakeDate(2018,1,1), imgfile3->lastcontentupdate);
+  TestAssert(imgfile3->modificationdate > startupdates);
+  imgfile3 := OpenWHFSObject(imgfile3->id);
+  TestEq(MakeDate(2017,1,1), imgfile3->firstpublishdate);
+  TestEq(MakeDate(2018,1,1), imgfile3->lastcontentupdate);
+
+  OBJECT imgfile4 := firstfolder->CreateFile( [ name := "cmyk_kikkertje4", data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg"), publish := TRUE, firstpublishdate := MakeDate(2015,1,1), lastcontentupdate := MakeDate(2016,1,1) ]);
+  TestEq(MakeDate(2015,1,1), imgfile4->firstpublishdate);
+  TestEq(MakeDate(2016,1,1), imgfile4->lastcontentupdate);
+
   OBJECT templatefile := firstfolder->CreateFile( [ name := "blabla.tpl", data := StringToBlob("<?wh LOADLIB 'mod::publisher/lib/template-v2.whlib';")]);
   TestEq(28,templatefile->type);
   TestEq(FALSE, templatefile->publish);
