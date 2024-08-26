@@ -1714,7 +1714,7 @@ OBJECTTYPE WHFSFile EXTEND WHFSObject
 
   /// First publication date. Please note that WebHare versions before 3.13 never recorded this, and have usually set it to the creationdate of the file
   PUBLIC PROPERTY firstpublishdate(this->pvt_fsobjectdata.firstpublishdate,-);
-  /// Last content udpate date. Please note that WebHare versions before 5.6 never recorded this, and have usually set it to the firstpublishdate of the file
+  /// Last content update date. Please note that WebHare versions before 5.6 never recorded this, and have usually set it to the firstpublishdate of the file
   PUBLIC PROPERTY lastcontentupdate(this->pvt_fsobjectdata.lastcontentupdate,-);
   /// Last publication date.
   PUBLIC PROPERTY lastpublishdate(this->pvt_fsobjectdata.lastpublishdate,-);
