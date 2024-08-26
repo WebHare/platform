@@ -56,19 +56,12 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   BOOLEAN refresh_unpublished;
   RECORD ARRAY previewmessages;
 
-  BOOLEAN pvt_showversionactions;
-
   // ---------------------------------------------------------------------------
   //
   // Public variables and properties
   //
 
   PUBLIC MACRO PTR onpreviewedobjectchange;
-
-  /** Whether to show versioning status and actions
-  */
-  PUBLIC PROPERTY showversionactions(pvt_showversionactions, SetShowVersionActions);
-
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -78,7 +71,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(data);
     this->onpreviewedobjectchange := data.onpreviewedobjectchange;
-    this->pvt_showversionactions := data.showversionactions;
   }
 
   UPDATE MACRO PostInitComponent()
@@ -144,17 +136,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           ]
         ];
 
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Helper functions
-  //
-
-  MACRO SetShowVersionActions(BOOLEAN newvalue)
-  {
-    this->pvt_showversionactions := newvalue;
-    this->FillVersioningMessages();
   }
 
   // ---------------------------------------------------------------------------
@@ -441,21 +422,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
   }
 
-  MACRO FillVersioningMessages()
-  {
-    BOOLEAN have_messages;
-    IF (this->previewfileid != 0 AND this->pvt_showversionactions)
-    {
-      // Need at least a parent site and a public draft
-      OBJECT sourceitem := OpenWHFSObject(this->previewfileid);
-      IF (sourceitem->parentsite != 0 AND TestFlagFromPublished(sourceitem->published, PublishedFlag_HasPublicDraft))
-      {
-      }
-    }
-    ^versioninginfo->visible := have_messages;
-    IF (NOT have_messages)
-      ^versioneventslistener->masks := DEFAULT STRING ARRAY;
-  }
 
   // Load browser frame if needed
   MACRO LoadBrowserFrame()
@@ -508,11 +474,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   {
     BOOLEAN was_iframe_interaction;
     IF (fileid = this->previewfileid AND contentfile = this->contentfileid AND NOT reloadmessages AND NOT reloadsource)
-    {
-      // Always update the versioning messages, a save of a denied draft changes its message
-      this->FillVersioningMessages();
       RETURN;
-    }
 
     this->currenturl := ""; //reset for building new url
     this->suppressrendering := FALSE;
@@ -570,7 +532,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       this->suppressrendering := TRUE;
     }
 
-    this->FillVersioningMessages();
     this->RefreshBrowserFrame();
   }
 
@@ -730,15 +691,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           }
         }
       }
-
-    // ReloadCurrent will also call FillVersioningMessages
-    IF (file_updated)
-      this->FillVersioningMessages();
-  }
-
-  MACRO OnPreviewVersionEvents(RECORD ARRAY events)
-  {
-    this->FillVersioningMessages();
   }
 
   // ---------------------------------------------------------------------------
@@ -772,42 +724,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     this->suppressrendering := url = "";
   }
 
-  MACRO DoSubmitForApproval()
-  {
-    OBJECT source := OpenWHFSObject(this->previewfileid);
-    RECORD approval := GetSubmitRequestApprovalMetadata(this->owner, source);
-    IF (RecordExists(approval))
-    {
-      OBJECT work := this->owner->BeginUnvalidatedWork();
-      SubmitApprovalRequestFromMetadata(work, source, approval);
-      work->Finish();
-    }
-  }
-
-  MACRO DoCancelDraft()
-  {
-    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcanceldraft")) = "yes")
-    {
-      OBJECT work := this->owner->BeginUnvalidatedWork();
-
-      OBJECT source := OpenWHFSObject(this->previewfileid);
-      OBJECT draft := GetPublicDraft(source->id);
-      draft->DeleteSelf();
-      work->Finish();
-    }
-  }
-
-  MACRO DoCancelRequest()
-  {
-    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
-    {
-      OBJECT work := this->owner->BeginUnvalidatedWork();
-      OBJECT source := OpenWHFSObject(this->previewfileid);
-      OBJECT draft := GetPublicDraft(source->id);
-      CancelApprovalRequestForDraft(draft);
-      work->Finish();
-    }
-  }
 
   // ---------------------------------------------------------------------------
   //

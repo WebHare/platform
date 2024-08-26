@@ -653,7 +653,7 @@
           </split>
         </part>
         <part width="1pr" spacers="none" name="previewbrowserpart">
-          <publisher:previewbrowser name="previewbrowser" onpreviewedobjectchange="onpreviewedobjectchange" showversionactions="true" />
+          <publisher:previewbrowser name="previewbrowser" onpreviewedobjectchange="onpreviewedobjectchange" />
         </part>
       </split>
     </body>
