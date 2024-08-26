@@ -807,7 +807,7 @@ OBJECTTYPE WHFSObject
 
     IF(NOT this->isfolder)
     {
-      BOOLEAN going_to_published := (NOT this->isfolder) AND (NOT IsPublish(oldversion.published)) AND IsPublish(newpublished); //going from non-publish to published
+      BOOLEAN going_to_published := NOT IsPublish(oldversion.published) AND IsPublish(newpublished); //going from non-publish to published
       BOOLEAN data_update := CellExists(newmetadata,'data'); //content replacement
 
       //If we're going to publish but firstpublishdate was never set, set it to now (as close to the intended first publish as possible)

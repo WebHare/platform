@@ -15,7 +15,7 @@ async function fixLastUpdate() {
   const sortfiles = fixfiles.sort((a, b) => ((a.parent || 0) - (b.parent || 0)) || (a.id - b.id));
 
   //group so we can split them over transactions
-  for (const group of Map.groupBy(sortfiles, (item, idx) => Math.floor(idx / 1000)).values()) {
+  for (const group of Map.groupBy(sortfiles, (_, idx) => Math.floor(idx / 1000)).values()) {
     await beginWork();
     const groupfiles = await db<PlatformDB>().
       selectFrom("system.fs_objects").
