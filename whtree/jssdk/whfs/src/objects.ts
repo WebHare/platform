@@ -49,10 +49,8 @@ interface ListableFsObjectRow {
   isFolder: boolean;
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
   keywords: string;
-  // / The date and time in UTC when this file was first published
+  /// The date and time in UTC when this file was first published
   firstPublishDate: Date;
-  // / The date and time in UTC when this file last had its content updated
-  lastContentUpdate: Date;
   /// The date and time in UTC when this file was last published
   // lastPublishDate: Date;
   /// The size of the item since its last publication
@@ -63,8 +61,10 @@ interface ListableFsObjectRow {
   // scanData: string;
   /// The id of the user that modified this item last.
   // modifiedBy: number | null;
-  /// The date and time in UTC when this file was last modified
+  /// The date and time in UTC when any file (meta)data was last modified
   modificationDate: Date;
+  /// The date and time in UTC when this file's content was last modified
+  contentModificationDate: Date;
   /// The name for this file, which must be unique inside its parent folder
   name: string;
   /// Relative ordering of this file
@@ -99,7 +99,7 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   data?: ResourceDescriptor | null;
   publish?: boolean;
   firstPublishDate?: Date;
-  lastContentUpdate?: Date;
+  contentModificationDate?: Date;
 }
 
 export type CreateFolderMetadata = CreateFSObjectMetadata;
@@ -168,7 +168,7 @@ export class WHFSObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data", "publish", "firstPublishDate", "lastContentUpdate"]); //we need to upcast to be able to remove 'data'
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data", "publish", "firstPublishDate", "contentModificationDate"]); //we need to upcast to be able to remove 'data'
     const moddate = storedata.modificationdate || new Date;
 
     if (metadata.type) {
@@ -182,8 +182,8 @@ export class WHFSObject {
     if (this.isFile) {
       if ((metadata as UpdateFileMetadata).firstPublishDate)
         storedata.firstpublishdate = (metadata as UpdateFileMetadata).firstPublishDate;
-      if ((metadata as UpdateFileMetadata).lastContentUpdate)
-        storedata.lastcontentupdate = (metadata as UpdateFileMetadata).lastContentUpdate;
+      if ((metadata as UpdateFileMetadata).contentModificationDate)
+        storedata.contentmodificationdate = (metadata as UpdateFileMetadata).contentModificationDate;
     }
 
     if (this.isFile && (metadata as UpdateFileMetadata).publish) {
@@ -192,8 +192,8 @@ export class WHFSObject {
       const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
       if (curfields && !isPublish(curfields.published)) {
         storedata.published = convertToWillPublish(this.dbrecord.published, true, true, PubPrio_DirectEdit);
-        if (!storedata.lastcontentupdate)
-          storedata.lastcontentupdate = moddate;
+        if (!storedata.contentmodificationdate)
+          storedata.contentmodificationdate = moddate;
         if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
           storedata.firstpublishdate = moddate;
       }
@@ -204,8 +204,8 @@ export class WHFSObject {
       if (resdescr) {
         storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
         storedata.data = resdescr?.resource || null;
-        if (!storedata.lastcontentupdate)
-          storedata.lastcontentupdate = moddate;
+        if (!storedata.contentmodificationdate)
+          storedata.contentmodificationdate = moddate;
       } else {
         storedata.scandata = '';
       }
@@ -236,8 +236,8 @@ export class WHFSFile extends WHFSObject {
   get firstPublishDate(): Date | null {
     return this.dbrecord.firstpublishdate === defaultDateTime ? null : this.dbrecord.firstpublishdate;
   }
-  get lastContentUpdate(): Date | null {
-    return this.dbrecord.lastcontentupdate === defaultDateTime ? null : this.dbrecord.lastcontentupdate;
+  get contentModificationDate(): Date | null {
+    return this.dbrecord.contentmodificationdate === defaultDateTime ? null : this.dbrecord.contentmodificationdate;
   }
   get data(): ResourceDescriptor {
     const meta: ResourceMetaDataInit = {
@@ -254,9 +254,9 @@ export class WHFSFile extends WHFSObject {
 
 const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> = {
   "creationDate": "creationdate",
+  "contentModificationDate": "contentmodificationdate",
   "description": "description",
   "firstPublishDate": "firstpublishdate",
-  "lastContentUpdate": "lastcontentupdate",
   "sitePath": "fullpath",
   "whfsPath": "whfspath",
   "parentSite": "parentsite",
@@ -360,7 +360,7 @@ export class WHFSFolder extends WHFSObject {
         isfolder: Boolean(type.foldertype),
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
         firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate ?? (initialPublish ? creationdate : defaultDateTime),
-        lastcontentupdate: (metadata as CreateFileMetadata)?.lastContentUpdate ?? (initialPublish || initialData ? creationdate : defaultDateTime),
+        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModificationDate ?? (initialPublish || initialData ? creationdate : defaultDateTime),
         lastpublishdate: defaultDateTime,
         lastpublishsize: 0,
         lastpublishtime: 0,

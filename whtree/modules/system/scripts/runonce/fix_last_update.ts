@@ -9,7 +9,7 @@ async function fixLastUpdate() {
     selectFrom("system.fs_objects").
     select(["id", "parent"]).
     where("firstpublishdate", ">", defaultDateTime).
-    where("lastcontentupdate", "=", defaultDateTime).
+    where("contentmodificationdate", "=", defaultDateTime).
     execute();
 
   const sortfiles = fixfiles.sort((a, b) => ((a.parent || 0) - (b.parent || 0)) || (a.id - b.id));
@@ -19,13 +19,13 @@ async function fixLastUpdate() {
     await beginWork();
     const groupfiles = await db<PlatformDB>().
       selectFrom("system.fs_objects").
-      select(["id", "firstpublishdate", "lastcontentupdate"]).
+      select(["id", "firstpublishdate", "contentmodificationdate"]).
       where("id", "=", sql`any(${group.map((item) => item.id)})`).
-      where("lastcontentupdate", "=", defaultDateTime).
+      where("contentmodificationdate", "=", defaultDateTime).
       execute();
 
     for (const file of groupfiles) {
-      await db<PlatformDB>().updateTable("system.fs_objects").set({ lastcontentupdate: file.firstpublishdate }).where("id", "=", file.id).execute();
+      await db<PlatformDB>().updateTable("system.fs_objects").set({ contentmodificationdate: file.firstpublishdate }).where("id", "=", file.id).execute();
     }
 
     await commitWork();
