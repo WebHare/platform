@@ -183,9 +183,6 @@ STATIC OBJECTTYPE SiteObject
   /// List of webfeatures of this site
   PUBLIC PROPERTY webfeatures(GetWebFeatures, -);
 
-  /// Whether this site is versioned
-  PUBLIC PROPERTY isversioned(GetIsVersioned, -);
-
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -201,10 +198,6 @@ STATIC OBJECTTYPE SiteObject
   // Setters & getters
   //
 
-  BOOLEAN FUNCTION GetIsVersioned()
-  {
-    RETURN this->siterec.versioningpolicy != "";
-  }
   STRING FUNCTION GetCDNRoot()
   {
     RETURN this->siterec.cdnbaseurl ?? this->webroot;
@@ -286,7 +279,6 @@ STATIC OBJECTTYPE SiteObject
 
   /** Update the metadata for this site
       @param metadata Updates
-      @cell(boolean) metadata.isversioned Whether the site is versioned
       @cell(string) metadata.webdesign Webdesign used by this site
       @cell(string array) metadata.webfeatures List of webfeatures
       @cell(string) metadata.cdnbaseurl CDN base url

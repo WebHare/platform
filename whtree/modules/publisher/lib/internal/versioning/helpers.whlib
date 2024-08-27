@@ -23,33 +23,3 @@ PUBLIC RECORD FUNCTION GetVersioningPolicyForFiles(RECORD ARRAY files)
 {
   RETURN [ policy := DEFAULT OBJECT ];
 }
-
-
-/** Get the protected fields for a file
-    @param enriched_rec Record as returned by EnrichWithObjectPolicy
-    @return
-    @cell(integer array) return.versioned_contenttypes
-    @cell(string array)  return.readonly_fields
-    @cell(string array) return.versioned_fields
-*/
-PUBLIC RECORD FUNCTION GetPolicyProtectedFields(RECORD enriched_rec)
-{
-  RECORD retval := enriched_rec.policy->GetFields();
-  IF (enriched_rec.draftlocked)
-  {
-    IF (NOT CellExists(enriched_rec, "POLICYAFTERACCEPT"))
-      THROW NEW Exception("Enriched record does not have the policy after accept, please run enrich with RETURNPOLICYAFTERACCEPT := TRUE");
-    RECORD newfields := enriched_rec.policyafteraccept->GetFields();
-
-    retval.versioned_contenttypes :=
-        retval.versioned_contenttypes CONCAT
-        newfields.versioned_contenttypes;
-    retval.readonly_fields :=
-        retval.readonly_fields CONCAT
-        retval.versioned_fields CONCAT
-        newfields.readonly_fields CONCAT
-        newfields.versioned_fields;
-    retval.versioned_fields := DEFAULT STRING ARRAY;
-  }
-  RETURN retval;
-}

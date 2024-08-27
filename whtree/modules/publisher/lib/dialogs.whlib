@@ -7,7 +7,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/objecteditor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";

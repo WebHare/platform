@@ -13,13 +13,11 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
-LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/whfsintegration.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 
 
 PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
@@ -182,18 +180,6 @@ PUBLIC OBJECTTYPE EditFolder EXTEND TolliumScreenBase
   }
 >;
 
-BOOLEAN FUNCTION IsVersioned(OBJECT rootobj)
-{
-  INTEGER ARRAY siteids;
-  IF (rootobj->parentsite != 0)
-    INSERT rootobj->parentsite INTO siteids AT END;
-  ELSE
-    siteids := SELECT AS INTEGER ARRAY root FROM GetContainedSites(INTEGER[ rootobj->id ]);
-
-  RECORD res := GetVersioningPolicyForSites(siteids);
-  RETURN NOT RecordExists(res) OR ObjectExists(res.policy);
-}
-
 PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
 < // ---------------------------------------------------------------------------
   //
@@ -264,13 +250,6 @@ PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
           suffix := " (" || syncname || " - " || #sourcefolderid+1 || "/" || Length(tosync) || ")";
       }
       OBJECT folder := OpenWHFSObject(sourcefolderid);
-
-      IF (IsVersioned(folder))
-      {
-        STRING syncname := OpenWHFSObject(sourcefolderid)->name;
-        INSERT syncname INTO versioned AT END;
-        CONTINUE;
-      }
 
       RECORD conndata := peer->InvokeAdminService("OpenSyncFolder", syncpath, DEFAULT RECORD);
 

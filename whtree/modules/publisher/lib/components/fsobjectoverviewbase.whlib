@@ -172,7 +172,6 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                   , isfolder
                   , ispinned :=     RecordExists(__fsdata) ? __fsdata.ispinned : TRUE
                   , lastpublishdate := RecordExists(__fsdata) ? __fsdata.lastpublishdate : DEFAULT DATETIME
-                  , isversionarchive := RecordExists(__fsdata) ? __fsdata.parent = 18 : FALSE
                   , type
                   , modificationdate
                   , creationdate

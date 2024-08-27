@@ -706,10 +706,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
                , creationdate     := DEFAULT DATETIME
                , modificationdate := DEFAULT DATETIME
                , modulekey        := addroot.modulekey
-               //, ispinned     := FALSE
-               //, parentsite   := 0
-               //, isversionarchive
-               //, extension := MakeObject(addroot.library, addroot.objectname, -1)
                ] INTO rootitems AT END;
       }
 

@@ -177,7 +177,7 @@
         <enableon source="filelist" min="1" checkflags="candelete" selectionmatch="any" onexecute="dodeletelist" />
       </action>
       <action name="restore">
-        <enableon source="filelist" min="1" checkflags="canrestore !isversioned" onexecute="dorestorelist" requirefocus="true" />
+        <enableon source="filelist" min="1" checkflags="canrestore" onexecute="dorestorelist" requirefocus="true" />
       </action>
       <action name="selectall"
               tid="~selectall"
@@ -505,7 +505,6 @@
 
     <compositions>
       <proxy name="foldertreeproxy" passthrough="foldertree" />
-      <eventlistener name="versioninglistener" onevents="onversioningevent" />
     </compositions>
 
     <toolbar>
@@ -560,7 +559,7 @@
                                     onselect="ontreeselect"
                                     selectmode="single"
                                     selectcontextmenu="foldertreeselect"
-                                    flags="iswithinsite ispublished isversioned canpublish canpublishrecursive canchangetype issite isroot canmoveto"
+                                    flags="iswithinsite ispublished canpublish canpublishrecursive canchangetype issite isroot canmoveto"
                                     filteritems="filtertreeitems"
                                     savestate="selection"
                                     showprotected="true"
@@ -612,7 +611,7 @@
                                     onsortorderchange="OnSortOrderChange"
                                     height="1pr"
                                     openaction="open"
-                                    flags="iswithinsite ispublished ispublish isversioned canpublish canpublishrecursive canchangetype canedit isfilelistitem ispinned ordering_first ordering_last issite canopen islinktype issubmittedforapproval"
+                                    flags="iswithinsite ispublished ispublish canpublish canpublishrecursive canchangetype canedit isfilelistitem ispinned ordering_first ordering_last issite canopen islinktype issubmittedforapproval"
                                     filteritems="filterlistitems"
                                     showprotected="true"
                                     columnheaders="true"

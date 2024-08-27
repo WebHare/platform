@@ -16,7 +16,6 @@ LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/filemgrdialogs.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/reports/seoreport.whlib";
 
@@ -757,11 +756,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->UpdateFileListMode();
     this->UpdateActions();
 
-    IF (RecordExists(selfolder) AND selfolder.parentsite != 0)
-      ^versioninglistener->masks := [ "system:versionevent." || selfolder.parentsite || ".*" ];
-    ELSE
-      ^versioninglistener->masks := DEFAULT STRING ARRAY;
-
     INTEGER selvalue := RecordExists(selfolder) ? selfolder.id : -2;
     ^filelist->contentmode := RecordExists(selfolder) ? selfolder.contentmode : "";
     this->frame->flags.outsiderecyclebin := ^filelist->contentmode != "recyclebin";
@@ -836,20 +830,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         ];
   }
 
-  BOOLEAN FUNCTION IsVersionedObject(RECORD item)
-  {
-    IF (item.parentsite = 0)
-      RETURN FALSE;
-
-    STRING policyid := ToString(item.parentsite);
-    IF (NOT CellExists(this->sitepolicies, policyid))
-      this->sitepolicies := CellInsert(this->sitepolicies, policyid, DEFAULT OBJECT);
-    OBJECT policy := GetCell(this->sitepolicies, policyid);
-    IF (NOT ObjectExists(policy))
-      RETURN FALSE;
-    RETURN item.id IN policy->GetVersionedObjects([ INTEGER(item.id) ]);
-  }
-
   RECORD ARRAY FUNCTION FilterListItems(RECORD ARRAY items, OBJECT list DEFAULTSTO DEFAULT OBJECT)
   {
     items := SELECT *
@@ -880,7 +860,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                   , ispublished :=          publishedsite AND GetOncePublishedFromPublished(published)
                   , ispublish :=            publishedsite AND IsPublish(published)
                   , isindexdoc :=           id = sel_indexdoc
-                  , isversioned :=          this->IsVersionedObject(items) OR isversionarchive
                   //TODO should have been named: can*re*publish. it has nothing to do with being enable to change or start publication
                   , canpublish :=           isactive AND publishedsite AND (isfolder OR IsPublish(published))
                   , canpublishrecursive :=  isactive AND isfolder AND (parentsite != 0 ? publishedsite : issysop)
@@ -1002,25 +981,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->lastpreviewed := newid;
     IF(newid != 0 AND this->tolliumuser->HasRightOn("system:fs_browse", newid))
       this->SelectObject(newid);
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Misc. callbacks
-  //
-
-  MACRO OnVersioningEvent(RECORD ARRAY events)
-  {
-    INTEGER ARRAY versionedids :=
-        SELECT AS INTEGER ARRAY data.live_file
-          FROM events
-         WHERE event LIKE "system:versionevent.*";
-
-    // If the versioning state of any of the currently listed files or folders is changed, reload the file list
-    IF (RecordExists(SELECT * FROM ^filelist->rows WHERE id IN versionedids))
-    {
-      ^filelist->ReloadOverview();
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1349,11 +1309,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   /// Converts a site to a normal folder
   MACRO HandleConvertToFolder(RECORD obj)
   {
-    IF(this->IsVersionedObject(obj))
-    {
-      this->RunMessageBox(".cannotrevertversioned", obj.name);
-      RETURN;
-    }
     IF(Length(GetContainedSites([ INTEGER(obj.id) ])) > 1)
     {
       this->RunMessageBox("commondialogs/siteprops.containssite");
