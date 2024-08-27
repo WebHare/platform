@@ -169,56 +169,6 @@ PUBLIC STATIC OBJECTTYPE BulkReceiveOperation
   }
   */
 
-  STRING FUNCTION CheckBulkReceiverPlanForVersioning(OBJECT receiver)
-  {
-    RECORD ARRAY plan := receiver->plan;
-
-    /* Map from destparentpaths to destsite
-       @cell path
-       @cell site
-    */
-    RECORD ARRAY destparentpaths;
-
-    FOREVERY (RECORD rec FROM plan)
-    {
-      RECORD dppos := RecordLowerBound(destparentpaths, rec, [ "DESTPARENTPATH" ]);
-
-      INTEGER destsite;
-      IF (rec.destparentpath = "")
-        destsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = rec.destparent;
-      ELSE IF (dppos.found)
-        destsite := destparentpaths[dppos.position].destsite;
-
-      SWITCH (rec.kind)
-      {
-        CASE "remaining"
-        {
-          RETURN "ok";
-        }
-        CASE "contentlink", "internallink"
-        {
-          RETURN "ok";
-        }
-        CASE "copy"
-        {
-          RETURN "ok";
-        }
-        CASE "move"
-        {
-        }
-        CASE "setindex"
-        {
-          // can only change indexdoc when auto-changed by filecreation during copy action, so no problem
-        }
-        DEFAULT
-        {
-          RETURN "ok";
-        }
-      }
-    }
-
-    RETURN "ok";
-  }
 >;
 
 PUBLIC OBJECTTYPE CopyMoveException EXTEND Exception
@@ -369,12 +319,6 @@ PUBLIC STATIC OBJECTTYPE ObjectCopyMover EXTEND BulkReceiveOperation
       ELSE
         receiver->CreateCopyPlan(cmobj->parent, [INTEGER(cmobj->id)], "", this->type);
 
-      IF (this->CheckBulkReceiverPlanForVersioning(receiver) = "bydraft")
-      {
-        INSERT GetPublicDraft(cmobj->id)->id INTO this->pvt_created_drafts AT END;
-        CONTINUE;
-      }
-
       HandlePlanBeforeEffects(repubstate, destfolder->id, receiver->plan);
 
       //PRINT("** execute single copymove plan:\n" || AnyToString(receiver->plan, "boxed"));
@@ -467,8 +411,7 @@ PUBLIC STATIC OBJECTTYPE ArchiveImporter EXTEND BulkReceiveOperation
     RECORD errorinfo := __whpub_ImportArchive(this->all_unpacked_files
                                             , parentfolder
                                             , this->overwrite
-                                            , this->onprogress != DEFAULT FUNCTION PTR ? PTR this->wrapprogress : DEFAULT FUNCTION PTR
-                                            , [ plancallback := PTR this->CheckBulkReceiverPlanForVersioning ]);
+                                            , this->onprogress != DEFAULT FUNCTION PTR ? PTR this->wrapprogress : DEFAULT FUNCTION PTR);
 
     this->didplanload := TRUE;
     this->plan := errorinfo.plan;

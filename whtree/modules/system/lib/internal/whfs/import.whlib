@@ -77,14 +77,8 @@ RECORD ARRAY FUNCTION GenerateSourceObjs(STRING curpath, RECORD ARRAY allgroups)
     @cell return.incompatible Set to true if this archive is incompatible with this version of WebHare
     @cell return.incompatible_source Set to the generator of this incompatible archive - if empty, the archive is just corrupted
 */
-PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folderid, BOOLEAN overwrite, FUNCTION PTR statuscallback, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folderid, BOOLEAN overwrite, FUNCTION PTR statuscallback)
 {
-  FOREVERY (RECORD opt FROM UnpackRecord(options))
-    IF (opt.name NOT IN [ "PLANCALLBACK" ])
-      THROW NEW Exception("Unknown option '" || opt.name || "'");
-
-  FUNCTION PTR plancallback := CellExists(options, "PLANCALLBACK") ? options.plancallback : DEFAULT FUNCTION PTR;
-
   RECORD retval :=
       [ overwritten_foreign := DEFAULT RECORD ARRAY
       , overwritten_hidden := DEFAULT RECORD ARRAY
@@ -163,16 +157,6 @@ PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folde
     PrintRecordArrayTo(0, myremapper->plan,'boxed');
   }
 
-  IF (plancallback != DEFAULT FUNCTION PTR)
-  {
-    plancallback(myremapper);
-    IF(IsDebugTagEnabled("whfsplan"))
-    {
-      print("plan after revisement\n");
-      PrintRecordArrayTo(0, myremapper->plan,'boxed');
-    }
-  }
-
   //Now that we've found sourceobjs
   retval.notincluded :=
       SELECT id :=        destid
@@ -212,5 +196,3 @@ PUBLIC RECORD FUNCTION ImportWHFSArchive(OBJECT folder, BLOB archive, RECORD opt
   RECORD ARRAY files := SELECT *, size := Length(data) FROM UnpackArchive(archive);
   RETURN __whpub_ImportArchive(files, folder->id, options.overwrite, options.statuscallback);
 }
-
-
