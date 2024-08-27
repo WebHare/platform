@@ -7,7 +7,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/objecteditor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
@@ -311,46 +310,14 @@ PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER AR
 
   OBJECT work := parentscreen->BeginUnvalidatedWork();
 
-  RECORD vrec := TestSelectionForVersioningUpdates(work, todelete, [ "parent" ]);
-  IF (NOT RecordExists(vrec))
-    RETURN work->Finish();
-
-  INTEGER ARRAY todraft := SELECT AS INTEGER ARRAY id FROM todelete WHERE id NOT IN vrec.direct;
-  INTEGER ARRAY totrash := SELECT AS INTEGER ARRAY id FROM todelete WHERE NOT inrecyclebin AND id IN vrec.direct;
-  INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM todelete WHERE inrecyclebin AND id IN vrec.direct;
-
-
-  IF (LENGTH(todraft) != 0)
-  {
-    FOREVERY (INTEGER id FROM todraft)
-    {
-      OBJECT liveobject := OpenWHFSObject(id);
-      OBJECT sitepolicy := GetVersioningPolicyForFileObject(liveobject);
-      UpdateMetadataForPolicy(sitepolicy, liveobject, [ parent := 0 ]);
-    }
-  }
+  INTEGER ARRAY totrash := SELECT AS INTEGER ARRAY id FROM todelete WHERE NOT inrecyclebin;
+  INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM todelete WHERE inrecyclebin;
 
   IF(Length(totrash)>0)
     RunAnyDelete(totrash, "publisher:app");
 
   IF(Length(tokill)>0)
-  {
-    // Move versioned items to whfs-versionarchive
-    INTEGER ARRAY with_history :=
-        SELECT AS INTEGER ARRAY DISTINCT live_object
-          FROM system.fs_versionevents
-         WHERE live_object IN tokill;
-
-    INTEGER ARRAY to_delete;
-
-    FOREVERY(INTEGER id FROM tokill)
-      IF (id IN with_history)
-        OpenWHFSObject(id)->MoveTo(OpenWHFSObject(whconstant_whfsid_versionarchive), ToString(id));
-      ELSE
-        INSERT id INTO to_delete AT END;
-
-    DELETE FROM system.fs_objects WHERE id IN to_delete;
-  }
+    DELETE FROM system.fs_objects WHERE id IN tokill;
 
   RETURN work->Finish();
 
@@ -509,17 +476,6 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
 
   IF(RecordExists(editorinfo))
   {
-    IF (NOT editorinfo.supportsversioning AND RecordExists(SELECT FROM system.fs_objects
-                                                                     , system.sites
-                                                                 WHERE fs_objects.id = objectid
-                                                                   AND sites.id = fs_objects.parentsite
-                                                                   AND versioningpolicy != ""))
-      // File is in a versioned site
-    {
-      parentscreen->RunMessageBox("publisher:commondialogs.editordoesnotsupportversionedsites");
-      RETURN;
-    }
-
     IF(editorinfo.screen != "")
     {
       StartObjectEditor(parentscreen, [ calltype := "embedded", target := [ id := objectid ]]);

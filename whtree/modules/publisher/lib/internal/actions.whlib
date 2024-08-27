@@ -16,10 +16,8 @@ LOADLIB "mod::system/lib/internal/whfs/import.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 
 
 MACRO DoRecurseUpdatePublish(OBJECT repubstate, RECORD site, INTEGER folderid, BOOLEAN setpublish, BOOLEAN toplevel, INTEGER ARRAY acceptabletypes, OBJECT handler)
@@ -171,186 +169,6 @@ PUBLIC STATIC OBJECTTYPE BulkReceiveOperation
   }
   */
 
-  STRING FUNCTION CheckBulkReceiverPlanForVersioning(OBJECT receiver)
-  {
-    RECORD ARRAY plan := receiver->plan;
-
-    /* Map from destparentpaths to destsite
-       @cell path
-       @cell site
-    */
-    RECORD ARRAY destparentpaths;
-
-    FOREVERY (RECORD rec FROM plan)
-    {
-      RECORD dppos := RecordLowerBound(destparentpaths, rec, [ "DESTPARENTPATH" ]);
-
-      INTEGER destsite;
-      IF (rec.destparentpath = "")
-        destsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = rec.destparent;
-      ELSE IF (dppos.found)
-        destsite := destparentpaths[dppos.position].destsite;
-
-      OBJECT destpolicy := GetVersioningPolicyForSite(destsite);
-
-      SWITCH (rec.kind)
-      {
-        CASE "remaining"
-        {
-          RETURN "ok";
-        }
-        CASE "contentlink", "internallink"
-        {
-          IF (NOT ObjectExists(destpolicy))
-            RETURN "ok";
-
-          // Not allowed to create links in a versioned site (ADDME: check with FilterAllowedFSObjectTypes)
-          THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
-        }
-        CASE "copy"
-        {
-          IF (NOT ObjectExists(destpolicy))
-            RETURN "ok";
-
-          IF (rec.destparent != 0)
-          {
-            // We can't copy a file with default page name into a folder that already has an indexdoc
-            // That would replace the indexdoc deep within whfs, so disallow it.
-            INTEGER indexdoc := SELECT AS INTEGER COLUMN indexdoc FROM system.fs_objects WHERE id = rec.destparent;
-            IF (indexdoc != 0 AND ToLowercase(rec.name) IN whconstant_webserver_indexpages)
-              THROW NEW CopyMoveException(this, "NOINDEXHTMLINVERSIONEDFOLDERWITHINDEX", OpenWHFSObject(rec.sourceid));
-          }
-
-          // Validate the type of the source file is allowed in the versioned site
-          INTEGER sourcetype := SELECT AS INTEGER COLUMN type FROM system.fs_objects WHERE id = rec.sourceid;
-          IF (sourcetype NOT IN destpolicy->FilterAllowedFSObjectTypes([ sourcetype ]))
-            THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
-
-          IF (NOT rec.create) // overwriting?
-          {
-            RECORD destrec :=
-                SELECT id
-                     , isfolder
-                     , published
-                  FROM system.fs_objects
-                 WHERE id = rec.destid;
-
-            IF (RecordExists(destrec))
-            {
-              destrec := destpolicy->EnrichWithObjectPolicy([ destrec ])[0];
-              IF (destrec.versioned) // Destination file is versioned?
-                THROW NEW CopyMoveException(this, "NOVERSIONEDOVERWRITE", OpenWHFSObject(rec.destid));
-            }
-          }
-
-          receiver->SetPlanRecordOption(rec, [ disablepublish := TRUE ]);
-
-          RECORD newdestparentpath :=
-              [ destparentpath :=   rec.destpath
-              , destsite :=         destsite
-              ];
-          INSERT newdestparentpath INTO destparentpaths AT RecordUpperBound(destparentpaths, newdestparentpath, [ "DESTPARENTPATH" ]);
-        }
-        CASE "move"
-        {
-          RECORD srcdata := SELECT id, isfolder, published, parentsite FROM system.fs_objects WHERE id = rec.sourceid;
-          OBJECT srcpolicy := RecordExists(srcdata) AND srcdata.parentsite != 0 ? GetVersioningPolicyForSite(srcdata.parentsite) : DEFAULT OBJECT;
-
-          IF (ObjectExists(srcpolicy))
-          {
-            RECORD filerec := srcpolicy->EnrichWithObjectPolicy([ srcdata ], [ returnpolicyafteraccept := TRUE ]);
-
-            IF (srcdata.parentsite = destsite)
-            {
-              RECORD fieldspolicy := filerec.policy->GetFields();
-              STRING ARRAY readonlyfields := fieldspolicy.readonly_fields;
-              IF (filerec.draftlocked)
-              {
-                RECORD newfieldspolicy := filerec.policyafteraccept->GetFields();
-                readonlyfields := readonlyfields
-                    CONCAT fieldspolicy.versioned_fields
-                    CONCAT newfieldspolicy.versioned_fields
-                    CONCAT newfieldspolicy.readonly_fields;
-              }
-
-              IF ("name" IN readonlyfields OR "parent" IN readonlyfields)
-                THROW NEW CopyMoveException(this, "VERSIONEDMOVEDISALLOWED", OpenWHFSObject(rec.sourceid));
-
-              IF ("name" IN fieldspolicy.versioned_fields OR "parent" IN fieldspolicy.versioned_fields)
-              {
-                // Must record in draft metadata, cancel the move plan
-                OBJECT file := OpenWHFSObject(rec.sourceid);
-
-                OBJECT sitepolicy := GetVersioningPolicyForFileObject(file);
-                UpdateMetadataForPolicy(sitepolicy, file, [ parent := rec.destparent, name := rec.name ]);
-
-                IF (LENGTH(plan) != 1)
-                  THROW NEW CopyMoveException(this, "NOTALLOWEDOPERATIONINVERSIONEDSITE", OpenWHFSObject(rec.destparent));
-
-                RETURN "bydraft";
-              }
-            }
-            ELSE // cross-site move
-            {
-              // Don't allow versioned files to move out of their site
-              IF (filerec.versioned)
-                THROW NEW CopyMoveException(this, "NOMOVEOUTVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
-            }
-
-            // Not versioned file, just allow move by plan
-          }
-          ELSE IF (ObjectExists(destpolicy))
-          {
-            // Is move into versioned site
-
-            OBJECT source := OpenWHFSObject(rec.sourceid);
-
-            // Validate the type of the source file is allowed in the versioned site
-            IF (source->type NOT IN destpolicy->FilterAllowedFSObjectTypes([ INTEGER(source->type) ]))
-              THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
-
-            IF (source->isfolder)
-            {
-              INTEGER ARRAY subobjects := source->GetDescendantObjectIds();
-              INTEGER ARRAY subtypes :=
-                  SELECT AS INTEGER ARRAY DISTINCT type
-                    FROM system.fs_objects
-                   WHERE id IN subobjects;
-
-              INTEGER ARRAY allowed_subtypes := destpolicy->FilterAllowedFSObjectTypes(subtypes);
-
-              IF (NOT ArrayIsSetEqual(allowed_subtypes, subtypes))
-                THROW NEW CopyMoveException(this, "NOTALLOWEDTYPEINVERSIONEDSITE", OpenWHFSObject(rec.sourceid));
-            }
-
-            IF (rec.destparent != 0)
-            {
-              // We can't copy a file with default page name into a folder that already has an indexdoc
-              // That would replace the indexdoc deep within whfs, so disallow it.
-              INTEGER indexdoc := SELECT AS INTEGER COLUMN indexdoc FROM system.fs_objects WHERE id = rec.destparent;
-              IF (indexdoc != 0 AND ToLowercase(rec.name) IN whconstant_webserver_indexpages)
-                THROW NEW CopyMoveException(this, "NOINDEXHTMLINVERSIONEDFOLDERWITHINDEX", OpenWHFSObject(rec.sourceid));
-            }
-
-            receiver->SetPlanRecordOption(rec, [ disablepublish := TRUE ]);
-          }
-        }
-        CASE "setindex"
-        {
-          // can only change indexdoc when auto-changed by filecreation during copy action, so no problem
-        }
-        DEFAULT
-        {
-          IF (NOT ObjectExists(destpolicy))
-            RETURN "ok";
-
-          THROW NEW CopyMoveException(this, "NOTALLOWEDOPERATIONINVERSIONEDSITE", OpenWHFSObject(rec.destparent));
-        }
-      }
-    }
-
-    RETURN "ok";
-  }
 >;
 
 PUBLIC OBJECTTYPE CopyMoveException EXTEND Exception
@@ -431,14 +249,6 @@ PUBLIC STATIC OBJECTTYPE ObjectCopyMover EXTEND BulkReceiveOperation
     IF (SELECT AS BOOLEAN locked FROM system.sites WHERE id = destfolder->parentsite)
       THROW NEW CopyMoveException(this, "DESTINATIONSITELOCKED", destfolder);
 
-    BOOLEAN destination_is_versioned := SELECT AS BOOLEAN versioningpolicy!="" FROM system.sites WHERE id = destfolder->parentsite;
-    IF (destination_is_versioned)
-    {
-      // May only handle one object at a time when destination is a versioned site
-      IF (LENGTH(this->sources) != 1)
-        THROW NEW CopyMoveException(this, "TOOMANYOBJECTSTOVERSIONEDSITE", destfolder);
-    }
-
     BOOLEAN dest_within_site := destfolder->parentsite != 0;
 
     OBJECT ARRAY handle_objects;
@@ -508,12 +318,6 @@ PUBLIC STATIC OBJECTTYPE ObjectCopyMover EXTEND BulkReceiveOperation
         receiver->CreateMovePlan(cmobj->parent, [INTEGER(cmobj->id)], "", "merge");
       ELSE
         receiver->CreateCopyPlan(cmobj->parent, [INTEGER(cmobj->id)], "", this->type);
-
-      IF (this->CheckBulkReceiverPlanForVersioning(receiver) = "bydraft")
-      {
-        INSERT GetPublicDraft(cmobj->id)->id INTO this->pvt_created_drafts AT END;
-        CONTINUE;
-      }
 
       HandlePlanBeforeEffects(repubstate, destfolder->id, receiver->plan);
 
@@ -607,8 +411,7 @@ PUBLIC STATIC OBJECTTYPE ArchiveImporter EXTEND BulkReceiveOperation
     RECORD errorinfo := __whpub_ImportArchive(this->all_unpacked_files
                                             , parentfolder
                                             , this->overwrite
-                                            , this->onprogress != DEFAULT FUNCTION PTR ? PTR this->wrapprogress : DEFAULT FUNCTION PTR
-                                            , [ plancallback := PTR this->CheckBulkReceiverPlanForVersioning ]);
+                                            , this->onprogress != DEFAULT FUNCTION PTR ? PTR this->wrapprogress : DEFAULT FUNCTION PTR);
 
     this->didplanload := TRUE;
     this->plan := errorinfo.plan;
@@ -819,9 +622,6 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
 
   // When a site versioning policy is active, the default page may not be published
   INTEGER new_published := PubPrio_DirectEdit;
-  OBJECT sitepolicy := GetVersioningPolicyForSite(applytester->objsite);
-  IF (ObjectExists(sitepolicy))
-    new_published := 0;
 
   OBJECT parentfolderobj := OpenWHFSObject(parentfolderid);
   IF (folderindex.indexfile="contentlisting" OR folderindex.indexfile LIKE "contentlisting:*" )

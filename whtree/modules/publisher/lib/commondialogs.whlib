@@ -9,7 +9,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -83,6 +82,7 @@ PUBLIC INTEGER ARRAY FUNCTION DoFilemanagerUpload(OBJECT tolliumscreen, INTEGER 
     {
       RECORD filemeta := [ name := ""
                          , data := file.data
+                         , publish := TRUE //default for direct publisher uploads, will be blocked by filetype where needed
                          ];
 
       IF(RecordExists(uploadsettings) AND uploadsettings.ordering = "orderable")
@@ -95,11 +95,6 @@ PUBLIC INTEGER ARRAY FUNCTION DoFilemanagerUpload(OBJECT tolliumscreen, INTEGER 
       OBJECT res := uploadtofolder->CreateFile(filemeta); //ADDME: Allow 'publish:=true' to be set and createfile do the 'thinking' worwk
       IF(ObjectExists(res))
       {
-        OBJECT sitepolicy := GetVersioningPolicyForFileObject(res);
-        UpdateMetadataForPolicy(sitepolicy, res, DEFAULT RECORD,
-            [ modifypublished :=  PTR ConvertToWillPublish(#1, FALSE, TRUE, PubPrio_DirectEdit)
-            ]);
-
         IF(res->type = 4 AND options.createdownloadableversions)
           res->UpdateMetadata([type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/msworddownload")->id]);
 
@@ -142,28 +137,8 @@ PUBLIC BOOLEAN FUNCTION DoFilemanagerReplace(OBJECT tolliumscreen, INTEGER filet
   }
 
   OBJECT parenttester := GetApplyTesterForObject(file->parent);
-  INTEGER newordering;
-  IF(parenttester->GetFolderSettings().ordering = "orderable")
-    newordering := SELECT AS INTEGER ordering FROM system.fs_objects WHERE id = filetoreplace;
-
   OBJECT work := tolliumscreen->BeginUnvalidatedWork();
-  OBJECT policy := parenttester->GetVersioningPolicy();
-
-  STRING mode := UpdateMetadataForPolicy(policy, file,
-      [ data :=             uploadedfile.data
-      , modificationdate := GetCurrentDatetime()
-      , modifiedby :=       GetEffectiveUserId()
-      , ordering :=         newordering
-      ],
-      [ modifypublished := PTR ConvertToWillPublish(#1, FALSE, FALSE, PubPrio_DirectEdit)
-      ]);
-
-  SWITCH (mode)
-  {
-    CASE "locked"   { work->AddError(GetTid("publisher:versioning.draftislockedforapproval")); }
-    CASE "readonly" { work->AddError(GetTid("publisher:versioning.draftisreadonly")); }
-  }
-
+  file->UpdateData(uploadedfile.data);
   RETURN work->Finish();
 }
 

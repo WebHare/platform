@@ -4,9 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -18,8 +16,6 @@ LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -56,19 +52,12 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   BOOLEAN refresh_unpublished;
   RECORD ARRAY previewmessages;
 
-  BOOLEAN pvt_showversionactions;
-
   // ---------------------------------------------------------------------------
   //
   // Public variables and properties
   //
 
   PUBLIC MACRO PTR onpreviewedobjectchange;
-
-  /** Whether to show versioning status and actions
-  */
-  PUBLIC PROPERTY showversionactions(pvt_showversionactions, SetShowVersionActions);
-
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -78,7 +67,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(data);
     this->onpreviewedobjectchange := data.onpreviewedobjectchange;
-    this->pvt_showversionactions := data.showversionactions;
   }
 
   UPDATE MACRO PostInitComponent()
@@ -144,17 +132,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           ]
         ];
 
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Helper functions
-  //
-
-  MACRO SetShowVersionActions(BOOLEAN newvalue)
-  {
-    this->pvt_showversionactions := newvalue;
-    this->FillVersioningMessages();
   }
 
   // ---------------------------------------------------------------------------
@@ -441,55 +418,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
   }
 
-  MACRO FillVersioningMessages()
-  {
-    BOOLEAN have_messages;
-    IF (this->previewfileid != 0 AND this->pvt_showversionactions)
-    {
-      // Need at least a parent site and a public draft
-      OBJECT sourceitem := OpenWHFSObject(this->previewfileid);
-      IF (sourceitem->parentsite != 0 AND TestFlagFromPublished(sourceitem->published, PublishedFlag_HasPublicDraft))
-      {
-        OBJECT policy := GetVersioningPolicyForFileObject(sourceitem);
-        IF (ObjectExists(policy))
-        {
-          RECORD data :=
-              [ id :=         sourceitem->id
-              , isfolder :=   sourceitem->isfolder
-              , published :=  sourceitem->published
-              ];
-
-          data := policy->EnrichWithObjectPolicy([ data ]);
-          have_messages := TRUE;
-          IF (data.draftlocked)
-          {
-            ^withdrawrequest->visible := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
-            ^revertdraft->visible := FALSE;
-            ^submitdraft->visible := FALSE;
-            ^versioningmessage->value := GetTid("publisher:versioning.preview.haspendingrequestforapproval");
-          }
-          ELSE
-          {
-            STRING warntype := GetVersioningDraftWarning(sourceitem);
-            SWITCH (warntype)
-            {
-              CASE "normal"     { ^versioningmessage->value := GetTid("publisher:versioning.preview.hasversioneddraft"); }
-              CASE "justdenied" { ^versioningmessage->value := GetTid("publisher:versioning.preview.hasjustdeniedversioneddraft"); }
-              DEFAULT           { THROW NEW Exception(`Unhandled draft warn type '${warntype}'`); }
-            }
-            ^withdrawrequest->visible := FALSE;
-            ^revertdraft->visible := warntype = "justdenied";
-            ^submitdraft->visible := warntype != "justdenied";
-          }
-
-          ^versioneventslistener->masks := [ "system:versionevent." || sourceitem->parentsite || "." || sourceitem->id ];
-        }
-      }
-    }
-    ^versioninginfo->visible := have_messages;
-    IF (NOT have_messages)
-      ^versioneventslistener->masks := DEFAULT STRING ARRAY;
-  }
 
   // Load browser frame if needed
   MACRO LoadBrowserFrame()
@@ -542,11 +470,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   {
     BOOLEAN was_iframe_interaction;
     IF (fileid = this->previewfileid AND contentfile = this->contentfileid AND NOT reloadmessages AND NOT reloadsource)
-    {
-      // Always update the versioning messages, a save of a denied draft changes its message
-      this->FillVersioningMessages();
       RETURN;
-    }
 
     this->currenturl := ""; //reset for building new url
     this->suppressrendering := FALSE;
@@ -554,10 +478,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     RECORD baseinfo;
     IF(fileid>0)
-      baseinfo := SELECT id, name, type, parent, indexdoc, isfolder, parentsite, objecturl FROM system.fs_objects WHERE id = fileid AND (isactive OR parent = whconstant_whfsid_versionhistory);
+      baseinfo := SELECT id, name, type, parent, indexdoc, isfolder, parentsite, objecturl FROM system.fs_objects WHERE id = fileid AND isactive;
 
     // Test if site isn't locked (but allow history entries)
-    IF (RecordExists(baseinfo) AND baseinfo.parent != whconstant_whfsid_versionhistory)
+    IF (RecordExists(baseinfo))
     {
       RECORD site := SELECT locked FROM system.sites WHERE id = baseinfo.parentsite;
       IF (NOT RecordExists(site) OR site.locked)
@@ -604,7 +528,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       this->suppressrendering := TRUE;
     }
 
-    this->FillVersioningMessages();
     this->RefreshBrowserFrame();
   }
 
@@ -764,15 +687,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           }
         }
       }
-
-    // ReloadCurrent will also call FillVersioningMessages
-    IF (file_updated)
-      this->FillVersioningMessages();
-  }
-
-  MACRO OnPreviewVersionEvents(RECORD ARRAY events)
-  {
-    this->FillVersioningMessages();
   }
 
   // ---------------------------------------------------------------------------
@@ -806,42 +720,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     this->suppressrendering := url = "";
   }
 
-  MACRO DoSubmitForApproval()
-  {
-    OBJECT source := OpenWHFSObject(this->previewfileid);
-    RECORD approval := GetSubmitRequestApprovalMetadata(this->owner, source);
-    IF (RecordExists(approval))
-    {
-      OBJECT work := this->owner->BeginUnvalidatedWork();
-      SubmitApprovalRequestFromMetadata(work, source, approval);
-      work->Finish();
-    }
-  }
-
-  MACRO DoCancelDraft()
-  {
-    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcanceldraft")) = "yes")
-    {
-      OBJECT work := this->owner->BeginUnvalidatedWork();
-
-      OBJECT source := OpenWHFSObject(this->previewfileid);
-      OBJECT draft := GetPublicDraft(source->id);
-      draft->DeleteSelf();
-      work->Finish();
-    }
-  }
-
-  MACRO DoCancelRequest()
-  {
-    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
-    {
-      OBJECT work := this->owner->BeginUnvalidatedWork();
-      OBJECT source := OpenWHFSObject(this->previewfileid);
-      OBJECT draft := GetPublicDraft(source->id);
-      CancelApprovalRequestForDraft(draft);
-      work->Finish();
-    }
-  }
 
   // ---------------------------------------------------------------------------
   //

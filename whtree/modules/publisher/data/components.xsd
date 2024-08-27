@@ -71,10 +71,6 @@
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
-      <xs:attribute name="showversionactions" type="xs:boolean">
-        <xs:annotation>
-        </xs:annotation>
-      </xs:attribute>
     </xs:complexType>
   </xs:element>
 

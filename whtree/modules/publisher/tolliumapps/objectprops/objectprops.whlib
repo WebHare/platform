@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -10,7 +9,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -18,7 +16,6 @@ LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/lib/versioning.whlib";
 LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
@@ -26,8 +23,6 @@ LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 LOADLIB "mod::publisher/tolliumapps/objectprops/tasks.whlib";
 
@@ -186,17 +181,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
   /// Source item (original file for duplications, draft or edited file when editing)
   OBJECT sourceitem;
 
-  /// Public draft item of source (same as sourceitem when it has no public draft)
-  OBJECT draftitem;
-
-  /// Whether we're editing the public draft
-  BOOLEAN editingdraft;
-
   /// Record definition of current (or new) type for the object
   RECORD curtype;
-
-  /// Versioning policy for this specific object
-  OBJECT objectpolicy;
 
   /**@}*/
 
@@ -295,7 +281,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         canschedule := canschedule AND this->curtype.ispublishable;
         BOOLEAN cansetpublish := canschedule;
 
-        BOOLEAN initialpublish := cansetpublish AND this->curtype.initialpublish AND NOT ObjectExists(this->objectpolicy);
+        BOOLEAN initialpublish := cansetpublish AND this->curtype.initialpublish;
 
         ^notpublished->visible := NOT cansetpublish;
         ^notpublishedtext->value := this->curtype.ispublishable ? this->GetTid(".sitenotpublished") : this->GetTid(".typenotpublished", ^type->value);
@@ -310,7 +296,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
     ELSE IF (this->startdata.why = "edit")
     {
-      ^pinobject->value := this->draftitem->ispinned;
+      ^pinobject->value := this->sourceitem->ispinned;
 
       IF (RecordExists(this->recyclebininfo))
         this->InitFieldsForItemInRecycleBin();
@@ -365,11 +351,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
           }
         }
       }
-
-      RECORD draftmetadata;
-      IF (this->editingdraft)
-        draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->draftitem->id);
-
       //illegal filename? (can happen through webdav: eg word temp files)
       BOOLEAN cansetpublish := canschedule OR (this->sourceitem->publish AND (NOT inittype.ispublishable OR NOT IsValidWHFSName(this->sourceitem->name,FALSE)));
 
@@ -378,29 +359,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       ^publish->visible := cansetpublish;
       IF(this->startdata.why = "edit")
       {
-        ^publish->value := this->editingdraft
-            ? (draftmetadata.flags BITAND DraftFlag_Publish) != 0
-            : this->sourceitem->publish;
+        ^publish->value := this->sourceitem->publish;
       }
 
       IF(NOT this->isduplicate)
       {
         BOOLEAN isindex := this->sourceitem->id = this->parentfolder->indexdoc;
-
-        IF (this->editingdraft)
-        {
-          IF (RecordExists(draftmetadata) AND draftmetadata.parent != this->parentfolder->id)
-          {
-            // Move is scheduled. Set isindex to TRUE only when the name is a default index page
-            isindex := RecordExists(this->parentsite) AND ToLowercase(draftmetadata.name) IN whconstant_webserver_indexpages;
-          }
-
-          IF ((draftmetadata.flags BITAND DraftFlag_MakeIndex) != 0)
-            isindex := TRUE;
-          IF ((draftmetadata.flags BITAND DraftFlag_UnmarkAsIndex) != 0)
-            isindex := FALSE;
-        }
-
         ^makeindex->value := isindex;
       }
     }
@@ -416,7 +380,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
     this->PrepareDialog();
 
-    this->UpdatePinned(); // also calls this->ApplyVersioningPolicy();
+    this->UpdatePinned();
 
     IF(this->sidetabs)
     {
@@ -497,10 +461,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         this->isfolder := this->sourceitem->isfolder;
       }
 
-      this->draftitem := this->sourceitem;
-
-      this->LoadVersioningPolicy();
-
       this->ConfigureForObjectType(this->isduplicate ? this->sourceitem->type : this->startdata.type);
       this->RetrieveApplyBaseInfo(0, this->startdata.parentfolder);
     }
@@ -525,19 +485,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         this->parentfolder := OpenWHFSRootObject();
 
       this->parentsite := SELECT * FROM system.sites WHERE id = this->sourceitem->parentsite;
-
-      this->LoadVersioningPolicy();
-
-      this->draftitem := this->sourceitem;
-      IF (ObjectExists(this->objectpolicy))
-      {
-        OBJECT draft := GetPublicDraft(this->sourceitem->id);
-        IF (ObjectExists(draft))
-        {
-          this->draftitem := draft->fsobject;
-          this->editingdraft := TRUE;
-        }
-      }
 
       this->RetrieveApplyBaseInfo(this->startdata.fsobj, this->sourceitem->parentsite);
 
@@ -608,25 +555,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     IF(ObjectExists(this->sourceitem))
       this->LoadBaseData(this->sourceitem);
 
-    IF(this->editingdraft AND ObjectExists(this->objectpolicy) AND (ObjectExists(this->sourceitem))) //Run the old versioned fields code after our shared version has run so versioning behavior won't change (we're still not sure whether to keep versionin)
-    {
-      STRING ARRAY versioned_fields := this->objectpolicy->GetFields().versioned_fields;
-      FOREVERY (STRING field FROM [ "name", "title", "description", "keywords" ])
-      {
-        OBJECT fieldobj := GetMember(this, "^" || field);
-        // If this is a versioned field within the current object policy, read its data from the draft item (or draft
-        // metadata in case of the 'name' field), otherwise read from the source item
-        IF (field IN versioned_fields)
-        {
-          IF (field = "name")
-            fieldobj->value := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->draftitem->id).name;
-          ELSE
-            fieldobj->value := GetMember(this->draftitem, field);
-        }
-      }
-    }
-
-    INTEGER64 filesize := ObjectExists(this->draftitem) AND NOT this->isfolder ? Length64(this->draftitem->data) : 0i64;
+    INTEGER64 filesize := ObjectExists(this->sourceitem) AND NOT this->isfolder ? Length64(this->sourceitem->data) : 0i64;
     IF(filesize >= 1024)
       ^size->value := " (" || this->tolliumuser->FormatFileSize(filesize, 2) ||  ")";
     ELSE
@@ -695,7 +624,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       ^pinobject->visible := FALSE;
 
       // Read-only dialog only has an 'OK' button, which just closes the window
-      ^requestapproval_button->visible := FALSE;
       ^ok_button->visible := FALSE;
       ^cancel_button->title := GetTid("~ok");
     }
@@ -735,7 +663,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     ^publish->enabled := NOT basepinsettings.pinned AND this->CanWriteCurrentItem();
     ^makeindex->enabled := NOT basepinsettings.pinned AND basepinsettings.parentfullaccess;
 
-    this->ApplyVersioningPolicy();
     this->contexts->objectpropsapi->__UpdateOnPinned(basepinsettings.pinned);
 
     RETURN basepinsettings;
@@ -789,169 +716,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
   }
 
-  MACRO LoadVersioningPolicy()
-  {
-    IF (NOT RecordExists(this->parentsite))
-    {
-      // If this file is in the version archive, use the policy from the original site
-      IF (this->itemid = 0 OR this->parentfolder->id != 18)
-        RETURN;
-
-      RECORD lastversionevent := GetLastVersionApplyEvent(this->itemid);
-      IF (NOT RecordExists(lastversionevent))
-        RETURN;
-
-      this->siteversioningpolicy := GetVersioningPolicyForSite(lastversionevent.fs_site);
-    }
-    ELSE
-      this->siteversioningpolicy := GetVersioningPolicyForSite(this->parentsite.id);
-    IF (NOT ObjectExists(this->siteversioningpolicy))
-      RETURN;
-
-    RECORD filerec := this->siteversioningpolicy->EnrichWithObjectPolicy(
-          [ [ id :=           this->itemid
-            , isfolder :=     this->isfolder
-            , published :=    this->isnew OR this->isfolder ? 0 : this->sourceitem->published
-            ]
-          ])[0];
-
-    this->objectpolicy := filerec.policy;
-  }
-
-  MACRO ApplyVersioningPolicy()
-  {
-    IF (NOT ObjectExists(this->objectpolicy))
-      RETURN;
-
-    // Get the policy for this file
-    RECORD filerec := this->siteversioningpolicy->EnrichWithObjectPolicy(
-          [ [ id :=           this->itemid
-            , isfolder :=     this->isfolder
-            , published :=    this->isnew OR this->isfolder ? 0 : this->sourceitem->published
-            ]
-          ], [ returnpolicyafteraccept := TRUE ])[0];
-    this->objectpolicy := filerec.policy;
-
-    // Task settings are never visible in sites with a versioning policy
-    ^tasksettings->visible := FALSE;
-
-    // Request approval button becomes visible
-    ^requestapproval_button->visible := ^ok_button->visible;
-    ^ok_button->title := GetTid("~save");
-
-    RECORD fieldspec := this->objectpolicy->GetFields();
-
-    STRING ARRAY readonly_fields := fieldspec.readonly_fields;
-    INTEGER ARRAY readonly_contenttypes;
-    IF (this->itemid != 0)
-    {
-      IF (filerec.draftlocked)
-      {
-        ^versioningmessagesbox->visible := TRUE;
-        ^versioningmessagepanel->visible := TRUE;
-        ^versioningmessage->value := GetTid("publisher:versioning.outstandingrequestforapproval");
-        ^revertdraft->visible := FALSE;
-        ^withdrawrequest->visible := filerec.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
-        ^restoreitem->visible := FALSE;
-        readonly_fields := readonly_fields CONCAT fieldspec.versioned_fields;
-        readonly_contenttypes := readonly_contenttypes CONCAT fieldspec.versioned_contenttypes;
-
-        ^requestapproval->enabled := FALSE;
-
-        // We also need to protect the fields that become readonly/versioned with the new policy that will become active after accepting the draft
-        RECORD newpolicyfields := filerec.policyafteraccept->GetFields();
-        readonly_fields := GetSortedSet(readonly_fields CONCAT newpolicyfields.readonly_fields CONCAT newpolicyfields.versioned_fields);
-        readonly_contenttypes := GetSortedSet(readonly_contenttypes CONCAT newpolicyfields.versioned_contenttypes);
-      }
-      ELSE IF (this->editingdraft)
-      {
-        ^versioningmessagesbox->visible := TRUE;
-        ^versioningmessagepanel->visible := TRUE;
-        ^versioningmessage->visible := TRUE;
-        ^revertdraft->visible := TRUE;
-        ^withdrawrequest->visible := FALSE;
-        ^restoreitem->visible := FALSE;
-
-        STRING warntype := GetVersioningDraftWarning(this->sourceitem);
-        SWITCH (warntype)
-        {
-          CASE "normal"     { ^versioningmessage->value := GetTid("publisher:versioning.editingversioneddraft"); }
-          CASE "justdenied" { ^versioningmessage->value := GetTid("publisher:versioning.editingjustdeniedversioneddraft"); }
-          DEFAULT           { THROW NEW Exception(`Unhandled draft warn type '${warntype}'`); }
-        }
-      }
-      ELSE IF (this->sourceitem->parent = 18) // in versionarchive
-      {
-        ^versioningmessage->value := GetTid("publisher:versioning.editingdeletedobject");
-        ^versioningmessagesbox->visible := TRUE;
-        ^versioningmessagepanel->visible := TRUE;
-        ^versioningmessage->visible := TRUE;
-        ^revertdraft->visible := FALSE;
-        ^withdrawrequest->visible := FALSE;
-        ^restoreitem->visible := TRUE;
-        ^requestapproval->enabled := FALSE;
-      }
-      ELSE
-      {
-        ^versioningmessagesbox->visible := FALSE;
-        ^versioningmessagepanel->visible := FALSE;
-        ^versioningmessage->visible := FALSE;
-        ^revertdraft->visible := FALSE;
-        ^withdrawrequest->visible := FALSE;
-        ^restoreitem->visible := FALSE;
-        ^requestapproval->enabled := TRUE;
-      }
-
-      BOOLEAN have_movemessage;
-      IF ((filerec.draftlocked OR this->editingdraft) AND "parent" IN fieldspec.versioned_fields)
-      {
-        RECORD draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->draftitem->id);
-        IF (this->sourceitem->parent != draftmetadata.parent)
-        {
-          IF (draftmetadata.parent = 0)
-            ^versioningmovemessage->value := GetTid("publisher:versioning.draftscheduledfordelete");
-          ELSE
-          {
-            OBJECT newparent := OpenWHFSObject(draftmetadata.parent);
-            IF (this->sourceitem->parentsite = newparent->parentsite)
-              ^versioningmovemessage->value := GetTid("publisher:versioning.draftscheduledformove", newparent->fullpath);
-            ELSE
-              ^versioningmovemessage->value := GetTid("publisher:versioning.draftscheduledformove", newparent->whfspath);
-          }
-          have_movemessage := TRUE;
-        }
-      }
-      ^versioningmovemessage->visible := have_movemessage;
-    }
-
-    FOREVERY (STRING field FROM readonly_fields)
-    {
-      SWITCH (field)
-      {
-        CASE "name"           { ^name->enabled := FALSE; }
-        CASE "title"          { ^title->enabled := FALSE; }
-        CASE "description"    { ^description->enabled := FALSE; }
-        CASE "keywords"       { ^keywords->enabled := FALSE; }
-        CASE "ispinned"       { ^pinobject->enabled := FALSE; }
-        CASE "published"      { ^publish->enabled := FALSE; }
-        CASE "ordering", "parent", "type", "data" { } // not accessible here
-        CASE "indexdoc"       { ^makeindex->enabled := FALSE; }
-        DEFAULT
-        {
-          ABORT("Can't handle readonly field '" || field || "' in objectprops");
-        }
-      }
-    }
-    FOREVERY (RECORD propeditor FROM this->extendprops)
-      FOREVERY (OBJECT comp FROM propeditor.compositions)
-    {
-      IF (NOT (comp EXTENDSFROM WHFSInstance))
-        CONTINUE;
-      IF (comp->type->id IN readonly_contenttypes)
-        FOREVERY (OBJECT field FROM comp->cells)
-          field->enabled := FALSE;
-    }
-  }
 
   // ---------------------------------------------------------------------------
   //
@@ -1043,10 +807,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
 
   MACRO FillSiteprofExtensions()
   {
-    INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
-                                                ? this->objectpolicy->GetFields().versioned_contenttypes
-                                                : DEFAULT INTEGER ARRAY;
-
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
       STRING compname := "contentdata";
@@ -1063,10 +823,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
             CONTINUE;
 
           compname := comp->name;
-          IF (comp->type->id IN versioned_contenttypes)
-            comp->basefsobject := this->draftitem;
-          ELSE
-            comp->basefsobject := this->sourceitem;
+          comp->basefsobject := this->sourceitem;
 
           // If olddata is defined, we have to migrate the old photoalbum settings
           RECORD olddata;
@@ -1184,10 +941,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         , [ name := "fsobject_keywords", component := ^keywords ]
         ];
 
-    INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
-                                                ? this->objectpolicy->GetFields().versioned_contenttypes
-                                                : DEFAULT INTEGER ARRAY;
-
     this->extendprops := SELECT *
                               , compositions := DEFAULT OBJECT ARRAY
                               , components := DEFAULT OBJECT ARRAY
@@ -1216,10 +969,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
             THROW NEW Exception(`<tabsextension> is trying to handle unregistered type '${propeditor.contenttype}'`);
           IF (ObjectExists(this->sourceitem))
           {
-            IF (propeditor.instance->type->id IN versioned_contenttypes)
-              propeditor.instance->basefsobject := this->draftitem;
-            ELSE
-              propeditor.instance->basefsobject := this->sourceitem;
+            propeditor.instance->basefsobject := this->sourceitem;
           }
           INSERT [ name := "contentdata", component := propeditor.instance ] INTO extendcomponents AT END;
         }
@@ -1344,7 +1094,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     this->frame->OpenBrowserWindow(this->sourceitem->url, "WebHarePublisherPreview");
   }
 
-  // ---------------------------------------------------------------------------
+  // ---------------------------- -----------------------------------------------
   //
   // Submit
   //
@@ -1420,14 +1170,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         CASE "folderwithoutindex"
         {
           feedback := this->RunSimpleScreen("warning", this->GetTid(".messageboxes.folderwithoutindex"));
-        }
-        CASE "submitchangesforapproval"
-        {
-          IF (this->startdata.why = "edit")
-            feedbackdata := GetSubmitRequestApprovalMetadata(this, this->sourceitem);
-          ELSE
-            feedbackdata := GetSubmitRequestApprovalMetadata(this, DEFAULT OBJECT, [ policy := this->siteversioningpolicy ]);
-          feedback := RecordExists(feedbackdata) ? "ok" : "cancel";
         }
         CASE "filecannotbenamedasindex"
         {
@@ -1528,24 +1270,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     OBJECT parentfolder := this->parentfolder;
     RECORD parentsite := this->parentsite;
 
-    IF (ObjectExists(this->objectpolicy) AND ObjectExists(this->sourceitem))
-    {
-      OBJECT draft := GetPublicDraft(this->sourceitem->id);
-
-      RECORD fieldspolicy := this->objectpolicy->GetFields();
-      IF ("parent" IN fieldspolicy.versioned_fields AND ObjectExists(draft))
-      {
-        OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
-        RECORD rec := whfs_draftmetadata->GetInstanceData(draft->id);
-
-        IF (rec.parent = 0)
-          RETURN [ status := "scheduleddelete" ];
-
-        parentfolder := rec.parent = 0 ? DEFAULT OBJECT : OpenWHFSObject(rec.parent);
-        parentsite := SELECT * FROM system.sites WHERE id = parentfolder->parentsite;
-      }
-    }
-
     RECORD indexconstraints := this->CheckIndexConstraints();
     BOOLEAN makeindex := ^makeindex->visible AND ^makeindex->value;
     BOOLEAN forcedindex;
@@ -1629,7 +1353,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       }
 
       //publication disabled for index document? (no warning in versioned sites)
-      IF (makeindex AND NOT ^publish->value AND NOT ObjectExists(this->objectpolicy))
+      IF (makeindex AND NOT ^publish->value)
       {
         IF (this->QueryMessageBox("indexnotpublished") = "")
           RETURN [ status := "retry" ];
@@ -1645,77 +1369,14 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         ];
   }
 
-  MACRO DoRequestApproval()
-  {
-    INTEGER id := this->Submit(TRUE);
-    IF(id != 0)
-      this->__SetScreenResult(id);
-  }
-
-  MACRO DoCancelDraft()
-  {
-    IF(this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcanceldraft")) = "yes")
-    {
-      OBJECT work := this->BeginUnvalidatedWork();
-
-      OBJECT draft := GetPublicDraft(this->sourceitem->id);
-      draft->DeleteSelf();
-
-      IF (work->Finish())
-      {
-        this->RunSimpleScreen("info", this->GetTid(".messageboxes.draftcancelled"));
-        this->tolliumresult := "ok";
-      }
-    }
-  }
-
-  MACRO DoCancelRequest()
-  {
-    IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      OBJECT draftitem := this->draftitem;
-      CancelApprovalRequestForDraft(OpenWHFSDraft(draftitem->id));
-      IF (work->Finish())
-      {
-        this->sourceitem->Refresh();
-        this->draftitem->Refresh();
-
-        // These fields will be (re)disabled by ApplyVersioningPolicy if needed; other fields are enabled by UpdatePinned
-        ^title->enabled := TRUE;
-        ^description->enabled := TRUE;
-        ^keywords->enabled := TRUE;
-        ^pinobject->enabled := TRUE;
-
-        FOREVERY (RECORD propeditor FROM this->extendprops)
-          FOREVERY (OBJECT comp FROM propeditor.compositions)
-        {
-          IF (NOT (comp EXTENDSFROM WHFSInstance))
-            CONTINUE;
-          FOREVERY (OBJECT field FROM comp->cells)
-            field->enabled := TRUE;
-        }
-
-        this->UpdatePinned(); // Also calls ApplyVersioningPolicy
-      }
-    }
-  }
-
   MACRO DoRestore()
   {
     IF (this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.confirmrestore")) = "yes")
     {
       // files in recyclebin only have objectpolicy when in versionarchive
-      IF (ObjectExists(this->objectpolicy))
-      {
-        RunVersionedFileRestore(this, this->sourceitem->id);
-      }
-      ELSE
-      {
-        OBJECT work := this->BeginUnvalidatedWork();
-        this->sourceitem->RestoreSelf();
-        work->Finish();
-      }
+      OBJECT work := this->BeginUnvalidatedWork();
+      this->sourceitem->RestoreSelf();
+      work->Finish();
 
       // Close the window for now, the file has disappeared from the parent list anyway
       this->tolliumresult := "ok";
@@ -1896,141 +1557,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       IF(NOT this->isnew)
         oldversion := SELECT * FROM system.fs_objects WHERE id = this->sourceitem->id;
 
-      // Remove versioned fields from the metadata
-      BOOLEAN require_draft;
-      RECORD versioned_metadata;
-      INTEGER ARRAY versioned_contenttypes;
-      IF (ObjectExists(this->objectpolicy))
-      {
-        RECORD fieldspec := this->objectpolicy->GetFields();
-        versioned_contenttypes := fieldspec.versioned_contenttypes;
-
-        FOREVERY (STRING field FROM fieldspec.versioned_fields)
-        {
-          IF (NOT CellExists(metadata, field))
-            CONTINUE;
-
-          VARIANT value := GetCell(metadata, field);
-          metadata := CellDelete(metadata, field);
-
-          IF (NOT RecordExists(oldversion))
-          {
-            IF (IsDefaultValue(value))
-              CONTINUE;
-
-            require_draft := TRUE;
-          }
-          ELSE IF (NOT CellExists(oldversion, field))
-            require_draft := TRUE;
-          ELSE
-          {
-            FUNCTION PTR transform;
-            VARIANT orgvalue := GetCell(oldversion, field);
-
-            IF (field = "published" ? IsPublish(orgvalue) != IsPublish(value) : orgvalue != value)
-              require_draft := TRUE;
-          }
-
-          versioned_metadata := CellInsert(versioned_metadata, field, value);
-        }
-
-        IF(this->isnew AND NOT this->isfolder)
-          metadata := CELL[ ...metadata, published := 0 ]; //the above process may remove 'published' and causing it to be autoset... back to TRUE! (given the various exceptions, perhaps "published" should not actually be in versioned_fields ?)
-
-        FOREVERY(RECORD extendprop FROM this->extendprops)
-        {
-          FOREVERY(OBJECT comp FROM extendprop.compositions)
-          {
-            IF (NOT (comp EXTENDSFROM WHFSInstance))
-              CONTINUE;
-
-            IF (comp->type->id IN fieldspec.versioned_contenttypes)
-            {
-              RECORD olddata := RecordExists(oldversion) ? comp->type->GetInstanceData(oldversion.id) : comp->type->defaultinstance;
-              RECORD newdata := CellDelete(comp->value, "whfstype");
-              require_draft := require_draft OR RecordExists(comp->type->CompareInstanceDataUpdates(olddata, newdata));
-            }
-          }
-
-          IF (ObjectExists(extendprop.instance) AND extendprop.instance->type->id IN fieldspec.versioned_contenttypes)
-          {
-            RECORD olddata := RecordExists(oldversion) ? extendprop.instance->type->GetInstanceData(oldversion.id) : extendprop.instance->type->defaultinstance;
-            RECORD newdata := CellDelete(extendprop.instance->value, "whfstype");
-            require_draft := require_draft OR RecordExists(extendprop.instance->type->CompareInstanceDataUpdates(olddata, newdata));
-          }
-        }
-
-        IF (RecordExists(indexactions))
-        {
-          IF ("indexdoc" IN fieldspec.versioned_fields)
-          {
-            IF (indexactions.makeindex OR indexactions.resetindex)
-            {
-              require_draft := TRUE;
-              INSERT CELL indexaction := indexactions.makeindex ? "makeindex" : "resetindex" INTO versioned_metadata;
-              indexactions := DEFAULT RECORD;
-            }
-          }
-        }
-      }
-
-      // If we're going to steal indexdoc from another file, check if "indexdoc" is versioned for that file
-      IF (ObjectExists(this->siteversioningpolicy)
-          AND RecordExists(indexactions)
-          AND indexactions.makeindex
-          AND this->parentfolder->indexdoc != 0)
-      {
-        RECORD rec :=
-            SELECT id
-                 , COLUMN name
-                 , isfolder
-                 , published
-                 , parent
-              FROM system.fs_objects
-             WHERE id = this->parentfolder->indexdoc;
-
-        IF (rec.parent = this->parentfolder->id)
-        {
-          // No problem to steal indexness from a file that has been moved from the folder it is index of.
-          RECORD filerec := this->siteversioningpolicy->EnrichWithObjectPolicy([ rec ], [ returnpolicyafteraccept := TRUE ])[0];
-
-          // Inv: indexdoc is not versioned for this file. If it is for the current index, the action is disallowed
-          RECORD protected_fields := GetPolicyProtectedFields(filerec);
-          IF ("indexdoc" IN protected_fields.versioned_fields OR "indexdoc" IN protected_fields.readonly_fields)
-          {
-            // Indexdoc is (or will be) protected for the current index, disallow the action.
-            work->AddError(GetTid("publisher:common.errors.cannotstealindexfromversionedfile", rec.name));
-          }
-        }
-      }
-
-      IF (ObjectExists(this->siteversioningpolicy))
-      {
-        BOOLEAN type_is_versioned := "type" IN this->objectpolicy->GetFields().versioned_fields;
-        INTEGER newtype;
-
-        IF (NOT this->isnew)
-          newtype := this->sourceitem->type;
-        IF (CellExists(metadata, "TYPE"))
-          newtype := metadata.type;
-        IF (type_is_versioned AND ObjectExists(this->draftitem))
-        {
-          newtype := this->draftitem->type;
-          IF (CellExists(versioned_metadata, "TYPE"))
-            newtype := versioned_metadata.type;
-        }
-
-        BOOLEAN is_disallowed := IsDefaultValue(this->siteversioningpolicy->FilterAllowedFSObjectTypes([ newtype ]));
-
-        IF (is_disallowed)
-        {
-          IF (execute_approval_request)
-            work->AddError(GetTid("publisher:common.errors.typecannotbeversioned", ^type->value));
-          ELSE
-            work->AddWarning(GetTid("publisher:common.errors.typecannotbeversioned", ^type->value));
-        }
-      } //this->siteversioningpolicy
-
       IF(work->HasFailed())
       {
         work->Finish();
@@ -2042,20 +1568,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
       // See if we're going to need submit approval. If so, get it before any change is made, don't
       // want to mess with caches
       RECORD approvalrequest_feedback;
-      IF ((this->editingdraft OR require_draft) AND execute_approval_request)
-      {
-        approvalrequest_feedback := this->QueryDialog("submitchangesforapproval", [ stoponfeedback := [ "", "cancel" ]]);
-        IF (NOT RecordExists(approvalrequest_feedback))
-        {
-          work->Cancel();
-          CONTINUE;
-        }
-      }
 
       IF (update_ordering_otherfiles)
         UPDATE system.fs_objects SET ordering := ordering + 1 WHERE ordering >= metadata.ordering AND parent = this->parentfolder->id;
 
-      OBJECT draftitem := this->draftitem;
+      OBJECT draftitem := this->sourceitem;
 
       // Create the new file/folder, apply non-versioned metadata
       INTEGER objid := this->itemid;
@@ -2078,48 +1595,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         //this->sourceitem->UpdateMetadataAndHistory(metadata, TRUE, 0); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
         this->sourceitem->UpdateMetadata(metadata); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
       }
-
-      // Create a draft when necessary
-      BOOLEAN have_draft := this->editingdraft;
-      IF (require_draft AND NOT this->editingdraft)
-      {
-        OBJECT draft := CreateDraft(OpenWHFSObject(objid), objid, TRUE);
-        draftitem := draft->fsobject;
-        have_draft := TRUE;
-      }
-
-      IF (have_draft)
-      {
-        // The 'name' and 'published' fields must be redirected to the draftmetadata contenttype
-        OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
-
-        RECORD draftmetadata := whfs_draftmetadata->GetInstanceData(draftitem->id);
-        draftmetadata := MakeReplacedRecord(draftmetadata, versioned_metadata);
-        IF (CellExists(versioned_metadata, "PUBLISHED"))
-        {
-          IF (IsPublish(versioned_metadata.published))
-            draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_Publish;
-          ELSE
-            draftmetadata.flags := draftmetadata.flags BITAND BITNEG DraftFlag_Publish;
-        }
-
-        IF (CellExists(versioned_metadata, "INDEXACTION"))
-        {
-          draftmetadata.flags := draftmetadata.flags BITAND BITNEG DraftFlag_IndexActionMask;
-          IF (versioned_metadata.indexaction = "makeindex")
-            draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_MakeIndex;
-          ELSE IF (versioned_metadata.indexaction = "resetindex")
-            draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_UnmarkAsIndex;
-        }
-
-        whfs_draftmetadata->SetInstanceData(draftitem->id, draftmetadata, [ ifreadonly := "update" ]);
-
-        DELETE CELL name, published, indexaction FROM versioned_metadata;
-      } //have_draft
-
-      // Update the versioned metadata at the draft
-      IF(RecordExists(versioned_metadata))
-        draftitem->UpdateMetadata(versioned_metadata, [ ifreadonly := "update" ]);
 
       FOREVERY(MACRO PTR onsubmit FROM this->onsubmits)
         onsubmit(work);
@@ -2151,8 +1626,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         this->UpdateTasks(objid);
 
       // Write extension data
-      INTEGER draftid := have_draft AND draftitem->id != objid ? draftitem->id : 0;
-      this->WriteExtensionData(work, objid, draftid, versioned_contenttypes);
+      this->WriteExtensionData(work, objid, 0, INTEGER[]);
       ^maintabs->SubmitExtensions(work);
 
       IF(NOT this->isnew AND this->isfolder AND this->curtype.id = 3) //photoalbums?
@@ -2183,21 +1657,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
           RunEditFileHooks(objid);
       }
 
-      IF (have_draft AND execute_approval_request)
-      {
-        IF (NOT RecordExists(approvalrequest_feedback))
-          ABORT("Should already have feedback here");
-
-        SubmitApprovalRequestFromMetadata(work, OpenWHFSObject(objid), approvalrequest_feedback.data);
-      }
-
       IF (NOT work->Finish())
         RETURN 0;
-
-      IF (execute_approval_request AND NOT have_draft)
-        this->RunSimpleScreen("info", this->GetTid(".messageboxes.noversionedfieldswerechanged"));
-      ELSE IF (have_draft AND NOT execute_approval_request)
-        this->RunSimpleScreen("info", this->GetTid(".messageboxes.submitversionedfiletoapplychanges"));
 
       RETURN objid;
     } //while(TRUE)

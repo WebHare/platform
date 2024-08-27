@@ -132,9 +132,6 @@
 
   <screen name="updatewebserver" minwidth="80x" footerbuttons="ok cancel" gid=".updatewebserver">
     <body width="1pr" height="1pr" spacers="none">
-      <panel name="versioningmessagesbox" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right" visible="false">
-        <text width="1pr" title="" valuetid=".urllockedforversioning" wordwrap="true" />
-      </panel>
       <panel spacers="all">
         <select name="servertype" type="radio" onchange="onservertypechange" rowkeytype="integer">
           <option rowkey="0" tid=".types.webhare_output" />

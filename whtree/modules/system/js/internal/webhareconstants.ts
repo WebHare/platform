@@ -34,12 +34,6 @@ export const whconstant_whfsid_drafts = 15;
 //Folder/site id of the WebHare Backend site
 export const whconstant_whfsid_webharebackend = 16;
 
-//Folder id for webhare-private/system/whfs-versionhistory
-export const whconstant_whfsid_versionhistory = 17;
-
-//Folder id for webhare-private/system/whfs-versionarchive
-export const whconstant_whfsid_versionarchive = 18;
-
 //Folder id for webhare-private/system/
 export const whconstant_whfsid_private_system = 19;
 

@@ -8,14 +8,9 @@
       <windowopenaction name="showexternallink" onwindowopen="doshowexternallink" />
       <windowopenaction name="viewsite" onwindowopen="doviewsite" />
       <action name="previewrefresh" onexecute="dopreviewrefresh" />
-
-      <action name="submitforapproval" onexecute="dosubmitforapproval" tid="publisher:versioning.submitforapproval" />
-      <action name="canceldraft" onexecute="docanceldraft" tid="publisher:versioning.revertdraft" />
-      <action name="cancelrequest" onexecute="docancelrequest" tid="publisher:versioning.withdrawrequest" />
     </actions>
     <compositions>
       <eventlistener name="previewlistener" onevents="onpreviewupdateevents" />
-      <eventlistener name="versioneventslistener" onevents="onpreviewversionevents" />
     </compositions>
     <contents>
       <panel name="urlpanel" backgroundcolor="#f0f0f0" spacers="left" borders="bottom">
@@ -28,14 +23,6 @@
           </buttongroup>
         </line>
       </panel>
-      <statuspanel name="versioninginfo" type="info" visible="false">
-        <line>
-          <text name="versioningmessage" title="" value="" wordwrap="true" width="1pr" />
-          <text name="submitdraft" title="" valuetid="publisher:versioning.submitforapproval" action="submitforapproval" visible="false" />
-          <text name="revertdraft" title="" valuetid="publisher:versioning.revertdraft" action="canceldraft" visible="false" />
-          <text name="withdrawrequest" title="" valuetid="publisher:versioning.withdrawrequest" action="cancelrequest" visible="false" />
-        </line>
-      </statuspanel>
       <statuspanel name="info" type="info" visible="false">
         <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
       </statuspanel>

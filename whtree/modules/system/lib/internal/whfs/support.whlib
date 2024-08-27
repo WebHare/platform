@@ -81,11 +81,6 @@ PUBLIC INTEGER DraftFlag_UnmarkAsIndex :=           4; // Make this file not the
 PUBLIC INTEGER DraftFlag_WasIndex :=                8; // Original was index at the moment of draft creation
 PUBLIC INTEGER DraftFlag_WasPublished :=           16; // Original was published at the moment of draft creation
 
-// Versioningevents types
-PUBLIC INTEGER VersionEventType_Request :=          0; // Request for applying draft changes
-PUBLIC INTEGER VersionEventType_AcceptApply :=      1; // Accepting and applying changes
-PUBLIC INTEGER VersionEventType_FinalDenial :=      2; // Final denial of request
-
 /** Converts publisher status to trigger a republish
     @param published Current published status
     @param firsttime Whether this is the first time the file is published at this place.

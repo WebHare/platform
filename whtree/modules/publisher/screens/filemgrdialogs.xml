@@ -174,21 +174,4 @@
     </footer>
   </screen>
 
-  <screen name="submitchangesforapproval"
-          gid="filemanager.versioning.submitchangesforapproval"
-          allowresize="true"
-          width="60x"
-          > <!--           savestate="size" -->
-    <body>
-      <line layout="left">
-        <text valuetid=".submitchanges" width="1pr" wordwrap="true" />
-      </line>
-      <heading tid=".description" />
-      <textarea name="descriptiontext" title="" width="1pr" height="5gr" required="true" errorlabeltid=".descriptiontext"/>
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
-
 </screens>

@@ -509,20 +509,6 @@ PUBLIC STATIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     {
       RECORD webserverrec := SELECT * FROM system.webservers WHERE id = this->webserverid;
 
-      BOOLEAN have_versioned_sites := RecordExists(
-          SELECT
-            FROM system.sites
-           WHERE outputweb = params.id
-             AND versioningpolicy != "");
-
-      IF (have_versioned_sites)
-      {
-        ^servertype->readonly := TRUE;
-        ^boundto->readonly := TRUE;
-        ^url->readonly := TRUE;
-        ^versioningmessagesbox->visible := TRUE;
-      }
-
       this->origboundto := webserverrec.port;
       ^folder->value := FormatOutputPath(webserverrec.diskfolder);
       ^url->value := webserverrec.baseurl;

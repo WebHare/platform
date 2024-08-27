@@ -30,7 +30,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   /// Callback invoked when the editor should write the edited object's instance data using SetInstanceData
   PUBLIC MACRO PTR onstoredata;
 
-  /// Callback BOOLEAN FUNCTION(BOOLEAN ispublish) invoked to verify whether the save should happen. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!). This can be used to add additional confirmation dialogs, but does not replace any existing dialog
+  /// Callback BOOLEAN FUNCTION(BOOLEAN ispublish) invoked to verify whether the save should happen. ispublish is FALSE if we're saving as draft. This can be used to add additional confirmation dialogs, but does not replace any existing dialog
   PUBLIC MACRO PTR onprechecksave;
 
   /// Callback BOOLEAN FUNCTION() invoked to verify whether to publish. Overwrite this to replace the confirmsaveandpublish dialog
@@ -39,7 +39,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   /// Callback invoked with a feedback object for validation before explicit save
   PUBLIC MACRO PTR onvalidate;
 
-  /// Callback MACRO(OBJECT work, BOOLEAN ispublish) invoked when we've saved the document. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
+  /// Callback MACRO(OBJECT work, BOOLEAN ispublish) invoked when we've saved the document. ispublish is FALSE if we're saving as draft
   PUBLIC MACRO PTR onsave;
 
   /// Callback BOOLEAN FUNCTION(OBJECT fsobject) invoked after changes to check if the published file can be viewed

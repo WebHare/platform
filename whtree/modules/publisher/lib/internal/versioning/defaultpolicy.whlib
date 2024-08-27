@@ -1,6 +1,0 @@
-<?wh
-LOADLIB "mod::publisher/lib/versioning.whlib";
-
-PUBLIC STATIC OBJECTTYPE DefaultVersioningPolicy EXTEND VersioningPolicyBase
-<
->;

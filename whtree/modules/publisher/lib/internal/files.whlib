@@ -81,12 +81,6 @@ PUBLIC MACRO RunEditFolderHooks(RECORD oldfolder, INTEGER newfolderid)
 //generic deleter for fs_objects/tollium use
 PUBLIC MACRO RunAnyDelete(INTEGER ARRAY objids, STRING deletionsource)
 {
-  // see which objects have version data
-  INTEGER ARRAY with_history :=
-      SELECT AS INTEGER ARRAY DISTINCT live_object
-        FROM system.fs_versionevents
-       WHERE live_object IN objids;
-
   //ADDME optimize, or better yet, get enough data to move the repub work to the completions handler
   OBJECT torepub := CreateRepublishState();
   FOREVERY(INTEGER objid FROM objids)
@@ -113,10 +107,7 @@ PUBLIC MACRO RunAnyDelete(INTEGER ARRAY objids, STRING deletionsource)
                                   , whfspath := todelete->whfspath
                                   ]);
 
-    IF (objid IN with_history)
-      todelete->MoveTo(OpenWHFSObject(18), ToString(objid));
-    ELSE
-      todelete->RecycleSelf();
+    todelete->RecycleSelf();
   }
   torepub->DoRepublishes();
 }

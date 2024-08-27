@@ -12,7 +12,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
@@ -1728,11 +1727,6 @@ STATIC OBJECTTYPE ApplyRuleTester
   PUBLIC RECORD FUNCTION __Deprecated_GetObjInfo() __ATTRIBUTES__(DEPRECATED "Don't use, move functionality into this object")
   {
     RETURN this->objinfo;
-  }
-
-  PUBLIC OBJECT FUNCTION GetVersioningPolicy()
-  {
-    RETURN GetVersioningPolicyForSite(RecordExists(this->objinfo.site) ? this->objinfo.site.id : 0);
   }
 >;
 

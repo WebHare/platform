@@ -146,6 +146,12 @@ RemoveObsoleteCacheFolders();
 RemoveObsoleteDrafts();
 CleanupObsoleteFavorites("publisher:app", PTR GetRemovableTargets);
 
+//WH5.6 Deleting old version folders
+trans->BeginWork();
+DELETE FROM system.fs_objects WHERE id = 17 AND name = "whfs-versionhistory" AND parent = whconstant_whfsid_private_system;
+DELETE FROM system.fs_objects WHERE id = 18 AND name = "whfs-versionarchive" AND parent = whconstant_whfsid_private_system;
+trans->CommitWork();
+
 trans->BeginWork();
 ExecuteLifecycleCleanup();
 trans->CommitWork();

@@ -1117,7 +1117,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               apply.setobjecteditor := [ name := node->GetAttribute("name")
                                        , screen := MakeAbsoluteScreenReference(this->filename, node->GetAttribute("screen"))
                                        , separateapp := ParseXSBoolean(node->GetAttribute("separateapp"))
-                                       , supportsversioning := ParseXSBoolean(node->GetAttribute("supportsversioning"))
                                        ];
 
               IF(apply.setobjecteditor.name = "" AND apply.setobjecteditor.screen = "")

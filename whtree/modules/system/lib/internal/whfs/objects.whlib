@@ -530,9 +530,6 @@ OBJECTTYPE WHFSObject
   /// Whether this object needs a template
   PUBLIC PROPERTY needstemplate(GetNeedsTemplate, -);
 
-  /// Is versioning active on this object?
-  //PUBLIC PROPERTY isversioned(GetIsVersioned, -);
-
   /// Whether files of this type can function as index
   PUBLIC PROPERTY isacceptableindex(GetIsAcceptableIndex, -);
 
@@ -565,16 +562,6 @@ OBJECTTYPE WHFSObject
   {
     RETURN this->isfolder OR LookupNeedsTemplate(this->type,this->filelink);
   }
-
-
-/*
-  BOOLEAN FUNCTION GetIsVersioned()
-  {
-    IF(this->parentsite=0)
-      RETURN FALSE;
-    RETURN SELECT AS BOOLEAN isversioned FROM system.sites WHERE id = this->parentsite;
-  }
-*/
 
   STRING FUNCTION GetTypeNS()
   {

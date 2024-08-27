@@ -11,13 +11,11 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/versioning.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/filemgrdialogs.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/reports/seoreport.whlib";
 
@@ -758,11 +756,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->UpdateFileListMode();
     this->UpdateActions();
 
-    IF (RecordExists(selfolder) AND selfolder.parentsite != 0)
-      ^versioninglistener->masks := [ "system:versionevent." || selfolder.parentsite || ".*" ];
-    ELSE
-      ^versioninglistener->masks := DEFAULT STRING ARRAY;
-
     INTEGER selvalue := RecordExists(selfolder) ? selfolder.id : -2;
     ^filelist->contentmode := RecordExists(selfolder) ? selfolder.contentmode : "";
     this->frame->flags.outsiderecyclebin := ^filelist->contentmode != "recyclebin";
@@ -837,20 +830,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         ];
   }
 
-  BOOLEAN FUNCTION IsVersionedObject(RECORD item)
-  {
-    IF (item.parentsite = 0)
-      RETURN FALSE;
-
-    STRING policyid := ToString(item.parentsite);
-    IF (NOT CellExists(this->sitepolicies, policyid))
-      this->sitepolicies := CellInsert(this->sitepolicies, policyid, GetVersioningPolicyForSite(item.parentsite));
-    OBJECT policy := GetCell(this->sitepolicies, policyid);
-    IF (NOT ObjectExists(policy))
-      RETURN FALSE;
-    RETURN item.id IN policy->GetVersionedObjects([ INTEGER(item.id) ]);
-  }
-
   RECORD ARRAY FUNCTION FilterListItems(RECORD ARRAY items, OBJECT list DEFAULTSTO DEFAULT OBJECT)
   {
     items := SELECT *
@@ -881,7 +860,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                   , ispublished :=          publishedsite AND GetOncePublishedFromPublished(published)
                   , ispublish :=            publishedsite AND IsPublish(published)
                   , isindexdoc :=           id = sel_indexdoc
-                  , isversioned :=          this->IsVersionedObject(items) OR isversionarchive
                   //TODO should have been named: can*re*publish. it has nothing to do with being enable to change or start publication
                   , canpublish :=           isactive AND publishedsite AND (isfolder OR IsPublish(published))
                   , canpublishrecursive :=  isactive AND isfolder AND (parentsite != 0 ? publishedsite : issysop)
@@ -1003,25 +981,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->lastpreviewed := newid;
     IF(newid != 0 AND this->tolliumuser->HasRightOn("system:fs_browse", newid))
       this->SelectObject(newid);
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Misc. callbacks
-  //
-
-  MACRO OnVersioningEvent(RECORD ARRAY events)
-  {
-    INTEGER ARRAY versionedids :=
-        SELECT AS INTEGER ARRAY data.live_file
-          FROM events
-         WHERE event LIKE "system:versionevent.*";
-
-    // If the versioning state of any of the currently listed files or folders is changed, reload the file list
-    IF (RecordExists(SELECT * FROM ^filelist->rows WHERE id IN versionedids))
-    {
-      ^filelist->ReloadOverview();
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1225,12 +1184,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     IF (Length(selection) = 0)
       RETURN FALSE;
 
-    // Initial check that we're not mixing versioned and non-versioned files
-    OBJECT feedback := this->BeginUnvalidatedFeedback();
-    RECORD rec := TestSelectionForVersioningUpdates(feedback, selection, [ "parent" ]);
-    IF (NOT feedback->Finish())
-      RETURN FALSE;
-
     RECORD opts := [ acceptforeignfolders := FALSE
                    , acceptfiles := FALSE
                    , showreadonly := TRUE
@@ -1240,26 +1193,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                    , description := ""
                    , recyclebinid := type="move" ? -2 : 0 //only show recyclebin when moving
                    ];
-
-    IF (type ="move" AND ObjectExists(rec.policy))
-    {
-      // Only show visible destinations within the current policy site(s)
-      INTEGER ARRAY roots;
-      INTEGER ARRAY user_roots :=
-          SELECT AS INTEGER ARRAY id
-            FROM this->tolliumuser->GetObjectsChildren("system:fs_objects", 0, FALSE);
-
-      FOREVERY (INTEGER siteid FROM rec.siteids)
-        IF (this->tolliumuser->HasRightOn("system:fs_browse", siteid))
-          INSERT siteid INTO roots AT END;
-        ELSE
-        {
-          INTEGER ARRAY allchildren := OpenWHFSObject(siteid)->GetDescendantObjectIds();
-          roots := roots CONCAT ArrayIntersection(allchildren, user_roots);
-        }
-
-      INSERT CELL roots := roots INTO opts;
-    }
 
     SWITCH(type)
     {
@@ -1317,12 +1250,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO EditObjectTypes(RECORD ARRAY selection)
   {
-    // Check if everything is allowed with versioning and such
-    OBJECT work := this->BeginUnvalidatedWork();
-    RECORD res := TestSelectionForVersioningUpdates(work, selection, [ "type" ]);
-    IF (NOT work->Finish())
-      RETURN;
-
     OBJECT typesdialog := this->LoadScreen("filemgrdialogs.selecttype",
           [ fsobjects := (SELECT AS INTEGER ARRAY id FROM selection)
           ]);
@@ -1330,7 +1257,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     IF (typesdialog->RunModal() = "ok")
     {
       // Republish changed files/folders
-      work := this->BeginUnvalidatedWork();
+      OBJECT work := this->BeginUnvalidatedWork();
       FOREVERY (RECORD obj FROM selection)
       {
         IF (obj.isfolder)
@@ -1382,11 +1309,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   /// Converts a site to a normal folder
   MACRO HandleConvertToFolder(RECORD obj)
   {
-    IF(this->IsVersionedObject(obj))
-    {
-      this->RunMessageBox(".cannotrevertversioned", obj.name);
-      RETURN;
-    }
     IF(Length(GetContainedSites([ INTEGER(obj.id) ])) > 1)
     {
       this->RunMessageBox("commondialogs/siteprops.containssite");
@@ -1860,11 +1782,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->RestoreObjects(^filelist->selection);
   }
 
-  MACRO DoVersionedRestoreList()
-  {
-    RunVersionedFileRestore(this, ^filelist->selection.id);
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Helper function - filelist ordering action helpers
@@ -1969,16 +1886,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       RETURN;
 
     OBJECT work := this->BeginUnvalidatedWork();
-
-    RECORD res := TestSelectionForVersioningUpdates(work, elements, [ "ordering" ]);
-    IF (NOT RecordExists(res))
-    {
-      work->Finish();
-      RETURN;
-    }
-
-    IF (res.mode != "normal")
-      THROW NEW Exception("Changing ordering via the versioning policy is not implemented");
 
     OBJECT whfs_commithandler := GetWHFSCommitHandler();
     UPDATE system.fs_objects
@@ -2215,13 +2122,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoExportSEOReport()
   {
     RunSEOReport(this, ^foldertree->value);
-  }
-
-  MACRO DoObjectHistory()
-  {
-    OBJECT liveobject := OpenWHFSObject(this->GetCurrentlySelectedFSobject());
-    OBJECT screen := this->LoadScreen("mod::publisher/tolliumapps/versioning/versioning.xml#history", [ liveobject := liveobject ]);
-    screen->RunModal();
   }
 
   MACRO DoManageFoldersync()

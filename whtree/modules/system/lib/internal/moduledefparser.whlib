@@ -1392,20 +1392,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           FOREVERY(STRING error FROM app.errors)
             this->AddError(subchild, error);
         }
-        CASE "versioningpolicy"
-        {
-          STRING objectname;
-          IF(subchild->HasAttribute("library"))
-            objectname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname");
-          ELSE
-            objectname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname"));
-
-          RECORD policy := [ name := subchild->GetAttribute("name")
-                           , objectname := objectname
-                           ];
-
-          INSERT policy INTO this->moduledef.versioningpolicies AT END;
-        }
         CASE "indexfield"
         {
           RECORD indexfield := this->ParseIndexField(subchild, TRUE);

@@ -1119,77 +1119,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
       </d:varchar>
     </d:table>
 
-    <d:table name="fs_versionevents" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>Unique id, primary key</d:documentation>
-      </d:integer>
-      <d:integer name="fs_site" references=".sites">
-        <d:documentation>Site this history item belongs to</d:documentation>
-      </d:integer>
-      <d:datetime name="when" nullable="0">
-        <d:documentation>When this action took place</d:documentation>
-      </d:datetime>
-      <d:integer name="live_object" references=".fs_objects">
-        <d:documentation>The published object of this item (the canonical item)</d:documentation>
-      </d:integer>
-      <d:integer name="draft_object" references=".fs_objects">
-        <d:documentation>The draft this version item refers to</d:documentation>
-      </d:integer>
-      <d:integer name="user" ondelete="set default" references=".authobjects">
-        <d:documentation>User responsible for this action</d:documentation>
-      </d:integer>
-      <d:varchar name="comment" maxlength="4096">
-        <d:documentation>Comment about this action</d:documentation>
-      </d:varchar>
-      <d:varchar name="tag" maxlength="4096">
-        <d:documentation>Optional tag for this action</d:documentation>
-      </d:varchar>
-      <d:integer name="eventtype">
-        <d:documentation>History event type.
-          0=request approval (accorderingsverzoek)
-          1=approve+apply (accorderen en toepassen)
-          2=final deny (verzoek is afgewezen)</d:documentation>
-      </d:integer>
-      <d:boolean name="iscurrent">
-        <d:documentation>TRUE for the last event, last apply event, and open requests</d:documentation>
-      </d:boolean>
-      <d:integer name="ordering">
-        <d:documentation>Monotonically increasing ordering for events for this live_object</d:documentation>
-      </d:integer>
-      <d:varchar name="orgfullpath" maxlength="4096">
-        <d:documentation>Fullpath of the linked original before the modification</d:documentation>
-      </d:varchar>
-      <d:varchar name="orgurl" maxlength="4096">
-        <d:documentation>URL of the linked original before the modification</d:documentation>
-      </d:varchar>
-      <d:varchar name="newfullpath" maxlength="4096">
-        <d:documentation>Fullpath after the modification, at the time of versionevent creation (if this is an apply, the realized value)</d:documentation>
-      </d:varchar>
-      <d:varchar name="newurl" maxlength="4096">
-        <d:documentation>URL after the modification, at the time of versionevent creation (if this is an apply, the realized value)</d:documentation>
-      </d:varchar>
-      <d:boolean name="isdelete">
-        <d:documentation>TRUE if this event is an deletion.</d:documentation>
-      </d:boolean>
-      <d:integer name="newflags">
-        <d:documentation>Flags describing new publication.index status for the live version when the request is applied</d:documentation>
-      </d:integer>
-      <d:datetime name="finished">
-        <d:documentation>When the request for approval has been finished (cancelled or applied)</d:documentation>
-      </d:datetime>
-      <d:integer name="previousrequest" references=".fs_versionevents">
-        <d:documentation>Refers to the relevant request for approval</d:documentation>
-      </d:integer>
-      <d:varchar name="versionnumber" maxlength="4096">
-        <d:documentation>Version id for this version</d:documentation>
-      </d:varchar>
-      <d:datetime name="expirydate">
-        <d:documentation>Expiry date</d:documentation>
-      </d:datetime>
-
-      <!-- index to quickly find the 'current' events -->
-      <d:index name="currentindex" columns="live_object iscurrent" />
-    </d:table>
+    <d:obsoletetable name="fs_versionevents" />
 
     <d:table name="sites" legacy_writeaccessmgr="WEBHARE" primarykey="id">
       <d:integer name="id" noupdate="1" nullable="0" ondelete="cascade" references=".fs_objects" unique="1" />
@@ -1218,9 +1148,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
         <d:documentation>The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published</d:documentation>
       </d:varchar>
       <d:obsoletecolumn name="historydays" />
-      <d:varchar name="versioningpolicy" maxlength="128">
-        <d:documentation>Whether the site is under version control</d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="versioningpolicy" />
       <d:index name="nameindex" columns="name(32)" unique="1" uppercase="1" />
     </d:table>
 
