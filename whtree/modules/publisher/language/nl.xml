@@ -28,12 +28,10 @@
     </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="cannotchangetypeoffolderwithnondefaultindex">Het type van deze map kan niet worden gewijzigd: er bestaat al een indexdocument met de naam '<param p="1"/>'. Wijzig deze naam en probeer het opnieuw.</text>
-      <text tid="cannotstealindexfromversionedfile">Omdat de huidige index van deze folder gepubliceerd is, kan dit bestand (dat nu niet gepubliceerd is) niet de index worden. Als u dit bestand eerst publiceert kan het daarna index worden.</text>
       <text tid="fileorfolderexists">Er bestaat al een bestand of map met de naam '<param p="1"/>' in de map '<param p="2"/>'.</text>
       <text tid="hiddenfolderexists">Een bestaat al een verborgen map met de naam '<param p="1"/>' in de map '<param p="2"/>'</text>
       <text tid="illegalfilename">'<param p="1"/>' is geen geldige naam voor een map of bestand. Een naam mag niet langer zijn dan 256 tekens, mag niet eindigen op een punt en de volgende tekens kunnen niet worden gebruikt:<br/>/ \ : * ? " &lt; &gt; |</text>
       <text tid="sitealreadyexists">Er bestaat al een site met de naam '<param p="1"/>'.</text>
-      <text tid="typecannotbeversioned">Files van type '<param p="1"/>' kunnen niet worden ingediend voor goedkeuring.</text>
     </textgroup>
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
       <text tid="deleted"><param p="1"/> (verwijderd)</text>
@@ -63,7 +61,6 @@
       <text tid="deleteconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Weet u zeker dat u de map '<param p="3"/>' permanent wilt verwijderen?<else/>Weet u zeker dat u het bestand '<param p="2"/>' permanent wilt verwijderen?</ifparam><else/>Weet u zeker dat u de <param p="1"/>  geselecteerde onderdelen permanent wilt verwijderen?</ifparam></text>
       <text tid="deletefsobjects">Weet u zeker dat u <ifparam p="1" value="1">het geselecteerde item<else/>de <param p="1"/> geselecteerde items</ifparam> wilt verwijderen?</text>
       <text tid="deletesitesconfirm">Uw selectie bevat de volgende sites, die verwijderd zullen worden:<br/><param p="1"/><br/><br/>Weet u zeker dat u de selectie wilt verwijderen?</text>
-      <text tid="editordoesnotsupportversionedsites">De applicatie om dit bestand te bewerken ondersteunt geen versiebeheer. Neem a.u.b. contact op met uw systeembeheerder.</text>
       <text tid="failrecycleforotheroutputsites">De huidige selectie kan niet naar de prullenbak verplaatst worden, omdat het de uitvoer van andere sites in een of meerdere externe mappen bevat.</text>
       <text tid="failrecyclefortheseoutputsites">De huidige selectie kan niet naar de prullenbak verplaatst worden, omdat het de uitvoer van de volgende sites in een of meerdere externe mappen bevat:<br/><param p="1"/></text>
       <text tid="fsobjectalreadyinlist"><ifparam p="1" value="1">Dit betand komt al een keer voor in de lijst. Weet u zeker dat u het nog een keer wilt toevoegen?<else/>Meerdere van de gekozen bestanden komen al voor in de lijst. Weet u zeker dat u deze nog een keer wilt toevoegen?</ifparam></text>
@@ -216,22 +213,6 @@
     <textgroup gid="managedtagedit">   <!-- components.managedtagedit -->
       <text tid="tagedit">Tags</text>
     </textgroup>
-    <textgroup gid="previewbrowser">   <!-- components.previewbrowser -->
-      <text tid="cachedversion">Omdat er fouten zijn opgetreden tijdens de publicatie, wordt de laatst correct gepubliceerde versie van het bestand weergegeven.</text>
-      <text tid="clickallresults">Klik hier om alle <param p="1"/> resultaten weer te geven.</text>
-      <text tid="clickviewable">Klik hier om toch een voorbeeld van dit bestand weer te geven.</text>
-      <text tid="foreignfolder">De geselecteerde map is een externe map.</text>
-      <text tid="internallink-errors">Er zijn fouten opgetreden tijdens de publicatie van het gekoppelde bestand.</text>
-      <text tid="internallink-warnings">Er zijn waarschuwingen opgetreden tijdens de publicatie van het gekoppelde bestand.</text>
-      <text tid="previewzoomin">Inzoomen</text>
-      <text tid="previewzoomout">Uitzoomen</text>
-      <text tid="previewzoomreset">Zoomniveau herstellen</text>
-      <text tid="qrlink">QR-code voor voorbeeld tonen</text>
-      <text tid="toomanyresults">Alleen de <param p="1"/> meest recent verwijderde objecten worden weergegeven.</text>
-      <text tid="zoominhint">Inzoomen</text>
-      <text tid="zoomouthint">Uitzoomen</text>
-      <text tid="zoomresethint">Zoomniveau herstellen</text>
-    </textgroup>
     <textgroup gid="sharedblocks">   <!-- components.sharedblocks -->
       <text tid="blockstab">Blokken</text>
       <text tid="deleted">Verwijderde widget<ifparam p="1" value=""><else/> (<param p="1"/>)</ifparam></text>
@@ -248,20 +229,6 @@
     <textgroup gid="whfsrefcolumn">   <!-- components.whfsrefcolumn -->
       <text tid="deleted">verwijderd</text>
     </textgroup>
-  </textgroup>
-  <textgroup gid="contentproviders">   <!-- contentproviders -->
-    <textgroup gid="webhare">   <!-- contentproviders.webhare -->
-      <text tid="folder">Te indexeren map</text>
-      <text tid="lastcontentscheck">Laatste automatische update dynamische pagina's</text>
-      <text tid="never">Nooit</text>
-      <text tid="providertitle">WebHare-map</text>
-      <textgroup gid="messages">   <!-- contentproviders.webhare.messages -->
-        <text tid="invalidfolder">De gekozen map kan niet worden geïndexeerd</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="dialogs">   <!-- dialogs -->
-    <text tid="warnreplace">De 'Vervang inhoud' optie overschrijft bestaande bestanden en mappen, en verwijdert bestanden en mappen die zich al in de te vervangen map bevinden, maar niet in het nieuwe archiefbestand staan.<br/><br/>Weet u zeker dat u de inhoud van de bestaande mappen wilt vervangen?</text>
   </textgroup>
   <textgroup gid="embeddededitor">   <!-- embeddededitor -->
     <text tid="editingfile">Inhoud van bestand '<param p="1"/>'</text>
@@ -519,7 +486,6 @@
           <text tid="upload">Uploaden</text>
           <text tid="urlhistory">URL-geschiedenis</text>
           <text tid="utilitiesmenu">Hulpmiddelen</text>
-          <text tid="versioningmenu">Blit</text>
           <text tid="viewbrowser">Bekijken in browser</text>
         </textgroup>
         <textgroup gid="messageboxes">   <!-- filemanager.main.app.messageboxes -->
@@ -595,7 +561,6 @@
         <text tid="cannotmovesiteinsite">Kan '<param p="1"/>' niet naar '<param p="2"/>' verplaatsen omdat er dan een site binnen een site zou zijn.</text>
         <text tid="cannotmovesomepinned">(Een deel van) de selectie mag niet verplaatst worden.</text>
         <text tid="cannotmovetosubfolder">De bestemmingsmap '<param p="2"/>' is een submap van de bronmap '<param p="1"/>'.</text>
-        <text tid="cannotrevertversioned">De versiebeheer-website '<param p="1"/>' kan niet worden teruggezet naar een map.</text>
         <text tid="confirmconverttofolder">Weet u zeker dat u de website '<param p="1"/>' wil terugzetten naar een map?</text>
         <text tid="confirmconverttosite">Weet u zeker dat u de map '<param p="1"/>' wil omzetten naar een site?</text>
         <text tid="confirmmove">Weet u zeker dat u '<param p="1"/>' naar de map '<param p="2"/>' wilt verplaatsen?</text>
@@ -610,11 +575,7 @@
         <text tid="idnotfound">Het object met ID '<param p="1"/>' kon niet worden gevonden, of u heeft geen rechten om het object te bekijken.</text>
         <text tid="nocreaterights">U heeft niet voldoende rechten om bestanden of mappen aan te maken in de bestemmingsmap '<param p="1"/>'.</text>
         <text tid="nodeleterights">U heeft niet voldoende rechten om het bestand of de map '<param p="1"/>' te verplaatsen, omdat u het bestand of de map niet kunt verwijderen.<br/>U kunt het bestand of de map wel kopiëren naar de bestemmingsmap.</text>
-        <text tid="noindexhtmlinversionedfolderwithindex">Bestand '<param p="1"/>' kan niet aan '<param p="2"/>' worden toegevoegd, omdat het de huidige index zou overschrijven.</text>
-        <text tid="nomoveoutversionedsite">Bestand '<param p="1"/>' kan niet uit zijn website worden verplaatst, omdat het versiegeschiedenis heeft.</text>
         <text tid="nositecontext">Het opgegeven adres verwijst niet naar een map of bestand gekoppeld aan een website.</text>
-        <text tid="notallowedtypeinversionedsite">Bestand '<param p="1"/>' kan niet worden toegevoegd aan '<param p="2"/>', omdat zijn type niet toegestaan is in een website met versiebeheer.</text>
-        <text tid="noversionedoverwrite">Bestand '<param p="1"/>' mag niet worden overschreven, omdat het versiegeschiedenis heeft.</text>
         <text tid="objectexists">Er bestaat al een bestand of map met de naam '<param p="1"/>' in de bestemmingsmap '<param p="2"/>'.</text>
         <text tid="remainingpublishtime">Publicatie duurt nog ongeveer <param p="1"/>.</text>
         <text tid="resetordering">Weet u zeker dat u de volgorde van deze map wilt herstellen?</text>
@@ -624,12 +585,10 @@
         <text tid="siteprofileerrors">De volgende fouten zijn opgetreden bij het uitvoeren van de site profielen:<br/><br/><param p="1"/></text>
         <text tid="surerepublishfolderoutsidesite">De volgende websites zullen worden geherpubliceerd:<br/><br/><param p="1"/><br/><br/><ifparam p="2" value="0"><else/>en nog <param p="2"/> andere websites.<br/></ifparam><br/>Weet u zeker dat u wilt doorgaan?</text>
         <text tid="tellnewgoto">De gebruikte sneltoets is niet meer in gebruik.<br/><br/>Gebruik CTRL+SHIFT+G om de "Ga naar site of URL" optie te openen.</text>
-        <text tid="toomanyobjectsatatimeinversionedsite">U kunt slechts één object tegelijk verplaatsen naar een website met versiebeheer.</text>
         <text tid="trashisempty">Er bevinden zich geen bestanden of mappen in de prullenbak.</text>
         <text tid="unknownerror">Een onbekende fout is ongetreden met bestand '<param p="1"/>'</text>
         <text tid="urlnotfound">De gevraagde URL '<param p="1"/>' kon niet worden gevonden, of u heeft geen rechten om het bijbehorende object te bekijken.</text>
         <text tid="usernotfound">Er is geen gebruiker met de gebruikersnaam '<param p="1"/>'.</text>
-        <text tid="versionedmovedisallowed">Bestand of folder '<param p="1"/>' mag niet worden verplaatst volgens het versiebeheerbeleid.</text>
       </textgroup>
       <textgroup gid="showmodifications">   <!-- filemanager.main.showmodifications -->
         <text tid="dtfrom">Vanaf</text>
@@ -670,7 +629,6 @@
         <text tid="date-exact">is</text>
         <text tid="date-future">in de komende</text>
         <text tid="date-past">in de afgelopen</text>
-        <text tid="file-hasdraft">Conceptversie opgeslagen voor bestand</text>
         <text tid="form-contains">bevat component</text>
         <text tid="formfields">Formulier</text>
         <text tid="hasdraft">Conceptversie</text>
@@ -706,24 +664,11 @@
         <text tid="whfstype">Type</text>
         <text tid="widgettype">Bevat widget</text>
       </textgroup>
-      <textgroup gid="searchpublisher">   <!-- filemanager.search.searchpublisher -->
-        <text tid="query">Zoeken naar bestanden en mappen...</text>
-        <text tid="searchpublisher">Publisher doorzoeken</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="types">   <!-- filemanager.types -->
       <text tid="notypes">Er zijn geen geldige types beschikbaar</text>
       <text tid="selecttype">Type selecteren</text>
       <text tid="title">Type</text>
-    </textgroup>
-    <textgroup gid="versioning">   <!-- filemanager.versioning -->
-      <textgroup gid="submitchangesforapproval">   <!-- filemanager.versioning.submitchangesforapproval -->
-        <text tid="description">Beschrijving van de wijzigingen</text>
-        <text tid="descriptiontext">Beschrijving van de wijzigingen</text>
-        <text tid="submitchanges">Totdat uw verzoek is goedgekeurd of geweigerd kunt u geen andere verzoeken indienen.</text>
-        <text tid="submitchangesforapproval">Indienen voor goedkeuring</text>
-        <text tid="submitchangesyesno">Wilt u deze wijziging indienen voor goedkeuring? Zo ja, voer a.u.b. een beschrijving van de wijzigingen in.</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="worklists">   <!-- filemanager.worklists -->
       <text tid="email">E-mailadres</text>
@@ -775,18 +720,6 @@
       <text tid="sitelocked">De website is vergrendeld</text>
       <text tid="sitenotfound">De website is niet gevonden</text>
       <text tid="urlnotfound">De URL is niet gevonden</text>
-    </textgroup>
-    <textgroup gid="messageboxes">   <!-- filemgrdialogs.messageboxes -->
-      <text tid="deleteindexconfirm">De map '<param p="1"/>' bevat een indexbestand, maar het nieuwe maptype vereist een ander indexbestand.<br/>Wilt u het huidige indexbestand '<param p="2"/>' verwijderen?</text>
-      <text tid="historygoto">De URL die u invoerde is onderdeel van de URL-geschiedenis; u wordt doorgestuurd naar de nieuwe locatie.</text>
-      <text tid="resetordering">Weet u zeker dat u de volgorde van deze map wilt herstellen?</text>
-      <text tid="restoredtoliveversion">De content van de geselecteerde versie zijn over het huidige bestand heen geschreven, omdat het bestand nu niet gepubliceerd is.</text>
-    </textgroup>
-    <textgroup gid="ordering">   <!-- filemgrdialogs.ordering -->
-      <text tid="reset">Herstellen</text>
-      <text tid="setfileordering">Stel volgorde van bestanden in voor map '<param p="1"/>'</text>
-      <text tid="setfolderordering">Stel volgorde van mappen in voor map '<param p="1"/>'</text>
-      <text tid="setordering">Stel volgorde in voor map '<param p="1"/>'</text>
     </textgroup>
     <textgroup gid="repubmask">   <!-- filemgrdialogs.repubmask -->
       <text tid="iffailed">Herpubliceer alleen bestanden met publicatiefouten</text>
@@ -1698,8 +1631,6 @@
       <textgroup gid="editdocumentapp">   <!-- tolliumapps.editdocument.editdocumentapp -->
         <text tid="canceldraft">terugzetten naar de gepubliceerde versie</text>
         <text tid="canceldraftmenu">Concept annuleren</text>
-        <text tid="cancelrequest">ingediend verzoek tot publicatie intrekken</text>
-        <text tid="cancelrequestmenu">Verzoek annuleren</text>
         <text tid="cannotpublishpinnedfile">Kan het bestand niet publiceren - het is momenteel ongepubliceerd en beschermd. De bescherming moet eerst verwijderd worden</text>
         <text tid="developersmenu">Ontwikkelaars</text>
         <text tid="documenthasunpublishedchanges">Concept: dit document heeft wijzigingen die nog niet zijn gepubliceerd.</text>
@@ -1718,10 +1649,6 @@
         <text tid="previewmenu">Voorbeeld bekijken</text>
         <text tid="publish">Publiceren</text>
         <text tid="publish-hint">Opslaan en publiceren</text>
-        <text tid="request-for-approval">Het concept is ingediend voor goedkeuring. Totdat deze afgehandeld is kunt u geen aanpassingen doen.</text>
-        <text tid="request-for-approval-editlive">Dit bestand is ingediend voor verplaatsing of naamswijziging. Totdat dit afgehandeld is kunt u dit bestand niet publiceren, alleen opslaan.</text>
-        <text tid="request-for-approval-editlive-readonly">Dit bestand is ingediend voor verplaatsing of naamswijziging.</text>
-        <text tid="request-for-approval-readonly">Dit concept is ingediend voor goedkeuring.</text>
         <text tid="save">Opslaan</text>
         <text tid="save-hint">Concept opslaan</text>
         <text tid="saveasdraft">Opslaan</text>
@@ -1730,14 +1657,10 @@
         <text tid="viewpublished">Gepubliceerde versie</text>
       </textgroup>
       <textgroup gid="messageboxes">   <!-- tolliumapps.editdocument.messageboxes -->
-        <text tid="closeeditorafterversionedpublish">Uw wijzigingen zijn ingediend. Voor de beoordeling dient deze applicatie te worden afgesloten.<br/>Wilt u de applicatie nu afsluiten?</text>
         <text tid="confirmcanceldraft">Weet u zeker dat u de conceptversie wilt annuleren en de laatst gepubliceerde versie wilt terugzetten?</text>
-        <text tid="confirmcancelrequest">Weet u zeker dat u het publicatieverzoek voor de conceptversie wilt intrekken?</text>
         <text tid="confirmsaveandpublish">Weet u zeker dat u wilt opslaan en publiceren?</text>
         <text tid="draftcancelled">De conceptversie is geannuleerd - het document is teruggezet naar de laatste gepubliceerde versie.</text>
         <text tid="otherhasdraft"><ifparam p="1" value="">Een andere gebruiker<else/>Gebruiker <param p="1"/></ifparam> heeft op <param p="2"/> een conceptversie van dit document opgeslagen.<br/><br/> Als u doorgaat, neemt u deze versie inclusief wijzigingen over en gaat u verder met het bewerken van de conceptversie.</text>
-        <text tid="publishversionedfiletoapplychanges">De wijzigingen zijn nog niet online zichtbaar: kies "Publiceren" om het document in te dienen.</text>
-        <text tid="requestcancelled">Het publicatieverzoek is geannuleerd - het document is teruggezet naar de conceptversie.</text>
         <text tid="resumeautosave">U heeft automatisch opgeslagen wijzigingen voor dit bestand. Wilt u met deze wijzigingen verder gaan?</text>
         <text tid="savebeforeclose">Wilt u de wijzigingen die u gemaakt heeft aan '<param p="1"/>' opslaan voordat u afsluit?</text>
       </textgroup>
@@ -1842,13 +1765,6 @@
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accepteer feedback in de WebHare backend</text>
         <text tid="settings">Feedbackinstellingen</text>
-      </textgroup>
-      <textgroup gid="submitfeedback">   <!-- tolliumapps.feedback.submitfeedback -->
-        <text tid="apptitle">Feedback</text>
-        <text tid="intro">Geeft u alstublieft wat extra informatie.</text>
-        <text tid="remarks">Opmerkingen</text>
-        <text tid="thankyou">Bedankt voor uw feedback!<ifparam p="1" value=""><else/><br/>Deze is geregistreerd met id '<param p="1"/>'.</ifparam></text>
-        <text tid="type">Type feedback</text>
       </textgroup>
       <textgroup gid="types">   <!-- tolliumapps.feedback.types -->
         <text tid="assigned">Toegewezen</text>
@@ -2426,87 +2342,6 @@
       <text tid="tagedit">Wijzig tag</text>
       <text tid="tagmanager">Tag beheer</text>
     </textgroup>
-    <textgroup gid="versioning">   <!-- tolliumapps.versioning -->
-      <text tid="accept">Goedkeuren</text>
-      <text tid="acceptchange">Goedkeuren</text>
-      <text tid="array">Gestructureerde diff</text>
-      <text tid="cancelrequest">Verzoek annuleren</text>
-      <text tid="changecontent">Ingediende wijziging</text>
-      <text tid="changetype">Type</text>
-      <text tid="code">Textuele diff</text>
-      <text tid="comment">Beschrijving</text>
-      <text tid="copycreated">De kopie is aangemaakt</text>
-      <text tid="createhistorycopy">Een specifieke versie kopieëren</text>
-      <text tid="createhistorycopydescr">Kies a.u.b. de folder waar de kopie neergezet moet worden.</text>
-      <text tid="deleted">Verwijderd</text>
-      <text tid="deny">Weigeren</text>
-      <text tid="denychange">Weigeren</text>
-      <text tid="description">Beschrijving</text>
-      <text tid="expiresnever">Nooit</text>
-      <text tid="export">Exporteren</text>
-      <text tid="exportevents">Versiebeheer geschiedenis exporteren</text>
-      <text tid="filelistmultihint">Meerdere-rijen-indeling</text>
-      <text tid="filelistsinglehint">Enkele-rij-indeling</text>
-      <text tid="filename">Bestandsnaam</text>
-      <text tid="filter">Filter</text>
-      <text tid="filterfrom">Laatste wijziging tussen</text>
-      <text tid="filterto">en</text>
-      <text tid="fromdate">Vanaf</text>
-      <text tid="fullname">Naam</text>
-      <text tid="genericinfobox"><param p="1"/></text>
-      <text tid="history">Geschiedenis</text>
-      <text tid="inspectfsobject">Inspecteer Bronobject</text>
-      <text tid="main">Content Review voor Site '<param p="1"/>'</text>
-      <text tid="name">Gebruiker</text>
-      <text tid="objectcopied">Kopie aangemaakt</text>
-      <text tid="objectcopiedto">De kopie is aangemaakt met bestandsnaam '<param p="1"/>'.</text>
-      <text tid="openinapp">Toon het bestand</text>
-      <text tid="openinpublisher">In Publisher openen</text>
-      <text tid="previewtab">Voorvertoning</text>
-      <text tid="previousexpirydate">Vorige verloopdatum</text>
-      <text tid="prop-indexdoc-false">Is niet index</text>
-      <text tid="prop-indexdoc-true">Is index</text>
-      <text tid="prop-ispinned-false">Bescherming uitschakelen</text>
-      <text tid="prop-ispinned-true">Bescherming inschakelen</text>
-      <text tid="prop-published-false">Niet publiceren</text>
-      <text tid="prop-published-true">Publiceren</text>
-      <text tid="refreshhint">Verversen</text>
-      <text tid="requested">Beschrijving</text>
-      <text tid="requestedchanges">Ingediende aanpassingen:</text>
-      <text tid="requestexpirydate">Nieuwe verloopdatum</text>
-      <text tid="requesttab">Wijzigingen</text>
-      <text tid="requestversionnumber">Versienummer</text>
-      <text tid="reset">Terugzetten</text>
-      <text tid="restore">Terugzetten</text>
-      <text tid="show">Toon</text>
-      <text tid="showdiffarray">Toon diff array</text>
-      <text tid="showpolicy">Toon beleid</text>
-      <text tid="showpolicyinfo">Toon beleidsinfo</text>
-      <text tid="showversionedfields">Toon velden in beleid</text>
-      <text tid="surecancelrequest">Weet u zeker dat u dit verzoek wil annuleren? Dit kan niet ongedaan worden gemaakt.</text>
-      <text tid="todate">Tot en met</text>
-      <text tid="type-data">Bestandsinhoud</text>
-      <text tid="type-deletion">Verwijderen</text>
-      <text tid="type-location">Locatie</text>
-      <text tid="type-name">Naam</text>
-      <text tid="type-properties">Eigenschappen</text>
-      <text tid="type-publication">Publicatie</text>
-      <text tid="undelete">Verwijderen ongedaan maken</text>
-      <text tid="undeletedescription">Kies a.u.b. de folder waar het bestand teruggezet moet worden.</text>
-      <text tid="undeletesubmitted">Een verzoek ter goedkeuring van het ongedaan maken van de verwijdering is ingediend.</text>
-      <text tid="user">Gebruiker</text>
-      <text tid="versionnumber">Versienummer</text>
-      <text tid="when">Wanneer</text>
-      <text tid="whichlist">Toon</text>
-      <text tid="whichlist-allrequests">Alle openstaande verzoeken</text>
-      <text tid="whichlist-expiring">Verloopt binnenkort</text>
-      <text tid="whichlist-myrequests">Door mij ingediende verzoeken</text>
-      <text tid="whichlist-otherrequests">Door mij te beoordelen verzoeken</text>
-      <text tid="whichlist-recentlydenied">Recente afwijzingen</text>
-      <text tid="whichlist-recentlyoffline">Recente 'offline'-verzoeken</text>
-      <text tid="whichlist-recentlypublishedapproved">Recente goedgekeurde publicatie-verzoeken</text>
-      <text tid="whichlist-recentlyreviewed">Recent beoordeelde verzoeken</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
     <textgroup gid="beacon">   <!-- tolliumcomponents.beacon -->
@@ -2605,57 +2440,6 @@
     <text tid="urlnotunique">De URL '<param p="1"/>' bestaat al.</text>
     <text tid="urls">URLs</text>
     <text tid="warnothersite">De URL '<param p="1"/>' valt buiten de huidige site; weet u zeker dat u dit wil?</text>
-  </textgroup>
-  <textgroup gid="versioning">   <!-- versioning -->
-    <text tid="draftislockedforapproval">Dit bestand is ingediend voor goedkeuring. U kunt geen nieuwe wijzigingen indienen.</text>
-    <text tid="draftisreadonly">Dit bestand mag niet worden gewijzigd (volgens het huidige versiebeleid)</text>
-    <text tid="draftscheduledfordelete">Deze conceptversie is ingeroosterd voor verwijdering.</text>
-    <text tid="draftscheduledformove">Deze conceptversie is ingeroosterd voor verplaatsing naar folder '<param p="1"/>'.</text>
-    <text tid="editingdeletedobject">Dit bestand is verwijderd.</text>
-    <text tid="editingjustdeniedversioneddraft">Het ingediende verzoek voor goedkeuring van dit concept is geweigerd.</text>
-    <text tid="editingversioneddraft">U bewerkt de conceptversie van dit bestand - deze is nog niet ingediend.</text>
-    <text tid="outstandingrequestforapproval">Deze conceptversie is ingediend voor goedkeuring. U kunt geen nieuwe aanpassingen doen.</text>
-    <text tid="restore">Herstellen</text>
-    <text tid="revertdraft">Conceptversie annuleren</text>
-    <text tid="submitforapproval">Conceptversie indienen</text>
-    <text tid="withdrawrequest">Verzoek intrekken</text>
-    <textgroup gid="errors">   <!-- versioning.errors -->
-      <text tid="mixedpolicies">De geselecteerde bestanden/folders hebben verschillende versiebeleid. Pas deze operatie a.u.b. op één website tegelijk toe.</text>
-      <text tid="modifyinglockedfiles">Er zijn al wijzigingen ingediend, u kunt dit bestand niet verwijderen.</text>
-      <textgroup gid="versioning">   <!-- versioning.errors.versioning -->
-        <text tid="modifyingreadonlyfield">U kunt deze eigenschap niet aanpassen, deze wordt beschermd door het versiebeleid.</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="export">   <!-- versioning.export -->
-      <text tid="accepted">Geaccepteerd</text>
-      <text tid="deleted">Verwijderd</text>
-      <text tid="denied">Afgewezen</text>
-      <text tid="location">Bestand</text>
-      <text tid="locationstatus">Verplaatsing</text>
-      <text tid="nonpublished">Niet gepubliceerd</text>
-      <text tid="pending">Open</text>
-      <text tid="published">Gepubliceerd</text>
-      <text tid="publishstatus">Gepubliceerd</text>
-      <text tid="request_comment">Aanvraag commentaar</text>
-      <text tid="request_expirydate">Verloopdatum</text>
-      <text tid="request_fileid">Bestand ID</text>
-      <text tid="request_user">Aanvrager</text>
-      <text tid="request_user_email">Aanvrager e-mail</text>
-      <text tid="request_versionnumber">Aanvraagversienummer</text>
-      <text tid="request_when">Datum</text>
-      <text tid="response_comment">Beoordelings commentaar</text>
-      <text tid="response_user">Beoordeler</text>
-      <text tid="response_user_email">Beoordeler e-mail</text>
-      <text tid="response_versionnumber">Beoordeeld versienummer</text>
-      <text tid="response_when">Beoordelingsdatum</text>
-      <text tid="responsestatus">Beoordelingsresultaat</text>
-      <text tid="restored">Hersteld</text>
-    </textgroup>
-    <textgroup gid="preview">   <!-- versioning.preview -->
-      <text tid="hasjustdeniedversioneddraft">Dit bestand heeft een zojuist geweigerde conceptversie.</text>
-      <text tid="haspendingrequestforapproval">Dit bestand heeft een conceptversie die is ingediend voor goedkeuring.</text>
-      <text tid="hasversioneddraft">Dit bestand heeft een conceptversie - deze is nog niet ingediend.</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="webfeatures">   <!-- webfeatures -->
     <textgroup gid="savedurlhistory">   <!-- webfeatures.savedurlhistory -->

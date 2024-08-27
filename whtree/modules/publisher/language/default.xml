@@ -28,12 +28,10 @@
     </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="cannotchangetypeoffolderwithnondefaultindex">The folder type cannot be changed: an index document with the name '<param p="1"/>' already exists. Please rename this file and try again.</text>
-      <text tid="cannotstealindexfromversionedfile">Because the current index of this folder is published, this (currently unpublished) cannot become index. Please publish it first.</text>
       <text tid="fileorfolderexists">A file or folder with name '<param p="1"/>' already exists in folder '<param p="2"/>'.</text>
       <text tid="hiddenfolderexists">A hidden folder with namer '<param p="1"/>' already exists in folder '<param p="2"/>'.</text>
       <text tid="illegalfilename">'<param p="1"/>' is not a valid file or folder name. A name cannot be longer than 256 characters, it may not end with a dot and the following characters may not be used:<br/>/ \ : * ? " &lt; &gt; |</text>
       <text tid="sitealreadyexists">A site with the name '<param p="1"/>' already exists.</text>
-      <text tid="typecannotbeversioned">Files of type '<param p="1"/>' cannot be submitted for approval.</text>
     </textgroup>
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
       <text tid="deleted"><param p="1"/> (deleted)</text>
@@ -63,7 +61,6 @@
       <text tid="deleteconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Are you sure you want to permanently delete the folder '<param p="3"/>'?<else/>Are you sure you want to permanently delete the file '<param p="2"/>'?</ifparam><else/>Are you sure you want to permanently delete these <param p="1"/> items?</ifparam></text>
       <text tid="deletefsobjects">Are you sure you want to delete <ifparam p="1" value="1"> the selected item<else/>the <param p="1"/> items you've selected</ifparam>?</text>
       <text tid="deletesitesconfirm">Your selection contains the following sites, which would be deleted:\n<param p="1"/>\n\nAre you sure you want to delete the selection?</text>
-      <text tid="editordoesnotsupportversionedsites">The editor for this file does not support versioned sites. Please contact your system administrator.</text>
       <text tid="failrecycleforotheroutputsites">You cannot recycle the current selection, because it contains the output of other sites in one or more foreign folders.</text>
       <text tid="failrecyclefortheseoutputsites">You cannot recycle the current selection, because it contains the output of the following sites in one or more foreign folders:<br/><param p="1"/></text>
       <text tid="fsobjectalreadyinlist"><ifparam p="1" value="1">This file already exists in the list. Are you sure you want to add it again?<else/>Multiple of the files you chose were already in the list. Are you sure you want to add those again?</ifparam></text>
@@ -216,22 +213,6 @@
     <textgroup gid="managedtagedit">   <!-- components.managedtagedit -->
       <text tid="tagedit">Tags</text>
     </textgroup>
-    <textgroup gid="previewbrowser">   <!-- components.previewbrowser -->
-      <text tid="cachedversion">Because errors occurred while publishing, the last correctly published version of this file is displayed.</text>
-      <text tid="clickallresults">Click here to see all <param p="1"/> results.</text>
-      <text tid="clickviewable">Click here to preview the file anyway.</text>
-      <text tid="foreignfolder">The selected folder is a foreign folder.</text>
-      <text tid="internallink-errors">Errors have occurred while publishing the linked file.</text>
-      <text tid="internallink-warnings">Warnings have occurred while publishing the linked file.</text>
-      <text tid="previewzoomin">Zoom in</text>
-      <text tid="previewzoomout">Zoom out</text>
-      <text tid="previewzoomreset">Reset zoom level</text>
-      <text tid="qrlink">Show QR code for example</text>
-      <text tid="toomanyresults">Only the most recently deleted <param p="1"/> objects are shown.</text>
-      <text tid="zoominhint">Zoom in</text>
-      <text tid="zoomouthint">Zoom out</text>
-      <text tid="zoomresethint">Reset zoom level</text>
-    </textgroup>
     <textgroup gid="sharedblocks">   <!-- components.sharedblocks -->
       <text tid="blockstab">Blocks</text>
       <text tid="deleted">Deleted widget<ifparam p="1" value=""><else/> (<param p="1"/>)</ifparam></text>
@@ -248,20 +229,6 @@
     <textgroup gid="whfsrefcolumn">   <!-- components.whfsrefcolumn -->
       <text tid="deleted">deleted</text>
     </textgroup>
-  </textgroup>
-  <textgroup gid="contentproviders" limitlanguages="en nl">   <!-- contentproviders -->
-    <textgroup gid="webhare">   <!-- contentproviders.webhare -->
-      <text tid="folder">Folder to index</text>
-      <text tid="lastcontentscheck">Last automatic update of dynamic pages</text>
-      <text tid="never">Never</text>
-      <text tid="providertitle">WebHare folder</text>
-      <textgroup gid="messages">   <!-- contentproviders.webhare.messages -->
-        <text tid="invalidfolder">The selected folder cannot be indexed</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="dialogs" limitlanguages="en nl">   <!-- dialogs -->
-    <text tid="warnreplace">The 'replace existing' option will overwrite any existing files and folders, and delete any files and folders that still existed in the replaced folder, but do not exist in the new archive.<br/><br/>Are you sure you want to replace the contents of existing folders?</text>
   </textgroup>
   <textgroup gid="embeddededitor" limitlanguages="en nl">   <!-- embeddededitor -->
     <text tid="editingfile">Contents of file '<param p="1"/>'</text>
@@ -519,7 +486,6 @@
           <text tid="upload">Upload</text>
           <text tid="urlhistory">URL history</text>
           <text tid="utilitiesmenu">Tools</text>
-          <text tid="versioningmenu">Blit</text>
           <text tid="viewbrowser">View in browser</text>
         </textgroup>
         <textgroup gid="messageboxes">   <!-- filemanager.main.app.messageboxes -->
@@ -595,7 +561,6 @@
         <text tid="cannotmovesiteinsite">Cannot move '<param p="1"/>' to '<param p="2"/>' because it would create a site inside a site.</text>
         <text tid="cannotmovesomepinned">Part or all of your selection is not allowed to be moved.</text>
         <text tid="cannotmovetosubfolder">The destination folder '<param p="2"/>' is a subfolder of the source folder '<param p="1"/>'.</text>
-        <text tid="cannotrevertversioned">The versioned site '<param p="1"/>' cannot be reverted to a folder.</text>
         <text tid="confirmconverttofolder">Are you sure you want to revert the site '<param p="1"/>' to a folder?</text>
         <text tid="confirmconverttosite">Are you sure you want to convert the folder '<param p="1"/>' to a site?</text>
         <text tid="confirmmove">Are you sure you want to move '<param p="1"/>' to folder '<param p="2"/>'?</text>
@@ -610,11 +575,7 @@
         <text tid="idnotfound">The object with ID '<param p="1"/>' could not be found, or you do not have sufficient rights to view the object.</text>
         <text tid="nocreaterights">You do not have sufficient rights to create files or folders in the destination folder '<param p="1"/>'.</text>
         <text tid="nodeleterights">You do not have sufficient rights to move the file or folder '<param p="1"/>', because you cannot delete the file or folder.<br/>You may copy the file or folder to the destination folder.</text>
-        <text tid="noindexhtmlinversionedfolderwithindex">File '<param p="1"/>' can't be added to '<param p="2"/>', because it would replace the currently published index.</text>
-        <text tid="nomoveoutversionedsite">File '<param p="1"/>' cannot be moved out of its site, because it has versioning history.</text>
         <text tid="nositecontext">The entered address does not point to a file or folder that is linked to a website.</text>
-        <text tid="notallowedtypeinversionedsite">File '<param p="1"/>' can't be added to '<param p="2"/>', because its type is not allowed in a versioned site.</text>
-        <text tid="noversionedoverwrite">File '<param p="1"/>' can't be modified, because it has versioning history.</text>
         <text tid="objectexists">A file or folder with the name '<param p="1"/>' already exists in the destination folder '<param p="2"/>'.</text>
         <text tid="remainingpublishtime">Estimated time left: <param p="1"/>.</text>
         <text tid="resetordering">Are you sure you want to reset the ordering for this folder?</text>
@@ -624,12 +585,10 @@
         <text tid="siteprofileerrors">The following errors occured processing the site profiles:<br/><br/><param p="1"/></text>
         <text tid="surerepublishfolderoutsidesite">The following sites will be republished:<br/><br/><param p="1"/><br/><br/><ifparam p="2" value="0"><else/>and <param p="2"/> more.<br/></ifparam><br/>Are you sure you want continue?</text>
         <text tid="tellnewgoto">The shortcut you were trying to use is no longer available.<br/><br/>Use CTRL+SHIFT+G to open the 'Goto to site or URL' dialog</text>
-        <text tid="toomanyobjectsatatimeinversionedsite">You can only move one object to a versioned site at a time.</text>
         <text tid="trashisempty">There are no files or folders in the trash bin.</text>
         <text tid="unknownerror">An unknown error has occurred with file '<param p="1"/>'.</text>
         <text tid="urlnotfound">The requested URL '<param p="1"/>' could not be found, or you do not have sufficient rights to view the accompanying object.</text>
         <text tid="usernotfound">There is no user with user name '<param p="1"/>'.</text>
-        <text tid="versionedmovedisallowed">File or folder '<param p="1"/>' cannot be moved due to the versioning policy.</text>
       </textgroup>
       <textgroup gid="showmodifications">   <!-- filemanager.main.showmodifications -->
         <text tid="dtfrom">From</text>
@@ -670,7 +629,6 @@
         <text tid="date-exact">is</text>
         <text tid="date-future">within the coming</text>
         <text tid="date-past">within the last</text>
-        <text tid="file-hasdraft">Draft version saved for file</text>
         <text tid="form-contains">contains component</text>
         <text tid="formfields">Form</text>
         <text tid="hasdraft">Draft version</text>
@@ -706,24 +664,11 @@
         <text tid="whfstype">Type</text>
         <text tid="widgettype">Contains widget</text>
       </textgroup>
-      <textgroup gid="searchpublisher">   <!-- filemanager.search.searchpublisher -->
-        <text tid="query">Search files and folders...</text>
-        <text tid="searchpublisher">Search Publisher</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="types">   <!-- filemanager.types -->
       <text tid="notypes">There are no valid types available</text>
       <text tid="selecttype">Select type</text>
       <text tid="title">Type</text>
-    </textgroup>
-    <textgroup gid="versioning">   <!-- filemanager.versioning -->
-      <textgroup gid="submitchangesforapproval">   <!-- filemanager.versioning.submitchangesforapproval -->
-        <text tid="description">Description of changes</text>
-        <text tid="descriptiontext">Description of changes</text>
-        <text tid="submitchanges">You are about to request your changes to be approved. After this request you can not change these data until they are approved or denied.</text>
-        <text tid="submitchangesforapproval">Submit for approval</text>
-        <text tid="submitchangesyesno">Do you want to submit this change for approval? If so, please enter the description of the changes.</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="worklists">   <!-- filemanager.worklists -->
       <text tid="email">Email address</text>
@@ -775,18 +720,6 @@
       <text tid="sitelocked">The site is locked</text>
       <text tid="sitenotfound">The site is not found</text>
       <text tid="urlnotfound">The URL is not found</text>
-    </textgroup>
-    <textgroup gid="messageboxes">   <!-- filemgrdialogs.messageboxes -->
-      <text tid="deleteindexconfirm">The folder '<param p="1"/>' contains an index file, but the new folder type requires another index file.<br/>Do you want to delete the current index file '<param p="2"/>'?</text>
-      <text tid="historygoto">The URL you entered is part of the URL history; you are being redireced to the new location.</text>
-      <text tid="resetordering">Are you sure you want to reset the ordering for this folder?</text>
-      <text tid="restoredtoliveversion">The contents of the selected version have been restored to the current file, becuase it isn't published at the moment.</text>
-    </textgroup>
-    <textgroup gid="ordering">   <!-- filemgrdialogs.ordering -->
-      <text tid="reset">Reset</text>
-      <text tid="setfileordering">Set file ordering for folder '<param p="1"/>'</text>
-      <text tid="setfolderordering">Set folder ordering for folder '<param p="1"/>'</text>
-      <text tid="setordering">Set ordering for folder '<param p="1"/>'</text>
     </textgroup>
     <textgroup gid="repubmask">   <!-- filemgrdialogs.repubmask -->
       <text tid="iffailed">Republish only files that failed (publication errors)</text>
@@ -1700,8 +1633,6 @@
       <textgroup gid="editdocumentapp">   <!-- tolliumapps.editdocument.editdocumentapp -->
         <text tid="canceldraft">reset to the published version</text>
         <text tid="canceldraftmenu">Cancel draft</text>
-        <text tid="cancelrequest">cancel the request</text>
-        <text tid="cancelrequestmenu">Cancel request</text>
         <text tid="cannotpublishpinnedfile">Cannot publish this file - it is currently unpublished and has been protected. The protection needs to be removed first</text>
         <text tid="developersmenu">Developers</text>
         <text tid="documenthasunpublishedchanges">Draft: this document has changes that haven't been published yet.</text>
@@ -1720,10 +1651,6 @@
         <text tid="previewmenu">Preview</text>
         <text tid="publish">Publish</text>
         <text tid="publish-hint">Save changes and publish this document</text>
-        <text tid="request-for-approval">The draft has been submitted for approval. Until this has been processed this file is locked.</text>
-        <text tid="request-for-approval-editlive">This file has been submitted for renaming or moving. Until this has been processed you can't publish this file, only save.</text>
-        <text tid="request-for-approval-editlive-readonly">This file has been submitted for renaming or moving.</text>
-        <text tid="request-for-approval-readonly">This draft has been submitted for approval.</text>
         <text tid="save">Save</text>
         <text tid="save-hint">Save as draft</text>
         <text tid="saveasdraft">Save</text>
@@ -1732,14 +1659,10 @@
         <text tid="viewpublished">Published version</text>
       </textgroup>
       <textgroup gid="messageboxes">   <!-- tolliumapps.editdocument.messageboxes -->
-        <text tid="closeeditorafterversionedpublish">The document was submitted for review, we recommend you close the application.<br/>Do you want to close the application?</text>
         <text tid="confirmcanceldraft">Are you sure you want to revert the draft document to the last published version?</text>
-        <text tid="confirmcancelrequest">Are you sure you want to withdraw the publication request for this draft document?</text>
         <text tid="confirmsaveandpublish">Are you sure you want to save and publish?</text>
         <text tid="draftcancelled">The draft version has been cancelled - the document is reverted to the latest published version.</text>
         <text tid="otherhasdraft"><ifparam p="1" value="">Another user<else/>User <param p="1"/></ifparam> has created a draft version on <param p="2"/> for this document. <br/><br/>If you continue, you will be editing this draft including the changes.</text>
-        <text tid="publishversionedfiletoapplychanges">Your changes are not yet visible online - please choose "Publish" to submit the document.</text>
-        <text tid="requestcancelled">The publication request has been cancelled - the document is reverted to the latest draft version.</text>
         <text tid="resumeautosave">You have unsaved changes for this file. Do you wish to load these changes?</text>
         <text tid="savebeforeclose">Do you want to save the changes you made to '<param p="1"/>' before closing?</text>
       </textgroup>
@@ -1844,13 +1767,6 @@
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accept feedback in the WebHare backend</text>
         <text tid="settings">Feedback settings</text>
-      </textgroup>
-      <textgroup gid="submitfeedback">   <!-- tolliumapps.feedback.submitfeedback -->
-        <text tid="apptitle">Feedback</text>
-        <text tid="intro">Please provide some extra information.</text>
-        <text tid="remarks">Remarks</text>
-        <text tid="thankyou">Thank you for your feedback!<ifparam p="1" value=""><else/><br/>It has been registered with id '<param p="1"/>'.</ifparam></text>
-        <text tid="type">Type of feedback</text>
       </textgroup>
       <textgroup gid="types">   <!-- tolliumapps.feedback.types -->
         <text tid="assigned">Assigned</text>
@@ -2428,87 +2344,6 @@
       <text tid="tagedit">Edit tag</text>
       <text tid="tagmanager">Tag manager</text>
     </textgroup>
-    <textgroup gid="versioning" limitlanguages="en nl">   <!-- tolliumapps.versioning -->
-      <text tid="accept">Approve</text>
-      <text tid="acceptchange">Approve</text>
-      <text tid="array">Structured diff</text>
-      <text tid="cancelrequest">Cancel request</text>
-      <text tid="changecontent">Requested change</text>
-      <text tid="changetype">Type</text>
-      <text tid="code">Textual diff</text>
-      <text tid="comment">Description</text>
-      <text tid="copycreated">A copy was created</text>
-      <text tid="createhistorycopy">Create a copy of a specific version</text>
-      <text tid="createhistorycopydescr">Please choose the folder where the copy should be created.</text>
-      <text tid="deleted">Deleted</text>
-      <text tid="deny">Deny</text>
-      <text tid="denychange">Deny</text>
-      <text tid="description">Description</text>
-      <text tid="expiresnever">Never</text>
-      <text tid="export">Export</text>
-      <text tid="exportevents">Export versioning history</text>
-      <text tid="filelistmultihint">Multiple row layout</text>
-      <text tid="filelistsinglehint">Single-row layout</text>
-      <text tid="filename">File name</text>
-      <text tid="filter">Filter</text>
-      <text tid="filterfrom">Last changed between</text>
-      <text tid="filterto">and</text>
-      <text tid="fromdate">From</text>
-      <text tid="fullname">Name</text>
-      <text tid="genericinfobox"><param p="1"/></text>
-      <text tid="history">History</text>
-      <text tid="inspectfsobject">Inspect source object</text>
-      <text tid="main">Content Review for Site '<param p="1"/>'</text>
-      <text tid="name">User</text>
-      <text tid="objectcopied">Copy created</text>
-      <text tid="objectcopiedto">The copy was created with filename '<param p="1"/>'.</text>
-      <text tid="openinapp">Show the file</text>
-      <text tid="openinpublisher">Open in Publisher</text>
-      <text tid="previewtab">Preview</text>
-      <text tid="previousexpirydate">Previous expiry date</text>
-      <text tid="prop-indexdoc-false">Isn't index</text>
-      <text tid="prop-indexdoc-true">Is index</text>
-      <text tid="prop-ispinned-false">Remove protection</text>
-      <text tid="prop-ispinned-true">Set protection</text>
-      <text tid="prop-published-false">Do not publish</text>
-      <text tid="prop-published-true">Publish</text>
-      <text tid="refreshhint">Refresh</text>
-      <text tid="requested">Description</text>
-      <text tid="requestedchanges">Requested changes:</text>
-      <text tid="requestexpirydate">New expiry date</text>
-      <text tid="requesttab">Changes</text>
-      <text tid="requestversionnumber">Version number</text>
-      <text tid="reset">Reset</text>
-      <text tid="restore">Restore</text>
-      <text tid="show">Show</text>
-      <text tid="showdiffarray">Show diff array</text>
-      <text tid="showpolicy">Show policy</text>
-      <text tid="showpolicyinfo">Show policy info</text>
-      <text tid="showversionedfields">Show versioned fields</text>
-      <text tid="surecancelrequest">Are you certain you wish to cancel this request? This action cannot be undone!</text>
-      <text tid="todate">Until</text>
-      <text tid="type-data">File content</text>
-      <text tid="type-deletion">Delete</text>
-      <text tid="type-location">Location</text>
-      <text tid="type-name">Name</text>
-      <text tid="type-properties">Properties</text>
-      <text tid="type-publication">Publication</text>
-      <text tid="undelete">Undo delete</text>
-      <text tid="undeletedescription">Please select the folder the file should be restored to.</text>
-      <text tid="undeletesubmitted">A request to approve the undoing of the deletion of this file has been submitted.</text>
-      <text tid="user">User</text>
-      <text tid="versionnumber">Version number</text>
-      <text tid="when">When</text>
-      <text tid="whichlist">Show</text>
-      <text tid="whichlist-allrequests">All outstanding requests</text>
-      <text tid="whichlist-expiring">Expires soon</text>
-      <text tid="whichlist-myrequests">My requests</text>
-      <text tid="whichlist-otherrequests">Requests to be reviewed by me</text>
-      <text tid="whichlist-recentlydenied">Recently denied</text>
-      <text tid="whichlist-recentlyoffline">Recent 'offline' requests</text>
-      <text tid="whichlist-recentlypublishedapproved">Recent aproved request to publish</text>
-      <text tid="whichlist-recentlyreviewed">Recently reviewed requests</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents" limitlanguages="en nl">   <!-- tolliumcomponents -->
     <textgroup gid="beacon">   <!-- tolliumcomponents.beacon -->
@@ -2607,57 +2442,6 @@
     <text tid="urlnotunique">The URL '<param p="1"/>' is already in use.</text>
     <text tid="urls">URLs</text>
     <text tid="warnothersite">The URL '<param p="1"/>' is outside the scope of the current site; are you certain this is what you want?</text>
-  </textgroup>
-  <textgroup gid="versioning" limitlanguages="en nl">   <!-- versioning -->
-    <text tid="draftislockedforapproval">This file has already been submitted for approval.</text>
-    <text tid="draftisreadonly">This file may not be modified (due to the versioning policy)</text>
-    <text tid="draftscheduledfordelete">This draft is scheduled for deletion.</text>
-    <text tid="draftscheduledformove">This draft is scheduled to be moved to folder '<param p="1"/>'.</text>
-    <text tid="editingdeletedobject">This file has been deleted.</text>
-    <text tid="editingjustdeniedversioneddraft">The submitted request for approval for this draft has been denied.</text>
-    <text tid="editingversioneddraft">There are changes for this file that have not been submitted.</text>
-    <text tid="outstandingrequestforapproval">Changes have already been submitted - no new changes can be submitted, but free changes can be saved.</text>
-    <text tid="restore">Restore</text>
-    <text tid="revertdraft">Cancel Draft</text>
-    <text tid="submitforapproval">Submit Draft</text>
-    <text tid="withdrawrequest">Withdraw request</text>
-    <textgroup gid="errors">   <!-- versioning.errors -->
-      <text tid="mixedpolicies">The selected files/folders use different site versioning policies. Please apply this operation on one site at a time.</text>
-      <text tid="modifyinglockedfiles">This file is locked</text>
-      <textgroup gid="versioning">   <!-- versioning.errors.versioning -->
-        <text tid="modifyingreadonlyfield">You can't change this property of this file, it is protected by the versioning policy.</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="export">   <!-- versioning.export -->
-      <text tid="accepted">Accepted</text>
-      <text tid="deleted">Deleted</text>
-      <text tid="denied">Denied</text>
-      <text tid="location">File</text>
-      <text tid="locationstatus">File location change</text>
-      <text tid="nonpublished">Not published</text>
-      <text tid="pending">Pending</text>
-      <text tid="published">Published</text>
-      <text tid="publishstatus">Published</text>
-      <text tid="request_comment">Request comment</text>
-      <text tid="request_expirydate">Expiry date</text>
-      <text tid="request_fileid">File ID</text>
-      <text tid="request_user">Requester</text>
-      <text tid="request_user_email">Requester email</text>
-      <text tid="request_versionnumber">Request version</text>
-      <text tid="request_when">Date</text>
-      <text tid="response_comment">Review comment</text>
-      <text tid="response_user">Reviewer</text>
-      <text tid="response_user_email">Reviewer email</text>
-      <text tid="response_versionnumber">Final version number</text>
-      <text tid="response_when">Review date</text>
-      <text tid="responsestatus">Review result</text>
-      <text tid="restored">Restored</text>
-    </textgroup>
-    <textgroup gid="preview">   <!-- versioning.preview -->
-      <text tid="hasjustdeniedversioneddraft">This file has a draft that was recently denied.</text>
-      <text tid="haspendingrequestforapproval">This file has a draft that has been submitted for approval.</text>
-      <text tid="hasversioneddraft">This file has a draft that has not been submitted.</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="webfeatures" limitlanguages="en nl">   <!-- webfeatures -->
     <textgroup gid="savedurlhistory">   <!-- webfeatures.savedurlhistory -->
