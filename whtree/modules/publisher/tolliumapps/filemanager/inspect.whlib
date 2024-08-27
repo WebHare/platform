@@ -699,20 +699,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
                  ] INTO outrows AT END;
 
     }
-
-    IF (versionid != 0)
-    {
-      RECORD rec := SELECT * FROM system.fs_versionevents WHERE id = versionid;
-      INSERT CELL[ ...dbinfo_baserow
-                 , rowkey := "fs_versionevents"
-                 , name := "system.fs_versionevents"
-                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, rec, "fs_versionevents.", FALSE, FALSE)
-                 , data := ToString(versionid)
-                 , type := "table row"
-                 , original := rec
-                 ] INTO outrows AT END;
-    }
-
     comp->rows := outrows;
   }
 

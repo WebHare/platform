@@ -317,23 +317,7 @@ PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER AR
     RunAnyDelete(totrash, "publisher:app");
 
   IF(Length(tokill)>0)
-  {
-    // Move versioned items to whfs-versionarchive
-    INTEGER ARRAY with_history :=
-        SELECT AS INTEGER ARRAY DISTINCT live_object
-          FROM system.fs_versionevents
-         WHERE live_object IN tokill;
-
-    INTEGER ARRAY to_delete;
-
-    FOREVERY(INTEGER id FROM tokill)
-      IF (id IN with_history)
-        OpenWHFSObject(id)->MoveTo(OpenWHFSObject(whconstant_whfsid_versionarchive), ToString(id));
-      ELSE
-        INSERT id INTO to_delete AT END;
-
-    DELETE FROM system.fs_objects WHERE id IN to_delete;
-  }
+    DELETE FROM system.fs_objects WHERE id IN tokill;
 
   RETURN work->Finish();
 

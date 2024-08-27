@@ -267,30 +267,6 @@ PUBLIC SCHEMA
     > fs_history
   , TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "fs_site" NULL := 0
-    , DATETIME "when"
-    , INTEGER "live_object" NULL := 0
-    , INTEGER "draft_object" NULL := 0
-    , INTEGER "user" NULL := 0
-    , STRING "comment"
-    , STRING "tag"
-    , INTEGER "eventtype"
-    , BOOLEAN "iscurrent"
-    , INTEGER "ordering"
-    , STRING "orgfullpath"
-    , STRING "orgurl"
-    , STRING "newfullpath"
-    , STRING "newurl"
-    , BOOLEAN "isdelete"
-    , INTEGER "newflags"
-    , DATETIME "finished"
-    , INTEGER "previousrequest" NULL := 0
-    , STRING "versionnumber"
-    , DATETIME "expirydate"
-    ; KEY id
-    > fs_versionevents
-  , TABLE
-    < INTEGER "id" NULL := 0
     , INTEGER "module" NULL := 0
     , STRING "name"
     , STRING "descriptiontid"

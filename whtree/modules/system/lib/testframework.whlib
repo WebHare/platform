@@ -1354,17 +1354,6 @@ STATIC OBJECTTYPE TestFramework
     IF (ObjectExists(folderobj2))
       object_ids := object_ids CONCAT folderobj2->GetDescendantObjectIds();
 
-    // Also recycle live objects and drafts that are in archive or draft storage
-    INTEGER ARRAY all_live_objects :=
-        SELECT AS INTEGER ARRAY DISTINCT live_object
-          FROM system.fs_versionevents
-         WHERE fs_site IN object_ids;
-
-    INTEGER ARRAY all_versioned_draft_objects :=
-        SELECT AS INTEGER ARRAY DISTINCT draft_object
-          FROM system.fs_versionevents
-         WHERE fs_site IN object_ids;
-
     INTEGER ARRAY all_drafts :=
         SELECT AS INTEGER ARRAY id
           FROM system.fs_objects
@@ -1375,18 +1364,13 @@ STATIC OBJECTTYPE TestFramework
        OR (ObjectExists(folderobj) AND folderobj->modificationdate != MakeDate(2001,1,1))
        OR (ObjectExists(folderobj2) AND folderobj2->modificationdate != MakeDate(2001,1,1)))
     { //Looks like something happened in these folders (avoid cleanups if the previous test didn't even touch WHFS!)
-
-      // Delete all versioning events
-      DELETE FROM system.fs_versionevents WHERE fs_site IN object_ids;
-
       IF (ObjectExists(folderobj))
         folderobj->RecycleSelf();
       IF (ObjectExists(folderobj2))
         folderobj2->RecycleSelf();
 
-
       // Recycle all non-recycled objects with links to the folder
-      FOREVERY (INTEGER id FROM FilterOutRecycledObjects(all_live_objects CONCAT all_versioned_draft_objects CONCAT all_drafts))
+      FOREVERY (INTEGER id FROM FilterOutRecycledObjects(all_drafts))
         OpenWHFSObject(id)->RecycleSelf();
     }
 

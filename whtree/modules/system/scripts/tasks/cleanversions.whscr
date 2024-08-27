@@ -11,7 +11,6 @@ RECORD info := ParseArguments(GetConsoleArguments(),
                               [ [ name := "dryrun", type := "switch" ]
                               , [ name := "debug", type := "switch" ]
                               , [ name := "perfile", type := "switch" ] //commit per file
-                              , [ name := "withversionevents", type := "switch" ]
                               , [ name := "maxrecycledays", type := "stringopt" ]
                               , [ name := "maxrecyclesize", type := "stringopt" ]
                               ]);
@@ -174,20 +173,6 @@ MACRO Clean(RECORD ARRAY tokill)
 {
   IF (perfile)
     trans->BeginWork();
-
-  IF (info.withversionevents) //TODO? nothing automatically invokes us with this option so not sure whether/how much we really need it ?
-  {
-    INTEGER ARRAY draftids := SELECT AS INTEGER ARRAY DISTINCT draft_object FROM system.fs_versionevents WHERE live_object IN (SELECT AS INTEGER ARRAY fs_object FROM tokill);
-
-    DELETE
-      FROM system.fs_versionevents
-     WHERE live_object IN (SELECT AS INTEGER ARRAY fs_object FROM tokill);
-
-    DELETE
-      FROM system.fs_objects
-     WHERE id IN draftids
-       AND parent IN [ VAR whconstant_whfsid_versionarchive ]; //FIXME this 'IN' used to test for 18,19 but 19 is not a versioning folder! was 17 intended?
-  }
 
   // Delete the history item, then the object
   DELETE FROM system.fs_history WHERE id IN (SELECT AS INTEGER ARRAY historyid FROM tokill);

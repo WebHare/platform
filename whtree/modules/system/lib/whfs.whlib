@@ -109,34 +109,7 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
              AND (options.todate != DEFAULT DATETIME ? fs_history.when < options.todate : TRUE)
              AND (Length(options.limitobjectids) > 0 ? deletedobjects.id IN options.limitobjectids : TRUE);
 
-  RECORD ARRAY versionarchive_deletions :=
-      SELECT id :=              fs_objects.id
-           , name :=            GetNameFromPath(request.orgfullpath)
-           , parent
-           , isfolder :=        isfolder
-           , type
-           , deletionuserid :=  request.user
-           , deletiondate :=    accept.when
-           , origlocation :=    accept.fs_site
-           , origsubpath :=     accept.orgfullpath
-           , deletetype :=      "versioned"
-        FROM system.fs_versionevents AS accept
-           , system.fs_versionevents AS request
-           , system.fs_objects
-       WHERE accept.iscurrent
-         AND accept.isdelete
-         AND accept.eventtype = 1
-         AND (options.site != 0 ? accept.fs_site = options.site : TRUE)
-         AND request.id = accept.previousrequest
-         AND fs_objects.id = request.live_object
-         AND (options.owner != 0 ? request.user = options.owner : TRUE)
-         AND (options.fromdate != DEFAULT DATETIME ? accept.when >= options.fromdate : TRUE)
-         AND (options.todate != DEFAULT DATETIME ? accept.when < options.todate : TRUE)
-         AND (LENGTH(options.types) != 0 ? fs_objects.type IN options.types : TRUE)
-         AND (Length(options.limitobjectids) > 0 ? fs_objects.id IN options.limitobjectids : TRUE)
-         AND (options.namecontains != "" ? ToUppercase(GetNameFromPath(request.orgfullpath)) LIKE ToUppercase("*" || options.namecontains || "*") : TRUE);
-
-  RECORD ARRAY retval := recyclebin_deletions CONCAT versionarchive_deletions;
+  RECORD ARRAY retval := recyclebin_deletions;
 
   IF (options.filteronrights)
   {
