@@ -134,16 +134,8 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "WebHare backend"
                                  , type := whconstant_whfstype_normalfolder
                                  ]
-                               , [ id := whconstant_whfsid_versionhistory
-                                 , parent := whconstant_whfsid_private_system
-                                 , name := "whfs-versionhistory"
-                                 , type := whconstant_whfstype_normalfolder
-                                 ]
-                               , [ id := whconstant_whfsid_versionarchive
-                                 , parent := whconstant_whfsid_private_system
-                                 , name := "whfs-versionarchive"
-                                 , type := whconstant_whfstype_normalfolder
-                                 ]
+                                 // NOTE 17, "whfs-versionhistory", whconstant_whfsid_versionhistory is reserved
+                                 // NOTE 18, "whfs-versionarchive",  whconstant_whfsid_versionarchive is reserved
                                , [ id := whconstant_whfsid_versions
                                  , parent := whconstant_whfsid_private_system
                                  , name := "whfs-versions"

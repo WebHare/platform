@@ -37,12 +37,6 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
 //Folder/site id of the WebHare Backend site
 PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
 
-//Folder id for webhare-private/system/whfs-versionhistory
-PUBLIC CONSTANT INTEGER whconstant_whfsid_versionhistory := 17;
-
-//Folder id for webhare-private/system/whfs-versionarchive
-PUBLIC CONSTANT INTEGER whconstant_whfsid_versionarchive := 18;
-
 //Folder id for webhare-private/system/
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private_system := 19;
 

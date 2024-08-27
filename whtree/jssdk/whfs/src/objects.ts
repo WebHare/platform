@@ -116,7 +116,6 @@ export function isHistoricWHFSSpace(path: string) {
   path = path.toUpperCase();
   if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
     || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONARCHIVE/")
     || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/")
     || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/")
   )

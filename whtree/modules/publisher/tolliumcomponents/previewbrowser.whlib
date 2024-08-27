@@ -478,10 +478,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     RECORD baseinfo;
     IF(fileid>0)
-      baseinfo := SELECT id, name, type, parent, indexdoc, isfolder, parentsite, objecturl FROM system.fs_objects WHERE id = fileid AND (isactive OR parent = whconstant_whfsid_versionhistory);
+      baseinfo := SELECT id, name, type, parent, indexdoc, isfolder, parentsite, objecturl FROM system.fs_objects WHERE id = fileid AND isactive;
 
     // Test if site isn't locked (but allow history entries)
-    IF (RecordExists(baseinfo) AND baseinfo.parent != whconstant_whfsid_versionhistory)
+    IF (RecordExists(baseinfo))
     {
       RECORD site := SELECT locked FROM system.sites WHERE id = baseinfo.parentsite;
       IF (NOT RecordExists(site) OR site.locked)

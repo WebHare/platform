@@ -188,7 +188,6 @@ PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path)
   path := ToUppercase(path);
   RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*"
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*"
-         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONARCHIVE/*"
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*";
 }
 
@@ -200,8 +199,6 @@ PUBLIC BOOLEAN FUNCTION IsRecycleOrHistoryWHFSPath(STRING path)
 PUBLIC BOOLEAN FUNCTION IsRecycleBinWHFSPath(STRING path)
 {
   path := ToUppercase(path);
-  IF (path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONARCHIVE/*")
-    RETURN TRUE;
   RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*/*";
 }
 
@@ -288,4 +285,3 @@ PUBLIC RECORD FUNCTION GetPublisherConfiguration()
 {
   RETURN GetAdhocCached([ type := "publisherconfiguration" ], PTR GetCacheablePublisherConfiguration );
 }
-
