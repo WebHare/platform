@@ -57,24 +57,25 @@ const stylesheet = ` //copied from apps.css
   height: 72px;
 }
 
-.wh-toolbar-modalholder
+.wh-toolbar-modalholder,
+.wh-toolbar-panel
 {
   display: flex;
   flex-wrap: nowrap;
-}
-
-.wh-toolbar-modalbuttons
-{
-  display: none; /* remove to show apply and cancel buttons at the right side of the toolbar */
   flex: 1;
-  order: 2;
-  text-align: right;
 }
 
 .wh-toolbar-panel
 {
-  flex: 0 0 100%;
   order: 1;
+}
+
+.wh-toolbar-modalbuttons
+{
+  display: flex; /* remove to show apply and cancel buttons at the right side of the toolbar */
+  flex: 0;
+  order: 2;
+  text-align: right;
 }
 
 .wh-toolbar .wh-toolbar-button
@@ -182,18 +183,9 @@ const stylesheet = ` //copied from apps.css
 .wh-toolbar
 {
 }
-.wh-toolbar > *
+.wh-toolbar > *:not(.open)
 {
   display:none;
-}
-.wh-toolbar > *.open
-{
-  display: block;
-}
-.wh-toolbar-panel > *,
-.wh-toolbar-modalholder > *
-{
-  display: inline-block;
 }
 
 /***************
@@ -322,20 +314,36 @@ const stylesheet = ` //copied from apps.css
 `;
 
 export class ImageEditElement extends HTMLElement {
-  #editor: ImageEditor;
+  #editor!: ImageEditor;
   static observedAttributes = ["focalpoint"];
 
   constructor() {
     super();
-    this.#editor = new ImageEditor(this, {
-      onMetadataChange: () => this.#broadcastMetadata()
 
+    /* init the component in the connectedCallback (or when a method is called), sp
+       we can read the attributes and set the initial state
+    */
+  }
+
+  initEditor() {
+    if (this.#editor)
+      return;
+
+    const imgSize = this.hasAttribute("imgsize") ? JSON.parse(this.getAttribute("imgsize")!) : undefined;
+
+    this.#editor = new ImageEditor(this, {
+      onMetadataChange: () => this.#broadcastMetadata(),
+      imgSize,
     }, true);
     this.attributeChangedCallback();
 
     const styleSheet = document.createElement("style");
     styleSheet.innerText = stylesheet;
     this.shadowRoot?.prepend(styleSheet);
+  }
+
+  connectedCallback() {
+    this.initEditor();
   }
 
   #broadcastMetadata() {
@@ -358,6 +366,7 @@ export class ImageEditElement extends HTMLElement {
 
   /** Load a blob into the canvas  */
   async loadImage(image: Blob, settings?: Partial<ImageEditSettings>): Promise<void> {
+    this.initEditor();
 
     //We use Blob because we're most likely to work and return uploads. Image elements just complicate load/error handling
     //Not sure if we need to care about EXIF? https://github.com/whatwg/html/issues/7210 suggests al browsers apply EXIF orientation
@@ -372,6 +381,8 @@ export class ImageEditElement extends HTMLElement {
     blob: Blob;
     settings: ImageEditSettings;
   }> {
+    this.initEditor();
+
     const type = options?.type ?? "image/png";
     const quality = options?.quality ?? 0.85;
     if (quality < 0 || quality > 1) //"is a number in the range 0.0 to 1.0 inclusive"

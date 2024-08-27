@@ -47,6 +47,7 @@ async function testActions() {
   test.assert(test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Crop"))!));
   test.click(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Rotate"))!);
   test.click(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Rotate 90° Right"))!);
+  test.click(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Apply"))!);
   //should see Crop & Rotate again (ie left modality of the Rotate action)
   test.assert(test.canClick(qSAImgEdit(".wh-toolbar-button").find(_ => _.textContent?.includes("Crop"))!));
 

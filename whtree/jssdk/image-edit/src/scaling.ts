@@ -27,6 +27,8 @@ class PhotoRotate extends SurfaceTool {
   constructor(surface: ImageSurface, options?: PhotoRotateOptions) {
     super(surface);
 
+    console.log(`new rotator`, surface, options);
+
     this.options = {
       ...options
     };
@@ -257,14 +259,12 @@ class PhotoRotate extends SurfaceTool {
   fliphorizontal() {
     this.scale.x *= -1;
     this.rotate(0);
-    this.toolbar?.onModalApply();
     this.setStatus();
   }
 
   flipvertical() {
     this.scale.y *= -1;
     this.rotate(0);
-    this.toolbar?.onModalApply();
     this.setStatus();
   }
 
@@ -275,9 +275,6 @@ class PhotoRotate extends SurfaceTool {
     this.surface.canvas.style.transform = 'scale(' + this.scale.x + ',' + this.scale.y + ') rotate(' + this.angle + 'deg)';
 
     this.setStatus();
-    if (degrees !== 0)  //if not invoked with 0 (start does that..) we've been modified, so finalize it
-      this.toolbar?.onModalApply();
-
   }
 
   setStatus() {
