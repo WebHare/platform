@@ -45,37 +45,6 @@ RECORD FUNCTION GetFSObjectOverviewInfo()
   RETURN GetAdhocCached(CELL[type := "fsobjectoverviewinfo"], PTR GetCacheableFSObjectOverviewInfo);
 }
 
-RECORD ARRAY FUNCTION GetVersionedObjectRecycleBin(OBJECT tolliumuser, RECORD ARRAY objects)
-{
-  INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM objects WHERE parent = 18;
-
-  RECORD ARRAY versionevents :=
-        SELECT id :=              live_object
-             , name :=            GetNameFromPath(orgfullpath)
-             , site :=            fs_site
-          FROM system.fs_versionevents
-         WHERE iscurrent
-           AND isdelete
-           AND eventtype = VersionEventType_AcceptApply
-           AND live_object IN ids
-      ORDER BY live_object;
-
-  INTEGER ARRAY sites := SELECT AS INTEGER ARRAY DISTINCT site FROM versionevents;
-  INTEGER ARRAY canrestoresites := tolliumuser->HasRightOnMultiple("system:fs_fullaccess", sites);
-  INTEGER ARRAY found_ids := SELECT AS INTEGER ARRAY id FROM versionevents;
-
-  objects :=
-      SELECT TEMPORARY rec := versionevents[RecordLowerBound(versionevents, objects, [ "ID" ]).position]
-           , *
-           , name :=        rec.name
-           , canrestore :=  rec.site IN canrestoresites
-        FROM objects
-       WHERE id IN found_ids;
-
-  RETURN objects;
-}
-
-
 PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRAY objects, BOOLEAN hidden_too, STRING contentmode)
 {
   // ADDME: is it possible to (cheaply) determine if the parentfolder is 12 (webhare-modules) to properly hide them?
@@ -124,7 +93,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                  FROM objects, recycleinfo
                 WHERE objects.id = recycleinfo.fs_object;
 
-    objects := objects CONCAT GetVersionedObjectRecycleBin(tolliumuser, org_objects);
+
   }
   ELSE
   {
