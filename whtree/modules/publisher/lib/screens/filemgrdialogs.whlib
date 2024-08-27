@@ -622,33 +622,3 @@ PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
 
   }
 >;
-
-PUBLIC OBJECTTYPE SubmitChangesForApproval EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  PUBLIC PROPERTY description(this->descriptiontext->value, -);
-
-  // ---------------------------------------------------------------------------
-  //
-  // Init & submit
-  //
-
-  MACRO Init(RECORD data)
-  {
-    IF (CellExists(data, "draftids") AND NOT IsDefaultValue(data.draftids))
-      ABORT("No draftids!");
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    RETURN this->BeginWork()->Finish();
-  }
->;

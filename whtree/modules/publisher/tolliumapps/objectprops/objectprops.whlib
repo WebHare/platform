@@ -1171,14 +1171,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
         {
           feedback := this->RunSimpleScreen("warning", this->GetTid(".messageboxes.folderwithoutindex"));
         }
-        CASE "submitchangesforapproval"
-        {
-          IF (this->startdata.why = "edit")
-            feedbackdata := GetSubmitRequestApprovalMetadata(this, this->sourceitem);
-          ELSE
-            feedbackdata := GetSubmitRequestApprovalMetadata(this, DEFAULT OBJECT);
-          feedback := RecordExists(feedbackdata) ? "ok" : "cancel";
-        }
         CASE "filecannotbenamedasindex"
         {
           feedback := this->RunSimpleScreen("error", this->GetTid(".messageboxes.filecannotbenamedasindex"));
