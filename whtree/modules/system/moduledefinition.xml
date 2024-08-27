@@ -1148,9 +1148,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
         <d:documentation>The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published</d:documentation>
       </d:varchar>
       <d:obsoletecolumn name="historydays" />
-      <d:varchar name="versioningpolicy" maxlength="128">
-        <d:documentation>Whether the site is under version control</d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="versioningpolicy" />
       <d:index name="nameindex" columns="name(32)" unique="1" uppercase="1" />
     </d:table>
 

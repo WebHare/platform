@@ -290,8 +290,7 @@ STATIC OBJECTTYPE SiteObject
   PUBLIC RECORD FUNCTION UpdateSiteMetadata(RECORD metadata)
   {
     BOOLEAN republishsite;
-    RECORD siterecupdate := ValidateOptions( [ versioningpolicy := ""
-                                             , sitedesign := ""
+    RECORD siterecupdate := ValidateOptions( [ sitedesign := ""
                                              , webdesign := ""
                                              , webfeatures := DEFAULT STRING ARRAY
                                              , cdnbaseurl := ""

@@ -29,12 +29,12 @@ RECORD ARRAY FUNCTION GetRawSubItems(INTEGER parentid, INTEGER ARRAY specificite
                 AND (parentid = 0 ? isfolder : TRUE)
                 AND id NOT IN tohide;
 }
-RECORD ARRAY FUNCTION EnrichItems(RECORD ARRAY base, BOOLEAN can_write_all, INTEGER ARRAY versioned_sites)
+RECORD ARRAY FUNCTION EnrichItems(RECORD ARRAY base, BOOLEAN can_write_all)
 {
   base := SELECT *
                , DELETE parentsite
                , can_open := TRUE
-               , can_write := parentsite NOT IN versioned_sites AND (can_write_all OR GetEffectiveUser()->HasRightOn("system:fs_fullaccess", id))
+               , can_write := can_write_all OR GetEffectiveUser()->HasRightOn("system:fs_fullaccess", id)
            FROM base;
   RETURN base;
 }
@@ -46,11 +46,6 @@ RECORD FUNCTION GetCacheableWHFSInfo(OBJECT user)
   BOOLEAN can_see_hidden := user->HasRight("system:supervisor");
 
   RECORD ARRAY subfolders;
-
-  INTEGER ARRAY versioned_sites :=
-      SELECT AS INTEGER ARRAY id
-        FROM system.sites
-       WHERE versioningpolicy != "";
 
   IF(can_read_all)
   {
@@ -71,7 +66,6 @@ RECORD FUNCTION GetCacheableWHFSInfo(OBJECT user)
          , value := [ can_write_all := can_write_all
                     , can_read_all := can_read_all
                     , can_see_hidden := can_see_hidden
-                    , versioned_sites := versioned_sites
                     , roots := subfolders
                     ]
          ];
@@ -80,16 +74,6 @@ RECORD FUNCTION GetCacheableWHFSInfo(OBJECT user)
 PUBLIC RECORD FUNCTION GetWHFSInfo()
 {
   RETURN GetAdhocCached([ type:="toplevel", user := GetEffectiveUserId() ], PTR GetCacheableWHFSInfo(GetEffectiveUser()));
-}
-
-BOOLEAN FUNCTION ContainsVersionedSiteId(INTEGER ARRAY folderids)
-{
-  folderids := SortArray(folderids);
-  RECORD whfsinfo := GetWHFSInfo();
-  FOREVERY (INTEGER id FROM whfsinfo.versioned_sites)
-    IF (LowerBound(folderids, id).found)
-      RETURN TRUE;
-  RETURN FALSE;
 }
 
 RECORD ARRAY FUNCTION GetItems(OBJECT parentfolder)
@@ -112,7 +96,7 @@ RECORD ARRAY FUNCTION GetItems(OBJECT parentfolder)
   IF(NOT whfsinfo.can_see_hidden)
     DELETE FROM base WHERE webharetype IN GetCachedSiteProfiles().hiddenfoldertypes;
 
-  base := EnrichItems(base, canwriteall, whfsinfo.versioned_sites);
+  base := EnrichItems(base, canwriteall);
   RETURN base;
 }
 
@@ -201,17 +185,12 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
 
     OBJECT finalobject := Length(pathtoks)=0 ? yourroot : ObjectExists(intermediateobject) ? intermediateobject->OpenByName(lasttok) : DEFAULT OBJECT;
 
-    BOOLEAN isreadonly := FALSE;
-
     OBJECT testlockobject := ObjectExists(finalobject) ? finalobject : intermediateobject;
     IF(testlockobject->parentsite != 0)
     {
-      RECORD siteinfo := SELECT locked, versioningpolicy FROM system.sites WHERE id=testlockobject->parentsite;
+      RECORD siteinfo := SELECT locked FROM system.sites WHERE id=testlockobject->parentsite;
       IF (siteinfo.locked)
         RETURN DEFAULT RECORD; //locked site
-
-      IF (siteinfo.versioningpolicy != "")
-        isreadonly := TRUE;
     }
 
     RETURN [ final := finalobject
@@ -220,7 +199,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
            , name := lasttok
            , when := when
            , ispinned := ObjectExists(finalobject) ? finalobject->ispinned : FALSE
-           , isreadonly := isreadonly
+           , isreadonly := FALSE
            ];
   }
 
@@ -247,16 +226,6 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
         THROW NEW VirtualFSException("XS", "Path is pinned");
       IF(pathinfo.isreadonly)
         THROW NEW VirtualFSException("XS", "No write access");
-
-      // Check if any child is a versioned site
-      IF (pathinfo.final->isfolder)
-      {
-        INTEGER ARRAY root_ids := [ INTEGER(pathinfo.final->id) ];
-        INTEGER ARRAY all_folders := root_ids CONCAT pathinfo.final->GetDescendantFolderids();
-
-        IF (ContainsVersionedSiteId(all_folders))
-          THROW NEW VirtualFSException("XS", "No write access");
-      }
 
       RunAnyDelete([INTEGER(pathinfo.final->id)], "publisher:virtualfs");
       trans->CommitWork(); //ADDME handle commit errors

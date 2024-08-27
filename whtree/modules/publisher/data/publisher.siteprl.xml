@@ -213,7 +213,7 @@
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.html"
             webhare_builtintypeid="5">
-    <setobjecteditor name="publisher:texteditor" supportsversioning="true" />
+    <setobjecteditor name="publisher:texteditor" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile" />
   </filetype>
 
@@ -441,7 +441,7 @@
       <file name="original" />
       <richdocument name="data" />
     </members>
-    <setobjecteditor name="publisher:editdocument" supportsversioning="true" />
+    <setobjecteditor name="publisher:editdocument" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD" />
   </filetype>
 
@@ -453,7 +453,7 @@
     <members>
       <composeddocument name="data" />
     </members>
-    <setobjecteditor name="publisher:editmarkdown" separateapp="true" supportsversioning="true" />
+    <setobjecteditor name="publisher:editmarkdown" separateapp="true" />
     <bodyrenderer renderer="mod::publisher/js/internal/markdown.ts#renderMarkdown" />
   </filetype>
 

@@ -26,22 +26,6 @@ PUBLIC MACRO StartObjectEditor(OBJECT tolliumcontroller, RECORD data)
   OBJECT applytester := GetApplyTesterForObject(objid);
   RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR");
 
-  IF (RecordExists(
-    SELECT
-      FROM system.fs_objects
-         , system.sites
-     WHERE fs_objects.id = objid
-       AND sites.id = fs_objects.parentsite
-       AND versioningpolicy != ""))
-  {
-    // File is in a versioned site
-    IF (NOT editorinfo.supportsversioning)
-    {
-      tolliumcontroller->RunMessageBox("publisher:commondialogs.editordoesnotsupportversionedsites");
-      RETURN;
-    }
-  }
-
   IF(NOT RecordExists(editorinfo) OR editorinfo.screen = "")
   {
     Print("No setobjecteditor with screen for fsobjectg #" || objid || " - cancelling\n");

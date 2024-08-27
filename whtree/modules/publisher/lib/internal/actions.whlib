@@ -299,14 +299,6 @@ PUBLIC STATIC OBJECTTYPE ObjectCopyMover EXTEND BulkReceiveOperation
     IF (SELECT AS BOOLEAN locked FROM system.sites WHERE id = destfolder->parentsite)
       THROW NEW CopyMoveException(this, "DESTINATIONSITELOCKED", destfolder);
 
-    BOOLEAN destination_is_versioned := SELECT AS BOOLEAN versioningpolicy!="" FROM system.sites WHERE id = destfolder->parentsite;
-    IF (destination_is_versioned)
-    {
-      // May only handle one object at a time when destination is a versioned site
-      IF (LENGTH(this->sources) != 1)
-        THROW NEW CopyMoveException(this, "TOOMANYOBJECTSTOVERSIONEDSITE", destfolder);
-    }
-
     BOOLEAN dest_within_site := destfolder->parentsite != 0;
 
     OBJECT ARRAY handle_objects;

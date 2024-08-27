@@ -476,17 +476,6 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
 
   IF(RecordExists(editorinfo))
   {
-    IF (NOT editorinfo.supportsversioning AND RecordExists(SELECT FROM system.fs_objects
-                                                                     , system.sites
-                                                                 WHERE fs_objects.id = objectid
-                                                                   AND sites.id = fs_objects.parentsite
-                                                                   AND versioningpolicy != ""))
-      // File is in a versioned site
-    {
-      parentscreen->RunMessageBox("publisher:commondialogs.editordoesnotsupportversionedsites");
-      RETURN;
-    }
-
     IF(editorinfo.screen != "")
     {
       StartObjectEditor(parentscreen, [ calltype := "embedded", target := [ id := objectid ]]);

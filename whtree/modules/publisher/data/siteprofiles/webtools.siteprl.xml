@@ -212,7 +212,7 @@
       <record name="fixformoptions" />  <!-- archived original remapping in case we ever need it. at some point we can drop this member -->
     </members>
     <dynamicexecution webpageobjectname="mod::publisher/lib/forms/base.whlib#WebtoolFormPage" />
-    <setobjecteditor name="publisher:webtoolform" separateapp="true" supportsversioning="true" />
+    <setobjecteditor name="publisher:webtoolform" separateapp="true" />
   </filetype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/formcondition">

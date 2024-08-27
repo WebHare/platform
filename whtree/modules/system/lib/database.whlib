@@ -238,7 +238,6 @@ PUBLIC SCHEMA
     , INTEGER "id" AS "root" NULL := 0 __ATTRIBUTES__(READONLY)
     , STRING "cdnbaseurl"
     , STRING "webroot" __ATTRIBUTES__(READONLY)
-    , STRING "versioningpolicy"
     ; KEY id
     > sites
 

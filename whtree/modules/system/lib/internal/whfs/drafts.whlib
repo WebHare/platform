@@ -91,18 +91,6 @@ MACRO RefreshDraftStatus(INTEGER fsobjectid)
        WHERE id = fsobjectid;
 
       GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, fsobjectid);
-
-      // Get the versioning site this draft belongs to
-      INTEGER versioning_site := SELECT AS INTEGER id FROM system.sites WHERE id = file.parentsite AND versioningpolicy != "";
-
-      IF (versioning_site != 0)
-      {
-        GetPrimary()->BroadcastOnCommit("system:versionevent." || versioning_site || "." || fsobjectid,
-            [ type :=       publicdraft = 0 ? "deletedraft" : "createdraft"
-            , live_file :=  fsobjectid
-            , draft :=      publicdraft
-            ]);
-      }
     }
   }
 }
@@ -508,9 +496,6 @@ PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BO
        WHERE id = whfsobject->id;
 
       GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, whfsobject->id);
-
-      // Get the versioning site this draft belongs to
-      versioning_site := SELECT AS INTEGER id FROM system.sites WHERE id = file.parentsite AND versioningpolicy != "";
     }
   }
 
