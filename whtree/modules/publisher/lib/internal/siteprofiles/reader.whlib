@@ -1728,11 +1728,6 @@ STATIC OBJECTTYPE ApplyRuleTester
   {
     RETURN this->objinfo;
   }
-
-  PUBLIC OBJECT FUNCTION GetVersioningPolicy()
-  {
-    RETURN DEFAULT OBJECT;
-  }
 >;
 
 /** Returns an apply tester for a specific WHFS file/folder

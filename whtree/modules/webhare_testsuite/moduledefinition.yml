@@ -70,10 +70,6 @@ webFeatures:
     title: "WH testsuite: actions"
     siteProfile: webfeatures/actions.siteprl.xml
     hidden: true
-  versioned:
-    title: "WH testsuite: versioned"
-    siteProfile: webfeatures/versioned.siteprl.xml
-    hidden: true
   unusedfeature:
     title: "WH testsuite: never used feature"
     siteProfile: webfeatures/neverused_feature.siteprl.xml

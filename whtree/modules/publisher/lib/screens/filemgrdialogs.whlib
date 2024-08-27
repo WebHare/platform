@@ -214,16 +214,6 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
        WHERE NOT __MatchesAnyMask(title || " " || contenttype, masks);
     }
 
-    // Remove types that are not allowed by the versioning policy
-    OBJECT policy := this->applytester->GetVersioningPolicy();
-    IF (ObjectExists(policy))
-    {
-      INTEGER ARRAY ids := SELECT AS INTEGER ARRAY type FROM rows;
-      INTEGER ARRAY allowed_ids := policy->FilterAllowedFSObjectTypes(ids);
-
-      DELETE FROM rows WHERE type NOT IN allowed_ids;
-    }
-
     ^types->rows := rows;
     ^types->SetValueIfValid(savedvalue);
   }

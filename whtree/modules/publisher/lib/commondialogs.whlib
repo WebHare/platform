@@ -145,9 +145,7 @@ PUBLIC BOOLEAN FUNCTION DoFilemanagerReplace(OBJECT tolliumscreen, INTEGER filet
     newordering := SELECT AS INTEGER ordering FROM system.fs_objects WHERE id = filetoreplace;
 
   OBJECT work := tolliumscreen->BeginUnvalidatedWork();
-  OBJECT policy := parenttester->GetVersioningPolicy();
-
-  STRING mode := UpdateMetadataForPolicy(policy, file,
+  STRING mode := UpdateMetadataForPolicy(DEFAULT OBJECT, file,
       [ data :=             uploadedfile.data
       , modificationdate := GetCurrentDatetime()
       , modifiedby :=       GetEffectiveUserId()
