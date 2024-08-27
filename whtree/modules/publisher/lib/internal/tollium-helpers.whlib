@@ -18,8 +18,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 
 LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
@@ -328,94 +326,6 @@ PUBLIC RECORD FUNCTION GetSubmitRequestApprovalMetadata(OBJECT tolliumscreen, OB
   RETURN metadata;
 }
 
-PUBLIC MACRO SubmitApprovalRequestFromMetadata(OBJECT work, OBJECT file, RECORD metadata)
-{
-  THROW NEW Exception("FIXME - this function is now uncallable");
-}
-
-/** @param tolliumscreen
-    @param sitepolicy
-    @param draftobject
-    @param options
-    @cell options.updates Fields to overwrite (eg parent and name to combine with undelete)
-*/
-PUBLIC BOOLEAN FUNCTION HandleVersionRestore(OBJECT tolliumscreen, OBJECT sitepolicy, OBJECT draftobject, RECORD options)
-{
-  options := ValidateOptions(
-      [ updates :=          DEFAULT RECORD
-      , modifypublished :=  DEFAULT FUNCTION PTR
-      ], options);
-
-  RECORD approval;
-  BOOLEAN need_approval;
-  WHILE (TRUE)
-  {
-    IF (need_approval)
-    {
-      OBJECT source := OpenWHFSObject(draftobject->source);
-      approval := GetSubmitRequestApprovalMetadata(tolliumscreen, source);
-      IF (NOT RecordExists(approval))
-        RETURN FALSE;
-    }
-
-    OBJECT work := tolliumscreen->BeginUnvalidatedWork();
-
-    RECORD restorefields := sitepolicy->GetRestoreFields();
-
-    OBJECT source := OpenWHFSObject(draftobject->source);
-    OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
-
-    // Get the draft source data, overwrite with draftmetadata contenttype data
-    RECORD draft_data := SELECT *, flags := 0 FROM system.fs_objects WHERE id = draftobject->id;
-    draft_data := MakeReplacedRecord(draft_data, whfs_draftmetadata->GetInstanceData(draftobject->id));
-
-    BOOLEAN indexdoc_versioned, isindex;
-
-    // Copy all versioned fields
-    RECORD updates, parentupdates;
-    FOREVERY (STRING field FROM restorefields.versioned_fields)
-    {
-      IF (ToLowercase(field) IN [ "published", "indexdoc", "name", "parent" ])
-        THROW NEW Exception("Cannot restore 'published', 'indexdoc', 'parent' or 'name' fields");
-
-      updates := CellInsert(updates, field, GetCell(draft_data, field));
-    }
-
-    RECORD ARRAY contenttype_updates;
-    FOREVERY (INTEGER typenr FROM restorefields.versioned_contenttypes)
-    {
-      OBJECT whfstype := OpenWHFSTypeById(typenr);
-      RECORD rec := whfstype->GetInstanceData(draftobject->id);
-      INSERT CELL whfstype := whfstype->namespace INTO rec;
-      INSERT rec INTO contenttype_updates AT END;
-    }
-
-    STRING mode := UpdateMetadataForPolicy(sitepolicy, source, updates, [ contenttype_updates := contenttype_updates, modifypublished := options.modifypublished ]);
-
-    SWITCH (mode)
-    {
-      CASE "locked"   { work->AddError(GetTid("publisher:versioning.draftislockedforapproval")); }
-      CASE "readonly" { work->AddError(GetTid("publisher:versioning.draftisreadonly")); }
-      CASE "draft"
-      {
-        IF (NOT RecordExists(approval))
-        {
-          need_approval := TRUE;
-          work->Cancel();
-          CONTINUE;
-        }
-        SubmitApprovalRequestFromMetadata(work, source, approval);
-      }
-    }
-
-    BOOLEAN result := work->Finish();
-    IF (result AND mode != "draft")
-      tolliumscreen->RunMessageBox("publisher:filemgrdialogs.restoredtoliveversion");
-
-    RETURN result;
-  }
-}
-
 PUBLIC RECORD ARRAY FUNCTION AnalyzeContents(INTEGER ARRAY objids)
 {
   //DB-level check, find any sites contained in the to-be-deleted objects
@@ -630,16 +540,6 @@ PUBLIC MACRO AddCopyMoveExceptionToWork(OBJECT work, OBJECT e, OBJECT destfolder
     }
   }
 }
-
-PUBLIC STRING FUNCTION GetVersioningDraftWarning(OBJECT fsobject)
-{
-  RECORD lastevent := GetLastVersionEvent(fsobject->id);
-  IF (RecordExists(lastevent) AND lastevent.eventtype = VersionEventType_FinalDenial AND lastevent.when > fsobject->modificationdate)
-    RETURN "justdenied";
-
-  RETURN "normal";
-}
-
 PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname)
 {
   RECORD ARRAY faultypropeditors;

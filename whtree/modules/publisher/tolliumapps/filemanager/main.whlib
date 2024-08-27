@@ -11,7 +11,6 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/versioning.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -1860,11 +1859,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->RestoreObjects(^filelist->selection);
   }
 
-  MACRO DoVersionedRestoreList()
-  {
-    RunVersionedFileRestore(this, ^filelist->selection.id);
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Helper function - filelist ordering action helpers
@@ -2215,13 +2209,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoExportSEOReport()
   {
     RunSEOReport(this, ^foldertree->value);
-  }
-
-  MACRO DoObjectHistory()
-  {
-    OBJECT liveobject := OpenWHFSObject(this->GetCurrentlySelectedFSobject());
-    OBJECT screen := this->LoadScreen("mod::publisher/tolliumapps/versioning/versioning.xml#history", [ liveobject := liveobject ]);
-    screen->RunModal();
   }
 
   MACRO DoManageFoldersync()

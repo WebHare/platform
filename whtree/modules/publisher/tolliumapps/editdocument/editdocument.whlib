@@ -16,7 +16,6 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
-LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editapi.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 
@@ -146,29 +145,22 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     */
 
     STRING savemode := this->GetSaveMode();
-    IF (savemode NOT IN [ "versioned-locked-editlive", "versioned-editlive" ])
+
+    //ADDME: Add a way for read-only users to switch between draft en live?
+    IF (NOT this->readonly)
     {
-      //ADDME: Add a way for read-only users to switch between draft en live?
-      IF (NOT this->readonly)
+      RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
+      IF(RecordExists(currentdraft))
       {
-        RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
-        IF(RecordExists(currentdraft))
-        {
-          this->currentdraft := OpenDraft(fsobject->id, currentdraft.id);
-          IF(NOT ObjectExists(this->currentdraft))
-            THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
-        }
+        this->currentdraft := OpenDraft(fsobject->id, currentdraft.id);
+        IF(NOT ObjectExists(this->currentdraft))
+          THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
       }
-    }
-    ELSE
-    {
-      // The rich document data is not versioned, so we should ignore the draft
-      DELETE FROM drafts WHERE ispublic;
     }
 
 
     RECORD otherdraft := SELECT * FROM drafts WHERE ispublic AND NOT mine ORDER BY creationdate DESC LIMIT 1;
-    IF(NOT this->readonly AND RecordExists(otherdraft) AND savemode != "versioned-locked")
+    IF(NOT this->readonly AND RecordExists(otherdraft))
     {
       STRING user := this->contexts->userapi->GetUserDisplayName(otherdraft.user);
       STRING when := this->tolliumuser->FormatDatetime(otherdraft.creationdate, "minutes", TRUE, FALSE);
@@ -186,7 +178,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     }
 
     BOOLEAN mustloadrte := TRUE;
-    IF (savemode != "versioned-locked" AND NOT this->readonly)
+    IF (NOT this->readonly)
     {
       RECORD myautosave := SELECT * FROM drafts WHERE mine AND NOT ispublic ORDER BY creationdate DESC LIMIT 1;
       IF(RecordExists(myautosave))
@@ -390,8 +382,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
       this->draftmode->htmlvalue := EncodeHTML(basetext);
       ^draftbar_canceldraft->visible := this->frame->flags.canrevertdraft;
-      ^draftbar_cancelrequest->visible := FALSE;
-
       ^draftbar->visible := TRUE;
     }
     ELSE
@@ -399,55 +389,9 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
 
     STRING savemode := this->GetSaveMode();
     BOOLEAN allowpublish;
-    IF (savemode = "versioned-locked")
-    {
-      this->contexts->editdocumentapi->onsetenabled(FALSE);
-      this->frame->flags.canedit := FALSE;
 
-      STRING basetext := this->readonly ? this->GetTid(".request-for-approval-readonly") : this->GetTid(".request-for-approval");
-      ^draftbar->visible := TRUE;
-      ^draftmode->htmlvalue := EncodeHTML(basetext);
-      ^draftbar_canceldraft->visible := FALSE;
-      ^draftbar_cancelrequest->visible := this->frame->flags.cancancelrequest;
-    }
-    ELSE IF (savemode = "versioned-locked-editlive")
-    {
-      this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
-      this->frame->flags.canedit := NOT this->readonly;
-
-      ^draftbar->visible := TRUE;
-      STRING basetext := this->readonly ? this->GetTid(".request-for-approval-editlive-readonly") : this->GetTid(".request-for-approval-editlive");
-      ^draftmode->htmlvalue := EncodeHTML(basetext);
-      ^draftbar_canceldraft->visible := FALSE;
-      ^draftbar_cancelrequest->visible := FALSE;
-    }
-    ELSE
-    {
-      this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
-      this->frame->flags.canedit := NOT this->readonly;
-
-      IF (savemode IN [ "versioned-editdraft", "versioned-editlive" ])
-      {
-        STRING warntype := GetVersioningDraftWarning(fsobj);
-        SWITCH (warntype)
-        {
-          CASE "normal" // Keep usual texts
-          {
-          }
-          CASE "justdenied"
-          {
-            ^draftbar->visible := TRUE;
-            ^draftmode->htmlvalue := EncodeHTML(GetTid("publisher:versioning.editingjustdeniedversioneddraft"));
-            ^draftbar_canceldraft->visible := FALSE;
-            ^draftbar_cancelrequest->visible := FALSE;
-          }
-          DEFAULT
-          {
-            THROW NEW Exception(`Unhandled draft warn type '${warntype}'`);
-          }
-        }
-      }
-    }
+    this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
+    this->frame->flags.canedit := NOT this->readonly;
 
     RECORD state;
 
@@ -498,7 +442,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     this->publishmenu->visible := NOT this->readonly;
     this->savemenu->visible := NOT this->readonly;
     this->canceldraftmenu->visible := NOT this->readonly;
-    this->cancelrequestmenu->visible := NOT this->readonly;
     this->publishbutton->visible := NOT this->readonly;
     this->saveasdraftbutton->visible := NOT this->readonly;
   }
@@ -569,7 +512,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       STRING savetarget;
       SWITCH (savemode)
       {
-        CASE "versioned-locked"         { RETURN FALSE; }
         CASE "unversioned-unpublished"
         {
           // File is not published now. If publishing, save to live
@@ -580,17 +522,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
         {
           // File is published now. If not publishing, always save to the draft
           savetarget := withpublish ? "live" : "draft";
-        }
-        CASE "versioned-editlive", "versioned-locked-editlive"
-        {
-          // File is versioned, but we can save to live data. Save to a draft is there is one
-          // If publishing, save normally first, and create a draft after that
-          savetarget := "versioned-live";
-        }
-        CASE "versioned-editdraft"
-        {
-          // File is versioned, can't save to live data.
-          savetarget := "draft";
         }
       }
 
@@ -631,7 +562,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
                 ]);
           }
         }
-        ELSE // savetarget = "live" or savetarget = "versioned-live"
+        ELSE // savetarget = "live"
         {
           OBJECT source := this->currentautosave ?? this->currentdraft;
           IF (ObjectExists(source))
@@ -640,7 +571,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
             source->SaveAsFinal(GetEffectiveUser(),
                 [ basefields := basefields
                 , contenttypes := this->contexts->editdocumentapi->editcontenttypes
-                , keeppublicdraft := savetarget = "versioned-live"
+                , keeppublicdraft := FALSE
                 ]);
 
             this->currentdraft := DEFAULT OBJECT;
@@ -660,24 +591,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
           IF(savemode = "unversioned-unpublished" AND finalitem->ispinned)
             work->AddError(this->GetTid(".cannotpublishpinnedfile"));
           finalitem->UpdateMetadata([ publish := TRUE ]);
-        }
-        ELSE IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
-        {
-          // Make sure there is a draft to submit.
-          IF (NOT ObjectExists(this->currentdraft))
-            this->currentdraft := GetPublicDraft(finalitem->id) ?? CreateDraft(finalitem, finalitem->id, TRUE);
-
-          // Set the 'published' flag of the draft (in the draftmetadata) to published.
-          RECORD testdraft_draftdata := this->currentdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
-          testdraft_draftdata.flags := testdraft_draftdata.flags BITOR DraftFlag_Publish;
-          this->currentdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ ifreadonly := "update" ]);
-
-          // Submit for approval
-          SubmitApprovalRequestFromMetadata(work, finalitem, approval_metadata);
-        }
-        ELSE IF (savemode = "versioned-locked-editlive")
-        {
-          RETURN FALSE; //should not be reachable, unless someone manages to race it?
         }
       }
     }
@@ -703,23 +616,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     ^dirtylistener->ClearDirty();
     //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
     this->RefreshState();
-
-    // Warn that the current document needs to be submitted for approval to be published
-    IF (savemode = "versioned-editdraft")
-    {
-      IF (withpublish)
-      {
-        IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.closeeditorafterversionedpublish")) = "yes")
-          this->tolliumresult := "ok";
-      }
-      ELSE
-      {
-        this->RunSimpleScreen("info"
-                             , GetTid("publisher:tolliumapps.editdocument.messageboxes.publishversionedfiletoapplychanges")
-                             , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
-                               ]);
-      }
-    }
 
     RETURN TRUE;
   }
@@ -850,17 +746,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     RECORD metadata;
     STRING savemode := this->GetSaveMode();
     OBJECT targetfile := OpenWHFSObject(this->itemid);
-    IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
-    {
-      metadata := GetSubmitRequestApprovalMetadata(this, targetfile);
-      IF (NOT RecordExists(metadata))
-        RETURN;
-    }
-    ELSE IF (savemode = "versioned-locked-editlive")
-    {
-      RETURN; //should not be reachable, unless someone manages to race it?
-    }
-    ELSE IF(savemode = "unversioned-unpublished" AND targetfile->ispinned)
+    IF(savemode = "unversioned-unpublished" AND targetfile->ispinned)
     {
       this->RunSimpleScreen("error", this->GetTid(".cannotpublishpinnedfile"));
       RETURN;
@@ -1005,24 +891,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     {
       this->currentautosave := old_currentautosave;
       this->currentdraft := old_currentdraft;
-    }
-  }
-
-  MACRO DoCancelRequest()
-  {
-    IF (this->GetSaveMode() IN [ "versioned-locked" ]
-        AND ObjectExists(this->currentdraft)
-        AND this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
-    {
-      OBJECT work := this->BeginWork();
-
-      CancelApprovalRequestForDraft(this->currentdraft);
-
-      IF (work->Finish())
-      {
-        this->RefreshState();
-        this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.requestcancelled"));
-      }
     }
   }
 
