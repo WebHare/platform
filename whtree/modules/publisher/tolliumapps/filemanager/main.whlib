@@ -1224,12 +1224,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     IF (Length(selection) = 0)
       RETURN FALSE;
 
-    // Initial check that we're not mixing versioned and non-versioned files
-    OBJECT feedback := this->BeginUnvalidatedFeedback();
-    RECORD rec := TestSelectionForVersioningUpdates(feedback, selection, [ "parent" ]);
-    IF (NOT feedback->Finish())
-      RETURN FALSE;
-
     RECORD opts := [ acceptforeignfolders := FALSE
                    , acceptfiles := FALSE
                    , showreadonly := TRUE
@@ -1239,26 +1233,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                    , description := ""
                    , recyclebinid := type="move" ? -2 : 0 //only show recyclebin when moving
                    ];
-
-    IF (type ="move" AND ObjectExists(rec.policy))
-    {
-      // Only show visible destinations within the current policy site(s)
-      INTEGER ARRAY roots;
-      INTEGER ARRAY user_roots :=
-          SELECT AS INTEGER ARRAY id
-            FROM this->tolliumuser->GetObjectsChildren("system:fs_objects", 0, FALSE);
-
-      FOREVERY (INTEGER siteid FROM rec.siteids)
-        IF (this->tolliumuser->HasRightOn("system:fs_browse", siteid))
-          INSERT siteid INTO roots AT END;
-        ELSE
-        {
-          INTEGER ARRAY allchildren := OpenWHFSObject(siteid)->GetDescendantObjectIds();
-          roots := roots CONCAT ArrayIntersection(allchildren, user_roots);
-        }
-
-      INSERT CELL roots := roots INTO opts;
-    }
 
     SWITCH(type)
     {
@@ -1316,12 +1290,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO EditObjectTypes(RECORD ARRAY selection)
   {
-    // Check if everything is allowed with versioning and such
-    OBJECT work := this->BeginUnvalidatedWork();
-    RECORD res := TestSelectionForVersioningUpdates(work, selection, [ "type" ]);
-    IF (NOT work->Finish())
-      RETURN;
-
     OBJECT typesdialog := this->LoadScreen("filemgrdialogs.selecttype",
           [ fsobjects := (SELECT AS INTEGER ARRAY id FROM selection)
           ]);
@@ -1329,7 +1297,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     IF (typesdialog->RunModal() = "ok")
     {
       // Republish changed files/folders
-      work := this->BeginUnvalidatedWork();
+      OBJECT work := this->BeginUnvalidatedWork();
       FOREVERY (RECORD obj FROM selection)
       {
         IF (obj.isfolder)
@@ -1963,16 +1931,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       RETURN;
 
     OBJECT work := this->BeginUnvalidatedWork();
-
-    RECORD res := TestSelectionForVersioningUpdates(work, elements, [ "ordering" ]);
-    IF (NOT RecordExists(res))
-    {
-      work->Finish();
-      RETURN;
-    }
-
-    IF (res.mode != "normal")
-      THROW NEW Exception("Changing ordering via the versioning policy is not implemented");
 
     OBJECT whfs_commithandler := GetWHFSCommitHandler();
     UPDATE system.fs_objects

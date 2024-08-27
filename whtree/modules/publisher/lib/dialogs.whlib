@@ -311,23 +311,8 @@ PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER AR
 
   OBJECT work := parentscreen->BeginUnvalidatedWork();
 
-  RECORD vrec := TestSelectionForVersioningUpdates(work, todelete, [ "parent" ]);
-  IF (NOT RecordExists(vrec))
-    RETURN work->Finish();
-
-  INTEGER ARRAY todraft := SELECT AS INTEGER ARRAY id FROM todelete WHERE id NOT IN vrec.direct;
-  INTEGER ARRAY totrash := SELECT AS INTEGER ARRAY id FROM todelete WHERE NOT inrecyclebin AND id IN vrec.direct;
-  INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM todelete WHERE inrecyclebin AND id IN vrec.direct;
-
-
-  IF (LENGTH(todraft) != 0)
-  {
-    FOREVERY (INTEGER id FROM todraft)
-    {
-      OBJECT liveobject := OpenWHFSObject(id);
-      UpdateMetadataForPolicy(DEFAULT OBJECT, liveobject, [ parent := 0 ]);
-    }
-  }
+  INTEGER ARRAY totrash := SELECT AS INTEGER ARRAY id FROM todelete WHERE NOT inrecyclebin;
+  INTEGER ARRAY tokill := SELECT AS INTEGER ARRAY id FROM todelete WHERE inrecyclebin;
 
   IF(Length(totrash)>0)
     RunAnyDelete(totrash, "publisher:app");

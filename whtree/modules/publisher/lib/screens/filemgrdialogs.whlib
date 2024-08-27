@@ -245,11 +245,6 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
 
     OBJECT work := this->BeginUnvalidatedWork();
 
-    // See if we can change the 'type' for the files/folders we're going to modify
-    RECORD res := TestSelectionForVersioningUpdatesByIds(work, this->fsobjectids, [ "type" ]);
-    IF (work->HasFailed())
-      RETURN work->Finish();
-
     // See which ones we actually need to modify
     INTEGER ARRAY modify_ids :=
         SELECT AS INTEGER ARRAY id
@@ -257,16 +252,13 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
          WHERE id IN this->fsobjectids
            AND type != newtype;
 
-    // Create drafts for the stuff to update
-    RECORD updateres := PrepareForVersionedUpdate(res, modify_ids);
-
     RECORD ARRAY toupdate :=
         SELECT id
              , isfolder
              , indexdoc
              , type
           FROM system.fs_objects
-         WHERE id IN updateres.objectids
+         WHERE id IN modify_ids
       ORDER BY parent;
 
     FOREVERY (RECORD rec FROM toupdate)
@@ -274,11 +266,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
       OBJECT fsobject := OpenWHFSObject(rec.id);
 
       // Update the object type
-      fsobject->UpdateMetadata([ type := newtype ]);
-
-      // For drafts, there is no more checking to do
-      IF (rec.id IN updateres.draftids)
-        CONTINUE;
+      fsobject->UpdateMetadata([ type := newtype ]);;
 
       ApplyTypeChangeSideEffects(work, fsobject, rec.type);
     }
