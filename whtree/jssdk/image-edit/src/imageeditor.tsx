@@ -105,7 +105,7 @@ export class ImageEditor {
     };
 
     this.toolbar = new Toolbar({
-      applyIcon: toddImages.createImage("tollium:actions/apply", 24, 24, "b"),
+      applyIcon: toddImages.createImage("tollium:actions/accept", 24, 24, "b"),
       applyLabel: getTid("~apply"),
       closeIcon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b"),
       closeLabel: getTid("~cancel")
@@ -130,7 +130,7 @@ export class ImageEditor {
       setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
     });
     this.rotator = addImageRotateButton(this.toolbar, this.surface, {
-      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
+      setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight),
     });
     this.pointer = addRefPointButton(this.toolbar, this.surface, {
       setStatus: (width: number, height: number, orgwidth?: number, orgheight?: number) => this.setStatus(width, height, orgwidth, orgheight)
@@ -268,6 +268,12 @@ export class ImageEditor {
     // actions are allowed; it has to be enabled explicitly.
     const methodRefPoint = !this.options.imgSize || this.options.imgSize.method === "none" || this.options.imgSize.method === "fill";
     return methodRefPoint && this.allowedactions.indexOf("refpoint") >= 0;
+  }
+  cancelModalEdits() {
+    this.toolbar.onModalCancel();
+  }
+  applyModalEdits() {
+    this.toolbar.onModalApply();
   }
 }
 

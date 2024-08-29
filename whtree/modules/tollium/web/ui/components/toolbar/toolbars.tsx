@@ -140,7 +140,7 @@ export class Toolbar extends ToolbarContainer {
     this.node.appendChild(this.mainPanel.node);
 
     this.modalPanel = null;
-    this.modalHolder = <div class="wh-toolbar-modalHolder"></div>;
+    this.modalHolder = <div class="wh-toolbar-modalholder"></div>;
     this.node.appendChild(this.modalHolder);
 
     const modalbuttons = <div class="wh-toolbar-modalbuttons"></div>;
