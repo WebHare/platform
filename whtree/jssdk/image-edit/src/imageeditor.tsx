@@ -269,6 +269,12 @@ export class ImageEditor {
     const methodRefPoint = !this.options.imgSize || this.options.imgSize.method === "none" || this.options.imgSize.method === "fill";
     return methodRefPoint && this.allowedactions.indexOf("refpoint") >= 0;
   }
+  cancelModalEdits() {
+    this.toolbar.onModalCancel();
+  }
+  applyModalEdits() {
+    this.toolbar.onModalApply();
+  }
 }
 
 function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: ImgSize, refPoint: RefPoint | boolean, forUpload?: boolean) {

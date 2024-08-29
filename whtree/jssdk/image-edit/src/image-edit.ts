@@ -368,6 +368,9 @@ export class ImageEditElement extends HTMLElement {
   async loadImage(image: Blob, settings?: Partial<ImageEditSettings>): Promise<void> {
     this.initEditor();
 
+    // Cancel current modal edits
+    this.#editor.cancelModalEdits();
+
     //We use Blob because we're most likely to work and return uploads. Image elements just complicate load/error handling
     //Not sure if we need to care about EXIF? https://github.com/whatwg/html/issues/7210 suggests al browsers apply EXIF orientation
     const bitmap = await createImageBitmap(image);
@@ -382,6 +385,9 @@ export class ImageEditElement extends HTMLElement {
     settings: ImageEditSettings;
   }> {
     this.initEditor();
+
+    // Apply current modal edits
+    this.#editor.applyModalEdits();
 
     const type = options?.type ?? "image/png";
     const quality = options?.quality ?? 0.85;
