@@ -272,16 +272,20 @@ class HSJob extends OutputObjectBase {
     return await this.jobobj.getExitCode();
   }
 
+  release() {
+    this.output?.close();
+    super.close();
+  }
+
   close() {
     if (this.closed)
       return;
 
     this.jobobj.terminate().catch(e => 0);
     this.jobobj.close();
-    this.output?.close();
     this.worker.close();
 
-    super.close();
+    this.release();
   }
 }
 
@@ -900,6 +904,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     await job.start();
   });
 
+  wasmmodule.registerAsyncExternalMacro("__HS_RELEASEJOB:::I", async (vm, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+
+    job.release();
+    ipcContext(vm).jobs.delete(job.id);
+  });
+
   wasmmodule.registerExternalFunction("__HS_GETIPCLINKTOPARENT::I:", (vm, id_set) => {
     const endpoint = ipcContext(vm).linktoparent;
     if (endpoint) {
@@ -926,6 +939,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
 
     job.close();
+    ipcContext(vm).jobs.delete(job.id);
   });
 
   wasmmodule.registerExternalMacro("SETEXTERNALSESSIONDATA:::S", (vm, var_sessiondata) => {
