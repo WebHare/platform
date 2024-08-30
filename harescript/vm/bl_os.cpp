@@ -3,6 +3,7 @@
 #include <blex/path.h>
 #include <blex/getopt.h>
 #include <blex/utils.h>
+#include <blex/threads.h>
 #include <iostream>
 #include "baselibs.h"
 #include "hsvm_blobinterface.h"
@@ -10,6 +11,8 @@
 #include "hsvm_context.h"
 #ifndef __EMSCRIPTEN__
 #include "hsvm_processmgr.h"
+#else
+#include <malloc.h>
 #endif
 
 namespace HareScript {
@@ -1648,6 +1651,22 @@ void HS_GetHostingProcessStartTime(VarId id_set, VirtualMachine *vm)
         HSVM_DateTimeSet(*vm, id_set, boottime.GetDays(), boottime.GetMsecs());
 }
 
+Blex::Mutex allocStatsMutex;
+
+void HS_GetMallocStats(VarId id_set, VirtualMachine *vm)
+{
+        Blex::Mutex::AutoLock lock(allocStatsMutex);
+
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
+
+#ifdef __EMSCRIPTEN__
+        auto mi = mallinfo();
+
+        HSVM_Integer64Set(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "TOTAL_ALLOCATED_BYTES")), mi.uordblks);
+        HSVM_Integer64Set(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "TOTAL_FREE_BYTES")), mi.fordblks);
+#endif
+}
+
 void InitProcess(BuiltinFunctionsRegistrator &bifreg)
 {
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_OPENDISKFILE::I:SBBBB",HS_OpenDiskFile));
@@ -1724,6 +1743,7 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETFILEPOINTER:::I6",HS_SetFilePointer));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPIPEREADSIGNALTHRESHOLD:::II", HS_SetPipeReadSignalThreshold));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPIPEYIELDTHRESHOLD:::II", HS_SetPipeYieldThreshold));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETMALLOCSTATS::R:", HS_GetMallocStats));
 }
 
 } // End of namespace Baselibs
