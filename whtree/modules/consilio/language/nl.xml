@@ -436,6 +436,12 @@
         <text tid="when">Datum</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="whfsindex">   <!-- tolliumapps.whfsindex -->
+      <textgroup gid="filtertypes">   <!-- tolliumapps.whfsindex.filtertypes -->
+        <text tid="file-hasdraft">Conceptversie opgeslagen voor bestand</text>
+        <text tid="form-contains">bevat component</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="webfeatures">   <!-- webfeatures -->
     <textgroup gid="sitecontent">   <!-- webfeatures.sitecontent -->

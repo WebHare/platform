@@ -476,7 +476,7 @@ PUBLIC OBJECTTYPE HasDraftFilter EXTEND BaseSearchFilter
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
     RETURN
-        [ valuequery :=  [ [ rowkey := "1", title := GetTid("publisher:filemanager.search.filtertypes.file-hasdraft") ] ]
+        [ valuequery :=  [ [ rowkey := "1", title := GetTid("consilio:tolliumapps.whfsindex.filtertypes.file-hasdraft") ] ]
         , valuequerytype := "checkbox"
         ];
   }
@@ -501,7 +501,7 @@ PUBLIC STATIC OBJECTTYPE FormFieldsFilter EXTEND BaseSearchFilter
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
     RETURN
-        [ matchlabel := GetTid("publisher:filemanager.search.filtertypes.form-contains")
+        [ matchlabel := GetTid("consilio:tolliumapps.whfsindex.filtertypes.form-contains")
         , selectquery := DEFAULT RECORD
         ];
   }
