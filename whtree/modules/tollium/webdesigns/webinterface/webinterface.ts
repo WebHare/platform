@@ -1,6 +1,5 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-import * as frontend from "@webhare/frontend";
+import { frontendConfig } from "@webhare/frontend";
+import { isHTMLElement } from "@webhare/dompack";
 import './css/webinterface.scss';
 import 'typeface-roboto';
 import 'typeface-roboto-mono';
@@ -19,7 +18,10 @@ if (document.documentElement.classList.contains('wh-shell')) {
 } else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {
   document.documentElement.addEventListener("click", event => {
     // Open external links in new window
-    if (event.target.nodeName === "A" && !event.target.href.startsWith(frontend.config.siteroot))
-      window.open(event.target.href);
+    if (isHTMLElement(event.target) && event.target.nodeName === "A") {
+      const href = (event.target as HTMLAnchorElement).href;
+      if (!href.startsWith(frontendConfig.siteroot))
+        window.open(href);
+    }
   });
 }
