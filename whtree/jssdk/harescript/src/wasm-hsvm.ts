@@ -201,7 +201,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   objectCache;
   mutexes: Array<Mutex | null> = [];
   currentgroup: string;
-  pipeWaiters = new Map<Ptr, PromiseWithResolvers<number>>;
+  pipeWaiters = new Map<Ptr, PromiseWithResolvers<number> & { timer?: NodeJS.Timeout }>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
@@ -392,11 +392,20 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (!waiter)
       throw new Error(`Could not find pipewaiter`);
 
-    const timer = rootstorage.run(() => setTimeout(() => waiter.resolve(0), wait_ms));
+    if (waiter.timer)
+      clearTimeout(waiter.timer);
+    waiter.timer = rootstorage.run(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); }, wait_ms));
     if (this.__unrefMainTimer && !this.pendingFunctionRequests.length)
-      timer.unref();
+      waiter.timer.unref();
     const res = await waiter.promise;
     return res;
+  }
+
+  __pipewaiterDelete(pipewaiter: number) {
+    const waiter = this.pipeWaiters.get(pipewaiter);
+    if (waiter?.timer)
+      clearTimeout(waiter.timer);
+    this.pipeWaiters.delete(pipewaiter);
   }
 
   //Bridge-based HSVM compatibillty. Report the number of Proxies still alive

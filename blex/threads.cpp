@@ -101,7 +101,7 @@ EM_JS(void, pipewaiterInitWaiter, (void *pipewaiter), {
 });
 
 EM_JS(void, pipewaiterClearWaiter, (void *pipewaiter), {
-  Module.itf.pipeWaiters.delete(pipewaiter);
+  Module.itf.__pipewaiterDelete(pipewaiter);
 });
 
 EM_ASYNC_JS(int, pipewaiterWait, (void *pipewaiter, int wait_ms), {
