@@ -11,6 +11,7 @@ import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
+export const DefaultJpegQuality = 85;
 
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
 const outputFormats = [null, "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const;
@@ -382,7 +383,7 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
 
   return {
     bgColor: 0x00ffffff,
-    quality: 85,
+    quality: DefaultJpegQuality,
     fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
     noForce: true,
     hBlur: 0,
@@ -395,6 +396,14 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   };
 }
 
+export function suggestImageFormat(mediaType: string): OutputFormatName {
+  if (mediaType === "image/x-bmp")
+    return "image/png";
+  if (mediaType === "image/tiff")
+    return "image/jpeg";
+  return mediaType as OutputFormatName;
+}
+
 export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod): ResizeSpecs {
   if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
@@ -403,10 +412,10 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
 
   method = validateResizeMethod(method);
 
-  const quality = method?.quality ?? 85;
+  const quality = method?.quality ?? DefaultJpegQuality;
   const hblur = method?.hBlur ?? 0;
   const vblur = method?.vBlur ?? 0;
-  const outtype: ResizeSpecs["outType"] = method.format || resource.mediaType === "image/x-bmp" ? "image/png" : resource.mediaType === "image/tiff" ? "image/jpeg" : (resource.mediaType as ResizeSpecs["outType"]);
+  const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
   let rotate;
   let mirror;
   let issideways;
@@ -587,7 +596,7 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   if (validatedMethod.fixOrientation) //this one goes into format, the rest of the bigflags go into method
     format += 0x80;
 
-  const havequality = validatedMethod.quality !== 85;
+  const havequality = validatedMethod.quality !== DefaultJpegQuality;
   if (havequality)
     method += 0x20; //Set quality flag
 

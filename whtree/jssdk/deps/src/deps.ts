@@ -18,6 +18,14 @@ export async function createSharpImage(...args: Parameters<typeof sharp.default>
   return lib.default(...args);
 }
 
+export type SharpRegion = sharp.Region;
+export type SharpResizeOptions = sharp.ResizeOptions;
+export type SharpJpegOptions = sharp.JpegOptions;
+export type SharpPngOptions = sharp.PngOptions;
+export type SharpWebpOptions = sharp.WebpOptions;
+export type SharpAvifOptions = sharp.AvifOptions;
+export type SharpGifOptions = sharp.GifOptions;
+
 ////////////////////////////// Puppeteer //////////////////////////
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
 
