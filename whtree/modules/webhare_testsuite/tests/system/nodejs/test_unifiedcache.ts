@@ -451,6 +451,14 @@ async function testImgCache() {
   const homersbrainPNG = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.png", { getImageMetadata: true });
   const homersbrainSharp = await createSharpImage(await homersbrainPNG.resource.arrayBuffer());
   await compareSharpImages(homersbrainSharp, await createSharpImage(dlHomersbrainWebp.fetchBuffer), 0);
+
+  //test rotation fixing
+  const landscape5 = await testsitejs.openFile("photoalbum/landscape_5.jpg");
+  const wrappedLandscape5 = landscape5.data.toResized({ method: "none", format: "image/avif" });
+  const dlLandscape5 = await fetchUCLink(wrappedLandscape5.link, "image/avif");
+  const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_1.jpg", { getImageMetadata: true });
+  const landscapeSharp = await createSharpImage(await landscape_proper.resource.arrayBuffer());
+  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), 4);
 }
 
 async function testFileCache() {

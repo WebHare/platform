@@ -98,6 +98,8 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   }
   const { extract, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
 
+  img.rotate(); //Fix rotation/mirroring
+
   //Resize before we extract, so we can cut off edges and prevent black lines
   if (resize)
     img.resize(resize);
