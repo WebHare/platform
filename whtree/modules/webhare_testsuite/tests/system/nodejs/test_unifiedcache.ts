@@ -441,6 +441,14 @@ async function testImgCache() {
   await fetchUCLink(wrappedKikker.link, "image/jpeg");
   test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none" })).link);
 
+  //test BMP to WEBP
+  const homersbrainBMP = await testsitejs.openFile("photoalbum/homersbrain.bmp");
+  const wrappedHomersbrainWebp = homersbrainBMP.data.toResized({ method: "none", format: "image/webp" });
+  const dlHomersbrainWebp = await fetchUCLink(wrappedHomersbrainWebp.link, "image/webp");
+
+  const homersbrainPNG = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.png", { getImageMetadata: true });
+  const homersbrainSharp = await createSharpImage(await homersbrainPNG.resource.arrayBuffer());
+  await compareSharpImages(homersbrainSharp, await createSharpImage(dlHomersbrainWebp.fetchBuffer), 0);
 }
 
 async function testFileCache() {

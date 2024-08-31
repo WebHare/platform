@@ -162,6 +162,16 @@ MACRO ImgCacheTest()
   TestEq(TRUE , testfw->browser->GotoWebPage(homerlink));
   TestEq("image/png", testfw->browser->contenttype);
 
+  STRING homerlink_webp := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/webp"]);
+  TestAssert(homerlink_webp != "");
+  TestEq(TRUE , testfw->browser->GotoWebPage(homerlink_webp));
+  TestEq("image/webp", testfw->browser->contenttype);
+
+  STRING homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
+  TestAssert(homerlink_avif != "");
+  TestEq(TRUE , testfw->browser->GotoWebPage(homerlink_avif));
+  TestEq("image/avif", testfw->browser->contenttype);
+
   STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
 
   //Modify homer base file

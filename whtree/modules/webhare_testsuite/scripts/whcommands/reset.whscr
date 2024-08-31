@@ -211,6 +211,9 @@ MACRO SetupTestSite(OBJECT testsite)
   photoalbumfolder->CreateFile([ name := `goudvis.png`, type := 12, publish := TRUE, ordering := 6, data := GetWebHareResource(`mod::system/web/tests/goudvis.png`)
                               ]);
 
+  photoalbumfolder->CreateFile([ name := `homersbrain.bmp`, type := 12, publish := TRUE, ordering := 6, data := GetWebHareResource(`mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp`)
+                              ]);
+
   //Set up active content tests
   OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
   actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);

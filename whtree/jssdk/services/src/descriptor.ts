@@ -9,6 +9,7 @@ import { createSharpImage } from "@webhare/deps";
 import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { decodeBMP } from "./bmp-to-raw";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 export const DefaultJpegQuality = 85;
@@ -218,8 +219,6 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   if (image.size >= MaxImageScanSize)
     return {}; //too large to scan
 
-  const data = await image.arrayBuffer();
-
   /* FIXME The actual dominant colors picked by sharp are not impressive compared to what Drawlib currently finds. See also
      - https://github.com/lovell/sharp/issues/3273 (dark gray images being picked)
 
@@ -232,7 +231,18 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
 
   let metadata, stats;
   try {
-    const img = await createSharpImage(data);
+    let img;
+
+    const data = await image.arrayBuffer();
+    const header = new Uint8Array(data.slice(0, 2));
+
+    if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M'
+      const decodedBMP = decodeBMP(Buffer.from(data)); //TODO avoid copy?
+      img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
+    } else {
+      img = await createSharpImage(data);
+    }
+
     metadata = await img.metadata();
     stats = getDominantColor ? await img.stats() : undefined;
   } catch (e) {
@@ -248,7 +258,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
   const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
-  const mediaType = (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
+  const mediaType = metadata.format === 'raw' ? 'image/x-bmp' : (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
   return {
     width: metadata[isrotated ? "height" : "width"] || null,

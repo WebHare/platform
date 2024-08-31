@@ -1,8 +1,9 @@
 import { createSharpImage, SharpRegion, SharpResizeOptions, type SharpAvifOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpWebpOptions } from "@webhare/deps";
+import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { DefaultJpegQuality, explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
-import { mkdir, open } from "fs/promises";
+import { mkdir, open, readFile } from "fs/promises";
 import path from "path";
 
 interface HSImgCacheRequest {
@@ -82,7 +83,19 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
 
   const sourceimage = __getBlobDiskFilePath(request.pgblobid);
 
-  const img = await createSharpImage(sourceimage);
+  // Read first two bytes of sourceimage
+  const header = new Uint8Array(2);
+  const fd = await open(sourceimage, 'r');
+  await fd.read(header, 0, 2, 0);
+  await fd.close();
+
+  let img;
+  if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M' - Bitmap
+    const decodedBMP = decodeBMP(await readFile(sourceimage));
+    img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
+  } else {
+    img = await createSharpImage(sourceimage);
+  }
   const { extract, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
 
   //Resize before we extract, so we can cut off edges and prevent black lines
