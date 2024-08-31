@@ -107,7 +107,7 @@ MACRO ImgCacheTest()
   //setting a wrong extension simply causes us to postfix the correct one
   STRING renamedkikkerlink;
   renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png" ]);
-  TestEqLike("*/kikker.png.jpg", renamedkikkerlink);
+  TestEqLike("*/kikker.jpg", renamedkikkerlink);
 
   RECORD wrappedinfo;
   wrappedinfo := GetWrappedSourceFromURL(renamedkikkerlink); //note, we get source info, not method-changed info
@@ -252,7 +252,7 @@ MACRO ImgCacheSourcesTest()
   RECORD kikkerinstance_nofilenamegiven := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25 ]);
   TestEqLike("*/kikker.jpg", kikkerinstance_nofilenamegiven.link);
   RECORD kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png" ]);
-  TestEqLike("*/kikker.png.jpg", kikkerinstance.link);
+  TestEqLike("*/kikker.jpg", kikkerinstance.link);
 
   RECORD wrappedinfo;
   wrappedinfo := GetWrappedSourceFromURL(kikkerinstance.link); //note, we get source info, not method-changed info
@@ -441,6 +441,7 @@ MACRO WRDImageCache()
   testfw->CommitWork();
 
   RECORD wrappedresized := WrapCachedImage(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "fit", setwidth := 64, setheight := 52, baseurl := GetPrimaryWebhareInterfaceURL() ]);
+  TestEqLike("*/homersbrain.png", wrappedresized.link, 'no bmp in the path please..');
   TestEq(TRUE, testfw->browser->GotoWebPage(wrappedresized.link));
   TestEqMembers([width:=64, mimetype:="image/png"], ScanBlob(testfw->browser->content), "MIMEWIDTH,TYPE");
   link_wrd_homer := wrappedresized.link;

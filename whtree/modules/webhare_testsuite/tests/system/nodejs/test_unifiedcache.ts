@@ -428,11 +428,13 @@ async function testImgCache() {
 
   //convert to WEBP using imagecache
   const wrappedGoldfishWebp = goldfishpng.data.toResized({ method: "none", format: "image/webp" });
+  test.eq(/\/goudvis\.webp$/, wrappedGoldfishWebp.link, "Should not contain 'png' in the name");
   const dlFishWebp = await fetchUCLink(wrappedGoldfishWebp.link, "image/webp");
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishWebp.fetchBuffer));
 
   //convert to AVIF using imagecache
   const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
+  test.eq(/\/goudvis\.avif$/, wrappedGoldfishAvif.link, "Should not contain 'png' in the name");
   const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), 0.20);
 

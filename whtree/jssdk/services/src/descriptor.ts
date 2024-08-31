@@ -768,8 +768,13 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     useextension = validextensions[0];
   }
 
-  if (!options?.fileName) //filename was derived from metadata, not explicitly set
+  if (!options?.fileName) { //filename was derived from metadata, not explicitly set
+    //drop any image extensions, we don't want goldfish-png.webp
+    if (useextension && ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.avif'].includes(extname(filename).toLowerCase()))
+      filename = basename(filename, extname(filename));
+
     filename = slugify(filename) ?? (options?.method ? 'image' : 'file'); //then sanitize it
+  }
 
   const packet = getUCSubUrl(options?.method ? options as ResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
   let suffix = dataType === 1 ? "i" : embed ? "e" : "f";

@@ -254,6 +254,10 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   suffix := suffix || packet;
 
   filename := Left(filename, 80);
+  //drop any image extensions, we don't want goldfish-png.webp
+  if (useextension != "" AND ToLowercase(GetExtensionFromPath(filename)) IN ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.avif'])
+    filename := GetBasenameFromPath(filename);
+
   suffix := suffix || "/" || EncodeURL( (filename ?? "data") || useextension);
 
   RETURN FixupReturnURL(baseurl, objinfo.fsobjectfolder, "/.uc/" || suffix);
