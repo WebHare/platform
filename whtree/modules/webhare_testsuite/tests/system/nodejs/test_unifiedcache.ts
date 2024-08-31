@@ -7,6 +7,7 @@ import * as test from "@webhare/test";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
+import { createSharpImage, Sharp } from "@webhare/deps/src/deps";
 
 async function testResizeMethods() {
   const examplePng = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: null } as const;
@@ -387,8 +388,27 @@ async function fetchUCLink(url: string, expectType: string) {
   const fetchResult = await fetch(finalurl);
   test.eq(200, fetchResult.status);
   test.eq(expectType, fetchResult.headers.get("content-type"));
-  const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
-  return { resource: fetchData, finalurl };
+  const fetchBuffer = await fetchResult.arrayBuffer();
+  const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true });
+  return { resource: fetchData, finalurl, fetchBuffer };
+}
+
+async function compareSharpImages(expect: Sharp, actual: Sharp, maxMSE = 0) {
+  const rawExpect = await expect.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
+  const rawActual = await actual.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
+  test.eq(rawExpect.info, rawActual.info);
+
+  let totalDiff = 0; //squared absolute difference
+  for (let row = 0; row < rawActual.info.height; ++row)
+    for (let col = 0; col < rawActual.info.width; ++col)
+      for (let channel = 0; channel < rawActual.info.channels; ++channel) {
+        const idx = (row * rawActual.info.width + col) * rawActual.info.channels + channel;
+        totalDiff += Math.sqrt(Math.abs(rawExpect.data[idx] - rawActual.data[idx]));
+      }
+
+  const mse = totalDiff / (rawActual.info.width * rawActual.info.height * rawActual.info.channels);
+  if (mse > maxMSE)
+    throw new Error(`MSE too high: ${mse} > ${maxMSE}`);
 }
 
 async function testImgCache() {
@@ -400,6 +420,21 @@ async function testImgCache() {
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none" })).link);
   await fetchUCLink(wrappedBeagle.link, "image/jpeg");
+
+  const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
+  const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none" });
+  const dlFishPng = await fetchUCLink(wrappedGoldfishPng.link, "image/png");
+  const imgFishPng = await createSharpImage(dlFishPng.fetchBuffer);
+
+  //convert to WEBP using imagecache
+  const wrappedGoldfishWebp = goldfishpng.data.toResized({ method: "none", format: "image/webp" });
+  const dlFishWebp = await fetchUCLink(wrappedGoldfishWebp.link, "image/webp");
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishWebp.fetchBuffer));
+
+  //convert to AVIF using imagecache
+  const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
+  const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), 0.20);
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
   const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none" });

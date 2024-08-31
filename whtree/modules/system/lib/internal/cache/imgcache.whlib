@@ -217,6 +217,10 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
       validextensions := [ ".png" ];
     ELSE IF(mimetype="image/gif")
       validextensions := [ ".gif" ];
+    ELSE IF(mimetype="image/avif")
+      validextensions := [ ".avif" ];
+    ELSE IF(mimetype="image/webp")
+      validextensions := [ ".webp" ];
     ELSE
       RETURN ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier.
   }

@@ -278,6 +278,7 @@ MACRO FsCacheTest()
   STRING badkikkerfilelink := GetCachedFSFileURL(baseurl, kikkertje->id);
   UPDATE system.fs_objects SET creationdate:=AddTimeToDate(1,creationdate) WHERE id=kikkertje->id;
   STRING goodkikkerfilelink := GetCachedFSFileURL(baseurl, kikkertje->id);
+  STRING avifkikkerfilelink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "none", format := "image/avif" ]);
 
   OBJECT docxje := GetTestsuiteTempFolder()->CreateFile( [ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), publish := FALSE, name := "empty.docx" ]);
   OBJECT extensionless := GetTestsuiteTempFolder()->CreateFile([data := StringToBlob("\x00\x01\x02\x03"), name := "extensionless" ]);
@@ -293,9 +294,15 @@ MACRO FsCacheTest()
   TestEq(404, testfw->browser->GetHTTPStatusCode());
 
   TestEq(TRUE, testfw->browser->GotoWebPage(goodkikkerfilelink), goodkikkerfilelink);
+  BLOB jpgkikker := testfw->browser->content;
   RECORD kikkerinfo := ScanBlob(testfw->browser->content,"");
   TestEq(122, kikkerinfo.width);
   TestEq(148, kikkerinfo.height);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(avifkikkerfilelink));
+  RECORD avifkikkerinfo := ScanBlob(testfw->browser->content,"");
+  TestEq(122, avifkikkerinfo.width);
+  TestEq(148, avifkikkerinfo.height);
 
   STRING docxjelink := GetCachedFileLink(docxje->GetWrapped(), [ filename := "empty.docx" ]);
   TestEqLike("*/empty.docx", docxjelink);

@@ -731,6 +731,10 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
       validextensions.push("png");
     else if (mimetype === "image/gif")
       validextensions.push("gif");
+    else if (mimetype === "image/webp")
+      validextensions.push("webp");
+    else if (mimetype === "image/avif")
+      validextensions.push("avif");
     else
       throw new Error(`Unsupported mimetype for image: ${mimetype}`);
     //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)

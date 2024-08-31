@@ -135,7 +135,7 @@ PUBLIC RECORD FUNCTION GfxResizeCropImageBlob(BLOB inblob, INTEGER setwidth, INT
 STRING ARRAY packmethods := [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"];
 STRING methodnoneformat := "format:C";
 STRING methodsizeformat := "setwidth:S,setheight:S,format:C";
-STRING ARRAY packformats := [/*0*/"",/*1*/"image/jpeg",/*2*/"image/gif",/*3*/"image/png"];
+STRING ARRAY packformats := [/*0*/"",/*1*/"image/jpeg",/*2*/"image/gif",/*3*/"image/png",/*4*/"image/webp",/*5*/"image/avif"];
 
 /** @short Pack any supported resize method into a small 8-bit string */
 PUBLIC STRING FUNCTION GfxPackImageResizeMethod(RECORD resizemethod)

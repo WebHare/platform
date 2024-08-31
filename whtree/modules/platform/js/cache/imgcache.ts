@@ -1,7 +1,9 @@
 import { createSharpImage, SharpRegion, SharpResizeOptions, type SharpAvifOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpWebpOptions } from "@webhare/deps";
 import { DefaultJpegQuality, explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
+import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
-import { open } from "fs/promises";
+import { mkdir, open } from "fs/promises";
+import path from "path";
 
 interface HSImgCacheRequest {
   pgblobid: string;
@@ -96,4 +98,10 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
 //used for images.shtml testpage
 export async function returnImageForCache(request: Omit<HSImgCacheRequest, "path">): Promise<string> {
   return (await renderImageForCache(request)).toString("base64");
+}
+
+export async function generateImageForCache(request: HSImgCacheRequest): Promise<void> {
+  const result = await renderImageForCache(request);
+  await mkdir(path.dirname(request.path), { recursive: true });
+  await storeDiskFile(request.path, result, { overwrite: true });
 }

@@ -619,7 +619,7 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
   ELSE IF(NOT CellExists(method,'quality'))
     INSERT CELL quality := 85 INTO method;
 
-  IF(CellExists(method, "format") AND method.format NOT IN ["","image/png","image/jpeg","image/gif"])
+  IF(CellExists(method, "format") AND method.format NOT IN ["","image/png","image/jpeg","image/gif","image/avif","image/webp"])
     THROW NEW Exception("Invalid output format '" || method.format || "' in resize method");
   ELSE IF(NOT CellExists(method, "format"))
     INSERT CELL format := "" INTO method;
