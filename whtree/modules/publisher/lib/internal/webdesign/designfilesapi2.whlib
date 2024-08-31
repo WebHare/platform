@@ -83,19 +83,6 @@ PUBLIC MACRO RemoveObsoleteCacheFolders()
   }
 }
 
-/** @short Call a function, and retry it if the connection failed */
-VARIANT FUNCTION CallAndRetryOnConnectionFailure(FUNCTION PTR fptr)
-{
-  TRY
-  {
-    RETURN fptr();
-  }
-  CATCH(OBJECT<ServiceDisconnectException> e)
-  {
-    RETURN fptr();
-  }
-}
-
 PUBLIC RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
 {
   TRY
@@ -165,7 +152,7 @@ STATIC OBJECTTYPE Resolver
       torequest.bundleconfig.extrarequires := SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(torequest.bundleconfig.extrarequires,'req') ORDER BY req;
 
       STRING designhash := GetHashForBundle(this->requestedbundle);
-      FUNCTION PTR getter := /*PTR CallAndRetryOnConnectionFailure*/(PTR GetPackingInfo(this->requestedbundle));
+      FUNCTION PTR getter := PTR GetPackingInfo(this->requestedbundle);
       IF(torequest.adhoc)
         this->packinginfo := getter().value;
       ELSE
@@ -206,17 +193,6 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForJSFile(STRING jspath, RECORD o
 
   OBJECT res := NEW Resolver("", jspath, options.supportedlanguages);
   RETURN res;
-}
-
-/// Returns the outputtag for the URL-name of an assetpack
-PUBLIC STRING FUNCTION UnmapBundleUuid(STRING inuuid)
-{
-  IF(inuuid LIKE "*.*")
-  {
-    INTEGER dotpos := SearchSubstring(inuuid, '.');
-    inuuid := Left(inuuid, dotpos) || ':' || Substring(inuuid, dotpos + 1);
-  }
-  RETURN inuuid;
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()

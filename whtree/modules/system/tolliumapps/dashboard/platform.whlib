@@ -2,8 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::util/semver.whlib";
-LOADLIB "wh::util/stringparser.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";

@@ -1,14 +1,5 @@
 ﻿<?wh
-LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::float.whlib";                     // used for handling sizes (fontsize/spacing)
-
-PUBLIC RECORD FUNCTION ParseXMLProfile(BLOB profiledata)
-{
-  OBJECT doc := MakeXMLDocument(profiledata);
-  IF(NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement))
-    RETURN DEFAULT RECORD;
-  RETURN ParseXMLProfileNode(doc->documentelement);
-}
 
 PUBLIC RECORD FUNCTION ParseXMLProfileNode(OBJECT profilenode)
 {

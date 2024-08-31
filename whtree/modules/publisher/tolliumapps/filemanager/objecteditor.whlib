@@ -1,8 +1,6 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-
 
 PUBLIC MACRO StartObjectEditor(OBJECT tolliumcontroller, RECORD data)
 {

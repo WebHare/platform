@@ -12,7 +12,6 @@ LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/conversionprofiles.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
@@ -374,14 +373,6 @@ PUBLIC RECORD FUNCTION GetContentFileTypeProps(INTEGER filetype, INTEGER filelin
       filetype := linkedfile.type;
   }
   RETURN GetFiletypeProps(filetype);
-}
-
-/** @short Read and parse a conversion profile
-    @param profileid ID of the profile to parse
-    @return The parsed profile record (both data and styles) */
-PUBLIC RECORD FUNCTION ReadConversionProfile(INTEGER profileid)
-{
-  RETURN ParseXMLProfile(SELECT AS BLOB data FROM system.fs_objects WHERE id=profileid);
 }
 
 RECORD FUNCTION TryProductionURLLookup(RECORD up, STRING url, BOOLEAN ifpublished)

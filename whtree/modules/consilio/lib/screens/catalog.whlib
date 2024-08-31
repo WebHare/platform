@@ -1217,15 +1217,6 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
   }
 >;
 
-BOOLEAN FUNCTION ArrayLike(STRING ARRAY value, STRING mask, BOOLEAN case_sensitive DEFAULTSTO FALSE)
-{
-  FOREVERY (STRING val FROM value)
-    IF ((NOT case_sensitive AND ToUppercase(val) LIKE ToUppercase(mask))
-        OR (case_sensitive AND val LIKE mask))
-      RETURN TRUE;
-  RETURN FALSE;
-}
-
 PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
 < OBJECT catalog;
   RECORD ARRAY wordgroups;

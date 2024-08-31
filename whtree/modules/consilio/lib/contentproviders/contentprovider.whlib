@@ -409,20 +409,10 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   {
     RETURN this->CheckBlacklist(url, "fetch");
   }
-  // May links from this URL be followed to be fetched? Returns empty string if not blacklisted, or pattern which blacklisted the URL
-  PUBLIC STRING FUNCTION MayFollow(STRING url)
-  {
-    RETURN this->CheckBlacklist(url, "follow");
-  }
   // May this URL be indexed? Returns empty string if not blacklisted, or pattern which blacklisted the URL
   PUBLIC STRING FUNCTION MayIndex(STRING url)
   {
     RETURN this->CheckBlacklist(url, "index");
-  }
-  // May links from this URL be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
-  PUBLIC STRING FUNCTION MayLinkCheckFrom(STRING url)
-  {
-    RETURN this->CheckBlacklist(url, "linkcheck_from");
   }
   // May this link be checked? Returns empty string if not blacklisted, or pattern which blacklisted the URL
   PUBLIC STRING FUNCTION MayLinkCheckTo(STRING url)

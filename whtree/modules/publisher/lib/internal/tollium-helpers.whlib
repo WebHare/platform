@@ -12,16 +12,13 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
 LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 PUBLIC STATIC OBJECTTYPE PropertyEditorException EXTEND Exception
 <
