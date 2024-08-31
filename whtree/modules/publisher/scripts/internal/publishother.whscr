@@ -15,7 +15,11 @@ IF (folder.type = 3 /* Fotoalbum */ AND file.type = 12 /* Image */)
   RECORD props := __GetPhotoalbumProps(folder.id);
   OBJECT photocanvas := CreateResizedCanvasFromBlob(file.data, [ method := "fit", setwidth := props.photowidth, setheight := props.photoheight ]);
   IF(NOT ObjectExists(photocanvas))
-    ABORT("The image appears to be corrupted");
+  {
+    //May be WEBP/AVIF. We'll publish the original, but really users should already be using an imgcache based photoalbum implementation
+    CreateFileFromBlob(file.name, file.data);
+    RETURN;
+  }
   OBJECT thumbcanvas := CreateResizedCanvasFromBlob(file.data, [ method := "fit", setwidth := props.thumbnailwidth, setheight := props.thumbnailheight ]);
 
   BLOB photoblob, thumbnailblob;

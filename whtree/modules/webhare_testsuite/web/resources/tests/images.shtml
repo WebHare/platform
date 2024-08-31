@@ -1,18 +1,29 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/whlibs/graphics/filters.whlib";
+LOADLIB "mod::system/whlibs/dbase/postgresql.whlib";
 
-/* https://my.webhare.dev/tollium_todd.res/webhare_testsuite/tests/images.shtml */
+/*
+https://my.webhare.dev/tollium_todd.res/webhare_testsuite/tests/images.shtml?format=image/avif
+https://my.webhare.dev/tollium_todd.res/webhare_testsuite/tests/images.shtml?format=image/webp
+https://my.webhare.dev/tollium_todd.res/webhare_testsuite/tests/images.shtml?format=image/gif
+*/
 
 OpenPrimary();
-OBJECT snowbeagle := OpenWHFSObjectByPath("site::webhare_testsuite.testsite/photoalbum/snowbeagle.jpg");
+OBJECT snowbeagle := OpenWHFSObjectByPath("site::webhare_testsuite.testsite/photoalbum/snowbeagle.jpg", [ expect := "file" ]);
+RECORD scannedimage := snowbeagle->GetWrapped();
+
 AddHTTPHeader("content-type", 'text/html', false);
 Print(`<html><body><table>`);
+
+Print(`<tr><td>Input image: ${scannedimage.width} x ${scannedimage.height}, ${scannedimage.mimetype} (${Length(scannedimage.data)} bytes)<br><br></td></tr>\n`);
 
 FOREVERY(RECORD testmethod FROM [
   //All https://www.webhare.dev/manuals/caching/methods/ methods
@@ -54,10 +65,61 @@ FOREVERY(RECORD testmethod FROM [
   ])
 {
   Print(`<tr><td colspan="2">${EncodeJSON(testmethod)}</td></tr>\n`);
-  RECORD hsresult := GfxResizeWrappedImageWithMethod(snowbeagle->GetWrapped(), testmethod);
-  Print(`<tr><td>${hsresult.width} x ${hsresult.height}, ${hsresult.mimetype} (${Length(hsresult.data)} bytes)<br>\n`);
-  Print(`<img src="${GetDataUrl(hsresult.data, hsresult.mimetype)}" />\n`);
-  Print(`</td></tr>\n`);
+
+  {
+    RECORD hsresult := GfxResizeWrappedImageWithMethod(scannedimage, testmethod);
+    Print(`<tr><td>${hsresult.width} x ${hsresult.height}, ${hsresult.mimetype} (${Length(hsresult.data)} bytes)<br>\n`);
+    Print(`<img src="${GetDataUrl(hsresult.data, hsresult.mimetype)}" />\n`);
+    Print(`</td>\n`);
+    FlushWebResponse(DEFAULT DATETIME);
+  }
+
+  {
+    STRING pgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, snowbeagle->data) ;
+    STRING jsresulttxt :=
+            CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
+            CELL[ ...scannedimage
+                , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
+                , item := [ resizemethod := CELL[...testmethod, format := GetWebVariable("format") ?? "image/avif" ]]
+                , pgblobid
+                ]);
+    RECORD jsresult := WrapBlob(StringToBlob(DecodeBase64(jsresulttxt)),"");
+    Print(`<td>${jsresult.width} x ${jsresult.height}, ${jsresult.mimetype} (${Length(jsresult.data)} bytes)<br>\n`);
+    Print(`<img src="${GetDataUrl(jsresult.data, jsresult.mimetype)}" />\n`);
+    Print(`</td></tr>\n`);
+  }
+
+  Print(`<tr><td colspan="2"><hr></td></tr>\n\n`);
+  FlushWebResponse(DEFAULT DATETIME);
+}
+
+FOREVERY(STRING name FROM ["landscape_5.jpg","portrait_4.jpg"/*"homersbrain.bmp","snowbeagle.webp","snowbeagle.avif"*/])
+{
+  RECORD nextimage := OpenWHFSObjectByPath(`site::webhare_testsuite.testsite/photoalbum/${name}`, [ expect := "file" ])->GetWrapped();
+  Print(`<tr><td>${name}: ${nextimage.width} x ${nextimage.height}, ${nextimage.mimetype} (${Length(nextimage.data)} bytes)<br><br></td></tr>\n`);
+  {
+    RECORD hsresult := GfxResizeWrappedImageWithMethod(nextimage, [ method := "none" ]);
+    Print(`<tr><td>${hsresult.width} x ${hsresult.height}, ${hsresult.mimetype} (${Length(hsresult.data)} bytes)<br>\n`);
+    Print(`<img src="${GetDataUrl(hsresult.data, hsresult.mimetype)}" />\n`);
+    Print(`</td>\n`);
+    FlushWebResponse(DEFAULT DATETIME);
+  }
+
+  {
+    STRING pgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, nextimage.data) ;
+    STRING jsresulttxt :=
+            CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
+            CELL[ ...nextimage
+                , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
+                , item := [ resizemethod := CELL[ method := "none", format := GetWebVariable("format") ?? "image/avif" ]]
+                , pgblobid
+                ]);
+    RECORD jsresult := WrapBlob(StringToBlob(DecodeBase64(jsresulttxt)),"");
+    Print(`<td>${jsresult.width} x ${jsresult.height}, ${jsresult.mimetype} (${Length(jsresult.data)} bytes)<br>\n`);
+    Print(`<img src="${GetDataUrl(jsresult.data, jsresult.mimetype)}" />\n`);
+    Print(`</td></tr>\n`);
+  }
+
   Print(`<tr><td colspan="2"><hr></td></tr>\n\n`);
   FlushWebResponse(DEFAULT DATETIME);
 }

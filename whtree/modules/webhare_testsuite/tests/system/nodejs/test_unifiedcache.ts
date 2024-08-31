@@ -6,7 +6,7 @@ import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMetho
 import * as test from "@webhare/test";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
-
+import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
 
 async function testResizeMethods() {
   const examplePng = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: null } as const;
@@ -14,6 +14,37 @@ async function testResizeMethods() {
   const exampleJpg = { width: 320, height: 240, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
   const exampleTiff = { width: 320, height: 240, mediaType: "image/tiff", rotation: 0, mirrored: false, refPoint: null } as const;
   const examplerefPoint = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: { x: 180, y: 180 } } as const;
+  const exampleKikkertje = { width: 122, height: 148, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
+  const exampleSnowbeagle = { width: 428, height: 284, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
+
+  //Test sharp resize methods
+  test.eq({
+    resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
+    extract: null,
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", setWidth: 25, setHeight: 25 }));
+
+  test.eq({
+    resize: null,
+    extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", setHeight: 100, setWidth: 100 }));
+
+  test.eq({
+    resize: null,
+    extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
+    format: "avif",
+    formatOptions: { lossless: false }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", setHeight: 100, setWidth: 100, format: "image/avif" }));
+
+  test.eq({
+    resize: { width: 320, height: 240, fit: "cover" },
+    extract: null,
+    format: "avif",
+    formatOptions: { lossless: true }
+  }, getSharpResizeOptions(examplePng, { method: "none", format: "image/avif" }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(examplePng, { method: "none" }));

@@ -202,10 +202,11 @@ MACRO SetupTestSite(OBJECT testsite)
                               , title := "A waterfall, in portrait"
                               , description := "A picture of a waterfall near a road with the number 4 in the middle"
                               ]);
-  photoalbumfolder->CreateFile([ name := "snowbeagle.jpg",  type := 12, publish := TRUE, ordering := 3, data := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg")
-                              , title := "Snowy-nose"
-                              , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
-                              ]);
+  FOREVERY(STRING ext FROM ["jpg","webp","avif"])
+    photoalbumfolder->CreateFile([ name := `snowbeagle.${ext}`, type := 12, publish := TRUE, ordering := 3 + #ext, data := GetWebHareResource(`mod::system/web/tests/snowbeagle.${ext}`)
+                                , title := `Snowy-nose as ${ext}`
+                                , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
+                                ]);
 
   //Set up active content tests
   OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
