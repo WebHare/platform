@@ -70,8 +70,8 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   const method: ResizeMethod = {
     hBlur: request.item.resizemethod.hblur,
     vBlur: request.item.resizemethod.vblur,
-    setWidth: request.item.resizemethod.setwidth,
-    setHeight: request.item.resizemethod.setheight,
+    width: request.item.resizemethod.setwidth,
+    height: request.item.resizemethod.setheight,
     format: request.item.resizemethod.format || null,
     bgColor: request.item.resizemethod.bgcolor,
     noForce: request.item.resizemethod.noforce,

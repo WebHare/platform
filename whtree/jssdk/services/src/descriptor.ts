@@ -52,8 +52,8 @@ export type ResizeMethod = {
   bgColor?: number | "transparent";
   noForce?: boolean;
   grayscale?: boolean;
-  setWidth?: number;
-  setHeight?: number;
+  width?: number;
+  height?: number;
 };
 
 type ResourceResizeOptions = Partial<ResizeMethod> & LinkMethod;
@@ -396,12 +396,12 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
     noForce: true,
     hBlur: 0,
     vBlur: 0,
-    setWidth: 0,
-    setHeight: 0,
+    width: 0,
+    height: 0,
     ...resizemethod,
     methodIdx: method,
     formatIdx: format
-  };
+  } satisfies ResizeMethod & { methodIdx: number; formatIdx: number };
 }
 
 export function suggestImageFormat(mediaType: string): OutputFormatName {
@@ -466,8 +466,8 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
   if (method.method === "none")
     return instr;
 
-  let setwidth = method.setWidth ?? 0;
-  let setheight = method.setHeight ?? 0;
+  let setwidth = method.width ?? 0;
+  let setheight = method.height ?? 0;
 
   if (method.method === "crop") { // simple crop, no resizing
     if (setwidth > width)
@@ -606,8 +606,8 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   view.setUint8(ptr + 1, method);
   ptr += 2;
   if (validatedMethod.method !== 'none') { //only write setWidth/height for methods other than none
-    view.setInt16(ptr, validatedMethod.setWidth, true);
-    view.setInt16(ptr + 2, validatedMethod.setHeight, true);
+    view.setInt16(ptr, validatedMethod.width, true);
+    view.setInt16(ptr + 2, validatedMethod.height, true);
     ptr += 4;
   }
 
