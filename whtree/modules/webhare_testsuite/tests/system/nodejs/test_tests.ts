@@ -8,7 +8,7 @@ import * as child_process from 'node:child_process';
 async function testChecks() {
   //test.throws should fail if a function did not throw. this will generate noise so tell the user to ignore
   test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
-  test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
+  test.throws(/Expected function to throw/i, () => test.throws(/Fourty two/, () => 42));
   console.log("(you can ignore the message above about expecting a fourty two exception)");
 
   //test JS native Date type

@@ -83,7 +83,7 @@ function rewriteNodeAttributes(node) {
 
 function isequal(a, b) {
   try {
-    test.eq(a, b, '');
+    whtest.eq(a, b);
     return true;
   } catch (e) {
     return false;
@@ -159,7 +159,7 @@ export function eqHTML(expected, actual, explanation?: Annotation) {
     rewriteNodeAttributes(list[i]);
   actual = fixer.innerHTML;
 
-  test.eq(expected, actual, explanation);
+  whtest.eq(expected, actual, explanation);
 }
 
 export function eqIn(expected_in, actual, explanation?: Annotation) {
@@ -206,17 +206,7 @@ export function eqFloat(expected, actual, delta, explanation?: Annotation) {
     testfw.log("A: " + encodeURIComponent(actual));
   }
 
-  test.eq(expected, actual);
-}
-
-/** @deprecated Use test.assert(condition) */
-function testTrue(actual, explanation?: Annotation) {
-  test.eq(true, Boolean(actual), explanation);
-}
-
-/** @deprecated Use test.assert(!condition) */
-function testFalse(actual, explanation?: Annotation) {
-  test.eq(false, Boolean(actual), explanation);
+  whtest.eq(expected, actual);
 }
 
 export function findElementWithText(doc, tagname, text) {
@@ -254,7 +244,7 @@ export async function asyncMouseMove(x, y, options) {
     return;
   }
 
-  y += test.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
+  y += whtest.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
   return await testfw.sendDevtoolsRequest({ type: "mouseMove", x, y, options });
 }
 export async function asyncMouseDown(type, options) {
@@ -629,8 +619,3 @@ export async function waitUI() { //eases transition to the less-flexible @webhar
 export async function waitNavigation() { //eases transition to the less-flexible @webhare/test wait()
   return await callbacks.executeWait('load');
 }
-
-export {
-  testTrue as true             //deprecated! use test.assert(...) in 5.2+
-  , testFalse as false         //deprecated! use test.assert(!...) in 5.2+
-};

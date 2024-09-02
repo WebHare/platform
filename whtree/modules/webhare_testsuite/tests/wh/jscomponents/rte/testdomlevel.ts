@@ -506,8 +506,8 @@ test.registerTests(
         let res = domlevel.combineNodes(locators[0], locators[2].element, locators);
         testEqHTMLEx('<i>(*0*)(*1*)(*2*)"(*3*)a(*4*)"(*5*)<b>(*6*)</b>(*7*)</i>', rte.getBody(), locators);
         test.eq(locators[0].element, res.node);
-        test.true(res.locator.equals(locators[0]));
-        test.true(res.afterlocator.equals(locators[5]));
+        test.assert(res.locator.equals(locators[0]));
+        test.assert(res.afterlocator.equals(locators[5]));
 
         rte.setContentsHTML('<i><b>ab</b></i>');
         locators = getAllLocators(win, rte.getBody().firstChild);
@@ -515,8 +515,8 @@ test.registerTests(
         res = domlevel.combineNodes(locators[0], locators[1].element, locators);
         testEqHTMLEx('<i>(*0*)(*1*)"(*2*)a(*3*)b(*4*)"(*5*)(*6*)</i>', rte.getBody(), locators);
         test.eq(locators[0].element, res.node);
-        test.true(res.locator.equals(locators[0]));
-        test.true(res.afterlocator.equals(locators[5]));
+        test.assert(res.locator.equals(locators[0]));
+        test.assert(res.afterlocator.equals(locators[5]));
 
         rte.setContentsHTML('<i><b>ab</b></i>');
         locators = getAllLocators(win, rte.getBody().firstChild);
