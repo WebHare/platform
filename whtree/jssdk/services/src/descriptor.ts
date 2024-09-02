@@ -29,7 +29,7 @@ const MapBitmapImageTypes: Record<string, string> = {
   "heif": "image/avif"
 };
 
-export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "stretch" | "stretch-x" | "stretch-y">;
+export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type LinkMethod = {
@@ -382,7 +382,7 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   const method = packMethods.indexOf(resizemethod.method);
   if (method < 0)
     throw new Error(`Unrecognized method '${resizemethod.method}'`);
-  if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas'].includes(resizemethod.method))
+  if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method))
     throw new Error(`Resize method '${resizemethod.method}' is deprecated and not supported in JavaScript or for WebP/AVIF image formats`);
 
   const format = outputFormats.indexOf(resizemethod.format ?? null);
@@ -466,36 +466,8 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
   if (method.method === "none")
     return instr;
 
-  let setwidth = method.width ?? 0;
-  let setheight = method.height ?? 0;
-
-  if (method.method === "crop") { // simple crop, no resizing
-    if (setwidth > width)
-      setwidth = width;
-    if (setheight > height)
-      setheight = height;
-
-    instr.outWidth = setwidth;
-    instr.outHeight = setheight;
-    instr.renderWidth = width;
-    instr.renderHeight = height;
-    instr.renderX = (setwidth - width) / 2;
-    instr.renderY = (setheight - height) / 2;
-
-    if (instr.refPoint) {
-      const hw = Math.ceil(width / 2);
-      const dx = Math.floor((instr.refPoint.x - hw) * instr.renderX / hw);
-      instr.renderX += dx;
-
-      const hh = Math.ceil(height / 2);
-      const dy = Math.floor((instr.refPoint.y - hh) * instr.renderY / hh);
-      instr.renderY += dy;
-
-      instr.refPoint.x += instr.renderX;
-      instr.refPoint.y += instr.renderY;
-    }
-    return instr;
-  }
+  const setwidth = method.width ?? 0;
+  const setheight = method.height ?? 0;
 
   /* dx = input image width / method setwidth    (dx < 1: input image is smaller than requested by method)
      dy = input image height / method setheight
@@ -632,10 +604,6 @@ export function getUnifiedCC(date: Date) {
   return parts.days ^ parts.msecs;
 }
 
-function isImageRefpointRelevant(method: ResizeMethod) {
-  return ["crop", "cropcanvas", "fill"].includes(method.method);
-}
-
 export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
   if (!fileData.dbLoc)
     throw new Error("Cannot use toResize on a resource not backed by a supported database location");
@@ -664,7 +632,7 @@ export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: Resource
     throw new Error("fileData.hash is required");
 
   let contenthash;
-  if (dataType === 1 && scaleMethod && fileData.refPoint && isImageRefpointRelevant(scaleMethod)) {
+  if (dataType === 1 && scaleMethod?.method === 'fill' && fileData.refPoint) {
     const contenthasher = crypto.createHash('md5');
     contenthasher.update(fileData.hash);
     contenthasher.update(encodeHSON(fileData.refPoint));

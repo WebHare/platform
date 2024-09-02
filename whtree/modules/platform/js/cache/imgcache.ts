@@ -1,4 +1,4 @@
-import { createSharpImage, SharpRegion, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpWebpOptions } from "@webhare/deps";
+import { createSharpImage, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpWebpOptions } from "@webhare/deps";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { DefaultJpegQuality, explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -34,7 +34,6 @@ interface HSImgCacheRequest {
 
 export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod) {
   // https://sharp.pixelplumbing.com/api-resize
-  let extract: SharpRegion | null = null;
   let resize: SharpResizeOptions | null = null;
   let extend: SharpExtendOptions | null = null;
   const bgColor: SharpColor | undefined = method.bgColor !== undefined && method.bgColor !== "transparent" ? {
@@ -47,9 +46,7 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
   const explain = explainImageProcessing(infile, method);
   const lossless = infile.mediaType !== "image/jpeg";
 
-  if (method.method === "crop") {
-    extract = { left: -explain.renderX, top: -explain.renderY, width: explain.outWidth, height: explain.outHeight };
-  } else if (method.method === "fill") {
+  if (method.method === "fill") {
     resize = { width: explain.outWidth, height: explain.outHeight, fit: 'cover' };
   } else if (method.method === "fitcanvas" && explain.renderWidth === infile.width && explain.renderHeight === infile.height) {
     // fitcanvas without any renderchange should not resize
@@ -68,13 +65,13 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
   const outputformat = method.format || suggestImageFormat(infile.mediaType);
 
   if (outputformat === "image/webp")
-    return { extract, extend, resize, format: "webp" as const, formatOptions: { lossless } };
+    return { extend, resize, format: "webp" as const, formatOptions: { lossless } };
   if (outputformat === "image/avif")
-    return { extract, extend, resize, format: "avif" as const, formatOptions: { lossless } };
+    return { extend, resize, format: "avif" as const, formatOptions: { lossless } };
   if (outputformat === "image/gif")
-    return { extract, extend, resize, format: "gif" as const, formatOptions: null };
+    return { extend, resize, format: "gif" as const, formatOptions: null };
   if (outputformat === "image/jpeg")
-    return { extract, extend, resize, format: "jpeg" as const, formatOptions: { quality: method.quality ?? DefaultJpegQuality } };
+    return { extend, resize, format: "jpeg" as const, formatOptions: { quality: method.quality ?? DefaultJpegQuality } };
 
   throw new Error("Unsupported output format: " + outputformat);
 }
@@ -115,15 +112,13 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   } else {
     img = await createSharpImage(sourceimage);
   }
-  const { extract, extend, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
+  const { extend, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
 
   img.rotate(); //Fix rotation/mirroring
 
   //Resize before we extract, so we can cut off edges and prevent black lines
   if (resize)
     img.resize(resize);
-  if (extract)
-    img.extract(extract);
   if (extend)
     img.extend(extend);
 

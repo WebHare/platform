@@ -42,10 +42,6 @@ FOREVERY(RECORD testmethod FROM [
   [ method := "scale", setwidth := 500 ],
   [ method := "scale", setheight := 500 ],
 
-  [ method := "crop", setwidth := 100, setheight := 100 ],
-  [ method := "crop", setwidth := 500, setheight := 500 ],
-  [ method := "crop", setwidth := 100, setheight := 500 ],
-
   [ method := "fitcanvas", setwidth := 100, setheight := 100, bgcolor := 0xFFFF0000 ],
   [ method := "fitcanvas", setwidth := 500, setheight := 500, bgcolor := 0xFFFF0000 ],
   [ method := "scalecanvas", setwidth := 100, setheight := 100, bgcolor := 0xFFFF0000 ],

@@ -21,7 +21,6 @@ async function testResizeMethods() {
   //Test sharp resize methods
   test.eq({
     resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
-    extract: null,
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
@@ -30,7 +29,6 @@ async function testResizeMethods() {
   //Scale === fit when shrinking
   test.eq({
     resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
-    extract: null,
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
@@ -39,7 +37,6 @@ async function testResizeMethods() {
   //Scale to bigger size
   test.eq({
     resize: { width: 244, height: 296, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
-    extract: null,
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
@@ -48,7 +45,6 @@ async function testResizeMethods() {
   //Fit to bigger size - should be ignored!
   test.eq({
     resize: null,
-    extract: null,
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
@@ -56,23 +52,6 @@ async function testResizeMethods() {
 
   test.eq({
     resize: null,
-    extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
-    extend: null,
-    format: "jpeg",
-    formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", height: 100, width: 100 }));
-
-  test.eq({
-    resize: null,
-    extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
-    extend: null,
-    format: "avif",
-    formatOptions: { lossless: false }
-  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", height: 100, width: 100, format: "image/avif" }));
-
-  test.eq({
-    resize: null,
-    extract: null,
     extend: { top: 108, bottom: 108, left: 36, right: 36, background: { r: 255, g: 0, b: 0, alpha: 1 } },
     format: "avif",
     formatOptions: { lossless: false }
@@ -80,7 +59,6 @@ async function testResizeMethods() {
 
   test.eq({
     resize: { width: 100, height: 100, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
-    extract: null,
     extend: null,
     format: "avif",
     formatOptions: { lossless: false }
@@ -88,7 +66,6 @@ async function testResizeMethods() {
 
   test.eq({
     resize: { width: 500, height: 500, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
-    extract: null,
     extend: null,
     format: "avif",
     formatOptions: { lossless: false }
@@ -96,7 +73,6 @@ async function testResizeMethods() {
 
   test.eq({
     resize: null,
-    extract: null,
     extend: null,
     format: "avif",
     formatOptions: { lossless: true }
@@ -104,7 +80,6 @@ async function testResizeMethods() {
 
   test.eq({
     resize: { width: 100, height: 100, fit: 'cover' },
-    extract: null,
     extend: null,
     format: "avif",
     formatOptions: { lossless: false }
@@ -289,33 +264,6 @@ async function testResizeMethods() {
   test.eqPartial({
     outWidth: 120, outHeight: 120, outType: "image/png", renderX: -23, renderY: 0, renderWidth: 160, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0, refPoint: { x: 67, y: 90 }
   }, explainImageProcessing(examplerefPoint, { method: "fill", width: 120, height: 120 }));
-
-
-  //Crop
-
-  //equal dimensions
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "crop", width: 320, height: 240 }));
-
-  //crop to 640X480 canvas, no-op
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "crop", width: 640, height: 480 })
-  );
-
-  //crop to 200x100, render a 320x240 picture but position it at -60,-70
-  test.eqPartial({ outWidth: 200, outHeight: 100, outType: "image/jpeg", renderX: -60, renderY: -70, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "crop", width: 200, height: 100 })
-  );
-
-  //crop to 640x120 (or only crop height to 320x120), render a 320x240 picture but position it at -60
-  test.eqPartial({ outWidth: 320, outHeight: 120, outType: "image/jpeg", renderX: 0, renderY: -60, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "crop", width: 640, height: 120 })
-  );
-
-  //in the output, the image must be rendered somewhat more to the left and top (-68 (67.5) instead of -60 and -105 instead of -70)
-  test.eqPartial({
-    outWidth: 200, outHeight: 100, outType: "image/png", renderX: -68, renderY: -105, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0, refPoint: { x: 112, y: 75 }
-  }, explainImageProcessing(examplerefPoint, { method: "crop", width: 200, height: 100 }));
 }
 
 async function testImgMethodPacking() {
