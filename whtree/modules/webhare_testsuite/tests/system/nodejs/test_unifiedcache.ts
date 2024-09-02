@@ -270,21 +270,18 @@ async function testImgMethodPacking() {
   let finalmethod;
   const unpack = await loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, fixOrientation: true }));
+  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131 }));
   test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "", bgcolor: 0x00FFFFFF, noforce: true, quality: 85, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
 
   finalmethod = await unpack(packImageResizeMethod({ method: "none" }));
-  test.eq(false, finalmethod.fixorientation);
+  test.eq(true, finalmethod.fixorientation);
   test.eq("", finalmethod.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", fixOrientation: true }));
-  test.eq(true, finalmethod.fixorientation);
-
   finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/png" }));
-  test.eq(false, finalmethod.fixorientation);
+  test.eq(true, finalmethod.fixorientation);
   test.eq("image/png", finalmethod.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/gif", fixOrientation: true }));
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/gif" }));
   test.eq(true, finalmethod.fixorientation);
   test.eq("image/gif", finalmethod.format);
 
@@ -356,7 +353,7 @@ async function testImgCache() {
   const testsitejs = await getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
-  test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none" })).link);
+  test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true })).link);
   await fetchUCLink(wrappedBeagle.link, "image/jpeg");
 
   const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
@@ -377,9 +374,9 @@ async function testImgCache() {
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), 0.20);
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
-  const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none" });
+  const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true });
   await fetchUCLink(wrappedKikker.link, "image/jpeg");
-  test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none" })).link);
+  test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none", fixorientation: true })).link);
 
   //test BMP to WEBP
   const homersbrainBMP = await testsitejs.openFile("photoalbum/homersbrain.bmp");
@@ -461,7 +458,7 @@ async function testWRDImgCache() {
   const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none" }).link;
   test.eq(/goudvis\.png$/, fetchedGoldFishLink);
   const fetchedGoldFish = await fetchUCLink(fetchedGoldFishLink, "image/png");
-  test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none" })).link);
+  test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none", fixorientation: true })).link);
   const fetchedGoldFishDirect = await fetchUCLink(wrappedGoldfish.testImage!.toLink(), "image/png");
   test.eq(fetchedGoldFish.resource.hash, fetchedGoldFishDirect.resource.hash);
 }

@@ -47,7 +47,6 @@ export type ResizeMethod = {
   quality?: number;
   blur?: number;
   format?: OutputFormatName;
-  fixOrientation?: boolean;
   bgColor?: number | "transparent";
   noForce?: boolean;
   grayscale?: boolean;
@@ -390,7 +389,6 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   return {
     bgColor: 0x00ffffff,
     quality: DefaultJpegQuality,
-    fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
     noForce: true,
     blur: 0,
     width: 0,
@@ -419,33 +417,20 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
 
   const quality = method?.quality ?? DefaultJpegQuality;
   const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
-  let rotate;
-  let mirror;
-  let issideways;
-
-  if (!method.fixOrientation) { //First figure out how to undo the rotation on the image, if any
-    if ([90, 180, 270].includes(resource.rotation!))
-      rotate = 360 - resource.rotation!;
-    mirror = resource.mirrored!;
-    issideways = [90, 270].includes(rotate!);
-  }
-
-  const width = issideways ? resource.height : resource.width;
-  const height = issideways ? resource.width : resource.height;
   const instr: ResizeSpecs = {
-    outWidth: width,
-    outHeight: height,
+    outWidth: resource.width,
+    outHeight: resource.height,
     outType: outtype,
     renderX: 0,
     renderY: 0,
-    renderWidth: width,
-    renderHeight: height,
+    renderWidth: resource.width,
+    renderHeight: resource.height,
     bgColor: method.bgColor ?? 0xffffff,
     noForce: method.noForce ?? true,
     quality,
     grayscale: method.grayscale ?? false,
-    rotate: rotate ?? 0,
-    mirror: mirror ?? false,
+    rotate: 0,
+    mirror: false,
     blur: method?.blur ?? 0,
     refPoint: structuredClone(resource.refPoint) //make sure we don't update the resource's original refpoint
   };
@@ -543,8 +528,8 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   if (validatedMethod.grayscale)
     method += 0x10;
 
-  if (validatedMethod.fixOrientation) //this one goes into format, the rest of the bigflags go into method
-    format += 0x80;
+  //fixOrientation: enforced in TS. this bit goes into format, the rest of the bigflags go into method
+  format += 0x80;
 
   const havequality = validatedMethod.quality !== DefaultJpegQuality;
   if (havequality)

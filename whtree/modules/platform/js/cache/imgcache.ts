@@ -90,7 +90,6 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
     format: request.item.resizemethod.format || null,
     bgColor: request.item.resizemethod.bgcolor,
     noForce: request.item.resizemethod.noforce,
-    fixOrientation: request.item.resizemethod.fixorientation,
     grayscale: request.item.resizemethod.grayscale,
     quality: request.item.resizemethod.quality,
     method: request.item.resizemethod.method,
