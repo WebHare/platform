@@ -403,7 +403,7 @@ async function compareSharpImages(expect: Sharp, actual: Sharp, maxMSE = 0) {
     for (let col = 0; col < rawActual.info.width; ++col)
       for (let channel = 0; channel < rawActual.info.channels; ++channel) {
         const idx = (row * rawActual.info.width + col) * rawActual.info.channels + channel;
-        totalDiff += Math.sqrt(Math.abs(rawExpect.data[idx] - rawActual.data[idx]));
+        totalDiff += Math.pow(Math.abs(rawExpect.data[idx] - rawActual.data[idx]), 2);
       }
 
   const mse = totalDiff / (rawActual.info.width * rawActual.info.height * rawActual.info.channels);
@@ -456,9 +456,9 @@ async function testImgCache() {
   const landscape5 = await testsitejs.openFile("photoalbum/landscape_5.jpg");
   const wrappedLandscape5 = landscape5.data.toResized({ method: "none", format: "image/avif" });
   const dlLandscape5 = await fetchUCLink(wrappedLandscape5.link, "image/avif");
-  const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_1.jpg", { getImageMetadata: true });
+  const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_5-fixed.jpg", { getImageMetadata: true });
   const landscapeSharp = await createSharpImage(await landscape_proper.resource.arrayBuffer());
-  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), 4);
+  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), 50);
 }
 
 async function testFileCache() {
