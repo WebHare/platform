@@ -45,8 +45,7 @@ export type ResizeMethod = {
   // method: Exclude<ResizeMethodName, "none">;
   method: ResizeMethodName;
   quality?: number;
-  hBlur?: number;
-  vBlur?: number;
+  blur?: number;
   format?: OutputFormatName;
   fixOrientation?: boolean;
   bgColor?: number | "transparent";
@@ -71,8 +70,7 @@ export interface ResizeSpecs {
   grayscale: boolean;
   rotate: number;
   mirror: boolean;
-  hBlur: number;
-  vBlur: number;
+  blur: number;
   refPoint: { x: number; y: number } | null;
 }
 
@@ -394,8 +392,7 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
     quality: DefaultJpegQuality,
     fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
     noForce: true,
-    hBlur: 0,
-    vBlur: 0,
+    blur: 0,
     width: 0,
     height: 0,
     ...resizemethod,
@@ -421,8 +418,6 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
   method = validateResizeMethod(method);
 
   const quality = method?.quality ?? DefaultJpegQuality;
-  const hblur = method?.hBlur ?? 0;
-  const vblur = method?.vBlur ?? 0;
   const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
   let rotate;
   let mirror;
@@ -451,8 +446,7 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
     grayscale: method.grayscale ?? false,
     rotate: rotate ?? 0,
     mirror: mirror ?? false,
-    hBlur: hblur,
-    vBlur: vblur,
+    blur: method?.blur ?? 0,
     refPoint: structuredClone(resource.refPoint) //make sure we don't update the resource's original refpoint
   };
 
@@ -566,7 +560,7 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   const buffer = new ArrayBuffer(32);
   const view = new DataView(buffer);
   let ptr = 0;
-  const blur = ((validatedMethod.hBlur & 0x7fff) << 15) | (validatedMethod.vBlur & 0x7fff);
+  const blur = ((validatedMethod.blur & 0x7fff) << 15) | (validatedMethod.blur & 0x7fff);
   if (blur) {
     view.setUint8(ptr, 2); //the 'blur' header byte
     view.setInt32(ptr + 1, blur, true);

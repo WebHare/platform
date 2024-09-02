@@ -84,8 +84,7 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   };
 
   const method: ResizeMethod = {
-    hBlur: request.item.resizemethod.hblur,
-    vBlur: request.item.resizemethod.vblur,
+    blur: Math.min(request.item.resizemethod.hblur, request.item.resizemethod.vblur),
     width: request.item.resizemethod.setwidth,
     height: request.item.resizemethod.setheight,
     format: request.item.resizemethod.format || null,
@@ -121,6 +120,9 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
     img.resize(resize);
   if (extend)
     img.extend(extend);
+
+  if (method.blur)
+    img.blur({ sigma: method.blur });
 
   img.toFormat(format, formatOptions as SharpJpegOptions | SharpPngOptions | SharpWebpOptions | SharpAvifOptions | SharpGifOptions || undefined);
   return await img.toBuffer();

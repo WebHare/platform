@@ -48,7 +48,8 @@ FOREVERY(RECORD testmethod FROM [
   [ method := "scalecanvas", setwidth := 500, setheight := 500, bgcolor := 0xFFFF0000 ],
 
   [ method := "fill", setwidth := 100, setheight := 100 ],
-  [ method := "fill", setwidth := 500, setheight := 500 ]
+  [ method := "fill", setwidth := 500, setheight := 500 ],
+  [ method := "fill", setwidth := 500, setheight := 500, hblur := 20, vblur := 20 ] //we only care about hblur===vblur when comparing. and this is often done in practice anyway
   ])
 {
   Print(`<tr><td colspan="2">${EncodeJSON(testmethod)}</td></tr>\n`);
