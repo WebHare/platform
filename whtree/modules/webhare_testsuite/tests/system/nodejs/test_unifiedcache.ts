@@ -22,13 +22,42 @@ async function testResizeMethods() {
   test.eq({
     resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
     extract: null,
+    extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", setWidth: 25, setHeight: 25 }));
+  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 25, height: 25 }));
+
+  //Scale === fit when shrinking
+  test.eq({
+    resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
+    extract: null,
+    extend: null,
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 25, height: 25 }));
+
+  //Scale to bigger size
+  test.eq({
+    resize: { width: 244, height: 296, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
+    extract: null,
+    extend: null,
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 244, height: 400 }));
+
+  //Fit to bigger size - should be ignored!
+  test.eq({
+    resize: null,
+    extract: null,
+    extend: null,
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 244, height: 400 }));
 
   test.eq({
     resize: null,
     extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
+    extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", height: 100, width: 100 }));
@@ -36,16 +65,50 @@ async function testResizeMethods() {
   test.eq({
     resize: null,
     extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
+    extend: null,
     format: "avif",
     formatOptions: { lossless: false }
-  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", setHeight: 100, setWidth: 100, format: "image/avif" }));
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", height: 100, width: 100, format: "image/avif" }));
 
   test.eq({
-    resize: { width: 320, height: 240, fit: "cover" },
+    resize: null,
     extract: null,
+    extend: { top: 108, bottom: 108, left: 36, right: 36, background: { r: 255, g: 0, b: 0, alpha: 1 } },
+    format: "avif",
+    formatOptions: { lossless: false }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "fitcanvas", height: 500, width: 500, format: "image/avif", bgColor: 0xFFFF0000 }));
+
+  test.eq({
+    resize: { width: 100, height: 100, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
+    extract: null,
+    extend: null,
+    format: "avif",
+    formatOptions: { lossless: false }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "scalecanvas", height: 100, width: 100, format: "image/avif", bgColor: 0xFFFF0000 }));
+
+  test.eq({
+    resize: { width: 500, height: 500, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
+    extract: null,
+    extend: null,
+    format: "avif",
+    formatOptions: { lossless: false }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "scalecanvas", height: 500, width: 500, format: "image/avif", bgColor: 0xFFFF0000 }));
+
+  test.eq({
+    resize: null,
+    extract: null,
+    extend: null,
     format: "avif",
     formatOptions: { lossless: true }
   }, getSharpResizeOptions(examplePng, { method: "none", format: "image/avif" }));
+
+  test.eq({
+    resize: { width: 100, height: 100, fit: 'cover' },
+    extract: null,
+    extend: null,
+    format: "avif",
+    formatOptions: { lossless: false }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(examplePng, { method: "none" }));

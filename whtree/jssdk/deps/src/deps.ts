@@ -19,8 +19,10 @@ export async function createSharpImage(...args: Parameters<typeof sharp.default>
 }
 
 export type Sharp = sharp.Sharp;
+export type SharpColor = sharp.Color;
 export type SharpRegion = sharp.Region;
 export type SharpResizeOptions = sharp.ResizeOptions;
+export type SharpExtendOptions = sharp.ExtendOptions;
 export type SharpJpegOptions = sharp.JpegOptions;
 export type SharpPngOptions = sharp.PngOptions;
 export type SharpWebpOptions = sharp.WebpOptions;
