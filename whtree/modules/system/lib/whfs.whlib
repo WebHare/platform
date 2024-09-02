@@ -1,8 +1,6 @@
 ﻿<?wh
 /** @topic sitedev/whfs */
 
-LOADLIB "wh::files.whlib";
-
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib" EXPORT WHFSException, GetWHFSFileDirect;
 LOADLIB "mod::system/lib/internal/whfs/control.whlib" EXPORT ScheduleRepublish;

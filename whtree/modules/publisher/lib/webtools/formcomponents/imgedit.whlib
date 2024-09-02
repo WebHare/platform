@@ -10,9 +10,14 @@ PUBLIC STATIC OBJECTTYPE ImgEditField EXTEND FileEditFieldBase
 <
   UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
   {
-    RETURN CELL[ ...FileEditFieldBase::__GetRenderData()
+    RECORD data :=
+           CELL[ ...FileEditFieldBase::__GetRenderData()
                , type := "imgedit"
                ];
+    IF(data.accept = "")
+      data.accept := "image/jpeg,image/gif,image/png";
+
+    RETURN data;
   }
 
   UPDATE STRING FUNCTION GetUCFileLink(STRING baseurl, RECORD file)

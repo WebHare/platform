@@ -2,18 +2,14 @@
 /** @short All dialogs that are used in the publisher module
     @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow
 */
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 

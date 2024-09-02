@@ -168,25 +168,6 @@ STRING FUNCTION GetLinkText(OBJECT htmldoc, STRING setting)
   RETURN ObjectExists(res) ? res->childrentext : "";
 }
 
-// Get the type of the entity and its base types
-INTEGER ARRAY FUNCTION GetTypesOfWRDEntity(INTEGER entityid)
-{
-  INTEGER ARRAY types;
-  RECORD typerec := SELECT type, parenttype FROM wrd.types, wrd.entities WHERE entities.id = entityid AND entities.type = types.id;
-  IF (RecordExists(typerec))
-  {
-    INSERT typerec.type INTO types AT END;
-    INTEGER parenttype := typerec.parenttype;
-    WHILE (parenttype != 0)
-    {
-      INSERT parenttype INTO types AT END;
-      parenttype := SELECT AS INTEGER COLUMN parenttype FROM wrd.types WHERE id = VAR parenttype;
-    }
-  }
-  RETURN types;
-
-}
-
 PUBLIC RECORD ARRAY FUNCTION GetLinksForWRDEntities(INTEGER ARRAY entityids)
 {
   INTEGER ARRAY types := SELECT AS INTEGER ARRAY type FROM wrd.entities WHERE id IN entityids;

@@ -92,47 +92,6 @@ PUBLIC RECORD ARRAY FUNCTION GetDirList(OBJECT vfs, STRING basepath, BOOLEAN rec
 }
 
 
-MACRO PrintComment(STRING text)
-{
-  Print("<!-- " || EncodeHTML(text) || " -->");
-}
-
-
-
-/**
- * Split up an url for use in webdav
- * @param   URL The url to split up
- * @result  A record containing:
- *          - modulename  Name of the module that is supposed to handle the request
- *          - filename    The filename for the module
- */
-RECORD FUNCTION TokenizeUrl(STRING URL)
-{
-  url := Substring(url,1,Length(url)); //remove the initial slash
-  IF (url="") //no module name
-    RETURN [ path := "/", modulename := "", moduleurl := scripturl ];
-
-  INTEGER first_slash := SearchSubstring(url,"/");
-  IF (first_slash=-1) //URL = module name
-  {
-    RETURN [ path := "/", modulename := url, moduleurl := scripturl || "/" || EncodeURL(url) ];
-  }
-
-  STRING module := Substring(url, 0, first_slash);
-  RETURN [ path := Substring(url, first_slash, Length(url))
-         , modulename := module
-         , moduleurl := scripturl || "/" || EncodeURL(module)
-         ];
-}
-
-STRING FUNCTION StripTrailingSlash(STRING filename)
-{
-  WHILE(Length(filename)>1 AND filename LIKE "*/")
-    filename:=Left(filename,Length(filename)-1);
-
-  RETURN filename;
-}
-
 //Get the URL part inside the namespace
 STRING FUNCTION GetLocalPath(STRING url)
 {
