@@ -564,8 +564,6 @@ PUBLIC OBJECTTYPE Blacklist EXTEND TolliumScreenBase
     this->blacklist->rows := SELECT *
                                   , rowkey := id
                                   , noindex_icon := noindex ? 1 : 0
-                                  , nofollow_icon := nofollow ? 1 : 0
-                                  , nolinkcheck_from_icon := nolinkcheck_from ? 1 : 0
                                   , nolinkcheck_to_icon := nolinkcheck_to ? 1 : 0
                                FROM consilio.blacklist;
   }
@@ -584,11 +582,7 @@ PUBLIC OBJECTTYPE BlacklistPattern EXTEND TolliumScreenBase
       STRING ARRAY options;
       IF (data.noindex)
         INSERT "noindex" INTO options AT END;
-      IF (data.nofollow)
-        INSERT "nofollow" INTO options AT END;
       IF (data.nolinkcheck_from)
-        INSERT "nolinkcheck_from" INTO options AT END;
-      IF (data.nolinkcheck_to)
         INSERT "nolinkcheck_to" INTO options AT END;
       this->options->value := options;
     }
@@ -611,16 +605,14 @@ PUBLIC OBJECTTYPE BlacklistPattern EXTEND TolliumScreenBase
         UPDATE consilio.blacklist
            SET pattern := this->pattern->value
              , noindex := "noindex" IN this->options->value
-             , nofollow := "nofollow" IN this->options->value
-             , nolinkcheck_from := "nolinkcheck_from" IN this->options->value
              , nolinkcheck_to := "nolinkcheck_to" IN this->options->value
          WHERE id = this->patternid;
       }
       ELSE
       {
         // Adding
-        INSERT INTO consilio.blacklist(pattern, noindex, nofollow, nolinkcheck_from, nolinkcheck_to)
-               VALUES(this->pattern->value, "noindex" IN this->options->value, "nofollow" IN this->options->value, "nolinkcheck_from" IN this->options->value, "nolinkcheck_to" IN this->options->value);
+        INSERT INTO consilio.blacklist(pattern, noindex, nolinkcheck_to)
+               VALUES(this->pattern->value, "noindex" IN this->options->value, "nolinkcheck_to" IN this->options->value);
       }
     }
     RETURN work->Finish();
