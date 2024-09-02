@@ -488,6 +488,14 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
 
     instr.renderWidth = Math.ceil(width / scale);
     instr.renderHeight = Math.ceil(height / scale);
+
+    if (method.method !== "fill") {
+      //Clamp to setwidth/height if set, to prevent us from generating a 754x501 image when resizing to height: 500
+      if (setwidth)
+        instr.renderWidth = Math.min(instr.renderWidth, setwidth);
+      if (setheight)
+        instr.renderHeight = Math.min(instr.renderHeight, setheight);
+    }
   }
 
   if (method.method === "fitcanvas" || method.method === "scalecanvas" || method.method === "fill") { //output must be setwith/setheight

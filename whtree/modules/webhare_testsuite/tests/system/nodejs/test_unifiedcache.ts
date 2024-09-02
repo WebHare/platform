@@ -42,6 +42,14 @@ async function testResizeMethods() {
     formatOptions: { quality: 85 }
   }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 244, height: 400 }));
 
+  //Fix rounding error
+  test.eq({
+    resize: { width: 754, height: 500, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
+    extend: null,
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "scale", height: 500 }));
+
   //Fit to bigger size - should be ignored!
   test.eq({
     resize: null,
