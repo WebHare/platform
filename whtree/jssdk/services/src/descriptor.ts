@@ -14,6 +14,7 @@ import { decodeBMP } from "./bmp-to-raw";
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 export const DefaultJpegQuality = 85;
 
+//cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
 const outputFormats = [null, "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const;
 
@@ -28,7 +29,7 @@ const MapBitmapImageTypes: Record<string, string> = {
   "heif": "image/avif"
 };
 
-export type ResizeMethodName = typeof packMethods[number];
+export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type LinkMethod = {
@@ -381,11 +382,8 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   const method = packMethods.indexOf(resizemethod.method);
   if (method < 0)
     throw new Error(`Unrecognized method '${resizemethod.method}'`);
-
-  if (!resizemethod.setWidth && ['stretch', 'stretch-x'].includes(resizemethod.method))
-    throw new Error("setWidth is required for stretch and stretch-x methods");
-  if (!resizemethod.setHeight && ['stretch', 'stretch-y'].includes(resizemethod.method))
-    throw new Error("setHeight is required for stretch and stretch-y methods");
+  if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas'].includes(resizemethod.method))
+    throw new Error(`Resize method '${resizemethod.method}' is deprecated and not supported in JavaScript or for WebP/AVIF image formats`);
 
   const format = outputFormats.indexOf(resizemethod.format ?? null);
   if (format < 0)
@@ -471,25 +469,11 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
   let setwidth = method.setWidth ?? 0;
   let setheight = method.setHeight ?? 0;
 
-  if (method.method === "stretch" && setwidth > 0 && setheight > 0) { //simple resize
-    if (instr.refPoint) {
-      instr.refPoint.x = Math.floor(instr.refPoint.x * setwidth / instr.renderWidth);
-      instr.refPoint.y = Math.floor(instr.refPoint.y * setheight / instr.renderHeight);
-    }
-    instr.outWidth = setwidth;
-    instr.outHeight = setheight;
-    instr.renderWidth = setwidth;
-    instr.renderHeight = setheight;
-    return instr;
-  }
-
-  if (method.method === "crop" || method.method === "cropcanvas") { // simple crop, no resizing
-    if (method.method === "crop") {
-      if (setwidth > width)
-        setwidth = width;
-      if (setheight > height)
-        setheight = height;
-    }
+  if (method.method === "crop") { // simple crop, no resizing
+    if (setwidth > width)
+      setwidth = width;
+    if (setheight > height)
+      setheight = height;
 
     instr.outWidth = setwidth;
     instr.outHeight = setheight;
@@ -538,17 +522,7 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
 
   let scale = 1;
 
-  if (method.method === "stretch-x") {
-    instr.renderWidth = Math.ceil(width / dx);
-    instr.renderHeight = Math.ceil(height / dx);
-    if (setheight !== 0 && instr.renderHeight > setheight)
-      instr.renderHeight = setheight;
-  } else if (method.method === "stretch-y") {
-    instr.renderWidth = Math.ceil(width / dy);
-    instr.renderHeight = Math.ceil(height / dy);
-    if (setwidth !== 0 && instr.renderWidth > setwidth)
-      instr.renderWidth = setwidth;
-  } else if ((method.method === "fit" || method.method === "fitcanvas") && dx <= 1 && dy <= 1) { //no-op, it already fits
+  if ((method.method === "fit" || method.method === "fitcanvas") && dx <= 1 && dy <= 1) { //no-op, it already fits
     instr.renderWidth = width;
     instr.renderHeight = height;
   } else {

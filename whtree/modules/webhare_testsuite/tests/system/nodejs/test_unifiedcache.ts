@@ -234,103 +234,31 @@ async function testResizeMethods() {
   //equal dimensions
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(exampleJpg, { method: "crop", setWidth: 320, setHeight: 240 }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "cropcanvas", setWidth: 320, setHeight: 240 }));
 
   //crop to 640X480 canvas, no-op
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(exampleJpg, { method: "crop", setWidth: 640, setHeight: 480 })
-  );
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 160, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "cropcanvas", setWidth: 640, setHeight: 480 })
   );
 
   //crop to 200x100, render a 320x240 picture but position it at -60,-70
   test.eqPartial({ outWidth: 200, outHeight: 100, outType: "image/jpeg", renderX: -60, renderY: -70, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(exampleJpg, { method: "crop", setWidth: 200, setHeight: 100 })
   );
-  test.eqPartial({ outWidth: 200, outHeight: 100, outType: "image/jpeg", renderX: -60, renderY: -70, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "cropcanvas", setWidth: 200, setHeight: 100 })
-  );
 
   //crop to 640x120 (or only crop height to 320x120), render a 320x240 picture but position it at -60
   test.eqPartial({ outWidth: 320, outHeight: 120, outType: "image/jpeg", renderX: 0, renderY: -60, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(exampleJpg, { method: "crop", setWidth: 640, setHeight: 120 })
-  );
-  test.eqPartial({ outWidth: 640, outHeight: 120, outType: "image/jpeg", renderX: 160, renderY: -60, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "cropcanvas", setWidth: 640, setHeight: 120 })
   );
 
   //in the output, the image must be rendered somewhat more to the left and top (-68 (67.5) instead of -60 and -105 instead of -70)
   test.eqPartial({
     outWidth: 200, outHeight: 100, outType: "image/png", renderX: -68, renderY: -105, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0, refPoint: { x: 112, y: 75 }
   }, explainImageProcessing(examplerefPoint, { method: "crop", setWidth: 200, setHeight: 100 }));
-
-
-  //Stretch
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 320, setHeight: 240 }));
-  test.eqPartial({ outWidth: 320, outHeight: 120, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 320, setHeight: 120 }));
-
-  //refPoint is irrelevant for cutoffs (but still scaled)
-  test.eqPartial({
-    outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0, refPoint: { x: 67, y: 90 }
-  }, explainImageProcessing(examplerefPoint, { method: "stretch", setWidth: 120, setHeight: 120 }));
-
-
-  //Stretch-x: resize in x direction whilst treating the y-setWidth as a limit
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-x", setWidth: 320, setHeight: 240 }));
-  //stretch-x to 640x500. the result should be 640x480
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-x", setWidth: 640, setHeight: 500 }));
-  //stretch-x to 640x400. y should be constrained, so the result should be 640x400
-  test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-x", setWidth: 640, setHeight: 400 }));
-
-  //stretch/stretch-x to 640x0. expect 640x480. deny 'stretch' without height
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-x", setWidth: 640, setHeight: 0 }));
-  test.throws(/setHeight is required/, () => explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 640, setHeight: 0 }));
-
-  //Stretch-y: resize in y direction whilst treating the x-setWidth as a limit
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-y", setWidth: 320, setHeight: 240 }));
-  //stretch-y to 640x500. the result should be 640x500
-  test.eqPartial({ outWidth: 640, outHeight: 500, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 500, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-y", setWidth: 640, setHeight: 500 }));
-  //stretch-y to 640x400. x should be constrained, so the result should be 534x400
-  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-y", setWidth: 640, setHeight: 400 }));
-
-  //stretch/stretch-y to 0x480. expect 640x480. require stetch-y
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch-y", setWidth: 0, setHeight: 480 }));
-  test.throws(/setWidth is required/, () => explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 0, setHeight: 480 }));
-
-  //stretch to 0x0. deny
-  test.throws(/setWidth is required/, () => explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 0, setHeight: 0 }));
-
-  //quality support for jpeg
-  test.eqPartial({ outWidth: 320, outHeight: 120, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 320, setHeight: 120 }));
-  test.eqPartial({ outWidth: 320, outHeight: 120, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 75, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 320, setHeight: 120, quality: 75 }));
-  test.eqPartial({ outWidth: 320, outHeight: 120, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 95, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "stretch", setWidth: 320, setHeight: 120, quality: 95 }));
 }
 
 async function testImgMethodPacking() {
   let finalmethod;
   const unpack = await loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
-  finalmethod = await unpack(packImageResizeMethod({ method: "stretch", setWidth: 320, setHeight: 320, quality: 95, grayscale: true }));
-  test.eq(95, finalmethod.quality);
-  test.eq(true, finalmethod.grayscale);
-  test.eq(true, finalmethod.fixorientation);
-
-  finalmethod = await unpack(packImageResizeMethod({ method: "stretch", setWidth: 320, setHeight: 320, quality: 95, grayscale: true, fixOrientation: false }));
-  test.eq(false, finalmethod.fixorientation);
 
   finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", setWidth: 125, setHeight: 131, fixOrientation: true }));
   test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "", bgcolor: 0x00FFFFFF, noforce: true, quality: 85, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
