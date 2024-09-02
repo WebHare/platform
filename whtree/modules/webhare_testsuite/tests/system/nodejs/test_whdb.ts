@@ -531,6 +531,11 @@ async function testClosedConnectionHandling() {
   await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#runShortLivedContext", 0);
   await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#runShortLivedContext", 1);
   await worker.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#testQueryInNewContext");
+
+  //test with an external kill to the postgres process to see if we catch serverside disconnects to
+  const worker2 = new AsyncWorker;
+  await worker2.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#runAndKillTransaction");
+  await worker2.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#testQueryInNewContext");
 }
 
 test.run([

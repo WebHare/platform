@@ -1,9 +1,9 @@
 import { sleep } from "@webhare/std";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
-import { db, beginWork, commitWork, sql, __getConnection } from "@webhare/whdb";
+import { db, beginWork, commitWork, sql, __getConnection, query } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
-
+import * as test from "@webhare/test";
 
 export function returnContextId() {
   return getCodeContext().id;
@@ -84,5 +84,14 @@ export async function testQueryInNewContext() {
   } finally {
     context.close();
   }
+}
 
+export async function runAndKillTransaction() {
+  await beginWork(); //work is needed to prevent crash but also makes us safer if we start to pool
+  const pid = (await query<{ pg_backend_pid: number }>('select pg_backend_pid()')).rows[0].pg_backend_pid;
+  const promised = query('select pg_sleep(10)');
+  promised.catch(() => { });
+  await sleep(100); //give the PG driver time to start the query
+  process.kill(pid, 'SIGTERM');
+  await test.throws(/Connection closed/, promised);
 }
