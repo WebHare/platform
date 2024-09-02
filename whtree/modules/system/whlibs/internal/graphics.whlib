@@ -563,7 +563,7 @@ PUBLIC MACRO ValidateFontID(INTEGER id)
 
 /** Validates an image resize method
     @param method Image resize method
-    @cell(string) method.method Method to use. One of "none", "fit", "fitcanvas", "scale", "scalecanvas", "fill", "stretch", "stretch-x", "stretch-y", "crop", "cropcanvas".
+    @cell(string) method.method Method to use. One of "none", "fit", "fitcanvas", "scale", "scalecanvas", "fill", "crop".
     @cell(integer) method.setwidth
     @cell(integer) method.setheight
     @cell(string) method.format Output format One of "", "image/png", "image/jpeg", "image/gif".
@@ -580,6 +580,9 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
 {
   IF(NOT CellExists(method,'method'))
     THROW NEW Exception("Missing required cell 'method'");
+
+  IF(method.method IN ["stretch","stretch-x","stretch-y","crop","cropcanvas"] AND CellExists(method,'format') AND method.format IN ["image/webp", "image/avif"])
+    THROW NEW Exception("Resize method '" || method.method || "' is deprecated and not supported for modern image formats");
 
   IF(method.method NOT IN ["none","fit","fitcanvas","scale","scalecanvas","fill","stretch","stretch-x","stretch-y","crop","cropcanvas"])
     THROW NEW Exception("Unknown resize method '" || method.method || "'");

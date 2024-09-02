@@ -14,6 +14,7 @@ import { decodeBMP } from "./bmp-to-raw";
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 export const DefaultJpegQuality = 85;
 
+//cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
 const outputFormats = [null, "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const;
 
@@ -28,7 +29,7 @@ const MapBitmapImageTypes: Record<string, string> = {
   "heif": "image/avif"
 };
 
-export type ResizeMethodName = typeof packMethods[number];
+export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type LinkMethod = {
@@ -44,15 +45,13 @@ export type ResizeMethod = {
   // method: Exclude<ResizeMethodName, "none">;
   method: ResizeMethodName;
   quality?: number;
-  hBlur?: number;
-  vBlur?: number;
+  blur?: number;
   format?: OutputFormatName;
-  fixOrientation?: boolean;
   bgColor?: number | "transparent";
   noForce?: boolean;
   grayscale?: boolean;
-  setWidth?: number;
-  setHeight?: number;
+  width?: number;
+  height?: number;
 };
 
 type ResourceResizeOptions = Partial<ResizeMethod> & LinkMethod;
@@ -70,8 +69,7 @@ export interface ResizeSpecs {
   grayscale: boolean;
   rotate: number;
   mirror: boolean;
-  hBlur: number;
-  vBlur: number;
+  blur: number;
   refPoint: { x: number; y: number } | null;
 }
 
@@ -381,11 +379,8 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   const method = packMethods.indexOf(resizemethod.method);
   if (method < 0)
     throw new Error(`Unrecognized method '${resizemethod.method}'`);
-
-  if (!resizemethod.setWidth && ['stretch', 'stretch-x'].includes(resizemethod.method))
-    throw new Error("setWidth is required for stretch and stretch-x methods");
-  if (!resizemethod.setHeight && ['stretch', 'stretch-y'].includes(resizemethod.method))
-    throw new Error("setHeight is required for stretch and stretch-y methods");
+  if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method))
+    throw new Error(`Resize method '${resizemethod.method}' is deprecated and not supported in JavaScript or for WebP/AVIF image formats`);
 
   const format = outputFormats.indexOf(resizemethod.format ?? null);
   if (format < 0)
@@ -394,16 +389,14 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   return {
     bgColor: 0x00ffffff,
     quality: DefaultJpegQuality,
-    fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
     noForce: true,
-    hBlur: 0,
-    vBlur: 0,
-    setWidth: 0,
-    setHeight: 0,
+    blur: 0,
+    width: 0,
+    height: 0,
     ...resizemethod,
     methodIdx: method,
     formatIdx: format
-  };
+  } satisfies ResizeMethod & { methodIdx: number; formatIdx: number };
 }
 
 export function suggestImageFormat(mediaType: string): OutputFormatName {
@@ -423,38 +416,22 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
   method = validateResizeMethod(method);
 
   const quality = method?.quality ?? DefaultJpegQuality;
-  const hblur = method?.hBlur ?? 0;
-  const vblur = method?.vBlur ?? 0;
   const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
-  let rotate;
-  let mirror;
-  let issideways;
-
-  if (!method.fixOrientation) { //First figure out how to undo the rotation on the image, if any
-    if ([90, 180, 270].includes(resource.rotation!))
-      rotate = 360 - resource.rotation!;
-    mirror = resource.mirrored!;
-    issideways = [90, 270].includes(rotate!);
-  }
-
-  const width = issideways ? resource.height : resource.width;
-  const height = issideways ? resource.width : resource.height;
   const instr: ResizeSpecs = {
-    outWidth: width,
-    outHeight: height,
+    outWidth: resource.width,
+    outHeight: resource.height,
     outType: outtype,
     renderX: 0,
     renderY: 0,
-    renderWidth: width,
-    renderHeight: height,
+    renderWidth: resource.width,
+    renderHeight: resource.height,
     bgColor: method.bgColor ?? 0xffffff,
     noForce: method.noForce ?? true,
     quality,
     grayscale: method.grayscale ?? false,
-    rotate: rotate ?? 0,
-    mirror: mirror ?? false,
-    hBlur: hblur,
-    vBlur: vblur,
+    rotate: 0,
+    mirror: false,
+    blur: method?.blur ?? 0,
     refPoint: structuredClone(resource.refPoint) //make sure we don't update the resource's original refpoint
   };
 
@@ -468,50 +445,8 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
   if (method.method === "none")
     return instr;
 
-  let setwidth = method.setWidth ?? 0;
-  let setheight = method.setHeight ?? 0;
-
-  if (method.method === "stretch" && setwidth > 0 && setheight > 0) { //simple resize
-    if (instr.refPoint) {
-      instr.refPoint.x = Math.floor(instr.refPoint.x * setwidth / instr.renderWidth);
-      instr.refPoint.y = Math.floor(instr.refPoint.y * setheight / instr.renderHeight);
-    }
-    instr.outWidth = setwidth;
-    instr.outHeight = setheight;
-    instr.renderWidth = setwidth;
-    instr.renderHeight = setheight;
-    return instr;
-  }
-
-  if (method.method === "crop" || method.method === "cropcanvas") { // simple crop, no resizing
-    if (method.method === "crop") {
-      if (setwidth > width)
-        setwidth = width;
-      if (setheight > height)
-        setheight = height;
-    }
-
-    instr.outWidth = setwidth;
-    instr.outHeight = setheight;
-    instr.renderWidth = width;
-    instr.renderHeight = height;
-    instr.renderX = (setwidth - width) / 2;
-    instr.renderY = (setheight - height) / 2;
-
-    if (instr.refPoint) {
-      const hw = Math.ceil(width / 2);
-      const dx = Math.floor((instr.refPoint.x - hw) * instr.renderX / hw);
-      instr.renderX += dx;
-
-      const hh = Math.ceil(height / 2);
-      const dy = Math.floor((instr.refPoint.y - hh) * instr.renderY / hh);
-      instr.renderY += dy;
-
-      instr.refPoint.x += instr.renderX;
-      instr.refPoint.y += instr.renderY;
-    }
-    return instr;
-  }
+  const setwidth = method.width ?? 0;
+  const setheight = method.height ?? 0;
 
   /* dx = input image width / method setwidth    (dx < 1: input image is smaller than requested by method)
      dy = input image height / method setheight
@@ -538,17 +473,7 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
 
   let scale = 1;
 
-  if (method.method === "stretch-x") {
-    instr.renderWidth = Math.ceil(width / dx);
-    instr.renderHeight = Math.ceil(height / dx);
-    if (setheight !== 0 && instr.renderHeight > setheight)
-      instr.renderHeight = setheight;
-  } else if (method.method === "stretch-y") {
-    instr.renderWidth = Math.ceil(width / dy);
-    instr.renderHeight = Math.ceil(height / dy);
-    if (setwidth !== 0 && instr.renderWidth > setwidth)
-      instr.renderWidth = setwidth;
-  } else if ((method.method === "fit" || method.method === "fitcanvas") && dx <= 1 && dy <= 1) { //no-op, it already fits
+  if ((method.method === "fit" || method.method === "fitcanvas") && dx <= 1 && dy <= 1) { //no-op, it already fits
     instr.renderWidth = width;
     instr.renderHeight = height;
   } else {
@@ -563,6 +488,14 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
 
     instr.renderWidth = Math.ceil(width / scale);
     instr.renderHeight = Math.ceil(height / scale);
+
+    if (method.method !== "fill") {
+      //Clamp to setwidth/height if set, to prevent us from generating a 754x501 image when resizing to height: 500
+      if (setwidth)
+        instr.renderWidth = Math.min(instr.renderWidth, setwidth);
+      if (setheight)
+        instr.renderHeight = Math.min(instr.renderHeight, setheight);
+    }
   }
 
   if (method.method === "fitcanvas" || method.method === "scalecanvas" || method.method === "fill") { //output must be setwith/setheight
@@ -603,8 +536,8 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   if (validatedMethod.grayscale)
     method += 0x10;
 
-  if (validatedMethod.fixOrientation) //this one goes into format, the rest of the bigflags go into method
-    format += 0x80;
+  //fixOrientation: enforced in TS. this bit goes into format, the rest of the bigflags go into method
+  format += 0x80;
 
   const havequality = validatedMethod.quality !== DefaultJpegQuality;
   if (havequality)
@@ -620,7 +553,7 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   const buffer = new ArrayBuffer(32);
   const view = new DataView(buffer);
   let ptr = 0;
-  const blur = ((validatedMethod.hBlur & 0x7fff) << 15) | (validatedMethod.vBlur & 0x7fff);
+  const blur = ((validatedMethod.blur & 0x7fff) << 15) | (validatedMethod.blur & 0x7fff);
   if (blur) {
     view.setUint8(ptr, 2); //the 'blur' header byte
     view.setInt32(ptr + 1, blur, true);
@@ -632,8 +565,8 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   view.setUint8(ptr + 1, method);
   ptr += 2;
   if (validatedMethod.method !== 'none') { //only write setWidth/height for methods other than none
-    view.setInt16(ptr, validatedMethod.setWidth, true);
-    view.setInt16(ptr + 2, validatedMethod.setHeight, true);
+    view.setInt16(ptr, validatedMethod.width, true);
+    view.setInt16(ptr + 2, validatedMethod.height, true);
     ptr += 4;
   }
 
@@ -656,10 +589,6 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
 export function getUnifiedCC(date: Date) {
   const parts = dateToParts(date);
   return parts.days ^ parts.msecs;
-}
-
-function isImageRefpointRelevant(method: ResizeMethod) {
-  return ["crop", "cropcanvas", "fill"].includes(method.method);
 }
 
 export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
@@ -690,7 +619,7 @@ export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: Resource
     throw new Error("fileData.hash is required");
 
   let contenthash;
-  if (dataType === 1 && scaleMethod && fileData.refPoint && isImageRefpointRelevant(scaleMethod)) {
+  if (dataType === 1 && scaleMethod?.method === 'fill' && fileData.refPoint) {
     const contenthasher = crypto.createHash('md5');
     contenthasher.update(fileData.hash);
     contenthasher.update(encodeHSON(fileData.refPoint));

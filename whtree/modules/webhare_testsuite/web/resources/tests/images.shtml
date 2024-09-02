@@ -26,42 +26,31 @@ Print(`<html><body><table>`);
 Print(`<tr><td>Input image: ${scannedimage.width} x ${scannedimage.height}, ${scannedimage.mimetype} (${Length(scannedimage.data)} bytes)<br><br></td></tr>\n`);
 
 FOREVERY(RECORD testmethod FROM [
-  //All https://www.webhare.dev/manuals/caching/methods/ methods
+  //we use 100 and 500 as the testimage is is 428x284 and 500 exceeds both dimensions
+  [ method := "none"],
   [ method := "fit", setwidth := 100, setheight := 100 ],
-  [ method := "fit", setwidth := 300, setheight := 300 ],
+  [ method := "fit", setwidth := 500, setheight := 500 ],
   [ method := "fit", setwidth := 100 ],
   [ method := "fit", setheight := 100 ],
-  [ method := "fit", setwidth := 300 ],
-  [ method := "fit", setheight := 300 ],
+  [ method := "fit", setwidth := 500 ],
+  [ method := "fit", setheight := 500 ],
 
   [ method := "scale", setwidth := 100, setheight := 100 ],
-  [ method := "scale", setwidth := 300, setheight := 300 ],
+  [ method := "scale", setwidth := 500, setheight := 500 ],
   [ method := "scale", setwidth := 100 ],
   [ method := "scale", setheight := 100 ],
-  [ method := "scale", setwidth := 300 ],
-  [ method := "scale", setheight := 300 ],
+  [ method := "scale", setwidth := 500 ],
+  [ method := "scale", setheight := 500 ],
 
-  [ method := "crop", setwidth := 100, setheight := 100 ],
-  [ method := "crop", setwidth := 300, setheight := 300 ],
-  [ method := "crop", setwidth := 100, setheight := 300 ],
-
-  [ method := "fitcanvas", setwidth := 100, setheight := 100, bgcolor := "red" ],
-  [ method := "fitcanvas", setwidth := 300, setheight := 300, bgcolor := "red" ],
-  [ method := "scalecanvas", setwidth := 100, setheight := 100, bgcolor := "red" ],
-  [ method := "scalecanvas", setwidth := 300, setheight := 300, bgcolor := "red" ],
-  [ method := "cropcanvas", setwidth := 300, setheight := 300, bgcolor := "red" ],
-  [ method := "cropcanvas", setwidth := 100, setheight := 300, bgcolor := "red" ],
+  [ method := "fitcanvas", setwidth := 100, setheight := 100, bgcolor := 0xFFFF0000 ],
+  [ method := "fitcanvas", setwidth := 500, setheight := 500, bgcolor := 0xFFFF0000 ],
+  [ method := "scalecanvas", setwidth := 100, setheight := 100, bgcolor := 0xFFFF0000 ],
+  [ method := "scalecanvas", setwidth := 500, setheight := 500, bgcolor := 0xFFFF0000 ],
 
   [ method := "fill", setwidth := 100, setheight := 100 ],
-  [ method := "fill", setwidth := 300, setheight := 300 ],
-
-  [ method := "stretch", setwidth := 100, setheight := 100 ],
-  [ method := "stretch", setwidth := 300, setheight := 300 ],
-
-  [ method := "stretch-x", setwidth := 100, setheight := 100 ],
-  [ method := "stretch-x", setwidth := 300, setheight := 300 ],
-  [ method := "stretch-y", setwidth := 100, setheight := 100 ],
-  [ method := "stretch-y", setwidth := 300, setheight := 300 ]
+  [ method := "fill", setwidth := 500, setheight := 500 ],
+  [ method := "fill", setwidth := 500, setheight := 500, grayscale := TRUE ],
+  [ method := "fill", setwidth := 500, setheight := 500, hblur := 20, vblur := 20 ] //we only care about hblur===vblur when comparing. and this is often done in practice anyway
   ])
 {
   Print(`<tr><td colspan="2">${EncodeJSON(testmethod)}</td></tr>\n`);
