@@ -9,8 +9,10 @@ import { createSharpImage } from "@webhare/deps";
 import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { decodeBMP } from "./bmp-to-raw";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
+export const DefaultJpegQuality = 85;
 
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
 const outputFormats = [null, "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const;
@@ -217,8 +219,6 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   if (image.size >= MaxImageScanSize)
     return {}; //too large to scan
 
-  const data = await image.arrayBuffer();
-
   /* FIXME The actual dominant colors picked by sharp are not impressive compared to what Drawlib currently finds. See also
      - https://github.com/lovell/sharp/issues/3273 (dark gray images being picked)
 
@@ -231,7 +231,18 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
 
   let metadata, stats;
   try {
-    const img = await createSharpImage(data);
+    let img;
+
+    const data = await image.arrayBuffer();
+    const header = new Uint8Array(data.slice(0, 2));
+
+    if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M'
+      const decodedBMP = decodeBMP(Buffer.from(data)); //TODO avoid copy?
+      img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
+    } else {
+      img = await createSharpImage(data);
+    }
+
     metadata = await img.metadata();
     stats = getDominantColor ? await img.stats() : undefined;
   } catch (e) {
@@ -247,7 +258,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
   const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
-  const mediaType = (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
+  const mediaType = metadata.format === 'raw' ? 'image/x-bmp' : (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
   return {
     width: metadata[isrotated ? "height" : "width"] || null,
@@ -382,7 +393,7 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
 
   return {
     bgColor: 0x00ffffff,
-    quality: 85,
+    quality: DefaultJpegQuality,
     fixOrientation: method > 0, //fixOrientation defaults to false for 'none', but true otherwise
     noForce: true,
     hBlur: 0,
@@ -395,6 +406,14 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   };
 }
 
+export function suggestImageFormat(mediaType: string): OutputFormatName {
+  if (mediaType === "image/x-bmp")
+    return "image/png";
+  if (mediaType === "image/tiff")
+    return "image/jpeg";
+  return mediaType as OutputFormatName;
+}
+
 export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod): ResizeSpecs {
   if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
@@ -403,10 +422,10 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
 
   method = validateResizeMethod(method);
 
-  const quality = method?.quality ?? 85;
+  const quality = method?.quality ?? DefaultJpegQuality;
   const hblur = method?.hBlur ?? 0;
   const vblur = method?.vBlur ?? 0;
-  const outtype: ResizeSpecs["outType"] = method.format || resource.mediaType === "image/x-bmp" ? "image/png" : resource.mediaType === "image/tiff" ? "image/jpeg" : (resource.mediaType as ResizeSpecs["outType"]);
+  const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
   let rotate;
   let mirror;
   let issideways;
@@ -587,7 +606,7 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   if (validatedMethod.fixOrientation) //this one goes into format, the rest of the bigflags go into method
     format += 0x80;
 
-  const havequality = validatedMethod.quality !== 85;
+  const havequality = validatedMethod.quality !== DefaultJpegQuality;
   if (havequality)
     method += 0x20; //Set quality flag
 
@@ -722,6 +741,10 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
       validextensions.push("png");
     else if (mimetype === "image/gif")
       validextensions.push("gif");
+    else if (mimetype === "image/webp")
+      validextensions.push("webp");
+    else if (mimetype === "image/avif")
+      validextensions.push("avif");
     else
       throw new Error(`Unsupported mimetype for image: ${mimetype}`);
     //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)
@@ -745,8 +768,13 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     useextension = validextensions[0];
   }
 
-  if (!options?.fileName) //filename was derived from metadata, not explicitly set
+  if (!options?.fileName) { //filename was derived from metadata, not explicitly set
+    //drop any image extensions, we don't want goldfish-png.webp
+    if (useextension && ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.avif'].includes(extname(filename).toLowerCase()))
+      filename = basename(filename, extname(filename));
+
     filename = slugify(filename) ?? (options?.method ? 'image' : 'file'); //then sanitize it
+  }
 
   const packet = getUCSubUrl(options?.method ? options as ResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
   let suffix = dataType === 1 ? "i" : embed ? "e" : "f";

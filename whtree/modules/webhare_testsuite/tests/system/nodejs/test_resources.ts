@@ -193,6 +193,19 @@ async function testResourceDescriptors() {
   }
 
   {
+    const homersbrain = await services.ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp", { getHash: true, getImageMetadata: true, getDominantColor: true });
+    test.eq(921654, homersbrain.resource.size);
+    test.eqPartial({
+      mediaType: "image/x-bmp",
+      hash: "TUgOPetpSJcF9d0UDUYOH6lujDWSSNWu0J7FhvJ1EcA",
+      width: 640,
+      height: 480,
+      extension: ".bmp",
+      dominantColor: "#080808"
+    }, homersbrain.getMetaData());
+  }
+
+  {
     const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
     test.eqPartial({
       mediaType: "image/png",

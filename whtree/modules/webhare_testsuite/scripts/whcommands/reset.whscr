@@ -202,9 +202,16 @@ MACRO SetupTestSite(OBJECT testsite)
                               , title := "A waterfall, in portrait"
                               , description := "A picture of a waterfall near a road with the number 4 in the middle"
                               ]);
-  photoalbumfolder->CreateFile([ name := "snowbeagle.jpg",  type := 12, publish := TRUE, ordering := 3, data := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg")
-                              , title := "Snowy-nose"
-                              , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
+  FOREVERY(STRING ext FROM ["jpg","webp","avif"])
+    photoalbumfolder->CreateFile([ name := `snowbeagle.${ext}`, type := 12, publish := TRUE, ordering := 3 + #ext, data := GetWebHareResource(`mod::system/web/tests/snowbeagle.${ext}`)
+                                , title := `Snowy-nose as ${ext}`
+                                , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
+                                ]);
+
+  photoalbumfolder->CreateFile([ name := `goudvis.png`, type := 12, publish := TRUE, ordering := 6, data := GetWebHareResource(`mod::system/web/tests/goudvis.png`)
+                              ]);
+
+  photoalbumfolder->CreateFile([ name := `homersbrain.bmp`, type := 12, publish := TRUE, ordering := 6, data := GetWebHareResource(`mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp`)
                               ]);
 
   //Set up active content tests

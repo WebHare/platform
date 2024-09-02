@@ -13,10 +13,19 @@ export async function loadSharp(): Promise<typeof sharp> {
 }
 
 /** Load an image (loading sharp as needed) */
-export async function createSharpImage(...args: Parameters<typeof sharp.default>): Promise<ReturnType<typeof sharp.default>> {
+export async function createSharpImage(...args: Parameters<typeof sharp.default>): Promise<Sharp> {
   const lib = await loadSharp();
   return lib.default(...args);
 }
+
+export type Sharp = sharp.Sharp;
+export type SharpRegion = sharp.Region;
+export type SharpResizeOptions = sharp.ResizeOptions;
+export type SharpJpegOptions = sharp.JpegOptions;
+export type SharpPngOptions = sharp.PngOptions;
+export type SharpWebpOptions = sharp.WebpOptions;
+export type SharpAvifOptions = sharp.AvifOptions;
+export type SharpGifOptions = sharp.GifOptions;
 
 ////////////////////////////// Puppeteer //////////////////////////
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;

@@ -10,7 +10,7 @@ test.registerTests(
 
       //verify the images
       const images = test.qSA(".wh-gallery__image");
-      test.eq(3, images.length);
+      test.eq(7, images.length);
       test.eq(200, images[0].querySelector("img").width);
       test.eq(150, images[0].querySelector("img").height);
       test.eq(113, images[1].querySelector("img").width);
@@ -37,7 +37,6 @@ test.registerTests(
       currentimage = test.qS(".wh-gallery-modal__image--selected");
       test.assert(test.canClick(currentimage));
       test.assert(!modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
-      test.assert(modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
       test.eqFloat(428, currentimage.getBoundingClientRect().width, 0.1);
       test.eqFloat(284, currentimage.getBoundingClientRect().height, 0.1);
 
@@ -57,5 +56,9 @@ test.registerTests(
       test.eqFloat(450, currentimage.getBoundingClientRect().height, 0.1);
       test.assert(modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
       test.assert(!modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
+
+      for (let i = 0; i < 6; i++)
+        await test.pressKey('ArrowRight');
+      test.assert(modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
     }
   ]);

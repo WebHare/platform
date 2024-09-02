@@ -6,7 +6,8 @@ import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMetho
 import * as test from "@webhare/test";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
-
+import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
+import { createSharpImage, Sharp } from "@webhare/deps/src/deps";
 
 async function testResizeMethods() {
   const examplePng = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: null } as const;
@@ -14,6 +15,37 @@ async function testResizeMethods() {
   const exampleJpg = { width: 320, height: 240, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
   const exampleTiff = { width: 320, height: 240, mediaType: "image/tiff", rotation: 0, mirrored: false, refPoint: null } as const;
   const examplerefPoint = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: { x: 180, y: 180 } } as const;
+  const exampleKikkertje = { width: 122, height: 148, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
+  const exampleSnowbeagle = { width: 428, height: 284, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
+
+  //Test sharp resize methods
+  test.eq({
+    resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
+    extract: null,
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", setWidth: 25, setHeight: 25 }));
+
+  test.eq({
+    resize: null,
+    extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
+    format: "jpeg",
+    formatOptions: { quality: 85 }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", setHeight: 100, setWidth: 100 }));
+
+  test.eq({
+    resize: null,
+    extract: { left: (428 - 100) / 2, top: (284 - 100) / 2, width: 100, height: 100 },
+    format: "avif",
+    formatOptions: { lossless: false }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "crop", setHeight: 100, setWidth: 100, format: "image/avif" }));
+
+  test.eq({
+    resize: { width: 320, height: 240, fit: "cover" },
+    extract: null,
+    format: "avif",
+    formatOptions: { lossless: true }
+  }, getSharpResizeOptions(examplePng, { method: "none", format: "image/avif" }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, hBlur: 0, vBlur: 0 }
     , explainImageProcessing(examplePng, { method: "none" }));
@@ -356,8 +388,27 @@ async function fetchUCLink(url: string, expectType: string) {
   const fetchResult = await fetch(finalurl);
   test.eq(200, fetchResult.status);
   test.eq(expectType, fetchResult.headers.get("content-type"));
-  const fetchData = await ResourceDescriptor.from(Buffer.from(await fetchResult.arrayBuffer()), { getImageMetadata: true });
-  return { resource: fetchData, finalurl };
+  const fetchBuffer = await fetchResult.arrayBuffer();
+  const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true });
+  return { resource: fetchData, finalurl, fetchBuffer };
+}
+
+async function compareSharpImages(expect: Sharp, actual: Sharp, maxMSE = 0) {
+  const rawExpect = await expect.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
+  const rawActual = await actual.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
+  test.eq(rawExpect.info, rawActual.info);
+
+  let totalDiff = 0; //squared absolute difference
+  for (let row = 0; row < rawActual.info.height; ++row)
+    for (let col = 0; col < rawActual.info.width; ++col)
+      for (let channel = 0; channel < rawActual.info.channels; ++channel) {
+        const idx = (row * rawActual.info.width + col) * rawActual.info.channels + channel;
+        totalDiff += Math.pow(Math.abs(rawExpect.data[idx] - rawActual.data[idx]), 2);
+      }
+
+  const mse = totalDiff / (rawActual.info.width * rawActual.info.height * rawActual.info.channels);
+  if (mse > maxMSE)
+    throw new Error(`MSE too high: ${mse} > ${maxMSE}`);
 }
 
 async function testImgCache() {
@@ -370,11 +421,44 @@ async function testImgCache() {
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none" })).link);
   await fetchUCLink(wrappedBeagle.link, "image/jpeg");
 
+  const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
+  const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none" });
+  const dlFishPng = await fetchUCLink(wrappedGoldfishPng.link, "image/png");
+  const imgFishPng = await createSharpImage(dlFishPng.fetchBuffer);
+
+  //convert to WEBP using imagecache
+  const wrappedGoldfishWebp = goldfishpng.data.toResized({ method: "none", format: "image/webp" });
+  test.eq(/\/goudvis\.webp$/, wrappedGoldfishWebp.link, "Should not contain 'png' in the name");
+  const dlFishWebp = await fetchUCLink(wrappedGoldfishWebp.link, "image/webp");
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishWebp.fetchBuffer));
+
+  //convert to AVIF using imagecache
+  const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
+  test.eq(/\/goudvis\.avif$/, wrappedGoldfishAvif.link, "Should not contain 'png' in the name");
+  const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), 0.20);
+
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
   const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none" });
   await fetchUCLink(wrappedKikker.link, "image/jpeg");
   test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none" })).link);
 
+  //test BMP to WEBP
+  const homersbrainBMP = await testsitejs.openFile("photoalbum/homersbrain.bmp");
+  const wrappedHomersbrainWebp = homersbrainBMP.data.toResized({ method: "none", format: "image/webp" });
+  const dlHomersbrainWebp = await fetchUCLink(wrappedHomersbrainWebp.link, "image/webp");
+
+  const homersbrainPNG = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.png", { getImageMetadata: true });
+  const homersbrainSharp = await createSharpImage(await homersbrainPNG.resource.arrayBuffer());
+  await compareSharpImages(homersbrainSharp, await createSharpImage(dlHomersbrainWebp.fetchBuffer), 0);
+
+  //test rotation fixing
+  const landscape5 = await testsitejs.openFile("photoalbum/landscape_5.jpg");
+  const wrappedLandscape5 = landscape5.data.toResized({ method: "none", format: "image/avif" });
+  const dlLandscape5 = await fetchUCLink(wrappedLandscape5.link, "image/avif");
+  const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_5-fixed.jpg", { getImageMetadata: true });
+  const landscapeSharp = await createSharpImage(await landscape_proper.resource.arrayBuffer());
+  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), 50);
 }
 
 async function testFileCache() {

@@ -30,6 +30,8 @@ RECORD FUNCTION GetCacheableImages(INTEGER forfolder)
                                 AND link != ""
                       ORDER BY ordering, ToUppercase(name), id;
 
+  //Remove misunderstood images (eg WEBP/AVIF until support is complete)
+  images := SELECT * FROM images WHERE RecordExists(thumbnail);
 
   RETURN [ value := images
          , ttl := 15 * 60 * 1000

@@ -107,7 +107,7 @@ MACRO ImgCacheTest()
   //setting a wrong extension simply causes us to postfix the correct one
   STRING renamedkikkerlink;
   renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png" ]);
-  TestEqLike("*/kikker.png.jpg", renamedkikkerlink);
+  TestEqLike("*/kikker.jpg", renamedkikkerlink);
 
   RECORD wrappedinfo;
   wrappedinfo := GetWrappedSourceFromURL(renamedkikkerlink); //note, we get source info, not method-changed info
@@ -161,6 +161,16 @@ MACRO ImgCacheTest()
   homerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/png"]);
   TestEq(TRUE , testfw->browser->GotoWebPage(homerlink));
   TestEq("image/png", testfw->browser->contenttype);
+
+  STRING homerlink_webp := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/webp"]);
+  TestAssert(homerlink_webp != "");
+  TestEq(TRUE , testfw->browser->GotoWebPage(homerlink_webp));
+  TestEq("image/webp", testfw->browser->contenttype);
+
+  STRING homerlink_avif := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "image/avif"]);
+  TestAssert(homerlink_avif != "");
+  TestEq(TRUE , testfw->browser->GotoWebPage(homerlink_avif));
+  TestEq("image/avif", testfw->browser->contenttype);
 
   STRING homercroplink := GetCachedFSImageURL(baseurl, homer->id, [ method := "crop", setwidth:=25, setheight:=25, format := "image/png"]);
 
@@ -242,7 +252,7 @@ MACRO ImgCacheSourcesTest()
   RECORD kikkerinstance_nofilenamegiven := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25 ]);
   TestEqLike("*/kikker.jpg", kikkerinstance_nofilenamegiven.link);
   RECORD kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png" ]);
-  TestEqLike("*/kikker.png.jpg", kikkerinstance.link);
+  TestEqLike("*/kikker.jpg", kikkerinstance.link);
 
   RECORD wrappedinfo;
   wrappedinfo := GetWrappedSourceFromURL(kikkerinstance.link); //note, we get source info, not method-changed info
@@ -278,6 +288,7 @@ MACRO FsCacheTest()
   STRING badkikkerfilelink := GetCachedFSFileURL(baseurl, kikkertje->id);
   UPDATE system.fs_objects SET creationdate:=AddTimeToDate(1,creationdate) WHERE id=kikkertje->id;
   STRING goodkikkerfilelink := GetCachedFSFileURL(baseurl, kikkertje->id);
+  STRING avifkikkerfilelink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "none", format := "image/avif" ]);
 
   OBJECT docxje := GetTestsuiteTempFolder()->CreateFile( [ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), publish := FALSE, name := "empty.docx" ]);
   OBJECT extensionless := GetTestsuiteTempFolder()->CreateFile([data := StringToBlob("\x00\x01\x02\x03"), name := "extensionless" ]);
@@ -293,9 +304,15 @@ MACRO FsCacheTest()
   TestEq(404, testfw->browser->GetHTTPStatusCode());
 
   TestEq(TRUE, testfw->browser->GotoWebPage(goodkikkerfilelink), goodkikkerfilelink);
+  BLOB jpgkikker := testfw->browser->content;
   RECORD kikkerinfo := ScanBlob(testfw->browser->content,"");
   TestEq(122, kikkerinfo.width);
   TestEq(148, kikkerinfo.height);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(avifkikkerfilelink));
+  RECORD avifkikkerinfo := ScanBlob(testfw->browser->content,"");
+  TestEq(122, avifkikkerinfo.width);
+  TestEq(148, avifkikkerinfo.height);
 
   STRING docxjelink := GetCachedFileLink(docxje->GetWrapped(), [ filename := "empty.docx" ]);
   TestEqLike("*/empty.docx", docxjelink);
@@ -424,6 +441,7 @@ MACRO WRDImageCache()
   testfw->CommitWork();
 
   RECORD wrappedresized := WrapCachedImage(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "fit", setwidth := 64, setheight := 52, baseurl := GetPrimaryWebhareInterfaceURL() ]);
+  TestEqLike("*/homersbrain.png", wrappedresized.link, 'no bmp in the path please..');
   TestEq(TRUE, testfw->browser->GotoWebPage(wrappedresized.link));
   TestEqMembers([width:=64, mimetype:="image/png"], ScanBlob(testfw->browser->content), "MIMEWIDTH,TYPE");
   link_wrd_homer := wrappedresized.link;

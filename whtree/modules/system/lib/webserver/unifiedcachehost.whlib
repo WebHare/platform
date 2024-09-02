@@ -5,6 +5,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -115,13 +116,28 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
       RECORD dbdata := LookupDataForUnifiedURL(data.item);
       IF (this->trace)
         DumpValue(dbdata, "tree");
-      BLOB content := dbdata.data;
-      IF(data.datatype=1)
-        content := this->ProcessImage(dbdata, data.item);
 
-      CreateDiskDirectoryRecursive(GetDirectoryFromPath(path), TRUE);
-      StoreDiskFile(path, content, [ overwrite := TRUE]);
+      //If we get here, the url was validated and the item was not rejected
+      IF(data.datatype = 1 AND data.item.resizemethod.format IN ["image/webp","image/avif"])
+      {
+        //FIXME we might need a separate service to make scaling easier
+        CallJS("@mod-platform/js/cache/imgcache.ts#generateImageForCache",
+          CELL[ ...dbdata
+              , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
+              , data.item
+              , path
+              ]);
       }
+      ELSE
+      {
+        BLOB content := dbdata.data;
+        IF(data.datatype = 1)
+          content := this->ProcessImage(dbdata, data.item);
+
+        CreateDiskDirectoryRecursive(GetDirectoryFromPath(path), TRUE);
+        StoreDiskFile(path, content, [ overwrite := TRUE]);
+      }
+    }
     FINALLY
     {
       lock->Release();
