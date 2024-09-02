@@ -122,6 +122,8 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
 
   if (method.blur)
     img.blur({ sigma: method.blur });
+  if (method.grayscale)
+    img.grayscale();
 
   img.toFormat(format, formatOptions as SharpJpegOptions | SharpPngOptions | SharpWebpOptions | SharpAvifOptions | SharpGifOptions || undefined);
   return await img.toBuffer();
