@@ -180,12 +180,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
       @cell return.document_fields List of fields and values to index
                                    Field names "groupid", "objectid", "_indexed", "_contentsource", "body" and "summary" are not allowed). Use the "suggestfields" field to provide a list of space-separated
                                    field names for which suggest terms are stored.
-      @cell return.objects New objects found within the group
-      @cell return.objects.id Id of the object
-      @cell return.links All links found in the object
-      @cell return.links.link Link URL
-      @cell return.links.text Link text
-      @cell return.links.type Link type
       @cell return.indexdate Date of last modification of this object (optional). If not present, the document will always
                be replaced in the index.
       @cell return.requiredindexdate If the indexdate of the version of this object currently stored in the index

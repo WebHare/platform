@@ -154,13 +154,6 @@ PUBLIC STATIC OBJECTTYPE CustomContentBase
       @cell(string) return.error If the call did not succeed, this cell may contain an error message
       @cell return.document_body The document's body text
       @cell(record) return.document_fields List of fields and values to index (prefix DATETIME fields with "date_")
-      @cell return.objects New objects found within the group
-      @cell return.objects.id Id of the object
-      @cell return.objects.data Optional data of the object (if not provided, FetchObject will be called with the object id)
-      @cell return.links All links found in the object
-      @cell return.links.link Link URL
-      @cell return.links.text Link text
-      @cell return.links.type Link type
       @cell return.indexdate Date of last modification of this object (optional). If not present, the document will always
                be replaced in the index.
       @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
