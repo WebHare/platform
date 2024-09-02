@@ -238,7 +238,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   */
   RECORD FUNCTION FetchUrl(BOOLEAN get_url, STRING url, RECORD options)
   {
-    STRING pattern := this->MayFetch(url);
+    STRING pattern := this->MayIndex(url);
     IF (pattern != "")
     {
       RETURN [ success := FALSE
@@ -404,11 +404,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   //
   // Blacklisting support
   //
-  // May this URL be fetched? Returns empty string if not blacklisted, or pattern which blacklisted the URL
-  PUBLIC STRING FUNCTION MayFetch(STRING url)
-  {
-    RETURN this->CheckBlacklist(url, "fetch");
-  }
   // May this URL be indexed? Returns empty string if not blacklisted, or pattern which blacklisted the URL
   PUBLIC STRING FUNCTION MayIndex(STRING url)
   {

@@ -289,12 +289,12 @@
 
     <d:table name="blacklist" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:boolean name="nofollow" />
       <d:boolean name="noindex" />
-      <d:boolean name="nolinkcheck_from" />
       <d:boolean name="nolinkcheck_to" />
       <d:varchar name="pattern" maxlength="1024" nullable="0" unique="1" />
       <d:boolean name="pattern_regex" />
+      <d:obsoletecolumn name="nofollow" />
+      <d:obsoletecolumn name="nolinkcheck_from" />
     </d:table>
 
     <d:obsoletetable name="query_results" primarykey="id" />

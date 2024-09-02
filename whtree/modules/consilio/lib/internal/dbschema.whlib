@@ -89,10 +89,8 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER "id" NULL := 0
     , STRING "pattern"
-    , BOOLEAN "nolinkcheck_from"
     , BOOLEAN "nolinkcheck_to"
     , BOOLEAN "noindex"
-    , BOOLEAN "nofollow"
     , BOOLEAN "pattern_regex"
     ; KEY id
     > blacklist

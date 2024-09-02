@@ -197,8 +197,6 @@
               selectmode="single">
           <column name="pattern" type="text" />
           <column name="noindex_icon" type="icon" />
-          <column name="nofollow_icon" type="icon" />
-          <column name="nolinkcheck_from_icon" type="icon" />
           <column name="nolinkcheck_to_icon" type="icon" />
         </list>
       </panel>
@@ -229,8 +227,6 @@
       <textedit name="pattern" width="1pr" required="true" />
       <select name="options" type="checkbox">
         <option rowkey="noindex" />
-        <option rowkey="nofollow" />
-        <option rowkey="nolinkcheck_from" />
         <option rowkey="nolinkcheck_to" />
       </select>
     </body>
