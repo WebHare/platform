@@ -198,7 +198,7 @@
     </contents>
   </fragment>
 
-  <screen name="selectvalues" lib="components/formcondition.whlib" gid=".formcondition">
+  <screen name="selectvalues" lib="components/formcondition.whlib" gid=".formcondition" allowresize="true" savestate="size" width="70x" height="12gr">
     <body>
       <select name="value" title="" type="checkboxlist" height="1pr" />
     </body>
