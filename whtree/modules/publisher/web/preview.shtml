@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -14,7 +15,6 @@ LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -144,7 +144,7 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) INTO __pageinfo;
   IF(webdesigninfo.renderinfo.renderer != "")
   {
-    RECORD capturedpage := WaitForPromise(CallAsync("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", VARIANT[ source, openobj->id ]));
+    RECORD capturedpage := CallJS("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", source, openobj->id);
     SendWebFile(capturedpage.body);
   }
   ELSE IF(webdesigninfo.renderinfo.objectname = "")

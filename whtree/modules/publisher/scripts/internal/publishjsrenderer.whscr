@@ -1,12 +1,11 @@
 <?wh
-
-LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::publisher/lib/template-v2.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 
 
-RECORD capturedpage := WaitForPromise(CallAsync("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", VARIANT[ file.id ]));
+RECORD capturedpage := CallJS("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", file.id);
 
 INTEGER redirectoutputid := OpenOutputFile(FindPage(1).name, FALSE);
 SendBlobTo(redirectoutputid, capturedpage.body);
