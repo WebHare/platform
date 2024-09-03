@@ -11,7 +11,7 @@ import { throwError } from '@webhare/std';
 export type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
 
 //Query elements that are likely to be formfieldlike. Anything with a [name] but not eg button (and not data-wh-form-name which usually relies on getformvalue events)
-export const queryFormFieldLike = `[name]:not(button)`;
+export const queryFormFieldLike = `[name]:not(button):not(a):not(output)`;
 
 export function isInputElement(field: Element): field is HTMLInputElement {
   return isHTMLElement(field) && field.tagName === 'INPUT';
