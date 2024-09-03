@@ -28,6 +28,8 @@ export interface RPCCallOptions {
   headers?: Record<string, string>;
   /** Base URL for service paths */
   baseUrl?: string;
+  /** Overide fetch credentials option (defaults to same-origin) */
+  credentials?: RequestCredentials;
 }
 
 export type RequestID = number | string | null;
@@ -267,7 +269,7 @@ class RPCClient {
 
     const fetchoptions: RequestInit = {
       method: "POST",
-      credentials: 'same-origin', //this is the default since 2017-08-25, but Edge pre-18 is still around and will fail here
+      credentials: this.options.credentials || 'same-origin', //this is the default since 2017-08-25, but Edge pre-18 is still around and will fail here
       headers: {
         "Accept": "application/json",
         "Content-Type": "application/json; charset=utf-8",
