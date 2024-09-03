@@ -1,3 +1,4 @@
+#!/bin/bash
 # We can't mark this script as executable as it shouldn't be run on a build host
 
 # Updated 2019-10-02 (update this timestamp if nothing else to pull in new dependencies)
@@ -55,7 +56,7 @@ add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main
 
 # Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
 # usermod -d /opt/whdata/home/root root - doesn't work:  'usermod: user root is currently used by process 1'
-cat /etc/passwd | sed -e 's/:\/root:/:\/opt\/whdata\/home\/root:/' > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
+sed -e 's/:\/root:/:\/opt\/whdata\/home\/root:/' /etc/passwd > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
 
 # Group for WebHare's data directory. Not fully used yet, but keeps chrome out of it
 groupadd --gid 20000 whdata
@@ -131,9 +132,14 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKA
   exit 1
 fi
 
-# it's just one of those days. v20.13.0 broke fetch. downgrade it, see https://github.com/nodejs/node/issues/52909 - still broken in v20.13.1, extend this regex to cover it
-if [[ $(node -v) =~ ^v20.1[3-9] ]]; then
-  apt-get install -y --allow-downgrades nodejs=20.12.2-1nodesource1
+# if it's just one of those days...  downgrade it, see https://github.com/nodejs/node/issues/52909
+# if [[ $(node -v) =~ ^v20.1[3-9] ]]; then
+#  apt-get install -y --allow-downgrades nodejs=20.12.2-1nodesource1
+# fi
+
+if [[ $(node -v) =~ ^v22\.[0-7]\. ]] || [[ $(node -v) =~ ^v2[0-1]\. ]] ; then
+  echo "$(node -v) is broken, ensure you pick up a newer version" 1>&2
+  exit 1
 fi
 
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
