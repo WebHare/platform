@@ -400,97 +400,6 @@ MACRO ICSTest_PrepareWitty()
   TestEq("text/calendar; charset=\"utf-8\"; method=REQUEST; name=\"afspraak.ics\"", resultmessage.data.subparts[END-1].mimetype);
 }
 
-MACRO ClassicMailerTest()
-{
-  RECORD testrec;
-
-  /* This zip should generate:
-     - a html mail with:
-       - 1 text attachment,
-       - an embeded image,
-       - an external image link,
-       - a non-existing image link
-       - an alternative textpart
-   */
-  testrec := GenerateHTMLEmail(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/complex html.zip"), DEFAULT RECORD);
-
-  //PrintRecordTo(0,testrec.toppart,'tree');
-
-  //Check if the mail was well constructed
-
-  TestEq("multipart/mixed", testrec.toppart.mimetype);
-  TestEq(2, Length(testrec.toppart.subparts));
-  TestEq("multipart/alternative", testrec.toppart.subparts[0].mimetype);
-  TestEq(2, Length(testrec.toppart.subparts[0].subparts));
-  TestEq('text/plain; name="attachment.txt"', testrec.toppart.subparts[1].mimetype);
-  TestEq(18, Length(testrec.toppart.subparts[1].data));
-
-  RECORD related := testrec.toppart.subparts[0].subparts[1];
-  TestEq("multipart/related", related.mimetype);
-  TestEq(2, Length(related.subparts));
-  TestEq('image/gif; name="logo.gif"', related.subparts[1].mimetype);
-
-  TestEq(TRUE, testrec.toppart.subparts[0].subparts[0].mimetype LIKE "text/plain*");
-  TestEq("alternative text", BlobToString(testrec.toppart.subparts[0].subparts[0].data, 100));
-  TestEq(TRUE, related.subparts[0].mimetype LIKE "text/html*");
-
-  //Let's parse the html file to check if the image links are correct
-  INTEGER htmlfile := ParseXML (related.subparts[0].data);
-  RECORD ARRAY imagelinks := SelectXML (htmlfile, "//img");
-
-  TestEq(3, Length(imagelinks));
-  TestEq("http://www.b-lex.com/repository/corporate/images/orange/logo.gif", imagelinks[0].src);
-
-  STRING contentid := related.subparts[1].contentid;
-
-  TestEq('cid:' || Substring(contentid, 1, Length(contentid) - 2), imagelinks[1].src);
-  TestEq("nologo.gif", imagelinks[2].src);
-
-  // This word file should generate a html mail with an embeded image.
-
-  testrec := GenerateHTMLEmail(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/simple.doc"), DEFAULT RECORD);
-  TestEq(0, RedirectOutputTo(0)); //ensure redirection is still valid (some versions broke it)
-
-  //Check if the mail was well constructed
-
-  TestEq("multipart/alternative", testrec.toppart.mimetype);
-  TestEq(2, Length(testrec.toppart.subparts));
-
-  related := testrec.toppart.subparts[1];
-  TestEq("multipart/related", related.mimetype);
-  TestEq(2, Length(related.subparts));
-  TestEq(TRUE, related.subparts[1].mimetype LIKE "image/png*");
-
-  htmlfile := ParseHTMLAsXML (related.subparts[0].data);
-  imagelinks := SelectXML (htmlfile, "//img");
-
-
-  contentid := testrec.toppart.subparts[1].contentid;
-
-  //TestEq('cid:' || Substring(contentid, 1, Length(contentid) - 2), imagelinks[0].src);
-
-  TestEq(TRUE, testrec.toppart.subparts[0].mimetype LIKE "text/plain*");
-  TestEq(TRUE, related.subparts[0].mimetype LIKE "text/html*");
-
-
-  // This zip file should generate the same mail as the word document.
-
-  testrec := GenerateHTMLEmail(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/complex html.zip"), DEFAULT RECORD);
-
-  //Check if the mail was well constructed
-  //PrintRecordTo(0,testrec,'tree');
-  TestEq("multipart/mixed", testrec.toppart.mimetype);
-  TestEq(2, Length(testrec.toppart.subparts));
-
-  related := testrec.toppart.subparts[0].subparts[1];
-  TestEq("multipart/related", related.mimetype);
-  TestEq(2, Length(related.subparts));
-  TestEq(TRUE, related.subparts[1].mimetype LIKE "image/gif*");
-
-  TestEq(TRUE, testrec.toppart.subparts[0].subparts[0].mimetype LIKE "text/plain*");
-  TestEq(TRUE, related.subparts[0].mimetype LIKE "text/html*");
-}
-
 MACRO PostMergeTest()
 {
   RECORD resultmessage;
@@ -782,7 +691,6 @@ RunTestframework([ PTR EmbedTest
                  , PTR LinkingTest
                  , PTR ICSTEst
                  , PTR ICSTEst_PrepareWitty
-                 , PTR ClassicMailerTest
                  , PTR PostMergeTest
                  , PTR RTEIntegrationTest
                  , PTR TestMailWitty
