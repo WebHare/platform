@@ -1,4 +1,4 @@
-import { getFieldName, isFormFieldLike } from "./domsupport";
+import { getFieldName } from "./domsupport";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
 import { omit, type AddressValue, nameToSnakeCase, nameToCamelCase, throwError, isDate } from "@webhare/std";
@@ -22,6 +22,14 @@ interface FormField {
 }
 
 type ValueType = "number" | "boolean" | "date";
+
+function unmapFieldName(camelCaseName: string) {
+  return camelCaseName.startsWith("__formfield") ? camelCaseName : nameToSnakeCase(camelCaseName);
+
+}
+function mapFieldName(htmlName: string) {
+  return htmlName.startsWith("__formfield") ? htmlName : nameToCamelCase(htmlName);
+}
 
 function mapValue(type: ValueType, invalue: string) {
   switch (type) {
@@ -189,12 +197,15 @@ export class ArrayFieldHandler extends RegisteredFieldHandler implements FormFie
   }
 }
 
+/** The FormFieldMap exposes a multi-level (ie unflattened) view of the form values. Internally it works with the
+   original names because generated fields names, eg __formfieldbbbwVsWih_0DrJOc0beS7Q_, cannot be assumed to be snake_case and convertable */
 export abstract class FormFieldMap<DataShape> {
+  /** Field mapping. Uses original names */
   protected fieldmap = new Map<string, FormField>();
 
   constructor(protected fieldName: string, nodes: HTMLElement[]) {
-    const subpos = fieldName ? nameToSnakeCase(fieldName).length + 1 : 0;
-    const groups = Map.groupBy(nodes, _ => nameToCamelCase(((_ as HTMLInputElement).name || _.dataset.whFormName || "").substring(subpos).split('.')[0]));
+    const subpos = fieldName ? fieldName.length + 1 : 0;
+    const groups = Map.groupBy(nodes, _ => getFieldName(_).substring(subpos).split('.')[0]);
 
     for (const [name, items] of groups) {
       const fullName = (fieldName ? fieldName + '.' : '') + name;
@@ -216,7 +227,8 @@ export abstract class FormFieldMap<DataShape> {
         }
       }
 
-      if (isFormFieldLike(items[0]) && items[0].name === nameToSnakeCase(fullName)) { //if no subname, it's the group leader ?
+      const hasGroupLeader = getFieldName(items[0]) === fullName; //ie name has no followup '.xx'
+      if (hasGroupLeader) { //if no subname, it's the group leader ?
         if (items[0].matches('input[type=checkbox]')) {//is it a checkbox group?
           const cboxgroup = items[0].closest(".wh-form__fieldgroup--checkboxgroup");
           if (cboxgroup) {
@@ -225,8 +237,7 @@ export abstract class FormFieldMap<DataShape> {
           }
         }
 
-        //this field is a simple HTML element. if multiple items, we'll assume the element speaks for its group
-        this.fieldmap.set(name, new HTMLFormFieldHandler(this, items[0]));
+        this.fieldmap.set(name, new HTMLFormFieldHandler(this, items[0] as FormFieldLike));
         continue;
       }
 
@@ -245,17 +256,18 @@ export abstract class FormFieldMap<DataShape> {
   getField(name: string, options?: { allowMissing?: boolean }): FormField;
 
   getField(name: string, options?: { allowMissing?: boolean }): FormField | null {
-    const match = this.fieldmap.get(name);
+    const mapName = unmapFieldName(name);
+    const match = this.fieldmap.get(mapName);
     if (match)
       return match;
     if (options?.allowMissing)
       return null;
 
-    throw new Error(`Field '${name}' (with name/data-wh-form-name '${nameToSnakeCase((this.fieldName ? this.fieldName + '.' : "") + name)}') not found in this form`); //TODO report the fukll anme
+    throw new Error(`Field '${name}' not found in this form`); //TODO report the fukll anme
   }
 
   getFieldNames(): string[] {
-    return [...this.fieldmap.keys()];
+    return [...this.fieldmap.keys()].map(mapFieldName);
   }
 
   /** Set a value for multiple fields
@@ -281,7 +293,7 @@ export class RecordFieldHandler extends FormFieldMap<object> implements FormFiel
     for (const [name, field] of this.fieldmap) {
       const val = field.getValue();
       if (val !== undefined) //Suppress undefined values (where we cannot safely re-set them, eg images in Object.keys
-        retval[name] = val;
+        retval[mapFieldName(name)] = val;
     }
 
     return retval;
@@ -292,8 +304,9 @@ export class RecordFieldHandler extends FormFieldMap<object> implements FormFiel
       throw new Error(`Invalid value for record field '${this.fieldName}': ${newvalue}`);
 
     for (const [name, field] of this.fieldmap) {
-      if (name in newvalue)
-        field.setValue((newvalue as Record<string, unknown>)[name]);
+      const prettyName = mapFieldName(name);
+      if (prettyName in newvalue)
+        field.setValue((newvalue as Record<string, unknown>)[prettyName]);
     }
   }
 
@@ -335,10 +348,10 @@ class AddressFieldHandler extends RecordFieldHandler {
 export class FieldMapDataProxy implements ProxyHandler<object> {
   constructor(private readonly form: FormFieldMap<object>) {
   }
-  get(target: object, p: string) {
+  get(target: object, p: string | symbol) {
     //Don't attempt to validate getters... it will break various introspection calls (eg requesting constructor, checking for 'then'...)
-    const field = this.form.getField(p, { allowMissing: true });
-    return field ? field.getValue() : (target as Record<string, unknown>)[p];
+    const field = typeof p === "string" ? this.form.getField(p, { allowMissing: true }) : null;
+    return field ? field.getValue() : (target as Record<string | symbol, unknown>)[p];
   }
   set(target: unknown, p: string, value: unknown): boolean {
     this.form.getField(p).setValue(value);
