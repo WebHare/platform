@@ -214,10 +214,13 @@ OBJECTTYPE TaskFinishHandler EXTEND TransactionFinishHandlerBase
         now := GetCurrentDatetime();
 
       DATETIME when := task.when ?? now;
-      UPDATE system_internal.tasks SET nexttime := VAR when
-                                 WHERE tasks.tag = VAR tasktag
-                                       AND tasks.enabled
-                                       AND (tasks.nexttime = DEFAULT DATETIME OR tasks.nexttime > when);
+      UPDATE system_internal.tasks
+         SET nexttime := VAR when
+       WHERE tasks.tag = VAR tasktag
+             AND (tasks.nexttime = DEFAULT DATETIME  //not scheduled at all
+                 OR when < tasks.nexttime            //we want to schedule it earlier than planned
+                 OR (tasks.inapplicable != "" AND tasks.nexttime < GetCurrentDatetime() )); //inaplicable tasks? move time forward when in the past, easier when debugging
+
       GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
     }
   }
