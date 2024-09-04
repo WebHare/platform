@@ -84,4 +84,4 @@ fi
 
 
 echo "Starting $PSNAME"
-exec $RUNAS "$WEBHARE_PGBIN/postmaster" -D "$PSROOT/db" 2>&1
+exec $RUNAS "$WEBHARE_PGBIN/postgres" -D "$PSROOT/db" 2>&1

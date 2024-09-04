@@ -115,6 +115,8 @@ PACKAGES+=(certbot
     libpixman-1-0
     postgresql-11
     postgresql-client-11
+    postgresql-16
+    postgresql-client-16
     procps
     psmisc
     runit
