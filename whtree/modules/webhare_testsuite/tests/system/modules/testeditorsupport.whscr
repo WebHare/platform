@@ -2,11 +2,11 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 
@@ -71,7 +71,7 @@ ASYNC MACRO TestNoticeLog()
     LogHareScriptException(e, [ info := [ context := "webhare_testsuite:testeditorsupport" ]]);
   }
 
-  AWAIT CallAsync(Resolve("testeditorsupport_helper.ts#testLogError"), VARIANT[]);
+  CallJS(Resolve("testeditorsupport_helper.ts#testLogError"));
 
   RECORD ARRAY errors := ReadJSONLogLines("system:notice", starttest);
   errors := SELECT * FROM errors WHERE type='script-error' AND CellExists(errors,'info') AND info.context='webhare_testsuite:testeditorsupport';

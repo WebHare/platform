@@ -320,7 +320,7 @@ async function throwsAsync(expect: RegExp, promise: Promise<unknown>, annotation
 //handle the failure of throws(Async)
 function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): never {
   //If we get here, no exception occurred
-  const error = new TestError(`testThrows fails: Expected function to throw ${expect.toString()}`, annotation);
+  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()}`, annotation);
 
   onLog("Expected exception: ", expect.toString());
   if (retval === undefined)
@@ -334,7 +334,7 @@ function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): n
 function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: Annotation): Error {
   if (!isError(exception)) {
     console.error("Expected a proper Error but got:", exception);
-    throw new TestError("testThrows fails - didn't get an Error object", annotation);
+    throw new TestError("test.throws failed - didn't get an Error object", annotation);
   }
 
   const exceptiontext = exception.message;
@@ -343,7 +343,7 @@ function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: 
     onLog("Got exception: ", exceptiontext);
     if (exception.stack)
       onLog("Stack: ", exception.stack);
-    throw new TestError("testThrows fails - exception mismatch", annotation, { cause: exception });
+    throw new TestError("test.throws failed - exception mismatch", annotation, { cause: exception });
   }
 
   return exception; //we got what we wanted - a throw! return the Error

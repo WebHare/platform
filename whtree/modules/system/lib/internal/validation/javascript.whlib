@@ -39,7 +39,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
       , options.allowinlineconfig
       ];
 
-  RECORD result := AWAIT CallAsync("mod::system/js/internal/eslint.ts#handleLintingCommand", [ cmd ]);
+  RECORD result := CallJS("mod::system/js/internal/eslint.ts#handleLintingCommand", cmd);
 
   RETURN CELL
       [ messages :=
@@ -290,7 +290,7 @@ ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix)
       , data :=             EncodeBase64(BlobToString(data))
       ];
 
-  RECORD rec := AWAIT CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]);
+  RECORD rec := CallJS("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", cmd);
   BLOB output;
   IF (rec.output != cmd.data AND rec.error = "" AND autofix)
   {

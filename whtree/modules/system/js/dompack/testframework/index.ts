@@ -5,7 +5,6 @@ import * as dompack from 'dompack';
 import * as dombusy from '@webhare/dompack/impl/busy';
 
 import { _resolveToSingleElement, _getFocusableElement } from './pointer';
-export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect';
 export { canClick, click, focus, sendMouseGesture } from './pointer';
 export { pressKey } from './keyboard';
 export { log } from './log';
@@ -199,12 +198,6 @@ export async function waitUIFree() {
   return await dombusy.waitUIFree();
 }
 
-//wait until 'func' returns true
-export function waitUntil(func) {
-  const defer = Promise.withResolvers();
-  requestAnimationFrame(() => testWaitUntil(func, defer));
-  return defer.promise;
-}
 function testWaitUntil(func, defer) {
   try {
     const res = func();
@@ -267,15 +260,4 @@ async function executeWait(waittype) {
   }
 
   testspa.setCurrentWait("");
-}
-
-/** Wait for a condition to occur
-    @param waits Condition to wait for (list allowed)
-*/
-export async function wait(...waits) {
-  for (const waitelt of waits)
-    if (Array.isArray(waitelt))
-      await wait(...waitelt);
-    else
-      await executeWait(waitelt);
 }
