@@ -5,7 +5,7 @@
   <h1>Core form</h1>
   <div id="testsubmitcontext" class="wh-form--submitcontext">
     <form class="wh-form wh-styledinput" id="coreform" [coreform.formattributes] autocomplete="off">
-      <a name="address"></a> [! an anchor shouldn't confuse the form, even not if evilly named to conflictd !]
+      <a name="address"></a> [! an anchor shouldn't confuse the form, even not if evilly named to conflict !]
       [coreform.formallfields]
       [coreform.rt_dynamic.render] [! not implicit in formallfields since 4.35 !]
 
