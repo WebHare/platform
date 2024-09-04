@@ -125,8 +125,8 @@ export default class ArrayField {
   }
 
   getRowHandler(row: HTMLElement): RecordFieldHandler {
-    const rowFields = getFormElementCandidates(row, this.name).filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
     const rowBaseName = this.valueNode.name + "." + row.dataset.whFormRowid;
+    const rowFields = getFormElementCandidates(row, rowBaseName).filter(_ => _.dataset.whFormCellname !== "row_uid"); //row_uid points back to us, so requesting that triggers a loop
     return new RecordFieldHandler(this.handler, rowBaseName, rowFields);
   }
 
