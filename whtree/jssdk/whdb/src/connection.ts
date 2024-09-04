@@ -36,9 +36,28 @@ interface PGConnectionDebugEvent {
 export const whdbTypeMap = new DataTypeMap();
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
-async function configureWHDBClient(pg: Connection) {
+async function configureWHDBClient(pg: Connection): Promise<void> {
+  // when another connection is already configuring, wait for it
+  // eslint-disable-next-line no-unmodified-loop-condition -- the other connection will modify `configuration`
+  while (!configuration && configurationPromise) {
+    const curPromise = configurationPromise;
+    try {
+      return await curPromise;
+    } catch (e) {
+      // The other connection failed to configure. Retry wait if another connection has already taken over configuring
+      if (curPromise !== configurationPromise)
+        continue;
+      // No other connection has taken over yet, retry ourselves
+      configurationPromise = undefined;
+      break;
+    }
+  }
+  if (configuration)
+    return;
+
   // Run the typemap registration and blob oid lookup only once
-  await (configurationPromise ??= (async () => {
+  // INV: configurationPromise === undefined
+  configurationPromise = (async () => {
 
     /* Be sure to run wh.database.wasm.primitivevalues when modifying this table. Order matters when we send types, autodetect will prefer the last-registered types
        Prefer the order in data-type-map.ts. Use wh psql and \d to figure out types on an existing table
@@ -64,7 +83,6 @@ async function configureWHDBClient(pg: Connection) {
     whdbTypeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
     whdbTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
 
-
     const bloboidquery = await pg.query(
       `SELECT t.oid, t.typname
         FROM pg_catalog.pg_type t
@@ -76,9 +94,13 @@ async function configureWHDBClient(pg: Connection) {
       configuration = { bloboid: bloboidquery.rows[0][0] };
       BlobType.oid = configuration.bloboid;
       whdbTypeMap.register(BlobType);
+      configurationPromise = undefined;
     } else
       throw new Error(`Could not find webhare_blob type`);
-  })());
+  })();
+
+  // Await the result of configuration. If it fails, this connection isn't usable anyway, so we can leak the error
+  await configurationPromise;
 }
 
 //the *actual* returnvalue from `query`
@@ -104,6 +126,9 @@ export class WHDBPgClient {
 
     const client = this.pgclient;
     this.connectpromise = client.connect().then(() => configureWHDBClient(client));
+
+    // Make sure that failed connections do not result in uncaught rejections when nobody calls connect()
+    this.connectpromise.catch(() => { });
   }
 
   private onDebug(evt: PGConnectionDebugEvent) {
