@@ -266,7 +266,6 @@ export function queryEmbeddedObjects(node: HTMLElement) {
 export function isNodeSplittable(node: Node) {
   if (node.nodeType !== 1)
     return true;
-  //non-html nodes may not have a classList (IE11 SVG nodes)
   if (isEmbeddedObject(node))
     return false;
   const uname = node.nodeName.toUpperCase();

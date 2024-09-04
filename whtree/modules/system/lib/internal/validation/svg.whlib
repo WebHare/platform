@@ -42,10 +42,6 @@ PUBLIC STRING ARRAY FUNCTION FixSVGlayers()
 
 RECORD FUNCTION RunInternalSVGValidator(BLOB doc_blob, BOOLEAN fixup)
 {
-  // SVG files bigger than 3030 bytes aren't processed well in IE11
-  //ADDME: More subtle than that unfortunately...
-  //IF (Length(filedata) >= 3030)
-  //  INSERT [ path := filepath, type := "filesize" ] INTO svgpaths AT END;
   RECORD retval := [ errors := RECORD[]
                    , newdata := DEFAULT BLOB
                    , anychanges := FALSE

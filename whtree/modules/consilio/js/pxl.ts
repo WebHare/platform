@@ -282,7 +282,7 @@ function pingPxlEvent(evt: PxlEvent) {
         console.log(`[pxl] Beacon - pinging pxl '${url}' - sync XHR done!`);
     }
   } else {
-    // Load the pxl file using fetch TODO DOES IE11 support no-cors? Or just switch to <img> loading
+    // Load the pxl file using fetch
     const promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
     if (options.debug) {
       console.log(`[pxl] Pinging pxl '${url}'`);

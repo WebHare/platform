@@ -75,7 +75,7 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
   /// Action fired when image is clicked
   PUBLIC PROPERTY action(pvt_action, SetAction);
 
-  /// Object fit (fill | contain | cover | none | scale-down) - not supported on IE11.
+  /// Object fit (fill | contain | cover | none | scale-down)
   PUBLIC PROPERTY objectfit(__objectfit, SetObjectFit);
 
   /// Image opacity

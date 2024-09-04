@@ -103,7 +103,7 @@ async function failLogin(message: string, response: { code: string; data: string
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
   const data = { username, password, cookieName: authsettings?.cookiename, options };
-  const result = await (await fetch(`/.wh/openid/frontendservice?type=login&pathname=${encodeURIComponent(location.pathname)})`, {
+  const result = await (await fetch(`/.wh/openid/frontendservice?type=login&pathname=${encodeURIComponent(location.pathname)}`, {
     method: "post",
     headers: {
       "content-type": "application/json"
