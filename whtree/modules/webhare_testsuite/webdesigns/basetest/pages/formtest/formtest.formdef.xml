@@ -314,7 +314,7 @@
 
   <form name="emailform" objectname="formtest.whlib#EmailForm">
     <page>
-      <textedit name="email" required="true" title="Email" validationchecks="email" />
+      <textedit name="email" required="true" title="Email" validationchecks="email" acceptableemailmasks="*@*beta.webhare.net user@example.com" unacceptableemailerror="BAD BAD BAD"/>
       <textedit name="email_sendfrom" title="May send from" validationchecks="email-maysendfrom" />
     </page>
 

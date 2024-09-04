@@ -51,6 +51,11 @@ test.registerTests(
       test.eq(1, getFormRPCRequests().length);
 
       test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error')?.textContent);
+
+      test.click('#emailform-email');
+      test.fill('#emailform-email', "baduser@example.org");
+      await test.pressKey('Tab');
+      await test.wait(() => emailgroup.querySelector('.wh-form__error')?.textContent?.match(/BAD BAD BAD/));
     },
     'Check smart email field CORRECTING on focus',
     async function () {
@@ -59,7 +64,7 @@ test.registerTests(
       await test.pressKey('Tab');
 
       await test.wait(() => test.qR('#emailform-email').value === 'fixme@exact.beta.webhare.net');
-      test.eq(2, getFormRPCRequests().length);
+      test.eq(3, getFormRPCRequests().length);
     },
     'Check smart email field SUGGESTING on focus',
     async function () {
@@ -68,7 +73,7 @@ test.registerTests(
       await test.pressKey('Tab');
 
       await test.wait(() => test.qS('.wh-form__emailcorrected'));
-      test.eq(3, getFormRPCRequests().length);
+      test.eq(4, getFormRPCRequests().length);
 
       test.eq('pietje@fuzzy.beta.webhare.net', test.qR('.wh-form__emailcorrected').textContent);
       test.eq('Bedoel je pietje@fuzzy.beta.webhare.net?', test.qR('.wh-form__emailcorrection').textContent);
@@ -83,7 +88,7 @@ test.registerTests(
 
       //wait for the correction...
       await test.wait(() => test.qS('.wh-form__emailcorrected'));
-      test.eq(3, getFormRPCRequests().length, "STILL at 3 rpcs... as we cached the previous answer!");
+      test.eq(4, getFormRPCRequests().length, "STILL at 4 rpcs... as we cached the previous answer!");
 
       //now try to correct it ourselves!
       test.click('#emailform-email');
@@ -91,7 +96,7 @@ test.registerTests(
       await test.wait("ui");
       test.eq(null, test.qS('.wh-form__emailcorrected'), 'suggestion element should be cleared immediately after editing');
 
-      test.eq(3, getFormRPCRequests().length, "STILL only 4 rpcs!");
+      test.eq(4, getFormRPCRequests().length, "STILL only 4 rpcs!");
 
       test.click('.wh-form__button--submit');
       await test.wait('ui');

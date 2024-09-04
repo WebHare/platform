@@ -797,6 +797,11 @@ PUBLIC STATIC OBJECTTYPE FormBase
            ];
   }
 
+  PUBLIC OBJECT FUNCTION __GetFormMember(STRING name)
+  {
+    RETURN GetMember(this, "^" || name);
+  }
+
   PUBLIC RECORD FUNCTION __FormDoInvoke(STRING methodname, VARIANT ARRAY args)
   {
     STRING targetname := Left(methodname,SearchSubstring(methodname,'.'));
@@ -808,7 +813,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
     }
     ELSE
     {
-      target := GetMember(this, "^"||targetname);
+      target := this->__GetFormMember(targetname);
       IF(NOT ObjectExists(target) OR NOT (target EXTENDSFROM FormFieldBase))
         THROW NEW Exception(targetname || " is not a field");
 

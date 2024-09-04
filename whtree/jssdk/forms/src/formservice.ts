@@ -29,6 +29,8 @@ export interface PublisherFormService {
    */
   validateEmail(langcode: string, emailaddress: string): Promise<EmailValidationResult>;
 
+  formValidateEmail(target: RPCFormTarget & { field: string }, emailaddress: string): Promise<EmailValidationResult>;
+
   /** Get an image from a remote URL */
   getImgFromRemoteURL(imageurl: string): Promise<string>;
 
