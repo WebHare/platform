@@ -2347,7 +2347,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:documentation>
           How to [object-fit](https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit) an image not matching the
           specified dimensions: fill, contain, cover, none, scale-down. This is often useful when loading external images
-          which may not follow your requested aspect ratio. Note that object fitting is not supported on IE11.
+          which may not follow your requested aspect ratio..
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>

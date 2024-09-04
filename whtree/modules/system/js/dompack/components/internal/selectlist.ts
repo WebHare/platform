@@ -31,14 +31,6 @@ export default class SelectList {
   _preventFocusLoss(evt) //prevent focus interference (and also mouse clicks)
   {
     evt.preventDefault();
-
-    if (evt.target === this._items && Boolean(window.MSInputMethodContext) && Boolean(document.documentMode)) //quick & dirty IE11 check
-    {
-      //IE11 has an issue that clicking the scrollbar resets the focus even after cancelling, so fix that by simply blocking blur for a while
-      const blurblocker = evt => dompack.stop(evt);
-      window.addEventListener("blur", blurblocker, true);
-      setTimeout(() => window.removeEventListener("blur", blurblocker, true), 1);
-    }
   }
 
   _clickItem(evt) {
