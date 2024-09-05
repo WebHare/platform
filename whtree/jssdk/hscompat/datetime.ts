@@ -298,3 +298,23 @@ export function localizeDate(format: string, date: Date, locale: string, timeZon
   }
   return Intl.DateTimeFormat(locale, { ...options, timeZone, formatMatcher: "basic" }).format(date);
 }
+
+/** Round down a datetime
+    @param dt - Datetime to round down
+    @param precision - Precision in milliseconds (eg, 1000 to round down to seconds, 86400*1000 to round down to a day)
+    @returns - Rounded datetime
+*/
+export function getRoundedDateTime(date: Date, precision: number | "day" | "hour" | "minute") {
+  if (typeof precision === "string") {
+    switch (precision) {
+      case "day": precision = 86400 * 1000; break;
+      case "hour": precision = 3600 * 1000; break;
+      case "minute": precision = 60 * 1000; break;
+      default: throw new Error(`Unknown period ${JSON.stringify(precision)}`);
+    }
+  }
+  const msec = date.getTime();
+  if (msec >= maxDateTimeTotalMsecs || msec <= defaultDateTime.getTime())
+    return date;
+  return new Date(msec - (msec % precision));
+}

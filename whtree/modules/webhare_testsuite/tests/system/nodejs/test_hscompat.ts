@@ -7,7 +7,7 @@ import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType } from "@webhare/hscompat";
 import { compare, lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/algorithms";
-import { localizeDate } from "@webhare/hscompat/datetime";
+import { getRoundedDateTime, localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { WebHareBlob } from "@webhare/services";
 
@@ -422,6 +422,18 @@ async function testHSON() {
   test.eq(`hson:va[0,*,*,3,{"a":4,"c":*}]`, encodeHSON([0, undefined!, null, 3, { a: 4, b: undefined!, c: null }]));
 }
 
+async function testRoundedDate() {
+  const testdate = new Date("2007-05-02T11:20:17.123Z");
+  test.eq(new Date("2007-05-02T11:20:17.000Z"), getRoundedDateTime(testdate, 1000));
+  test.eq(new Date("2007-05-02T11:20:16.000Z"), getRoundedDateTime(testdate, 2000));
+  test.eq(new Date("2007-05-02T00:00:00.000Z"), getRoundedDateTime(testdate, 86400 * 1000));
+  test.eq(new Date("2007-05-02T11:20:00.000Z"), getRoundedDateTime(testdate, "minute"));
+  test.eq(new Date("2007-05-02T11:00:00.000Z"), getRoundedDateTime(testdate, "hour"));
+  test.eq(new Date("2007-05-02T00:00:00.000Z"), getRoundedDateTime(testdate, "day"));
+  test.eq(defaultDateTime, getRoundedDateTime(defaultDateTime, 86400 * 1000));
+  test.eq(maxDateTime, getRoundedDateTime(maxDateTime, 86400 * 1000));
+}
+
 async function testLocalizeDate() {
 
   let format = "";
@@ -561,6 +573,7 @@ test.run([
   testUpperBound,
   testHSON,
   testWRDSupport,
+  testRoundedDate,
   testLocalizeDate,
   testOmitHareScriptDefaultValues,
 ]);

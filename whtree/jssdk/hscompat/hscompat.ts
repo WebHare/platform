@@ -3,7 +3,7 @@ import { decodeHSON, encodeHSON, setHareScriptType, HareScriptType } from "./hso
 export { toSnakeCase, toCamelCase, type ToSnakeCase, type ToCamelCase } from "@webhare/std/types";
 export { isLike, isNotLike, UUIDToWrdGuid, wrdGuidToUUID } from "./strings";
 export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound } from "./algorithms";
-export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime } from "./datetime";
+export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime, getRoundedDateTime } from "./datetime";
 export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
 
 /** API to prepare for transitional period where we have both HSON and JSON records in the database. */
