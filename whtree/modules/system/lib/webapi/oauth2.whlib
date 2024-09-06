@@ -102,7 +102,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
       RECORD keyinfo := ReadRegistryKey(this->oauthconfig.clientregistrykey, [fallback := DEFAULT RECORD]);
       IF(RecordExists(keyinfo))
       {
-        keyinfo := EnforceStructure([clientid := "", clientsecret := ""],keyinfo);
+        keyinfo := EnforceStructure(oauthbaseoptions, keyinfo);
         IF(this->oauthconfig.clientid = "")
           this->oauthconfig.clientid := keyinfo.clientid;
         IF(this->oauthconfig.clientsecret = "")
