@@ -717,6 +717,13 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.gotEventCallbackId = this.wasmmodule.addFunction(gotEvent, "viiii");
     this.wasmmodule._SetEventCallback(this.gotEventCallbackId);
   }
+
+  getStackTraceString(): string {
+    const stacktrace = this.wasmmodule._GetVMStackTrace(this.hsvm);
+    const retval = this.wasmmodule.UTF8ToString(stacktrace);
+    this.wasmmodule._free(stacktrace);
+    return retval;
+  }
 }
 
 async function createHarescriptModule() {
