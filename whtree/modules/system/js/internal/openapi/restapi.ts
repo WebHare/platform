@@ -503,6 +503,7 @@ export class WorkerRestAPIHandler {
         else if (authresult.loginfo)
           logger.authorized = authresult.loginfo;
       } finally {
+        // FIXME: async delayed close of codecontext
         authcontext.close();
         logger.timings.authorization = performance.now() - start;
       }
@@ -535,6 +536,7 @@ export class WorkerRestAPIHandler {
           return resthandler(restreq);
         });
       } finally {
+        // FIXME: async delayed close of codecontext
         handlercontext.close();
         logger.timings.handling = performance.now() - start;
       }
