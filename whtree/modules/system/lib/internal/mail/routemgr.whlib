@@ -185,7 +185,7 @@ PUBLIC RECORD FUNCTION GetEmailAutocorrection(STRING email)
       IF(IsInLikeUC(email, rule.masks))
       {
         RETURN [ suggestion := ""
-               , force := TRUE
+               , force := FALSE
                , blocked := TRUE
                ];
       }

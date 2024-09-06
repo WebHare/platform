@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rpc.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
@@ -113,6 +114,12 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
     this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
   }
 
+  PUBLIC RECORD FUNCTION GetEmailRestrictions()
+  {
+    RETURN CELL[ acceptableemailmasks := this->acceptableemailmasks
+               , unacceptableemailerror := this->unacceptableemailerror
+               ];
+  }
 
   // ---------------------------------------------------------------------------
   //
@@ -227,53 +234,21 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
         {
           FOREVERY(RECORD tocheck FROM emailstocheck)
           {
-            RECORD correction := GetEmailAutocorrection(tocheck.email);
-            IF(RecordExists(correction) AND correction.blocked)
+            RECORD checkresult := RunEmailChecks(GetTidLanguage(), tocheck.email, this->GetEmailRestrictions());
+            IF(RecordExists(checkresult) AND CellExists(checkresult,'blocked'))
             {
-              STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
-              work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.email_baddomain", domain));
+              work->AddErrorFor(this, checkresult.blocked);
               RETURN;
             }
 
-            IF(RecordExists(correction) AND correction.force)
-              emailstocheck[#tocheck].email := correction.suggestion;
-
-            IF(Length(this->acceptableemailmasks) > 0 AND NOT __MatchesAnyMask(emailstocheck[#tocheck].email, this->acceptableemailmasks))
-            {
-              work->AddErrorFor(this, this->unacceptableemailerror ?? GetTid("publisher:site.forms.commonerrors.unacceptableemail"));
-              RETURN;
-            }
+            IF(RecordExists(checkresult) AND CellExists(checkresult,'force'))
+              emailstocheck[#tocheck].email := checkresult.force;
           }
           this->textvalue := Detokenize((SELECT AS STRING ARRAY email FROM emailstocheck),", ");
         }
       }
     }
   }
-
-  PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING val) //TODO we've started shipping a faster RPC call, we can remove this call when we expect no more old JS code to call on us
-  {
-    RECORD ARRAY emailstocheck := this->GetMailsToCheck(val);
-    FOREVERY(RECORD tocheck FROM emailstocheck)
-    {
-      RECORD correction := GetEmailAutocorrection(tocheck.email);
-      IF(RecordExists(correction))
-      {
-        IF(correction.blocked)
-        {
-          STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
-          RETURN [ blocked := GetTid("publisher:site.forms.commonerrors.email_baddomain", domain)
-                 ];
-        }
-        IF(correction.force) //TODO work properly with multiple emails, but these don't get passed to the RPC anyway (we only get triggered for type=email)
-        {
-          RETURN [ force := correction.suggestion ];
-        }
-        RETURN [ suggestion := correction.suggestion ];
-      }
-    }
-    RETURN DEFAULT RECORD;
-  }
-
 
   // ---------------------------------------------------------------------------
   //

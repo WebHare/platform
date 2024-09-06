@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-system/js/wh/testframework';
 
 function getFormRPCRequests() {
@@ -23,10 +20,10 @@ test.registerTests(
       await test.wait('ui');
       test.eq(1, getFormRPCRequests().length, "Only one RPC, for the validation");
 
-      const emailgroup = test.qS('#emailform-email').closest('.wh-form__fieldgroup');
-      test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
+      const emailgroup = test.qS('#emailform-email')?.closest('.wh-form__fieldgroup');
+      test.assert(emailgroup?.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
-      test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
+      test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup?.querySelector('.wh-form__error')?.textContent);
 
       test.fill("#emailform-email", "acceptable@beta.webhare.net");
       await test.pressKey('Tab');
@@ -36,7 +33,7 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq(3, getFormRPCRequests().length, "Should have only added a RPC for the submit, email was already ok");
-      test.assert(test.qS('[data-wh-form-pagerole="thankyou"]').classList.contains('wh-form__page--visible'), "thankyou page must be visible now");
+      test.assert(test.qR('[data-wh-form-pagerole="thankyou"]').classList.contains('wh-form__page--visible'), "thankyou page must be visible now");
     },
 
     'Check smart email field BLOCKING ON FOCUS',
@@ -49,11 +46,16 @@ test.registerTests(
       test.fill('#emailform-email', "PIETJE@BLOCKED.BETA.WEBHARE.NET");
       await test.pressKey('Tab');
 
-      const emailgroup = test.qS('#emailform-email').closest('.wh-form__fieldgroup');
+      const emailgroup = test.qR('#emailform-email').closest('.wh-form__fieldgroup')!;
       await test.wait(() => emailgroup.classList.contains('wh-form__fieldgroup--error')); //wait for group to error out
       test.eq(1, getFormRPCRequests().length);
 
-      test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
+      test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error')?.textContent);
+
+      test.click('#emailform-email');
+      test.fill('#emailform-email', "baduser@example.org");
+      await test.pressKey('Tab');
+      await test.wait(() => emailgroup.querySelector('.wh-form__error')?.textContent?.match(/BAD BAD BAD/));
     },
     'Check smart email field CORRECTING on focus',
     async function () {
@@ -61,8 +63,8 @@ test.registerTests(
       test.fill('#emailform-email', "fixme@bijna.beta.WEBHARE.net");
       await test.pressKey('Tab');
 
-      await test.wait(() => test.qS('#emailform-email').value === 'fixme@exact.beta.webhare.net');
-      test.eq(2, getFormRPCRequests().length);
+      await test.wait(() => test.qR('#emailform-email').value === 'fixme@exact.beta.webhare.net');
+      test.eq(3, getFormRPCRequests().length);
     },
     'Check smart email field SUGGESTING on focus',
     async function () {
@@ -71,12 +73,12 @@ test.registerTests(
       await test.pressKey('Tab');
 
       await test.wait(() => test.qS('.wh-form__emailcorrected'));
-      test.eq(3, getFormRPCRequests().length);
+      test.eq(4, getFormRPCRequests().length);
 
-      test.eq('pietje@fuzzy.beta.webhare.net', test.qS('.wh-form__emailcorrected').textContent);
-      test.eq('Bedoel je pietje@fuzzy.beta.webhare.net?', test.qS('.wh-form__emailcorrection').textContent);
+      test.eq('pietje@fuzzy.beta.webhare.net', test.qR('.wh-form__emailcorrected').textContent);
+      test.eq('Bedoel je pietje@fuzzy.beta.webhare.net?', test.qR('.wh-form__emailcorrection').textContent);
       test.click('.wh-form__emailcorrected');
-      test.eq('pietje@fuzzy.beta.webhare.net', test.qS('#emailform-email').value);
+      test.eq('pietje@fuzzy.beta.webhare.net', test.qR('#emailform-email').value);
       test.eq(null, test.qS('.wh-form__emailcorrected'), 'suggestion element should be gone');
 
       //put the old data back
@@ -86,7 +88,7 @@ test.registerTests(
 
       //wait for the correction...
       await test.wait(() => test.qS('.wh-form__emailcorrected'));
-      test.eq(3, getFormRPCRequests().length, "STILL at 3 rpcs... as we cached the previous answer!");
+      test.eq(4, getFormRPCRequests().length, "STILL at 4 rpcs... as we cached the previous answer!");
 
       //now try to correct it ourselves!
       test.click('#emailform-email');
@@ -94,7 +96,7 @@ test.registerTests(
       await test.wait("ui");
       test.eq(null, test.qS('.wh-form__emailcorrected'), 'suggestion element should be cleared immediately after editing');
 
-      test.eq(3, getFormRPCRequests().length, "STILL only 4 rpcs!");
+      test.eq(4, getFormRPCRequests().length, "STILL only 4 rpcs!");
 
       test.click('.wh-form__button--submit');
       await test.wait('ui');

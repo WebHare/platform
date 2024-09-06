@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/graphics.whlib";
-LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
@@ -126,27 +126,63 @@ PUBLIC RECORD FUNCTION RPC_ValidateEmbeddedObjects(STRING ARRAY objrefs)
   RETURN [ tokill := tokill ];
 }
 
-PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING langcode, STRING emailaddress)
+PUBLIC RECORD FUNCTION RunEmailChecks(STRING langcode, STRING email, RECORD restrictions)
 {
-  OpenPrimary();
-  RECORD tocheck := SplitEmailName(emailaddress);
-  RECORD correction := GetEmailAutocorrection(tocheck.email);
-  IF(RecordExists(correction))
+  RECORD correction := GetEmailAutocorrection(email);
+  BOOLEAN forced;
+  IF(RecordExists(correction) AND correction.force)
   {
-    IF(correction.blocked)
-    {
-      langcode := Tokenize(langcode,'-')[0]; //GetTidForLanguage isn't smart enough for that
-      STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
-      RETURN [ blocked := GetTidForLanguage(langcode, "publisher:site.forms.commonerrors.email_baddomain", domain) ?? "blocked"
-             ];
-    }
-    IF(correction.force) //TODO work properly with multiple emails, but these don't get passed to the RPC anyway (we only get triggered for type=email)
-    {
-      RETURN [ force := correction.suggestion ];
-    }
-    RETURN [ suggestion := correction.suggestion ];
+    email := correction.suggestion;
+    forced := TRUE;
   }
+
+  IF(RecordExists(correction) AND correction.blocked)
+  {
+    STRING domain := '@' || ToLowercase(Tokenize(email,'@')[1]);
+    RETURN [ blocked := GetTidForLanguage(langcode, "publisher:site.forms.commonerrors.email_baddomain", domain) ?? "blocked"
+           ];
+  }
+
+  IF(RecordExists(restrictions) AND Length(restrictions.acceptableemailmasks) > 0 AND NOT __MatchesAnyMask(email, restrictions.acceptableemailmasks))
+    RETURN [ blocked := restrictions.unacceptableemailerror ?? GetTidForLanguage(langcode, "publisher:site.forms.commonerrors.unacceptableemail") ];
+
+  IF(forced)
+    RETURN [ force := email ];
+
+  IF(RecordExists(correction))
+    RETURN [ suggestion := correction.suggestion ];
+
   RETURN DEFAULT RECORD;
+}
+
+RECORD FUNCTION GetEmailRestrictions(RECORD submitinfo)
+{
+  OBJECT form := GetFormObject(submitinfo);
+  OBJECT field := form->__GetFormMember(submitinfo.field);
+  RECORD restrictions;
+  IF(ObjectExists(field) AND MemberExists(field, "GetEmailRestrictions"))
+    restrictions := field->GetEmailRestrictions();
+
+  RETURN CELL[ value := CELL [ restrictions
+                             , langcode := GetTidLanguage() //GetFormObject has set the tid language
+                             ]
+             , ttl := 15*1000 // TODO we want eventmasks to extend this TTL, but GetFormObject needs to record those for us. so now we just absorb peaks
+             ];
+}
+
+PUBLIC RECORD FUNCTION RPC_FormValidateEmail(RECORD submitinfo, STRING emailaddress)
+{
+  OpenPrimary(); //TODO avoid by caching the emailrules
+  RECORD info := GetAdhocCached(submitinfo, PTR GetEmailRestrictions(submitinfo));
+  RECORD baseresult := RunEmailChecks(info.langcode, emailaddress, info.restrictions);
+  RETURN baseresult;
+}
+
+PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING langcode, STRING email)
+{
+  langcode := Tokenize(langcode,'-')[0]; //GetTidForLanguage isn't smart enough for that
+  OpenPrimary(); //TODO avoid by caching the emailrules
+  RETURN RunEmailChecks(langcode, email, DEFAULT RECORD);
 }
 
 PUBLIC RECORD FUNCTION RPC_VerifyAddress(STRING url, RECORD value, RECORD options)

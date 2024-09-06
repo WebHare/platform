@@ -132,12 +132,12 @@ MACRO TestMailSuggestions()
           ], GetEmailAutocorrection("pietje@fuzy.beta.webhare.net"));
 
   TestEq( [ suggestion := ""
-          , force := TRUE
+          , force := FALSE
           , blocked := TRUE
           ], GetEmailAutocorrection("PIETJE@BLOCKED.BETA.WEBHARE.NET"));
 
   TestEq( [ suggestion := ""
-          , force := TRUE
+          , force := FALSE
           , blocked := TRUE
           ], GetEmailAutocorrection("pietje@beta.weBhare.net"));
 
