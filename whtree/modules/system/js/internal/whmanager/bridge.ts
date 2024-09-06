@@ -1362,6 +1362,7 @@ function hookConsoleLog() {
           if (envbackend.debugFlags.conloc) {
             source.loggedlocation = false;
             source.location = getCallerLocation(1); // 1 is location of parent
+            source.codeContextId = getCodeContext().id;
           }
           try {
             return (func as (...args: unknown[]) => unknown).apply(console, args);
@@ -1378,7 +1379,7 @@ function hookConsoleLog() {
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
-      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.method === "table" ? "\n" : " "}`, "utf-8");
+      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}:${source.method === "table" ? "\n" : " "}`, "utf-8");
       source.loggedlocation = true;
     }
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
@@ -1398,7 +1399,7 @@ function hookConsoleLog() {
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
-      old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+      old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}: `, "utf-8");
       source.loggedlocation = true;
     }
     const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
