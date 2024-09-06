@@ -59,11 +59,11 @@ type CodeContextEvents = {
 
 /** Context for running async code.
  */
-export class CodeContext extends EventSource<CodeContextEvents> implements Disposable {
+export class CodeContext extends EventSource<CodeContextEvents> implements AsyncDisposable {
   readonly id: string;
   readonly title: string;
   readonly metadata: CodeContextMetadata;
-  readonly storage = new Map<string | symbol, { resource: unknown; dispose?: (x: unknown) => void }>();
+  readonly storage = new Map<string | symbol, { resource: unknown; dispose?: (x: unknown) => void | Promise<void> }>();
   private closed = false;
   readonly consoleLog: ConsoleLogItem[] = [];
   debugFlagsOverrides: DebugFlags[] = [{}];
@@ -107,12 +107,12 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Dispo
       this.storage.set(key, { resource: value });
   }
 
-  ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void): ValueType {
+  ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void | Promise<void>): ValueType {
     let retval = this.getScopedResource<ValueType>(key);
     if (retval === undefined) {
       retval = createcb(this);
       this.storage.set(key, {
-        resource: retval, dispose: dispose as (x: unknown) => void
+        resource: retval, dispose: dispose as (x: unknown) => void | Promise<void>
       });
     }
     return retval;
@@ -131,19 +131,19 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Dispo
     });
   }
 
-  close() {
+  async close() {
     /// Need to run the close event within this CodeContext, so cleanup can access it.
-    this.run(() => {
+    await this.run(async () => {
       this.emit("close", {});
       for (const [, resource] of this.storage)
-        resource.dispose?.(resource.resource);
+        await resource.dispose?.(resource.resource);
     });
     this.storage.clear();
     this.closed = true;
   }
 
-  [Symbol.dispose]() {
-    this.close();
+  [Symbol.asyncDispose]() {
+    return this.close();
   }
 
   applyDebugSettings({ flags }: { flags: DebugFlags }) {
@@ -181,7 +181,7 @@ export function getScopedResource<ValueType>(key: string | symbol): ValueType | 
 export function setScopedResource<ValueType>(key: string | symbol, value: ValueType | undefined): void {
   getCodeContext().setScopedResource(key, value);
 }
-export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void): ValueType {
+export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void | Promise<void>): ValueType {
   return getCodeContext().ensureScopedResource(key, createcb, dispose);
 }
 
