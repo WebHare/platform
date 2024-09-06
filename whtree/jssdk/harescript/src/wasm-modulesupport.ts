@@ -267,6 +267,11 @@ export class WASMModule extends WASMModuleBase {
     } else
       message = `${e}`;
 
+    // If the VM isn't usable anymore, just throw the exception directly
+    if (this._HSVM_TestMustAbort(this.itf.hsvm)) {
+      throw e;
+    }
+
     const alloced = this.stringToNewUTF8(message);
     await this._HSVM_ThrowException(vm.hsvm, alloced);
     this._free(alloced);
