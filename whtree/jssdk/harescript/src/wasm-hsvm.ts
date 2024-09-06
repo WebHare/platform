@@ -201,7 +201,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   objectCache;
   mutexes: Array<Mutex | null> = [];
   currentgroup: string;
-  pipeWaiters = new Map<Ptr, PromiseWithResolvers<number> & { timer?: NodeJS.Timeout }>;
+  pipeWaiters = new Map<Ptr, PromiseWithResolvers<number> & { timer?: NodeJS.Timeout; cancel: () => void }>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
@@ -214,6 +214,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
   contexts = new Map<symbol, { close?: () => void }>;
   inSyncSyscall = false;
+  abortController = new AbortController();
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -306,7 +307,12 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.throwVMErrors();
   }
 
-  async run(script: string): Promise<void> {
+  currentRun?: Promise<void>;
+  run(script: string): Promise<void> {
+    return this.currentRun = this.runInternal(script);
+  }
+
+  private async runInternal(script: string): Promise<void> {
     if (debugFlags.vmlifecycle) {
       console.log(`[${this.currentgroup}] Load script: ${script}`);
       console.trace();
@@ -392,19 +398,24 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (!waiter)
       throw new Error(`Could not find pipewaiter`);
 
+    this.abortController.signal.addEventListener("abort", waiter.cancel);
     if (waiter.timer)
       clearTimeout(waiter.timer);
     waiter.timer = rootstorage.run(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); }, wait_ms));
     if (this.__unrefMainTimer && !this.pendingFunctionRequests.length)
       waiter.timer.unref();
     const res = await waiter.promise;
+    this.abortController.signal.removeEventListener("abort", waiter.cancel);
     return res;
   }
 
   __pipewaiterDelete(pipewaiter: number) {
     const waiter = this.pipeWaiters.get(pipewaiter);
-    if (waiter?.timer)
-      clearTimeout(waiter.timer);
+    if (waiter) {
+      if (waiter.timer)
+        clearTimeout(waiter.timer);
+      this.abortController.signal.removeEventListener("abort", waiter.cancel);
+    }
     this.pipeWaiters.delete(pipewaiter);
   }
 
@@ -677,7 +688,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
       console.log(`[${this.currentgroup}] Aborting VM:`);
       console.trace();
     }
-
+    this.abortController.abort();
     this.wasmmodule._HSVM_AbortVM(this.hsvm);
   }
 

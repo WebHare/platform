@@ -95,9 +95,8 @@ EM_JS(void, pipewaiterSetSignalled, (void *pipewaiter), {
 });
 
 EM_JS(void, pipewaiterInitWaiter, (void *pipewaiter), {
-  let defer = {};
-  defer.promise = new Promise((resolve) => defer.resolve = resolve);
-  Module.itf.pipeWaiters.set(pipewaiter, defer);
+  const defer = Promise.withResolvers();
+  Module.itf.pipeWaiters.set(pipewaiter, { ...defer, cancel: () => defer.resolve(0) });
 });
 
 EM_JS(void, pipewaiterClearWaiter, (void *pipewaiter), {
