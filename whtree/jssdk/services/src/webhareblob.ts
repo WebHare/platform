@@ -1,4 +1,4 @@
-import { ReadableStream, TransformStream } from "node:stream/web";
+import { ReadableStream } from "node:stream/web";
 import { arrayBuffer, text } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
@@ -82,12 +82,13 @@ export class WebHareMemoryBlob extends WebHareBlob {
   }
 
   async getStream(): Promise<ReadableStream<Uint8Array>> {
-    //Create a ReadableStream from our Uint8Array (TODO actual streaming)
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    writer.write(this.data);
-    writer.close();
-    return readable;
+    const data = this.data;
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(data);
+        controller.close();
+      }
+    });
   }
 
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
