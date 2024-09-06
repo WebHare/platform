@@ -38,9 +38,10 @@ export class HSVMWrapper implements HSVM_HSVMSource {
   }
 
   ///Signal the VM to shutdown, invalidating the HSVMWrapper
-  dispose() {
+  async dispose() {
     vmfinalizer.unregister(this);
     this.vm?.deref()?.shutdown();
+    await this.done;
     this.vm = null;
   }
 
@@ -56,8 +57,8 @@ export class HSVMWrapper implements HSVM_HSVMSource {
     return this.loadlib("wh::system.whlib").MakeObject(name, ...params);
   }
 
-  [Symbol.dispose]() {
-    this.dispose();
+  [Symbol.asyncDispose]() {
+    return this.dispose();
   }
 }
 

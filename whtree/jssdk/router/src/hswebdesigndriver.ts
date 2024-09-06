@@ -39,7 +39,7 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
       pagebody = pagebody.replaceAll(placeholder + "__" + insertpoint + "__", replacement);
     }
 
-    this.hsvm[Symbol.dispose]();
+    await this.hsvm[Symbol.asyncDispose]();
 
     return createWebResponse(pagebody);
   }

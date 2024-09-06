@@ -7,7 +7,7 @@ export type DeferredPromise<T> = PromiseWithResolvers<T>;
  *  @param duration - Relative (milliseconds, but not Infinity) or absolute (Date) wait duration. May not be Infinity
  *  @param options - Options - `signal` to set an AbortSignal which will canel this sleep
 */
-export async function sleep(duration: WaitPeriod, options?: { signal?: AbortSignal }): Promise<void> {
+export function sleep(duration: WaitPeriod, options?: { signal?: AbortSignal }): Promise<void> {
   if (duration === Infinity)
     throw new Error(`A sleep may not be infinite`);
 

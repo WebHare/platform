@@ -24,7 +24,7 @@ export async function captureJSDesign(obj: number) {
 
 export async function captureJSPage(obj: number, usecontent?: number): Promise<WebResponseInfo> {
   //we are designed to be invoked as a function so we'll arrange for a context ourselves to scope language settings
-  using mycontext = new CodeContext(`captureJSPage ${obj}`);
+  await using mycontext = new CodeContext(`captureJSPage ${obj}`);
   return await mycontext.run(async () => {
     const targetdoc = await whfs.openFile(obj);
     const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");

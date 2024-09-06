@@ -27,7 +27,10 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
   RECORD config := GetWebhareConfiguration();
   //we place a separate .eslintrc.json with a different ignore list in whdata/, so modules should also validate against that one
   //TODO we may need to match VSCode and ESlints's algorithm even more closely if a module contains an .eslintrc.json? but not sure if VSCode looks in deeper dirs
-  STRING basepath := path LIKE config.basedataroot || "*" ?config.basedataroot : config.installationroot;;
+  //for CI compatibility, where webhare_testusite is considerd an installedmodule, we shoulds use the dataroot eslintrc.json there
+  STRING basepath := (path LIKE config.basedataroot || "*" OR path LIKE GetModuleInstallationRoot("webhare_testsuite") || '*')
+                        ? config.basedataroot : config.installationroot;;
+
   STRING eslintrcpath := MergePath(basepath , ".eslintrc.json");
 
   RECORD cmd := CELL

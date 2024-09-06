@@ -408,4 +408,13 @@ bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventco
         return collector && collector->IsReadSignalled(nullptr) != HareScript::OutputObject::NotSignalled;
 }
 
+const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm)
+{
+        std::string trace;
+        HSVM_GetStackTrace(hsvm, &trace);
+        char *buf = static_cast< char * >(malloc(trace.size() + 1));
+        memcpy(buf, trace.c_str(), trace.size() + 1); // include null terminator
+        return buf;
+}
+
 } // extern "C"

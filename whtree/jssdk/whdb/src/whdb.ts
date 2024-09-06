@@ -419,14 +419,7 @@ export function escapePGIdentifier(str: string): string {
 }
 
 function getConnection() {
-  return ensureScopedResource(connsymbol, (context) => {
-    const retval = new WHDBConnectionImpl();
-    const cbid = context.on("close", () => {
-      context.off(cbid);
-      retval.close();
-    });
-    return retval;
-  });
+  return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl(), (conn) => conn.close());
 }
 
 export const __getConnection = getConnection; //TODO don't export this from `@webhare/whdb`

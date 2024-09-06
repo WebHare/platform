@@ -44,6 +44,8 @@ bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library,
 
 bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector);
 
+const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm);
+
 } // extern "C"
 
 #endif

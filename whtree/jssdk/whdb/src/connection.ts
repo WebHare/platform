@@ -201,8 +201,8 @@ export class WHDBPgClient {
     return this;
   }
 
-  close() {
-    this.pgclient?.close();
+  async close() {
+    await this.pgclient?.close();
     this.pgclient = undefined;
   }
 }

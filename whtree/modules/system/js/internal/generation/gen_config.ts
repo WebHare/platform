@@ -173,7 +173,7 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
 
       return finalconfig;
     } finally {
-      pgclient.close();
+      await pgclient.close();
     }
   } catch (e) {
     console.log(`Error reading configuration from the database`, e);

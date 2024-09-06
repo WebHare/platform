@@ -18,7 +18,7 @@ PUBLIC INTEGER FUNCTION GetInfiniteDAta() { RETURN GetAdhocCached([ type := 'Get
 
   await storeDiskFile(toFSPath(resource), whlib_data, { overwrite: true });
   {
-    using vm = await createVM();
+    await using vm = await createVM();
     test.eq(24743, await vm.loadlib(resource).GetInfiniteData());
     await sleep(50);
     //NOTE this doesn't really crash unfortunately but it produces a lot of 'TimeoutOverflowWarning: 8638292777098454 does not fit into a 32-bit signed integer.' noise if the fix isn't there
@@ -45,14 +45,14 @@ RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := params.value ]; 
 
   await storeDiskFile(toFSPath(resource), whlib_data, { overwrite: true });
   {
-    using vm = await createVM({
+    await using vm = await createVM({
       consoleArguments: [`{ "value": "1" }`],
     });
     test.eq("1", await vm.loadlib(resource).GetCachedData());
   }
 
   {
-    using vm = await createVM({
+    await using vm = await createVM({
       consoleArguments: [`{ "value": "2" }`],
     });
     test.eq("1", await vm.loadlib(resource).GetCachedData());
@@ -64,7 +64,7 @@ RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := params.value ]; 
   // wait max 3 seconds for the change to be picked up
   for (; ;) {
     const start = Date.now();
-    using vm = await createVM({
+    await using vm = await createVM({
       consoleArguments: [`{ "value": "3" }`],
     });
     const data = await vm.loadlib(resource).GetCachedData();

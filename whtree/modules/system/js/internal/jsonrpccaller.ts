@@ -118,7 +118,8 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
 
   const result = await context.run(() => runJSONAPICall(servicedef, req));
   const responseInfo = result.asWebResponseInfo();
-  setTimeout(() => context.close(), 1); //close the context after the response has been sent
+  // FIXME: async delayed close of codecontext
+  setTimeout(() => context.close(), 1); //close the context after the response has been sent.
   return responseInfo;
 }
 
@@ -133,6 +134,7 @@ class JSONAPICaller extends services.BackendServiceConnection {
 
     const result = await context.run(() => runJSONAPICall(servicedef, req));
     const responseInfo = result.asWebResponseInfo();
+    // FIXME: async delayed close of codecontext
     setTimeout(() => context.close(), 1); //close the context after the response has been sent
     return responseInfo;
   }

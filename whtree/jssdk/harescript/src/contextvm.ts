@@ -17,7 +17,7 @@ export function getCodeContextHSVM(): Promise<HSVMWrapper> | undefined {
 }
 export function ensureCodeContextHSVM(): Promise<HSVMWrapper> {
   return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM(), async vm => {
-    (await vm).dispose();
+    return (await vm).dispose();
   });
 }
 

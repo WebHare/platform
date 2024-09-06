@@ -24,6 +24,8 @@ export type ConsoleLogItem = {
   data: string;
   /** Location of caller */
   location?: ConsoleLogItemLocation;
+  /** Codecontext */
+  codeContextId?: string;
 };
 
 //TODO should perhaps be in std?
