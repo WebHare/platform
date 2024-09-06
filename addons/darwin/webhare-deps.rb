@@ -28,7 +28,8 @@ class WebhareDeps < Formula
   depends_on "openssl"
   depends_on "pixman"
   depends_on "pkg-config"
-  depends_on "postgresql@13"
+  depends_on "postgresql@13" # The one shipped for 4.35 up to 5.6
+  depends_on "postgresql@16" # Newly added in 5.6
   depends_on "rapidjson"
   depends_on "opensearch"
 
