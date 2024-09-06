@@ -36,6 +36,8 @@ LOADLIB "mod::system/lib/internal/composer.whlib" EXPORT RestructureEmailForComp
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/mail/routemgr.whlib" EXPORT GetEmailAutocorrection;
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 CONSTANT STRING ARRAY allowed_embed_extensions := [".png",".jpg",".gif",".svg",".css"];
 
 RECORD ARRAY unpacked_files;
@@ -1142,7 +1144,13 @@ STATIC OBJECTTYPE WittyMailComposer
     this->embeddedassets := RECORD[];
     this->seenfiles := STRING[];
 
-    RECORD mergerecord := CELL[ ...this->mergerecord, ...this->__mergerecordextensions ];
+    RECORD mergerecord := CELL[
+      //make live a bit easier, especially for JS callers who can't easily provide FPtrs
+      gettid := PTR GetTid,
+      gethtmltid := PTR GetHTMLTid,
+      ...this->mergerecord,
+      ...this->__mergerecordextensions
+    ];
 
     OBJECT mailwitty := LoadWittyLibrary(this->mailwittyresource,this->wittyencoding);
     OBJECT maildoc := this->GenerateHTML(mailwitty, this->mailwittyresource, mergerecord, this->mailwittycomponent);
