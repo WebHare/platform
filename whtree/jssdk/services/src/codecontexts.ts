@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
 import { DebugFlags, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
+import { registerAsNonReloadableLibrary } from "@mod-system/js/internal/hmrinternal";
 
 let contextcounter = 0;
 
@@ -207,3 +208,6 @@ export function getActiveCodeContexts(): ActiveCodeContext[] {
   }
   return retval;
 }
+
+// This library keeps important data in global variables, cannot reload
+registerAsNonReloadableLibrary(module);
