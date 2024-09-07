@@ -8,7 +8,13 @@ interface FormattingCommand {
   tsfmtfile: string;
 }
 
-export async function handleFormattingCommand(indata: FormattingCommand) {
+export type TSFormatResult = {
+  path: string;
+  error: string;
+  output: string;
+};
+
+export async function handleFormattingCommand(indata: FormattingCommand): Promise<TSFormatResult> {
   const options: typescriptFormat.Options = {
     baseDir: indata.basedir,
     replace: false,

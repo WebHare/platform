@@ -10,7 +10,19 @@ interface LintingCommand {
   allowinlineconfig: boolean;
 }
 
-export async function handleLintingCommand(indata: LintingCommand) {
+export type ESLintResult = {
+  messages: Array<{
+    line: number;
+    col: number;
+    message: string;
+    fatal: boolean;
+  }>;
+  hasfixes: boolean;
+  output: string;
+};
+
+
+export async function handleLintingCommand(indata: LintingCommand): Promise<ESLintResult> {
   const contents = Buffer.from(indata.data, "base64").toString("utf-8");
 
   const options = {
