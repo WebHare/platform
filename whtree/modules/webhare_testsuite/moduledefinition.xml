@@ -9,6 +9,10 @@
       <exclude mask="tolliumapps/demo/*"
                why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
       <exclude mask="screens/tests/*" why="Many missing tids" />
+      <exclude mask="tests/system/modules/data/brokenscreen.xml" why="Purposefully broken screen" />
+      <exclude mask="tests/tollium/data/addons.xml" why="Purposefully broken screen" />
+      <exclude mask="tests/publisher/siteprofile/data/test*.xml" why="Purposefully broken site profiles" />
+      <exclude mask="tests/wh/hscore/xml/testinfo.xml" why="Refers to generated/testinfo.xml but this file does not exist until the XML tests have been generated" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />

@@ -1,5 +1,6 @@
 import * as test from '@mod-tollium/js/testframework';
 import { prepareUpload } from '@webhare/test-frontend';
+import { fetchAsFile } from "@webhare/test-frontend";
 
 const gesture_time = 25;
 
@@ -356,8 +357,7 @@ test.registerTests(
     "Image dropping",
     async function () {
       // Get the file to drop
-      const imgurl = `/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg`;
-      const file = await test.getFileFromURL(imgurl, "portrait_8.jpg");
+      const file = await fetchAsFile(`/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg`);
 
       const droptarget = test.compByName("fragment1!droptarget");
       test.startExternalFileDrag(file);

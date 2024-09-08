@@ -93,7 +93,7 @@ test.registerTests(
 
       test.sendMouseGesture([
         { el: test.compByName("thecomponent")!.querySelectorAll(".t-image__overlay .t-image__overlay__dragger--se")[3], down: 0 },
-        { relX: +15, rely: +15, up: 0, delay: 300 }
+        { relx: +15, rely: +15, up: 0, delay: 300 }
       ]);
 
       await test.wait('ui');
