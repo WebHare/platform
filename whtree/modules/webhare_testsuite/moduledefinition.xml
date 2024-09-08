@@ -4,7 +4,8 @@
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
     <version>4.31.0</version>
     <validation>
-      <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" />
+      <exclude mask="tests/wh/hscore/xml/generated/*" why="Don't validate generate code" />
+      <!-- <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" /> -->
       <exclude mask="tolliumapps/demo/*"
                why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
       <exclude mask="screens/tests/*" why="Many missing tids" />
