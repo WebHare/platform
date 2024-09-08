@@ -6,9 +6,6 @@ function getActiveTab() {
   return test.qS(".tab:target") ?? test.qR(".tab:first-child");
 }
 
-function qSImgEdit(selector: string) {
-  return dompack.qS(test.qR<ImageEditElement>(getActiveTab(), "wh-image-edit").shadowRoot!, selector);
-}
 function qSAImgEdit(selector: string) {
   return dompack.qSA(test.qR<ImageEditElement>(getActiveTab(), "wh-image-edit").shadowRoot!, selector);
 }

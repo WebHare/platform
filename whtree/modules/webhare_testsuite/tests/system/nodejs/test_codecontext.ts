@@ -32,6 +32,7 @@ async function testContextSetup() {
 
   test.eq(true, debugFlags[nonExistingDebugFlag]);
   delete debugFlags[nonExistingDebugFlag];
+  //@ts-ignore TS 5.5 incorrectly infers debugFlags[nonExistingDebugFlag] to be true. 5.4 shows it as undefined | boolean
   test.eq(undefined, debugFlags[nonExistingDebugFlag]);
   test.eq(false, Object.keys(debugFlags).includes(nonExistingDebugFlag));
   debugFlags[nonExistingDebugFlag] = true;
@@ -57,6 +58,7 @@ async function testContextSetup() {
   // settings flags in context1 should not affect the root context or context2
   context1.run(() => debugFlags[nonExistingDebugFlag] = true);
   test.eq(true, context1.run(() => debugFlags[nonExistingDebugFlag]));
+  //@ts-ignore TS 5.5 incorrectly infers debugFlags[nonExistingDebugFlag] to be true. 5.4 shows it as undefined | boolean
   test.eq(undefined, debugFlags[nonExistingDebugFlag]);
   test.eq(undefined, context2.run(() => debugFlags[nonExistingDebugFlag]));
 
