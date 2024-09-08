@@ -26,8 +26,6 @@ OBJECTTYPE CheckerObject
 
   MACRO AddIssue(RECORD issue, STRING category)
   {
-    IF(category = "hint" AND this->options.hidehints)
-      RETURN;
     IF(category = "warning" AND NOT CellExists(issue,'source'))
     {
       dumpvalue(issue);
@@ -45,7 +43,7 @@ OBJECTTYPE CheckerObject
       RETURN;
 
     INSERT rec INTO this->seenissues AT pos.position;
-    IF(this->options.printissues)
+    IF(this->options.printissues AND NOT (category = "hint" AND this->options.hidehints))
       Print(`${category="error"?`${AnsiCmd("red")}ERR!:`:category="warning"?"Warn:":"Hint:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${issue.message}\n`);
   }
 
