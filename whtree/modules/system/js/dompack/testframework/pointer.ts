@@ -17,7 +17,7 @@ const default_mousestate =
   downelrect: null,
   downbuttons: [],
   samplefreq: 50,
-  gesturequeue: [] as Gesture[],
+  gesturequeue: [] as MouseGesture[],
   gesturetimeout: null,
   waitcallbacks: [],
   lastoverel: null,
@@ -31,19 +31,7 @@ const default_mousestate =
   dndstate: null as null | SimulatedDragDataStore
 };
 
-interface PointOptions {
-  ctrl?: boolean;
-  meta?: boolean;
-  cmd?: boolean;
-}
-
-interface Gesture extends PointOptions {
-  doc: Document | null;
-  start: number; //Date.now when to start this gesture
-  transition?: (t: number) => number;
-}
-
-interface PointEventOptions extends PointOptions {
+interface PointEventOptions extends ElementActionOptions {
   preventBubble: boolean;
 }
 
@@ -503,7 +491,7 @@ function _updateUnloadEvents(win) {
 
 /** Scrolls the part target into view, returns the client x/y of the final position
 */
-function _processPartPositionTarget(part) {
+function _processPartPositionTarget(part: MouseGesture) {
   // Calculate the position from
   let position;
   if (part.el) {
@@ -515,7 +503,7 @@ function _processPartPositionTarget(part) {
     position = getPartPosition(part);
     //console.log("We think el",part.el,"is at",position.x,position.y);
   } else // apply relx/rely to the coordinates at the start of the part execution
-    position = { x: part.startx + (part.relx || 0), y: part.starty + (part.rely || 0) };
+    position = { x: part.startx! + (part.relx || 0), y: part.starty! + (part.rely || 0) };
 
   // If clientx/clienty is set, use that as override
   if (typeof part.clientx === 'number')
@@ -1238,6 +1226,14 @@ export type MouseGesture = ElementTargetOptions & ElementActionOptions & {
   delay?: number;
   relx?: number;
   rely?: number;
+  clientx?: number; //absolute position X (overrides el/relx)
+  clienty?: number; //absolute position X (overrides el/rely)
+  transition?: (t: number) => number;
+
+  //NOTE below fields are set during gesture execution and should not be visible/settable in the API
+  start?: number; //Date.now when to start this gesture
+  startx?: number; //Mouse position X at start
+  starty?: number; //Mouse position Y at start
 };
 
 export function click(element: ValidElementTarget, options?: ElementClickOptions) {
