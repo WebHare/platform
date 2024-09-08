@@ -5,6 +5,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -337,6 +338,14 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
 
     RECORD ARRAY iconissues := ValidateIcons(result.icons);
     result.errors := result.errors CONCAT iconissues;
+  }
+
+  FOREVERY(RECORD toignore FROM SELECT * FROM options.ignoremessages WHERE VAR resourcename LIKE COLUMN mask)
+  {
+    OBJECT theregex := NEW RegEx(toignore.regex, "i");
+    DELETE FROM result.errors WHERE theregex->Test(message);
+    DELETE FROM result.warnings WHERE theregex->Test(message);
+    DELETE FROM result.hints WHERE theregex->Test(message);
   }
 
   STRING ARRAY eventmasks;

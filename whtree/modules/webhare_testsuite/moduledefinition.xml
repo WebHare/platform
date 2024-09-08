@@ -11,8 +11,14 @@
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
+
+      <!-- tid tests need to generate tid errors -->
+      <ignoremessage mask="*gettid*" regex="Invalid tid"/>
+      <ignoremessage mask="*gettid*" regex="Missing tid"/>
+
       <eslint masks="nosuch.js *.ts *.tsx" />
       <format masks="*.ts *.tsx" />
+
     </validation>
   </meta>
 
