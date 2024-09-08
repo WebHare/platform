@@ -191,7 +191,9 @@
         {
             "files": [
                 "**/tests/*.ts",
-                "**/tests/**/*.ts"
+                "**/tests/**/*.ts",
+                "**/tests/*.tsx",
+                "**/tests/**/*.tsx"
             ],
             "rules": {
                 "@typescript-eslint/no-explicit-any": 0
