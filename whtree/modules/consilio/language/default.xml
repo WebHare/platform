@@ -243,6 +243,7 @@
   </textgroup>
   <textgroup gid="publishersearch">   <!-- publishersearch -->
     <text tid="linksto">Links to</text>
+    <text tid="linksto-urllimitreached">The link that you searched for is too general and yielded too many results. Please try to search for a more specific link.</text>
   </textgroup>
   <textgroup gid="report">   <!-- report -->
     <textgroup gid="linkcheck">   <!-- report.linkcheck -->
