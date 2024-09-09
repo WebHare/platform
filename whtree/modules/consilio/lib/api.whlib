@@ -87,16 +87,25 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
   {
     IF (Length(value) = 0)
       RETURN CQNothing();
+    // For 'IN' queries, we can use a terms query, which supports up to 65536 terms, but can only do an 'OR' search, so for
+    // 'CONTAINS' queries we have to use a boolean query, which only supports up to 1024 terms (clauses).
+    IF (matchtype = "IN")
+      RETURN CELL
+          [ _type := "terms"
+          , field
+          , terms := value
+          , options.boost
+          ];
     RETURN CELL
         [ _type := "boolean"
         , subqueries :=
             (SELECT query := CELL
-                        [ _type := matchtype = "IN" ? "literal" : "term"
+                        [ _type := "term"
                         , field
                         , term
                         , boost := 1f
                         ]
-                  , required := (matchtype = "CONTAINS")
+                  , required := TRUE
                   , prohibited := FALSE
                FROM ToRecordArray(value, "term"))
         , options.boost
