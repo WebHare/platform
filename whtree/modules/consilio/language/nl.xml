@@ -243,6 +243,7 @@
   </textgroup>
   <textgroup gid="publishersearch">   <!-- publishersearch -->
     <text tid="linksto">Linkt naar</text>
+    <text tid="linksto-urllimitreached">De gezochte link is te algemeen en leverde te veel resultaten op. Probeer te zoeken naar een meer specifieke link.</text>
   </textgroup>
   <textgroup gid="report">   <!-- report -->
     <textgroup gid="linkcheck">   <!-- report.linkcheck -->

@@ -111,7 +111,7 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   /** @short Get the title for use in the form editor */
   PUBLIC STRING FUNCTION GetFormEditTitle()
   {
-    RETURN "";
+    RETURN GetTid(this->__handlerinfo.handler.handlertypename);
   }
   /** @short Return if this handler can be re-run on existing results */
   PUBLIC BOOLEAN FUNCTION IsRerunnable()

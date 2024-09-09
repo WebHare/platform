@@ -217,8 +217,22 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     // Check if there are no RTDs with merge fields on non-thankyou pages
     OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage, this->contexts->applytester);
-    FOREVERY (RECORD field FROM finalform->__form.fields)
+    RECORD ARRAY allfields := finalform->__form.fields;
+    FOREVERY (RECORD field FROM allfields)
     {
+      FOREVERY (STRING type FROM [ "requiredcondition", "enabledcondition", "visiblecondition" ])
+      {
+        RECORD result := this->contexts->formcomponentapi->ValidateCondition(field, type);
+        IF (RecordExists(result))
+        {
+          RECORD fielddesc := this->curform->DescribeField(field.guid, CELL[ languagecode := this->uselanguage, __listfields := allfields ]);
+          STRING fieldtitle := GetTid("publisher:tolliumapps.formedit.messages.forfield", fielddesc.pathtitle);
+          work->AddError(GetTid(result.errortid, fieldtitle,
+              type = "requiredcondition" ? GetTid("publisher:tolliumapps.formedit.messages.conditiontype-required") :
+              type = "enabledcondition" ? GetTid("publisher:tolliumapps.formedit.messages.conditiontype-enabled") :
+              type = "visiblecondition" ? GetTid("publisher:tolliumapps.formedit.messages.conditiontype-visible") : ""));
+        }
+      }
       IF (field.qname != "http://www.webhare.net/xmlns/publisher/forms#richtext" // Not a richtext field
           OR NOT RecordExists(field.richvalue) // No value set
           OR finalform->__form.pages[field.formpage].role = "thankyou") // On a thankyou page where mergefields are permitted
@@ -236,7 +250,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
           {
             RECORD fielddesc := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage ]);
             work->AddError(GetTid("publisher:tolliumapps.formedit.messages.onlythankyoumergefields", fielddesc.pagetitle));
-            RETURN;
+            BREAK;
           }
         }
       }
@@ -247,13 +261,17 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     BOOLEAN hasconfirmationhandler;
     FOREVERY (RECORD handler FROM finalform->ListHandlers())
     {
+      RECORD result := this->contexts->formcomponentapi->ValidateCondition(handler, "__condition");
+      IF (RecordExists(result))
+      {
+        STRING handlername := GetTid("publisher:tolliumapps.formedit.messages.forhandler", handler.handlerobject->GetFormEditTitle());
+        work->AddError(GetTid(result.errortid, handlername));
+      }
+
       IF (handler.handlerobject->IsConfirmationHandler())
       {
         IF (hasconfirmationhandler)
-        {
           work->AddError(GetTid("publisher:tolliumapps.formedit.messages.multipleconfirmationhandlers"));
-          RETURN;
-        }
         hasconfirmationhandler := TRUE;
       }
 
@@ -262,11 +280,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
     // Give the validation handlers an opportunity to do whole-form validation
     FOREVERY (MACRO PTR validate FROM this->validationhandlers)
-    {
       validate(work, this->curform, this->contexts);
-      IF (work->HasFailed())
-        RETURN;
-    }
   }
 
   MACRO MarkFormAsDirty()

@@ -155,7 +155,24 @@ PUBLIC STATIC OBJECTTYPE MailResultsHandler EXTEND MailHandler
       STRING ARRAY emails := SELECT AS STRING ARRAY email FROM this->settings.mailto;
       RETURN GetTid("publisher:formhandlers.mailresults.name-noconditions", Detokenize(emails,', '));
     }
-    RETURN "";//default
+    RETURN MailHandler::GetFormEditTitle();
+  }
+
+  UPDATE PUBLIC MACRO ValidateFormFile(OBJECT work, OBJECT curform, OBJECT contexts)
+  {
+    // Validate the condition for each receiver
+    FOREVERY (RECORD mailto FROM this->settings.mailto)
+    {
+      IF (NOT RecordExists(mailto.condition))
+        CONTINUE;
+      RECORD result := contexts->formcomponentapi->ValidateCondition(mailto, "condition");
+      IF (RecordExists(result))
+      {
+        STRING handlername := GetTid("publisher:tolliumapps.formedit.messages.forhandler", this->GetFormEditTitle());
+        handlername := GetTid("publisher:formhandlers.mailresults.email", mailto.email, handlername);
+        work->AddError(GetTid(result.errortid, handlername));
+      }
+    }
   }
 >;
 

@@ -6,6 +6,20 @@
 LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
 
 
+// Thrown by FormatFormCondition if a condition source doesn't exist
+PUBLIC STATIC OBJECTTYPE ConditionValidationException EXTEND Exception
+<
+  STRING pvt_errortid;
+
+  PUBLIC PROPERTY errortid(pvt_errortid, -);
+
+  MACRO NEW (STRING what, STRING errortid) : Exception(what)
+  {
+    this->pvt_errortid := errortid;
+  }
+>;
+
+
 /** @short Create a form condition checking if the value of a select field is one of a given list of values
     @param field The field to match
     @param matchtype Match operation; currently only "IN" is supported

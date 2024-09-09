@@ -94,9 +94,21 @@ PUBLIC DATETIME FUNCTION GetDateQueryRefDate(RECORD datequery, BOOLEAN future DE
   RETURN refdate;
 }
 
+PUBLIC STATIC OBJECTTYPE FilterException EXTEND Exception
+<
+  STRING _usermessage;
+
+  PUBLIC PROPERTY usermessage(_usermessage, -);
+
+  MACRO NEW(STRING usermessage, STRING what) : Exception(what)
+  {
+    this->_usermessage := usermessage;
+  }
+>;
+
 /** Search filter context
 */
-PUBLIC OBJECTTYPE SearchFilterContext
+PUBLIC STATIC OBJECTTYPE SearchFilterContext
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -382,7 +394,7 @@ PUBLIC STATIC OBJECTTYPE BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE TextFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE TextFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -398,7 +410,7 @@ PUBLIC OBJECTTYPE TextFilter EXTEND BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE NameFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE NameFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -420,7 +432,7 @@ PUBLIC OBJECTTYPE NameFilter EXTEND BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE WHFSObjectFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE WHFSObjectFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -443,7 +455,7 @@ PUBLIC OBJECTTYPE WHFSObjectFilter EXTEND BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE CreationDateFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE CreationDateFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -485,7 +497,7 @@ PUBLIC OBJECTTYPE CreationDateFilter EXTEND BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE ModificationDateFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE ModificationDateFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -527,7 +539,7 @@ PUBLIC OBJECTTYPE ModificationDateFilter EXTEND BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE WHFSFolderFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE WHFSFolderFilter EXTEND BaseSearchFilter
 <
   RECORD ARRAY rootobjects;
 
@@ -623,7 +635,7 @@ PUBLIC OBJECTTYPE WHFSFolderFilter EXTEND BaseSearchFilter
 >;
 
 
-PUBLIC OBJECTTYPE WHFSTypeFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE WHFSTypeFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -661,7 +673,7 @@ PUBLIC OBJECTTYPE WHFSTypeFilter EXTEND BaseSearchFilter
   }
 >;
 
-PUBLIC OBJECTTYPE WidgetTypeFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE WidgetTypeFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {

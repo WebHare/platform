@@ -641,6 +641,25 @@ RECORD FUNCTION CreateOpenSearchQueryRecursive(RECORD result, RECORD indexoption
             ];
       }
     }
+    CASE "terms"
+    {
+      RECORD fieldmapping;
+      IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
+      {
+        fieldmapping := LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+      }
+      // Term queries aren't really supported on text fields
+      // If we don't know the field type, assume it's ok
+      IF (RecordExists(fieldmapping) AND fieldmapping.type = "text")
+        THROW NEW Exception(`A 'terms' query cannot be performed on '${RecordExists(fieldmapping) ? fieldmapping.type : "unknown"}' field '${query.field}'`);
+
+      // Convert MONEYs
+      VARIANT terms := query.terms;
+      IF (TypeID(terms) = TypeID(MONEY ARRAY))
+        terms := SELECT AS INTEGER64 ARRAY __HS_GetRawMoney(term) FROM ToRecordArray(terms, "term");
+
+      result.query := [ terms := CellInsert(DEFAULT RECORD, query.field, terms) ];
+    }
     CASE "match"
     {
       IF(RecordExists(indexoptions))

@@ -1072,6 +1072,7 @@
       <text tid="confirmmailfieldnotrequired">Het gekozen 'Verstuur naar' veld is niet (voorwaardelijk) verplicht. Er zal geen email verzonden worden als de bezoeker dit adres niet invult.<br/><br/>Weet je zeker dat je dit veld wil gebruiken?</text>
       <text tid="deletedfield">Geselecteerd veld niet meer beschikbaar</text>
       <text tid="description">Verstuurt de formulierresultaten per e-mail naar een vaste lijst van ontvangers en/of naar ingevulde e-mailadressen</text>
+      <text tid="email">e-mailadres '<param p="1"/>' van <param p="2"/></text>
       <text tid="emptyconfirmationmail">U moet een berichtinhoud instellen.</text>
       <text tid="emptymailandnoresults">U moet een berichtinhoud instellen en/of ervoor kiezen om de resultaten met de email mee te sturen.</text>
       <text tid="name">Resultaten versturen</text>
@@ -2116,15 +2117,22 @@
         </textgroup>
       </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.formedit.messages -->
+        <text tid="conditionsourcenotfound"><ifparam p="1" value="">Deze afhankelijkheid<else/>De <ifparam p="2" value="">afhankelijkheid<else/><param p="2"/></ifparam> voor <param p="1"/></ifparam> verwijst naar een verwijderd veld</text>
+        <text tid="conditiontype-enabled">afhankelijkheid 'ingeschakeld'</text>
+        <text tid="conditiontype-required">afhankelijkheid 'verplicht'</text>
+        <text tid="conditiontype-visible">afhankelijkheid 'zichtbaar'</text>
         <text tid="confirmdeleteitem">Weet u zeker dat u <ifparam p="1" value="page">deze pagina<else/><ifparam p="1" value="handler">deze actie<else/><ifparam p="1" value="question">deze vraag<else/>dit onderdeel</ifparam></ifparam></ifparam> wilt verwijderen?</text>
         <text tid="confirmdeleteitems">Weet u zeker dat u deze <param p="2"/> <ifparam p="1" value="page">pagina's<else/><ifparam p="1" value="handler">afhandelingen<else/><ifparam p="1" value="question">vragen<else/>onderdelen</ifparam></ifparam></ifparam> wilt verwijderen?</text>
         <text tid="duplicate-mixedtypes">De te dupliceren selectie dient uit pagina's, groepen of vragen te bestaan.</text>
         <text tid="extensionloaderror">De editorextensie '<param p="1"/>' heeft een fout veroorzaakt bij het laden:<br/><br/><param p="2"/></text>
+        <text tid="forfield">veld '<param p="1"/>'</text>
+        <text tid="forhandler">afhandeling '<param p="1"/>'</text>
         <text tid="formbroken">Er is een probleem met dit formulier en het kan daardoor niet geopend worden in de editor. Neem contact op met uw beheerder om dit probleem op te lossen.</text>
         <text tid="formbroken-fixit">De formuliereditor kon niet geopend worden. Er waren problemen bij het inladen van het formulier:<br/><br/><param p="1"/><br/><br/>Wilt u de broncode van het formulier wijzigen?</text>
         <text tid="formnameinuse">Er is al een form met de naam '<param p="1"/>'</text>
         <text tid="formresourcenotfound">De formulierresource kan niet worden gevonden of is een formulierbestand in de Publisher</text>
         <text tid="grouphaspinnedcontent">De groep '<param p="1"/>' kan niet worden verwijderd, omdat deze beschermde inhoud bevat</text>
+        <text tid="handlerconditionsourcedeleted">De conditie voor afhandeling '<param p="1"/>' verwijst naar een verwijderd veld</text>
         <text tid="invalidtag">'<param p="1"/>' is geen geldige tag</text>
         <text tid="multipleconfirmationhandlers">U kunt slechts één bevestigingsafhandeling toevoegen.</text>
         <text tid="noavailablehandlertypes">Er zijn geen actietypes om toe te voegen</text>

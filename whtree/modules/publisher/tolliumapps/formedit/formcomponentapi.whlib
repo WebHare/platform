@@ -1,6 +1,9 @@
 <?wh
 
+LOADLIB "mod::publisher/lib/forms/conditions.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 STRING FUNCTION FormatStringList(STRING ARRAY items, STRING type, STRING language)
 {
@@ -118,6 +121,53 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
     this->editscreen->formdefsfile->SetConditionAttribute(node, attributename, cond);
   }
 
+  PUBLIC RECORD FUNCTION ValidateCondition(RECORD component, STRING type)
+  {
+    IF (NOT CellExists(component, type))
+      RETURN DEFAULT RECORD;
+    RECORD condition := GetCell(component, type);
+
+    IF (NOT RecordExists(condition))
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY sources := this->GetConditionSources();
+    RETURN this->ValidateConditionRecursive(condition, sources);
+  }
+
+  RECORD FUNCTION ValidateConditionRecursive(RECORD condition, RECORD ARRAY sources)
+  {
+    SWITCH (condition.matchtype)
+    {
+      CASE "IN", "HAS", "IS", "HASVALUE", "AGE<", "AGE>="
+      {
+        STRING condition_field := condition.field;
+        STRING extra_field;
+        IF (condition_field LIKE "*$*")
+        {
+          condition_field := Tokenize(condition.field, "$")[0];
+          extra_field := Substring(condition.field, Length(condition_field));
+        }
+        RECORD match := SELECT * FROM sources WHERE rowkey = condition_field;
+        IF (NOT RecordExists(match))
+          RETURN [ errortid := /*tid*/"publisher:tolliumapps.formedit.messages.conditionsourcenotfound" ];
+      }
+      CASE "AND", "OR"
+      {
+        FOREVERY (RECORD subcondition FROM condition.conditions)
+        {
+          RECORD result := this->ValidateConditionRecursive(subcondition, sources);
+          IF (RecordExists(result))
+            RETURN result;
+        }
+      }
+      CASE "NOT"
+      {
+        RETURN this->ValidateConditionRecursive(condition.condition, sources);
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
   PUBLIC RECORD FUNCTION __GetRichTextAttributeById(STRING instanceid)
   {
     IF (instanceid != "")
@@ -207,7 +257,7 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
 
     RECORD field := SELECT * FROM sources WHERE sources.rowkey = condition.field;
     IF(NOT RecordExists(field))
-      RETURN "";
+      THROW NEW ConditionValidationException(`Condition field '${condition.field}' not found`, /*tid*/"publisher:tolliumapps.formedit.messages.conditionsourcenotfound");
 
     STRING fieldname := field.title ?? field.rowkey;
     IF(condition.matchtype = "HASVALUE")

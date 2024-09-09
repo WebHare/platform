@@ -11,6 +11,10 @@ LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+CONSTANT INTEGER terms_query_max_terms := 65536;
 
 PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
 {
@@ -55,7 +59,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
   THROW NEW Exception("Unknown item field '" || fieldname || "'");
 }
 
-PUBLIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
@@ -74,13 +78,10 @@ PUBLIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
 
       // Find RTD links to the url
       INTEGER ARRAY matchlinks := NEW LinkFinder()->FindLinks(value.textquery, NOT exact_match);
+      IF (Length(matchlinks) > terms_query_max_terms)
+        THROW NEW FilterException(GetTid("consilio:publishersearch.linksto-urllimitreached", ToString(Length(matchlinks)), ToString(terms_query_max_terms)), `Too many link results while searching for${exact_match ? " exact" : ""} link '${value.textquery}' (${Length(matchlinks)} > ${terms_query_max_terms})`);
       IF (Length(matchlinks) > 0)
-      {
-        matchqueries := matchqueries CONCAT
-            SELECT AS RECORD ARRAY CQMatch("mod_consilio.linksto", "IN", GroupedValues(link))
-              FROM ToRecordArray(matchlinks, "link") AS links
-             GROUP BY #links / 1000; // Consilio max boolean query clause count is 1024, which is the default for OpenSearch as well
-      }
+        INSERT CQMatch("mod_consilio.linksto", "IN", matchlinks) INTO matchqueries AT END;
 
       // Find internal links to the url
       RECORD matchfile := LookupPublisherURL(value.textquery);
