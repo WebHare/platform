@@ -104,7 +104,7 @@ ASYNC MACRO Search()
   //=== Search by filetype
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:whfstype";
   //Open the screen, ensure the list doesn't crash on eg tolliumicon...
-  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->selectqueryselectbutton->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->^selectqueryselectbutton->TolliumClick);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   searchscreen->SetFilterData(
@@ -125,7 +125,7 @@ ASYNC MACRO Search()
 
   //=== Search by widget type
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:widgettype";
-  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->selectqueryselectbutton->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->^selectqueryselectbutton->TolliumClick);
   TT("groups")->selection := SELECT * FROM TT("groups")->rows WHERE title IN ["General","General (publisher)"];
   TT("contenttypes")->value := "http://www.webhare.net/xmlns/publisher/embedvideo";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));

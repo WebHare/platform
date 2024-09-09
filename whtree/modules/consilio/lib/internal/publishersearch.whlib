@@ -55,7 +55,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
   THROW NEW Exception("Unknown item field '" || fieldname || "'");
 }
 
-PUBLIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
 <
   UPDATE PUBLIC RECORD FUNCTION GetFields()
   {
