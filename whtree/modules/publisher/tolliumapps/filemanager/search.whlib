@@ -70,7 +70,21 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     this->tolliumuser->SetRegistryKey("publisher.prefs.lastsearchquery", this->GetFilterData());
 
     // Construct the user query
-    RECORD ARRAY subqueries := SELECT AS RECORD ARRAY comp->query FROM ToRecordArray(this->filtercomps, "comp");
+    RECORD ARRAY subqueries;
+    TRY
+      subqueries := SELECT AS RECORD ARRAY comp->query FROM ToRecordArray(this->filtercomps, "comp");
+    CATCH (OBJECT<FilterException> e)
+    {
+      LogHareScriptException(e);
+      this->contexts->^__publisher_searchfilters->filterscreen->RunSimpleScreen("error", e->usermessage);
+      RETURN DEFAULT RECORD;
+    }
+    CATCH (OBJECT e)
+    {
+      LogHareScriptException(e);
+      this->contexts->^__publisher_searchfilters->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searchexception", e->usermessage));
+      RETURN DEFAULT RECORD;
+    }
     DELETE FROM subqueries WHERE NOT RecordExists(subqueries);
     IF (Length(subqueries) = 0)
       RETURN DEFAULT RECORD;

@@ -94,6 +94,18 @@ PUBLIC DATETIME FUNCTION GetDateQueryRefDate(RECORD datequery, BOOLEAN future DE
   RETURN refdate;
 }
 
+PUBLIC STATIC OBJECTTYPE FilterException EXTEND Exception
+<
+  STRING _usermessage;
+
+  PUBLIC PROPERTY usermessage(_usermessage, -);
+
+  MACRO NEW(STRING usermessage, STRING what) : Exception(what)
+  {
+    this->_usermessage := usermessage;
+  }
+>;
+
 /** Search filter context
 */
 PUBLIC STATIC OBJECTTYPE SearchFilterContext
