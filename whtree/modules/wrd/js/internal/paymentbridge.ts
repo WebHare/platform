@@ -80,7 +80,7 @@ async function openPSP(driver: string, configAsJSON: string): Promise<PSPDriver 
   try {
     config = JSON.parse(configAsJSON);
   } catch (e) {
-    return { error: "Invalid configuration" };
+    return { error: "Invalid configuration: " + (e as Error)?.message };
   }
 
   return await makeJSObject(driver, config) as PSPDriver;
@@ -127,9 +127,6 @@ function buildPaymentCheck(hsPaymentInfo: HsCheckInfo): PSPPrecheckRequest {
       vatIncluded: line.vatincluded
     })),
   };
-
-  if (!req.method)
-    throw new Error("No payment method specified");
 
   return req;
 }
