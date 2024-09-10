@@ -35,7 +35,7 @@ export async function handleLintingCommand(indata: LintingCommand): Promise<ESLi
 
   const eslint = new ESLint(options);
   /* 'overrides' doesn't work with absolute paths to filePath. just removing the '/' fixes it
-     and makes eslint tolerate explicidt 'any' in test files, just the way VSCode understood it */
+     and makes eslint tolerate explicit 'any' in test files, just the way VSCode understood it */
   const results = await eslint.lintText(contents, { filePath: indata.path.substring(1) });
   return {
     messages: results[0].messages.map((message) => ({
