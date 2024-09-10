@@ -25,7 +25,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               , [ name := "modules", type := "paramlist", required := TRUE ]
                               ]);
 
-INTEGER numerrors, numwarnings;
+INTEGER numerrors, numwarnings, numhints;
 
 IF(NOT RecordExists(args))
 {
@@ -138,12 +138,13 @@ FOREVERY (OBJECT p FROM promises)
   RECORD ARRAY issues := WaitForPromise(p);
   numwarnings := numwarnings + Length(SELECT FROM issues WHERE category = "warning");
   numerrors := numerrors + Length(SELECT FROM issues WHERE category = "error");
+  numhints := numhints + Length(SELECT FROM issues WHERE category = "hint");
   allissues := allissues CONCAT issues;
 }
 
 IF(numerrors>0)
 {
-  Print(`${AnsiCmd("red")}Checkmodule done: ${numerrors} errors, ${numwarnings} warnings${AnsiCmd("reset")}\n`);
+  Print(`${AnsiCmd("red")}Checkmodule done: ${numerrors} errors, ${numwarnings} warnings, ${numhints} hints${AnsiCmd("reset")}\n`);
   SetConsoleExitCode(1);
 
   //ADDME types for error messages might make this a bit more robust
@@ -155,5 +156,5 @@ IF(numerrors>0)
 ELSE
 {
   IF (NOT args.silent)
-    Print(`Checkmodule done: ${numwarnings} warnings\n`);
+    Print(`Checkmodule done: ${numwarnings} warnings, ${numhints} hints\n`);
 }

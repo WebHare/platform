@@ -10,4 +10,5 @@ ts4.helloIndex();
 console.log(env.debugFlags);
 std.sleep(1).then(() => console.log('done'));
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const test = 42;

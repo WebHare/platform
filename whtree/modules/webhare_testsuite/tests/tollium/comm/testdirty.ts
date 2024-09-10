@@ -51,8 +51,7 @@ test.registerTests(
       const combobox_node = test.compByName("combobox").querySelector("input");
       test.click(combobox_node);
       await test.wait("ui");
-      const combobox_menu = test.getDoc().querySelector(".t-selectlist__item");
-      test.click(combobox_menu);
+      test.click(".t-selectlist__item");
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
@@ -95,16 +94,14 @@ test.registerTests(
       await clearState();
 
       // Test select checkbox
-      const select_checkbox_node = test.qS("[data-name*=':select_checkbox$']");
-      test.click(select_checkbox_node);
+      test.click("[data-name*=':select_checkbox$']");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test select radio
-      const select_radio_node = test.qS("[data-name*=':select_radio$']+[data-name*=':select_radio$']");
-      test.click(select_radio_node);
+      test.click("[data-name*=':select_radio$']+[data-name*=':select_radio$']");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));

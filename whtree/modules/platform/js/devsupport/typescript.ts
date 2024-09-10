@@ -6,6 +6,7 @@ import { backendConfig, toFSPath, toResourcePath } from "@webhare/services";
 import type { ValidationMessageWithType } from "./validation";
 import { mkdir } from "node:fs/promises";
 import { loadlib } from "@webhare/harescript/src/contextvm";
+import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 
 function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): ValidationMessageWithType[] {
   const issues: ValidationMessageWithType[] = [];
@@ -17,8 +18,6 @@ function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): Validati
       const resourcename = toResourcePath(diagnostic.file.fileName, { keepUnmatched: true });
 
       if (resourcename.includes("/vendor/"))
-        type = "hint";
-      if (resourcename.startsWith("mod::webhare_testsuite/")) //TODO REMOVE demotion to hint so testsuite comes into scope (ie API checks!)
         type = "hint";
 
       issues.push({
@@ -74,7 +73,7 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
   if (modulename === "platform") {
     //We're building the platform
     projectRoot = backendConfig.installationroot;
-    rootpaths.push(backendConfig.installationroot + "jssdk", backendConfig.installationroot + "modules");
+    rootpaths.push(backendConfig.installationroot + "jssdk", ...whconstant_builtinmodules.map(mod => backendConfig.installationroot + "modules/" + mod));
   } else {
     projectRoot = backendConfig.module[modulename].root;
     rootpaths.push(projectRoot);

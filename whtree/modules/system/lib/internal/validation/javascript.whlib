@@ -232,9 +232,11 @@ BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
 
      Note that we get full paths in resourcename for files in jssdk but mod:: paths for files in eg mod::system
   */
-  IF(modulename != "platform" AND (resourcename LIKE MergePath(GetInstallationRoot(), "jssdk") || "/*"
-                                   OR resourcename LIKE MergePath(GetInstallationRoot(), "modules") || "/*"))
-    RETURN TRUE;
+  IF(modulename != "platform" AND resourcename NOT LIKE GetModuleInstallationRoot(modulename) || "*")
+  {
+    IF(resourcename LIKE MergePath(GetInstallationRoot(), "jssdk") || "/*" OR resourcename LIKE MergePath(GetInstallationRoot(), "modules/") || "/*")
+      RETURN TRUE;
+  }
 
   RETURN FALSE;
 }

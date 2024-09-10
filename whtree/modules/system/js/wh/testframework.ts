@@ -551,37 +551,6 @@ export function pasteHTML(content) {
   return dodefault;
 }
 
-export async function getFileFromURL(url: string, filename: string): Promise<Blob> {
-  const defer = Promise.withResolvers<Blob>();
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
-
-  xhr.responseType = 'blob';
-  xhr.onload = function (e) {
-    console.log('onload', this, e, this.response);
-    if (this.status === 200) {
-      // Create a blob with the response's Content-Type as file type
-      const file = createFileObject([this.response], filename, { type: this.response.type });
-      defer.resolve(file);
-    } else
-      defer.reject(new Error(`Error ${this.status} retrieving ${url}`));
-  };
-  xhr.onerror = function (e) { defer.reject(new Error(`Error ${e} retrieving ${url}`)); };
-  xhr.send();
-  return defer.promise;
-}
-
-function createFileObject(data, name, opts) {
-  try {
-    return new File(data, name, opts);
-  } catch (e) {
-    // IE 11 workaround, it does not have a File constructor. Use a blob and add a filename
-    const file = new Blob(data, opts);
-    file.name = name;
-    return file;
-  }
-}
-
 export function canFocus(element) {
   element = pointer._resolveToSingleElement(element);
   return domfocus.canFocusTo(element);

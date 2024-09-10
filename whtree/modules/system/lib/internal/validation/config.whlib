@@ -14,6 +14,7 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
                                           , eslintmasks := STRING[ "*.ts", "*.tsx" ]
                                           , formatmasks := STRING[]
                                           , formatexcludemasks := STRING[]
+                                          , ignoremessages := RECORD[]
                                           ];
 
 /** Returns the validation configuration for a module
@@ -34,6 +35,7 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
 PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
 {
   RECORD retval := [ excludemasks := [ [ mask := "localtests/*", why := "Non-validated tests", permanent := TRUE ] ]
+                   , ignoremessages := RECORD[]
                    , futuremodule := FALSE
                    , futuremodulewhy := ""
                    , ...defaultvalidationoptions
@@ -53,6 +55,13 @@ PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
     retval.perfectcompile := "perfectcompile" IN options;
     retval.nomissingtids := "nomissingtids" IN options;
     retval.nowarnings := "nowarnings" IN options;
+
+    FOREVERY(OBJECT ignoremessage FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ignoremessage")->GetCurrentElements())
+    {
+      INSERT [ mask := TrimWhitespace("mod::" || modname || "/" || ignoremessage->GetAttribute("mask"))
+             , regex := ignoremessage->GetAttribute("regex")
+             ] INTO retval.ignoremessages AT END;
+    }
 
     FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "exclude")->GetCurrentElements())
     {

@@ -6,18 +6,17 @@ import type { Combine } from "@mod-wrd/js/internal/types";
 import { type WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
-import { toSnakeCase } from "@webhare/std/types";
 
 
 const keepHistoryDays = 1;
 
-function mapEntityToHS(ent: any) {
-  ent = toSnakeCase(ent);
-  if ("wrd_first_name" in ent)
-    ent = { ...ent, wrd_firstname: ent.wrd_first_name, wrd_first_name: undefined };
+// function mapEntityToHS(ent: any) {
+//   ent = toSnakeCase(ent);
+//   if ("wrd_first_name" in ent)
+//     ent = { ...ent, wrd_firstname: ent.wrd_first_name, wrd_first_name: undefined };
 
-  return ent;
-}
+//   return ent;
+// }
 
 async function testChanges() { //  tests
   const wrdschema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);

@@ -362,6 +362,17 @@
           <xs:attributeGroup ref="ApplicabletoWebHare" />
         </xs:complexType>
       </xs:element>
+      <xs:element name="ignoremessage" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>
+            Ignore specific validation messages
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="mask" type="xs:string" use="required" />
+          <xs:attribute name="regex" type="xs:string" use="required" />
+        </xs:complexType>
+      </xs:element>
       <xs:element name="eslint" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
           <xs:attribute name="mask" /> <!-- NOTE: mask= is confusing users especially now that format masks= exists ...they're attempting to add lists to mask= too. so let's support both for now and let users migrate -->
