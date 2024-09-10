@@ -50,7 +50,7 @@ ASYNC MACRO SetupPayJS()
   TT(":Configuration")->value := EncodeJSON([ xyz := TRUE]);
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*Missing expected field*" ]);
 
-  TT(":Configuration")->value := EncodeJSON([ methods := 2 ]);
+  TT(":Configuration")->value := EncodeJSON([ methods := 2, __frigginhugedata := RepeatText("X",4096) ]);
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
   TestEq("Method 1, Method 2", TT(":methods")->value);
 
