@@ -2443,12 +2443,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             THROW NEW Exception(`Invalid provider value`);
           }
 
+          //NOTE keypair support can be dropped in TS, it's only used for ideal1
           INTEGER keypair := IsDefaultValue(whfsmapper)
               ? val.__paymentprovider.meta.keypair
               : whfsmapper->UnmapWHFSRef(val.__paymentprovider.meta.keypair);
           DELETE CELL keypair FROM val.__paymentprovider.meta;
 
-          INSERT [ setting := 0, rawdata := EncodeHSON(val.__paymentprovider), blobdata := DEFAULT BLOB, whfsdata := keypair, linktype := 2 ] INTO newsets AT END;
+          STRING data := EncodeHSON(val.__paymentprovider);
+          IF(Length(data) <= 4096)
+            INSERT [ setting := 0, rawdata := data, blobdata := DEFAULT BLOB, whfsdata := keypair, linktype := 2 ] INTO newsets AT END;
+          ELSE
+            INSERT [ setting := 0, rawdata := "", blobdata := StringToBlob(data), whfsdata := keypair, linktype := 2 ] INTO newsets AT END;
         }
       }
       CASE wrd_attributetype_payment
