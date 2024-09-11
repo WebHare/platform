@@ -175,8 +175,10 @@ export async function processReturnURL(driver: string, configAsJSON: string, pay
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 
-  const retval = await psp.processReturn(paymeta ? parseTyped(paymeta) : null, await newWebRequestFromInfo(req));
-  return retval;
+  if (psp.processReturn)
+    return await psp.processReturn(paymeta ? parseTyped(paymeta) : null, await newWebRequestFromInfo(req));
+  else
+    return await psp.checkStatus(paymeta ? parseTyped(paymeta) : null);
 }
 
 export async function processPush(driver: string, configAsJSON: string, paymeta: string, req: WebRequestInfo) {

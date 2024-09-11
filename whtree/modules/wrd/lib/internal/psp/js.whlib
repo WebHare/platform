@@ -171,6 +171,9 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
   {
+    IF(this->pvt_status != "pending") //We've already got a response for this payment. No need to recheck (all drivers should probably do this)
+      RETURN TRUE;
+
     RECORD returnreq := EncodeWebRequestForJS();
     RECORD paymentresult := CallJS("@mod-wrd/js/internal/paymentbridge.ts#processReturnURL",
         this->methodsettings.driver,
