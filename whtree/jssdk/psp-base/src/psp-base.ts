@@ -129,8 +129,11 @@ export interface PSPDriver<PayMetaType = unknown> {
   precheckPayment?(request: PSPPrecheckRequest): Promise<PSPPrecheckResult>;
   /** Starts the payment. If succesful we generally return a redirect to an external payment portal */
   startPayment(request: PSPRequest): Promise<PSPPayResult<PayMetaType>>;
-  /** Process the user returning from the payment portal */
-  processReturn(paymeta: PayMetaType, req: PSPWebRequest): Promise<PSPCheckResult>;
+  /** Process the user returning from the payment portal. If not implemented we'll fall back to a checkStatus call.
+   * @param paymeta - Data cached after sending a payment request to the API to be able to request the status later (eg a transaction id)
+   * @param req - Current request landing on the return page
+  */
+  processReturn?(paymeta: PayMetaType, req: PSPWebRequest): Promise<PSPCheckResult>;
   /** Process a push/notification directly from the payment portal */
   processPush?(paymeta: PayMetaType, req: PSPWebRequest): Promise<PSPPushResult>;
   /** Check the current status of the payment */

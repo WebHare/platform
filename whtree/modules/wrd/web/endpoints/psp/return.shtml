@@ -30,6 +30,7 @@ IF(NOT RecordExists(notificationdone) AND NOT data.payment->ProcessReturnURL(Get
   THROW NEW Exception("Unable to process the return url");
 
 trans->BeginLockedWork("wrd:payments.payment:" || data.paymententity->id);
+//TODO ProcessReturnURL is often a noop if the transactions was already in a final state. We should just skip this step too then and enforce that behavior on all PSPs
 ProcessUpdatedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
 trans->CommitWork();
 
