@@ -15,7 +15,7 @@ screens
 Implement `startPayment` to handle actual payment attempts. Inform the PSP about the returnUrl and pushUrl.
 
 Implement `processPush` to receive notifications sent to the pushUrl. This function should return a status update
-AND the response to provide to the notificatdion invoker. eg:
+AND the response to provide to the notification invoker. eg:
 
 ```typescript
   return {
@@ -27,4 +27,4 @@ AND the response to provide to the notificatdion invoker. eg:
 The `Response` object here is part of the Fetch API - you normally shouldn't be importing this from anywhere.
 
 Note that it's very common for processPush, processReturn and checkStatus to be nearly identical in implementation. Some providers may allow
-or even require you to do a status checck in your processPush or processReturn paths.
+or even require you to do a status check in your processPush or processReturn paths.
