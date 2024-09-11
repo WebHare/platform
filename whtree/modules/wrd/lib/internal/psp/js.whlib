@@ -29,7 +29,7 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
 <
   RECORD methodsettings;
   RECORD newtransdata; //data captured by __setupnewtransaction, most of it to be discarded
-  STRING paymeta;
+  PUBLIC STRING paymeta;
   STRING rejectreasonhtml;
 
   MACRO NEW(RECORD settings) : WRDPaymentProviderBase("wrd:js", "redirect", settings)
