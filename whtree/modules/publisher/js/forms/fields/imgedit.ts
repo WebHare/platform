@@ -50,7 +50,7 @@ export class ImgEditElement extends FileEditElement {
       const uploadicon = dompack.create("div", { class: "image__uploadicon", part: "uploadicon" });
       const explain = dompack.create("div", {
         class: "image__explain",
-        textContent: dompack.getCSSVariable("--wh-form-imgedit-explain", this) || getTid("publisher:site.forms.imgedit-explain-upload")
+        textContent: dompack.getCSSVariable("--wh-imgedit-explain", this) || getTid("publisher:site.forms.imgedit-explain-upload")
       });
       imgholder.append(contentwrapper);
       contentwrapper.append(uploadicon, explain);
