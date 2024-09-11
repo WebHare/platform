@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -8,7 +9,18 @@ LOADLIB "mod::wrd/lib/internal/payments/poller.whlib";
 
 OBJECT trans := OpenPrimary();
 
+RECORD args := ParseArguments(GetConsoleArguments(),
+   [ [ name := "debug", type := "switch" ]
+   , [ name := "id", type := "param" ]
+   ]);
+IF (NOT RecordExists(args))
+{
+  Print("Usage: wh run mod::wrd/scripts/tasks/pollpaymentstatus.whscr [id]\n");
+  Print("\n");
+  RETURN;
+}
+
 //we'll keep the transactions for at least 30 days as we can still receive updates
 INTEGER deletedays := ReadRegistryKey("wrd.globalconfig.keeppaymentsdays");
 DATETIME delete_threshold := AddDaysToDate(-deletedays, GetCurrentDatetime());
-PollPaymentStatuses(FALSE, delete_threshold); //running for live wrd schemas
+PollPaymentStatuses(FALSE, delete_threshold, CELL[ args.debug, id := ToInteger(args.id,0) ]); //running for live wrd schemas
