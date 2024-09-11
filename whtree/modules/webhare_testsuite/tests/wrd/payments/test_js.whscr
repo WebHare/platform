@@ -822,6 +822,9 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   TestEq("text/plain", result->headers->get("content-type"));
   TestEq("It is done", result->Text());
 
+  testdriver_sessioninfo := GetWebSessionData(testdriver_sessionid,"wrd:testpayment");
+  TestAssert(testdriver_sessioninfo.pushfrom LIKE "*.*.*.*" OR testdriver_sessioninfo.pushfrom LIKE "*:*", "filled with ip4 or ip6");
+
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]

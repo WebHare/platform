@@ -111,7 +111,7 @@ export interface PSPCheckResult {
 }
 
 /** A subset of the Request interface we need from PSPs */
-export type PSPWebRequest = Omit<Request, "cache" | "credentials" | "destination" | "integrity" | "keepalive" | "mode" | "redirect" | "referrer" | "referrerPolicy" | "signal" | "clone" | "body" | "bodyUsed" | "arrayBuffer" | "blob" | "formData">;
+export type PSPWebRequest = Omit<Request, "cache" | "credentials" | "destination" | "integrity" | "keepalive" | "mode" | "redirect" | "referrer" | "referrerPolicy" | "signal" | "clone" | "body" | "bodyUsed" | "arrayBuffer" | "blob" | "formData"> & { clientIp: string };
 /** A subset of the Response interface we need from PSPs */
 export type PSPWebResponse = Omit<Response, "redirect" | "statusText" | "type" | "redirected" | "url" | "clone" | "body" | "bodyUsed" | "blob" | "formData">;
 
