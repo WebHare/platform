@@ -16,9 +16,10 @@
     </insert>
   </tabsextension>
 
-  <screen name="payinfo" title="">
+  <screen name="payinfo" title="" allowresize="true">
     <body>
-    </body>
+      <textarea minwidth="60x" minheight="6gr" height="1pr" width="1pr" title="" name="metadata" enabled="false" />
+     </body>
   </screen>
 
 </screens>

@@ -52,5 +52,6 @@ PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     //TODO JS drivers need to return a set of displayable fields
+    ^metadata->value := data.payment->paymeta;
   }
 >;
