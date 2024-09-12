@@ -141,7 +141,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
        - We should allow access to the dirtylisteners
        */
 
-    this->editscreen->^maintabs->visible := FALSE;
     this->editscreen->^maintabs->LoadTabsExtension(tabsptr);
     IF(NOT this->editscreen->^metapart->visible AND this->editscreen->^maintabs->GetNumVisiblePages() > 0)
     {
