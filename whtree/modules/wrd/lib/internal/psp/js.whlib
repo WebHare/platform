@@ -29,7 +29,7 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
 <
   RECORD methodsettings;
   RECORD newtransdata; //data captured by __setupnewtransaction, most of it to be discarded
-  STRING paymeta;
+  PUBLIC STRING paymeta;
   STRING rejectreasonhtml;
 
   MACRO NEW(RECORD settings) : WRDPaymentProviderBase("wrd:js", "redirect", settings)
@@ -171,6 +171,9 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
   {
+    IF(this->pvt_status != "pending") //We've already got a response for this payment. No need to recheck (all drivers should probably do this)
+      RETURN TRUE;
+
     RECORD returnreq := EncodeWebRequestForJS();
     RECORD paymentresult := CallJS("@mod-wrd/js/internal/paymentbridge.ts#processReturnURL",
         this->methodsettings.driver,

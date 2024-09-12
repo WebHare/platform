@@ -113,6 +113,7 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
     const params = new URLSearchParams(await req.text());
     if (params.get("approval")) {
       sessinfo.approval = params.get("approval");
+      sessinfo.pushfrom = req.clientIp;
       await runInWork(() => updateServerSession("wrd:testpayment", paymeta.paymentSession, sessinfo));
     } else {
       throw new Error("Missing 'approval' variable");

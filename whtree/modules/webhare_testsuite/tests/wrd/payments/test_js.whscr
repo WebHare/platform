@@ -12,6 +12,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -821,12 +822,28 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   TestEq("text/plain", result->headers->get("content-type"));
   TestEq("It is done", result->Text());
 
+  testdriver_sessioninfo := GetWebSessionData(testdriver_sessionid,"wrd:testpayment");
+  TestAssert(testdriver_sessioninfo.pushfrom LIKE "*.*.*.*" OR testdriver_sessioninfo.pushfrom LIKE "*:*", "filled with ip4 or ip6");
+
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
 
+  // Setting approved is ignored by the return page, as it won't actually have a reason to recheck once a notification send a reject
   PushWRDTestPaymentButton("approved");
+
+  TestEqMembers(
+      [ [ status := "pending", type := "onpaymentstarted" ]
+      , [ status := "failed", type := "onpaymentfinalized" ]
+      ], pd5->GetField("LOG").entries, "*");
+
+  // But a notification can update this again
+  FetchSync(testdriver_sessioninfo.pushurl, [
+    method := "POST",
+    headers := [ "content-type" := "application/x-www-form-urlencoded" ],
+    body := "approval=yes"
+    ]);
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
@@ -862,4 +879,5 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestPaymentOptions
                  , PTR TestFailedPaymentSucceeding
                  , PTR TestDashboard
+                 , PTR SetConsoleExitCode(0) //PollPaymentStatuses may set it to 1
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);
