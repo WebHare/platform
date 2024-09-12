@@ -111,7 +111,9 @@ test.registerTests(
       await test.wait('ui');
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
-      test.click(test.qR(row, "wh-form-upload"));
+      const uploadfield = test.qR(row, "wh-form-upload").shadowRoot!;
+      //test.click(test.qR(row, "wh-form-upload"));
+      test.click(test.qR(uploadfield, ".wh-form__uploadfieldselect"));
       await test.wait('ui');
 
       // Check the resulting result
@@ -413,7 +415,10 @@ test.registerTests(
         test.fill(test.qS(row, "input[type=text]")!, "not prefilled");
 
         prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
-        test.click(test.qR(row, ".wh-form__upload"));
+
+        const uploadfield = test.qR(row, "wh-form-upload").shadowRoot!;
+        test.click(test.qR(uploadfield, ".wh-form__uploadfieldselect"));
+        // test.click(test.qR(row, ".wh-form__upload"));
         await test.wait('ui');
 
         // Delete the first row
