@@ -317,7 +317,7 @@ export default class ObjIFrame extends ComponentBase {
         break;
 
       case 'contextmenu': {
-        const menu = this.owner.getComponent(data.name);
+        const menu = this.owner.getComponent(data.name) ?? this.owner.getComponent(`${this.owner.screenname}:${data.name}`);
         if (!(menu instanceof ObjMenuItem))
           return;
 
