@@ -215,6 +215,7 @@ const stylesheet = ` //copied from apps.css
 {
   position:absolute;
   margin:0 auto;
+  z-index: 0;
 }
   .wh-cropbox .wh-cropbox-mask
 , .wh-cropbox .wh-cropbox-img
@@ -234,6 +235,7 @@ const stylesheet = ` //copied from apps.css
   background-color: #000;
   opacity:0.6;
   position: absolute;
+  z-index: 1;
 }
 .wh-cropbox .wh-cropbox-dragger
 {
@@ -245,6 +247,7 @@ const stylesheet = ` //copied from apps.css
   border-radius:8px;
   margin:-9px;
   cursor:pointer;
+  z-index: 2;
 }
 .wh-cropbox .wh-cropbox-viewport
 {
