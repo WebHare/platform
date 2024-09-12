@@ -121,6 +121,7 @@
 
 :host(wh-form-upload) {
   display: inline-block;
+  flex: 1;
 }
 
 :host(wh-form-upload) * {
@@ -149,6 +150,7 @@
   font-family: inherit;
   font-size: inherit;
   flex: 0;
+  border-radius: var(--wh-button-border-radius, 2px);
   white-space: nowrap;
   border: var(--wh-button-border, 1px solid #333);
   background-color: var(--wh-button-background-color,#ccc);
@@ -157,12 +159,14 @@
 }
 
 .file__deletebutton {
+  border-radius: var(--wh-button-border-radius, 2px);
   height: var(--wh-field-textinput-height, 30px);
   width: var(--wh-field-textinput-height, 30px);
 }
 
 .file__name {
   flex: 1 1 auto;
+  margin-right: var(--wh-fileedit-name-margin-right,5px);
   height: var(--wh-field-textinput-height, 30px);
   padding: var(--wh-field-padding, 5px);
   font-size: inherit;

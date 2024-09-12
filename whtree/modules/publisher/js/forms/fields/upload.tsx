@@ -31,8 +31,7 @@ export class FileUploadFormElement extends FileEditElementBase {
       const filename = isFile(file) ? file.name : file.fileName;
       /* for ease of 'form like' presentation, we're currently using an <input>. but quite hacky, eg. we need readonly to have it not interfere with clicks. */
       const filenamefield =
-        <input part="filename" class="file__name" type="text" value={filename} readonly
-        />;
+        <input part="filename" class="file__name" type="text" value={filename} readonly />;
 
       const deletebutton = <button part="button deletebutton" class="deletebutton file__deletebutton" />;
       this.setupDeleteButton(deletebutton, idx);
@@ -45,9 +44,12 @@ export class FileUploadFormElement extends FileEditElementBase {
       const fileholder = this.#constructFileHolder();
       fileholder.classList.add('file--placeholder');
 
+      const filenamefield =
+        <input part="filename" class="file__name" type="text" value="" placeholder={getTid("publisher:site.forms.upload-emptytext")} disabled readonly />;
+
       const uploadbutton = <button part="button selectbutton" type="button" class="wh-form__uploadfieldselect wh-form__button"><span class="wh-form__buttonlabel">{getTid("publisher:site.forms.selectfile")}</span></button>;
       this.setupUploadButton(fileholder);
-      fileholder.append(uploadbutton);
+      fileholder.append(filenamefield, uploadbutton);
       nodes.push(fileholder);
     }
 
