@@ -290,10 +290,13 @@
         <item action="postmessage" />
         <item action="postrequest" />
       </menu>
+      <menu name="testcontextmenu">
+        <item title="T01 testcontextmenuitem" />
+      </menu>
     </menus>
     <body>
       <text value="Iframe" />
-      <iframe name="iframe" height="220px" onmessage="onmessage"/>
+      <iframe name="iframe" height="220px" onmessage="onmessage" />
       <text value="Callbacks" />
       <textarea name="callbacks" height="200px" title="" />
     </body>

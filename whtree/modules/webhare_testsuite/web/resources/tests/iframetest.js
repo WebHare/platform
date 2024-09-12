@@ -51,3 +51,12 @@ function adda(event) {
 
 if(document.getElementById('adda'))
   document.getElementById('adda').addEventListener('click', adda);
+
+window.addEventListener("load", () => {
+  const showmenu = document.getElementById('showmenu');
+  if (showmenu) {
+    showmenu.addEventListener('click', evt => {
+      window.parent.postMessage({ type: 'contextmenu', x: evt.clientX, y: evt.clientY, name: "testcontextmenu" }, '*');
+    });
+  }
+});

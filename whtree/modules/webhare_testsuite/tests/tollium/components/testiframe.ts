@@ -131,6 +131,17 @@ test.registerTests(
       }
     },
 
+    "contextmenu",
+    async function () {
+      const iframe = test.qR('iframe');
+      const showMenuButton = test.qR(iframe.contentWindow.document, 'button');
+
+      test.assert(!await test.findElement(["ul.wh-menu.open li", /T01/]));
+      test.click(showMenuButton);
+      // Ensure menuitem T01 is visible
+      const menuItem = await test.waitForElement(["ul.wh-menu.open", /T01/]);
+    },
+
     "iframe blobcontent",
     async function () {
       // Next test: go to blob content
