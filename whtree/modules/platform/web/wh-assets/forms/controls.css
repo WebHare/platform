@@ -141,6 +141,10 @@
   height: 100%;
 }
 
+.file + .file {
+  margin-top: var(--wh-fileedit-margin-top, 10px);
+}
+
 .wh-form__button
 {
   outline: none;
