@@ -111,7 +111,7 @@ test.registerTests(
       await test.wait('ui');
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
-      const uploadfield = test.qR(row, "wh-form-upload").shadowRoot!;
+      const uploadfield = test.qR(row, "wh-fileedit").shadowRoot!;
       //test.click(test.qR(row, "wh-form-upload"));
       test.click(test.qR(uploadfield, ".wh-form__uploadfieldselect"));
       await test.wait('ui');
@@ -416,7 +416,7 @@ test.registerTests(
 
         prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
 
-        const uploadfield = test.qR(row, "wh-form-upload").shadowRoot!;
+        const uploadfield = test.qR(row, "wh-fileedit").shadowRoot!;
         test.click(test.qR(uploadfield, ".wh-form__uploadfieldselect"));
         // test.click(test.qR(row, ".wh-form__upload"));
         await test.wait('ui');

@@ -794,7 +794,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
            (because we don't use a seperate button for this)
         */
 
-        STRING el := fielddescription.type = "imgedit" ? "wh-imgedit" : "wh-form-upload";
+        STRING el := fielddescription.type = "imgedit" ? "wh-imgedit" : "wh-fileedit";
 
         Print(`<${el} ${idstr} class="wh-form__${fielddescription.type}" name="${EncodeValue(fielddescription.name)}"`);
         IF(NOT fielddescription.enabled)

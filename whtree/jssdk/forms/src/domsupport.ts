@@ -56,11 +56,11 @@ export function getFieldDisplayName(field: HTMLElement | ConstrainedRadioNodeLis
   return `${field.tagName} element '${field.id || '<unnamed>'}'`;
 }
 
-/** The WH Form rendering generates wh-form-upload elements. If no handler is detected for them, we downgrade them to input type=file before
+/** The WH Form rendering generates wh-fileedit elements. If no handler is detected for them, we downgrade them to input type=file before
  *  the form actually sets up its handler (it's still safe to rewrite top level form elements then)
 */
 export function downgradeUploadFields(form: HTMLElement) {
-  for (const uploadfield of qSA(form, "wh-form-upload")) {
+  for (const uploadfield of qSA(form, "wh-fileedit")) {
     const input = document.createElement("input");
     input.type = "file";
     for (const attr of uploadfield.attributes)

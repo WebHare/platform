@@ -61,7 +61,7 @@ export class FileUploadFormElement extends FileEditElementBase {
 
 export default class UploadField {
   constructor(node: HTMLElement) {
-    if (!customElements.get("wh-form-upload"))
-      customElements.define("wh-form-upload", FileUploadFormElement);
+    if (!customElements.get("wh-fileedit"))
+      customElements.define("wh-fileedit", FileUploadFormElement);
   }
 }

@@ -119,20 +119,20 @@
 }
 
 
-:host(wh-form-upload) {
+:host(wh-fileedit) {
   display: inline-block;
   flex: 1;
 }
 
-:host(wh-form-upload) * {
+:host(wh-fileedit) * {
   box-sizing: border-box;
 }
 
-:host(wh-form-upload)>div {
+:host(wh-fileedit)>div {
   display: contents;
 }
 
-:host(wh-form-upload) button {
+:host(wh-fileedit) button {
   cursor: pointer;
 }
 
