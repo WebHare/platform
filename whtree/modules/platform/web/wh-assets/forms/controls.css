@@ -47,17 +47,17 @@
   line-height: var(--wh-imgedit-line-height, 120%);
 
   &:not(:disabled):hover {
-    border-color: var(--wh-field-border-color--hover, #333);
-    box-shadow: var(--wh-field-border-box-shadow--hover, none);
-    background-color: var(--wh-field-background-color--hover, #fff);
-    color: var(--wh-field-color--hover, inherit);
+    border-color: var(--wh-field-border-color--hover, var(--wh-field-border-color));
+    box-shadow: var(--wh-field-border-box-shadow--hover, var(--wh-field-border-box-shadow));
+    background-color: var(--wh-field-background-color--hover, var(--wh-field-background-color));
+    color: var(--wh-field-color--hover, var(--wh-field-color));
   }
 
   &:not(:disabled):focus-within {
-    border-color: var(--wh-field-border-color--hover, #333);
-    box-shadow: var(--wh-field-border-box-shadow--focus, none);
-    background-color: var(--wh-field-background-color--focus, #fff);
-    color: var(--wh-field-color--focus, inherit);
+    border-color: var(--wh-field-border-color--focus, var(--wh-field-border-color--hover));
+    box-shadow: var(--wh-field-border-box-shadow--focus, var(--wh-field-border-box-shadow--hover));
+    background-color: var(--wh-field-background-color--focus, var(--wh-field-background-color--hover));
+    color: var(--wh-field-color--focus, var(--wh-field-color--hover));
     outline: none;
   }
 }
@@ -65,18 +65,18 @@
 :host(wh-form-imgedit:disabled) .image
 {
   border-color: var(--wh-field-border-color--disabled, #999);
-  box-shadow: var(--wh-field-border-box-shadow--disabled, none);
-  background-color: var(--wh-field-background-color--disabled, #fff);
-  color: var(--wh-field-color--disabled, inherit);
+  box-shadow: var(--wh-field-border-box-shadow--disabled, var(--wh-field-border-box-shadow));
+  background-color: var(--wh-field-background-color--disabled, var(--wh-field-background-color));
+  color: var(--wh-field-color--disabled, var(--wh-field-color));
   pointer-events: none;
 }
 
 :host(wh-form-imgedit.wh-form__field--error) .image
 {
-  border-color: var(--wh-field-border-color--error, #333);
-  box-shadow: var(--wh-field-border-box-shadow--error, none);
-  background-color: var(--wh-field-background-color--error, #fff);
-  color: var(--wh-field-color--error, inherit);
+  border-color: var(--wh-field-border-color--error, var(--wh-field-color--error));
+  box-shadow: var(--wh-field-border-box-shadow--error, var(--wh-field-border-box-shadow));
+  background-color: var(--wh-field-background-color--error, var(--wh-field-background-color));
+  color: var(--wh-field-color--error, #f00);
 }
 
 .image__uploadicon {
