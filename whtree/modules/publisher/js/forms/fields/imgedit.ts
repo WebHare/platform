@@ -21,13 +21,27 @@ function createFileURL(file: File): string {
   });
 }
 
+interface ImgEditTexts {
+  explainUpload?: string;
+}
+
 export class ImgEditElement extends FileEditElement {
+  private static texts: ImgEditTexts | null = null;
+
   constructor() {
     super();
     // this.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
     this.maindiv.classList.add("images");
     this.refresh();
+  }
+
+  static setTexts(textupdate: ImgEditTexts) {
+    if (!ImgEditElement.texts)
+      ImgEditElement.texts = {};
+
+    Object.assign(ImgEditElement.texts, textupdate);
+    dompack.qSA<ImgEditElement>("wh-imgedit").forEach(node => node.refresh()); //update any existing nodes
   }
 
   refresh() {
@@ -50,7 +64,7 @@ export class ImgEditElement extends FileEditElement {
       const uploadicon = dompack.create("div", { class: "image__uploadicon", part: "uploadicon" });
       const explain = dompack.create("div", {
         class: "image__explain",
-        textContent: dompack.getCSSVariable("--wh-imgedit-explain", this) || getTid("publisher:site.forms.imgedit-explain-upload")
+        textContent: ImgEditElement.texts?.explainUpload || getTid("publisher:site.forms.imgedit-explain-upload")
       });
       imgholder.append(contentwrapper);
       contentwrapper.append(uploadicon, explain);

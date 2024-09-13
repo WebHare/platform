@@ -120,17 +120,3 @@ export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
     height: nodecoords.height
   };
 }
-
-/** Read a CSS variable, return as parsed string
- * @param name - The name of the variable
- * @param node - The node to read the variable from. Defaults to the root
-*/
-export function getCSSVariable(name: string, node?: HTMLElement): string {
-  const raw = getComputedStyle(node || document.documentElement).getPropertyValue(name).trim();
-  if (raw.match(/^['"].*['"]$/)) {
-    let split = raw.slice(1, -1);
-    split = split.replaceAll('\\\\', '\\').replaceAll('\\"', '"').replaceAll("\\'", "'");
-    return split;
-  }
-  return raw;
-}

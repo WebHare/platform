@@ -131,18 +131,6 @@ test.registerTests(
       webhare_dompack.addDocEventListener(document.body, "click", evt => { evt.target.click(); }, { listenerSet: mylisteners, capture: true });
     },
 
-    "Vars",
-    async function () {
-      await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=vars');
-      test.eq("10px", webhare_dompack.getCSSVariable("--myvar1", test.getDoc().body));
-      test.eq("Hey everybody", webhare_dompack.getCSSVariable("--myvar2", test.getDoc().body));
-      test.eq("'hi' everyone", webhare_dompack.getCSSVariable("--myvar3", test.getDoc().body));
-      test.eq("Hi \"e\\very\\one\"", webhare_dompack.getCSSVariable("--myvar4", test.getDoc().body));
-      test.eq("'Hi' \"ever\\yone\"", webhare_dompack.getCSSVariable("--myvar5", test.getDoc().body));
-      test.eq(" Hey everybody ", webhare_dompack.getCSSVariable("--myvar6", test.getDoc().body));
-      test.eq("", webhare_dompack.getCSSVariable("--nosuchvar", test.getDoc().body));
-    },
-
     "Tree",
     async function () {
       test.getWin().document.body.replaceChildren(<div id="div1">A div</div>, <iframe srcdoc="<div id='div2'>a second div</div>"></iframe>);
