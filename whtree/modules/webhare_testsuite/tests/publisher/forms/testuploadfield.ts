@@ -5,6 +5,9 @@ import { getFormData, type FormFileValue } from '@webhare/forms';
 function getUploadField() { //get the replament field, not the original input
   return test.qR('#rtdtest-file').shadowRoot!;
 }
+function getUploadField2() { //get the replament field, not the original input
+  return test.qR('#rtdtest-file2').shadowRoot!;
+}
 
 interface RTDForm {
   file: FormFileValue[];
@@ -23,7 +26,7 @@ test.registerTests(
     'Set file',
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-      test.click('#rtdtest-file');
+      test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
       await test.wait('ui');
     },
     {
@@ -78,7 +81,7 @@ test.registerTests(
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-      test.click('#rtdtest-file');
+      test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
       await test.wait('ui');
 
       const filegroup = test.qR('#rtdtest-file').closest('.wh-form__fieldgroup')!;
@@ -88,7 +91,7 @@ test.registerTests(
       //uploading proper file should fix it
       prepareUpload(['/tests/flipped_and_180.jpg']);
 
-      test.click('#rtdtest-file');
+      test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
       await test.wait('ui');
 
       test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be ok!');
@@ -98,7 +101,7 @@ test.registerTests(
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg&accepterror=snap+ik+niet');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-      test.click('#rtdtest-file');
+      test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
       await test.wait('ui');
 
       const filegroup = test.qR('#rtdtest-file').closest('.wh-form__fieldgroup');
@@ -117,7 +120,7 @@ test.registerTests(
         test.assert(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-        test.click('#rtdtest-file');
+        test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
         await test.wait('ui');
 
         test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
@@ -135,7 +138,7 @@ test.registerTests(
 
         //upload an image
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-        test.click('#rtdtest-file');
+        test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
         await test.wait('ui');
 
         test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
@@ -150,7 +153,7 @@ test.registerTests(
 
       test.click('#rtdtest-showfile2');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
-      test.click('#rtdtest-file2');
+      test.click(test.qR(getUploadField2(), '.wh-form__uploadfieldselect'));
       await test.wait('ui');
 
       test.click('#submitbutton');
