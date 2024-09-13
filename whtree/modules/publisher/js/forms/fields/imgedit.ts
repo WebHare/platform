@@ -76,7 +76,7 @@ export class ImgEditElement extends FileEditElement {
 
 export default class ImgEditField {
   constructor(node: HTMLElement) {
-    if (!customElements.get("wh-form-imgedit"))
-      customElements.define("wh-form-imgedit", ImgEditElement);
+    if (!customElements.get("wh-imgedit"))
+      customElements.define("wh-imgedit", ImgEditElement);
   }
 }

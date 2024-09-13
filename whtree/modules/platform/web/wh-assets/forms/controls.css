@@ -13,7 +13,7 @@
   height: 0;
 }
 
-:host(wh-form-imgedit) button {
+:host(wh-imgedit) button {
   cursor: pointer;
 }
 

@@ -107,7 +107,7 @@ test.registerTests(
       test.fill(test.qS(row, "input[type=text]")!, "another name");
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
-      test.click(test.qR(row, "wh-form-imgedit"));
+      test.click(test.qR(row, "wh-imgedit"));
       await test.wait('ui');
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
