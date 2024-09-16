@@ -1,10 +1,9 @@
 @import '~@mod-publisher/js/forms/styles';
 
 :root {
-  --wh-form-imgedit-padding: 8px;    //padding from image to the edge
-  --wh-form-imgedit-margin: 15px;    //margin between images (in a multi-image field)
-  --wh-form-imgedit-width: 150px;    //width for image (place)holder
-  --wh-form-imgedit-height: 150px;   //height for image (place)holder
+  --wh-imgedit-margin: 15px;    //padding from image to the edge
+  --wh-imgedit-width: 150px;    //width for image (place)holder
+  --wh-imgedit-height: 150px;   //height for image (place)holder
 }
 
 @at-root

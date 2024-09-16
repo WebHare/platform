@@ -28,21 +28,6 @@
   }
 }
 
-/* Multi image upload requires you to replace this:
-.wh-form__imgedit
-{
-  width:250px;
-  height:250px;
-}
-
-with this:
-*/
-
-wh-form-imgedit:part(image) {
-  width:250px;
-  height:250px;
-}
-
 .wh-form__error, .wh-form__fieldgroup--error
 {
   color:red;

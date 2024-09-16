@@ -35,7 +35,7 @@ async function scheduleFormSetup(form: HTMLFormElement, factory: FormHandlerFact
         break;
 
       const missing = customEls.filter(tag => !customElements.get(tag)).join(", ");
-      if (missing === 'wh-form-upload') {
+      if (missing === 'wh-fileedit') {
         console.warn(`Developers: we recommend explicitly registering a component for ".wh-form__upload"`);
         downgradeUploadFields(form);
         break;

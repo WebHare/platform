@@ -196,6 +196,6 @@ test.registerTests(
     'Initially disabled upload',
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1');
-      test.assert(test.qR('[data-wh-form-group-for=file] wh-form-upload').disabled);
+      test.assert(test.qR('[data-wh-form-group-for=file] wh-fileedit').disabled);
     }
   ]);
