@@ -17,5 +17,8 @@
     //Specify schemas for our YML files
     "./whtree/modules/platform/data/schemas/moduledefinition.schema.yml": "moduledefinition.yml",
     "./whtree/modules/platform/data/schemas/siteprofile.schema.yml": "*.siteprl.yml"
-  }
+  },
+  //Tell us where the embedded types are and encourage you to switch to those so the editor will match the validator
+  "typescript.tsdk": "./whtree/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }
