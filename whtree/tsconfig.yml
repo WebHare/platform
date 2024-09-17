@@ -51,3 +51,4 @@ compilerOptions:
 
 exclude:
   - modules/webhare_testsuite
+  - jssdk/whdb/vendor/postgresql-client
