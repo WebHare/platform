@@ -254,7 +254,7 @@ export default class Frame extends ToddCompBase {
         break;
 
       default:
-        if (evt.ctrlKey || evt.altKey || validShortcutKeys.includes(evt.key as KeyAttributeValue)) { //possible Tollum modifiers
+        if (evt.ctrlKey || evt.altKey || validShortcutKeys.includes(evt.key as KeyAttributeValue)) { //possible Tollium modifiers
           for (const possibleAction of Object.values(this.objectmap))
             if (possibleAction instanceof ActionForwardBase && possibleAction.handleShortcut(evt)) {
               dompack.stop(evt);
