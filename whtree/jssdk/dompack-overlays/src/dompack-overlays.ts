@@ -1,6 +1,10 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/dompack-overlays" {
+}
+
 import * as dompack from "dompack";
 import Keyboard from 'dompack/extra/keyboard';
 import * as movable from 'dompack/browserfix/movable';

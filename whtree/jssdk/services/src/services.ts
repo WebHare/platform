@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/services" {
+}
+
 import { toFSPath } from "./resources";
 import * as fs from "node:fs";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";

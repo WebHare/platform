@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/test-backend" {
+}
+
 /* @webhare/test-backend is a superset of @webhare/test with additional backend test support
  */
 

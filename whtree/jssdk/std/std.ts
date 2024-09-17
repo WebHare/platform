@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/std" {
+}
+
 // Adding APIs may also require an update to https://www.webhare.dev/manuals/typescript/harescript-conversion-guide/
 export { sleep, createDeferred, wrapInTimeout, serialize, wrapSerialized, type DeferredPromise, type SerializeOptions } from "./promises";
 export { nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase, type ToSnakeCase, type ToCamelCase } from "./types";

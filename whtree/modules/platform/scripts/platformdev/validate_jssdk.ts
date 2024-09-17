@@ -8,13 +8,13 @@
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import { backendConfig } from "@webhare/services/src/config";
+import { backendConfig } from "@webhare/services";
 import { readFile, readdir, writeFile } from "fs/promises";
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
 
-program.name("package_jssdk")
+program.name("validate_jssdk")
   .option("-v, --verbose", "verbose log level")
   .option("--fix", "autofix issues")
   .parse();
@@ -58,6 +58,13 @@ async function main() {
         issues.push({ message: `Package has no README.md` });
       if (!pkgjson.description)
         issues.push({ message: `Package has no description in package.json` });
+    }
+
+    if (pkgjson.main?.endsWith(".ts")) {
+      const tsfile = await readFile(join(pkgroot, pkgjson.main), "utf8");
+      const expfragment = `declare module "@webhare/${pkg.name}"`;
+      if (!tsfile.includes(expfragment))
+        issues.push({ message: `Missing the '${expfragment}' declaration in ${join(pkgroot, pkgjson.main)}` });
     }
 
     if (issues.length) {

@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/witty" {
+}
+
 import { encodeString, stringify } from "@webhare/std";
 import { getHTMLTid, getTid } from "@mod-tollium/js/gettid";
 import * as path from "node:path";

@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/frontend" {
+}
+
 import { onDomReady } from "@webhare/dompack";
 import "./reset.css";
 export { frontendConfig } from "./init";
