@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/image-edit" {
+}
+
 import * as dompack from "@webhare/dompack";
 import { ImageEditor } from "./imageeditor";
 

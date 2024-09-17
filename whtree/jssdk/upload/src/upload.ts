@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/upload" {
+}
+
 import * as dompack from "@webhare/dompack";
 
 /* Note: you can't really build a FileList yourself, but FileList doesn't satisfy File[] and neither the reverse works. (noone is really happy with that though)

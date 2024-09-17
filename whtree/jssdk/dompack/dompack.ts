@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/dompack" {
+}
+
 /* This is our public api */
 export { flagUIBusy, setupBusyModal } from './impl/busy';
 export type { UIBusyLock, BusyModalEvent } from './impl/busy';

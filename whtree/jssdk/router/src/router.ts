@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/router" {
+}
+
 import { WebRequest } from './request';
 import { WebResponse } from './response';
 import { SiteRequest } from './siterequest';

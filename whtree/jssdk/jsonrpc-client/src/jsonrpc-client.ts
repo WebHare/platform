@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/jsonrpc-client" {
+}
+
 import { debugFlags, backendBase } from "@webhare/env";
 import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";

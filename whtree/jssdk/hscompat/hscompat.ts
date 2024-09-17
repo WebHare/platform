@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/hscompat" {
+}
+
 import { decodeHSON, encodeHSON, setHareScriptType, HareScriptType } from "./hson";
 //Starting with WH5.6.1, you can load these from @webhare/std. TODO deprecate
 export { toSnakeCase, toCamelCase, type ToSnakeCase, type ToCamelCase } from "@webhare/std/types";

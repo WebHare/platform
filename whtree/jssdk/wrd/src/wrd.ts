@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/wrd" {
+}
+
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 export { AuthenticationSettings } from "./auth";
 export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "./auth";

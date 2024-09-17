@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/env" {
+}
+
 import { debugFlags, registerDebugConfigChangedCallback, dtapStage, isLive, backendBase } from "./envbackend";
 import { hookFetch } from "./fetchdebug";
 import { DTAPStage } from "./concepts";

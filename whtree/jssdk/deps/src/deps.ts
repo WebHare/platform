@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/deps" {
+}
+
 import type * as sharp from "sharp";
 import type * as Puppeteer from "puppeteer";
 export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browser, Puppeteer.Page, ..

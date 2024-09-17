@@ -1,3 +1,7 @@
+// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
+declare module "@webhare/forms" {
+}
+
 import FormBase from '@mod-publisher/js/forms/formbase';
 import RPCFormBase from '@mod-publisher/js/forms/rpc';
 import { verifyAddress, AddressValidationResult, AddressChecks } from './address';
