@@ -327,6 +327,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
   }
 
   // Make sure the instances referred in the stored html document are stored on disk, convert to refs for the frontend
+  // TODO can't we avoid this? This comes with potentially quite some overhead for every RTD opened with any kind of widget (even if readonly..)
   MACRO EnsureStoredEmbeddedObjects(RECORD ARRAY instances, RECORD options)
   {
     options := ValidateOptions(
@@ -344,18 +345,31 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
         INSERT rec INTO mapping AT pos.position;
     }
 
+    RECORD ARRAY cloneinstances;
+
+    //Prepare a single batch to convert, to cut down on transactions when a RTD has more than one widget
     FOREVERY (RECORD instance FROM instances)
     {
       RECORD pos := RecordLowerBound(mapping, instance, [ "INSTANCEID" ]);
       IF (pos.found)
       {
-        STRING instanceref := RunInSeparatePrimary(PTR StoreTemporaryEmbeddedObject(instance.data, [ forcecopy := options.forcecopy ]));
-        mapping[pos.position].obj->RemoveAttribute("data-instanceid");
-        mapping[pos.position].obj->SetAttribute("data-instanceref", instanceref);
+        INSERT CELL[ ...instance
+                   , obj := mapping[pos.position].obj
+                   ] INTO cloneinstances AT END;
         DELETE FROM mapping AT pos.position;
+      }
+    }
+
+    IF(Length(cloneinstances) > 0)
+    {
+      RECORD ARRAY instancedatas := SELECT AS RECORD ARRAY data FROM cloneinstances;
+      FOREVERY(STRING instanceref FROM RunInSeparatePrimary(PTR StoreTemporaryEmbeddedObjects(instancedatas,[ forcecopy := options.forcecopy, openprimary := TRUE ]), [ openprimary := FALSE ]))
+      {
+        cloneinstances[#instanceref].obj->RemoveAttribute("data-instanceid");
+        cloneinstances[#instanceref].obj->SetAttribute("data-instanceref", instanceref);
 
         RECORD rec :=
-             [ instanceid :=    instance.instanceid
+             [ instanceid :=    cloneinstances[#instanceref].instanceid
              , instanceref :=   instanceref
              ];
 
@@ -363,7 +377,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
       }
     }
 
-    FOREVERY (RECORD rec FROM mapping)
+    FOREVERY (RECORD rec FROM mapping) //discard missing instance objects
       rec.obj->parentnode->RemoveChild(rec.obj);
   }
 
@@ -787,7 +801,7 @@ PUBLIC OBJECT FUNCTION GetRTETempDir()
   IF (NOT ObjectExists(path))
   {
     GetPrimary()->BeginWork();
-    path := OpenWHFSObject(whconstant_whfsid_private)->EnsureFolder([name := "tollum"])->EnsureFolder([ name := "rte-temp" ]);
+    path := OpenWHFSObject(whconstant_whfsid_private)->EnsureFolder([name := "tollium"])->EnsureFolder([ name := "rte-temp" ]);
     GetPrimary()->CommitWork();
   }
   RETURN path;
@@ -921,48 +935,75 @@ STRING FUNCTION GenerateFileEmbeddedObjectRefFromSettingId(INTEGER64 settingid)
 */
 PUBLIC STRING FUNCTION StoreTemporaryEmbeddedObject(RECORD whfsinstance, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  RETURN StoreTemporaryEmbeddedObjects([ whfsinstance ], options)[0];
+}
+
+STRING ARRAY FUNCTION StoreTemporaryEmbeddedObjects(RECORD ARRAY whfsinstances, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
   options := ValidateOptions(
       [ forcecopy :=    FALSE
+      , openprimary := FALSE
       ], options);
 
-  IF (NOT CellExists(whfsinstance, "WHFSTYPE") OR whfsinstance.whfstype = "")
-    THROW NEW Exception("Invalid embedded object data");
+  STRING ARRAY xrefs;
+  OBJECT trans, temppath;
 
-  IF (CellExists(whfsinstance, "WHFSSETTINGID") AND NOT options.forcecopy AND whfsinstance.whfssettingid != 0)
+  IF(NOT options.openprimary)
   {
-    RECORD existing := GetWHFSInstanceDirect(whfsinstance.whfssettingid);
-    IF (RecordExists(existing))
-    {
-      OBJECT whfstype_instance := OpenWHFSType(whfsinstance.whfstype);
-      RECORD changes := whfstype_instance->CompareInstanceDataUpdates(existing, whfsinstance);
-      IF (NOT RecordExists(changes))
-        RETURN GenerateFileEmbeddedObjectRefFromSettingId(whfsinstance.whfssettingid);
-    }
+    trans := GetPrimary();
+    IF(trans->IsWorkOpen())
+      THROW NEW Exception("Work should not be open when invoking StoreTemporaryEmbeddedObjects");
   }
 
-  OBJECT trans := GetPrimary();
-  OBJECT path := GetRTETempDir();
-  trans->BeginWork();
+  FOREVERY(RECORD whfsinstance FROM whfsinstances)
+  {
+    IF (NOT CellExists(whfsinstance, "WHFSTYPE") OR whfsinstance.whfstype = "")
+      THROW NEW Exception("Invalid embedded object data");
 
-  OBJECT whfstype_instancefile := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+    IF (CellExists(whfsinstance, "WHFSSETTINGID") AND NOT options.forcecopy AND whfsinstance.whfssettingid != 0)
+    {
+      RECORD existing := GetWHFSInstanceDirect(whfsinstance.whfssettingid);
+      IF (RecordExists(existing))
+      {
+        OBJECT whfstype_instance := OpenWHFSType(whfsinstance.whfstype);
+        RECORD changes := whfstype_instance->CompareInstanceDataUpdates(existing, whfsinstance);
+        IF (NOT RecordExists(changes))
+        {
+          INSERT GenerateFileEmbeddedObjectRefFromSettingId(whfsinstance.whfssettingid) INTO xrefs AT END;
+          CONTINUE;
+        }
+      }
+    }
 
-  INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  OBJECT file := path->CreateFile(
-      [ id :=     destid
-      , name :=   ToString(destid)
-      , type :=   whfstype_instancefile->id
-      ]);
+    IF(options.openprimary AND NOT ObjectExists(trans)) // open on demand, assume our caller will clean uo
+      trans := OpenPrimary();
 
-  // No visible update don't want the modificationdate to change
-  whfstype_instancefile->SetInstanceData(file->id, [ instance := whfsinstance ], [ isvisibleedit := FALSE ]);
-  RECORD data := whfstype_instancefile->GetInstanceData(file->id);
-  trans->CommitWork();
+    IF(NOT ObjectExists(temppath))
+      temppath := GetRTETempDir();
 
-  STRING xref := GenerateFileEmbeddedObjectRef(file->id, data.instance.whfssettingid, file->creationdate, file->modificationdate);
-  IF (NOT RecordExists(GetEmbeddedObjectDataFromRef(xref)))
-    ABORT(xref);
+    IF(NOT trans->IsWorkOpen())
+      trans->BeginWork();
 
-  RETURN xref;
+    OBJECT whfstype_instancefile := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
+
+    INTEGER destid := MakeAutonumber(system.fs_objects, "id");
+    OBJECT file := temppath->CreateFile(
+        [ id :=     destid
+        , name :=   ToString(destid)
+        , type :=   whfstype_instancefile->id
+        ]);
+
+    // No visible update don't want the modificationdate to change
+    whfstype_instancefile->SetInstanceData(file->id, [ instance := whfsinstance ], [ isvisibleedit := FALSE ]);
+    RECORD data := whfstype_instancefile->GetInstanceData(file->id);
+
+    INSERT GenerateFileEmbeddedObjectRef(file->id, data.instance.whfssettingid, file->creationdate, file->modificationdate) INTO xrefs AT END;
+  }
+
+  IF(trans->IsWorkOpen())
+    trans->CommitWork();
+
+  RETURN xrefs;
 }
 
 RECORD FUNCTION GetEmbeddedObjectDataFromRef(STRING eref)

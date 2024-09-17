@@ -25,7 +25,7 @@ OBJECT path := OpenWHFSObjectByPath("/webhare-private/tollium/rte-temp");
 IF (ObjectExists(path))
   ClearFolder(path);
 
-path := OpenWHFSObjectByPath("/webhare-private/tollum/rte-temp");
+path := OpenWHFSObjectByPath("/webhare-private/tollum/rte-temp"); //Until WH5.6 the folder was named tollum sometimes. The original typo was never fixed though so it keeps reappearing..
 IF (ObjectExists(path))
 {
   ClearFolder(path);

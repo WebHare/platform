@@ -433,10 +433,13 @@ PUBLIC BOOLEAN FUNCTION HavePrimaryTransaction()
 /** @short Run a function in a separate transaction
     @param func Function to invoke
     @cell options.work If true, open and commit work (unless the function throws)
+    @cell options.openprimary If false, doesn't open a new primary right away, only closes it if opened inside the callback (default: true)
     @return Return value of the function */
 PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ work := FALSE ], options);
+  options := ValidateOptions([ work := FALSE
+                             , openprimary := TRUE
+                             ], options);
 
   OBJECT savetrans;
   IF(HavePrimaryTransaction()) //even in WASM we need to go through these motions to fix subtle table autobinding issues
@@ -448,8 +451,10 @@ PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options D
   OBJECT mytrans;
   TRY
   {
-    mytrans := OpenPrimary();
-    IF(IsWASM())
+    IF(options.openprimary)
+      mytrans := OpenPrimary();
+
+    IF(IsWASM()) //in WASM openprimary doesn't need to have an effect, as it's no extra overhead anyway
       EM_Syscall("startSeparatePrimary");
 
     IF(options.work)
@@ -473,8 +478,8 @@ PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options D
   {
     IF(IsWASM())
       EM_Syscall("stopSeparatePrimary");
-    IF(ObjectExists(mytrans))
-      mytrans->Close();
+    IF(HavePrimaryTransaction())
+      GetPrimary()->Close();
     IF(ObjectExists(savetrans))
       SetPrimaryWebhareTransaction(savetrans->id);
   }
