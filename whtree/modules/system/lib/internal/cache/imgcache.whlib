@@ -26,6 +26,8 @@ LOADLIB "mod::wrd/lib/database.whlib";
 
 //store last requested unified cache object as it's very common for the same image to be requested repeatedly with different dimensions
 RECORD lastobjinfo;
+STRING defaultformat;
+BOOLEAN got_defaultformat;
 
 PUBLIC STRING imgcache_globalbaseurl; //set by eg webdesign to enforce CDN preferences
 CONSTANT STRING u1packet := "type:C,id:L,cc:L,md:L,ms:L,imgdatalen:C";
@@ -171,9 +173,19 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   ELSE
     objinfo := GetObjInfo(sourcetype, sourceid);
 
+  IF(datatype = 1 AND NOT CellExists(options,'format'))
+  {
+    IF(NOT got_defaultformat)
+    {
+      defaultformat := ReadRegistryKey("platform.cache.defaultimageformat", [ cachettl := 15 * 60 * 1000 ]);
+      got_defaultformat := TRUE;
+    }
+
+    IF(defaultformat != "")
+      options := CELL[ ...options, format := defaultformat ];
+  }
+
   STRING mimetype := datatype = 1 AND CellExists(options,'format') ? options.format : "";
-
-
   RECORD filedata := SplitBlobSetting(objinfo.settingdata, DEFAULT BLOB, 0);
   IF(NOT RecordExists(filedata))
   {
