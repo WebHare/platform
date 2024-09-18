@@ -54,7 +54,7 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
   MACRO NEW()
   {
     this->force := GetWebVariable("force")="1";
-    this->trace := GetWebVariable("trace")="1" AND GetDTAPStage() = "development";
+    this->trace := GetWebVariable("trace")="1" AND IsDebugTagEnabled("etr");
     IF(this->trace)
       AddHTTPHeader("Content-Type","text/plain",FALSE);
   }
