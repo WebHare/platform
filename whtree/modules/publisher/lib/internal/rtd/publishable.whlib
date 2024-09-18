@@ -337,7 +337,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
     IF(image.width = setwidth AND image.height = setheight)
       RETURN [ method := "none", setwidth := setwidth, setheight := setheight ];
 
-    RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ];
+    RETURN [ method := "fit", setwidth := setwidth, setheight := setheight ];
   }
 
   MACRO FormatImageElement(OBJECT outputobject, OBJECT node)
