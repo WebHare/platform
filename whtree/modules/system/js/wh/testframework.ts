@@ -351,10 +351,13 @@ export function getListViewExpanded(row) {
   return null;
 }
 
-/* An interface for the elements returned by qS which should simply encompass all reasonable *possible* HTML properties
-   as its rarely worth the effort to explicitly classify all types in test code */
-interface TestQueriedElement extends HTMLInputElement, HTMLSelectElement {
+/* When testing it's not really worth the effort to explicitly type/cast the returnvalues of test.qS(A). We'll return a
+   reasonable superset of <select>/<input> (so you get all the form/value props) and cast some of the often used DOM navigation props */
+export interface TestQueriedElement extends HTMLInputElement, HTMLSelectElement {
+  previousSibling: TestQueriedElement | null;
   nextSibling: TestQueriedElement | null;
+  previousElementSibling: TestQueriedElement | null;
+  nextElementSibling: TestQueriedElement | null;
 }
 
 //Set up overloads for both call approaches (with and without starting element)
