@@ -312,7 +312,7 @@ PUBLIC STATIC OBJECTTYPE WidgetBase
         ];
 
     images :=
-        SELECT ...WrapCachedImage(images, [ method := "stretch-y", setheight := 100 ])
+        SELECT ...WrapCachedImage(images, [ method := "fit", setheight := 100, setwidth := 300])
           FROM images
          WHERE RecordExists(images);
 
