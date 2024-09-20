@@ -998,7 +998,7 @@ STATIC OBJECTTYPE AssetPackController
   */
   MACRO ProcessCompileResult(RECORD message)
   {
-    LogDebug("publisher:assetpackcontrol", "Compileresult for " || message.bundle, message);
+    // LogDebug("publisher:assetpackcontrol", "Compileresult for " || message.bundle, message);
 
     DATETIME now := GetCurrentDatetime();
     BOOLEAN haserrors := message.haserrors OR (RecordExists(message.info) AND Length(message.info.errors) > 0);
