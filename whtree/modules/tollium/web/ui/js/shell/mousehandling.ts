@@ -35,7 +35,7 @@ function captureSelection(selectbase) {
 }
 function onSelectStart(event) {
   const target = event.target.nodeType === 3 ? event.target.parentNode : event.target;
-  if (target.matches('input,textarea') || target.closest("div.wh-rtd-editor"))
+  if (target.matches('input,textarea') || target.closest("[contenteditable]"))
     return; //these are okay to select. MSIE needs these explicitly allowed
 
   /* allow selection on:

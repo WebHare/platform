@@ -27,7 +27,7 @@ import Range from './dom/range';
 import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
-import type { ActionState, GetPlainTextMethod, GetPlainTextOptions } from './types';
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -341,7 +341,7 @@ export interface EditorBaseOptions {
   language: string;
 }
 
-export default class EditorBase {
+export default class EditorBase implements RTEComponent {
   structure: ExternalStructureDef | undefined;
   blockroots: string[];
   lastselectionstate = new TextFormattingState;
@@ -836,6 +836,10 @@ export default class EditorBase {
 
   getBody(): Element {
     return this.bodydiv;
+  }
+
+  onStateChange(callback: () => void) {
+    this.getBody().addEventListener("wh:richeditor-statechange", callback);
   }
 
   qS<T extends HTMLElement>(selector: string): T | null {

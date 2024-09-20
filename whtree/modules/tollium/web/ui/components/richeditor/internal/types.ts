@@ -36,3 +36,10 @@ export interface ActionState {
     active?: boolean;
   };
 }
+
+export interface RTEComponent {
+  onStateChange(callback: () => void): void;
+  getValue(): string;
+  setValue(value: string): void;
+  clearDirty(): void;
+}

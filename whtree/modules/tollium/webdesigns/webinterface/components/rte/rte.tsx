@@ -172,7 +172,7 @@ export default class ObjRTE extends ComponentBase {
     if (this.rteoptions.structure)
       this.node.classList.add("structured");
 
-    this.rte.getBody().addEventListener("wh:richeditor-statechange", () => this._onRTEStateChange());
+    this.rte.onStateChange(() => this._onRTEStateChange());
 
     if (this._showcounter) {
       this._counter = new Counter({ count: 0, limit: this._warnlength, focusnode: this.node });
