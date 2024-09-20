@@ -1,6 +1,7 @@
 import * as tablesupport from "./tableeditor";
 import * as dompack from 'dompack';
 import { RTESettings, RTEWidget } from "./types";
+import { queryEmbeddedObjects } from "./domlevel";
 
 export function fixupScopeTRs(node: HTMLElement) {
   for (const tr of dompack.qSA(node, 'tr')) {
@@ -122,7 +123,26 @@ export function replaceClasses(node: HTMLElement, removeclass: string, addclass:
   }
 }
 
-export function buildEmbeddedObjectNode(data: RTEWidget, config: RTESettings): HTMLElement {
+export function parseEmbeddedObjectNode(node: HTMLElement): RTEWidget & { type: string } {
+  let htmltext = node.dataset.innerhtmlContents || '';
+  if (!htmltext) { //we may have already rendered a preview (reparse of existing code or pasted content) (TODO does this also apply in ProseMirror?)
+    const currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
+    if (currentpreview)
+      htmltext = currentpreview.innerHTML;
+  }
+
+  return {
+    type: 'embeddedobject',
+    instanceref: node.getAttribute("data-instanceref") || '',
+    htmltext: htmltext,
+    typetext: node.getAttribute("data-widget-typetext") || '',
+    canedit: node.classList.contains("wh-rtd-embeddedobject--editable"),
+    embedtype: node.nodeName === 'SPAN' ? 'inline' : 'block',
+    wide: node.hasAttribute("data-widget-wide")
+  };
+}
+
+export function buildEmbeddedObjectNode(data: RTEWidget, config: Pick<RTESettings, "editembeddedobjects">): HTMLElement {
   const isinline = data.embedtype === 'inline';
   const basenode = isinline ? 'span' : 'div';
 
@@ -195,4 +215,24 @@ export function buildEmbeddedObjectNode(data: RTEWidget, config: RTESettings): H
   objectbuttons.appendChild(deletebutton);
 
   return node;
+}
+
+export function getCleanValue(tree: HTMLElement): string {
+  const returntree = tree.cloneNode(true) as HTMLElement;
+
+  //clean embedded objects
+  queryEmbeddedObjects(returntree).forEach(node => {
+    node.contentEditable = "inherit";
+    node.replaceChildren();
+  });
+
+  //clean table editors
+  tablesupport.cleanupTree(returntree);
+
+  dompack.qSA(returntree, "*[tabindex], *[todd-savedtabindex]").forEach(item => {
+    item.removeAttribute("tabindex");
+    item.removeAttribute("todd-savedtabindex");
+  });
+
+  return returntree.innerHTML;
 }

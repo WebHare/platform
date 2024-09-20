@@ -834,7 +834,7 @@ export default class EditorBase implements RTEComponent {
   // Public API
   //
 
-  getBody(): Element {
+  getBody(): HTMLElement {
     return this.bodydiv;
   }
 
@@ -863,23 +863,7 @@ export default class EditorBase implements RTEComponent {
   }
 
   getValue(): string {
-    const returntree = this.getBody().cloneNode(true);
-
-    //clean embedded objects
-    domlevel.queryEmbeddedObjects(returntree).forEach(node => {
-      node.contentEditable = "inherit";
-      dompack.empty(node);
-    });
-
-    //clean table editors
-    tablesupport.cleanupTree(returntree);
-
-    dompack.qSA(returntree, "*[tabindex], *[todd-savedtabindex]").forEach(item => {
-      item.removeAttribute("tabindex");
-      item.removeAttribute("todd-savedtabindex");
-    });
-
-    return returntree.innerHTML;
+    return support.getCleanValue(this.getBody());
   }
 
   setValue(val: string) {
