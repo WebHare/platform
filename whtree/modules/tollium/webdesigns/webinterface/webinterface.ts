@@ -20,8 +20,10 @@ if (document.documentElement.classList.contains('wh-shell')) {
     // Open external links in new window
     if (isHTMLElement(event.target) && event.target.nodeName === "A") {
       const href = (event.target as HTMLAnchorElement).href;
-      if (!href.startsWith(frontendConfig.siteroot))
-        window.open(href);
+      if (!href.startsWith(frontendConfig.siteroot)) {
+        window.open(href, "_blank", "noopener noreferrer");
+        event.preventDefault();
+      }
     }
   });
 }
