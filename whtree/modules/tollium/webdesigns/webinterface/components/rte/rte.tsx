@@ -305,10 +305,6 @@ export default class ObjRTE extends ComponentBase {
       event.detail.menuitems.push({ action: "webhare-inspect", title: getTid("tollium:components.rte.inspect") });
   }
 
-  onMsgInsertAnchor(data) {
-    this.rte.getEditor().setAnchor(data.name);
-  }
-
   onMsgUpdateProps2(data) {
     const actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id === data.actionid);
     if (actiontargetidx === -1) {
