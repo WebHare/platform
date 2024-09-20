@@ -7,6 +7,8 @@ import "./counter.css";
 
 
 export class Counter {
+  node;
+
   /** @param options
       @cell options.count
       @cell options.required
@@ -19,7 +21,15 @@ export class Counter {
   constructor(options) {
     this._options = { minvalue: -1, limit: -1, required: false, ...options };
 
-    this._buildNode();
+    this.node = dompack.create("div", {
+      className: "wh-counter", childNodes:
+        [
+          this._countnode = dompack.create("span", { className: "wh-counter__count" }),
+          this._separatornode = dompack.create("span", { className: "wh-counter__separator" }),
+          this._limitnode = dompack.create("span", { className: "wh-counter__limit" })
+        ]
+    });
+
     this._updateState();
     this.focusnode = options.focusnode;
 
@@ -32,17 +42,6 @@ export class Counter {
       return; //intra-focus event, ignore;
 
     this.node.classList.toggle("wh-counter--hasfocus", isfocusin);
-  }
-
-  _buildNode() {
-    this.node = dompack.create("div", {
-      className: "wh-counter", childNodes:
-        [
-          this._countnode = dompack.create("span", { className: "wh-counter__count" }),
-          this._separatornode = dompack.create("span", { className: "wh-counter__separator" }),
-          this._limitnode = dompack.create("span", { className: "wh-counter__limit" })
-        ]
-    });
   }
 
   _updateState() {

@@ -117,3 +117,5 @@ class PreloadedCSS implements CSSRefRequester {
 export function preloadCSS(links: string[]) {
   return new PreloadedCSS(links);
 }
+
+export type { PreloadedCSS };

@@ -24,10 +24,10 @@ import * as domlevel from "./domlevel";
 import * as support from "./support";
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
-import type { ParsedStructure, BlockStyle, ExternalStructureDef } from "./parsedstructure";
+import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
-
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions } from './types';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -99,7 +99,7 @@ function GetNodeXML(node: Node, inner?: boolean): string {
       if (!inner)
         s.push('</body></html>');
       break;
-    case 1: // element
+    case 1: { // element
       const elt = node as Element;
       if (!elt.childNodes.length) {
         // Don't export the bogus Mozilla line break node
@@ -118,6 +118,7 @@ function GetNodeXML(node: Node, inner?: boolean): string {
           s.push('</' + elt.nodeName.toLowerCase() + '>');
       }
       break;
+    }
     case 3: // text
       if (node.nodeValue)
         s.push(encodeString(node.nodeValue, 'attribute'));
@@ -282,7 +283,7 @@ class UndoLock {
     if (this._undoitem) {
       const closedlock = this._undoitem.locks.pop();
       if (closedlock !== this)
-        throw new Error(`Inner lock was not closed!, this lock stack:`, this.stack, `inner lock stack:`, closedlock.stack);
+        throw new Error(`Inner lock was not closed!, this lock stack: ${this.stack} inner lock stack ${closedlock?.stack}`);
 
       if (!this._undoitem.locks.length)
         this._undoitem.finish();
@@ -354,6 +355,7 @@ export default class EditorBase {
   /** URLs of images we have already seen and stored on the server */
   knownimages: string[] = [];
   language: string;
+  bodydiv;
 
   constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
     this.container = container;
@@ -949,7 +951,7 @@ export default class EditorBase {
     this.options.bodyclass = bodyclass;
   }
 
-  getPlainText(method, options = []) {
+  getPlainText(method: GetPlainTextMethod, options: GetPlainTextOptions = []): string {
     switch (method) {
       case "converthtmltoplaintext":
         {
@@ -959,7 +961,7 @@ export default class EditorBase {
         }
       case "textcontent":
         {
-          return this.bodydiv.textContent;
+          return this.bodydiv.textContent || '';
         }
     }
     throw new Error("Unsupported method for plaintext conversion: " + method);
@@ -2165,7 +2167,7 @@ export default class EditorBase {
     this._gotStateChange();
   }
 
-  getSelectionState(forceupdate) {
+  getSelectionState(forceupdate?: boolean) {
     if (forceupdate) {
       this.lastselectionstate = this.getFormattingStateForRange(this.getSelectionRange());
       this.updateTableEditors();
@@ -3235,7 +3237,7 @@ export class TextFormattingState {
   textstyles = [];
   propstarget = null;
 
-  actionstate = {};
+  actionstate: ActionState = {};
   actionparent = null; // nearest ol/ul/td/th
 
   tables: HTMLTableElement[] = [];
