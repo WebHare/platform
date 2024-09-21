@@ -28,6 +28,7 @@ import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
 import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
+import { RTECompBase } from './rtecompbase';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -341,12 +342,10 @@ export interface EditorBaseOptions {
   language: string;
 }
 
-export default class EditorBase implements RTEComponent {
+export default class EditorBase extends RTECompBase implements RTEComponent {
   structure: ExternalStructureDef | undefined;
   blockroots: string[];
   lastselectionstate = new TextFormattingState;
-  options: EditorBaseOptions;
-  container;
   toolbar = null;
   addcss = [];
   /** Whether document is dirty. Initial set to true to avoid firing events during init */
@@ -358,38 +357,8 @@ export default class EditorBase implements RTEComponent {
   bodydiv;
 
   constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
-    this.container = container;
-    this.options = {
-      allowtags: null,
-      log: false,
-      contentareawidth: null,
-      imgloadplaceholder: null, //image loader GIF image to use (defaults to embedded spinning loader)
-      structure: null,
-      hidebuttons: [],
-      content: '',
-      enabled: true,
-      readonly: false,
-      //, actionhandler: null
-      cssinstance: null,
-      csslinks: null,
-      csscode: '',
-      preloadedcss: null,
-      breakupnodes: [],
-      htmlclass: '',
-      bodyclass: '',
-
-      contentarea: true, //display a content area if possible
-      editembeddedobjects: true,
-      allowundo: Boolean(options?.structure),
-      margins: 'compact',
-      propertiesaction: false, //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
-      toolbarlayout: null,
-      language: 'en', //TODO get default language from document lang and/or gettidLanguage?
-      ...options
-    };
-
-    if (this.container.classList.contains("wh-rtd__editor"))
-      throw new Error("Duplicate RTD initialization");
+    const originalcontent = [...container.childNodes];
+    super(container, options);
 
     if (dompack.debugflags.rte)
       console.log("[rte] initializing rtd", this.container, this.options);
@@ -404,32 +373,16 @@ export default class EditorBase implements RTEComponent {
     if (this.options.csscode)
       this.addcss.push({ type: "style", src: this.options.csscode });
 
-    this.toolbarnode = dompack.create("div");
-    //the 'style scope' node is the point from which we apply the rewritten css. it needs to be the immediate parent of the wh-rtd__html node
-    this.stylescopenode = dompack.create("div", { className: "wh-rtd__stylescope " + (this.options.cssinstance || '') });
-
     //Create two divs inside the container, which will play the role of HTML and BODY
     this.bodydiv = dompack.create("div", {
       className: "wh-rtd wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode wh-rtd-theme-default " + this.options.bodyclass,
       on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) },
-      childNodes: [...this.container.childNodes]
+      childNodes: originalcontent
     });
-    this.htmldiv = dompack.create("div", {
-      className: "wh-rtd-editor wh-rtd__html wh-rtd-editor-htmlnode " + this.options.htmlclass,
-      childNodes: [this.bodydiv]
-    });
-    if (this.options.structure)
-      this.container.classList.add("wh-rtd--structured");
+    this.htmldiv.append(this.bodydiv);
 
     if (browser.getName() === "safari" && browser.getVersion() < 13)
       this.bodydiv.classList.add("wh-rtd__body--safariscrollfix");
-
-    dompack.empty(this.container);
-    this.container.classList.add("wh-rtd__editor");
-    this.container.appendChild(this.toolbarnode);
-
-    this.stylescopenode.appendChild(this.htmldiv);
-    this.container.appendChild(this.stylescopenode);
 
     //Fixes a Firefox repositioning issue, tested by richdoc.teststructured-scroll - as of 2022-11-29 we still need this workaround
     this.scrollmonitor = new scrollmonitor.Monitor(this.container);
@@ -438,25 +391,6 @@ export default class EditorBase implements RTEComponent {
     this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
     this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
     this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
-
-    const toolbaropts = {
-      hidebuttons: this.options.hidebuttons,
-      allowtags: this.options.allowtags,
-      layout: this.options.toolbarlayout || getDefaultToolbarLayout()
-    };
-
-    if (this.options.structure) {
-      toolbaropts.hidebuttons.push('action-clearformatting');
-    } else {
-      toolbaropts.hidebuttons.push('p-class', 'action-showformatting', 'object-insert', 'object-video', 'table');
-      toolbaropts.compact = true;
-    }
-    if (!this.options.propertiesaction)
-      toolbaropts.hidebuttons.push('action-properties');
-
-    this.toolbaropts = toolbaropts; //preserve until constructorTail. we can probably get rid of this property by further cleaning up construction
-
-    this.toolbarnode.classList.add("wh-rtd-toolbar");
 
     if (this.options.readonly)
       this.toolbarnode.style.display = "none";
@@ -3208,6 +3142,14 @@ export default class EditorBase implements RTEComponent {
 
   requireBottomParagraph() {
     // overridden by structured editor
+  }
+
+  getAvailableStyles(selstate: TextFormattingState) {
+    const editor = this.getEditor();
+    if (!editor)
+      return [];
+
+    return editor.getAvailableBlockStyles(selstate);
   }
 }
 

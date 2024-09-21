@@ -1,5 +1,6 @@
 import type { TextFormattingState } from "./editorbase";
 import type FreeEditor from "./free-editor";
+import type { BlockStyle } from "./parsedstructure";
 import type StructuredEditor from "./structurededitor";
 
 //Might be better to split this into separate interfaces, but for now this is just inferred based on existing code
@@ -75,6 +76,8 @@ export interface RTEComponent {
   isEditable(): boolean;
   getShowFormatting(): boolean;
   getSelectionState(): TextFormattingState;
+
+  getAvailableBlockStyles(state: TextFormattingState): BlockStyle[];
 
   //TODO needs to be removed, using it means we lack an abstraction
   getEditor(): FreeEditor | StructuredEditor;

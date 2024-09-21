@@ -256,11 +256,7 @@ class BlockStyleButton extends StyleButtonBase {
     super(toolbar, "p-class");
   }
   getAvailableStyles(selstate: TextFormattingState) {
-    const editor = this.toolbar.rte.getEditor();
-    if (!editor)
-      return [];
-
-    return editor.getAvailableBlockStyles(selstate);
+    return this.toolbar.rte.getAvailableBlockStyles(selstate);
   }
 
   getCurrentStyle(selstate: TextFormattingState) {
