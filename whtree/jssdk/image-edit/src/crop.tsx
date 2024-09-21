@@ -55,7 +55,7 @@ class PhotoCrop extends SurfaceTool {
       onClose: () => this.stop(),
       onApply: () => this.apply()
     });
-    this.autoButton = new ToolbarButton(this.cropPanel, {
+    this.autoButton = new ToolbarButton({
       label: getTid("tollium:components.imgedit.editor.smartcrop"),
       icon: toddImages.createImage("tollium:actions/resetcrop", 24, 24, "b"),
       onExecute: () => this.smartCrop()
@@ -634,7 +634,7 @@ export type { PhotoCrop };
 export function addImageCropButton(toolbar: Toolbar, surface: ImageSurface, options?: PhotoCropOptions) {
   const cropper = new PhotoCrop(surface, options);
 
-  const button = new ToolbarButton(toolbar, {
+  const button = new ToolbarButton({
     label: getTid("tollium:components.imgedit.editor.crop"),
     icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b"),
     onExecute: () => cropper.startCropping(toolbar)

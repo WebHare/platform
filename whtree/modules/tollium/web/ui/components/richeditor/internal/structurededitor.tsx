@@ -2049,7 +2049,7 @@ export default class StructuredEditor extends EditorBase {
       @param forced - If not forced, and all selected blocks are of the same list style as the new blockstyle, everything
          is changed to the default blockstyle.
   */
-  setSelectionBlockStyle(newblockstyle, forced) {
+  setSelectionBlockStyle(newblockstyle, forced?: boolean) {
     const undolock = this.getUndoLock();
 
     let blockstyle = newblockstyle;

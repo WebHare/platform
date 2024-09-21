@@ -1,31 +1,33 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import * as dompack from '@webhare/dompack';
 
-import * as dompack from 'dompack';
-
-import { ToolbarButton as GenericToolbarButton } from '@mod-tollium/web/ui/components/toolbar/toolbars';
+import { ToolbarButton as GenericToolbarButton, type ToolbarButtonOptions } from '@mod-tollium/web/ui/components/toolbar/toolbars';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
+import type { RTEComponent } from './types';
+import type { TextFormattingState } from './editorbase';
+import type StructuredEditor from './structurededitor';
+import type { BlockStyle, CellStyle } from './parsedstructure';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //  Standard RTE ButtonBar
 //
 
-class ToolbarButtonBase extends GenericToolbarButton {
-  constructor(toolbar, options) {
-    super(toolbar, options);
+abstract class ToolbarButtonBase extends GenericToolbarButton {
+  active = false;   //ADDME perhaps move this to only ToggableToolbarButton, if such things will ever be created?
+  available = true; //is this button currently available for use (context or blockstyle isn't blocking it)
+  buttondebugid = '';
 
-    this.active = false;   //ADDME perhaps move this to only ToggableToolbarButton, if such things will ever be created?
-    this.available = true; //is this button currently available for use (context or blockstyle isn't blocking it)
-    this.node = null;
-    this.buttondebugid = '';
+  abstract type: string;
+
+  constructor(protected toolbar: RTEToolbar, options?: ToolbarButtonOptions) {
+    super(options);
   }
 
-  isAllowed(allowtagset) {
+  isAllowed(allowtagset: string[]) {
     return true;
   }
 
-  updateState(selstate) {
+  updateState(selstate: TextFormattingState | null) {
     const actionstate = (selstate && selstate.actionstate[this.type]);
     if (actionstate) {
       this.available = actionstate.available || false;
@@ -41,8 +43,8 @@ class ToolbarButtonBase extends GenericToolbarButton {
 
 }
 
-class ToolbarSimpleButtonBase extends ToolbarButtonBase {
-  constructor(toolbar, buttonname) {
+abstract class ToolbarSimpleButtonBase extends ToolbarButtonBase {
+  constructor(toolbar: RTEToolbar, buttonname: string) {
     super(toolbar);
 
     this.node = dompack.create('span',
@@ -51,20 +53,18 @@ class ToolbarSimpleButtonBase extends ToolbarButtonBase {
         on: {
           "mousedown": this.mousedown.bind(this),
           "click": this.click.bind(this),
-          "mouseover": this.mouseover.bind(this)
         },
         dataset: { button: buttonname }
       });
   }
 
-  mousedown(event) //we block mousedown to prevent loss of focus when clicking the button
-  {
+  mousedown(event: MouseEvent) { //we block mousedown to prevent loss of focus when clicking the button
     event.stopPropagation();
     event.preventDefault();
     return;
   }
 
-  click(event) {
+  click(event: MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
 
@@ -75,32 +75,21 @@ class ToolbarSimpleButtonBase extends ToolbarButtonBase {
     this.executeAction();
   }
 
-  mouseover(button, event) {
-    /* FIXME: want a centralized tooltip system
-    this.OnButtonHover(button.WHRTE_action, event);
-    event.stop();
-    */
-  }
-
   updateButtonRendering() {
-    dompack.toggleClasses(this.node,
-      {
-        disabled: !(this.available && this.toolbar.rte.isEditable()),
-        active: this.active
-      });
+    this.node.classList.toggle('disabled', !(this.available && this.toolbar.rte.isEditable()));
+    this.node.classList.toggle('active', this.active);
   }
 }
 
 class ToolbarButton extends ToolbarSimpleButtonBase {
-  constructor(toolbar, type) {
+  constructor(toolbar: RTEToolbar, public type: string) {
     super(toolbar, type);
     this.buttondebugid = 'toolbarbutton:' + type;
-    this.type = type;
 
     this.updateState(null);
   }
 
-  isAllowed(allowtagset) {
+  isAllowed(allowtagset: string[]) {
     if (this.type === "li-increase-level" || this.type === "li-decrease-level")
       return allowtagset.includes("ul") || allowtagset.includes("ol");
     if (this.type === "action-properties")
@@ -119,14 +108,12 @@ class ToolbarButton extends ToolbarSimpleButtonBase {
 }
 
 class SimpleToggleButton extends ToolbarSimpleButtonBase {
-  constructor(toolbar, type) {
+  constructor(toolbar: RTEToolbar, public type: string) {
     super(toolbar, type);
-    this.type = type;
-
     this.updateState(null);
   }
 
-  isAllowed(allowtagset) {
+  isAllowed(allowtagset: string[]) {
     return allowtagset.includes(this.type);
   }
   executeAction() {
@@ -136,23 +123,24 @@ class SimpleToggleButton extends ToolbarSimpleButtonBase {
 }
 
 class MenuButton extends SimpleToggleButton {
-  constructor(toolbar, type) {
+  listnode = dompack.create('ul');
+
+  constructor(toolbar: RTEToolbar, type: string) {
     super(toolbar, type);
 
-    this.listnode = dompack.create('ul');
     this.node.appendChild(dompack.create("div", {
       style: { display: "none" },
       childNodes: [this.listnode],
-      onClick: evt => this.activateItem(evt)
+      onClick: (evt: MouseEvent) => this.activateItem(evt)
     }));
   }
 
-  updateState(selstate) {
+  updateState(selstate: TextFormattingState | null) {
     //FIXME: this.active = (menu is currently showing)
     this.updateButtonRendering();
   }
 
-  click(event) {
+  click(event: MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
 
@@ -160,8 +148,8 @@ class MenuButton extends SimpleToggleButton {
     if (!this.available || !this.toolbar.rte.isEditable() || !this.listnode.childNodes.length)
       return;
 
-    menu.openAt(this.listnode, event, { direction: "down" }, false);
-    this.updateState(this.toolbar.rte.getSelectionState());
+    menu.openAt(this.listnode, event, { direction: "down" });
+    this.updateState(null);
   }
 
   // Override to fill this.listnode with <li> menuitems
@@ -170,33 +158,40 @@ class MenuButton extends SimpleToggleButton {
   }
 
   // Override to respond to selected menuitem (event.detail.menuitem is selected <li>)
-  activateItem(event) {
+  activateItem(event: Event) {
     dompack.stop(event);
-    this.updateState(this.toolbar.rte.getSelectionState());
+    this.updateState(null);
   }
 }
 
-class StyleButtonBase extends ToolbarButtonBase {
-  constructor(toolbar, button) {
+abstract class StyleButtonBase extends ToolbarButtonBase {
+  owngroup = true;
+  optionlist: HTMLOptionElement[] = [];
+  select: HTMLSelectElement;
+
+  constructor(toolbar: RTEToolbar, public type: string) {
     super(toolbar);
-    this.owngroup = true;
-    this.optionlist = [];
 
     this.node = <span>
-      {this.select = <select class="wh-rtd__toolbarstyle" data-button={button} on={{ change: e => this.selectStyle() }} />}
+      {this.select = <select class="wh-rtd__toolbarstyle" data-button={type} on={{ change: () => this.selectStyle() }} />}
     </span>;
-    this.updateStructure();
+    this.updateStructure(null);
   }
 
-  updateStructure(selstate) {
+  abstract getAvailableStyles(selstate: TextFormattingState): CellStyle[] | BlockStyle[];
+  abstract getCurrentStyle(selstate: TextFormattingState): string | null;
+  abstract setStyle(value: string): void;
+
+  updateStructure(selstate: TextFormattingState | null) {
     this.optionlist = [];
 
-    const styles = this.getAvailableStyles(selstate);
+    const styles = selstate ? this.getAvailableStyles(selstate) : [];
     for (let i = 0; i < styles.length; ++i) {
       const bs = styles[i];
       const title = bs.def.title ? bs.def.title : bs.tag;
-      const opt = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
+      const opt: HTMLOptionElement = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
 
+      //@ts-expect-error shouldn't expando-prop it..
       opt.blockstyle = bs;
       this.optionlist.push(opt);
     }
@@ -204,7 +199,7 @@ class StyleButtonBase extends ToolbarButtonBase {
     this.select.replaceChildren(...this.optionlist);
   }
 
-  updateState(selstate) {
+  updateState(selstate: TextFormattingState | null) {
     this.updateStructure(selstate);
 
     //FIXME what to do if we have no blockstyle?
@@ -217,7 +212,7 @@ class StyleButtonBase extends ToolbarButtonBase {
       //        this.optionlist[i].classList.toggle('-wh-rtd-unavailable', selstate.blockstyle.listtype !== style.listtype)
       //      }
 
-      this.select.value = this.getCurrentStyle(selstate);
+      this.select.value = this.getCurrentStyle(selstate) || '';
     }
     this.select.disabled = !(this.available && this.toolbar.rte.isEditable() && this.optionlist.length);
   }
@@ -232,34 +227,35 @@ class StyleButtonBase extends ToolbarButtonBase {
 }
 
 class CellStyleButton extends StyleButtonBase {
-  constructor(toolbar) {
+  constructor(toolbar: RTEToolbar) {
     super(toolbar, "td-class");
   }
-  getAvailableStyles(selstate) {
+  getAvailableStyles(selstate: TextFormattingState) {
     const editor = this.toolbar.rte.getEditor();
     if (editor && selstate && selstate.cellparent)
       return editor.getAvailableCellStyles(selstate).map(style => ({ ...style, tag: style.tag.toLowerCase() }));
 
     return [];
   }
-  getCurrentStyle(selstate) {
+  getCurrentStyle(selstate: TextFormattingState) {
     if (selstate && selstate.cellparent && selstate.cellparent.classList.contains("wh-rtd__tablecell"))
       return selstate.cellparent.classList[1] || '';
 
     return null;
   }
-  setStyle(value) {
+  setStyle(value: string) {
     const editor = this.toolbar.rte.getEditor();
     if (editor)
-      editor.setSelectionCellStyle(value);
+      (editor as StructuredEditor).setSelectionCellStyle(value);
   }
 }
 
 class BlockStyleButton extends StyleButtonBase {
-  constructor(toolbar) {
+  type = "p-class";
+  constructor(toolbar: RTEToolbar) {
     super(toolbar, "p-class");
   }
-  getAvailableStyles(selstate) {
+  getAvailableStyles(selstate: TextFormattingState) {
     const editor = this.toolbar.rte.getEditor();
     if (!editor)
       return [];
@@ -267,29 +263,25 @@ class BlockStyleButton extends StyleButtonBase {
     return editor.getAvailableBlockStyles(selstate);
   }
 
-  getCurrentStyle(selstate) {
+  getCurrentStyle(selstate: TextFormattingState) {
     return selstate && selstate.blockstyle ? selstate.blockstyle.tag : null;
   }
-  setStyle(value) {
+  setStyle(value: string) {
     const editor = this.toolbar.rte.getEditor();
     if (editor)
-      editor.setSelectionBlockStyle(value);
+      (editor as StructuredEditor).setSelectionBlockStyle(value);
   }
 }
 
 class ShowFormattingButton extends SimpleToggleButton {
-  updateState() {
+  updateState(selstate: TextFormattingState | null) {
     const editor = this.toolbar.rte;
     this.active = editor && editor.getShowFormatting();
     this.updateButtonRendering();
   }
 
-  isAllowed(allowtags) {
-    return true;
-  }
-
   //FIXME: This custom click event isn't necessary if executeAction would be handled by RTE instead of EditorBase
-  click(event) {
+  click(event: MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
 
@@ -302,10 +294,12 @@ class ShowFormattingButton extends SimpleToggleButton {
 }
 
 class InsertTableButton extends MenuButton {
-  constructor(toolbar, type) {
+  initialrows = 6;
+  initialcolumns = 8;
+  statusnode?: HTMLElement;
+
+  constructor(toolbar: RTEToolbar, type: string) {
     super(toolbar, type);
-    this.initialrows = 6;
-    this.initialcolumns = 8;
   }
 
   ensureSubMenu() {
@@ -323,7 +317,7 @@ class InsertTableButton extends MenuButton {
           classNames.push("wh-rtd-tablemenuitem-newrow");
         if (row === 0)
           classNames.push("wh-rtd-tablemenuitem-newcol");
-        this.listnode.appendChild(new dompack.create("li",
+        this.listnode.appendChild(dompack.create("li",
           {
             innerHTML: "&nbsp;",
             className: classNames.join(" "),
@@ -338,40 +332,41 @@ class InsertTableButton extends MenuButton {
     this.listnode.appendChild(this.statusnode);
   }
 
-  updateState(selstate) {
+  updateState(selstate: TextFormattingState | null) {
     // Cannot insert table into a table
-    this.available = selstate && selstate.tables.length === 0;
+    this.available = Boolean(selstate && selstate.tables.length === 0);
     super.updateState(selstate);
   }
 
-  isAllowed(allowtags) {
+  isAllowed(allowtags: string[]) {
     // Called in free editor
     return allowtags.includes("table");
   }
 
-  hoverItem(event, target) {
+  hoverItem(event: MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
 
-    if (event.name === "mousemove" && event.target.nodeName.toUpperCase() !== "LI")
+    if (event.type === "mousemove" && dompack.isHTMLElement(event.target) && event.target.nodeName.toUpperCase() !== "LI")
       return;
 
-    const selsize = this.getItemSize(event.target);
+    const selsize = this.getItemSize(event.target as HTMLElement);
 
     dompack.qSA(this.listnode, "li").forEach((menuitem, i) => {
       const size = this.getItemSize(menuitem);
-      menuitem.classList.toggle("selected", Boolean(selsize) && Boolean(size) && size.x <= selsize.x && size.y <= selsize.y);
+      menuitem.classList.toggle("selected", Boolean(selsize && size && size.x <= selsize.x && size.y <= selsize.y));
     });
-    this.statusnode.textContent = selsize ? (selsize.x + "x" + selsize.y) : "";
+    if (this.statusnode)
+      this.statusnode.textContent = selsize ? (selsize.x + "x" + selsize.y) : "";
   }
 
-  doInsertTable(event) {
+  doInsertTable(event: MouseEvent) {
     dompack.stop(event);
     const editor = this.toolbar.rte.getEditor();
     if (!editor)
       return;
 
-    const size = this.getItemSize(event.target);
+    const size = this.getItemSize(event.target as HTMLElement);
     if (size)
       editor.executeAction({
         action: 'table',
@@ -381,17 +376,17 @@ class InsertTableButton extends MenuButton {
   }
 
   // Return the col and row for a menu item
-  getItemSize(menuitem) {
+  getItemSize(menuitem: HTMLElement) {
     if (menuitem && menuitem.getAttribute) {
-      const x = parseInt(menuitem.getAttribute("data-col"), 10);
-      const y = parseInt(menuitem.getAttribute("data-row"), 10);
+      const x = parseInt(menuitem.getAttribute("data-col") || '', 10);
+      const y = parseInt(menuitem.getAttribute("data-row") || '', 10);
       if (x > 0 && y > 0)
         return { x: x, y: y };
     }
   }
 }
 
-const supportedbuttons =
+const supportedbuttons: Record<string, new (toolbar: RTEToolbar, buttonname: string) => ToolbarButtonBase> =
 {
   "a-href": ToolbarButton,
   "b": SimpleToggleButton,
@@ -416,11 +411,19 @@ const supportedbuttons =
   "table": InsertTableButton
 };
 
+export type RTEToolbarOptions = {
+  hidebuttons: string[];
+  layout: Array<Array<(string | string[])>>;
+  compact: boolean;
+  allowtags: null | string[];
+};
+
 export default class RTEToolbar {
-  constructor(rte, element, options) {
-    this.rte = rte;
-    this.options =
-    {
+  options: RTEToolbarOptions;
+  buttons: ToolbarButtonBase[];
+
+  constructor(public readonly rte: RTEComponent, public el: HTMLElement, options: Partial<RTEToolbarOptions>) {
+    this.options = {
       hidebuttons: [],
       //button layout. top level array is rows, consists of groups, and a group is either a single button (p-class) or an array of buttons
       //ADDME: Note, if new buttons are added, we probably need to update tollium (field-)rte.js to hide these in nonstructured mode
@@ -432,13 +435,11 @@ export default class RTEToolbar {
 
     this.buttons = [];
 
-    this.el = element;
-
     this.buildButtonBar();
-    this.rte.getBody().addEventListener("wh:richeditor-statechange", evt => this.onStateChange());
+    this.rte.onStateChange(() => this.onStateChange());
   }
 
-  createButtonObject(buttonname) {
+  createButtonObject(buttonname: string) {
     if (this.options.hidebuttons.includes(buttonname))
       return null;
 
@@ -455,15 +456,14 @@ export default class RTEToolbar {
   }
 
   buildButtonBar() {
-    dompack.empty(this.el);
+    this.el.replaceChildren();
 
     for (let rowidx = 0; rowidx < this.options.layout.length; ++rowidx) {
       const row = this.options.layout[rowidx];
       for (let groupidx = 0; groupidx < row.length; ++groupidx) {
         const group = row[groupidx];
 
-        if (typeof group === "string") //button in own group
-        {
+        if (typeof group === "string") { //button in own group
           const buttonobj = this.createButtonObject(group);
           if (!buttonobj)
             continue;
@@ -498,53 +498,11 @@ export default class RTEToolbar {
     const selstate = this.rte.getSelectionState();
     for (let i = 0; i < this.buttons.length; ++i) //ADDME Perhaps we shouldn't have separators inside the button array, but separate button-layout from list-of-buttons
       this.buttons[i].updateState(selstate);
-
-    /*  FIXME restore
-        this.UpdateButtonState("bold", selstate.bold);
-        this.UpdateButtonState("italic", selstate.italic);
-        this.UpdateButtonState("underline", selstate.underline);
-
-        this.SetButtonEnabled("insert_hyperlink", selstate.haveselection);
-        this.SetButtonEnabled("remove_hyperlink", selstate.hyperlink);
-
-        this.UpdateButtonState("bulleted_list", selstate.bulletedlist);
-        this.UpdateButtonState("numbered_list", selstate.numberedlist);
-
-        this.UpdateButtonState("align_left", selstate.alignleft);
-        this.UpdateButtonState("align_center", selstate.aligncenter);
-        this.UpdateButtonState("align_right", selstate.alignright);
-        this.UpdateButtonState("align_justified", selstate.alignjustified);*/
   }
 
-  getButton(buttonname) {
+  getButton(buttonname: string) {
     for (let i = 0; i < this.buttons.length; ++i)
       if (this.buttons[i].type === buttonname)
         return this.buttons[i];
-  }
-
-  OnButtonHover(action, event) {
-    /*
-    if (action === this.lastactionhover)
-      return;
-    this.lastactionhover = action;
-
-    // Don't show button tooltips if the rte is not enabled
-    if (!this.enabled)
-      return;
-
-    var button = this.getButton(action);
-    if (button && button.title)
-      this.editor.ShowTooltip(button.title, event);
-    else
-      this.editor.HideTooltip();
-    */
-  }
-
-  UpdateButtonState(action, newstate) {
-    const button = this.getButton(action);
-    if (!button)
-      return;
-    button.active = newstate;
-    this.UpdateButton(button);
   }
 }

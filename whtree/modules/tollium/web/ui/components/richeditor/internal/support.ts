@@ -1,6 +1,6 @@
 import * as tablesupport from "./tableeditor";
 import * as dompack from 'dompack';
-import { RTESettings, RTEWidget } from "./types";
+import { RTESettings, RTEWidget, type TargetInfo } from "./types";
 import { queryEmbeddedObjects } from "./domlevel";
 
 export function fixupScopeTRs(node: HTMLElement) {
@@ -11,31 +11,6 @@ export function fixupScopeTRs(node: HTMLElement) {
     const scopecol = Boolean(tr.querySelector('th[scope=col]'));
     tr.classList.toggle('wh-rtd--hascolheader', scopecol);
   }
-}
-
-//Might be better to split this into separate interfaces, but for now this is just inferred based on existing code
-export interface TargetInfo {
-  __node?: HTMLElement;
-  type?: "hyperlink" | "cell" | "table" | "embeddedobject" | "img";
-  //for hyperlink and image - but they set up inconsistent definitions. They should be the same.
-  link?: string | { link: string; target: string } | null;
-  //for hyperlink:
-  target?: string;
-  //for cell/table
-  cellstyletag?: string;
-  tablecaption?: string;
-  tablestyletag?: string;
-  numrows?: number;
-  numcolumns?: number;
-  datacell?: HTMLElement;
-  //for embeddedobject:
-  instanceref?: string;
-  //for image:
-  width?: number;
-  height?: number;
-  alttext?: string;
-  src?: string;
-  align?: string;
 }
 
 export function getTargetInfo(actiontarget: { __node: HTMLElement }): TargetInfo | null { //provide JSON-safe information about the action target

@@ -2977,8 +2977,7 @@ export default class EditorBase implements RTEComponent {
 
     this.executeDefaultPropertiesAction({ target: node, detail: action });
   }
-
-  executeAction(action, actiontarget) {
+  executeAction(action: string | { action: string, size?: { x: number, y: number } }, actiontarget?: TargetInfo | null): void {
     //actiontarget describes the target, and is currently only set for context menu actions but probably every action route should add this
 
     // Fallback for single string argument call without extra parameters - apparently everyone but the 'table' action doe sthis
@@ -3231,6 +3230,8 @@ export class TextFormattingState {
   tables: HTMLTableElement[] = [];
   tablestyle: BlockStyle | null = null;
   blockstyle: BlockStyle | null = null;
+
+  cellparent: HTMLTableCellElement | null = null;
 
   hasTextStyle(nodeName) {
     return this.getTextStyleByNodeName(nodeName) !== null;
