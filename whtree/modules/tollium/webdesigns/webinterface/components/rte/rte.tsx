@@ -88,7 +88,7 @@ export default class ObjRTE extends ComponentBase {
   /// Selection for enabled actions ()
   _selectionflags: Array<Record<string, boolean>> = [{}];
   /// The untouched content as sent by the server
-  untouchedcontent = '';
+  untouchedcontent: string | null = null;
   /// Original restructured HTML content
   restructuredcontent = '';
 
@@ -382,7 +382,7 @@ export default class ObjRTE extends ComponentBase {
 
   _gotDirty() {
     ++this.valuedirtycount;
-    this.untouchedcontent = ""; //invalidate cached 'original'""
+    this.untouchedcontent = null; //invalidate cached 'original'
     this.queueMessage("dirty", { valuedirtycount: this.valuedirtycount, valuegeneration: this.valuegeneration });
   }
 
