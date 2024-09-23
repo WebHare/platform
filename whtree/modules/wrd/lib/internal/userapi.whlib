@@ -1072,7 +1072,7 @@ STATIC OBJECTTYPE WHUserApi
 
     STRING type := CellExists(options, "CELLTYPE") ? options.celltype : "entityid";
     IF (type NOT IN [ "authobjectid", "entityid", "guid" ])
-      THROW NEW Exception("Illegal celltype '" || type || "'");
+      THROW NEW Exception(`Illegal celltype '${type}', must be one of: 'authobjectid', 'entityid', 'guid'`);
 
     RECORD ARRAY filters;
 
