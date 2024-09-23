@@ -32,8 +32,6 @@ interface RTEAttributes extends ComponentStandardAttributes, ValueMessage {
   margins: string | undefined;
   preloadedcss: {
     addcss: Array<{
-      // Used to send an empty response on the 'dirty' async message, so the comm layer gets an ack
-      // on the message, which the test framework needs to complete 'waits: ["tollium"]'
       type: string;
       src: string;
     }>;
@@ -166,7 +164,7 @@ export default class ObjRTE extends ComponentBase {
         + '.' + data.cssinstance + ' p { padding:0; margin: 0}\n';
     }
 
-    // Build our DOM (buoldNode)
+    // Build our DOM (buildNode)
     this.node = <div data-name={this.name} propTodd={this} />;
     this.rte = rteapi.createRTE(this.node, this.rteoptions);
     if (this.rteoptions.structure)
@@ -182,9 +180,9 @@ export default class ObjRTE extends ComponentBase {
     ["Top", "Right", "Bottom", "Left"].forEach(bordername => {
       // 1px is the default from designfiles css
 
-      //@ts-expect-error this needs a bit fo cleanup
+      //@ts-expect-error this needs a bit of cleanup
       if (this.borders && !this.borders[bordername.toLowerCase()])
-        //@ts-expect-error this needs a bit fo cleanup
+        //@ts-expect-error this needs a bit of cleanup
         this.node.style[`border${bordername}Width`] = "0px";
     });
 
