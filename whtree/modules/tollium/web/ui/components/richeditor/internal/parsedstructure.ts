@@ -37,7 +37,9 @@ export type ExternalBlockStyle = {
 export interface CellStyle {
   tag: string;
   /** @deprecated Shouldn't offer the unparsed definition */
-  def: unknown;
+  def: { //unknown;
+    title: string;
+  };
 }
 
 interface ExternalCellStyle {

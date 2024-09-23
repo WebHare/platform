@@ -53,7 +53,7 @@ class PhotoPoint extends SurfaceTool {
       onApply: () => this.apply()
     });
 
-    this.deleteButton = new ToolbarButton(this.refPointPanel, {
+    this.deleteButton = new ToolbarButton({
       label: getTid("tollium:components.imgedit.editor.delrefpoint"),
       icon: toddImages.createImage("tollium:actions/delete", 24, 24, "b"),
       onExecute: () => this.clearPoint()
@@ -227,7 +227,7 @@ export function addRefPointButton(toolbar: Toolbar, surface: ImageSurface, optio
   const pointer = new PhotoPoint(surface, options);
 
   buttonicon = toddImages.createImage("tollium:actions/reference", 24, 24, "b");
-  const button = new ToolbarButton(toolbar, {
+  const button = new ToolbarButton({
     label: getTid("tollium:components.imgedit.editor.refpoint"),
     icon: buttonicon
   });

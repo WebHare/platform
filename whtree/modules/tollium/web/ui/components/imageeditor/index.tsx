@@ -122,7 +122,7 @@ export class ImageEditor {
     // Add toolbar buttons
     this.undoButton = ImageSurface.addUndoButton(this.toolbar, this.surface).button;
     this.redoButton = ImageSurface.addRedoButton(this.toolbar, this.surface).button;
-    this.toolbar.addButton(new ToolbarSeparator(this.toolbar));
+    this.toolbar.addButton(new ToolbarSeparator);
 
     this.cropper = addImageCropButton(this.toolbar, this.surface, {
       fixedSize: this.cropSize || undefined,

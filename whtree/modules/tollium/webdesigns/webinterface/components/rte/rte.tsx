@@ -1,5 +1,5 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+/* xeslint-disable */
+/// x@ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
@@ -12,8 +12,47 @@ import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
 import getTid from "@mod-tollium/js/gettid";
 import type { EditorBaseOptions } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type { Borders } from '../base/tools';
+import type { ExternalStructureDef } from '@mod-tollium/web/ui/components/richeditor/internal/parsedstructure';
+import type { PreloadedCSS } from '@mod-tollium/web/ui/components/richeditor/internal/styleloader';
+import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEContextMenuEvent, RTEWidget } from '@mod-tollium/web/ui/components/richeditor/internal/types';
+import type StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
 require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TODO use our own language section.
 
+interface ValueMessage {
+  value: string;
+  valuegeneration: number;
+  valuedirtycount: number;
+}
+interface RTEAttributes extends ComponentStandardAttributes, ValueMessage {
+  readonly: boolean | undefined;
+  allowtags: string[];
+  margins: string | undefined;
+  preloadedcss: {
+    addcss: Array<{
+      type: string;
+      src: string;
+    }>;
+  } | null | undefined;
+  cssinstance: string | null | undefined;
+  htmlclass: string | undefined;
+  bodyclass: string | undefined;
+  csscode: string | undefined;
+  required: boolean;
+  areatype: string;
+  allowinspect: boolean;
+  borders: Borders;
+  showcounter: boolean;
+  countmethod: string;
+  toplaintextmethod: GetPlainTextMethod;
+  toplaintextmethodoptions: GetPlainTextOptions;
+  warnlength: number;
+  allownewembeddedobjects: boolean;
+  allowvideo: boolean;
+  structure: ExternalStructureDef | null;
+}
 
 /* our new dirty/change protocol:
   - When the server initializes us, we get a value and a generation count (0).
@@ -33,39 +72,51 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TOD
 */
 
 export default class ObjRTE extends ComponentBase {
-  callbacks = new Map<number, (result: unknown) => void>;
+  callbacks = new Map<string, (result: unknown) => void>;
   rteoptions: Partial<EditorBaseOptions>;
   isemaileditor: boolean;
 
-  constructor(parentcomp, data) {
+  rte: ReturnType<typeof rteapi.createRTE>;
+  declare node: HTMLElement; //declare that it will always be set
+
+  // actions = [];
+  borders: Borders;
+  hint = '';
+  required = false;
+  valueid = '';
+
+  /// Selection for enabled actions ()
+  _selectionflags: Array<Record<string, boolean>> = [{}];
+  /// The untouched content as sent by the server
+  untouchedcontent: string | null = null;
+  /// Original restructured HTML content
+  restructuredcontent = '';
+
+  _showcounter = false;
+  _countmethod = "";
+  _toplaintextmethod: GetPlainTextMethod;
+  _toplaintextmethodoptions: RTEAttributes["toplaintextmethodoptions"] = [];
+  _textwarnlength = 0;
+
+  _counter?: Counter;
+
+  _pendingactiontargetseq = 0;
+  _pendingactiontargets: Array<{
+    id: number;
+    target: HTMLElement;
+  }> = [];
+
+  allowinspect: boolean;
+  _warnlength: number;
+  valuegeneration = 0;
+  valuedirtycount = 0;
+
+
+  constructor(parentcomp: ToddCompBase | null, data: RTEAttributes) {
     super(parentcomp, data);
     this.componenttype = "rte";
-    this.rte = null;
-    this.actions = [];
-    this.borders = null;
-    this.hint = '';
-    this.required = false;
-    this.valueid = '';
 
-    /// Selection for enabled actions ()
-    this._selectionflags = [{}];
-    /// The untouched content as sent by the server
-    this.untouchedcontent = null;
-    /// Original restructured HTML content
-    this.restructuredcontent = null;
-
-    this._showcounter = false;
-    this._countmethod = "";
-    this._toplaintextmethod = "";
-    this._toplaintextmethodoptions = [];
-    this._textwarnlength = 0;
-
-    this._counter = 0;
-
-    this._pendingactiontargetseq = 0;
-    this._pendingactiontargets = [];
-
-    this.hint = data.hint;
+    this.hint = data.hint || '';
     this.required = data.required;
     this.isemaileditor = data.areatype === 'email'; //FIXME gaat dit nbu wel via 'type' of 'areatype' ?
     this.borders = data.borders;
@@ -113,8 +164,33 @@ export default class ObjRTE extends ComponentBase {
         + '.' + data.cssinstance + ' p { padding:0; margin: 0}\n';
     }
 
-    // Build our DOM
-    this.buildNode();
+    // Build our DOM (buildNode)
+    this.node = <div data-name={this.name} propTodd={this} />;
+    this.rte = rteapi.createRTE(this.node, this.rteoptions);
+    if (this.rteoptions.structure)
+      this.node.classList.add("structured");
+
+    this.rte.onStateChange(() => this._onRTEStateChange());
+
+    if (this._showcounter) {
+      this._counter = new Counter({ count: 0, limit: this._warnlength, focusnode: this.node });
+      this.node.appendChild(this._counter.node);
+    }
+
+    ["Top", "Right", "Bottom", "Left"].forEach(bordername => {
+      // 1px is the default from designfiles css
+
+      //@ts-expect-error this needs a bit of cleanup
+      if (this.borders && !this.borders[bordername.toLowerCase()])
+        //@ts-expect-error this needs a bit of cleanup
+        this.node.style[`border${bordername}Width`] = "0px";
+    });
+
+    this.node.propTodd = this;
+    this.node.addEventListener("wh:richeditor-action", evt => this._doExecuteAction(evt));
+    this.node.addEventListener("wh:richeditor-dirty", evt => this._gotDirty());
+    this.node.addEventListener("wh:richeditor-contextmenu", evt => this._gotContextMenu(evt));
+
     this.setValue(data);
   }
 
@@ -123,7 +199,7 @@ export default class ObjRTE extends ComponentBase {
     super.destroy();
   }
 
-  static asyncTransformMessage(message) {
+  static asyncTransformMessage(message: { cssurl?: string; preloadedcss?: PreloadedCSS }) {
     if (message.cssurl) {
       const preload = rteapi.preloadCSS([message.cssurl]);
       message.preloadedcss = preload;
@@ -136,8 +212,7 @@ export default class ObjRTE extends ComponentBase {
   * Property getters & setters
   */
 
-  setValue(newvalue) //set from server
-  {
+  setValue(newvalue: ValueMessage) {
     // Only apply updates if the untouched content changed, or the valuegeneration is newer
     if (!this.untouchedcontent || this.untouchedcontent !== newvalue.value || newvalue.valuegeneration > this.valuegeneration) {
       this.untouchedcontent = newvalue.value;
@@ -154,8 +229,7 @@ export default class ObjRTE extends ComponentBase {
   getSubmitValue() {
     /* We can't become async again unless we figure out how to fix unload-autosave then. */
     const suggestedreturnvalue = this.rte.getValue();
-    if (suggestedreturnvalue === this.restructuredcontent) //no material change ( FIXME Let the RTD implement this)
-    {
+    if (suggestedreturnvalue === this.restructuredcontent) { //no material change ( FIXME Let the RTD implement this)
       console.log("Returning untouched value");
       return this.untouchedcontent;
     } else {
@@ -164,36 +238,6 @@ export default class ObjRTE extends ComponentBase {
     }
   }
 
-
-  /****************************************************************************************************************************
-  * DOM
-  */
-
-  // Build the DOM node(s) for this component
-  buildNode() {
-    this.node = <div data-name={this.name} propTodd={this} />;
-    this.rte = rteapi.createRTE(this.node, this.rteoptions);
-    if (this.rteoptions.structure)
-      this.node.classList.add("structured");
-
-    this.rte.getBody().addEventListener("wh:richeditor-statechange", () => this._onRTEStateChange());
-
-    if (this._showcounter) {
-      this._counter = new Counter({ count: 0, limit: this._warnlength, focusnode: this.node });
-      this.node.appendChild(this._counter.node);
-    }
-
-    ["Top", "Right", "Bottom", "Left"].forEach(bordername => {
-      // 1px is the default from designfiles css
-      if (this.borders && !this.borders[bordername.toLowerCase()])
-        this.node.style[`border${bordername}Width`] = "0px";
-    });
-
-    this.node.propTodd = this;
-    this.node.addEventListener("wh:richeditor-action", evt => this._doExecuteAction(evt));
-    this.node.addEventListener("wh:richeditor-dirty", evt => this._gotDirty());
-    this.node.addEventListener("wh:richeditor-contextmenu", evt => this._gotContextMenu(evt));
-  }
 
   /****************************************************************************************************************************
   * Dimensions
@@ -226,6 +270,7 @@ export default class ObjRTE extends ComponentBase {
   /****************************************************************************************************************************
   * Events
   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _doExecuteAction(event: any) {
     const action = event.detail.action;
     let messagetag = '';
@@ -243,8 +288,7 @@ export default class ObjRTE extends ComponentBase {
       //FIXME RTE should always send us getTargetInfo reslt...
       const affectednodeinfo = event.detail.actiontargetinfo || rteapi.getTargetInfo(event.detail.actiontarget);
 
-      if (affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
-      {
+      if (affectednodeinfo) { //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
         //preserve the actiontarget - the RTE will need it when the response comes in
         const actionid = ++this._pendingactiontargetseq;
         this._pendingactiontargets.push({ id: actionid, target: affectednodeinfo });
@@ -263,13 +307,13 @@ export default class ObjRTE extends ComponentBase {
 
   _onRTEStateChange() {
     const selstate = this.rte ? this.rte.getSelectionState() : null;
-    const actionstate = selstate ? selstate.actionstate : {};
+    const actionstate: ActionState = selstate ? selstate.actionstate : {};
 
     let have_change = false;
 
     const row = this._selectionflags[0];
     Object.keys(actionstate).forEach(key => {
-      const available = actionstate[key].available || false;
+      const available = actionstate[key]?.available || false;
       if (row[key] !== available) {
         have_change = true;
         row[key] = available;
@@ -278,7 +322,10 @@ export default class ObjRTE extends ComponentBase {
 
     if (have_change) {
       // Update enabled status for actions
+      //FIXME noone is Adding to this.actions ?
+      /*
       this.actions.forEach(action => action.checkEnabled());
+      */
     }
 
     if (this._showcounter)
@@ -286,7 +333,7 @@ export default class ObjRTE extends ComponentBase {
   }
 
   _updateCounter() {
-    if (!this.rte)
+    if (!this._counter)
       return;
 
     let count = 0;
@@ -295,21 +342,17 @@ export default class ObjRTE extends ComponentBase {
     if (this._countmethod === "plaintext:characters")
       count = text.length;
     else if (this._countmethod === "plaintext:bytes")
-      count = getUTF8Length(text.length);
+      count = getUTF8Length(text);
 
     this._counter.update({ count: count });
   }
 
-  _gotContextMenu(event) {
+  _gotContextMenu(event: RTEContextMenuEvent) {
     if (this.allowinspect && event.detail.actiontarget && event.detail.actiontarget.type === 'embeddedobject')
       event.detail.menuitems.push({ action: "webhare-inspect", title: getTid("tollium:components.rte.inspect") });
   }
 
-  onMsgInsertAnchor(data) {
-    this.rte.getEditor().setAnchor(data.name);
-  }
-
-  onMsgUpdateProps2(data) {
+  onMsgUpdateProps2(data: { actionid: number; settings: object }) {
     const actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id === data.actionid);
     if (actiontargetidx === -1) {
       console.log("Received update for unknown actiontarget #" + data.actionid, data);
@@ -325,11 +368,11 @@ export default class ObjRTE extends ComponentBase {
     this.rte.updateTarget(actiontarget, data.settings);
   }
 
-  onMsgUpdateValue(data) {
+  onMsgUpdateValue(data: ValueMessage) {
     this.setValue(data);
   }
 
-  onMsgClearDirty(data) {
+  onMsgClearDirty(data: { valuedirtycount: number; valuegeneration: number }) {
     if (data.valuegeneration === this.valuegeneration && data.valuedirtycount === this.valuedirtycount) {
       this.rte.clearDirty();
     } else {
@@ -356,28 +399,28 @@ export default class ObjRTE extends ComponentBase {
     this.resolveCallback(data.messagetag, null);
   }
 
-  onMsgInsertHyperlink(data) {
+  onMsgInsertHyperlink(data: { url: string; target: string }) {
     this.rte.getEditor().insertHyperlink(data.url, { target: data.target });
   }
 
-  onMsgInsertEmbeddedObject(data: { messagetag?: string; widget: object }) {
+  onMsgInsertEmbeddedObject(data: { messagetag?: string; widget: RTEWidget }) {
     if (data.messagetag) {
       this.resolveCallback(data.messagetag, data.widget);
       return;
     }
 
-    this.rte.getEditor().insertEmbeddedObject(data.widget);
+    (this.rte.getEditor() as StructuredEditor).insertEmbeddedObject(data.widget);
   }
 
-  onMsgInsertImage(data) {
+  onMsgInsertImage(data: { link: string; width: number; height: number }) {
     this.rte.getEditor().insertImage(data.link, data.width, data.height);
   }
 
-  onMsgUpdateEnabled(data) {
+  onMsgUpdateEnabled(data: { value: boolean }) {
     this.rte.setEnabled(data.value);
   }
 
-  onMsgUpdateClasses(data) {
+  onMsgUpdateClasses(data: { htmlclass: string; bodyclass: string }) {
     this.rte.setHTMLClass(data.htmlclass);
     this.rte.setBodyClass(data.bodyclass);
   }

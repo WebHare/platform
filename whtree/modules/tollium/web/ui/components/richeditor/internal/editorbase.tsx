@@ -24,10 +24,11 @@ import * as domlevel from "./domlevel";
 import * as support from "./support";
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
-import type { ParsedStructure, BlockStyle, ExternalStructureDef } from "./parsedstructure";
+import type { BlockStyle, ExternalStructureDef } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
-
+import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
+import { RTECompBase } from './rtecompbase';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -99,7 +100,7 @@ function GetNodeXML(node: Node, inner?: boolean): string {
       if (!inner)
         s.push('</body></html>');
       break;
-    case 1: // element
+    case 1: { // element
       const elt = node as Element;
       if (!elt.childNodes.length) {
         // Don't export the bogus Mozilla line break node
@@ -118,6 +119,7 @@ function GetNodeXML(node: Node, inner?: boolean): string {
           s.push('</' + elt.nodeName.toLowerCase() + '>');
       }
       break;
+    }
     case 3: // text
       if (node.nodeValue)
         s.push(encodeString(node.nodeValue, 'attribute'));
@@ -282,7 +284,7 @@ class UndoLock {
     if (this._undoitem) {
       const closedlock = this._undoitem.locks.pop();
       if (closedlock !== this)
-        throw new Error(`Inner lock was not closed!, this lock stack:`, this.stack, `inner lock stack:`, closedlock.stack);
+        throw new Error(`Inner lock was not closed!, this lock stack: ${this.stack} inner lock stack ${closedlock?.stack}`);
 
       if (!this._undoitem.locks.length)
         this._undoitem.finish();
@@ -340,12 +342,10 @@ export interface EditorBaseOptions {
   language: string;
 }
 
-export default class EditorBase {
+export default class EditorBase extends RTECompBase implements RTEComponent {
   structure: ExternalStructureDef | undefined;
   blockroots: string[];
   lastselectionstate = new TextFormattingState;
-  options: EditorBaseOptions;
-  container;
   toolbar = null;
   addcss = [];
   /** Whether document is dirty. Initial set to true to avoid firing events during init */
@@ -354,40 +354,11 @@ export default class EditorBase {
   /** URLs of images we have already seen and stored on the server */
   knownimages: string[] = [];
   language: string;
+  bodydiv;
 
   constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
-    this.container = container;
-    this.options = {
-      allowtags: null,
-      log: false,
-      contentareawidth: null,
-      imgloadplaceholder: null, //image loader GIF image to use (defaults to embedded spinning loader)
-      structure: null,
-      hidebuttons: [],
-      content: '',
-      enabled: true,
-      readonly: false,
-      //, actionhandler: null
-      cssinstance: null,
-      csslinks: null,
-      csscode: '',
-      preloadedcss: null,
-      breakupnodes: [],
-      htmlclass: '',
-      bodyclass: '',
-
-      contentarea: true, //display a content area if possible
-      editembeddedobjects: true,
-      allowundo: Boolean(options?.structure),
-      margins: 'compact',
-      propertiesaction: false, //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
-      toolbarlayout: null,
-      language: 'en', //TODO get default language from document lang and/or gettidLanguage?
-      ...options
-    };
-
-    if (this.container.classList.contains("wh-rtd__editor"))
-      throw new Error("Duplicate RTD initialization");
+    const originalcontent = [...container.childNodes];
+    super(container, options);
 
     if (dompack.debugflags.rte)
       console.log("[rte] initializing rtd", this.container, this.options);
@@ -402,32 +373,16 @@ export default class EditorBase {
     if (this.options.csscode)
       this.addcss.push({ type: "style", src: this.options.csscode });
 
-    this.toolbarnode = dompack.create("div");
-    //the 'style scope' node is the point from which we apply the rewritten css. it needs to be the immediate parent of the wh-rtd__html node
-    this.stylescopenode = dompack.create("div", { className: "wh-rtd__stylescope " + (this.options.cssinstance || '') });
-
     //Create two divs inside the container, which will play the role of HTML and BODY
     this.bodydiv = dompack.create("div", {
       className: "wh-rtd wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode wh-rtd-theme-default " + this.options.bodyclass,
       on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) },
-      childNodes: [...this.container.childNodes]
+      childNodes: originalcontent
     });
-    this.htmldiv = dompack.create("div", {
-      className: "wh-rtd-editor wh-rtd__html wh-rtd-editor-htmlnode " + this.options.htmlclass,
-      childNodes: [this.bodydiv]
-    });
-    if (this.options.structure)
-      this.container.classList.add("wh-rtd--structured");
+    this.htmldiv.append(this.bodydiv);
 
     if (browser.getName() === "safari" && browser.getVersion() < 13)
       this.bodydiv.classList.add("wh-rtd__body--safariscrollfix");
-
-    dompack.empty(this.container);
-    this.container.classList.add("wh-rtd__editor");
-    this.container.appendChild(this.toolbarnode);
-
-    this.stylescopenode.appendChild(this.htmldiv);
-    this.container.appendChild(this.stylescopenode);
 
     //Fixes a Firefox repositioning issue, tested by richdoc.teststructured-scroll - as of 2022-11-29 we still need this workaround
     this.scrollmonitor = new scrollmonitor.Monitor(this.container);
@@ -436,25 +391,6 @@ export default class EditorBase {
     this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
     this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
     this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
-
-    const toolbaropts = {
-      hidebuttons: this.options.hidebuttons,
-      allowtags: this.options.allowtags,
-      layout: this.options.toolbarlayout || getDefaultToolbarLayout()
-    };
-
-    if (this.options.structure) {
-      toolbaropts.hidebuttons.push('action-clearformatting');
-    } else {
-      toolbaropts.hidebuttons.push('p-class', 'action-showformatting', 'object-insert', 'object-video', 'table');
-      toolbaropts.compact = true;
-    }
-    if (!this.options.propertiesaction)
-      toolbaropts.hidebuttons.push('action-properties');
-
-    this.toolbaropts = toolbaropts; //preserve until constructorTail. we can probably get rid of this property by further cleaning up construction
-
-    this.toolbarnode.classList.add("wh-rtd-toolbar");
 
     if (this.options.readonly)
       this.toolbarnode.style.display = "none";
@@ -832,8 +768,12 @@ export default class EditorBase {
   // Public API
   //
 
-  getBody(): Element {
+  getBody(): HTMLElement {
     return this.bodydiv;
+  }
+
+  onStateChange(callback: () => void) {
+    this.getBody().addEventListener("wh:richeditor-statechange", callback);
   }
 
   qS<T extends HTMLElement>(selector: string): T | null {
@@ -857,23 +797,7 @@ export default class EditorBase {
   }
 
   getValue(): string {
-    const returntree = this.getBody().cloneNode(true);
-
-    //clean embedded objects
-    domlevel.queryEmbeddedObjects(returntree).forEach(node => {
-      node.contentEditable = "inherit";
-      dompack.empty(node);
-    });
-
-    //clean table editors
-    tablesupport.cleanupTree(returntree);
-
-    dompack.qSA(returntree, "*[tabindex], *[todd-savedtabindex]").forEach(item => {
-      item.removeAttribute("tabindex");
-      item.removeAttribute("todd-savedtabindex");
-    });
-
-    return returntree.innerHTML;
+    return support.getCleanValue(this.getBody());
   }
 
   setValue(val: string) {
@@ -949,7 +873,7 @@ export default class EditorBase {
     this.options.bodyclass = bodyclass;
   }
 
-  getPlainText(method, options = []) {
+  getPlainText(method: GetPlainTextMethod, options: GetPlainTextOptions = []): string {
     switch (method) {
       case "converthtmltoplaintext":
         {
@@ -959,7 +883,7 @@ export default class EditorBase {
         }
       case "textcontent":
         {
-          return this.bodydiv.textContent;
+          return this.bodydiv.textContent || '';
         }
     }
     throw new Error("Unsupported method for plaintext conversion: " + method);
@@ -2165,7 +2089,7 @@ export default class EditorBase {
     this._gotStateChange();
   }
 
-  getSelectionState(forceupdate) {
+  getSelectionState(forceupdate?: boolean) {
     if (forceupdate) {
       this.lastselectionstate = this.getFormattingStateForRange(this.getSelectionRange());
       this.updateTableEditors();
@@ -2987,8 +2911,7 @@ export default class EditorBase {
 
     this.executeDefaultPropertiesAction({ target: node, detail: action });
   }
-
-  executeAction(action, actiontarget) {
+  executeAction(action: string | { action: string, size?: { x: number, y: number } }, actiontarget?: TargetInfo | null): void {
     //actiontarget describes the target, and is currently only set for context menu actions but probably every action route should add this
 
     // Fallback for single string argument call without extra parameters - apparently everyone but the 'table' action doe sthis
@@ -3220,6 +3143,14 @@ export default class EditorBase {
   requireBottomParagraph() {
     // overridden by structured editor
   }
+
+  getAvailableStyles(selstate: TextFormattingState) {
+    const editor = this.getEditor();
+    if (!editor)
+      return [];
+
+    return editor.getAvailableBlockStyles(selstate);
+  }
 }
 
 export class TextFormattingState {
@@ -3235,12 +3166,14 @@ export class TextFormattingState {
   textstyles = [];
   propstarget = null;
 
-  actionstate = {};
+  actionstate: ActionState = {};
   actionparent = null; // nearest ol/ul/td/th
 
   tables: HTMLTableElement[] = [];
   tablestyle: BlockStyle | null = null;
   blockstyle: BlockStyle | null = null;
+
+  cellparent: HTMLTableCellElement | null = null;
 
   hasTextStyle(nodeName) {
     return this.getTextStyleByNodeName(nodeName) !== null;

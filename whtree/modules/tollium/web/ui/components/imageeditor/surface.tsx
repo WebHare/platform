@@ -472,7 +472,7 @@ export class ImageSurface {
   }
 
   static addUndoButton(toolbar: Toolbar, surface: ImageSurface) {
-    const button = new ToolbarButton(toolbar, {
+    const button = new ToolbarButton({
       label: getTid("~undo"),
       icon: toddImages.createImage("tollium:actions/undo", 24, 24, "b"),
       onExecute: () => surface.popUndo(),
@@ -484,7 +484,7 @@ export class ImageSurface {
   }
 
   static addRedoButton(toolbar: Toolbar, surface: ImageSurface) {
-    const button = new ToolbarButton(toolbar, {
+    const button = new ToolbarButton({
       label: getTid("~redo"),
       icon: toddImages.createImage("tollium:actions/redo", 24, 24, "b"),
       onExecute: () => surface.popRedo(),

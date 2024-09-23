@@ -16,6 +16,7 @@ import * as domlevel from "./domlevel";
 import EditorBase, { TextFormattingState } from './editorbase';
 import PasteCleanup from './pastecleanup';
 import type { RTEWidget } from "./types";
+import { parseEmbeddedObjectNode } from "./support";
 
 //debug flags
 const debugicc = debugFlags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
@@ -1240,25 +1241,8 @@ export default class StructuredEditor extends EditorBase {
     if (![1, 11].includes(node.nodeType))
       return null;
 
-    if (domlevel.isEmbeddedObject(node)) {
-      let htmltext = node.dataset.innerhtmlContents || '';
-      if (!htmltext) //we may have already rendered a preview (reparse of existing code or pasted content)
-      {
-        const currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
-        if (currentpreview)
-          htmltext = currentpreview.innerHTML;
-      }
-
-      return {
-        type: 'embeddedobject',
-        instanceref: node.getAttribute("data-instanceref"),
-        htmltext: htmltext,
-        typetext: node.getAttribute("data-widget-typetext") || '',
-        canedit: node.classList.contains("wh-rtd-embeddedobject--editable"),
-        embedtype: node.nodeName === 'SPAN' ? 'inline' : 'block',
-        wide: node.hasAttribute("data-widget-wide")
-      };
-    }
+    if (domlevel.isEmbeddedObject(node))
+      return parseEmbeddedObjectNode(node);
 
     let tagmatch = null;
     let classmatch = null;
@@ -2065,7 +2049,7 @@ export default class StructuredEditor extends EditorBase {
       @param forced - If not forced, and all selected blocks are of the same list style as the new blockstyle, everything
          is changed to the default blockstyle.
   */
-  setSelectionBlockStyle(newblockstyle, forced) {
+  setSelectionBlockStyle(newblockstyle, forced?: boolean) {
     const undolock = this.getUndoLock();
 
     let blockstyle = newblockstyle;

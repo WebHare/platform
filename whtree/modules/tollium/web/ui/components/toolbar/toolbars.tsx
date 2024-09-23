@@ -2,7 +2,7 @@ import * as dompack from "dompack";
 
 import "./toolbars.css";
 
-type ToolbarButtonOptions = {
+export type ToolbarButtonOptions = {
   label?: string;
   classNames?: string[];
   hint?: string;
@@ -14,11 +14,9 @@ type ToolbarButtonOptions = {
 
 export class ToolbarButton {
   node: HTMLElement;
-  toolbar: ToolbarContainer;
   options: ToolbarButtonOptions;
 
-  constructor(toolbar: ToolbarContainer, options?: ToolbarButtonOptions) {
-    this.toolbar = toolbar;
+  constructor(options?: ToolbarButtonOptions) {
     this.options = {
       enabled: true,
       pressed: false,
@@ -64,8 +62,8 @@ export class ToolbarButton {
 }
 
 export class ToolbarSeparator extends ToolbarButton {
-  constructor(toolbar: ToolbarContainer, options?: ToolbarButtonOptions) {
-    super(toolbar, options);
+  constructor(options?: ToolbarButtonOptions) {
+    super(options);
     this.node = dompack.create("div", { "className": ["wh-toolbar-separator"].concat(this.options.classNames || []).join(" ") });
   }
 }
@@ -79,6 +77,8 @@ class ToolbarContainer {
     throw new Error("addComponent not implemented");
   }
 }
+
+export type { ToolbarContainer };
 
 export type ToolbarPanelOptions = {
   onClose?: EventListenerOrEventListenerObject;
