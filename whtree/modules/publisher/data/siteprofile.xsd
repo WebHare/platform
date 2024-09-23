@@ -470,6 +470,13 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
+          <xs:attribute name="requireright" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>
+                Require a specific right to set this option. Defaults to system:sysop. Rights that require a target are checked against the fsobject for which the settings are opened
+              </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
     </xs:sequence>
