@@ -3,6 +3,7 @@
 /** @topic modules/config
 */
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -43,7 +44,7 @@ STRING FUNCTION GetNodeFromKey(STRING name)
 
 PUBLIC MACRO __MockRegistryKey(STRING confkey, VARIANT value) //used by the test framework
 {
-  RECORD keyinfo := __GetRegistryKey(confkey, FALSE);
+  RECORD keyinfo := __GetRegistryKey(confkey, FALSE, 0, 0);
   STRING newvalue := EncodeHSON(value);
   STRING newdata := Length(newvalue) <= 4096 ? newvalue : "";
   BLOB newblob := Length(newvalue) <= 4096 ? DEFAULT BLOB : StringToBlob(newvalue);
@@ -66,7 +67,7 @@ PUBLIC STRING ARRAY FUNCTION GetRegistryKeyEventMasks(STRING ARRAY keys)
            FROM ToRecordArray(keys, "keyname");
 }
 
-PUBLIC RECORD FUNCTION __GetRegistryKey(STRING confkey, BOOLEAN loadkey)
+PUBLIC RECORD FUNCTION __GetRegistryKey(STRING confkey, BOOLEAN loadkey, INTEGER cachettl, INTEGER negative_cachettl)
 {
   confkey := FixupRegKey(confkey);
 
@@ -84,7 +85,6 @@ PUBLIC RECORD FUNCTION __GetRegistryKey(STRING confkey, BOOLEAN loadkey)
       curkey := SELECT * FROM system.flatregistry WHERE namehash=hash;
   }
 
-
   RECORD result := [ id := RecordExists(curkey) ? curkey.id : 0
                    , eventname := "system:registry." || nodename
                    , name := confkey
@@ -97,8 +97,19 @@ PUBLIC RECORD FUNCTION __GetRegistryKey(STRING confkey, BOOLEAN loadkey)
     INSERT CELL value := ReadAnyFromDatabase(curkey.data, curkey.blobdata)
            INTO result;
   }
+
+  IF(cachettl > 0)
+  {
+    BOOLEAN gotvalue := CellExists(result, 'value') AND NOT IsDefaultValue(result.value);
+    RETURN [ value := result
+           , ttl := gotvalue ? cachettl : negative_cachettl
+           , eventmasks := GetRegistryKeyEventMasks([confkey])
+           ];
+  }
+
   RETURN result;
 }
+
 PUBLIC MACRO __SetRegistryKey(RECORD keyinfo, VARIANT value)
 {
   STRING newvalue := EncodeHSON(value);
@@ -138,11 +149,15 @@ PUBLIC MACRO __SetRegistryKey(RECORD keyinfo, VARIANT value)
 */
 PUBLIC VARIANT FUNCTION ReadRegistryKey(STRING confkey, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ fallback := "" ], options, [ optional := ["fallback"], notypecheck := ["fallback" ]]);
+  options := ValidateOptions( [ fallback := "", cachettl := 0 ], options, [ optional := ["fallback"], notypecheck := ["fallback" ]]);
   IF(confkey LIKE "<*" AND NOT CellExists(options,'fallback'))
     THROW NEW Exception(`Reading a user registry requires you to set a fallback value`); // as you can't initialize it
 
-  RECORD keyinfo := __GetRegistryKey(confkey, TRUE);
+  RECORD keyinfo;
+  IF(options.cachettl > 0) //with cachettl set, __GetRegistryKey returns a GetAdhocCached record
+    keyinfo := GetAdhocCached(CELL[confkey], PTR __GetRegistryKey(confkey, TRUE, options.cachettl, options.cachettl));
+  ELSE
+    keyinfo :=  __GetRegistryKey(confkey, TRUE, 0, 0);
 
   IF(keyinfo.id = 0)
     IF(CellExists(options, 'fallback'))
@@ -188,7 +203,7 @@ PUBLIC RECORD ARRAY FUNCTION ReadRegistryKeysByMask(STRING keymask)
 */
 PUBLIC MACRO DeleteRegistryKey(STRING confkey)
 {
-  RECORD keyinfo := __GetRegistryKey(confkey, FALSE);
+  RECORD keyinfo := __GetRegistryKey(confkey, FALSE, 0, 0);
   IF(keyinfo.id != 0)
   {
     IF(IsAnonymousConfKey(keyinfo.name))
@@ -289,7 +304,7 @@ PUBLIC MACRO WriteRegistryKey(STRING confkey, VARIANT newval, RECORD options DEF
   IF(confkey LIKE "<*" AND NOT options.createifneeded AND NOT options.initialcreate)
     THROW NEW Exception(`Writing a user registry requires you to set either createifneeded or initialcreate`); // as you can't initialize it
 
-  RECORD keyinfo := __GetRegistryKey(confkey, TRUE);
+  RECORD keyinfo := __GetRegistryKey(confkey, TRUE, 0, 0);
   IF(options.initialcreate AND keyinfo.id != 0)
     RETURN;
   IF(keyinfo.id = 0 AND NOT options.createifneeded AND NOT options.initialcreate)

@@ -67,7 +67,13 @@
 
   <wrdschemas>
     <!-- TODO need 'abstract' schema. -->
-    <schema autocreate="false" tag="basewrdschema" definitionfile="mod::wrd/data/wrdschemas/base.wrdschema.xml" title="Base WRD schema definition" />
+    <schema tag="basewrdschema" autocreate="false" definitionfile="mod::wrd/data/wrdschemas/base.wrdschema.xml" title="Base WRD schema definition" />
   </wrdschemas>
+
+  <moduleregistry>
+    <node name="cache">
+      <string name="defaultimageformat" />
+    </node>
+  </moduleregistry>
 
 </module>
