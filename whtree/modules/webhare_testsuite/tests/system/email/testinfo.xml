@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="test_mailersmtp_performance.whscr">
   <test script="test_mailerlib.whscr" />
+  <test engine="wasm" name="test_mailerlib_wasm" script="test_mailerlib.whscr" />
   <test script="test_mailersmtp.whscr" />
   <test script="test_mailerrules.whscr" />
   <test script="test_mailer_restructure.whscr" />
