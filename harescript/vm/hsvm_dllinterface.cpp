@@ -1202,7 +1202,8 @@ int HSVM_CreateStream (HSVM *vm)
         std::string blobsource = "createstream";
 #ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
-        blobsource += "_" + group->GetJobManager()->GetGroupId(group);
+        if (group->GetJobManager())
+            blobsource += "_" + group->GetJobManager()->GetGroupId(group);
 #endif
 
         newfile->file = VM.GetBlobManager().CreateTempStream(&newfile->name, blobsource);
