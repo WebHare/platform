@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -36,25 +37,37 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
   MACRO ApplySettings()
   {
     STRING ARRAY debugopts;
+    STRING backurl := UnpackURL(GetRequestURL()).origin || "/" || GetWebVariable("b");
     IF(GetWebVariable("submit") != "") //pressed submit
     {
-      debugopts := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE name = "debug";
-      STRING ARRAY extraopts := Tokenize(GetWebVariable("extraoptions")," ");
-      FOREVERY(STRING opt FROM extraopts)
+      STRING ARRAY currentopts := Tokenize(GetWebCookie("wh-debug"), ".");
+      RECORD fromfile := LookupPublisherUrl(backurl);
+      INTEGER targetobject := fromfile.file ?? fromfile.folder ?? whconstant_whfsid_repository; //1 = repository, so we at least get all global options
+
+      RECORD optresult := this->GetOptions(targetobject);
+      debugopts := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE name = "debug" AND value IN (SELECT AS STRING ARRAY tag FROM optresult.options);
+      IF(this->issupervisor)
       {
-        IF(opt LIKE "*.*")
-          THROW NEW Exception("Debugoptions may not contain dots");
-        IF(opt!="")
-          INSERT opt INTO debugopts AT END;
+        STRING ARRAY extraopts := Tokenize(GetWebVariable("extraoptions")," ");
+        FOREVERY(STRING opt FROM extraopts)
+        {
+          IF(opt LIKE "*.*")
+            THROW NEW Exception("Debugoptions may not contain dots");
+          IF(opt!="")
+            INSERT opt INTO debugopts AT END;
+        }
       }
 
-      STRING ARRAY webserverskiptry := ArrayDelete(Tokenize(GetWebVariable("webserverskiptries"), " "), [ "" ]);
-      IF (IsValueSet(webserverskiptry))
+      IF(this->issupervisor)
       {
-        STRING opt := `wst=${Detokenize(webserverskiptry, ",")}`;
-        IF(opt LIKE "*.*")
-          THROW NEW Exception("Debugoptions may not contain dots");
-        INSERT opt INTO debugopts AT END;
+        STRING ARRAY webserverskiptry := ArrayDelete(Tokenize(GetWebVariable("webserverskiptries"), " "), [ "" ]);
+        IF (IsValueSet(webserverskiptry))
+        {
+          STRING opt := `wst=${Detokenize(webserverskiptry, ",")}`;
+          IF(opt LIKE "*.*")
+            THROW NEW Exception("Debugoptions may not contain dots");
+          INSERT opt INTO debugopts AT END;
+        }
       }
     }
 
@@ -75,22 +88,33 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
     ELSE
       UpdateWebCookie("wh-debugwebserver", "");
 
-    Redirect("/" || GetWebVariable("b"));
+    Redirect(backurl);
   }
-  MACRO ShowSettings()
+  BOOLEAN FUNCTION IsGranted(STRING requireright, INTEGER targetobject)
   {
-    STRING fromurl := GetWebVariable("back") ?? GetWebHeader("Referer") ?? ResolveToAbsoluteURL(GetClientRequestURL(),'/');
-    //rewrite to our origin as client might not know the real url
-    fromurl := UnpackURL(GetRequestURL()).origin || "/" || UnpackURL(fromurl).urlpath;
+    TRY
+    {
+      IF(requireright = "")
+        RETURN TRUE;
+      IF(IsRightGlobal(requireright))
+        RETURN this->currentuser->HasRight(requireright);
+      ELSE
+        RETURN this->currentuser->HasRightOn(requireright, targetobject);
+    }
+    CATCH(OBJECT e) //eg broken right
+    {
+      RETURN FALSE;
+    }
+  }
 
-    STRING ARRAY currentopts := Tokenize(GetWebCookie("wh-debug"), ".");
-
-    RECORD fromfile := LookupPublisherUrl(fromurl);
-    INTEGER targetobject := fromfile.file ?? fromfile.folder ?? whconstant_whfsid_repository; //1 = repository, so we at least get all global options
-
+  RECORD FUNCTION GetOptions(INTEGER targetobject)
+  {
     RECORD ARRAY options;
     OBJECT webcontext := GetWebContext(targetobject);
     STRING userwarning;
+
+    FOREVERY(OBJECT plugin FROM webcontext->GetPluginsByFeature("debugsettings"))
+      options := options CONCAT SELECT grouptitle, title, tag, requireright := CellExists(settings, "requireright") ? settings.requireright : "system:supervisor" FROM plugin->HookGetDebugSettings() AS settings;
 
     FOREVERY(RECORD debugsettings FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "debugsettings", targetobject))
     {
@@ -102,19 +126,35 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
           INSERT [ grouptitle := debugsettings.node->GetAttribute("title")
                  , title := subnode->GetAttribute("title")
                  , tag := subnode->GetAttribute("tag")
+                 , requireright := subnode->HasAttribute("requireright") ? subnode->GetAttribute("requireright") : "system:supervisor"
                  ] INTO options AT END;
     }
 
-    FOREVERY(OBJECT plugin FROM webcontext->GetPluginsByFeature("debugsettings"))
-      options := options CONCAT SELECT grouptitle, title, tag FROM plugin->HookGetDebugSettings();
+    STRING ARRAY grantedrights :=
+        SELECT AS STRING ARRAY requireright
+          FROM (SELECT DISTINCT requireright FROM options)
+         WHERE this->IsGranted(requireright, targetobject);
+    options := SELECT * FROM options WHERE requireright IN grantedrights;
+    RETURN CELL[options, userwarning];
+  }
 
-    IF(NOT this->issupervisor) //we'll not be signing, so only offer public flags
-      DELETE FROM options WHERE tag NOT IN whconstant_whdebug_publicflags;
+  MACRO ShowSettings()
+  {
+    STRING fromurl := GetWebVariable("back") ?? GetWebHeader("Referer") ?? ResolveToAbsoluteURL(GetClientRequestURL(),'/');
+    //rewrite to our origin as client might not know the real url
+    fromurl := UnpackURL(GetRequestURL()).origin || "/" || UnpackURL(fromurl).urlpath;
 
-    STRING ARRAY originalgroupordering := SELECT AS STRING ARRAY grouptitle FROM options;
-    RECORD ARRAY optionspergroup := SELECT title := grouptitle, options := GroupedValues(options)
-                                      FROM options
-                                  GROUP BY grouptitle
+    STRING ARRAY currentopts := Tokenize(GetWebCookie("wh-debug"), ".");
+
+    RECORD fromfile := LookupPublisherUrl(fromurl);
+    INTEGER targetobject := fromfile.file ?? fromfile.folder ?? whconstant_whfsid_repository; //1 = repository, so we at least get all global options
+    RECORD optresult := this->GetOptions(targetobject);
+
+    STRING ARRAY originalgroupordering := SELECT AS STRING ARRAY grouptitle FROM optresult.options;
+    RECORD ARRAY optionspergroup := SELECT title := grouptitle
+                                         , options := GroupedValues(options)
+                                      FROM optresult.options
+                                     GROUP BY grouptitle
                                   ORDER BY SearchElement(originalgroupordering, grouptitle);
 
     STRING ARRAY knownopts;
@@ -139,9 +179,10 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
                             , extraoptions := Detokenize(extraopts," ")
                             , webserverskiptries := Detokenize(webserverskiptries," ")
                             , feedbackurl := feedbackurl
-                            , userwarning := userwarning
+                            , optresult.userwarning
                             , wrdauthpluginerror := ""
                             , wrdauthplugin := DEFAULT RECORD
+                            , this->issupervisor
                             ];
 
     IF(GetWebVariable("debug_wrdauthaction") = "forcelogout")

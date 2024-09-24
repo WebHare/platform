@@ -2177,7 +2177,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO OnSetDebugSettings(OBJECT openhandler)
   {
-    STRING desturl := SELECT AS STRING link FROM system.fs_objects WHERE id = ^filelist->selection.id;
+    STRING desturl := SELECT AS STRING link FROM system.fs_objects WHERE id = this->GetCurrentlySelectedFSobject();
     //wrap in debug link
     desturl := ResolveToAbsoluteUrl(desturl, "/.publisher/common/debug/?back=" || EncodeURL(desturl));
     openhandler->SendURL(desturl);

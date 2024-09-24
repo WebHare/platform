@@ -68,8 +68,10 @@
       [/forevery]
     </div>
     <div class="extraetc">
-      <label>Extra options: <input name="extraoptions" value="[extraoptions]" style="width:300px;border:1px solid #ccc;"/> (space separated)<br/></label><br/>
-      <label>Webserver skip tryfiles/tryfolders: <input name="webserverskiptries" value="[webserverskiptries]" style="width:300px;border:1px solid #ccc;"/> (space separated)<br/></label><br/>
+      [if issupervisor]
+        <label>Extra options: <input name="extraoptions" value="[extraoptions]" style="width:300px;border:1px solid #ccc;"/> (space separated)<br/></label><br/>
+        <label>Webserver skip tryfiles/tryfolders: <input name="webserverskiptries" value="[webserverskiptries]" style="width:300px;border:1px solid #ccc;"/> (space separated)<br/></label><br/>
+      [/if]
       <input name="submit" type="submit" value="Save" />
       <input name="resetall" type="submit" value="Reset all" />
       <p>
@@ -93,4 +95,3 @@
     </div>
   </form>
 [/component]
-
