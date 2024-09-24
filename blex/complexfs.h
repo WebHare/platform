@@ -128,6 +128,10 @@ class BLEXLIB_PUBLIC CFS_FreeRanges
         /** Return the number of free blocks
         */
         unsigned GetFreeBlockCount() const;
+
+        /** Exports the free blocks list
+        */
+        void ExportFreeList(std::vector< std::pair< uint32_t, uint32_t > > *ranges) const;
 };
 
 /** This class keeps the mapping to disk-blocks for a file
@@ -474,7 +478,7 @@ class BLEXLIB_PUBLIC ComplexFileSystem
 
         /// Contains info about the filesystem
         struct Info
-        {   
+        {
                 /// Total nr of present blocks
                 unsigned totalblocks;
 
@@ -647,7 +651,7 @@ class BLEXLIB_PUBLIC ComplexFileSystem
         ~ComplexFileSystem();
 
         ComplexFileStream * OpenFile(std::string const &filepath, bool create_file, bool exclusive_create);
-        ComplexFileStream * CreateTempFile(std::string *filename);
+        ComplexFileStream * CreateTempFile(std::string *filename, std::string const &postfix);
 
         bool Exists(std::string const &_filepath);
         void TouchFile(std::string const &_filepath, DateTime touch_at = DateTime::Invalid());
@@ -676,6 +680,9 @@ class BLEXLIB_PUBLIC ComplexFileSystem
 
         /** Return fs info */
         Info GetInfo();
+
+        /** Return list of free ranges */
+        void ExportFreeRanges(std::vector< std::pair< uint32_t, uint32_t > > *ranges);
 
         friend class CFS_File;
         friend class ComplexFileStream;

@@ -871,7 +871,7 @@ void RequestParser::BodyReceive(char const *start, char const *limit)
                         //Get a nice tempfile in this directory
                         //ADDME: use segmented buffers and only overflow into a file when stuff gets REALLY big
                         //ADDME: Limit maximum upload size
-                        outstream.reset(tempfs.CreateTempFile(&outstreamname));
+                        outstream.reset(tempfs.CreateTempFile(&outstreamname, "webserver-bodyreceive"));
                         if (!outstream.get())
                         {
                                 state = ParsingFailed;

@@ -6,6 +6,9 @@
 #include "hsvm_marshalling.h"
 #include "hsvm_context.h"
 #include "blex/logfile.h"
+#ifndef __EMSCRIPTEN__
+#include "hsvm_processmgr.h"
+#endif
 
 namespace HareScript
 {
@@ -188,7 +191,8 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
 
                         std::string blobfilename;
 
-                        auto file = blobmgr->CreateTempStream(&blobfilename);
+                        std::string blobsource = "m-read";
+                        auto file = blobmgr->CreateTempStream(&blobfilename, blobsource);
 
                         Blex::FileOffset towrite = length;
                         while (towrite != 0)
@@ -199,6 +203,7 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
                                 towrite -= written;
                                 blobdatapos += written;
                         }
+
 
                         std::shared_ptr< BlobData > blobdata(new BlobData);
                         blobdata->blob = blobmgr->BuildBlobFromTempStream(std::move(file), blobfilename);
@@ -618,10 +623,16 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                                         return ptr + 4;
                                 }
 
+                                std::string blobsource = "m-write";
+#ifndef __EMSCRIPTEN__
+                                VMGroup *group = vm->GetVMGroup();
+                                std::string const &groupid = group->GetJobManager()->GetGroupId(group);
+                                blobsource += "_" + groupid;
+#endif
                                 std::shared_ptr< MarshalPacket::BlobData > clone;
                                 clone.reset(new MarshalPacket::BlobData);
                                 clone->length = length;
-                                clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var));
+                                clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var), blobsource);
 
                                 packet->blobs.push_back(clone);
                                 Blex::PutLsb< int32_t >(ptr, packet->blobs.size());

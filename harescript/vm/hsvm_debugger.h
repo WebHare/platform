@@ -220,6 +220,7 @@ class Debugger
         void RPC_GetBlobReferences();
         void RPC_GetHandleList();
         void RPC_GetAdhocCacheList();
+        void RPC_GetComplexFSStats();
 
     public:
         Debugger(Environment &environment, JobManager &jobmgr);

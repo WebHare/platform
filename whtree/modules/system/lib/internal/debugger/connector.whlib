@@ -1246,6 +1246,12 @@ STATIC OBJECTTYPE DebugProcess
   {
     this->connector->link->SendMessage([ type := "job-externdisconnect", processcode := this->pvt_processcode, groupid := groupid ]);
   }
+
+  PUBLIC RECORD FUNCTION GetComplexFSStats()
+  {
+    RECORD response := this->connector->link->DoRequest([ type := "getcomplexfsstats", processcode := this->pvt_processcode ]);
+    RETURN response.status = "ok" ? response.msg : DEFAULT RECORD;
+  }
 >;
 
 

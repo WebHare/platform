@@ -98,15 +98,16 @@ GlobalBlobManager::~GlobalBlobManager()
 {
 }
 
-std::unique_ptr< BlobStorageStream > GlobalBlobManager::CreateTempStream(std::string *name)
+std::unique_ptr< BlobStorageStream > GlobalBlobManager::CreateTempStream(std::string *name, std::string const &postfix)
 {
         LockedData::WriteRef lock(data);
 #ifndef __EMSCRIPTEN__
-        std::unique_ptr< Blex::ComplexFileStream > file(fs->CreateTempFile(name));
+        std::unique_ptr< Blex::ComplexFileStream > file(fs->CreateTempFile(name, postfix));
         if(!file)
             return std::unique_ptr< Blex::ComplexFileStream >();
 #else
         std::unique_ptr< Blex::MemoryRWStream > file(new Blex::MemoryRWStream);
+        (void)postfix;
 #endif
 
         unsigned &ref = lock->refcounts[*name];
@@ -193,14 +194,14 @@ BlobRefPtr GlobalBlobManager::BuildBlobFromGlobalBlob(VirtualMachine *vm, std::s
         return BlobRefPtr(new ReferencedGlobalBlob(vm, globalblob));
 }
 
-std::shared_ptr< GlobalBlob > GlobalBlobManager::ConvertToGlobalBlob(BlobRefPtr blob)
+std::shared_ptr< GlobalBlob > GlobalBlobManager::ConvertToGlobalBlob(BlobRefPtr blob, std::string const &blobid)
 {
         ReferencedGlobalBlob *vmglobalblob = dynamic_cast< ReferencedGlobalBlob * >(blob.GetPtr());
         if (vmglobalblob)
             return vmglobalblob->globalblob;
 
         std::string blobcopyname;
-        auto file = CreateTempStream(&blobcopyname);
+        auto file = CreateTempStream(&blobcopyname, blobid);
 
         {
                 std::unique_ptr< OpenedBlob > openblob(blob.OpenBlob());
@@ -221,6 +222,41 @@ std::shared_ptr< GlobalBlob > GlobalBlobManager::ConvertToGlobalBlob(BlobRefPtr 
 
         return BuildBlobFromTempStream(std::move(file), blobcopyname);
 }
+
+void GlobalBlobManager::ExportBlobs(std::vector< GlobalBlobManager::ExportBlobInfo > *blobs)
+{
+        LockedData::WriteRef lock(data);
+
+#ifndef __EMSCRIPTEN__
+        std::vector<std::string> files = fs->ListDirectory("*");
+        for (auto const &name: files)
+        {
+                std::unique_ptr< Blex::ComplexFileStream > file(fs->OpenFile(name, false, false));
+                if (file)
+                {
+                        ExportBlobInfo info;
+                        info.name = name;
+                        info.size = file->GetFileLength();
+                        blobs->push_back(info);
+                }
+        }
+#else
+        (void)blobs;
+#endif
+}
+
+void GlobalBlobManager::ExportFreeRanges(std::vector< std::pair< uint32_t, uint32_t > > *ranges)
+{
+        LockedData::WriteRef lock(data);
+
+#ifndef __EMSCRIPTEN__
+        fs->ExportFreeRanges(ranges);
+#else
+        (void)ranges;
+#endif
+}
+
+
 
 //---------------------------------------------------------------------------
 //
