@@ -333,6 +333,9 @@ STATIC OBJECTTYPE WHProcess
   */
   RECORD ARRAY pvt_attachedjobs;
 
+  /** @cell app */
+  RECORD ARRAY pvt_apprequests;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -593,6 +596,14 @@ STATIC OBJECTTYPE WHProcess
     IF (debuglevel >= 5)
       PRINT("Process " || this->processcode || " sent message '" || msg.type || "', msgid: "||msgid||"\n" || AnyToString(msg, debuglevel >= 7 ? "tree" : "tree:2"));
 
+    RECORD rpos := RecordLowerBound(this->pvt_apprequests, [ msgid := replyto ], [ "MSGID" ]);
+    IF (rpos.found)
+    {
+      this->pvt_apprequests[rpos.position].app->GotAppResponse(msg, this->pvt_apprequests[rpos.position].replyto);
+      DELETE FROM this->pvt_apprequests AT rpos.position;
+      RETURN;
+    }
+
     SWITCH (msg.type)
     {
       CASE "greeting"
@@ -790,6 +801,13 @@ STATIC OBJECTTYPE WHProcess
   //
   // Public API
   //
+
+  PUBLIC MACRO SendAppRequest(OBJECT app, RECORD req, INTEGER64 replyto)
+  {
+    INTEGER64 msgid := this->pvt_link->SendMessage(req).msgid;
+    RECORD reg := CELL[ msgid, replyto, app ];
+    INSERT reg INTO this->pvt_apprequests AT RecordUpperBound(this->pvt_apprequests, reg, [ "MSGID" ]);
+  }
 
   PUBLIC MACRO SetJobListSubscription(OBJECT app, BOOLEAN newvalue)
   {
@@ -1315,6 +1333,15 @@ STATIC OBJECTTYPE ConnectedApplication
         }
       }
 
+      CASE "getcomplexfsstats"
+      {
+        OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
+        IF (NOT ObjectExists(process))
+          this->SendProcessGone(msg.processcode, msgid);
+        ELSE
+          process->SendAppRequest(PRIVATE this, msg, msgid);
+      }
+
       DEFAULT
       {
         IF (msg.type LIKE "job-*")
@@ -1461,12 +1488,20 @@ STATIC OBJECTTYPE ConnectedApplication
     this->pvt_link->SendMessage([ type := "job-connectedchange", processcode := job->process->processcode, groupid := job->groupid, connected := connected ]);
   }
 
-  MACRO SendProcessGone(INTEGER64 processcode)
+  MACRO SendProcessGone(INTEGER64 processcode, INTEGER64 replyto DEFAULTSTO 0i64)
   {
     IF (debuglevel >= 5)
       PRINT("App " || this->id || ": sending processgone message for " || processcode || "\n");
 
-    this->pvt_link->SendMessage([ type := "process-gone", processcode := processcode ]);
+    IF (replyto = 0)
+      this->pvt_link->SendMessage([ type := "process-gone", processcode := processcode ]);
+    ELSE
+      this->pvt_link->SendReply([ type := "process-gone", processcode := processcode ], replyto);
+  }
+
+  MACRO GotAppResponse(RECORD response, INTEGER64 msgid)
+  {
+    this->pvt_link->SendReply(response, msgid);
   }
 >;
 
