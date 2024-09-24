@@ -43,6 +43,7 @@ Commands:
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
   jobhandles process jobmask          Get job handle list for the specified job
   jobadhoccache process jobmask       List adhoccache items of the process of the specified job
+  complexfsstats process              Get complex filesystem statistics for the specified process
 
 See https://www.webhare.dev/reference/installation/environment for available debug flags
 `);
@@ -448,6 +449,23 @@ Executed instrs.:   ${stats.instructions}
         PRINT(`No job found with prefix ${args.prefix}\n`);
       ELSE
         DumpValue(results, [ name := "Matching jobs", format := "boxed" ]);
+    }
+
+    CASE "getcomplexfsstats"
+    {
+      ParseSubArgs(
+            [ [ name := "process", type := "param", required := TRUE ]
+            ]);
+
+      OBJECT process := AWAIT GetProcessByParam(args.process);
+      RECORD stats := process->GetComplexFSStats();
+
+      IF (NOT RecordExists(stats))
+        PRINT(`No statistics available for process ${process->processcode} ('${process->clientname}')\n`);
+      ELSE
+      {
+        DumpValue(stats.rawdata, [ name := `Complex filesystem statistics for process ${process->processcode} ('${process->clientname}')`, format := "tree" ]);
+      }
     }
 
     CASE "terminate"

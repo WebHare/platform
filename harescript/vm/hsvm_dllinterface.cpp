@@ -1199,7 +1199,14 @@ int HSVM_CreateStream (HSVM *vm)
         DllInterfaceContext dll(VM.GetContextKeeper());
         DllInterfaceContextData::TempFilePtr newfile(new DllInterfaceContextData::TempFile);
 
-        newfile->file = VM.GetBlobManager().CreateTempStream(&newfile->name);
+        std::string blobsource = "createstream";
+#ifndef __EMSCRIPTEN__
+        VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
+        if (group->GetJobManager())
+            blobsource += "_" + group->GetJobManager()->GetGroupId(group);
+#endif
+
+        newfile->file = VM.GetBlobManager().CreateTempStream(&newfile->name, blobsource);
 
         int tempfileid = HSVM_RegisterIOObject(vm, newfile.get(), NULL, &TempFileWriter, NULL, NULL, "Stream");
         dll->tempfiles[tempfileid]=newfile;

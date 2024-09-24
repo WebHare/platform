@@ -311,6 +311,7 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
 
   MACRO Init()
   {
+    ^iframe->additionalcomponents := OBJECT[ ^testcontextmenu ];
   }
 
   MACRO DoGrabLinks()
@@ -338,7 +339,7 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
          <body>
            <span id='source' data-source="${EncodeValue(source)}">${EncodeValue(source)}</span>:<img id="image" src="${EncodeValue(link)}" width="60" height="40"><br>
            <textarea id='calls' style='white-space: pre; height: 150px; width: 80%'></textarea><br>
-           <a id='link' href='http://www.webhare.dev/'>A link!</a><br>
+           <a id='link' href='http://www.webhare.dev/'>A link!</a> <button id='showmenu'>Show menu</button><br>
          </body>
        </html>`;
   }
@@ -939,4 +940,3 @@ PUBLIC OBJECTTYPE RadioGroupTest EXTEND TolliumScreenBase
     this->onchangecount->value := ToString(ToInteger(this->onchangecount->value, 0) + 1);
   }
 >;
-

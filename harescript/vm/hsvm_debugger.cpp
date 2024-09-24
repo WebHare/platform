@@ -40,6 +40,7 @@ void EncodeFunctionProfileData(ProfileData const &profiledata, VirtualMachine *v
 void EncodeObjectWeb(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_set, bool included_unreferenced);
 void EncodeBlobReferences(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_set, bool included_unreferenced);
 void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_set);
+void DebugGetComplexFSStats(VarId id_set, VirtualMachine *vm);
 
 //void GetFunctionProfileDataExt(VarId id_set, VirtualMachine *vm, VirtualMachine *profiled);
 } // End of namespace baselibs
@@ -981,6 +982,7 @@ void Debugger::HandleMessage(std::string const &type)
         else if (type == "getblobreferences")       { RPC_GetBlobReferences(); }
         else if (type == "gethandlelist")           { RPC_GetHandleList(); }
         else if (type == "getadhoccachelist")       { RPC_GetAdhocCacheList(); }
+        else if (type == "getcomplexfsstats")       { RPC_GetComplexFSStats(); }
         else
             throw std::runtime_error(("Unknown message type '" + type + "'").c_str());
 }
@@ -2149,6 +2151,25 @@ void Debugger::RPC_GetAdhocCacheList()
         HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_Record);
 
         it->second.vmgroup->mainvm->GetEnvironment().CallDebugStatFunction("adhoccache-listitems", lock->comm.vm, var_rawdata);
+
+        SendComposeVar(lock, lock->comm.msgid);
+        lock->comm.msgid = 0;
+}
+
+void Debugger::RPC_GetComplexFSStats()
+{
+        JobManager::LockedJobData::WriteRef jobmgrlock(jobmgr.jobdata);
+        LockedData::WriteRef lock(data);
+        HSVM *vm = lock->comm.vm;
+        HSVM_VariableId composevar = lock->comm.composevar;
+
+        HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "getcomplexfsstats-response");
+
+        HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
+        HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_Record);
+
+        Baselibs::DebugGetComplexFSStats(var_rawdata, &lock->comm.vm);
 
         SendComposeVar(lock, lock->comm.msgid);
         lock->comm.msgid = 0;

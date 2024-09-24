@@ -1472,6 +1472,37 @@ void ObjectMatchesOUID(VarId id_set, VirtualMachine *vm)
         HSVM_BooleanSet(*vm, id_set, vm->ObjectHasExtendUid(HSVM_Arg(0), ouid));
 }
 
+void DebugGetComplexFSStats(VarId id_set, VirtualMachine *vm)
+{
+        StackMachine &stackm = vm->GetStackMachine();
+
+        std::vector< GlobalBlobManager::ExportBlobInfo > info;
+        vm->blobmanager.ExportBlobs(&info);
+        std::vector< std::pair< uint32_t, uint32_t > > ranges;
+        vm->blobmanager.ExportFreeRanges(&ranges);
+
+        stackm.InitVariable(id_set, VariableTypes::Record);
+
+        VarId items = stackm.RecordCellCreate(id_set, vm->columnnamemapper.GetMapping("FILES"));
+        stackm.InitVariable(items, VariableTypes::RecordArray);
+        for (auto &blob: info)
+        {
+                VarId rec = stackm.ArrayElementAppend(items);
+                stackm.RecordInitializeEmpty(rec);
+                stackm.SetSTLString(stackm.RecordCellCreate(rec, vm->columnnamemapper.GetMapping("FILENAME")), blob.name);
+                stackm.SetInteger64(stackm.RecordCellCreate(rec, vm->columnnamemapper.GetMapping("LENGTH")), blob.size);
+        }
+
+        items = stackm.RecordCellCreate(id_set, vm->columnnamemapper.GetMapping("FREERANGES"));
+        stackm.InitVariable(items, VariableTypes::RecordArray);
+        for (auto &item: ranges)
+        {
+                VarId rec = stackm.ArrayElementAppend(items);
+                stackm.RecordInitializeEmpty(rec);
+                stackm.SetInteger64(stackm.RecordCellCreate(rec, vm->columnnamemapper.GetMapping("BLOCKSTART")), item.first);
+                stackm.SetInteger64(stackm.RecordCellCreate(rec, vm->columnnamemapper.GetMapping("BLOCKLIMIT")), item.second);
+        }
+}
 
 
 
@@ -1565,6 +1596,7 @@ void InitTypes(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DEBUGCOPYOBJECTTORECORD::R:O", DebugCopyObjectToRecord));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DEBUGGETOBJECTWEB::RA:B", DebugGetObjectWeb));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DEBUGGETBLOBREFERENCES::R:B", DebugGetBlobReferences));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DEBUGGETCOMPLEXFSSTATS::R:", DebugGetComplexFSStats));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_GETPRIVATEMEMBER::V:OS", ObjectGetMemberPrivate));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SETPRIVATEMEMBER:::OSV", ObjectSetMemberPrivate));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETOBJECTMETHODPTR::P:OS", GetObjectMethodPtr));

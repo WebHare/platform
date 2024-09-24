@@ -408,6 +408,11 @@ unsigned CFS_FreeRanges::GetFreeBlockCount() const
         return total;
 }
 
+void CFS_FreeRanges::ExportFreeList(std::vector< std::pair< uint32_t, uint32_t > > *ranges) const
+{
+        std::copy(start_limit_ranges.begin(), start_limit_ranges.end(), std::back_inserter(*ranges));
+}
+
 //******************************************************************************
 //
 //   CFS_FileBlocks
@@ -1901,9 +1906,14 @@ void ComplexFileSystem::LookupPath(LockedFileData::WriteRef &lock, std::string c
         }
 }
 
-ComplexFileStream * ComplexFileSystem::CreateTempFile(std::string *filename)
+ComplexFileStream * ComplexFileSystem::CreateTempFile(std::string *filename, std::string const &postfix)
 {
-        *filename = "$tmp$" + Blex::AnyToString(++*LockedTempCounter::WriteRef(tempcounter)); //ADDME reserve names specifically for this purpose?
+        time_t now;
+        time(&now);
+        char buf[sizeof "2000-01-01T00:00:00Z"];
+        strftime(buf, sizeof buf, "%FT%TZ", gmtime(&now));
+
+        *filename = "$tmp$" + Blex::AnyToString(++*LockedTempCounter::WriteRef(tempcounter)) + "$" + postfix + "$" + buf; //ADDME reserve names specifically for this purpose?
         return OpenFile(*filename, true, true);
 }
 
@@ -2457,11 +2467,17 @@ unsigned ComplexFileSystem::GetStandardBufferSize()
 ComplexFileSystem::Info ComplexFileSystem::GetInfo()
 {
         LockedBlockData::WriteRef blocklock(blockdata);
-        
+
         Info info;
         info.totalblocks = blocklock->total_sections * BlocksPerSection;
         info.freeblocks = blocklock->free_ranges.GetFreeBlockCount();
         return info;
+}
+
+void ComplexFileSystem::ExportFreeRanges(std::vector< std::pair< uint32_t, uint32_t > > *ranges)
+{
+        LockedBlockData::WriteRef blocklock(blockdata);
+        blocklock->free_ranges.ExportFreeList(ranges);
 }
 
 //******************************************************************************
