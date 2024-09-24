@@ -874,5 +874,4 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestPaymentOptions
                  , PTR TestFailedPaymentSucceeding
                  , PTR TestDashboard
-                 , PTR SetConsoleExitCode(0) //PollPaymentStatuses may set it to 1
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);
