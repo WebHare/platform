@@ -321,6 +321,10 @@ PUBLIC STRING FUNCTION GetImageMimetype(STRING extension)
     RETURN "image/gif";
   IF(extension=".png")
     RETURN "image/png";
+  IF(extension=".avif")
+    RETURN "image/avif";
+  IF(extension=".webp")
+    RETURN "image/webp";
   THROW NEW Exception("Unexpected image extension '" || extension || "'");
 }
 
