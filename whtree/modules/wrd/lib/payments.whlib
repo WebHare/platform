@@ -381,8 +381,6 @@ STATIC OBJECTTYPE PaymentAPI
       RECORD currentpayment := paymententity->GetField(this->pvt_paymentattr.tag);
       IF(IsAStartedPayment(currentpayment) AND currentpayment.status = "approved")
         THROW NEW Exception(`An earlier payment process has already been completed for entity #${entity}`);
-      IF(IsAStartedPayment(currentpayment) AND currentpayment.amountpayable != psp->amountpayable)
-        THROW NEW Exception(`Cannot change payment amount if an earlier payment has already started for entity #${entity}`);
 
       //Inform your custom handlers a transaction will be starting. Gives a chance to inform external processes
       RECORD newpayment := psp->MakePaymentValue();

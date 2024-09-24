@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -311,11 +312,6 @@ MACRO TestParallelPayments() //completing first payment
 
   TestEq(FALSE, pay1ref = pay2ref, "Payment refs should differ");
   TestEq(1, Length(pmulti->GetField("LOG").entries), 'log should not register the second payment attempt. makes no material difference');
-
-  //A new payment may not change the amount
-  TestThrowsLike("*amount*", PTR StartWRDTestPayment(paymentapi, pmulti->id, 18.12m, paysettings));
-  TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
-  TestEq(1, Length(pmulti->GetField("LOG").entries), 'log should not register the third payment attempt.');
 
   STRING pay3url := StartWRDTestPayment(paymentapi, pmulti->id, 28.12m, paysettings);
   STRING pay3ref := pmulti->GetField("DATA").paymentref;

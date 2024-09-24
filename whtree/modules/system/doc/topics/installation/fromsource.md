@@ -89,6 +89,14 @@ WHBUILD_DEBUG=1 wh make webserver-overwrite libblex_webhare-overwrite
 
 (don't forget to restart the processes, eg `pkill webserver`)
 
+### Running with a Nightly node
+For MacOS:
+- Download a nightly from nodejs.org/download/nightly/. You will want the `node-XXX-darwin-arm64.tar.xz` file.
+- Unpack it, eg `tar -Jxf node-v23.0.0-nightly202409243c5ceff85f-darwin-arm64.tar.xz`
+- Run it: `WEBHARE_NODE_BINARY=~/Downloads/node-v23.0.0-nightly202409243c5ceff85f-darwin-arm64/bin/node wh console`
+
+Dealing with Gatekeeper is left as an exercise for the reader.
+
 ## Troubleshooting common build failures
 Try repeating the make command. If you only see 'error' or 'waiting for finished jobs' you may have to scroll up a bit to find the error (make often runs multiple tasks at the same time. if one task reported an error, it will finish the other running jobs so you may need to look for the error).
 
