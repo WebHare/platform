@@ -221,7 +221,7 @@ class BLEXLIB_PUBLIC GlobalBlobManager
         ~GlobalBlobManager();
 
         /// Create a new stream, with a single reference on the name
-        std::unique_ptr< BlobStorageStream > CreateTempStream(std::string *name);
+        std::unique_ptr< BlobStorageStream > CreateTempStream(std::string *name, std::string const &source);
 
         /// Convert an existing stream into a blob. Does not add a reference to the name
         std::shared_ptr< GlobalBlob > BuildBlobFromTempStream(std::unique_ptr< BlobStorageStream > file, std::string const &name);
@@ -230,7 +230,7 @@ class BLEXLIB_PUBLIC GlobalBlobManager
         BlobRefPtr BuildBlobFromGlobalBlob(VirtualMachine *vm, std::shared_ptr< GlobalBlob > const &globalblob);
 
         // Internalize a blob
-        std::shared_ptr< GlobalBlob > ConvertToGlobalBlob(BlobRefPtr blob);
+        std::shared_ptr< GlobalBlob > ConvertToGlobalBlob(BlobRefPtr blob, std::string const &source);
 
         /// Remove a reference by name
         void RemoveReference(std::string const &name);
@@ -238,6 +238,15 @@ class BLEXLIB_PUBLIC GlobalBlobManager
         /** Return the total blob usage for a specific VM
         */
         uint64_t GetBlobUsage(VirtualMachine *vm);
+
+        struct ExportBlobInfo
+        {
+                std::string name;
+                uint64_t size;
+        };
+
+        void ExportBlobs(std::vector< ExportBlobInfo > *blobs);
+        void ExportFreeRanges(std::vector< std::pair< uint32_t, uint32_t > > *ranges);
 
         friend class GlobalBlob; // for AddUsage / RemoveUsage
 };

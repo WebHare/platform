@@ -7,6 +7,7 @@
 #include <blex/podvector.h>
 #include <blex/pipestream.h>
 #include <blex/socket.h>
+#include <blex/threads.h>
 #include "hsvm_constants.h"
 #include "hsvm_marshalling.h"
 #include "outputobject.h"
