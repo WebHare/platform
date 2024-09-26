@@ -126,6 +126,13 @@ struct DllInterfaceContextData
 
         struct TempFile
         {
+                TempFile(GlobalBlobManager &blobmanager)
+                : blobmanager(blobmanager)
+                {
+                }
+
+                GlobalBlobManager &blobmanager;
+
                 std::string name;
                 std::unique_ptr< BlobStorageStream > file;
 
@@ -198,6 +205,10 @@ DllInterfaceContextData::DllInterfaceContextData()
 
 DllInterfaceContextData::~DllInterfaceContextData()
 {
+        // Create blobs from all remaining tempfiles to clean them
+        for (auto &tempfile: tempfiles)
+            if (tempfile.second->file)
+                tempfile.second->blobmanager.BuildBlobFromTempStream(std::move(tempfile.second->file), tempfile.second->name);
 }
 
 
@@ -1165,7 +1176,7 @@ int HSVM_CreateStream (HSVM *vm)
 
         START_CATCH_VMEXCEPTIONS
         DllInterfaceContext dll(VM.GetContextKeeper());
-        DllInterfaceContextData::TempFilePtr newfile(new DllInterfaceContextData::TempFile);
+        DllInterfaceContextData::TempFilePtr newfile(new DllInterfaceContextData::TempFile(VM.GetBlobManager()));
 
         newfile->file = VM.GetBlobManager().CreateTempStream(&newfile->name);
 
