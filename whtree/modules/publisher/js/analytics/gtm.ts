@@ -46,15 +46,22 @@ export function setVariables(vars: DataLayerVars) {
   showDataLayerChanges();
 }
 
-/* Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms */
-export function sendEvent(event: string, vars: DataLayerVars = {}) {
+/** Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms
+ * @param event - The event name to send. If null, doesn't actually set an event but just sets the variables
+ * @param vars - The variables to send with the event
+ * @returns A promise that resolves when the event is sent or after a timeout of 200ms
+*/
+export function sendEvent(event: string | null, vars: DataLayerVars = {}) {
   const defer = Promise.withResolvers();
   try {
-    window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
+    if (event)
+      window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
+    else
+      window.dataLayer.push(vars);
     showDataLayerChanges();
   } catch (e) {
   }
-  window.setTimeout(() => defer.resolve(true), 200);
+  window.setTimeout(() => defer.resolve(true), event ? 200 : 0);
   return defer.promise;
 }
 
