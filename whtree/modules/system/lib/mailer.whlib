@@ -1038,7 +1038,7 @@ STATIC OBJECTTYPE WittyMailComposer
     }
     ELSE
     {
-      RECORD cached := GetCachedDataFromURL(url);
+      RECORD cached := GetCachedDataFromURL(url, [ mailsafe := TRUE ]);
       IF(RecordExists(cached)) //we may have receive a resized image!
       {
         asset := cached.data;

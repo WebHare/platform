@@ -4,12 +4,14 @@
 LOADLIB "wh::adhoccache.whlib" EXPORT GetAdhocCached, LookupAdhocCached, StoreAdhocCached;
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/whlibs/dbase/postgresql.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
@@ -64,8 +66,9 @@ PUBLIC STRING FUNCTION GetCachedFSSettingFileURL(STRING baseurl, INTEGER64 fsset
     @cell(string) return.mimetype
     @cell(string) return.filename
 */
-PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url)
+PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL[ mailsafe := FALSE ], options);
   url := Tokenize(url, "?")[0];
 
   INTEGER uc := SearchSubstring(url, "/.uc/");
@@ -75,15 +78,39 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url)
     IF(RecordExists(analyzed))
     {
       STRING mimetype;
-      IF(analyzed.datatype = 1)
-        mimetype := GetImageMimetype(analyzed.extension);
-      ELSE
-        mimetype := SELECT AS STRING mimetypes.mimetype FROM system.mimetypes WHERE mimetypes.extension = analyzed.extension;
-
       RECORD info := LookupDataForUnifiedURL(analyzed.item);
       BLOB content := info.data;
       IF (analyzed.datatype=1)
-        content := __ProcessImage(info, analyzed.item);
+      {
+        IF(options.mailsafe AND analyzed.item.resizemethod.format IN ["image/avif","image/webp"])
+        {
+          //reset back to original format (jpeg or png)
+          analyzed.item.resizemethod.format := info.mimetype;
+          analyzed.extension := info.extension;
+        }
+
+        IF(IsWasm())
+        {
+          STRING jsresulttxt :=
+                  CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
+                  CELL[ ...info
+                      , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
+                      , analyzed.item
+                      , pgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, info.data)
+                      ]);
+          content := StringToBlob(DecodeBase64(jsresulttxt));
+        }
+        ELSE
+        {
+          content := __ProcessImage(info, analyzed.item);
+        }
+
+        mimetype := GetImageMimetype(analyzed.extension);
+      }
+      ELSE
+      {
+        mimetype := SELECT AS STRING mimetypes.mimetype FROM system.mimetypes WHERE mimetypes.extension = analyzed.extension;
+      }
 
       RETURN [ data := content
              , mimetype := mimetype

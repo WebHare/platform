@@ -1051,6 +1051,23 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     // Ignored
   });
 
+  // Modify the most important drawlib entry points to warn that it's unsupported
+  wasmmodule.registerExternalFunction("__DRAWLIB_V2_CREATECANVASFROMFILE:WHMOD_GRAPHICS:I:X", (vm) => {
+    throw new Error("Drawlib is not available when running in WASM");
+  });
+
+  wasmmodule.registerExternalFunction("__DRAWLIB_V2_CREATERESIZEDCANVASFROMFILE:WHMOD_GRAPHICS:I:XII", (vm) => {
+    throw new Error("Drawlib is not available when running in WASM");
+  });
+
+  wasmmodule.registerExternalFunction("__DRAWLIB_V2_MAKECANVAS:WHMOD_GRAPHICS:I:III", (vm) => {
+    throw new Error("Drawlib is not available when running in WASM");
+  });
+
+  wasmmodule.registerExternalMacro("__DRAWLIB_V2_EASTEREGG:WHMOD_GRAPHICS::I", (vm) => {
+    throw new Error("Please use https://en.wikipedia.org/wiki/Mandelbrot_set#/media/File:Mandel_zoom_00_mandelbrot_set.jpg instead");
+  });
+
   wasmmodule.registerExternalFunction("__DOEVPCRYPT::R:SBSSSS", (vm, id_set, var_algo, var_encrypt, var_keydata, var_data, var_iv, var_tag) => {
     const algo = var_algo.getString() as "bf-cbc" | "bf-ecb" | "aes-256-gcm";
     if (algo !== "bf-cbc" && algo !== "bf-ecb" && algo !== "aes-256-gcm")

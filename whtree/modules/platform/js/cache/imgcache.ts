@@ -72,6 +72,8 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
     return { extend, resize, format: "gif" as const, formatOptions: null };
   if (outputformat === "image/jpeg")
     return { extend, resize, format: "jpeg" as const, formatOptions: { quality: method.quality ?? DefaultJpegQuality } };
+  if (outputformat === "image/png")
+    return { extend, resize, format: "png" as const, formatOptions: null };
 
   throw new Error("Unsupported output format: " + outputformat);
 }
