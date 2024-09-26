@@ -451,7 +451,7 @@ Executed instrs.:   ${stats.instructions}
         DumpValue(results, [ name := "Matching jobs", format := "boxed" ]);
     }
 
-    CASE "getcomplexfsstats"
+    CASE "complexfsstats"
     {
       ParseSubArgs(
             [ [ name := "process", type := "param", required := TRUE ]
