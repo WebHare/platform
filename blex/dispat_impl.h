@@ -72,7 +72,7 @@ namespace Detail {
 
 #define DISPAT_POLL
 
-#ifdef PROFILE
+#ifdef WHBUILD_PROFILE
 #define DISPATCHER_SINGLETHREADED
 #endif
 

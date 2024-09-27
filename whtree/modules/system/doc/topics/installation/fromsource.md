@@ -73,7 +73,8 @@ wh builddocker
 ```
 
 ## Advanced build options
-`WHBUILD_DEBUG=1` - Use whbuild.debug and build versions with extra debugging
+`WHBUILD_DEBUG=1` - Enable extra debug output
+`WHBUILD_PROFILE=1` - Enable profiling
 
 To quickly run a specific blextest, eg 'string' (you really want this when editing stringmanip.cc):
 ```bash
@@ -88,6 +89,12 @@ WHBUILD_DEBUG=1 wh make webserver-overwrite libblex_webhare-overwrite
 ```
 
 (don't forget to restart the processes, eg `pkill webserver`)
+
+To replace libharescript.wasm with a profiling version
+
+```bash
+WHBUILD_PROFILE=1 wh make wasm-overwrite
+```
 
 ### Running with a Nightly node
 For MacOS:

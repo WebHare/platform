@@ -155,9 +155,16 @@ else
 		  endif
 		endif
 	endif
-	ifeq ($(PROFILE),1)
-		CXXFLAGS += -fno-omit-frame-pointer
-	endif
+endif
+
+ifeq ($(WHBUILD_PROFILE),1)
+	CXXFLAGS += -fno-omit-frame-pointer
+	# --profiling: Use reasonable defaults when emitting JavaScript to make the build readable but still useful for profiling.
+	CXXFLAGS_WASM += --profiling
+	WHLDFLAGS_WASM += --profiling
+else
+  # --profiling-funcs: Preserve function names in profiling, but otherwise minify whitespace and names as we normally do in optimized builds. This is useful if you want to look at profiler results based on function names, but do not intend to read the emitted code
+	WHLDFLAGS_WASM += --profiling-funcs
 endif
 
 ifeq ($(BUILDSYSTEM),llvm)
@@ -183,7 +190,7 @@ GLOBALLDFLAGS += -rdynamic
 #webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
 #ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
 CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
-WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs -O3 -lembind
+WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 -O3 -lembind
 
 ifeq ($(WEBHARE_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
@@ -1016,6 +1023,13 @@ showtargets:
 #Convenience overwrite targets
 wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite
 wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall
+
+wasm-overwrite: $(addprefix $(PREFIX)/,$(wasm_DEPLOYABLES_WHAP))
+
+# Helper to add 'wh make list-targtes' - https://stackoverflow.com/a/26339924 - a future make version should allow 'wh make --print-targets'
+.PHONY: list-targets
+list-targets:
+	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
 
 define GenerateBinAlias
 $1: bin/$1

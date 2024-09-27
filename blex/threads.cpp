@@ -749,7 +749,7 @@ void SetThreadContextKeeper(ContextKeeper *keeper);
 namespace Detail
 {
 
-#ifdef PROFILE
+#ifdef WHBUILD_PROFILE
 struct profile_data
 {
         void *real_object;
@@ -762,7 +762,7 @@ struct profile_data
 
 extern "C" void *ThreadStarter(void *object)
 {
-#ifdef PROFILE
+#ifdef WHBUILD_PROFILE
         //enable the itimer for profiling in this thread
         struct profile_data *prof = (struct profile_data*)object;
         object = prof->real_object;
@@ -842,7 +842,7 @@ bool Thread::Start() //throw()
         pthread_attr_setstacksize(&attrs, stacksize);
 
         bool success;
-#ifdef PROFILE
+#ifdef WHBUILD_PROFILE
         struct Detail::profile_data prof;
         prof.real_object = this;
         getitimer(ITIMER_PROF, &prof.itimer);
