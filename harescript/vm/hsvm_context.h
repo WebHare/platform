@@ -924,8 +924,6 @@ class BLEXLIB_PUBLIC VirtualMachine
         VirtualMachine(const VirtualMachine&);
         VirtualMachine& operator=(const VirtualMachine&);
 
-        public:
-        //Blex::FastTimer profile_timer; //FIXME private
         private:
 
         ///Currently initializing library

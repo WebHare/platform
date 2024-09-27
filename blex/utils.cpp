@@ -32,6 +32,11 @@
     #define environ (*_NSGetEnviron())
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include "emscripten.h"
+#include "emscripten/html5.h"
+#endif // __EMSCRIPTEN__
+
 namespace Blex
 {
 
@@ -256,6 +261,9 @@ uint64_t GetSystemCurrentTicks()
         struct timespec curtime;
         clock_gettime(CLOCK_MONOTONIC, &curtime);
         return static_cast<uint64_t>(curtime.tv_sec) * 1000000000 + curtime.tv_nsec;
+#elif defined(__EMSCRIPTEN__)
+        return static_cast<uint64_t>(emscripten_performance_now() * 1000);
+
 #else
         struct timeval curtime;
         struct timezone curtz;
@@ -512,4 +520,3 @@ DynamicFunction FindDynamicFunction(void *library, const char *funcname)
 
 
 } //end of namespace Blex
-

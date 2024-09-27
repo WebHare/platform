@@ -470,9 +470,6 @@ class BLEXLIB_PUBLIC JobManager
         /// Generates the jobmgr_id for this JobManager.
         void GenerateJobManagerId();
 
-        /// Main function for the timer thread
-        void TimerThreadFunction();
-
         /// Main function for the worker threads
         void WorkerThreadFunction(unsigned id);
 
