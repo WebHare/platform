@@ -224,7 +224,7 @@ program.command('findworker')
       const processwithworkers = await Promise.all(processes.map(async (p) => {
         try {
           const workerresponse = await link.doRequest({ type: DebugMgrClientLinkRequestType.getWorkers, processcode: p.processcode });
-          const matchingworkers = workerresponse.workers.filter(w => w.id.startsWith(workerid));//.map(w => w.id).join(", ");
+          const matchingworkers = workerresponse.workers.filter(w => w.workerid.startsWith(workerid));//.map(w => w.id).join(", ");
           return { ...p, matchingworkers };
         } catch (e) {
           console.log(p, e);
@@ -237,7 +237,7 @@ program.command('findworker')
         console.log(JSON.stringify(list));
       else {
         if (list.length)
-          console.table(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.id).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]);
+          console.table(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.workerid).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]);
         else
           console.log(`No workers found with an id starting with ${JSON.stringify(workerid)}`);
       }

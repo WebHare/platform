@@ -62,6 +62,8 @@ export interface LogErrorOptions extends LogNoticeOptions {
   errortype?: "exception" | "unhandledRejection";
 }
 
+let nextWorkerNr = 0;
+
 interface Bridge extends EventSource<BridgeEvents> {
   get connected(): boolean;
   get ready(): Promise<void>;
@@ -219,7 +221,8 @@ type ToMainBridgeMessage = {
   requestid: number;
 } | {
   type: ToMainBridgeMessageType.RegisterLocalBridge;
-  id: string;
+  workerid: string;
+  workernr: number;
   port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
 } | {
   type: ToMainBridgeMessageType.ConfigureLogs;
@@ -233,7 +236,8 @@ type ToMainBridgeMessage = {
 };
 
 type LocalBridgeInitData = {
-  id: string;
+  workerid: string;
+  workernr: number;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage> | null;
   /// 2 atomic uint32's, 0: console log counter, 1: 1 if workers are (or have been) active, 0 if not
   consoleLogData: Uint32Array;
@@ -296,7 +300,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   constructor() {
     super();
     const initdata = LocalBridge.getLocalBridgeInitData(this);
-    this.id = initdata.id;
+    this.id = initdata.workerid;
     this.port = initdata.port;
     this.systemconfig = {};
     this._ready = Promise.withResolvers<void>();
@@ -560,14 +564,16 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   getLocalHandlerInitDataForWorker(): LocalBridgeInitData {
     const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getTopLocalBridgeInitData");
-    const id = generateRandomId();
+    const workernr = ++nextWorkerNr;
+    const workerid = generateRandomId();
     this.postMainBridgeMessage({
       type: ToMainBridgeMessageType.RegisterLocalBridge,
-      id,
+      workerid,
+      workernr,
       port: port1
     }, [port1]);
     port2.unref();
-    return { id, port: port2, consoleLogData };
+    return { workerid, workernr, port: port2, consoleLogData };
   }
 
   async configureLogs(logfiles: LogFileConfiguration[]) {
@@ -619,14 +625,20 @@ type PortRegistration = {
 const consoledata: ConsoleLogItem[] = [];
 
 type LocalBridgeData = {
-  id: string;
+  workerid: string;
+  workernr: number;
   port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
   localBridge: null;
 } | {
-  id: string;
+  workerid: string;
+  workernr: number;
   port: null;
   localBridge: LocalBridge;
 };
+
+function getLocalBridgeName(data: LocalBridgeData) {
+  return `local bridge #${data.workernr} (${data.workerid})`;
+}
 
 class MainBridge extends EventSource<BridgeEvents> {
   conn: WHManagerConnection;
@@ -920,6 +932,15 @@ class MainBridge extends EventSource<BridgeEvents> {
     }
   }
 
+  getBridgeForWorker(worker: string): LocalBridgeData | null {
+    const byid = this.localbridges.get(worker);
+    if (byid)
+      return byid;
+
+    //then look up by nr:
+    return [...this.localbridges.values()].find(bridge => bridge.workernr === Number(worker)) || null;
+  }
+
   async gotDirectMessage(id: string, message: ToMainBridgeMessage) {
     const localBridgeData = this.localbridges.get(id);
     if (localBridgeData)
@@ -928,7 +949,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   async gotLocalBridgeMessage(localBridge: LocalBridgeData, message: ToMainBridgeMessage) {
     if (envbackend.debugFlags.ipc)
-      console.log(`${this.bridgename}: message from local bridge ${localBridge.id}`, { ...message, type: ToMainBridgeMessageType[message.type] });
+      console.log(`${this.bridgename}: message from ${getLocalBridgeName(localBridge)}`, { ...message, type: ToMainBridgeMessageType[message.type] });
     switch (message.type) {
       case ToMainBridgeMessageType.SendEvent: {
         const ref = await this.waitReadyReturnRef();
@@ -1111,7 +1132,7 @@ class MainBridge extends EventSource<BridgeEvents> {
         }
       } break;
       case ToMainBridgeMessageType.RegisterLocalBridge: {
-        this.registerLocalBridge({ id: message.id, port: message.port, localBridge: null });
+        this.registerLocalBridge({ workerid: message.workerid, workernr: message.workernr, port: message.port, localBridge: null });
       } break;
       case ToMainBridgeMessageType.ConfigureLogs: {
         const ref = await this.waitReadyReturnRef();
@@ -1158,7 +1179,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       // Do not want this port to keep the event loop running.
       data.port.unref();
     }
-    this.localbridges.set(data.id, data);
+    this.localbridges.set(data.workerid, data);
     this.postLocalBridgeMessage(data, { type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig });
   }
 
@@ -1288,7 +1309,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       case DebugRequestType.getWorkers: {
         this.debuglink?.send({
           type: DebugResponseType.getWorkersResult,
-          workers: Array.from(this.localbridges.values()).map(({ id }) => ({ id }))
+          workers: Array.from(this.localbridges.values()).map(_ => pick(_, ['workerid', 'workernr']))
         }, packet.msgid);
       } break;
       case DebugRequestType.getEnvironment: {
@@ -1305,14 +1326,14 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   gotLocalBridgeClose(data: LocalBridgeData) {
     if (envbackend.debugFlags.ipc)
-      console.log(`${this.bridgename}: local bridge ${data.id} closed`);
-    this.localbridges.delete(data.id);
+      console.log(`${this.bridgename}: ${getLocalBridgeName(data)} closed`);
+    this.localbridges.delete(data.workerid);
   }
 
   getTopLocalBridgeInitData(localBridge: LocalBridge): LocalBridgeInitData {
     const id = generateRandomId();
-    this.registerLocalBridge({ id, port: null, localBridge });
-    return { id, port: null, consoleLogData };
+    this.registerLocalBridge({ workerid: id, workernr: 0, port: null, localBridge });
+    return { workerid: id, workernr: 0, port: null, consoleLogData };
   }
 }
 

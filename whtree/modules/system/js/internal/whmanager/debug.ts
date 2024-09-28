@@ -75,7 +75,7 @@ type DebugResponse = {
   }>;
 } | {
   type: DebugResponseType.getWorkersResult;
-  workers: Array<{ id: string }>;
+  workers: Array<{ workernr: number; workerid: string }>;
 } | {
   type: DebugResponseType.getEnvironmentResult;
   env: Record<string, string>;
