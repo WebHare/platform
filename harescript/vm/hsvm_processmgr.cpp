@@ -75,9 +75,8 @@ namespace HareScript
 /* Locks: (top locks: no other locks may be taken when these are locked)
    - VMGroup reference mutex (top)            Only for keeping vmgroup references
    - Job manager jobdata lock (top)   For everything, and signalling the workers
-   - Timer lock                               Signalling for the timer thread
 
-   Lock order: timer > jobdata > groupref
+   Lock order: jobdata > groupref
 
    VM access:
      Startup: access at own risk (make sure you're the only one)
@@ -115,7 +114,6 @@ void JobManagerContextData::InitColumnMappings(VirtualMachine *vm)
 
 JobManager::JobManager(Environment &_env)
 : env(_env)
-//, timerthread(std::bind(&JobManager::TimerThreadFunction, this))
 , debugger(new Debugger(env, *this))
 {
 }
@@ -245,10 +243,8 @@ bool JobManager::DoRun(VMGroup *group)
         try
         {
                 PM_PRINT("Running VM group " << group << " (vm: " << group->mainvm << ")");
-                //HSVM_StartProfileTimer(*group->mainvm);
                 group->Run(true, true);
                 HSVM_FlushOutputBuffer(*group->mainvm);
-                //HSVM_StopProfileTimer(*group->mainvm);
                 if (group->TestMustAbort())
                 {
                         group->mainvm->HandleAbortFlagErrors();

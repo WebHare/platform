@@ -169,7 +169,10 @@ on a running WebHare or on Docker versions
 Number of processors to use (the `make -j` parameter). Estimated based on CPU cores and/or memory if not set.
 
 ### WHBUILD_DEBUG
-Set to build debug versions of WebHare C++ components
+Set to build debug versions of WebHare C++ components. The build will take place in a separate build directory, but any make 'install' target will overwrite the same installation
+
+### WHBUILD_PROFILE
+Set to build profiling versions of WebHare C++ components. The build will take place in a separate build directory, but any make 'install' target will overwrite the same installation
 
 ### WHBUILD_ASSETROOT
 Path to external dependencies. Defaults to https://build.webhare.dev/whbuild/

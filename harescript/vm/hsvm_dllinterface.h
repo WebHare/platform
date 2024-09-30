@@ -400,17 +400,6 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_AllocateVariable(struct HSVM *vm) ;
     @param vm VM in which garbage will be collected */
  HSVM_PUBLIC void HSVM_CollectGarbage(struct HSVM *vm) ;
 
-/** @short Enables the profiling timer
-    @long If you are running VM code yourself outside of the jobmanager, you must enable the
-          profiling timer around calls into harescript to enable profiling
- HSVM_PUBLIC void HSVM_StartProfileTimer(struct HSVM *vm) ;
-*/
-
-/** @short Enables the profiling timer
-    @long If you are running VM code yourself outside of the jobmanager, you must enable the
-          profiling timer around calls into harescript to enable profiling
- HSVM_PUBLIC void HSVM_StopProfileTimer(struct HSVM *vm) ;
-*/
 
 /*****************************************************************************
 

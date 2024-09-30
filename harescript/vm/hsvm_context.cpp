@@ -1377,9 +1377,6 @@ template< bool debug >
 
         try
         {
-//                if(executionstate.library!=NULL && executionstate.codeptr==-1 /* returning from suspending function */)
-//                    PopFrame();
-
                 while (true) //executing a ..
                 {
                         if (executionstate.codeptr == SignalCodeptr)

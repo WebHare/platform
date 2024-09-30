@@ -2498,17 +2498,6 @@ void HSVM_CollectGarbage(struct HSVM *vm)
         END_CATCH_VMEXCEPTIONS
 }
 
-/*void HSVM_StartProfileTimer(struct HSVM *vm)
-{
-        VM.profile_timer.Start();
-}
-
-void HSVM_StopProfileTimer(struct HSVM *vm)
-{
-        VM.profile_timer.Stop();
-        VM.GetProfileData().totaltime += VM.profile_timer.GetTotalTime();
-}
-*/
 int HSVM_LoadScript(struct HSVM *vm, const char *scriptname)
 {
         START_CATCH_VMEXCEPTIONS
@@ -2530,12 +2519,9 @@ int HSVM_LoadJobScript(struct HSVM *vm, const char *scriptname)
 
 int  HSVM_ExecuteScript(struct HSVM *vm, int deinitialize_when_finished, int allow_suspension)
 {
-//        DEBUGPRINT("Executing script in VM " << vm);
         START_CATCH_VMEXCEPTIONS
-        //HSVM_StartProfileTimer(vm);
         GetVirtualMachine(vm)->Run(allow_suspension != 0, deinitialize_when_finished);
         HSVM_FlushOutputBuffer(vm);
-        //HSVM_StopProfileTimer(vm);
 
         if(GetVirtualMachine(vm)->is_suspended)
             return 2; //suspended indicator

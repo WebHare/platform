@@ -193,10 +193,10 @@ while true; do
   elif [ "$1" == "--coverage" ]; then
     shift
     COVERAGE=1
-    PROFILE=
+    WEBHARE_PROFILE=
   elif [ "$1" == "--profile" ]; then
     shift
-    PROFILE=1
+    WEBHARE_PROFILE=1
     COVERAGE=
   elif [ "$1" == "--nopull" ]; then
     shift
@@ -293,7 +293,7 @@ TESTINGMODULEREF="${TESTINGMODULENAME:-platform}"
 
 if [ "$COVERAGE" == "1" ]; then
   WEBHARE_DEBUG="cov,$WEBHARE_DEBUG"
-elif [ "$PROFILE" == "1" ]; then
+elif [ "$WEBHARE_PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
 
@@ -818,7 +818,7 @@ if [ -n "$COVERAGE" ]; then
   echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
 fi
 
-if [ -n "$PROFILE" ]; then
+if [ -n "$WEBHARE_PROFILE" ]; then
   $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
   echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
 fi

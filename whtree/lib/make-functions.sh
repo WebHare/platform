@@ -56,17 +56,21 @@ estimate_buildj()
 setup_builddir()
 {
   if [ -n "$WHBUILD_DEBUG" ]; then
-    WHBUILD_DIPREFIX=debug-
+    WHBUILD_PREFIX=debug-
   else
-    WHBUILD_DIPREFIX=release-
+    WHBUILD_PREFIX=release-
+  fi
+
+  if [ -n "$WHBUILD_PROFILE" ]; then
+    WHBUILD_PREFIX=${WHBUILD_PREFIX}profile-
   fi
 
   if [ -z "$WHBUILD_BUILDROOT" ]; then
     [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
-    WHBUILD_BUILDROOT="`cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild`"
+    WHBUILD_BUILDROOT="$(cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild)"
   fi
   if [ -z "$WEBHARE_BUILDDIR" ]; then
-    WEBHARE_BUILDDIR="`cd $WEBHARE_CHECKEDOUT_TO; DIRNAME="${PWD##*/}" ; cd ..; echo $PWD/whbuild/${WHBUILD_DIPREFIX}${DIRNAME}`"
+    WEBHARE_BUILDDIR="$(cd $WEBHARE_CHECKEDOUT_TO; DIRNAME="${PWD##*/}" ; cd ..; echo $PWD/whbuild/${WHBUILD_PREFIX}${DIRNAME})"
   fi
 
   if [ -z "$WEBHARE_BUILDDIR" ]; then
@@ -75,7 +79,7 @@ setup_builddir()
   mkdir -p "$WEBHARE_BUILDDIR"
 
   if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
-    WHBUILD_DOWNLOADCACHE="$WEBHARE_BUILDDIR/downloadcache"
+    WHBUILD_DOWNLOADCACHE="$WHBUILD_BUILDROOT/downloadcache"
   fi
 }
 
