@@ -1026,7 +1026,7 @@ wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msw
 
 wasm-overwrite: $(addprefix $(PREFIX)/,$(wasm_DEPLOYABLES_WHAP))
 
-# Helper to add 'wh make list-targtes' - https://stackoverflow.com/a/26339924 - a future make version should allow 'wh make --print-targets'
+# Helper to add 'wh make list-targets' - https://stackoverflow.com/a/26339924 - a future make version should allow 'wh make --print-targets'
 .PHONY: list-targets
 list-targets:
 	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
