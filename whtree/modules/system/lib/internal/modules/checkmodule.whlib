@@ -187,6 +187,11 @@ OBJECTTYPE CheckerObject
         IF(GetNameFromPath(issue.resourcename) NOT LIKE this->options.filemask)
           CONTINUE;
 
+        /* When checking non-core modules (as 'platform' requires special handling to not ignore the other modules/jssdk) ignore TS errors outside that module. They're not
+           in the scope of the current check and may even point to errors in eg storage/system/generated which you probably can't fix anywway */
+        IF(modname NOT IN whconstant_builtinmodules AND issue.resourcename NOT LIKE `mod::${modname}/*`)
+          CONTINUE;
+
         //Exclusions are relative to the module root, so we need to compare with the module local part (TODO and perhaps we should be dropping anything outside the current module path given the filtering we had to do inside TSC ?)
         IF(issue.resourcename LIKE `mod::${modname}/*` AND MatchesPathMasks(Substring(issue.resourcename,SearchSubstring(issue.resourcename,'/')+1), exclusions))
           CONTINUE;
