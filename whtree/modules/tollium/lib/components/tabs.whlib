@@ -554,7 +554,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
     {
       OBJECT positioncomp := SELECT AS OBJECT component FROM this->insertpoints WHERE ToUppercase(name) = ToUppercase(ins.position);
       IF(NOT ObjectExists(positioncomp))
-        THROW NEW TolliumException(this, "Unknown insert position '" || ins.position || "'");
+        THROW NEW TolliumException(this, `Unknown insert position '${ins.position}' - valid positions are: ${Detokenize((SELECT AS STRING ARRAY name FROM this->insertpoints), ", ")}`);
 
       STRING loc := ins."where";
       IF(loc NOT IN ["before","after","atend"])
