@@ -288,6 +288,10 @@ function testHSONEnDeCode(encoded: string, toencode: IPCMarshallableData) {
 }
 
 async function testHSON() {
+  test.throws(/Cannot.*NaN/, () => encodeHSON(NaN));
+  test.throws(/Cannot.*Infinity/, () => encodeHSON(Infinity));
+  test.throws(/Cannot.*-Infinity/, () => encodeHSON(-Infinity));
+
   testHSONEnDeCode('hson:-2147483648', -2147483648);
 
   testHSONEnDeCode('hson:5', 5);

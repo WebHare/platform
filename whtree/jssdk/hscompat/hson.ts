@@ -183,7 +183,8 @@ export function determineType(value: unknown): HareScriptType {
       if (value === Math.floor(value)) {
         if (value >= -2147483648 && value < 2147483648)
           return HareScriptType.Integer;
-        return HareScriptType.Integer64;
+        if (Number.isSafeInteger(value))
+          return HareScriptType.Integer64;
       }
       return HareScriptType.Float;
     }
@@ -258,7 +259,9 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: HareScriptTyp
           retval = "f " + (value as Money).value;
         else
           throw new Error(`Unknown object to encode as float`);
-      } else
+      } else if (!isFinite(value as number))
+        throw new Error(`Cannot encode non-finite value '${value}' in HSON`);
+      else
         retval = "f " + (value as number).toString().replace('+', ''); //format 1e+308 as 1e308
     } break;
     case HareScriptType.String:
