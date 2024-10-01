@@ -10,7 +10,7 @@ import { RefTracker } from "./refs";
 import { generateRandomId } from "@webhare/std";
 import * as stacktrace_parser from "stacktrace-parser";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
-import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType } from "./debug";
+import { DebugIPCLinkType, DebugRequestType, DebugResponseType, type ProcessList } from "./debug";
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
@@ -61,6 +61,8 @@ export interface LogNoticeOptions {
 export interface LogErrorOptions extends LogNoticeOptions {
   errortype?: "exception" | "unhandledRejection";
 }
+
+let nextWorkerNr = 0;
 
 interface Bridge extends EventSource<BridgeEvents> {
   get connected(): boolean;
@@ -149,6 +151,7 @@ type ToLocalBridgeMessage = {
   type: ToLocalBridgeMessageType.SystemConfig;
   connected: boolean;
   systemconfig: Record<string, unknown>;
+  have_ts_debugger: boolean;
 } | {
   type: ToLocalBridgeMessageType.Event;
   name: string;
@@ -219,7 +222,8 @@ type ToMainBridgeMessage = {
   requestid: number;
 } | {
   type: ToMainBridgeMessageType.RegisterLocalBridge;
-  id: string;
+  workerid: string;
+  workernr: number;
   port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
 } | {
   type: ToMainBridgeMessageType.ConfigureLogs;
@@ -233,7 +237,8 @@ type ToMainBridgeMessage = {
 };
 
 type LocalBridgeInitData = {
-  id: string;
+  workerid: string;
+  workernr: number;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage> | null;
   /// 2 atomic uint32's, 0: console log counter, 1: 1 if workers are (or have been) active, 0 if not
   consoleLogData: Uint32Array;
@@ -269,13 +274,15 @@ type JavaScriptExceptionData = {
 let mainbridge: MainBridge | undefined;
 
 class LocalBridge extends EventSource<BridgeEvents> {
-  id: string;
+  readonly workerid: string;
+  readonly workernr: number;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage> | null;
   requestcounter = 11000;
   systemconfig: Record<string, unknown>;
   _ready: PromiseWithResolvers<void>;
   connected = false;
   reftracker: RefTracker;
+  debuglink?: DebugIPCLinkType["ConnectEndPoint"];
 
   pendingensuredatasent = new Map<number, () => void>();
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
@@ -296,7 +303,8 @@ class LocalBridge extends EventSource<BridgeEvents> {
   constructor() {
     super();
     const initdata = LocalBridge.getLocalBridgeInitData(this);
-    this.id = initdata.id;
+    this.workerid = initdata.workerid;
+    this.workernr = initdata.workernr;
     this.port = initdata.port;
     this.systemconfig = {};
     this._ready = Promise.withResolvers<void>();
@@ -315,12 +323,12 @@ class LocalBridge extends EventSource<BridgeEvents> {
   }
 
   getGroupId() {
-    return this.id;
+    return this.workerid;
   }
 
   handleControlMessage(message: ToLocalBridgeMessage) {
     if (envbackend.debugFlags.ipc)
-      console.log(`localbridge ${this.id}: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
+      console.log(`localbridge ${this.workerid}: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
     switch (message.type) {
       case ToLocalBridgeMessageType.SystemConfig: {
         this.systemconfig = message.systemconfig;
@@ -331,6 +339,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
           else
             this._ready = Promise.withResolvers<void>();
         }
+        this.initDebugger(message.have_ts_debugger);
         this.emit("systemconfig", this.systemconfig);
       } break;
       case ToLocalBridgeMessageType.Event: {
@@ -343,7 +352,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       case ToLocalBridgeMessageType.FlushLogResult: {
         const reg = this.pendingflushlogs.get(message.requestid);
         if (envbackend.debugFlags.ipc)
-          console.log(`localbridge ${this.id}: pending flush logs`, this.pendingflushlogs, reg);
+          console.log(`localbridge ${this.workerid}: pending flush logs`, this.pendingflushlogs, reg);
         if (reg) {
           this.pendingflushlogs.delete(message.requestid);
           if (message.success)
@@ -355,7 +364,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       case ToLocalBridgeMessageType.EnsureDataSentResult: {
         const reg = this.pendingensuredatasent.get(message.requestid);
         if (envbackend.debugFlags.ipc)
-          console.log(`localbridge ${this.id}: ensuredatasent result`, message.requestid, Boolean(reg));
+          console.log(`localbridge ${this.workerid}: ensuredatasent result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendingensuredatasent.delete(message.requestid);
           reg();
@@ -364,7 +373,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       case ToLocalBridgeMessageType.GetProcessListResult: {
         const reg = this.pendinggetprocesslists.get(message.requestid);
         if (envbackend.debugFlags.ipc)
-          console.log(`localbridge ${this.id}: pendinggetprocesslists result`, message.requestid, Boolean(reg));
+          console.log(`localbridge ${this.workerid}: pendinggetprocesslists result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
           reg(message.processes);
@@ -373,7 +382,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       case ToLocalBridgeMessageType.ConfigureLogsResult: {
         const reg = this.pendingreconfigurelogs.get(message.requestid);
         if (envbackend.debugFlags.ipc)
-          console.log(`localbridge ${this.id}: pendingreconfigurelogs result`, message.requestid, Boolean(reg));
+          console.log(`localbridge ${this.workerid}: pendingreconfigurelogs result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
           reg(message.results);
@@ -382,7 +391,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       case ToLocalBridgeMessageType.ConnectToLocalServiceResult: {
         const reg = this.pendingconnectlocalservice.get(message.requestid);
         if (envbackend.debugFlags.ipc)
-          console.log(`localbridge ${this.id}: pendingconnectlocalservice result`, message.requestid, Boolean(reg));
+          console.log(`localbridge ${this.workerid}: pendingconnectlocalservice result`, message.requestid, Boolean(reg));
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
           reg(message.error);
@@ -395,7 +404,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   postMainBridgeMessage(message: ToMainBridgeMessage, transferList?: ReadonlyArray<TransferListItem | AnyTypedMessagePort> | undefined): void {
     if (mainbridge)
-      mainbridge.gotDirectMessage(this.id, message);
+      mainbridge.gotDirectMessage(this.workerid, message);
     else if (this.port)
       this.port.postMessage(message, transferList);
     else
@@ -560,14 +569,16 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   getLocalHandlerInitDataForWorker(): LocalBridgeInitData {
     const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getTopLocalBridgeInitData");
-    const id = generateRandomId();
+    const workernr = ++nextWorkerNr;
+    const workerid = generateRandomId();
     this.postMainBridgeMessage({
       type: ToMainBridgeMessageType.RegisterLocalBridge,
-      id,
+      workerid,
+      workernr,
       port: port1
     }, [port1]);
     port2.unref();
-    return { id, port: port2, consoleLogData };
+    return { workerid, workernr, port: port2, consoleLogData };
   }
 
   async configureLogs(logfiles: LogFileConfiguration[]) {
@@ -607,6 +618,81 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
     return initNewLocalServiceProxy<T>(port1, "factory", params ?? []);
   }
+
+  initDebugger(has_ts_debugger: boolean) {
+    if (this.debuglink && !has_ts_debugger)
+      this.debuglink.close();
+    else if (!this.debuglink && has_ts_debugger && this.connected) {
+      const link = this.connect<DebugIPCLinkType>("ts:debugmgr_internal", { global: true });
+      this.debuglink = link;
+      this.debuglink.on("message", (packet) => this.gotDebugMessage(packet));
+      this.debuglink.on("close", () => { if (this.debuglink === link) this.debuglink = undefined; });
+      this.debuglink.send({ type: DebugResponseType.register, pid: process.pid, workerid: this.workerid, workernr: this.workernr });
+      this.debuglink.activate().catch(() => { if (this.debuglink === link) this.debuglink = undefined; });
+      this.debuglink.dropReference();
+    }
+  }
+
+  gotDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
+    try {
+      return this.processDebugMessage(packet);
+    } catch (e) {
+      //This shouldn't be fatal to the process, catch and ignore (ie process may not have restarted yet)
+      console.error("Error processing debug message", e);
+      this.debuglink?.close();
+    }
+  }
+
+  processDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
+    const message: typeof packet.message = packet.message;
+    switch (message.type) {
+      case DebugRequestType.enableInspector: {
+        let url = inspector.url();
+        if (!url) {
+          inspector.open(message.port);
+          url = inspector.url();
+        }
+        this.debuglink?.send({
+          type: DebugResponseType.enableInspectorResult,
+          url: url ?? ""
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getRecentlyLoggedItems: {
+        this.debuglink?.send({
+          type: DebugResponseType.getRecentlyLoggedItemsResult,
+          items: consoledata
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getHMRState: {
+        this.debuglink?.send({
+          type: DebugResponseType.getHMRStateResult,
+          ...getHMRState()
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getCodeContexts: {
+        const codecontexts = getActiveCodeContexts();
+        this.debuglink?.send({
+          type: DebugResponseType.getCodeContextsResult,
+          codecontexts: codecontexts.map(c => ({ trace: c.trace, ...pick(c.codecontext, ["id", "title", "metadata"]) }))
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getWorkers: {
+        this.debuglink?.send({
+          type: DebugResponseType.getWorkersResult,
+          workers: Array.from(mainbridge?.localbridges.values() ?? []).map(_ => pick(_, ['workerid', 'workernr']))
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getEnvironment: {
+        const envkeys = Object.entries(process.env).filter(([, value]) => typeof value === "string");
+        this.debuglink?.send({
+          type: DebugResponseType.getEnvironmentResult,
+          env: Object.fromEntries(envkeys) as Record<string, string>
+        }, packet.msgid);
+      } break;
+      default:
+        checkAllMessageTypesHandled(message, "type");
+    }
+  }
 }
 
 type PortRegistration = {
@@ -619,14 +705,20 @@ type PortRegistration = {
 const consoledata: ConsoleLogItem[] = [];
 
 type LocalBridgeData = {
-  id: string;
+  workerid: string;
+  workernr: number;
   port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
   localBridge: null;
 } | {
-  id: string;
+  workerid: string;
+  workernr: number;
   port: null;
   localBridge: LocalBridge;
 };
+
+function getLocalBridgeName(data: LocalBridgeData) {
+  return `local bridge #${data.workernr} (${data.workerid})`;
+}
 
 class MainBridge extends EventSource<BridgeEvents> {
   conn: WHManagerConnection;
@@ -652,12 +744,11 @@ class MainBridge extends EventSource<BridgeEvents> {
   systemconfig: Record<string, unknown>;
 
   bridgename = "main bridge";
-  processcode = 0;
+  have_ts_debugger = false;
 
   /// Set when waiting for data to flush
   waitunref?: PromiseWithResolvers<void>;
 
-  debuglink?: DebugIPCLinkType["ConnectEndPoint"];
 
   constructor() {
     super();
@@ -716,7 +807,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     }
     this.links.clear();
     for (const bridge of this.localbridges) {
-      this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false });
+      this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false, have_ts_debugger: this.have_ts_debugger });
     }
   }
 
@@ -775,7 +866,6 @@ class MainBridge extends EventSource<BridgeEvents> {
           this._conntimeout = undefined;
         }
 
-        this.processcode = data.processcode;
         const decoded = data.systemconfigdata.length
           ? hsmarshalling.readMarshalData(data.systemconfigdata)
           : {};
@@ -783,18 +873,21 @@ class MainBridge extends EventSource<BridgeEvents> {
         if (typeof decoded === "object" && decoded) {
           this.systemconfig = decoded as Record<string, unknown>;
         }
+        this.have_ts_debugger = data.have_ts_debugger;
         for (const bridge of this.localbridges) {
-          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig });
+          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger });
         }
-        this.initDebugger(data.have_ts_debugger);
       } break;
       case WHMResponseOpcode.SystemConfig: {
         const decoded = data.systemconfigdata.length
           ? hsmarshalling.readMarshalData(data.systemconfigdata)
           : {};
 
+        this.have_ts_debugger = data.have_ts_debugger;
         this.systemconfig = decoded as (Record<string, unknown> | null) ?? {};
-        this.initDebugger(data.have_ts_debugger);
+        for (const bridge of this.localbridges) {
+          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger });
+        }
       } break;
       case WHMResponseOpcode.RegisterPortResult: {
         const reg = this.portregisterrequests.get(data.replyto);
@@ -896,7 +989,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           this.postLocalBridgeMessage(reg.localBridge, {
             type: ToLocalBridgeMessageType.GetProcessListResult,
             requestid: reg.requestid,
-            processes: data.processes.map(p => ({ ...p, debuggerconnected: false }))
+            processes: data.processes
           });
         }
       } break;
@@ -920,6 +1013,15 @@ class MainBridge extends EventSource<BridgeEvents> {
     }
   }
 
+  getBridgeForWorker(worker: string): LocalBridgeData | null {
+    const byid = this.localbridges.get(worker);
+    if (byid)
+      return byid;
+
+    //then look up by nr:
+    return [...this.localbridges.values()].find(bridge => bridge.workernr === Number(worker)) || null;
+  }
+
   async gotDirectMessage(id: string, message: ToMainBridgeMessage) {
     const localBridgeData = this.localbridges.get(id);
     if (localBridgeData)
@@ -928,7 +1030,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   async gotLocalBridgeMessage(localBridge: LocalBridgeData, message: ToMainBridgeMessage) {
     if (envbackend.debugFlags.ipc)
-      console.log(`${this.bridgename}: message from local bridge ${localBridge.id}`, { ...message, type: ToMainBridgeMessageType[message.type] });
+      console.log(`${this.bridgename}: message from ${getLocalBridgeName(localBridge)}`, { ...message, type: ToMainBridgeMessageType[message.type] });
     switch (message.type) {
       case ToMainBridgeMessageType.SendEvent: {
         const ref = await this.waitReadyReturnRef();
@@ -1111,7 +1213,7 @@ class MainBridge extends EventSource<BridgeEvents> {
         }
       } break;
       case ToMainBridgeMessageType.RegisterLocalBridge: {
-        this.registerLocalBridge({ id: message.id, port: message.port, localBridge: null });
+        this.registerLocalBridge({ workerid: message.workerid, workernr: message.workernr, port: message.port, localBridge: null });
       } break;
       case ToMainBridgeMessageType.ConfigureLogs: {
         const ref = await this.waitReadyReturnRef();
@@ -1158,8 +1260,8 @@ class MainBridge extends EventSource<BridgeEvents> {
       // Do not want this port to keep the event loop running.
       data.port.unref();
     }
-    this.localbridges.set(data.id, data);
-    this.postLocalBridgeMessage(data, { type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig });
+    this.localbridges.set(data.workerid, data);
+    this.postLocalBridgeMessage(data, { type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig, have_ts_debugger: this.have_ts_debugger });
   }
 
   allocateLinkid() {
@@ -1217,102 +1319,16 @@ class MainBridge extends EventSource<BridgeEvents> {
     port.unref();
   }
 
-  initDebugger(has_ts_debugger: boolean) {
-    if (this.debuglink && !has_ts_debugger)
-      this.debuglink.close();
-    else if (!this.debuglink && has_ts_debugger && this.connectionactive) {
-      const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>("initDebugger");
-      const id = generateRandomId();
-      this.debuglink = new IPCEndPointImpl(`${id} - origin (ts:debugmgr_internal)`, port2, "connecting", "global port ts:debugmgr_internal");
-      const link = this.debuglink;
-      this.debuglink.on("message", (packet) => this.gotDebugMessage(packet));
-      this.debuglink.on("close", () => { if (this.debuglink === link) this.debuglink = undefined; });
-      this.debuglink.send({ type: DebugResponseType.register, processcode: this.processcode });
-      this.debuglink.activate().catch(() => { if (this.debuglink === link) this.debuglink = undefined; });
-      this.debuglink.dropReference();
-
-      const linkid = this.allocateLinkid();
-      this.sendData({
-        opcode: WHMRequestOpcode.ConnectLink,
-        portname: "ts:debugmgr_internal",
-        linkid,
-        msgid: BigInt(0)
-      });
-      this.initLinkHandling("ts:debugmgr_internal", linkid, BigInt(0), port1);
-    }
-  }
-
-  gotDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
-    try {
-      return this.processDebugMessage(packet);
-    } catch (e) {
-      //This shouldn't be fatal to the process, catch and ignore (ie process may not have restarted yet)
-      console.error("Error processing debug message", e);
-      this.debuglink?.close();
-    }
-  }
-
-  processDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
-    const message: typeof packet.message = packet.message;
-    switch (message.type) {
-      case DebugRequestType.enableInspector: {
-        let url = inspector.url();
-        if (!url) {
-          inspector.open(message.port);
-          url = inspector.url();
-        }
-        this.debuglink?.send({
-          type: DebugResponseType.enableInspectorResult,
-          url: url ?? ""
-        }, packet.msgid);
-      } break;
-      case DebugRequestType.getRecentlyLoggedItems: {
-        this.debuglink?.send({
-          type: DebugResponseType.getRecentlyLoggedItemsResult,
-          items: consoledata
-        }, packet.msgid);
-      } break;
-      case DebugRequestType.getHMRState: {
-        this.debuglink?.send({
-          type: DebugResponseType.getHMRStateResult,
-          ...getHMRState()
-        }, packet.msgid);
-      } break;
-      case DebugRequestType.getCodeContexts: {
-        const codecontexts = getActiveCodeContexts();
-        this.debuglink?.send({
-          type: DebugResponseType.getCodeContextsResult,
-          codecontexts: codecontexts.map(c => ({ trace: c.trace, ...pick(c.codecontext, ["id", "title", "metadata"]) }))
-        }, packet.msgid);
-      } break;
-      case DebugRequestType.getWorkers: {
-        this.debuglink?.send({
-          type: DebugResponseType.getWorkersResult,
-          workers: Array.from(this.localbridges.values()).map(({ id }) => ({ id }))
-        }, packet.msgid);
-      } break;
-      case DebugRequestType.getEnvironment: {
-        const envkeys = Object.entries(process.env).filter(([, value]) => typeof value === "string");
-        this.debuglink?.send({
-          type: DebugResponseType.getEnvironmentResult,
-          env: Object.fromEntries(envkeys) as Record<string, string>
-        }, packet.msgid);
-      } break;
-      default:
-        checkAllMessageTypesHandled(message, "type");
-    }
-  }
-
   gotLocalBridgeClose(data: LocalBridgeData) {
     if (envbackend.debugFlags.ipc)
-      console.log(`${this.bridgename}: local bridge ${data.id} closed`);
-    this.localbridges.delete(data.id);
+      console.log(`${this.bridgename}: ${getLocalBridgeName(data)} closed`);
+    this.localbridges.delete(data.workerid);
   }
 
   getTopLocalBridgeInitData(localBridge: LocalBridge): LocalBridgeInitData {
     const id = generateRandomId();
-    this.registerLocalBridge({ id, port: null, localBridge });
-    return { id, port: null, consoleLogData };
+    this.registerLocalBridge({ workerid: id, workernr: 0, port: null, localBridge });
+    return { workerid: id, workernr: 0, port: null, consoleLogData };
   }
 }
 
@@ -1378,7 +1394,7 @@ function hookConsoleLog() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
-      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
+      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.workerid})` : ``;
       old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}:${source.method === "table" ? "\n" : " "}`, "utf-8");
       source.loggedlocation = true;
     }
@@ -1398,7 +1414,7 @@ function hookConsoleLog() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
-      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
+      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.workerid})` : ``;
       old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}: `, "utf-8");
       source.loggedlocation = true;
     }

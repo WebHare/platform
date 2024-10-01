@@ -74,10 +74,11 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
 
   /** Sends a message to the other endpoint, waits for the reply
       @param message - Message to send
+      @param signal - Abort signal to cancel the request
       @returns Contents of the reply, or an exception when the link was closed before a reply was received. Exceptions
         are parsed automatically and used to reject the returned promise.
   */
-  doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>>;
+  doRequest<T extends OmitResponseKey<SendType>>(message: T, options?: { signal?: AbortSignal }): Promise<CalcResponseType<SendType, ReceiveType, T>>;
 
   /** Parse a message for exceptions. Throws the exception of the message contains an exception.
       @param message - Message to parse
@@ -322,7 +323,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     this.sendInternal(encodeIPCException(e), replyto);
   }
 
-  async doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>> {
+  async doRequest<T extends OmitResponseKey<SendType>>(message: T, options?: { signal?: AbortSignal }): Promise<CalcResponseType<SendType, ReceiveType, T>> {
     if (this.closed)
       throw new Error(`IPC link has already been closed`);
     const msgid = this.send(message);
@@ -331,6 +332,8 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     const error = new Error(); //FIXME avoid generating a stack trace for every request!  this should be eg behind a debug flag
     const lock = this.refs.getLock("request");
     try {
+      if (options?.signal)
+        options.signal.addEventListener("abort", () => defer.reject(new Error("Aborted")));
       return await defer.promise;
     } catch (e) {
       // re-throw the error so the stack trace points to the invocation of activate()

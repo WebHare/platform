@@ -1,17 +1,15 @@
 import type { IPCLinkType } from "./ipc";
-import type { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
+import type { WHMProcessType } from "./whmanager_rpcdefs";
 import type { State as HMRState } from "../hmrinternal";
 import type { StackTraceItem } from "../util/stacktrace";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
-export { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 
 export type ProcessList = Array<{
   processcode: number;
   pid: number;
-  type: ProcessType;
+  type: WHMProcessType;
   name: string;
   parameters: Record<string, string>;
-  debuggerconnected: boolean;
 }>;
 
 export enum DebugRequestType {
@@ -56,7 +54,9 @@ export enum DebugResponseType {
 
 type DebugResponse = {
   type: DebugResponseType.register;
-  processcode: number;
+  pid: number;
+  workerid: string;
+  workernr: number;
 } | {
   type: DebugResponseType.enableInspectorResult;
   url: string;
@@ -75,7 +75,7 @@ type DebugResponse = {
   }>;
 } | {
   type: DebugResponseType.getWorkersResult;
-  workers: Array<{ id: string }>;
+  workers: Array<{ workernr: number; workerid: string }>;
 } | {
   type: DebugResponseType.getEnvironmentResult;
   env: Record<string, string>;
@@ -125,9 +125,9 @@ type GetByType<T extends { type: unknown }, K> = T extends { type: K } ? T : nev
 /// Constructs the types needed to declare the forward in DebugMgrClientLinkRequest, DebugMgrClientLinkResponse and to type the client message in the forwarder
 type Forward<ClientRequestType extends DebugMgrClientLinkRequestType, RequestType extends DebugRequestType, ClientResponseType extends DebugMgrClientLinkResponseType> = {
   /// Request record for the DebugMgrClientLinkRequest type
-  RequestTypeForLink: { type: ClientRequestType; processcode: number; __responseKey: { type: ClientResponseType } } & Omit<GetByType<DebugRequest, RequestType>, "type" | "__responseKey">;
+  RequestTypeForLink: { type: ClientRequestType; processid: string; __responseKey: { type: ClientResponseType } } & Omit<GetByType<DebugRequest, RequestType>, "type" | "__responseKey">;
   /// Format of the message sent by the client
-  Request: { type: ClientRequestType; processcode: number } & Omit<GetByType<DebugRequest, RequestType>, "type" | "__responseKey">;
+  Request: { type: ClientRequestType; processid: string } & Omit<GetByType<DebugRequest, RequestType>, "type" | "__responseKey">;
   /// Format of the message to return (also for DebugMgrClientLinkResponse type)
   Response: { type: ClientResponseType } & Omit<GetByType<DebugResponse, GetByType<DebugRequest, RequestType>["__responseKey"]["type"]>, "type">;
 };
@@ -147,7 +147,7 @@ export type DebugMgrClientLinkRequest = {
   __responseKey: { type: DebugMgrClientLinkResponseType.getProcessListResult };
 } | {
   type: DebugMgrClientLinkRequestType.enableInspector;
-  processcode: number;
+  processid: string;
   __responseKey: { type: DebugMgrClientLinkResponseType.enableInspectorResult };
 } | ForwardLinkSpecs["RequestTypeForLink"];
 

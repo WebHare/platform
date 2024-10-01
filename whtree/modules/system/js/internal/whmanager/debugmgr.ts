@@ -5,7 +5,9 @@ import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLi
 
 
 type ProcessRegistration = {
-  processcode: number;
+  pid: number;
+  workernr: number;
+  workerid: string;
   link: DebugIPCLinkType["AcceptEndPoint"];
   inspectorport: number | undefined;
 };
@@ -18,7 +20,7 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
 
   debugport: DebugIPCLinkType["Port"];
 
-  processes = new Map<number, ProcessRegistration>();
+  processes = new Map<string, ProcessRegistration>();
 
   constructor() {
     super();
@@ -33,9 +35,11 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
 
   gotLink(link: DebugIPCLinkType["AcceptEndPoint"]): void {
     const reg = {
-      processcode: 0,
+      pid: 0,
+      workernr: 0,
+      workerid: "",
       link,
-      inspectorport: undefined
+      inspectorport: undefined,
     };
     link.on("message", (packet) => this.gotLinkMessage(reg, packet));
     link.on("close", () => this.gotLinkClose(reg));
@@ -44,13 +48,17 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
 
   gotLinkMessage(reg: ProcessRegistration, packet: DebugIPCLinkType["AcceptEndPointPacket"]) {
     if (this.isResponseToForwardedMessage(packet.message)) {
+      console.log("got response", packet.message);
       return;
     }
 
     switch (packet.message.type) {
       case DebugResponseType.register: {
-        reg.processcode = packet.message.processcode;
-        this.processes.set(packet.message.processcode, reg);
+        const procid = packet.message.pid + '.' + packet.message.workernr;
+        reg.pid = packet.message.pid;
+        reg.workernr = packet.message.workernr;
+        reg.workerid = packet.message.workerid;
+        this.processes.set(procid, reg);
         this.emit("processlist", void (0));
       } break;
       case DebugResponseType.enableInspectorResult: break; // only response type
@@ -61,8 +69,8 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
   }
 
   gotLinkClose(reg: ProcessRegistration) {
-    if (reg.processcode) {
-      this.processes.delete(reg.processcode);
+    if (reg.pid) {
+      this.processes.delete(reg.pid + '.' + reg.workernr);
       this.emit("processlist", void (0));
     }
   }
@@ -131,9 +139,12 @@ class DebugMgrClient {
     }
   }
 
-  async ensureProcessConnected(processcode: number): Promise<ProcessRegistration | undefined> {
+  async ensureProcessConnected(processid: string): Promise<ProcessRegistration | undefined> {
     {
-      const proc = this.handler.processes.get(processcode);
+      if (parseInt(processid) > 0 && !processid.includes('.')) //it's a number without the `.0` suffix. retarget to main thread
+        processid = processid + '.0';
+
+      const proc = this.handler.processes.get(processid);
       if (proc)
         return proc;
     }
@@ -143,7 +154,8 @@ class DebugMgrClient {
       this.processlistwaits.add(defer);
 
       const processlist = await bridge.getProcessList();
-      const process = processlist.find(p => p.processcode === processcode);
+      const findpid = parseInt(processid); //as a processid is formatted as `pid.workernr`, parseint will just give us the PID
+      const process = processlist.find(p => p.pid === findpid);
       if (!process) {  // process is gone
         return undefined;
       }
@@ -151,7 +163,7 @@ class DebugMgrClient {
       await defer.promise;
       this.processlistwaits.delete(defer);
 
-      const proc = this.handler.processes.get(processcode);
+      const proc = this.handler.processes.get(processid);
       if (proc) {
         return proc;
       }
@@ -165,7 +177,7 @@ class DebugMgrClient {
   async forwardRequest<K extends keyof typeof directforwards
   >(message: ForwardByRequestType<K>["Request"], msgid: bigint) {
     try {
-      const reg = await this.ensureProcessConnected(message.processcode);
+      const reg = await this.ensureProcessConnected(message.processid);
       if (!reg) {
         throw new Error(`Process has already terminated`);
       }
@@ -202,7 +214,7 @@ class DebugMgrClient {
           this.gotvalidprocesslist = true;
           this.link.send({
             type: DebugMgrClientLinkResponseType.getProcessListResult,
-            processlist: processlist.map(p => ({ ...p, debuggerconnected: Boolean(this.handler.processes.get(p.processcode)) }))
+            processlist: processlist
           }, packet.msgid);
         } catch (e) {
           this.link.sendException(e as Error, packet.msgid);
@@ -210,7 +222,7 @@ class DebugMgrClient {
       } break;
       case DebugMgrClientLinkRequestType.enableInspector: {
         try {
-          const reg = await this.ensureProcessConnected(packet.message.processcode);
+          const reg = await this.ensureProcessConnected(packet.message.processid);
           if (!reg) {
             this.link.send({
               type: DebugMgrClientLinkResponseType.enableInspectorResult,

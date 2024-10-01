@@ -1,22 +1,10 @@
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { DebugMgrClientLink, DebugMgrClientLinkRequestType, ProcessType } from "@mod-system/js/internal/whmanager/debug";
+import { DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
+import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import * as child_process from "node:child_process";
 
 /// short: Control WebHare bridge connections (ie. javascript processes)
-
-async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<number> {
-  const pid = parseInt(instance);
-  const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
-  const matches = res.processlist.filter(proc => isNaN(pid) ? proc.name.endsWith(instance) : proc.pid === pid);
-  if (matches.length === 0) {
-    throw new Error(`No process matching ${JSON.stringify(instance)}`);
-  } else if (matches.length !== 1) {
-    throw new Error(`Multiple processes matching ${JSON.stringify(instance)}: ${matches.map(proc => JSON.stringify(proc.name)).join(", ")}`);
-  }
-  return matches[0].processcode;
-}
-
 
 program
   .name('bridge')
@@ -42,7 +30,7 @@ program.command('connections')
       link.close();
     }
 
-    const list = result.processlist.filter(p => p.type === ProcessType.TypeScript);
+    const list = result.processlist.filter(p => p.type === WHMProcessType.TypeScript);
     if (options.json)
       console.log(JSON.stringify(list));
     else
@@ -53,10 +41,9 @@ async function getInspectorURL(process: string) {
   const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
   try {
     await link.activate();
-    const searchprocesscode = await getProcessCodeFromInstance(link, process);
     const inspectorinfo = await link.doRequest({
       type: DebugMgrClientLinkRequestType.enableInspector,
-      processcode: searchprocesscode
+      processid: process
     });
     return inspectorinfo?.url || null;
   } catch (e) {
@@ -75,10 +62,9 @@ program.command('getenvironment')
     try {
       await link.activate();
 
-      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
       const result = await link.doRequest({
         type: DebugMgrClientLinkRequestType.getEnvironment,
-        processcode: searchprocesscode
+        processid: instance
       });
       link.close();
       console.log(JSON.stringify(result.env, null, 2));
@@ -127,10 +113,9 @@ program.command('getrecentlog')
     try {
       await link.activate();
 
-      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
       const result = await link.doRequest({
         type: DebugMgrClientLinkRequestType.getRecentlyLoggedItems,
-        processcode: searchprocesscode
+        processid: instance
       });
       link.close();
       for (const item of result.items) {
@@ -152,10 +137,9 @@ program.command('gethmrstate')
     try {
       await link.activate();
 
-      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
       const result = await link.doRequest({
         type: DebugMgrClientLinkRequestType.getHMRState,
-        processcode: searchprocesscode
+        processid: instance
       });
       link.close();
       console.log(JSON.stringify(result));
@@ -174,10 +158,9 @@ program.command('getcodecontexts')
     try {
       await link.activate();
 
-      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
       const result = await link.doRequest({
         type: DebugMgrClientLinkRequestType.getCodeContexts,
-        processcode: searchprocesscode
+        processid: instance
       });
       link.close();
       console.log(JSON.stringify(result, null, 2));
@@ -196,10 +179,9 @@ program.command('getworkers')
     try {
       await link.activate();
 
-      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
       const result = await link.doRequest({
         type: DebugMgrClientLinkRequestType.getWorkers,
-        processcode: searchprocesscode
+        processid: instance
       });
       link.close();
       console.log(JSON.stringify(result.workers, null, 2));
@@ -219,15 +201,14 @@ program.command('findworker')
     try {
       await link.activate();
       const processlistresponse = (await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList }));
-      const processes = processlistresponse.processlist.filter(p => p.type === ProcessType.TypeScript && p.debuggerconnected);
+      const processes = processlistresponse.processlist.filter(p => p.type === WHMProcessType.TypeScript);
 
       const processwithworkers = await Promise.all(processes.map(async (p) => {
         try {
-          const workerresponse = await link.doRequest({ type: DebugMgrClientLinkRequestType.getWorkers, processcode: p.processcode });
-          const matchingworkers = workerresponse.workers.filter(w => w.id.startsWith(workerid));//.map(w => w.id).join(", ");
+          const workerresponse = await link.doRequest({ type: DebugMgrClientLinkRequestType.getWorkers, processid: String(p.pid) + '.0' }, { signal: AbortSignal.timeout(1000) });
+          const matchingworkers = workerresponse.workers.filter(w => w.workerid.startsWith(workerid));//.map(w => w.id).join(", ");
           return { ...p, matchingworkers };
         } catch (e) {
-          console.log(p, e);
           return { ...p, matchingworkers: [] };
         }
       }));
@@ -237,7 +218,7 @@ program.command('findworker')
         console.log(JSON.stringify(list));
       else {
         if (list.length)
-          console.table(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.id).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]);
+          console.table(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.workerid).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]);
         else
           console.log(`No workers found with an id starting with ${JSON.stringify(workerid)}`);
       }
@@ -249,6 +230,5 @@ program.command('findworker')
       link.close();
     }
   });
-
 
 program.parse();
