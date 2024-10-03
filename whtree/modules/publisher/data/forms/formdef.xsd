@@ -461,6 +461,14 @@
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="delay" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>
+            A delay in seconds after which to redirect (the thank you page will be shown for this number of seconds before
+            redirecting)
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
@@ -689,10 +697,10 @@
           <fai:formcomponent descriptiontid="formcomponents.imgedit.description"
                              editdefaults="name title hidetitle required groupclasses infotext"
                              fieldobject="/lib/webtools/formcomponents/imgedit.whlib#ImgEditField"
-                             parserfunc="/lib/webtools/formcomponents/upload.whlib#parseFormUpload"
                              icon="tollium:forms/image"
                              linecomponent="false"
                              ordering="12"
+                             parserfunc="/lib/webtools/formcomponents/upload.whlib#parseFormUpload"
                              supportedvalues="image"
                              tid="formcomponents.imgedit.name" />
         </xs:appinfo>
@@ -796,10 +804,10 @@
           <fai:formcomponent descriptiontid="formcomponents.upload.description"
                              editdefaults="name title hidetitle required groupclasses infotext"
                              fieldobject="/lib/webtools/formcomponents/upload.whlib#UploadField"
-                             parserfunc="/lib/webtools/formcomponents/upload.whlib#parseFormUpload"
                              icon="tollium:forms/upload"
                              linecomponent="true"
                              ordering="13"
+                             parserfunc="/lib/webtools/formcomponents/upload.whlib#parseFormUpload"
                              supportedvalues="file"
                              tid="formcomponents.upload.name" />
         </xs:appinfo>

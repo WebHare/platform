@@ -181,7 +181,11 @@ STATIC OBJECTTYPE FormPage
 
         STRING redirect := this->page.redirect;
         IF (redirect != "")
+        {
           Print(` data-wh-form-pageredirect="${EncodeValue(redirect)}"`);
+          IF (this->page.redirectdelay >= 0)
+            Print(` data-wh-form-pageredirect-delay="${this->page.redirectdelay}"`);
+        }
       }
     }
     IF (RecordExists(this->visiblecondition))

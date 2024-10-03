@@ -946,6 +946,7 @@
       <text tid="name">Image</text>
     </textgroup>
     <textgroup gid="page">   <!-- formcomponents.page -->
+      <text tid="delay">Redirect after</text>
       <text tid="message-inactivefields">Because a redirection is active, the texts on this page will no longer be shown</text>
       <text tid="name">Page<ifparam p="1" value=""><else/> <param p="1"/></ifparam></text>
       <text tid="name-overview">Overview page</text>
@@ -953,6 +954,7 @@
       <text tid="pagetitle">Page title</text>
       <text tid="redirect">Set a link to redirect the user after completing the form</text>
       <text tid="redirection">Redirect</text>
+      <text tid="seconds">seconds (keep empty to redirect immediately)</text>
     </textgroup>
     <textgroup gid="password">   <!-- formcomponents.password -->
       <text tid="description">Enter passwords or other sensitive information</text>

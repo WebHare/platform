@@ -3,6 +3,8 @@
     @topic forms/standardcomponents
 */
 
+LOADLIB "wh::xml/xsd.whlib";
+
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -75,6 +77,9 @@ PUBLIC STATIC OBJECTTYPE FormThankYouPage EXTEND FormPageBase
       intextlink.externallink := redirect;
     }
     ^redirect->value := intextlink;
+
+    IF (this->node->HasAttribute("delay"))
+      ^delay->value := ParseXSInt(this->node->GetAttribute("delay"));
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
@@ -100,11 +105,16 @@ PUBLIC STATIC OBJECTTYPE FormThankYouPage EXTEND FormPageBase
       IF (redirect != "")
       {
         this->node->SetAttribute("redirect", redirect);
-        IF (Length(this->node->childnodes->GetCurrentElements()) > 0)
+        IF (Length(this->node->childnodes->GetCurrentElements()) > 0 AND ^delay->value < 0)
           work->AddWarning(GetTid("publisher:formcomponents.page.message-inactivefields"));
       }
       ELSE
         this->node->RemoveAttribute("redirect");
+
+      IF (^delay->value >= 0)
+        this->node->SetAttribute("delay", ToString(^delay->value));
+      ELSE
+        this->node->RemoveAttribute("delay");
     }
   }
 >;

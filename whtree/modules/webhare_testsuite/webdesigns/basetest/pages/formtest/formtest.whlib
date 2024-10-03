@@ -72,6 +72,12 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
            , [ redirectform := this->webdesign->GetWittyDataForForm("redirectform")
              ]);
     }
+    ELSE IF(GetWebVariable("redirectdelay")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:redirectform")
+           , [ redirectform := this->webdesign->GetWittyDataForForm("redirectdelayform")
+             ]);
+    }
     ELSE IF(GetWebVariable("workhandlingerrors")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:workhandlingerrorsform")
