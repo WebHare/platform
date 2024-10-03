@@ -1208,11 +1208,18 @@ export default class FormBase {
       const nextpage = this._getDestinationPage(state, +1);
       if (nextpage !== -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole === 'thankyou') {
         const redirectto = state.pages[nextpage].dataset.whFormPageredirect;
-        if (redirectto)
+        const redirectdelay = parseInt(state.pages[nextpage].dataset.whFormPageredirectDelay ?? "");
+        if (redirectto && !(redirectdelay >= 0))
           navigateTo({ type: "redirect", url: redirectto });
         else {
           this.updateRichValues(state.pages[nextpage], richvalues);
           this.gotoPage(nextpage);
+          if (redirectto) {
+            // If redirectdelay==0 (redirect immediately, while showing the thank you page), redirect after a small delay to
+            // give the browser time to hide the busy layer
+            // Might be caused by this: https://stackoverflow.com/a/60439478
+            setTimeout(() => navigateTo({ type: "redirect", url: redirectto }), redirectdelay * 1000 || 100);
+          }
         }
       }
     }

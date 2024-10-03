@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -148,6 +149,7 @@ STATIC OBJECTTYPE FormPage
   PUBLIC PROPERTY guid(GetGUID, -);
   PUBLIC PROPERTY role(GetRole, -);
   PUBLIC PROPERTY redirect(GetRedirect, -);
+  PUBLIC PROPERTY redirectdelay(GetRedirectDelay, -);
   PUBLIC PROPERTY visiblecondition(GetVisibleCondition, SetVisibleCondition);
   PUBLIC PROPERTY formdefinition(__formdefinition, -);
 
@@ -215,6 +217,11 @@ STATIC OBJECTTYPE FormPage
   STRING FUNCTION GetRedirect()
   {
     RETURN this->formdefinition->formdefinitions->ResolveLinkRefToUrl(this->node->GetAttribute("redirect"));
+  }
+
+  INTEGER FUNCTION GetRedirectDelay()
+  {
+    RETURN ParseXSInt(this->node->GetAttribute("delay"));
   }
 
   RECORD FUNCTION GetVisibleCondition()
