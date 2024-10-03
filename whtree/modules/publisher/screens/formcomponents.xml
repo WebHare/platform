@@ -19,10 +19,15 @@
       <textedit name="pagetitle" width="1pr" visible="false" />
     </insert>
     <newtab tid=".redirection">
-      <line layout="left">
+      <lines layout="left">
         <text tid=".redirect" />
+        <p:intextlink name="redirect" title="" />
+      </lines>
+      <line>
+        <!-- emptyvalue=-1 to be able to distinguish between not filled and '0' -->
+        <textedit name="delay" width="5x" minvalue="-1" emptyvalue="-1" value="-1" valuetype="integer" />
+        <text valuetid=".seconds" />
       </line>
-      <p:intextlink name="redirect" title="" />
     </newtab>
   </tabsextension>
 

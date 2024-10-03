@@ -304,12 +304,30 @@
     <page>
       <richtext name="intro" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
-          <p>This form will redirect in 10 seconds</p>
+          <p>This form will redirect</p>
         </body>
       </richtext>
     </page>
 
     <page redirect="about:blank" role="thankyou" />
+  </form>
+
+  <form name="redirectdelayform" objectname="formtest.whlib#RedirectForm">
+    <page>
+      <richtext name="intro" title="">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>This form will redirect in 2 seconds</p>
+        </body>
+      </richtext>
+    </page>
+
+    <page delay="2" redirect="about:blank" role="thankyou">
+      <richtext name="outtro" title="">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>This page will redirect in 2 seconds</p>
+        </body>
+      </richtext>
+    </page>
   </form>
 
   <form name="emailform" objectname="formtest.whlib#EmailForm">

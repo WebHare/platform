@@ -1229,8 +1229,13 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       RECORD pagecompdef := pagerole = "thankyou" ? this->thankyoupagecompdef : this->pagecompdef;
       BOOLEAN istextpage := pagerole = "thankyou";//ADDME: Proper support for these kind of properties based on role, probably using the page compdefs
       BOOLEAN isredirectpage := formpage->redirect != "";
+      BOOLEAN redirectdelay := formpage->node->HasAttribute("delay");
       IF (isredirectpage)
+      {
         pagerole := pagerole || "-redirect";
+        IF (redirectdelay)
+          pagerole := pagerole || "-delay";
+      }
 
       RECORD ARRAY questions;
       INTEGER groupnum;
@@ -1325,7 +1330,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
           CELL[ ...basequestionlistrow
               , rowkey
               , title := pagetitle
-              , type := ^questions->GetIcon(pagecompdef.icon || (isredirectpage ? "+tollium:overlays/filetypes/link" : ""))
+              , type := ^questions->GetIcon(pagecompdef.icon || (isredirectpage ? "+tollium:overlays/filetypes/link" || (redirectdelay ? "+tollium:overlays/filetypes/clock" : "") : ""))
               , icons := "existence" IN pins ? [ 2 ] : INTEGER[]
               , canaddgroups := NOT isredirectpage
               , canaddquestions := NOT istextpage AND NOT isredirectpage

@@ -461,6 +461,14 @@
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="delay" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>
+            A delay in seconds after which to redirect (the thank you page will be shown for this number of seconds before
+            redirecting)
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 

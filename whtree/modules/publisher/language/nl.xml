@@ -946,6 +946,7 @@
       <text tid="name">Afbeelding</text>
     </textgroup>
     <textgroup gid="page">   <!-- formcomponents.page -->
+      <text tid="delay">Doorsturen na</text>
       <text tid="message-inactivefields">Omdat er een doorstuurlink is ingesteld worden de teksten op deze pagina niet langer weergegeven</text>
       <text tid="name">Pagina<ifparam p="1" value=""><else/> <param p="1"/></ifparam></text>
       <text tid="name-overview">Overzichtspagina</text>
@@ -953,6 +954,7 @@
       <text tid="pagetitle">Paginatitel</text>
       <text tid="redirect">Een link instellen om de gebruiker door te sturen na afronding van het formulier</text>
       <text tid="redirection">Doorsturen</text>
+      <text tid="seconds">seconden (laat leeg om direct door te sturen)</text>
     </textgroup>
     <textgroup gid="password">   <!-- formcomponents.password -->
       <text tid="description">Wachtwoorden of andere gevoelige informatie invoeren</text>
