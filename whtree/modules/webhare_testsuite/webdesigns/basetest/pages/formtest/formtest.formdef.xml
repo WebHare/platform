@@ -86,7 +86,7 @@
       <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue" />  <!-- dynamic invisible -->
       <address name="address" countrylist="NL BE CA" title="Address" />
       <wt:twolevel name="two_level_field" groupclasses="wh-testsuite-twolevel-groupclasses" title="" />
-      <textarea name="textarea" minlength="3" maxlength="70" placeholder="Type a text in this area" title="Textarea" />
+      <textarea name="textarea" maxlength="70" minlength="3" placeholder="Type a text in this area" title="Textarea" />
       <checkbox name="agree" labeltid=".terms" required="true" title="Agree?" />
       <checkbox name="condition_or_1" title="OR 1" />
       <checkbox name="condition_or_2" title="OR 2" />
@@ -139,8 +139,8 @@
       <upload name="file" title="File" />
       <checkbox name="showfile2" title="Show file #2" />
       <upload name="file2" required="true" title="File #2" />
-      <imgedit name="imgs" title="Images" maxfiles="4" />
-      <upload name="files" title="Files" maxfiles="4" />
+      <imgedit name="imgs" maxfiles="4" title="Images" />
+      <upload name="files" maxfiles="4" title="Files" />
     </page>
   </form>
 
@@ -314,7 +314,12 @@
 
   <form name="emailform" objectname="formtest.whlib#EmailForm">
     <page>
-      <textedit name="email" required="true" title="Email" validationchecks="email" acceptableemailmasks="*@*beta.webhare.net user@example.com" unacceptableemailerror="BAD BAD BAD"/>
+      <textedit name="email"
+                acceptableemailmasks="*@*beta.webhare.net user@example.com"
+                required="true"
+                title="Email"
+                unacceptableemailerror="BAD BAD BAD"
+                validationchecks="email" />
       <textedit name="email_sendfrom" title="May send from" validationchecks="email-maysendfrom" />
     </page>
 
@@ -339,7 +344,7 @@
       <textedit name="text" title="A text" />
       <array name="contacts" max="2" min="1" title="Contacts">
         <hidden name="row_uid" title="Row UID" />
-        <textedit name="name" title="Name" required="true" />
+        <textedit name="name" required="true" title="Name" />
         <imgedit name="photo" title="Photo" />
         <upload name="upload" title="Upload" />
         <select name="gender" type="pulldown" rowkeytype="integer" title="Gender" />
@@ -416,7 +421,7 @@
 
   <form name="customelements" jshandler="anyformhandler" objectname="formtest.whlib#CustomElementsForm">
     <page>
-      <customfield name="simple_field" title="Simple field" contentswitty="formtest.witty:simplefield" />
+      <customfield name="simple_field" contentswitty="formtest.witty:simplefield" title="Simple field" />
     </page>
   </form>
 
