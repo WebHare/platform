@@ -240,7 +240,10 @@ PUBLIC STATIC OBJECTTYPE RuntimeSettings EXTEND TolliumScreenBase
 
     IF (NOT work->HasFailed())
     {
-      RECORD newsettings;
+      /* Remove any archived settings, they block PUT _settings changes
+      https://www.elastic.co/guide/en/elasticsearch/reference/current/archived-settings.html
+      */
+      RECORD newsettings := [ "archived.*" := DEFAULT RECORD ];
       IF (^threshold_enabled->value)
       {
         IF (CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled")

@@ -331,7 +331,7 @@ PUBLIC RECORD FUNCTION GetOpenSearchSettings(INTEGER indexmgrid, BOOLEAN include
 // [ "cluster.routing.allocation.disk.watermark.low" := DEFAULT RECORD ] (encoded as "null")
 PUBLIC RECORD FUNCTION SetOpenSearchSettings(INTEGER indexmgrid, RECORD settings)
 {
-  RECORD request  := [ persistent := settings ];
+  RECORD request := [ persistent := settings ];
   RETURN SendRawJSONToOpenSearch(indexmgrid, "PUT", "/_cluster/settings", request);
 }
 
