@@ -37,11 +37,14 @@ ENV \
   WHBUILD_LTO=1 \
   WHBUILD_WASMLTO=1
 
+ARG WHBUILD_ASSETROOT
+
 # Base image setup
 RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
+    --mount=type=cache,id=builderdownloads,target=/tmp/downloads \
     --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
     --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
-    /bin/bash /setup-builder.sh # 2024-08-19
+    /bin/bash /setup-builder.sh "$WHBUILD_ASSETROOT" # 2024-08-19
 
 # Add base source code and stuff needed to compile it
 COPY tocompile/ /opt/wh/
@@ -70,17 +73,17 @@ ARG WHBUILD_ASSETROOT
 # Install pdfbox
 RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
-    /bin/bash /setup-pdfbox.sh $WHBUILD_ASSETROOT 2.0.32
+    /bin/bash /setup-pdfbox.sh "$WHBUILD_ASSETROOT" 2.0.32
 
 # Install TIKA
 RUN --mount=type=bind,source=/setup-tika.sh,target=/setup-tika.sh \
-    --mount=type=cache,id=pdfbox,target=/tmp/downloads \
-    /bin/bash /setup-tika.sh $WHBUILD_ASSETROOT 2.9.2
+    --mount=type=cache,id=tika,target=/tmp/downloads \
+    /bin/bash /setup-tika.sh "$WHBUILD_ASSETROOT" 2.9.2
 
 # Install OpenSearch
 RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
-    /bin/bash /setup-opensearch.sh $WHBUILD_ASSETROOT 2.16.0
+    /bin/bash /setup-opensearch.sh "$WHBUILD_ASSETROOT" 2.16.0
 
 # Add dropins (service management scripts etc)
 ADD dropins /

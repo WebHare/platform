@@ -16,6 +16,13 @@
 # Fail on any error
 set -eo pipefail
 
+ASSETROOT="$1"
+
+if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
+  echo WHBUILD_DOWNLOADCACHE not set
+  exit 1
+fi
+
 # 2023-05-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
 
 # We don't ship the builder image to WebHare prod or CI, so there's no need to keep it small
@@ -51,18 +58,46 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGE
 fi
 
 # ubuntu 20.04 ships with outdated automake, libxml2 doesn't like it. download a better one
+mkdir -p "$WHBUILD_DOWNLOADCACHE"
+
+AUTOMAKE_VERSION=1.16.5
+AUTOMAKE_GETFILE="automake-${AUTOMAKE_VERSION}.tar.gz"
+AUTOMAKE_DLPATH="$WHBUILD_DOWNLOADCACHE/${AUTOMAKE_GETFILE}"
+
+if ! curl -fsS -o "$AUTOMAKE_DLPATH" -z "$AUTOMAKE_DLPATH" "${ASSETROOT}${AUTOMAKE_GETFILE}" ; then
+  echo "Primary download failed, attempting fallback location"
+  if ! curl -fsS -o "$AUTOMAKE_DLPATH" -z "$AUTOMAKE_DLPATH" "http://ftp.gnu.org/gnu/automake/${AUTOMAKE_GETFILE}" ; then
+    rm -f "$AUTOMAKE_DLPATH"
+    echo "Download failed"
+    exit 1
+  fi
+fi
+
 cd /tmp
-curl http://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz | tar zxf -
-cd automake-1.16.5/
+tar zxf "$AUTOMAKE_DLPATH"
+cd "automake-${AUTOMAKE_VERSION}/"
 ./configure
 make -j install
 
 # update make too
+MAKE_VERSION=4.4.1
+MAKE_GETFILE="make-${MAKE_VERSION}.tar.gz"
+MAKE_DLPATH="$WHBUILD_DOWNLOADCACHE/${MAKE_GETFILE}"
+
+if ! curl -fsS -o "$MAKE_DLPATH" -z "$MAKE_DLPATH" "${ASSETROOT}${MAKE_GETFILE}" ; then
+  echo "Primary download failed, attempting fallback location"
+  if ! curl -fsS -o "$MAKE_DLPATH" -z "$MAKE_DLPATH" "http://ftp.gnu.org/gnu/make/${MAKE_GETFILE}" ; then
+    rm -f "$MAKE_DLPATH"
+    echo "Download failed"
+    exit 1
+  fi
+fi
+
 cd /tmp
-curl  https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz | tar zx
-cd make-4.4.1
+tar zxf "$MAKE_DLPATH"
+cd "make-${MAKE_VERSION}/"
 ./configure
-make install
+make -j install
 
 #install emscripten. for releases see https://github.com/emscripten-core/emscripten/tags
 cd /opt
