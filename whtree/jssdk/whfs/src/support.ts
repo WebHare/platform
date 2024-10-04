@@ -35,19 +35,19 @@ export function isValidName(name: string, { allowSlashes = false }: { allowSlash
   return true;
 }
 
-const PublishedFlag_OncePublished = 100000;
-// PUBLIC INTEGER PublishedFlag_Scheduled:= 200000;
-// PUBLIC INTEGER PublishedFlag_Warning:= 400000;
-// PUBLIC INTEGER PublishedFlag_HasWebDesign:= 800000; //this file depends on a <webdesign> or template, so it needs to be republished even if template=0
-// PUBLIC INTEGER PublishedFlag_StripExtension:= 1600000; //strip the extension from the file's url
-// PUBLIC INTEGER PublishedFlag_HasPublicDraft:= 3200000; //there are drafts associated with the file
-// PUBLIC INTEGER PublishedFlag_SubmittedForApproval:= 6400000; //the draft has been submitted for approval (versioning)
+export const PublishedFlag_OncePublished = 100000;
+export const PublishedFlag_Scheduled = 200000;
+export const PublishedFlag_Warning = 400000;
+export const PublishedFlag_HasWebDesign = 800000; //this file depends on a <webdesign> or template, so it needs to be republished even if template=0
+export const PublishedFlag_StripExtension = 1600000; //strip the extension from the file's url
+export const PublishedFlag_HasPublicDraft = 3200000; //there are drafts associated with the file
+export const PublishedFlag_SubmittedForApproval = 6400000; //the draft has been submitted for approval (versioning)
 
-function testFlagFromPublished(published: number, flag_to_test: number) {
+export function testFlagFromPublished(published: number, flag_to_test: number) {
   return ((published % (flag_to_test * 2)) / flag_to_test) === 1;
 }
 
-function getPrioOrErrorFromPublished(published: number) {
+export function getPrioOrErrorFromPublished(published: number) {
   return published % 100000;
 }
 
