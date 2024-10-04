@@ -329,14 +329,9 @@ PUBLIC RECORD FUNCTION GetOpenSearchSettings(INTEGER indexmgrid, BOOLEAN include
 // [ "cluster.routing.allocation.disk.watermark.low" := "85%" ]
 // To clear low watermark threshold
 // [ "cluster.routing.allocation.disk.watermark.low" := DEFAULT RECORD ] (encoded as "null")
-PUBLIC RECORD FUNCTION SetOpenSearchSettings(INTEGER indexmgrid, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION SetOpenSearchSettings(INTEGER indexmgrid, RECORD settings)
 {
-  options := ValidateOptions([ transient := FALSE ], options);
-  RECORD request;
-  IF (options.transient)
-    request := [ transient := settings ];
-  ELSE
-    request := [ persistent := settings ];
+  RECORD request  := [ persistent := settings ];
   RETURN SendRawJSONToOpenSearch(indexmgrid, "PUT", "/_cluster/settings", request);
 }
 
