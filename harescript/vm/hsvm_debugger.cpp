@@ -2068,7 +2068,7 @@ void Debugger::RPC_GetBlobReferences()
         }
 
         HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
-        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-getmemorysnapshot-response");
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-blobreferences-response");
         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, cn_cache.col_groupid), groupid);
 
         HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
