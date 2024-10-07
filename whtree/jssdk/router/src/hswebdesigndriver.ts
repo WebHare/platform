@@ -33,10 +33,10 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
     await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(oldoutput);
     const page = await fileswhlib.makeBlobFromStream(stream);
 
-    let pagebody = (await page.text()).replaceAll(printplaceholder, this.contents);
+    let pagebody = (await page.text()).replaceAll(printplaceholder, () => this.contents);
     for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"] as const) {
       const replacement = this.insertions[insertpoint] ? await this.renderInserts(insertpoint as InsertPoints) : "";
-      pagebody = pagebody.replaceAll(placeholder + "__" + insertpoint + "__", replacement);
+      pagebody = pagebody.replaceAll(placeholder + "__" + insertpoint + "__", () => replacement);
     }
 
     await this.hsvm[Symbol.asyncDispose]();

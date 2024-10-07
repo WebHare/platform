@@ -43,6 +43,7 @@ Commands:
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
   jobhandles process jobmask          Get job handle list for the specified job
   jobadhoccache process jobmask       List adhoccache items of the process of the specified job
+  jobblobreferences process jobmask   Get list of blobs of the specified job
   complexfsstats process              Get complex filesystem statistics for the specified process
 
 See https://www.webhare.dev/reference/installation/environment for available debug flags
@@ -355,7 +356,7 @@ ASYNC MACRO RunCommand()
     }
 
 
-    CASE "stacktrace", "jobstats", "jobhandles", "jobadhoccache"
+    CASE "stacktrace", "jobstats", "jobhandles", "jobadhoccache", "jobblobreferences"
     {
       ParseSubArgs(
             [ [ name := "v", type := "switch" ]
@@ -431,6 +432,12 @@ Executed instrs.:   ${stats.instructions}
           RECORD handlelist := AWAIT job->GetAdhocCacheList();
           DumpValue((SELECT * FROM handlelist.rawdata.items ORDER BY library), [ name := `Adhoccache list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
         }
+        CASE "jobblobreferences"
+        {
+          AWAIT job->Pause();
+          RECORD items := AWAIT job->GetBlobReferences(TRUE);
+          DumpValue((items.rawdata.items), [ name := `blob reference list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+        }
         DEFAULT
         {
           ShowSyntax(`Invalid job command '${args.jobcmd}`);
@@ -465,6 +472,24 @@ Executed instrs.:   ${stats.instructions}
       ELSE
       {
         DumpValue(stats.rawdata, [ name := `Complex filesystem statistics for process ${process->processcode} ('${process->clientname}')`, format := "tree" ]);
+      }
+    }
+
+    CASE "mallocstats"
+    {
+      ParseSubArgs(
+            [ [ name := "process", type := "param", required := TRUE ]
+            ]);
+
+      OBJECT process := AWAIT GetProcessByParam(args.process);
+      RECORD stats := process->GetMallocStats();
+
+      IF (NOT RecordExists(stats) OR NOT CellExists(stats.rawdata, "XML"))
+        PRINT(`No statistics available for process ${process->processcode} ('${process->clientname}')\n`);
+      ELSE
+      {
+        PRINT(`Malloc statistics for process ${process->processcode} ('${process->clientname}')\n`);
+        PRINT(stats.rawdata.xml || "\n");
       }
     }
 

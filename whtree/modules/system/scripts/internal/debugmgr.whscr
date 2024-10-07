@@ -1333,7 +1333,7 @@ STATIC OBJECTTYPE ConnectedApplication
         }
       }
 
-      CASE "getcomplexfsstats"
+      CASE "getcomplexfsstats", "getmallocstats"
       {
         OBJECT process := this->pvt_debugmgr->GetProcessByCode(msg.processcode);
         IF (NOT ObjectExists(process))

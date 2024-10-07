@@ -6,6 +6,7 @@
 #include "hsvm_debugger.h"
 #include "hsvm_processmgr.h"
 #include "baselibs.h"
+#include <malloc.h>
 
 // Print communication with whmanager process
 //#define PRINT_DBG
@@ -983,6 +984,7 @@ void Debugger::HandleMessage(std::string const &type)
         else if (type == "gethandlelist")           { RPC_GetHandleList(); }
         else if (type == "getadhoccachelist")       { RPC_GetAdhocCacheList(); }
         else if (type == "getcomplexfsstats")       { RPC_GetComplexFSStats(); }
+        else if (type == "getmallocstats")          { RPC_GetMallocStats(); }
         else
             throw std::runtime_error(("Unknown message type '" + type + "'").c_str());
 }
@@ -2068,7 +2070,7 @@ void Debugger::RPC_GetBlobReferences()
         }
 
         HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
-        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-getmemorysnapshot-response");
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-blobreferences-response");
         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, cn_cache.col_groupid), groupid);
 
         HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
@@ -2170,6 +2172,38 @@ void Debugger::RPC_GetComplexFSStats()
         HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_Record);
 
         Baselibs::DebugGetComplexFSStats(var_rawdata, &lock->comm.vm);
+
+        SendComposeVar(lock, lock->comm.msgid);
+        lock->comm.msgid = 0;
+}
+
+void Debugger::RPC_GetMallocStats()
+{
+        JobManager::LockedJobData::WriteRef jobmgrlock(jobmgr.jobdata);
+        LockedData::WriteRef lock(data);
+        HSVM *vm = lock->comm.vm;
+        HSVM_VariableId composevar = lock->comm.composevar;
+
+        HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "getmallocstats-response");
+
+        HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
+        HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_Record);
+
+#ifdef PLATFORM_LINUX
+        // Pipe malloc_info into a memstream, send that to the client
+        char *buffer = nullptr;
+        size_t buffer_size = 0;
+        FILE *memstream = open_memstream(&buffer, &buffer_size);
+        if (memstream)
+        {
+                malloc_info(0, memstream);
+                fclose(memstream);
+
+                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, var_rawdata, HSVM_GetColumnId(vm, "XML")), std::string_view(buffer, buffer_size));
+                free(buffer);
+        }
+#endif
 
         SendComposeVar(lock, lock->comm.msgid);
         lock->comm.msgid = 0;

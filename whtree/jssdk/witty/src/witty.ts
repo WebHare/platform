@@ -147,7 +147,7 @@ class WittyErrorRec {
   readonly arg2?: string;
 
   constructor(resource: string, lineNum: number, columnNum: number, errorCode: WittyErrorCode, arg?: string, arg2?: string) {
-    this.text = WittyMessages[errorCode].replaceAll("%0", arg || "").replaceAll("%1", arg2 || "");
+    this.text = WittyMessages[errorCode].replaceAll("%0", () => arg || "").replaceAll("%1", () => arg2 || "");
     this.resource = resource;
     this.line = lineNum;
     this.column = columnNum;
