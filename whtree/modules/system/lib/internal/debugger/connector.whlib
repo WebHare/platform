@@ -1252,6 +1252,12 @@ STATIC OBJECTTYPE DebugProcess
     RECORD response := this->connector->link->DoRequest([ type := "getcomplexfsstats", processcode := this->pvt_processcode ]);
     RETURN response.status = "ok" ? response.msg : DEFAULT RECORD;
   }
+
+  PUBLIC RECORD FUNCTION GetMallocStats()
+  {
+    RECORD response := this->connector->link->DoRequest([ type := "getmallocstats", processcode := this->pvt_processcode ]);
+    RETURN response.status = "ok" ? response.msg : DEFAULT RECORD;
+  }
 >;
 
 
