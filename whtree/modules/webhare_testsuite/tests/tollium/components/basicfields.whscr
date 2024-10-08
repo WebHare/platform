@@ -83,12 +83,47 @@ MACRO DateTimeLocalTZValue()
   TestEq(MakeDatetime(2020,5,11,9,0,0), scr->bigdt->value);
   TestEq(MakeDatetime(2020,5,11,9,0,0), scr->bigdt->localtzvalue);
   scr->bigdt->storeutc := TRUE;
+  SetValue(scr->bigdt, MakeDatetime(2020,5,11,9,0,0));
   TestEq(MakeDatetime(2020,5,11,11,0,0), scr->bigdt->localtzvalue);
   scr->bigdt->localtzvalue := MakeDatetime(2020,5,11,12,0,0);
   TestEq(MakeDatetime(2020,5,11,12,0,0), scr->bigdt->localtzvalue);
   TestEq(MakeDatetime(2020,5,11,10,0,0), scr->bigdt->value);
   scr->bigdt->value := MakeDatetime(2020,5,11,9,0,0);
   TestEq(MakeDatetime(2020,5,11,11,0,0), scr->bigdt->localtzvalue);
+
+  //test storeutc=true safety for <datetime> fields
+  //note that localtzvalue is also the value transmitted to tollium, so we use that to verify what the user sees
+  scr->dt1->type := "date";
+  scr->dt1->storeutc := FALSE;
+  scr->dt1->value := MakeDatetime(2024,5,11,12,0,0);
+  TestEq(MakeDatetime(2024,5,11,0,0,0), scr->dt1->value, 'Datetime clamped back to day due to type=day');
+  TestEq(MakeDatetime(2024,5,11,0,0,0), scr->dt1->localtzvalue, 'A date does not change its local value for timezones');
+  scr->dt1->storeutc := TRUE;
+  TestEq(MakeDatetime(2024,5,11,0,0,0), scr->dt1->value, 'Changing a type=date to storeutc=true does not affect the value');
+  TestEq(MakeDatetime(2024,5,11,0,0,0), scr->dt1->localtzvalue, 'Should still match ->value');
+  scr->dt1->value := MakeDatetime(2024,5,11,12,0,0);
+  TestEq(MakeDatetime(2024,5,11,0,0,0), scr->dt1->value, 'Datetime clamped back to day due to type=day, storeutc=true is irrelevant');
+  scr->dt1->TolliumWeb_FormUpdate("2024-06-13"); //Mocks an update from the frontend
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->value, 'No translating the value we got from the frontend');
+
+  //Switch to datetime! As we have storeutc=true and our test account is CET, but for users this should just appear like enabling the hour/minute/second part, this should cause a 2 hour jump
+  scr->dt1->type := "datetime";
+  TestEq(MakeDatetime(2024,6,12,22,0,0), scr->dt1->value, 'value changes to compensate');
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->localtzvalue, 'but the frontend visible time is still the same');
+
+  scr->dt1->type := "date";
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->value, 'all back to midnight on the 13th');
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->localtzvalue, 'all back to midnight on the 13th (2)');
+
+  scr->dt1->storeutc := FALSE;
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->value, 'still no reason for storeutc changes in date mode to change the value - but we tested that above');
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->localtzvalue, 'still no reason for storeutc changes in date mode to change the value - but we tested that above (2)');
+
+  scr->dt1->type := "datetime";
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->localtzvalue, 'datetime switch NEVER affects localtzvalue');
+  TestEq(MakeDatetime(2024,6,13,0,0,0), scr->dt1->value, 'and value == localtzvalue with storeutc == FALSE');
+
+  scr->dt1->storeutc := TRUE;
 }
 
 MACRO TestBasicFieldsRegressions()

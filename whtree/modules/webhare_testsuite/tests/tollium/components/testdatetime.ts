@@ -168,11 +168,11 @@ test.registerTests(
 
       const dt1 = test.compByName('dt1'); //datetime with minute precision
       test.eq("2009-08-13", dt1.querySelector('[type=date]').value);
-      test.eq("10:09", dt1.querySelector('[type=time]').value);
+      test.eq("08:09", dt1.querySelector('[type=time]').value);
 
       //change a time
       let ti1 = test.compByName('ti1'); //datetime with minute precision
-      test.eq("10:19", ti1.querySelector('[type=time]').value);
+      test.eq("08:19", ti1.querySelector('[type=time]').value);
       setTime(ti1, '10:29');
       test.click(test.getMenu(['M01', 'A02'])); //show current
 
@@ -180,7 +180,7 @@ test.registerTests(
 
       ti1 = test.compByName('ti1'); //datetime with minute precision
       test.eq("10:29", ti1.querySelector('[type=time]').value);
-      test.eq('ti1: 2009-08-13T08:29:00.000Z p=minutes req=1 utc=1 ro=0 invdate=0 invtime=0', getDump(4));
+      test.eq('ti1: 2009-08-13T10:29:00.000Z p=minutes req=1 utc=1 ro=0 invdate=0 invtime=0', getDump(4));
     },
 
     'readonly',
@@ -191,7 +191,7 @@ test.registerTests(
       const da1 = test.compByName('da1');
       test.eq('13\u00a0August\u00a02009', da1.textContent);
       const dt1 = test.compByName('dt1');
-      test.eq('13\u00a0August\u00a02009 10:09', dt1.textContent);
+      test.eq('13\u00a0August\u00a02009 08:09', dt1.textContent);
       const ti1 = test.compByName('ti1');
       test.eq('10:29', ti1.textContent);
       const ti6 = test.compByName('ti6!dt');
