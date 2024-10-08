@@ -450,6 +450,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       INSERT CELL cellname := GetMember(this, "cellname") INTO retval;
     IF (MemberExists(this, "label"))
       INSERT CELL label := GetMember(this, "label") INTO retval;
+    IF (MemberExists(this, "value"))
+      INSERT CELL value := GetMember(this, "value") INTO retval;
 
     RETURN retval;
   }
