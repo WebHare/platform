@@ -1,12 +1,14 @@
 <?wh
 
+/* TODO this is the old implementation. I doubt it was really used though anymore... eg form mail witties used UC links and the form app export didn't acutally export the '- link' column
+        WH5.6.2 will no longer link to this file */
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
-
 
 //download a webtools formresult attachment
 RECORD dlinfo := DecryptForThisServer("publisher:formupload", GetWebVariable("f"), [ fallback := DEFAULT RECORD ]);

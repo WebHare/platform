@@ -226,7 +226,7 @@ PUBLIC MACRO FillInForm()
   //you'll still get the default cells
   TestEq("testfw+formtest@beta.webhare.net", directrows[0].mail);
   TestEq("Piëtje", directrows[0].fn);
-  TestEq("allstar.txt (1 KB, text/plain)", directrows[0].upload.file);
+  TestEq(["allstar.txt (1 KB, text/plain)"], directrows[0].upload.file);
   TestEq("Netherlands", directrows[0].address.country);
   TestEq("7521 AM", directrows[0].address.zip);
   TestEq("", directrows[0].address.state);
@@ -376,7 +376,8 @@ PUBLIC MACRO FillInForm()
   TestEq(["<copt1+jstest@beta.webhare.net>","<mailresult+jstest@beta.webhare.net>"], SELECT AS STRING ARRAY replyto FROM ownermail ORDER BY receiver);
   //Make sure the upload is linked from the email
   TestEq("allstar.txt (1 KB, text/plain)", ownermail[0].links[0].textcontent);
-  TestEq(firstuploadlink, ownermail[0].links[0].href);
+  TestEq(TRUE, testfw->browser->GotoWebPage(ownermail[0].links[0].href));
+  TestEq("someBODY", BlobToString(testfw->browser->content), dllink);
 
   OBJECT ownermaildoc := MakeXMLDocumentFromHTML(StringToBlob(ownermail[0].html));
   TestEq(numexportfields - 1/* - 2*/, Length(ownermaildoc->GetElements("h3.defaultmail__results__fieldline__title"))); //coptsub2 should NOT be exported
