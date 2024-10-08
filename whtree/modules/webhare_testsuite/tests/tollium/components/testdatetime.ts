@@ -1,28 +1,25 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
 
-function getDump(which) {
+function getDump(which: number) {
   return test.compByName("dump").querySelector("textarea").value.split('\n')[which];
 }
 
-function setDate(node, dmy) {
+function setDate(node: HTMLElement, dmy: string) {
   const parts = dmy.split('-');
-  test.fill(node.querySelector(".tollium__datetime__day"), parts[0]);
-  test.fill(node.querySelector(".tollium__datetime__month"), parts[1]);
-  test.fill(node.querySelector(".tollium__datetime__year"), parts[2]);
+  test.fill(test.qR(node, ".tollium__datetime__day"), parts[0]);
+  test.fill(test.qR(node, ".tollium__datetime__month"), parts[1]);
+  test.fill(test.qR(node, ".tollium__datetime__year"), parts[2]);
 }
 
-function setTime(node, hms) {
+function setTime(node: HTMLElement, hms: string) {
   const parts = hms.split(':');
-  test.fill(node.querySelector(".tollium__datetime__hour"), parts[0]);
-  test.fill(node.querySelector(".tollium__datetime__minute"), parts[1]);
+  test.fill(test.qR(node, ".tollium__datetime__hour"), parts[0]);
+  test.fill(test.qR(node, ".tollium__datetime__minute"), parts[1]);
   if (parts.length > 2) {
     const secparts = parts[2].split('.');
-    test.fill(node.querySelector(".tollium__datetime__second"), secparts[0]);
+    test.fill(test.qR(node, ".tollium__datetime__second"), secparts[0]);
     if (secparts.length > 1)
-      test.fill(node.querySelector(".tollium__datetime__msec"), secparts[1]);
+      test.fill(test.qR(node, ".tollium__datetime__msec"), secparts[1]);
   }
 }
 
@@ -98,8 +95,8 @@ test.registerTests(
 
       const picker = test.qS('.tollium__datetime__picker');
       test.assert(picker);
-      test.eq("7", picker.querySelector(".tollium__datetime__picker__monthselect").value);
-      test.eq("2021", picker.querySelector(".tollium__datetime__picker__yearselect").value);
+      test.eq("7", test.qR(picker, ".tollium__datetime__picker__monthselect").value);
+      test.eq("2021", test.qR(picker, ".tollium__datetime__picker__yearselect").value);
     },
 
     "Initial tests",
@@ -174,14 +171,14 @@ test.registerTests(
       test.eq("10:09", dt1.querySelector('[type=time]').value);
 
       //change a time
-      var ti1 = test.compByName('ti1'); //datetime with minute precision
+      let ti1 = test.compByName('ti1'); //datetime with minute precision
       test.eq("10:19", ti1.querySelector('[type=time]').value);
       setTime(ti1, '10:29');
       test.click(test.getMenu(['M01', 'A02'])); //show current
 
       await test.wait("ui");
 
-      var ti1 = test.compByName('ti1'); //datetime with minute precision
+      ti1 = test.compByName('ti1'); //datetime with minute precision
       test.eq("10:29", ti1.querySelector('[type=time]').value);
       test.eq('ti1: 2009-08-13T08:29:00.000Z p=minutes req=1 utc=1 ro=0 invdate=0 invtime=0', getDump(4));
     },
@@ -228,7 +225,7 @@ test.registerTests(
       test.eq(1, test.qSA('.tollium__datetime__picker').length);
 
       //Test none button
-      const nonebutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent.match(/None/))[0];
+      const nonebutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent?.match(/None/))[0];
       test.assert(nonebutton);
       test.click(nonebutton);
       test.assert(!dt1.querySelector('[type=date]').value);
@@ -238,7 +235,7 @@ test.registerTests(
       test.click(dt1.querySelector('.tollium__datetime__togglepicker'));
       test.eq(1, test.qSA('.tollium__datetime__picker').length);
 
-      const todaybutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent.match(/Today/))[0];
+      const todaybutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent?.match(/Today/))[0];
       test.assert(todaybutton);
       test.click(todaybutton);
 
@@ -247,10 +244,10 @@ test.registerTests(
       test.click(dt1.querySelector('.tollium__datetime__togglepicker'));
       test.eq(1, test.qSA('.tollium__datetime__picker').length);
       test.assert(dt1.querySelector('[type=date]').value);
-      test.assert(test.qS(".tollium__datetime__picker__day--today").classList.contains("tollium__datetime__picker__day--selected"), "TODAY should be SELECTED");
+      test.assert(test.qR(".tollium__datetime__picker__day--today").classList.contains("tollium__datetime__picker__day--selected"), "TODAY should be SELECTED");
 
       //Test cancel button
-      const cancelbutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent.match(/Cancel/))[0];
+      const cancelbutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent?.match(/Cancel/))[0];
       test.assert(cancelbutton);
       test.click(cancelbutton);
 
@@ -259,7 +256,7 @@ test.registerTests(
     },
 
     'updownkeys',
-    async function (doc, win) {
+    async function () {
       const ti6 = test.compByName('ti6!dt'); //datetime with minute precision
       test.assert(ti6.classList.contains('required'));
       test.eq("08:09:18.189", ti6.querySelector('[type=time]').value);
@@ -349,7 +346,7 @@ test.registerTests(
     },
 
     "cutoff year",
-    async function (doc, win) {
+    async function () {
       // Check cutoff year, should be 70
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-69');
@@ -368,7 +365,7 @@ test.registerTests(
     },
 
     'cutoff year 10',
-    async function (doc, win) {
+    async function () {
 
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-69');
@@ -387,7 +384,7 @@ test.registerTests(
     },
 
     'cutoff year 90',
-    async function (doc, win) {
+    async function () {
 
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-69');
@@ -406,7 +403,7 @@ test.registerTests(
     },
 
     'cutoff year 0',
-    async function (doc, win) {
+    async function () {
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-1');
       await test.wait("ui");
@@ -424,7 +421,7 @@ test.registerTests(
     },
 
     'cutoff year 100',
-    async function (doc, win) {
+    async function () {
 
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-1');
@@ -443,7 +440,7 @@ test.registerTests(
     },
 
     'cutoff year -1',
-    async function (doc, win) {
+    async function () {
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-30');
       await test.wait("ui");
