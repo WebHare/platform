@@ -6,7 +6,9 @@
 #include "hsvm_debugger.h"
 #include "hsvm_processmgr.h"
 #include "baselibs.h"
+#ifdef PLATFORM_LINUX
 #include <malloc.h>
+#endif
 
 // Print communication with whmanager process
 //#define PRINT_DBG
