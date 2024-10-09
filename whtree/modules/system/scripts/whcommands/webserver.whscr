@@ -139,6 +139,7 @@ MACRO AddWebserver(STRING ARRAY params, BOOLEAN isbackend)
   }
 
   GetPrimary()->CommitWork();
+  ApplyWebHareConfiguration([ subsystems := STRING[], source := "system:webserver-cli-add" ]);
   ReloadWebhareConfig(TRUE, FALSE);
 
   //TODO warn if the new interface would be inaccessible (missing port + missing proxies)
