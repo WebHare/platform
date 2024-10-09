@@ -44,6 +44,9 @@ assetPacks:
   basetestjs:
     entryPoint: webdesigns/basetestjs/frontend/frontend
     supportedLanguages: [en, nl, ps]
+  treeshaketest: # FIXME for this test, just adhoc create assetpacks like the testfw do, and implictly import all frontend libs
+    supportedLanguages: [en, nl, ps]
+    entryPoint: js/treeshaketest.tsx
 
 webFeatures:
   testfeature:
