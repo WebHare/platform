@@ -7,13 +7,10 @@ let modallocked = false;
 let uiwatcher: NodeJS.Timeout | null = null;
 let installedanticancelhandler = false;
 
-interface LockManagerWindow extends Window {
-  __dompack_busylockmanager: LockManager;
-}
-
 let currentbusymodaldialog: HTMLDialogElement | null = null;
 let currentbusymodaluserdialog: HTMLDialogElement | null = null;
 let busymodalcontent: string | HTMLElement | HTMLDialogElement | undefined;
+let mylockmgr: LockManager | undefined;
 
 export type BusyModalEvent = CustomEvent<{ show: boolean }>;
 
@@ -27,6 +24,20 @@ declare global {
   interface GlobalEventHandlersEventMap {
     "dompack:busymodal": BusyModalEvent;
   }
+  interface Window {
+    __dompack_busylockmanager?: LockManager;
+  }
+
+  // __dompack_busylockmanager: LockManager | undefined;  //
+}
+
+function getLockmgr(): LockManager {
+  if (!mylockmgr) {
+    mylockmgr = getParentLockManager() || new LockManager;
+    if (typeof window !== "undefined")
+      window.__dompack_busylockmanager = mylockmgr;
+  }
+  return mylockmgr;
 }
 
 function anyModalLocks() {
@@ -50,6 +61,7 @@ function checkUIFree() {
   }
 
   if (locallocks.length === 0) {
+    const lockmgr = getLockmgr();
     lockmgr.busyframes.delete(window); //we won't release our block in the lockmanager until we've had a chance to remove our modal layer
     lockmgr.checkUIFree(); //to resolve any waitUIFrees. runs in the top-level frame. note that lockmgr cares about ALL ui locks, not just modals
   }
@@ -168,8 +180,6 @@ class LockManager {
   }
 }
 
-let lockmgr: LockManager = getParentLockManager() || new LockManager;
-
 /** Configure an (accessible) modal dialog
  * @param bmc - What to show in the dialog: either a text or DOM fragment to clone.
  *              If a <dialog> element is passed, this dialog will be used instead of creating a new one.
@@ -193,6 +203,7 @@ class BusyLock implements UIBusyLock {
     //legacy non-camel name is 'ismodal'
     this.modal = options?.modal ?? (options as { ismodal?: boolean })?.ismodal ?? false;
 
+    const lockmgr = getLockmgr();
     this.locknum = lockmgr.add(this);
     lockmgr.busyframes.add(window);
     locallocks.push(this);
@@ -212,6 +223,7 @@ class BusyLock implements UIBusyLock {
     if (debugFlags.bus)
       this.releasestack = (new Error).stack;
 
+    const lockmgr = getLockmgr();
     lockmgr.release(this);
     const lockpos = locallocks.indexOf(this);
     locallocks.splice(lockpos, 1);
@@ -230,7 +242,7 @@ class BusyLock implements UIBusyLock {
 
 /** Return a promise resolving as soon as the UI (any accessible frame) is free for at least one tick */
 export function waitUIFree() {
-  return lockmgr.waitUIFree();
+  return getLockmgr().waitUIFree();
 }
 
 /**
@@ -244,13 +256,12 @@ export function flagUIBusy(options?: LockOptions): UIBusyLock {
 }
 
 export function getUIBusyCounter() {
-  return lockmgr.busycounter;
+  return getLockmgr().busycounter;
 }
 
 function getParentLockManager(): LockManager | null {
   try { //we're accessing a parent window, so we may hit security exceptions
-    const parent = window.parent as LockManagerWindow;
-    if (!(parent && parent.__dompack_busylockmanager))
+    if (!(window.parent?.__dompack_busylockmanager))
       return null;
 
     //if we connected to a parent...  deregister our locks, eg. if parent navigated our frame away
@@ -259,23 +270,18 @@ function getParentLockManager(): LockManager | null {
         console.log("[bus] Frame unloading, " + locallocks.length + " locks pending.", locallocks.map(l => "#" + l.locknum).join(", "), locallocks);
 
       //switch to local instance in case anyone still tries to touch these locks during unload
+      const lockmgr = getLockmgr();
       const locallockmgr = new LockManager;
       locallocks.forEach(lock => { lockmgr.release(lock); locallockmgr.add(lock); });
       locallocks = [];
 
       lockmgr.busyframes.delete(window); //explicitly remove us so we won't be waited upon
       lockmgr.scheduleCheckUIFree();
-      lockmgr = locallockmgr;
+      mylockmgr = locallockmgr;
     });
 
-    return parent.__dompack_busylockmanager;
+    return window.parent.__dompack_busylockmanager;
   } catch (e) {
     return null;
   }
 }
-
-if (!lockmgr)
-  lockmgr = new LockManager;
-
-if (typeof window !== 'undefined')
-  (window as unknown as LockManagerWindow).__dompack_busylockmanager = lockmgr;
