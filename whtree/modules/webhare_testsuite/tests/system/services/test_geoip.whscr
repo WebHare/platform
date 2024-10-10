@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 
@@ -11,8 +12,11 @@ MACRO TestGEOIP()
 {
   InstallTestGEOIPDatabases();
 
-  TestEq(TRUE, GetGeoIPCapabilities().have_city);
-  TestEq(TRUE, GetGeoIPCapabilities().have_country);
+  IF(NOT IsWasm())  //nothing but this test invokes GetGeoIPCapabilities so no need to port it
+  {
+    TestEq(TRUE, GetGeoIPCapabilities().have_city);
+    TestEq(TRUE, GetGeoIPCapabilities().have_country);
+  }
   TestEq("BT", GetGeoIPCountryForIP("67.43.156.0")); // see https://github.com/maxmind/MaxMind-DB/blob/15ed5b26ec7bb9b3e1658939b540b27af61ae74b/source-data/GeoLite2-Country-Test.json
   TestEq("BT", GetGeoIPInfoForIP("67.43.156.0").country_code);
   TestEq("Bhutan", GetGeoIPInfoForIP("67.43.156.0").country_name);
