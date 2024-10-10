@@ -24,13 +24,14 @@ const fix: boolean = program.opts().fix;
 
 async function main() {
   const axioms = await readAxioms();
-
-  const issues: Array<{
-    message: string;
-    toFix?: () => void;
-  }> = [];
+  let anyIssues = false;
 
   for (const pkg of await readdir(backendConfig.installationroot + "/jssdk", { withFileTypes: true })) {
+    const issues: Array<{
+      message: string;
+      toFix?: () => void;
+    }> = [];
+
     if (!pkg.isDirectory())
       continue;
 
@@ -61,6 +62,7 @@ async function main() {
     }
 
     if (pkgjson.main?.endsWith(".ts")) {
+      //Verify @declare module fragment presence. It's still far from perfect but helps TypeScript language server to hint to better imports
       const tsfile = await readFile(join(pkgroot, pkgjson.main), "utf8");
       const expfragment = `declare module "@webhare/${pkg.name}"`;
       if (!tsfile.includes(expfragment))
@@ -68,8 +70,8 @@ async function main() {
     }
 
     if (issues.length) {
+      anyIssues = true;
       if (!fix || issues.find(_ => !_.toFix)) {
-        process.exitCode = 1;
         for (const issue of issues)
           console.log(`- @webhare/${pkg.name}: ${issue.message}`);
       } else { //fix them!
@@ -82,13 +84,23 @@ async function main() {
     }
   }
 
-  if (!existsSync(backendConfig.installationroot + "node_modules/esbuild/bin/esbuild"))
-    issues.push({ message: "esbuild is not installed in our root" });
-  else if (existsSync(backendConfig.installationroot + "jssdk/tsrun/node_modules/esbuild/bin/esbuild"))
-    issues.push({ message: "tsrun has its own esbuild but there should be only one version around" });
+  const globalissues = [];
 
-  if (process.exitCode && !fix) //issues!
+  if (!existsSync(backendConfig.installationroot + "node_modules/esbuild/bin/esbuild"))
+    globalissues.push("esbuild is not installed in our root");
+  else if (existsSync(backendConfig.installationroot + "jssdk/tsrun/node_modules/esbuild/bin/esbuild"))
+    globalissues.push("tsrun has its own esbuild but there should be only one version around");
+
+  if (globalissues.length) {
+    anyIssues = true;
+    for (const issue of globalissues)
+      console.log(`- ${issue}`);
+  }
+
+  if (anyIssues && !fix) { //issues!
+    process.exitCode = 1;
     console.log('Run `wh run mod::platform/scripts/platformdev/validate_jssdk.ts --fix` to attempt automatic fixes');
+  }
 }
 
 main();
