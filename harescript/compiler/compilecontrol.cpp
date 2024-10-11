@@ -88,7 +88,7 @@ bool CompileControl::CheckDependencies(Assignment &assignment, std::string const
                 Blex::DateTime sourcetime = file->GetSourceModTime();
 
                 // Error if expected id was not equal to found one, or source time is not expected one
-                if (ids.clib_id != it->clib_id || ids.sourcetime != sourcetime)
+                if (ids.clib_id != it->clib_id || !ids.sourcetime.isEqual(sourcetime, Blex::DiskTimeToleranceMS))
                     return false;
         }
         return true;

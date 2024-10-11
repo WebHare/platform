@@ -162,6 +162,12 @@ class BLEXLIB_PUBLIC DateTime
                 return datetime<rhs.datetime ? -1 : (datetime==rhs.datetime ? 0 : 1);
         }
 
+        /** Test whether 2 datetimes are equal, with a delta. Needed for eg. modtime comparisons to get stable results between emscripten and native (which round millseconds slightly differently ) */
+        bool isEqual(DateTime const &rhs, unsigned delta) const
+        {
+                return datetime >= rhs.datetime ? datetime - rhs.datetime <= delta : rhs.datetime - datetime <= delta;
+        }
+
         bool operator== (DateTime const &rhs) const { return Compare(rhs)==0; }
         bool operator<  (DateTime const &rhs) const { return Compare(rhs)<0;  }
         bool operator!= (DateTime const &rhs) const { return Compare(rhs)!=0; }
