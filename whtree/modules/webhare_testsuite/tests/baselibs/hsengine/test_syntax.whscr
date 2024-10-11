@@ -174,8 +174,7 @@ MACRO GeneralTest()
   errors := TestCompile('<?wh STRING a!; ?>');
   MustContainError(11, errors, 70);
 
-  errors := TestCompile('<?wh STRING a$; ?>');
-  MustContainError(12, errors, 70);
+  TestCleanCompile(12, '<?wh string A$; a$ := "x"; ?>');
 
   errors := TestCompile('<?wh STRING a%; ?>');
   MustContainError(13, errors, 70);

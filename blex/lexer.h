@@ -40,7 +40,7 @@ inline std::ostream &operator<<(std::ostream &out, LineColumn const &rhs) { retu
 ///Return true if the specified character is a valid as a Harescript keywords start
 inline bool ValidKeywordStart(char c)
 {
-        return ((c&0xdf)>='A' && (c&0xdf)<='Z') || c=='_';
+        return ((c&0xdf)>='A' && (c&0xdf)<='Z') || c=='_' || c=='$';
 }
 ///REturnt rue if the sepcified character is valid as  a Harescript keywords character
 inline bool ValidKeywordChar(char c)

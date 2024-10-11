@@ -3122,9 +3122,10 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   // Test the full temporary API
   testfw->BeginWork();
 
-  persontype->CreateAttribute("REQUIRED_ATTR", "FREE", [ isrequired := TRUE ]);
+  // Adding a $ to required$attr to test compatibility/support with $ identifiers
+  persontype->CreateAttribute("REQUIRED$ATTR", "FREE", [ isrequired := TRUE ]);
 
-  //not setting required_attr should be fine as long as we're a temporary
+  //not setting required$attr should be fine as long as we're a temporary
   OBJECT tempentity := persontype->CreateEntity(CELL[], [ temp := TRUE ]);
   tempentity->UpdateEntity( [ wrd_contact_email := "temp2@beta.webhare.net" ]);
 
@@ -3133,10 +3134,10 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   TestEQ([ [ wrd_id := tempentity->id, wrd_contact_email := "temp2@beta.webhare.net" ] ], persontype->Enrich([ [ wrd_id := tempentity->id ] ], "wrd_id", CELL[ "wrd_contact_email" ], [ historymode := "__getfields" ]));
 
   //but as we try to make it non-temp, it should fail!
-  TestThrowsLike("*REQUIRED_ATTR*required*", PTR tempentity->UpdateEntity([ wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]));
+  TestThrowsLike("*REQUIRED$ATTR*required*", PTR tempentity->UpdateEntity([ wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]));
 
   //make it non temp while fixing the required field
-  tempentity->UpdateEntity([ required_attr := "NowFilled", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]);
+  tempentity->UpdateEntity([ required$attr := "NowFilled", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]);
   TestEq( [ wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ], tempentity->Getfields(["WRD_CREATIONDATE","WRD_LIMITDATE"]));
 
   queryresult := persontype->RunQuery([outputcolumns := CELL["WRD_CONTACT_EMAIL"] ]);
@@ -3158,7 +3159,7 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   tempentity->UpdateEntity(CELL[ wrd_leftentity := personid, wrd_rightentity := testorg, wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]);
   TestEq(testorg, personorglink->GetEntityField(tempentity->id,"WRD_RIGHTENTITY"));
 
-  persontype->DeleteAttribute("REQUIRED_ATTR");
+  persontype->DeleteAttribute("REQUIRED$ATTR");
 
   testfw->CommitWork();
 }
