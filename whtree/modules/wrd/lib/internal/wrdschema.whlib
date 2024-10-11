@@ -941,7 +941,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
             BREAK;
           }
           RECORD resource := RetrieveWebhareResource(rec.resourcename, [ allowmissing := TRUE ]);
-          IF (NOT RecordExists(resource) OR resource.modified != rec.modified)
+          IF (NOT RecordExists(resource) OR ABS(GetDatetimeDifference(resource.modified,rec.modified).totalmsecs) > 1) //tolerate small differences, wasm and native round slightly diffrent
           {
             //PRINT(`Resource ${rec.resourcename} has been modified\n`);
             all_same := FALSE;
