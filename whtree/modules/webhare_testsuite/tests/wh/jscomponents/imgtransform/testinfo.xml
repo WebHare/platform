@@ -1,3 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <jstest file="test-jscomponent-imgedit.ts" />
+  <jstest file="test-jscomponent-imgtransform.ts" />
 </group>

@@ -1,16 +1,16 @@
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
-declare module "@webhare/image-edit" {
+declare module "@webhare/imgtransform" {
 }
 
 import * as dompack from "@webhare/dompack";
 import { ImageEditor } from "./imageeditor";
 
-export type ImageEditMetadataEvent = CustomEvent<ImageEditMetadata & ImageEditSettings>;
+export type ImgTransformMetadataEvent = CustomEvent<ImgTransformMetadata & ImgTransformSettings>;
 
 declare global {
   interface GlobalEventHandlersEventMap {
     /** Fired whenever image metadata changes */
-    "wh-image-edit-metadata": ImageEditMetadataEvent;
+    "wh-imgtransform:metadata": ImgTransformMetadataEvent;
   }
 }
 
@@ -18,12 +18,12 @@ declare global {
    these types don't really exist in the browser - there was WebkitPoint (https://developer.mozilla.org/en-US/docs/Web/API/WebKitPoint)
    which never became Point, and there's DOMPoint that works in 3 dimensions */
 
-export type ImagePoint = {
+export type ImgPoint = {
   x: number;
   y: number;
 };
 
-export type ImageSize = {
+export type ImgSize = {
   width: number;
   height: number;
 };
@@ -31,17 +31,17 @@ export type ImageSize = {
 /** ImageEditorSettings represents the non-destructive settings supported by the image editor.
     which is currently only the focal point (filename mimetype etc should not be the editor's problem)
 */
-export type ImageEditSettings = {
+export type ImgTransformSettings = {
   /** Image focal point. null if not yet set*/
-  focalPoint: ImagePoint | null;
+  focalPoint: ImgPoint | null;
 };
 
 /** Current image metadata */
-export type ImageEditMetadata = {
-  imageSize: ImageSize;
+export type ImgTransformMetadata = {
+  imgSize: ImgSize;
 };
 
-export type ImageEditSaveOptions = {
+export type ImgTransformSaveOptions = {
   /** Type. Browsers default to image/png (and also pick that if the requested type is unsupported. See also https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob) */
   type?: string;
   /** Quality for lossy formats, between 0 and 1. Defaults to 0.85 if not set */
@@ -320,7 +320,7 @@ const stylesheet = ` //copied from apps.css
 
 `;
 
-export class ImageEditElement extends HTMLElement {
+export class ImgTransformElement extends HTMLElement {
   #editor!: ImageEditor;
   static observedAttributes = ["focalpoint"];
 
@@ -354,12 +354,12 @@ export class ImageEditElement extends HTMLElement {
   }
 
   #broadcastMetadata() {
-    dompack.dispatchCustomEvent(this, "wh-image-edit-metadata", {
+    dompack.dispatchCustomEvent(this, "wh-imgtransform:metadata", {
       bubbles: true,
       cancelable: false,
       detail: {
         focalPoint: this.#editor.surface.refPoint,
-        imageSize: {
+        imgSize: {
           width: this.#editor.surface.canvasData!.realSize.x ?? this.#editor.surface.imgData!.size.x,
           height: this.#editor.surface.canvasData!.realSize.y ?? this.#editor.surface.imgData!.size.y
         }
@@ -372,7 +372,7 @@ export class ImageEditElement extends HTMLElement {
   }
 
   /** Load a blob into the canvas  */
-  async loadImage(image: Blob, settings?: Partial<ImageEditSettings>): Promise<void> {
+  async loadImage(image: Blob, settings?: Partial<ImgTransformSettings>): Promise<void> {
     this.initEditor();
 
     // Cancel current modal edits
@@ -387,9 +387,9 @@ export class ImageEditElement extends HTMLElement {
     });
   }
 
-  async saveImage(options?: ImageEditSaveOptions): Promise<{
+  async saveImage(options?: ImgTransformSaveOptions): Promise<{
     blob: Blob;
-    settings: ImageEditSettings;
+    settings: ImgTransformSettings;
   }> {
     this.initEditor();
 

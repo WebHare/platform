@@ -13,7 +13,7 @@ import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./
 
 import "@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json"; //TODO gettid system currently cant read from a JSSDK folder. our caller will have to register texts
 import "@mod-tollium/web/ui/common.lang.json"; //TODO that's a lot of texts from which we only need a small part
-import type { ImagePoint } from "./image-edit";
+import type { ImgPoint } from "./imgtransform";
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
@@ -160,7 +160,7 @@ export class ImageEditor {
     this.orgBlob = options.orgblob;
     this.surface.setImg(img, options);
   }
-  getFocalPoint(): ImagePoint | null {
+  getFocalPoint(): ImgPoint | null {
     return this.surface.refPoint ? { //They're integers in HS so we'll keep rounding for now
       x: Math.round(this.surface.refPoint.x),
       y: Math.round(this.surface.refPoint.y)

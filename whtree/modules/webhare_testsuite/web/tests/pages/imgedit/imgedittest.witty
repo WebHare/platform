@@ -4,12 +4,12 @@
   <div class="tabs">
     <div class="tab">
       <h2>With focal point</h2>
-      <wh-image-edit focalpoint></wh-image-edit>
+      <wh-imgtransform focalpoint></wh-imgtransform>
       <div class="statusbar"></div>
     </div>
     <div class="tab" id="nofocal">
       <h2>Without focal point</h2>
-      <wh-image-edit ></wh-image-edit>
+      <wh-imgtransform ></wh-imgtransform>
       <div class="statusbar"></div>
     </div>
   </div>
