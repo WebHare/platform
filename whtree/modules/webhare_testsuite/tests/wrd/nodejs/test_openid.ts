@@ -13,6 +13,7 @@ import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/we
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { getAuditLog } from "@webhare/wrd/src/auditevents";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
@@ -208,6 +209,7 @@ async function verifyOpenIDClient() {
 }
 
 async function verifyAsOpenIDSP() {
+  const starttest = new Date();
   const testsite = await test.getTestSiteJS();
 
   if (!puppeteer)
@@ -227,6 +229,14 @@ async function verifyAsOpenIDSP() {
   //wait for WebHare username
   const usernameNode = await page.waitForSelector("#dashboard-user-name");
   test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode));
+
+  //verify user's lastlogin was updated
+  const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+  const { wrdId, whuserLastlogin } = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("sysop").login).select(["wrdId", "whuserLastlogin"]).executeRequireExactlyOne();
+  test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
+
+  //and verify audit event
+  test.eqPartial([{ type: "wrd:loginbyid:ok", ip: /^.*$/ }], await getAuditLog(wrdId));
 }
 
 test.run([

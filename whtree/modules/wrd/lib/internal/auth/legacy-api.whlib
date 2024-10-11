@@ -956,7 +956,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   */
   PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    STRING remoteip := CellExists(options,"REMOTEIP") ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
+    STRING remoteip := CellExists(options,"REMOTEIP") AND options.remoteip != "" ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
     BOOLEAN persistent := CellExists(options, 'persistent') AND options.persistent;
 
     this->loggedinentity := -1;

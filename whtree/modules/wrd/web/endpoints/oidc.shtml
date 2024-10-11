@@ -44,7 +44,7 @@ MACRO RunOpenIDAuth()
       , iss := STRING[loginconfig.issuer]
       ]);
 
-  LogDebug("wrd:auth-oidc", "Received JWT for oidc auth", tok->payload);
+  LogDebug("wrd:auth-oidc", [ reason := "Received JWT for oidc auth", payload := tok->payload, why := whyreason ]);
 
   OBJECT targetplugin := GetWRDAuthPlugin(whyreason.redirect);
   IF(NOT ObjectExists(targetplugin))
@@ -69,7 +69,9 @@ MACRO RunOpenIDAuth()
   //user is recognized. log him in
   RECORD loginres :=  targetplugin->LoginById(result.userid, FALSE, [ auditmessage := CELL[ oidcclient := spinfo.wrd_id
                                                                                           , oidctag := spinfo.wrd_tag
-                                                                                          ]]);
+                                                                                          ]
+                                                                    , remoteip := GetClientRemoteIP()
+                                                                    ]);
   IF(loginres.success)
     Redirect(whyreason.redirect);
   ELSE
