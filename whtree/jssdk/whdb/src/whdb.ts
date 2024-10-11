@@ -438,7 +438,11 @@ export function escapePGIdentifier(str: string): string {
 }
 
 function getConnection() {
-  return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl(), (conn) => conn.close());
+  return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {
+    if (isWorkOpen())
+      await rollbackWork();
+    return await conn.close();
+  });
 }
 
 export const __getConnection = getConnection; //TODO don't export this from `@webhare/whdb`

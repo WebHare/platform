@@ -186,6 +186,45 @@ async function testHSWorkSync() {
   await primary.popWork();
   test.eq(false, await primary.isWorkOpen());
   test.eq(false, isWorkOpen());
+
+  await beginWork();
+  const context1 = new CodeContext("test_whdb: testWorkSync", { workSync: 1 });
+  test.eq(false, await context1.run(async () => isWorkOpen()), "In the new context the transaction shouldn't exist");
+
+  await context1.run(async () => {
+    const contextPrimary = await loadlib("mod::system/lib/database.whlib").GetPrimaryWebhareTransactionObject();
+    test.eq(false, isWorkOpen(), "sanity check - as we're in a context, we should not be seeing the above work");
+    test.eq(false, await contextPrimary.IsWorkOpen(), "*and* the loadlib should match the context, and not see the transaction either");
+
+    //let's open some work
+    await beginWork();
+    test.eq(true, isWorkOpen(), "should see work locally");
+    test.eq(true, await contextPrimary.IsWorkOpen(), "*and* in HareScript");
+  });
+
+  //close root work
+  test.eq(true, isWorkOpen());
+  await commitWork();
+  test.eq(false, isWorkOpen());
+
+  await context1.run(async () => {
+    const contextPrimary = await loadlib("mod::system/lib/database.whlib").GetPrimaryWebhareTransactionObject();
+    test.eq(true, isWorkOpen(), "should still be open");
+    test.eq(true, await contextPrimary.IsWorkOpen(), "*and* in HareScript");
+
+    await loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib").InsertImmediately();
+    await commitWork();
+    test.eq(false, isWorkOpen());
+  });
+
+  await runInWork(() => db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute());
+
+  await context1.run(async () => await beginWork({ mutex: "webhare_testsuite:context1" }));
+  test.assert(context1.run(isWorkOpen));
+  await context1.close();
+
+  //ensure the mutex is released by locking it ourselves
+  (await lockMutex("webhare_testsuite:context1")).release();
 }
 
 async function testTypesWithHS() {
@@ -263,12 +302,12 @@ async function testCodeContexts() {
   test.eq("inserted 41", (await c2.next()).value);
   test.eqPartial([{ id: 41, harescript: false }], (await c2.next()).value, "context2 sees only 41");
   test.eqPartial([{ id: 40, harescript: false }], (await c1.next()).value, "context1 sees only 40");
-  test.eqPartial([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, "context1 sees only 40");
-  test.eqPartial([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, "context2 sees only 41");
+  test.eqPartial([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, "context1 sees only 40");
+  test.eqPartial([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-4: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, "context2 sees only 41");
 
   //Now HS will update it, then JS will return it
-  test.eqPartial([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, "context1 sees only 40");
-  test.eqPartial([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, "context2 sees only 41");
+  test.eqPartial([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, "context1 sees only 40");
+  test.eqPartial([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-4: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, "context2 sees only 41");
 
   //and that, once committed, they see each other's changes:
   test.eq("committed", (await c1.next()).value);

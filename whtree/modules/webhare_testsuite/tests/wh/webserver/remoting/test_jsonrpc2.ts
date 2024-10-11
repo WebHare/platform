@@ -30,7 +30,9 @@ async function testRPCCaller() {
   callres = await JSONAPICall(servicedef, request);
   test.eq(404, callres.status);
 
-  test.eq({ id: 42, error: { code: -32601, message: `Method 'noSuchAPI' not found` }, result: null }, JSON.parse(await callres.body.text()));
+  const { debug: debugData, ...result } = JSON.parse(await callres.body.text());
+  void (debugData);
+  test.eq({ id: 42, error: { code: -32601, message: `Method 'noSuchAPI' not found` }, result: null }, result);
 
   request.body = WebHareBlob.from(JSON.stringify({ id: 77, method: "serverCrash", params: [] }));
   callres = await JSONAPICall(servicedef, request);
@@ -90,6 +92,10 @@ async function testTypedClient() {
   test.eqPartial({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
 
   initEnv(DTAPStage.Development, save_backend_setting); //restore it just in case future tests rely on it
+
+  //Test lock abandonment
+  await noAuthJSService.lockWork();
+  await noAuthJSService.lockWork();
 }
 
 test.run([
