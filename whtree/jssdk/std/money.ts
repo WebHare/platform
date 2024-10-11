@@ -14,7 +14,7 @@ import * as finmath from "./finmath"; //TODO absorb into us as soon as noone ext
 export type MoneyRoundingMode = "none" | "toward-zero" | "down" | "up" | "half-toward-zero" | "half-down" | "half-up" | "toward-infinity" | "half-toward-infinity";
 export type MoneyTestTypes = "<" | "<=" | "==" | "!=" | ">" | ">=";
 
-const moneySymbol = Symbol.for("@webhare/std:Money");
+// const moneySymbol = Symbol.for("@webhare/std:Money");
 
 type MoneyParameter = Money | string;
 
@@ -126,7 +126,7 @@ function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number, 
 export class Money {
   /** finmath-compatible value */
   readonly value: string;
-  [moneySymbol] = true;
+  ["__ moneySymbol"] = true; //Symbol breaks tree shaking, so this is our workaround. Reported as https://github.com/evanw/esbuild/issues/3940
 
   constructor(value: MoneyParameter = "0") {
     this.value = Money.parseParameter(value);
@@ -147,7 +147,7 @@ export class Money {
   }
 
   static isMoney(value: unknown): value is Money {
-    return Boolean((value as Money)?.[moneySymbol]);
+    return Boolean((value as Money)?.["__ moneySymbol"]);
   }
 
   static fromNumber(value: number): Money {

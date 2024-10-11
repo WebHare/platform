@@ -10,7 +10,7 @@ import { decodeHSON } from "@webhare/hscompat";
 import { DTAPStage } from "@webhare/env/src/concepts";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
-import type { BackendConfiguration, ConfigFile, ModuleMap } from "@webhare/services/src/config";
+import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
 
 function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";
@@ -21,6 +21,9 @@ function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
 }
 
 type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataroot" | "installationroot" | "module" | "buildinfo"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
+
+type ModuleScanData = ModuleData & { creationdate: Date };
+type ModuleScanMap = Map<string, ModuleScanData>;
 
 export function generateNoDBConfig(): NoDBConfig {
   let baseport = Number(process.env.WEBHARE_BASEPORT || "0");
@@ -72,11 +75,12 @@ export function generateNoDBConfig(): NoDBConfig {
     // ignore non-existing buildinfo
   }
 
-  const module: ModuleMap = {};
+  const scanmap: ModuleScanMap = new Map;
   for (const moduledir of modulescandirs)
-    scanModuleFolder(module, moduledir, true, false);
-  scanModuleFolder(module, installationroot + "modules/", true, true);
+    scanModuleFolder(scanmap, moduledir, true, false);
+  scanModuleFolder(scanmap, installationroot + "modules/", true, true);
 
+  const module: ModuleMap = Object.fromEntries([...scanmap.entries()].map(([name, data]) => [name, { root: data.root }]));
   const retval: NoDBConfig = {
     baseport,
     modulescandirs,
@@ -84,7 +88,7 @@ export function generateNoDBConfig(): NoDBConfig {
       buildinfo,
       dataroot,
       installationroot,
-      module,
+      module
     }
   };
 
@@ -200,7 +204,7 @@ export function parseModuleFolderName(name: string) {
   return { creationdate: new Date(Date.parse("1970-01-01T00:00:00Z")), name };
 }
 
-function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {
+function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(folder, { withFileTypes: true });
@@ -229,7 +233,7 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
 
     const mdata = { creationdate: nameinfo.creationdate, root: modpath };
 
-    const current = modulemap[nameinfo.name];
+    const current = modulemap.get(nameinfo.name);
     if (current) {
       if (!always_overwrites && current.creationdate >= nameinfo.creationdate) {
         //console.log(`Older module version found at ${modpath}`);
@@ -237,7 +241,7 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
       }
       //console.log(`New module version found at ${modpath}`);
     }
-    modulemap[nameinfo.name] = mdata;
+    modulemap.set(nameinfo.name, mdata);
   }
 }
 
