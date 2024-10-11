@@ -869,7 +869,7 @@ PUBLIC RECORD FUNCTION GetAssetPackLinks(STRING assetpack, RECORD options)
                                  , cachebuster := ""
                                  ], options);
 
-  STRING bundlebaseurl := "/.ap/" || Substitute(assetpack, ':', '.') || "/";
+  STRING bundlebaseurl := "/.wh/ea/ap/" || Substitute(assetpack, ':', '.') || "/";
   IF(options.cachebuster != "")
     bundlebaseurl := "/!" || EncodeURL(options.cachebuster) || bundlebaseurl;
   IF(options.designroot != "")

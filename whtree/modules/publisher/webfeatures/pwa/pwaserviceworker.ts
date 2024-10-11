@@ -134,11 +134,10 @@ async function downloadApplication() {
   //Get the easily guessed assets first
   //FIXME move user urls to the manifest ? how abotu th /sd/ urls?
   const mainpageurl = self.registration.scope;
-  const assetbasedir = `/.ap/${assetpackname}${debugassetpacks ? '.dev' : ''}/`;
+  const assetbasedir = `/.wh/ea/ap/${assetpackname}${debugassetpacks ? '.dev' : ''}/`;
   const manifestfetch = fetch(`${assetbasedir}apmanifest.json`);
   const baseassets = debugassetpacks
     ? [
-      "/.ap/tollium.polyfills/ap.mjs",
       `${assetbasedir}ap.css`,
       `${assetbasedir}ap.mjs`,
     ]
@@ -269,7 +268,7 @@ async function onFetch(event: FetchEvent) {
   if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
     || urlpath.startsWith('/.wh/dev/')
     || urlpath.startsWith('/.dev/debug.js')
-    || urlpath.startsWith('/.ap/dev.devtools/')
+    || urlpath.startsWith('/.wh/ea/ap/dev.devtools/')
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
     || urlpath.startsWith("/.px/")) {
     return;  //well known never cached files

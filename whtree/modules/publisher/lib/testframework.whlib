@@ -100,9 +100,9 @@ PUBLIC RECORD FUNCTION ExtractBundleOutputTag(OBJECT doc)
   TestEq(TRUE, Length(scripts) > 0);
 
   STRING jslink := scripts[0]->GetAttribute("src");
-  TestEqLike("/.ap/*/ap.*js",jslink);
+  TestEqLike("/.wh/ea/ap/*/ap.*js",jslink);
 
-  STRING outputtag := Tokenize(jslink,'/')[2];
+  STRING outputtag := Tokenize(jslink,'/')[4];
   INTEGER firstdot := SearchSubstring(outputtag,'.');
   outputtag := Left(outputtag, firstdot) || ':' || Substring(outputtag, firstdot+1);
 

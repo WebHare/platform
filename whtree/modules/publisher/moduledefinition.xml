@@ -163,17 +163,15 @@
       <tryfolder path="storage::publisher/slots" />
     </webrule>
 
-    <!-- Assetpack caching.. cache everything for 24 hours *except* ap.css and ap.js... those should only be cached for 15 minutes -->
+    <!-- Legacy assetpack URLs. They should start using /.wh/ea/ap/ since WH 5.6.2 -->
     <webrule path="allroots:/.ap/"
              match="initial"
              cachecontrol="public, max-age=31536000, immutable"
-             priority="after"
-             redirecttodir="var:ap/">
+             priority="after">
       <addheader header="Access-Control-Allow-Origin" value="*" />  <!-- ADDME: would be nicer to only permit local known hosts -->
+      <tryfolder path="whdata::generated/platform/ap/" />
     </webrule>
-    <webrule path="allroots:/.ap/*/ap.css" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
-    <webrule path="allroots:/.ap/*/ap.js" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
-    <webrule path="allroots:/.ap/*/ap.mjs" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
+    <webrule path="allroots:/.ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
   </backend>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">

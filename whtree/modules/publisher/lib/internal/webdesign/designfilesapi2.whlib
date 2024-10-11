@@ -3,6 +3,8 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -20,14 +22,19 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , esbuildsettings := ""
                            ];
 
+PUBLIC STRING FUNCTION GetBundleOutputRootPath()
+{
+  RETURN GetEnvironmentVariable("WEBHARE_DATAROOT") || 'generated/platform/ap/';
+}
+
 PUBLIC STRING FUNCTION GetBundleOutputPath(STRING outputtag)
 {
-  RETURN GetWebHareConfiguration().varroot || 'publisher.ap/' || Substitute(outputtag,':','.') || "/";
+  RETURN GetEnvironmentVariable("WEBHARE_DATAROOT") || 'generated/platform/ap/' || Substitute(outputtag,':','.') || "/";
 }
 
 PUBLIC DATETIME FUNCTION GetBundleLastModDate(STRING outputtag)
 {
-  RECORD diskres := GetDiskFileProperties(GetWebHareConfiguration().varroot || 'publisher.ap/' || Substitute(outputtag,':','.') || "/assetpackstate.hson");
+  RECORD diskres := GetDiskFileProperties(GetBundleOutputPath(outputtag) || "assetpackstate.hson");
   RETURN RecordExists(diskres) ? diskres.modified : DEFAULT DATETIME;
 }
 
@@ -72,7 +79,7 @@ PUBLIC MACRO RemoveObsoleteCacheFolders()
   STRING ARRAY validfolders := keeppackages CONCAT SELECT AS STRING ARRAY outputtag FROM system_internal.assetpacks;
   validfolders := SELECT AS STRING ARRAY Substitute(val,":",'.') FROM ToRecordArray(validfolders,'val');
 
-  RECORD ARRAY currentfolders := ReadDiskDirectory(GetWebHareConfiguration().varroot || "publisher.ap", "*");
+  RECORD ARRAY currentfolders := ReadDiskDirectory(GetBundleOutputRootPath(), "*");
   FOREVERY(RECORD folder FROM currentfolders)
   {
     IF(folder.name NOT IN validfolders)

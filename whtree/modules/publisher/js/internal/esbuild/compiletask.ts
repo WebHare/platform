@@ -241,7 +241,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
     entryPoints: ["//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles))],
-    publicPath: '', //bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/`
+    publicPath: '',
     // This is a workaround for broken stacktrace resolving caused by esbuild generating ../../../../ paths but running out of path components when building relative URLs in stack-mapper in stacktrace-gps
     sourceRoot: "@mod-humpty/dumpty/had/a/great/fall/humpty/dumpty/fell/of/the/wall.js",
     bundle: true,

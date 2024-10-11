@@ -248,6 +248,8 @@ setup_for_console()
   move_dir "$WEBHARE_DATAROOT"ephemeral/system.uc2 "$WEBHARE_DATAROOT"caches/platform uc
   # WH 5.6 - move the unified cache into the right place, for real this time
   move_dir "$WEBHARE_DATAROOT"storage/system/output/uc "$WEBHARE_DATAROOT"caches/platform uc
+  # WH 5.6 - move assetpacks into generated/
+  move_dir "$WEBHARE_DATAROOT"publisher.ap "$WEBHARE_DATAROOT"generated/platform ap
 }
 
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it

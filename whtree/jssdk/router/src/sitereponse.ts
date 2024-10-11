@@ -38,7 +38,7 @@ export function getAssetpackIntegrationCode(assetpack: string, { designRoot = ''
     scriptsettings += ' crossorigin="anonymous"';
   scriptsettings += ' async type="module"';
 
-  let bundleBaseUrl = "/.ap/" + assetpack.replace(":", ".") + "/";
+  let bundleBaseUrl = "/.wh/ea/ap/" + assetpack.replace(":", ".") + "/";
   if (cacheBuster)
     bundleBaseUrl = "/!" + encodeURIComponent(cacheBuster) + bundleBaseUrl;
   if (designRoot)
