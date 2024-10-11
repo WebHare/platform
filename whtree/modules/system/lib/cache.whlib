@@ -19,7 +19,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
 
 /** @short Get the URL to a (resized) image file
-    @param baseurl Base URL for the returned cache url (leave empty for a /.uc/ or https://cdn/.uc/ url)
+    @param baseurl Base URL for the returned cache url (leave empty for a /.wh/ea/uc/ or https://cdn/.wh/ea/uc/ url)
     @param fsobject system.fs_objects id of the file
     @param scalemethod Resizing method, if any */
 PUBLIC STRING FUNCTION GetCachedFSImageURL(STRING baseurl, INTEGER fsobjectid, RECORD scalemethod)
@@ -28,7 +28,7 @@ PUBLIC STRING FUNCTION GetCachedFSImageURL(STRING baseurl, INTEGER fsobjectid, R
 }
 
 /** @short Get the URL to a file data download
-    @param baseurl Base URL for the returned cache url (leave empty for a /.uc/ or https://cdn/.uc/ url)
+    @param baseurl Base URL for the returned cache url (leave empty for a /.wh/ea/uc/ or https://cdn/.wh/ea/uc/ url)
     @param fsobject system.fs_objects id of the file
     @cell options.filename Filename to use in the URL
     @cell options.embed The returned URL should serve itself without a content-disposition: attachment
@@ -39,7 +39,7 @@ PUBLIC STRING FUNCTION GetCachedFSFileURL(STRING baseurl, INTEGER fsobjectid)
 }
 
 /** @short Get the URL to a (resized) image in instance data
-    @param baseurl Base URL for the returned cache url (leave empty for a /.uc/ or https://cdn/.uc/ url)
+    @param baseurl Base URL for the returned cache url (leave empty for a /.wh/ea/uc/ or https://cdn/.wh/ea/uc/ url)
     @param fsobject settingid of the image
     @param scalemethod Resizing method, if any */
 PUBLIC STRING FUNCTION GetCachedFSSettingImageURL(STRING baseurl, INTEGER64 fssettingid, RECORD scalemethod)
@@ -48,7 +48,7 @@ PUBLIC STRING FUNCTION GetCachedFSSettingImageURL(STRING baseurl, INTEGER64 fsse
 }
 
 /** @short Get the URL to an instance data file setting download
-    @param baseurl Base URL for the returned cache url (leave empty for a /.uc/ or https://cdn/.uc/ url)
+    @param baseurl Base URL for the returned cache url (leave empty for a /.wh/ea/uc/ or https://cdn/.wh/ea/uc/ url)
     @param fsobject settingid of the file
     @cell options.filename Filename to use in the URL
     @cell options.embed The returned URL should serve itself without a content-disposition: attachment
@@ -71,10 +71,10 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
   options := ValidateOptions(CELL[ mailsafe := FALSE ], options);
   url := Tokenize(url, "?")[0];
 
-  INTEGER uc := SearchSubstring(url, "/.uc/");
-  IF(uc>=0)
+  STRING tok := GetUCTokenFromURL(url);
+  IF(tok != "")
   {
-    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5));
+    RECORD analyzed := AnalyzeUnifiedURLToken(tok);
     IF(RecordExists(analyzed))
     {
       STRING mimetype;

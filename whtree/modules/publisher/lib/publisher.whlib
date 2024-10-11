@@ -461,7 +461,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
     }
   }
 
-  IF(up.urlpath LIKE ".uc/*")
+  IF(up.urlpath LIKE ".uc/*" OR up.urlpath LIKE ".wh/ea/uc/*")
   {
     TRY
     {

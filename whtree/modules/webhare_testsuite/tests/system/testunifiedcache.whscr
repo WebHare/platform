@@ -345,7 +345,7 @@ MACRO FsCacheTest()
   TestEq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", testfw->browser->GetResponseHeader("content-type"));
 
   STRING extensionlesslink := GetCachedFileLink(extensionless->GetWrapped(), [allowanyextension:=TRUE]);
-  TestEq(FALSE, extensionlesslink LIKE "/.uc/*.*", extensionlesslink);
+  TestEq(FALSE, extensionlesslink LIKE "/.wh/ea/uc/*.*", extensionlesslink);
   TestEq(TRUE, testfw->browser->GotoWebPage(extensionlesslink), extensionlesslink);
   TestEq(StringToBlob("\x00\x01\x02\x03"), testfw->browser->content, testfw->browser->href);
 
@@ -451,12 +451,8 @@ MACRO WRDImageCache()
 STRING FUNCTION GetCacheDiskPathFromLink(STRING link)
 {
   link := Tokenize(link, "?")[0];
-  STRING urlpart;
-  IF (link LIKE "*/.uc/*")
-    urlpart := Tokenize(link, "/.uc/")[1];
-  ELSE IF (link LIKE "*/!/*")
-    urlpart := Tokenize(link, "/!/")[1];
-  ELSE
+  STRING urlpart := GetUCTokenFromURL(link);
+  IF (urlpart = "")
     THROW NEW Exception(`Could not recognized link ${link}`);
 
   INTEGER lastslash := SearchLastSubString(urlpart, "/");
@@ -471,7 +467,7 @@ STRING FUNCTION GetCacheDiskPathFromLink(STRING link)
 
   hash := Left(hash, 3) || "/" || SubString(hash, 3);
 
-  RETURN MergePath(GetModuleStorageRoot("system") || "output/uc", hash);
+  RETURN GetUnifiedCacheDiskRoot() || hash;
 }
 
 MACRO CleanupTests()

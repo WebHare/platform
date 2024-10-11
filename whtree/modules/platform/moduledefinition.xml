@@ -17,8 +17,6 @@
 
     Keep in mind that embedded assets aren't necessarily static or immutable.
 
-    Static assets part of the core WebHare 'p'latform should be placed under /.wh/ea/p/
-
     Modules that add similar embeddable assets should do so under /.wh/ea/mod/<modulename>/
 
     All under `/.wh/dev/` will be assigned to the standard 'dev' module (mod::dev/web/wh-dev/)
@@ -26,11 +24,17 @@
 
     Add-on modules that want to add content under /.wh/ should use /.wh/mod/<modulename>/
 
-    /.wh/common/ implements various builtin pages
-
+    - `/.wh/common/`: implements various builtin pages
+    - `/.wh/ea/p/`: Static assets part of the core WebHare 'p'latform modulel (ie used for shadowcss assets)
+    - `/.wh/ea/uc/`: The new location for the unified cache (Files and Images)
     -->
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
     <webrule path="allroots:/.wh/ea/p/" match="initial" handlebydir="web/wh-assets/" priority="after" />
+    <webrule path="allroots:/.wh/ea/uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
+      <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
+      <tryfile path="scripts/routers/unifiedcache.shtml" />
+    </webrule>
+
     <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" />
   </backend>
 

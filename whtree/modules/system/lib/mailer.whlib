@@ -1001,7 +1001,7 @@ STATIC OBJECTTYPE WittyMailComposer
     }
 
     //Rewrite module URLs to their absolute version
-    IF(NOT IsAbsoluteResourcePath(url) AND NOT IsAbsoluteURL(url, FALSE) AND url NOT LIKE "/.uc/*")
+    IF(NOT IsAbsoluteResourcePath(url) AND NOT IsAbsoluteURL(url, FALSE) AND url NOT LIKE "/.wh/ea/uc/*")
     {
       url := MakeAbsoluteResourcePath(respath,url);
       INSERT url INTO this->seenfiles AT END;

@@ -6,10 +6,9 @@ import { backendConfig, toFSPath } from "@webhare/services";
 
 // TODO tikacache should perhaps be droppable too, but it has little churn and we're not guaranteed to quickly recover opensearch databases right now..
 
-
 // Ensure cache dirs are tagged
 for (const cachefolder of [
-  toFSPath("storage::system/output/uc"),
+  join(backendConfig.dataroot, "caches"),
   toFSPath("storage::platform/uploads"),
   join(backendConfig.dataroot, "ephemeral")
 ]) {

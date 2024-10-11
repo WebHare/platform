@@ -9,6 +9,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 
@@ -272,7 +273,7 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
 
   suffix := suffix || "/" || EncodeURL( (filename ?? "data") || useextension);
 
-  RETURN FixupReturnURL(baseurl, objinfo.fsobjectfolder, "/.uc/" || suffix);
+  RETURN FixupReturnURL(baseurl, objinfo.fsobjectfolder, "/.wh/ea/uc/" || suffix);
 }
 
 RECORD FUNCTION GetCacheableCDNUrl(INTEGER fsobjectid)
@@ -528,12 +529,25 @@ PUBLIC RECORD FUNCTION ParseUnifiedURLToken(STRING datatoken)
   RETURN DecodeUnifiedData(datatoken);
 }
 
+PUBLIC STRING FUNCTION GetUCTokenFromURL(STRING inurl)
+{
+  INTEGER start := SearchSubstring(inurl,'/.wh/ea/uc/');  //WH5.6 image cache location
+  IF(start >= 0)
+    RETURN Substring(inurl,start + 11); //11 = Length('/.wh/ea/uc/')
+
+  start := SearchSubstring(inurl,'/.uc/');
+  IF(start >= 0)
+    RETURN Substring(inurl,start + 5); //5 = Length('/.uc/')
+
+  RETURN "";
+}
+
 PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
 {
-  INTEGER uc := SearchSubstring(url, "/.uc/");
-  IF(uc>=0)
+  STRING tok := GetUCTokenFromURL(url);
+  IF(tok != "")
   {
-    RECORD analyzed := AnalyzeUnifiedURLToken(Substring(url, uc+5));
+    RECORD analyzed := AnalyzeUnifiedURLToken(tok);
     IF(RecordExists(analyzed))
     {
       RETURN [ type := analyzed.item.type
@@ -545,14 +559,18 @@ PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
   RETURN DEFAULT RECORD;
 }
 
-
+/** Root directory for the unified cache (images + files). Guaranteed to end in a slash */
+PUBLIC STRING FUNCTION GetUnifiedCacheDiskRoot()
+{
+  RETURN MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "caches/platform/uc") || "/";
+}
 
 PUBLIC RECORD ARRAY FUNCTION GetCurrentUnifiedCacheContents(DATETIME ignore_modified_after)
 {
   RECORD ARRAY deletion_candidates;
-  STRING imgcache_current := GetModuleStorageRoot("system") || "output/uc";
+
   /* Read all current images from disks as deletion candidates */
-  RECORD ARRAY imgcache_subs := ReadDiskDirectory(imgcache_current,"*");
+  RECORD ARRAY imgcache_subs := ReadDiskDirectory(GetUnifiedCacheDiskRoot(),"*");
 
   FOREVERY(RECORD subdir FROM imgcache_subs)
   {
@@ -577,7 +595,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentUnifiedCacheContents(DATETIME ignore_modi
 /** @param deletetion_candidates Images files to consider (not extremely recent). 'expired' is set to TRUE by GetCurrentUnifiedCacheContents, we'll set it to FALSE for those that aren't really expired */
 PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, DATETIME rangestart, DATETIME rangeend)
 {
-  //Support for decentralized imagecaches was removed, so we can now safely assume that all images live under /.uc/
+  //Support for decentralized imagecaches was removed, so we can now safely assume that all images live under /.wh/ea/uc/
   IF(Length(deletion_candidates) != 0)
   {
     /* Analyze the logfiles to figure out which images are recently accessed */
@@ -585,12 +603,14 @@ PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, 
     WHILE(TRuE)
     {
       RECORD row := accesslog->ReadRecord();
-      IF(NOT RecordExists(row))
+      IF(NOT RecordExists(row) OR row.method != "GET")
         BREAK;
-      IF(row.method != "GET" OR row.url NOT LIKE "/.uc/*")
+
+      STRING tok := GetUCTokenFromURL(row.url);
+      IF(tok = "")
         CONTINUE;
 
-      RECORD data := GetUnifiedURLTokenParts(Substring(row.url, 5));
+      RECORD data := GetUnifiedURLTokenParts(tok);
       IF (data.datatoken = "")
         CONTINUE;
 

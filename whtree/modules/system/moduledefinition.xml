@@ -416,9 +416,10 @@
              handlebyscript="web/global/acme.shtml"
              priority="after" />
     <webrule path="allroots:/.webhare/direct/" match="initial" handlebydir="web/global/direct/" priority="after" />
+    <!-- Legacy image cache URL. They should start using /.wh/ea/uc/ since WH 5.6.2 -->
     <webrule path="allroots:/.uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
-      <tryfolder path="storage::system/output/uc/" resolver="sha256b16_directory" tag="system:unifiedcache" />
-      <tryfile path="mod::system/web/unifiedcache/404.shtml" />
+      <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
+      <tryfile path="mod::platform/scripts/routers/unifiedcache.shtml" />
     </webrule>
     <webrule path="allroots:/.adhocserve/" match="initial" priority="after" redirecttoscript="internal/adhocserve.shtml" />
     <webrule path="allroots:/wh_services/"

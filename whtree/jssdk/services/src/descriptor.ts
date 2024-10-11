@@ -710,7 +710,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
   suffix += packet;
   suffix += '/' + encodeURIComponent((filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : ''));
 
-  const url = `/.uc/` + suffix;
+  const url = `/.wh/ea/uc/` + suffix;
   return options?.baseURL ? new URL(url, options?.baseURL).href : url;
 }
 
