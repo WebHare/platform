@@ -3,22 +3,20 @@
 */
 
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
-import { HSVMObject, loadlib, makeObject } from "@webhare/harescript";
-import { toResourcePath } from "@webhare/services/src/resources";
+import { loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { IdentityProvider, createCodeVerifier } from "@webhare/wrd/src/auth";
-import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";
+import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
-let sysoplogin = '', sysoppassword = '', clientWrdId = 0, clientId = '', clientSecret = '';
-let sysopobject: HSVMObject | undefined;
+let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
 
 async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
@@ -57,22 +55,17 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
 
 async function runWebHareLoginFlow(page: Puppeteer.Page) {
   await page.waitForSelector('[name=username]');
-  await page.type('[name=username]', sysoplogin);
-  await page.type('[name=password]', sysoppassword);
+  await page.type('[name=username]', test.getUser("sysop").login);
+  await page.type('[name=password]', test.getUser("sysop").password);
   await page.click('button[data-name=loginbutton]');
 }
 
 async function setupOIDC() {
-  const testfw = await loadlib("mod::system/lib/testframework.whlib").RunTestframework([], {
-    wrdauth: true,
-    schemaresource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
-    testusers:
-      [{ login: "sysop", grantrights: ["system:sysop"] }]
+  await test.reset({
+    users: {
+      sysop: { grantRights: ["system:sysop"] }
+    }
   });
-
-  sysoplogin = await testfw.getUserLogin("sysop");
-  sysoppassword = await testfw.getUserPassword("sysop");
-  sysopobject = await testfw.getUserObject("sysop");
 
   await runInWork(async () => {
     await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema("webhare_testsuite:oidc-sp", {
@@ -145,7 +138,7 @@ async function verifyRoutes() {
   const [, payload] = oauth2tokens.id_token.split(".");
   const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
 
-  const sysopguid = wrdGuidToUUID(await (await sysopobject!.$get<HSVMObject>("entity")).$get<string>("guid"));
+  const { wrdGuid: sysopguid } = await wrdTestschemaSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
   test.eq(sysopguid, parsedPayload.sub);
 }
 
@@ -237,8 +230,7 @@ async function verifyAsOpenIDSP() {
 }
 
 test.run([
-  test.reset,
-  setupOIDC,
+  setupOIDC, //implies test.reset
   verifyRoutes,
   verifyOpenIDClient,
   verifyAsOpenIDSP,

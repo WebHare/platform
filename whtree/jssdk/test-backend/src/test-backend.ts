@@ -7,7 +7,9 @@ declare module "@webhare/test-backend" {
 
 import * as test from "@webhare/test";
 import { beginWork } from "@webhare/whdb";
+import { loadlib } from "@webhare/harescript";
 import { openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
+import { throwError } from "@webhare/std";
 
 /// Get the dedicated 'tmp' folder from the webhare_testsuite test site (prepared by webhare_testsuite reset)
 export async function getTestSiteHSTemp() {
@@ -31,12 +33,42 @@ export const passwordHashes = {
   secret$: "WHBF:$2y$10$WUm2byXgMFDDa0nmSCLtUO0uNyMoHNmZhNm2YjWLNq8NmV15oFMDG",
 };
 
-export interface ResetOptions {
-
+export interface TestUserConfig {
+  grantRights?: string[];
 }
+
+export interface TestUserDetails extends TestUserConfig {
+  login: string;
+  wrdId: number;
+  password: string;
+}
+
+export interface ResetOptions {
+  users: Record<string, TestUserConfig>;
+}
+
+const users: Record<string, TestUserDetails> = {};
 
 /** Reset the test framework */
 export async function reset(options?: ResetOptions) {
+  const setupWrdAuth = options?.users && Object.keys(options.users).length;
+
+  if (setupWrdAuth) {
+    const hstestoptions = {
+      testusers: Object.entries(options?.users || []).map(([login, config]) => ({ login, grantrights: config.grantRights || [] })),
+    };
+
+    const testframeworkLib = await loadlib("mod::system/lib/testframework.whlib");
+    const testfw = await testframeworkLib.RunTestframework([], hstestoptions);
+
+    for (const [name, config] of Object.entries(options?.users || [])) {
+      const wrdId = await testfw.GetUserWRDId(name);
+      const login = await testfw.GetUserLogin(name);
+      const password = await testfw.GetUserPassword(name);
+      users[name] = { ...config, wrdId, password, login };
+    }
+  }
+
   await using work = await beginWork();
 
   const tmpfolder = await openFolder("site::webhare_testsuite.testsite/tmp", { allowMissing: true });
@@ -62,6 +94,10 @@ export async function reset(options?: ResetOptions) {
     await updateres.applied();
 }
 
+/** Describe a created test user */
+export function getUser(name: string): TestUserDetails {
+  return users[name] ?? throwError("User not found: " + name);
+}
 
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
