@@ -19,6 +19,25 @@ async function cleanup() {
   await commitWork();
 }
 
+async function testWork() {
+  let status: boolean | undefined;
+
+  {
+    await using work = await beginWork();
+    onFinishWork({
+      onCommit: () => status = true,
+      onRollback: () => status = false
+    });
+
+    void (work);
+    test.eq(true, isWorkOpen());
+  }
+
+  test.eq(false, isWorkOpen());
+  test.eq(false, status, "must explicitily be marked as rolled back");
+}
+
+
 async function testQueries() {
   await beginWork();
 
@@ -540,6 +559,7 @@ async function testClosedConnectionHandling() {
 
 test.run([
   cleanup,
+  testWork,
   testQueries,
   testTypes,
   testHSWorkSync,

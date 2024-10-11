@@ -91,7 +91,14 @@ class HandlerList implements Disposable {
   }
 }
 
-class Work {
+//not sure if we really want to expose Work as a usable object yet
+export interface WorkObject extends AsyncDisposable {
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+}
+
+
+class Work implements WorkObject {
   conn;
   open;
   private finishhandlers = new Map<string | symbol, FinishHandler>;
@@ -220,6 +227,11 @@ class Work {
     }
   }
 
+  async [Symbol.asyncDispose]() {
+    if (this.open)
+      await this.rollback();
+  }
+
   onFinish<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
     if (!this.open)
       throw new Error(`Work is already closed`);
@@ -337,7 +349,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     return this.openwork || null;
   }
 
-  async beginWork(options?: WorkOptions): Promise<void> {
+  async beginWork(options?: WorkOptions): Promise<WorkObject> {
     this.checkState(false);
     if (debugFlags.async)
       this.lastopen = new Error(`Work was last opened here`);
@@ -359,6 +371,8 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     } finally {
       lock.release();
     }
+
+    return this.openwork;
   }
 
   async nextVal(table: string): Promise<number> {
@@ -496,18 +510,15 @@ export async function runInWork<T>(func: () => T | Promise<T>, options?: WorkOpt
  */
 export async function runInSeparateWork<T>(func: () => T | Promise<T>, options?: WorkOptions): Promise<T> {
   const stash = isWorkOpen() ? stashWork() : null;
-  await beginWork(options);
   try {
+    await using work = await beginWork(options);
+    void (work);
+
     const retval = await func();
     await commitWork();
-    stash?.restore();
     return retval;
-  } catch (e) {
-    if (isWorkOpen())
-      await rollbackWork();
-
+  } finally {
     stash?.restore();
-    throw e;
   }
 }
 
@@ -531,8 +542,9 @@ export function nextVals(table: string, howMany: number) {
 }
 
 /** Begins a new transaction. Throws when a transaction is already in progress
+ * @returns An AsyncDisposable work object that can be used with 'await using' to automatically rollback the work if not yet committed
 */
-export function beginWork(options?: WorkOptions) {
+export function beginWork(options?: WorkOptions): Promise<WorkObject> {
   return checkPromiseErrorsHandled(getConnection().beginWork(options));
 }
 
