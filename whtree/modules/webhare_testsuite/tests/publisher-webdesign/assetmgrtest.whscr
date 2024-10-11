@@ -117,6 +117,8 @@ MACRO TestBasics()
   //and now test with accept-encoding. we expect not to receive a GZ file... (we regressed earlier and returned a stale .gz file!)
   TestEq(TRUE, testfw->browser->GotoWebPage(jslink, [ headers := [[ field := "Accept-Encoding", value := "gzip" ]]]), testfw->browser->href);
   TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"), "should still receive an uncompressed version");
+  TestEq(TRUE, testfw->browser->GotoWebPage(jslink, [ headers := [[ field := "Accept-Encoding", value := "br" ]]]), testfw->browser->href);
+  TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"), "should still receive an uncompressed version");
 }
 
 MACRO TestAssetpackManifest()

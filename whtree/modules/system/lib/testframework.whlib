@@ -1487,12 +1487,12 @@ STATIC OBJECTTYPE TestFramework
     RETURN newsite;
   }
 
-  PUBLIC RECORD FUNCTION EnsureCompiledAssetpack(STRING asssetpackname)
+  PUBLIC RECORD FUNCTION EnsureCompiledAssetpack(STRING assetpackname)
   {
-    RECORD res := WaitForCompiledAssetpack(asssetpackname);
+    RECORD res := WaitForCompiledAssetpack(assetpackname);
     IF(res.haserrors)
       DumpValue(res,'tree:3');
-    TestEq(FALSE, res.haserrors, "compile should have succeeded");
+    TestEq(FALSE, res.haserrors, `Compile of assetpack '${assetpackname}' should have succeeded`);
     RETURN CELL[ res.lastcompile ];
   }
   PUBLIC OBJECT FUNCTION CreateEventExpectation(STRING ARRAY masks)

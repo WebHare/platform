@@ -941,39 +941,6 @@ STATIC OBJECTTYPE AssetPackController
     RETURN assets;
   }
 
-  /** Upon compile success, move all newly generated files to the output directory
-  */
-  MACRO MoveGeneratedFiles(RECORD bundle)
-  {
-    STRING builddir := MergePath(bundle.outputpath, "build");
-    CreateDiskDirectory(Mergepath(bundle.outputpath,"st"), TRUE);
-
-    //ADDME once in a while, clean up old assets in staticdir (but no need to do immediately, let'm linger a few days)
-
-    RECORD ARRAY infiles := ReadDiskDirectory(builddir, "*");
-    RECORD ARRAY existingfiles := ReadDiskDirectory(bundle.outputpath, "*");
-
-    FOREVERY (RECORD rec FROM infiles)
-    {
-      IF (rec.name = "records.json")
-        CONTINUE;
-
-      STRING outpath := rec.name;
-      STRING destpath := MergePath(bundle.outputpath, outpath);
-      IF(NOT MoveDiskPath(rec.path, destpath))
-      {
-        IF (debug)
-          Print("Unable to move " || rec.path || " to " || destpath||"\n");
-        THROW NEW Exception("Unable to move " || rec.path || " to " || destpath);
-      }
-    }
-
-    FOREVERY(RECORD obsolete_gzippedfile FROM SELECT * FROM existingfiles WHERE name LIKE "*.gz" AND NOT RecordExists(SELECT FROM infiles WHERE infiles.name = existingfiles.name))
-    {
-      DeleteDiskFile(obsolete_gzippedfile.path);
-    }
-  }
-
   /** Mark a bundle as uncompileable (because pre-compile checks failed)
   */
   MACRO ProcessUncompilable(RECORD bundle, STRING ARRAY depfiles, STRING ARRAY missing, STRING error, DATETIME startofcompile)
