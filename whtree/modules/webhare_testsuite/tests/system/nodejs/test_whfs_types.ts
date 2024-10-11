@@ -1,5 +1,4 @@
-import { getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { WHFSFile } from "@webhare/whfs";
@@ -92,7 +91,7 @@ async function testMockedTypes() {
 async function testInstanceData() {
   await beginWork();
 
-  const tmpfolder = await getTestSiteTemp();
+  const tmpfolder = await test.getTestSiteHSTemp();
   const testfile: WHFSFile = await tmpfolder.createFile("testfile.txt");
   const fileids = [tmpfolder.id, testfile.id];
 
@@ -256,7 +255,7 @@ async function testInstanceData() {
 }
 
 test.run([
-  testSuiteCleanup,
+  test.reset,
   testCodecs,
   testMockedTypes,
   testInstanceData

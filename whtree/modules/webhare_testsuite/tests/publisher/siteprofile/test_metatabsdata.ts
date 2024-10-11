@@ -3,7 +3,6 @@ import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare
 import { openFile, openFolder } from "@webhare/whfs";
 import { describeMetaTabs, remapForHs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
-import { getTestSiteJSTemp } from "@mod-webhare_testsuite/js/testsupport";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 
 async function prep() {
@@ -132,7 +131,7 @@ async function testMetadataReader() {
 
 async function testOverrides() {
   await beginWork();
-  const tmpfolder = await getTestSiteJSTemp();
+  const tmpfolder = await test.getTestSiteJSTemp();
   const metaoverride1 = await tmpfolder.createFile("metaoverride1", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
   await commitWork();
 

@@ -1,5 +1,5 @@
 import * as whdb from "@webhare/whdb";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/wrd/src/auth";
 import { AuthenticationSettings, type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
@@ -8,7 +8,6 @@ import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
-import { testValues } from "@mod-webhare_testsuite/js/testsupport";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -190,7 +189,7 @@ async function testAuthAPI() {
   //Setup test user and test the AuthenticationSettings types
   const testunit = await wrdTestschemaSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
   const testuser = await wrdTestschemaSchema.insert("wrdPerson", {
-    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(testValues.pwd_secret$)
+    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$)
   });
   await whdb.commitWork();
 

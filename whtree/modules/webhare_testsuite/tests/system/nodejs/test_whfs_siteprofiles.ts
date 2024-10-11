@@ -1,8 +1,7 @@
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { getTestSiteHS, getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 
 async function getApplyTester(path: string) {
   return await getApplyTesterForObject(await whfs.openFile(path));
@@ -28,7 +27,7 @@ async function testSiteProfiles() {
   const wrdauthFromMock = await (await getApplyTesterForMockedObject(await testsitefile.openParent(), true, testsitefile.type)).getWRDAuth();
   test.eq(wrdauth, wrdauthFromMock);
 
-  const testsite = await getTestSiteHS();
+  const testsite = await test.getTestSiteHS();
   const testobj = await testsite.openFolder("testpages");
 
   await whdb.beginWork();
@@ -76,7 +75,7 @@ async function testSiteProfiles() {
 }
 
 async function testSiteUpdates() {
-  const testsitejs = await getTestSiteJS();
+  const testsitejs = await test.getTestSiteJS();
   const tester = await getApplyTesterForObject(await testsitejs.openFolder("."));
 
   test.eq(null, await tester.getUserData("webhare_testsuite:blub"));
@@ -99,7 +98,7 @@ async function testSiteUpdates() {
 
 
 test.run([
-  testSuiteCleanup,
+  test.reset,
   testSiteProfiles,
   testSiteUpdates,
 ]);

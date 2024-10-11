@@ -12,7 +12,6 @@ import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { IdentityProvider, createCodeVerifier } from "@webhare/wrd/src/auth";
 import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
-import { getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";
 
@@ -90,7 +89,7 @@ async function setupOIDC() {
     ({ wrdId: clientWrdId, clientId, clientSecret } = await provider.createServiceProvider({ title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
 
     //Also register it ourselves for later use
-    const testsite = await getTestSiteJS();
+    const testsite = await test.getTestSiteJS();
 
     const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
     await schemaSP.insert("wrdauthOidcClient", {
@@ -107,7 +106,7 @@ async function setupOIDC() {
 }
 
 async function verifyRoutes() {
-  const testsite = await getTestSiteJS();
+  const testsite = await test.getTestSiteJS();
   const openidconfigReq = await fetch(testsite.webRoot + ".well-known/openid-configuration");
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
   const openidconfig = await openidconfigReq.json();
@@ -151,7 +150,7 @@ async function verifyRoutes() {
 }
 
 async function verifyOpenIDClient() {
-  const testsite = await getTestSiteJS();
+  const testsite = await test.getTestSiteJS();
 
   //update client to use firstname as subject
   await beginWork();
@@ -216,7 +215,7 @@ async function verifyOpenIDClient() {
 }
 
 async function verifyAsOpenIDSP() {
-  const testsite = await getTestSiteJS();
+  const testsite = await test.getTestSiteJS();
 
   if (!puppeteer)
     puppeteer = await launchPuppeteer({ headless });
@@ -238,7 +237,7 @@ async function verifyAsOpenIDSP() {
 }
 
 test.run([
-  testSuiteCleanup,
+  test.reset,
   setupOIDC,
   verifyRoutes,
   verifyOpenIDClient,

@@ -1,9 +1,8 @@
-import { getTestSiteJS, getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
 import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
@@ -358,7 +357,7 @@ async function testImgCache() {
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
   test.throws(/Cannot use toResize/, () => fish.toResized({ method: "none" }));
 
-  const testsitejs = await getTestSiteJS();
+  const testsitejs = await test.getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true })).link);
@@ -406,8 +405,8 @@ async function testImgCache() {
 
 async function testFileCache() {
   await beginWork();
-  const testsite = await getTestSiteJS();
-  const tmpfolder = await getTestSiteTemp();
+  const testsite = await test.getTestSiteJS();
+  const tmpfolder = await test.getTestSiteHSTemp();
   const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
   const extensionless = await tmpfolder.createFile("extensionless", { data: await ResourceDescriptor.from(Buffer.from("\x00\x01\x02\x03")) });
   const oddity = await tmpfolder.createFile("Bowie Space!.oddity", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
@@ -473,7 +472,7 @@ async function testWRDImgCache() {
 
 
 test.run([
-  testSuiteCleanup,
+  test.reset,
   testResizeMethods,
   testImgMethodPacking,
   testImgCacheTokens,
