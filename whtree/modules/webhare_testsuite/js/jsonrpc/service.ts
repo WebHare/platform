@@ -3,6 +3,7 @@ import { MyService } from "./type";
 import { debugFlags } from "@webhare/env";
 import { WebRequest } from "@webhare/router";
 import { getRequestUser } from "@webhare/wrd";
+import { beginWork } from "@webhare/whdb";
 
 export class TestNoAuthJS implements MyService {
   private req: WebRequest;
@@ -11,6 +12,9 @@ export class TestNoAuthJS implements MyService {
     this.req = req;
   }
 
+  async lockWork() {
+    await beginWork({ mutex: "webhare_testsuite:lockit" });
+  }
   async validateEmail(langcode: string,
     emailaddress: string): Promise<boolean> {
     return Boolean(emailaddress.match(/webhare.dev$/));

@@ -76,12 +76,17 @@ PUBLIC MACRO SetGobalOnCommit(RECORD newrec)
 INTEGER FUNCTION DoTheInsert()
 {
   GetPrimary()->BeginWork();
-  INTEGER nextid := MakeAutonumber(webhare_testsuite.exporttest, "id");
-  INSERT INTO webhare_testsuite.exporttest(id, text) VALUES(nextid, "Record #" || nextid);
+  INTEGER nextid := InsertImmediately();
   GetPrimary()->CommitWork();
   RETURN nextid;
 }
 PUBLIC INTEGER FUNCTION InsertUsingSeparateTrans()
 {
   RETURN RunInSeparatePrimary(PTR DoTheInsert);
+}
+PUBLIC INTEGER FUNCTION InsertImmediately()
+{
+  INTEGER nextid := MakeAutonumber(webhare_testsuite.exporttest, "id");
+  INSERT INTO webhare_testsuite.exporttest(id, text) VALUES(nextid, "Record #" || nextid);
+  RETURN nextid;
 }

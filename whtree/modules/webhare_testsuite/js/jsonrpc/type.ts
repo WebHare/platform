@@ -18,4 +18,6 @@ export interface MyService {
   }>;
 
   doConsoleLog(): Promise<null>;
+
+  lockWork(): Promise<void>;
 }
