@@ -56,6 +56,13 @@ test.registerTests(
       test.fill('#emailform-email', "baduser@example.org");
       await test.pressKey('Tab');
       await test.wait(() => emailgroup.querySelector('.wh-form__error')?.textContent?.match(/BAD BAD BAD/));
+
+      //clear the field
+      test.click('#emailform-email');
+      test.fill('#emailform-email', "");
+      await test.pressKey('Tab');
+      await test.wait(() => emailgroup.querySelector('.wh-form__error')?.textContent?.match(/verplicht/));
+
     },
     'Check smart email field CORRECTING on focus',
     async function () {

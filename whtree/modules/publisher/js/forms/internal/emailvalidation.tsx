@@ -29,9 +29,15 @@ function acceptEmailSuggestion(evt: Event, form: FormBase, field: HTMLInputEleme
 }
 
 export async function validateField(form: FormBase | RPCFormBase, field: HTMLInputElement) {
+  if (field.dataset.whFormEmailBlocked) {
+    delete field.dataset.whFormEmailBlocked;
+    setFieldError(field, ""); //explicitly clear our earlier setFieldError, but only if we set it. FIXME To really cleanly solve this we need better integration with rpc.ts - we want to be in the setupValidation chain and simply return errors instead of being explictly invoked
+  }
+
   const checkvalue: string = field.value;
-  if (!checkvalue || !mayValidateField(field))
+  if (!checkvalue || !mayValidateField(field)) {
     return true; //not a problem
+  }
 
   if (!isValidEmail(checkvalue)) {
     //TODO why aren't we just returning the error like a validator callback?
@@ -57,10 +63,6 @@ export async function validateField(form: FormBase | RPCFormBase, field: HTMLInp
     field.dataset.whFormEmailBlocked = "true";
     setFieldError(field, result.blocked);
     return false;
-  }
-  if (field.dataset.whFormEmailBlocked) {
-    delete field.dataset.whFormEmailBlocked;
-    setFieldError(field, ""); //explicitly clear our earlier setFieldError, but only if we set it. FIXME To really cleanly solve this we need better integration with rpc.ts - we want to be in the setupValidation chain and simply return errors instead of being explictly invoked
   }
 
   if (result?.force) {
