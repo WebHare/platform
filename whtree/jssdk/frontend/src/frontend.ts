@@ -3,7 +3,7 @@ declare module "@webhare/frontend" {
 }
 
 import { onDomReady } from "@webhare/dompack";
-import "./reset.css";
+import "../styling/reset.css"; // Reset CSS - this will be dropped somewhere post WH5.6!
 export { frontendConfig } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
 import { navigateTo as envNavigateTo } from "@webhare/env";
