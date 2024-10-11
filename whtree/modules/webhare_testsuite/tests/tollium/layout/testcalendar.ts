@@ -1,8 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
-
 
 test.registerTests(
   [
@@ -13,7 +9,7 @@ test.registerTests(
 
     {
       name: 'verifylayout',
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.compByName('calendarholder').offsetHeight < 768, 'calendarholder too big'); //should not be escaping the screen
 
         //find our overlay
@@ -47,7 +43,7 @@ test.registerTests(
 
         //click in the overlapped cell, the yellow overlay should be selected
         const overlappedcoords = overlappedcell.getBoundingClientRect();
-        test.sendMouseGesture([{ el: doc.body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
+        test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
         test.assert(yellowoverlay.classList.contains('todd-table__overlay--selected'));
         test.assert(!greenoverlay.classList.contains('todd-table__overlay--selected'));
 
@@ -57,14 +53,13 @@ test.registerTests(
         test.assert(greenoverlay.classList.contains('todd-table__overlay--selected'));
 
         //click in the overlapped cell, the green overlay should still be selected as it should be positioned before the yellow overlay
-        test.sendMouseGesture([{ el: doc.body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
+        test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
         test.assert(!yellowoverlay.classList.contains('todd-table__overlay--selected'));
         test.assert(greenoverlay.classList.contains('todd-table__overlay--selected'));
 
         //click again to open the appointment properties
-        test.sendMouseGesture([{ el: doc.body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
-      },
-      waits: ['ui']
+        test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
+      }
     }
 
   ]);

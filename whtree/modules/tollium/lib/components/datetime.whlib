@@ -131,7 +131,10 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
     IF(this->pvt_storeutc=newutc)
       RETURN;
 
+    DATETIME oldvalue := this->localtzvalue;
     this->pvt_storeutc := newutc;
+    this->localtzvalue := oldvalue;
+
     this->ExtUpdatedComponent();
   }
 
@@ -163,11 +166,11 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
   DATETIME FUNCTION GetLocalTZValue()
   {
     //we allow storeutc with dates again.. and we just want UTC Midnight then
-    RETURN this->pvt_storeutc ? this->owner->tolliumuser->UTCToLocal(this->value) : this->value;
+    RETURN this->pvt_storeutc AND this->type = "datetime" ? this->owner->tolliumuser->UTCToLocal(this->value) : this->value;
   }
   MACRO SetLocalTZValue(DATETIME newval)
   {
-    this->value := this->pvt_storeutc ? this->owner->tolliumuser->LocalToUTC(newval) : newval;
+    this->value := this->pvt_storeutc AND this->type = "datetime" ? this->owner->tolliumuser->LocalToUTC(newval) : newval;
   }
 
   DATETIME FUNCTION GetValue()
@@ -215,7 +218,10 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
     if (this->pvt_type = newtype)
       RETURN;
 
+    DATETIME savevalue := this->localtzvalue;
     this->pvt_type := newtype;
+    this->localtzvalue := savevalue;
+
     this->ExtUpdatedComponent();
   }
 
@@ -446,7 +452,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
       IF (this->type = "time")
         intime := MakeDateFromParts(GetDayCount(this->localtzvalue), GetMsecondCount(intime));
 
-      IF (this->pvt_storeutc)
+      IF (this->pvt_storeutc AND this->type = "datetime")
         intime := this->owner->tolliumuser->LocalToUTC(intime);
     }
 
