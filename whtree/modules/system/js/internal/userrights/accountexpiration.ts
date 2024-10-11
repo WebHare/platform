@@ -60,7 +60,7 @@ export async function runAccountExpiration(tag: string) {
     await beginWork();
     for (const user of lockusers) {
       // Get the user's current audit log
-      const unlockdates = (await getAuditLog(user.wrdId)).filter(_ => _.type === "system:userdisable" && (_.data as { disabled: boolean }).disabled === false).map(_ => _.creationdate.getTime());
+      const unlockdates = (await getAuditLog(user.wrdId)).filter(_ => _.type === "system:userdisable" && (_.data as { disabled: boolean }).disabled === false).map(_ => _.creationDate.getTime());
       if (unlockdates.length && Math.max(...unlockdates) > Date.now() - (7 * 864000 * 1000)) { //unlocked les than 7 days ago
         continue;
       }
