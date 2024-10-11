@@ -1,8 +1,7 @@
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
-import { getTestSiteHS, getTestSiteJS, getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { openFile, openFileOrFolder } from "@webhare/whfs";
 import { ResourceDescriptor } from "@webhare/services";
 
@@ -26,8 +25,8 @@ async function testWHFS() {
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
 
-  const testsite = await getTestSiteHS();
-  const testsitejs = await getTestSiteJS();
+  const testsite = await test.getTestSiteHS();
+  const testsitejs = await test.getTestSiteJS();
   test.assert(testsite, "We need the HS testsite to exist");
   test.assert(testsitejs, "We need the JS testsite to exist");
   test.eq(/^https?:.*/, testsite.webRoot);
@@ -229,7 +228,7 @@ async function testWHFS() {
 }
 
 async function testGenerateUniqueName() {
-  const tmpfolder = await getTestSiteTemp();
+  const tmpfolder = await test.getTestSiteJSTemp();
 
   await whdb.beginWork();
   const uniquenamefolder = await tmpfolder.createFolder("uniquenames");
@@ -307,7 +306,7 @@ async function testGenerateUniqueName() {
 }
 
 test.run([
-  testSuiteCleanup,
+  test.reset,
   testWHFS,
   testGenerateUniqueName
 ]);

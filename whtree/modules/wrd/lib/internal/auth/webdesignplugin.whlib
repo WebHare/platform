@@ -769,6 +769,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , persistent := FALSE
                                , firstloginfield := ""
                                , lastloginfield := ""
+                               , remoteip := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();

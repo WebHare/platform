@@ -120,7 +120,8 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:oidc-sp"
              loginpage="currentsite::/portal1-oidc/"
-             supportobjectname="compatibility.whlib#WRDAutOIDCSupport" />
+             supportobjectname="compatibility.whlib#WRDAutOIDCSupport"
+             lastloginfield="whuser_lastlogin" />
   </apply>
 
   <!-- Activate our YML counterpart -->

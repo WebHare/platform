@@ -3,23 +3,21 @@
 */
 
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
-import { HSVMObject, loadlib, makeObject } from "@webhare/harescript";
-import { toResourcePath } from "@webhare/services/src/resources";
+import { loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { IdentityProvider, createCodeVerifier } from "@webhare/wrd/src/auth";
-import { wrdGuidToUUID } from "@webhare/hscompat";
 import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
-import { getTestSiteJS, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";
+import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { getAuditLog } from "@webhare/wrd/src/auditevents";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
-let sysoplogin = '', sysoppassword = '', clientWrdId = 0, clientId = '', clientSecret = '';
-let sysopobject: HSVMObject | undefined;
+let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
 
 async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
@@ -58,22 +56,17 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
 
 async function runWebHareLoginFlow(page: Puppeteer.Page) {
   await page.waitForSelector('[name=username]');
-  await page.type('[name=username]', sysoplogin);
-  await page.type('[name=password]', sysoppassword);
+  await page.type('[name=username]', test.getUser("sysop").login);
+  await page.type('[name=password]', test.getUser("sysop").password);
   await page.click('button[data-name=loginbutton]');
 }
 
 async function setupOIDC() {
-  const testfw = await loadlib("mod::system/lib/testframework.whlib").RunTestframework([], {
-    wrdauth: true,
-    schemaresource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
-    testusers:
-      [{ login: "sysop", grantrights: ["system:sysop"] }]
+  await test.reset({
+    users: {
+      sysop: { grantRights: ["system:sysop"] }
+    }
   });
-
-  sysoplogin = await testfw.getUserLogin("sysop");
-  sysoppassword = await testfw.getUserPassword("sysop");
-  sysopobject = await testfw.getUserObject("sysop");
 
   await runInWork(async () => {
     await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema("webhare_testsuite:oidc-sp", {
@@ -90,7 +83,7 @@ async function setupOIDC() {
     ({ wrdId: clientWrdId, clientId, clientSecret } = await provider.createServiceProvider({ title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
 
     //Also register it ourselves for later use
-    const testsite = await getTestSiteJS();
+    const testsite = await test.getTestSiteJS();
 
     const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
     await schemaSP.insert("wrdauthOidcClient", {
@@ -107,7 +100,7 @@ async function setupOIDC() {
 }
 
 async function verifyRoutes() {
-  const testsite = await getTestSiteJS();
+  const testsite = await test.getTestSiteJS();
   const openidconfigReq = await fetch(testsite.webRoot + ".well-known/openid-configuration");
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
   const openidconfig = await openidconfigReq.json();
@@ -146,12 +139,12 @@ async function verifyRoutes() {
   const [, payload] = oauth2tokens.id_token.split(".");
   const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
 
-  const sysopguid = wrdGuidToUUID(await (await sysopobject!.$get<HSVMObject>("entity")).$get<string>("guid"));
+  const { wrdGuid: sysopguid } = await wrdTestschemaSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
   test.eq(sysopguid, parsedPayload.sub);
 }
 
 async function verifyOpenIDClient() {
-  const testsite = await getTestSiteJS();
+  const testsite = await test.getTestSiteJS();
 
   //update client to use firstname as subject
   await beginWork();
@@ -216,7 +209,8 @@ async function verifyOpenIDClient() {
 }
 
 async function verifyAsOpenIDSP() {
-  const testsite = await getTestSiteJS();
+  const starttest = new Date();
+  const testsite = await test.getTestSiteJS();
 
   if (!puppeteer)
     puppeteer = await launchPuppeteer({ headless });
@@ -235,11 +229,18 @@ async function verifyAsOpenIDSP() {
   //wait for WebHare username
   const usernameNode = await page.waitForSelector("#dashboard-user-name");
   test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode));
+
+  //verify user's lastlogin was updated
+  const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+  const { wrdId, whuserLastlogin } = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("sysop").login).select(["wrdId", "whuserLastlogin"]).executeRequireExactlyOne();
+  test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
+
+  //and verify audit event
+  test.eqPartial([{ type: "wrd:loginbyid:ok", ip: /^.*$/ }], await getAuditLog(wrdId));
 }
 
 test.run([
-  testSuiteCleanup,
-  setupOIDC,
+  setupOIDC, //implies test.reset
   verifyRoutes,
   verifyOpenIDClient,
   verifyAsOpenIDSP,

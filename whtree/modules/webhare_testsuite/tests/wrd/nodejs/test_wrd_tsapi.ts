@@ -1,4 +1,4 @@
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@mod-wrd/js/internal/types";
@@ -14,7 +14,6 @@ import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType, WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { isChange } from "@mod-wrd/js/internal/schema";
-import { getTestSiteJS } from "@mod-webhare_testsuite/js/testsupport";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { Money, type AddressValue } from "@webhare/std";
@@ -467,7 +466,7 @@ async function testNewAPI() {
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsImage?.hash);
 
   {
-    const snowbeagle = await (await getTestSiteJS()).openFile("photoalbum/snowbeagle.jpg");
+    const snowbeagle = await (await test.getTestSiteJS()).openFile("photoalbum/snowbeagle.jpg");
     const snowbeagleImage = await snowbeagle.data.clone({ sourceFile: snowbeagle.id });
     await schema.update("wrdPerson", newperson, { testFile: snowbeagle.data, testImage: snowbeagleImage });
     const { testFile: asFile, testImage: asImage } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
