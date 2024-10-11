@@ -58,8 +58,7 @@ MACRO RunOpenIDAuth()
       [ "wrdauth-loginfail-reason" := "unmappedlogin" //TODO remove at some point, user should rely on the encrypted info
       , "wrdauth-loginfail" := EncryptForThisServer("wrd:authloginfail",
            CELL[ reason := "unmappedlogin"
-               , result.field
-               , result.value
+               , ...PickCells(result, ["field", "value"]) //may not exist, though the LookupOIDCLogin override is out of spec then!
                ])
       ]));
   }

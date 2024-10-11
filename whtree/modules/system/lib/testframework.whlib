@@ -1992,7 +1992,6 @@ PUBLIC OBJECT FUNCTION RunTestframework(FUNCTION PTR ARRAY tests, RECORD options
   options := ValidateOptions( [ debug := IsRunningInEditor()
                               , testusers := RECORD[]
                               , profile := NOT (IsRequest() AND IsWHDebugOptionSet("apr")) AND NOT IsDebugTagEnabled("apr") //prevent recursive profiling..
-                                           AND NOT IsWASM() //We have no profiling support for WASM yet (it tries to ConnectIPC)
                               , relativeoutputfolders := FALSE
                               , testroles := RECORD[]
                               , wrdschema := TRUE

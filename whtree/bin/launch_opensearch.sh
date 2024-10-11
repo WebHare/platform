@@ -72,8 +72,9 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version 2>&1 | grep ^Version)"
   [ -n "$CURRENT_OPENSEARCHVERSION" ] || die "Failed to get opensearch version"
 
-  # Remove from old location (remove at Date.now >= 2024-02-13)
+  # Remove from old location (remove at Date.now >= 2025-10-09)
   [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
+  [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/lastopensearchversion" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/lastopensearchversion"
   rmdir "$WEBHARE_CHECKEDOUT_TO/.checkoutstate" 2>/dev/null || true # try to cleanup the dir now
 
   # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
