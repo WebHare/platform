@@ -665,9 +665,9 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
       STRING ARRAY parts := Tokenize(link, "|");
       INTEGER fileid := this->GetLinkRef(parts[0]);
       OBJECT fileobj := OpenWHFSObject(fileid);
-      IF (ObjectExists(fileobj) AND fileobj->isactive AND fileobj->publish)
+      IF (ObjectExists(fileobj) AND fileobj->link != "")
       {
-        link := fileobj->indexurl;
+        link := fileobj->link;
         IF (Length(parts) > 1)
           link := link || parts[1];
       }
