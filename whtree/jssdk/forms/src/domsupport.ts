@@ -14,7 +14,7 @@ export function isValidFormFieldTarget(field: Element): field is HTMLElement {
 }
 
 export function supportsValidity(field: Element): field is HTMLSelectElement | HTMLInputElement {
-  return field instanceof HTMLInputElement || field instanceof HTMLSelectElement;
+  return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement;
 }
 
 export function getErrorForValidity(field: HTMLSelectElement | HTMLInputElement) {
