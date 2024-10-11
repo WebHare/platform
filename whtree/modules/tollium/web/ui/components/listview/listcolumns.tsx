@@ -1,9 +1,9 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+import { isValidEmail } from '@webhare/std';
 import * as dompack from 'dompack';
 import Keyboard from 'dompack/extra/keyboard';
-import { isValidEmailAddress } from 'dompack/types/email';
 
 
 export const minwidth = 10;
@@ -248,7 +248,7 @@ export class Email extends BaseEditable {
   }
   async validateValue(value) {
     return new Promise((resolve, reject) => {
-      if (value === "" || isValidEmailAddress(value))
+      if (value === "" || isValidEmail(value))
         resolve(value);
       else
         reject("invalid email '" + value + "'");
