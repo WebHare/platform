@@ -1,4 +1,4 @@
-import { ConfigurableSubsystem, configurableSubsystems, applyConfiguration } from '@mod-platform/js/configure/applyconfig';
+import { ConfigurableSubsystem, configurableSubsystems, applyConfiguration, type ApplyConfigurationOptions } from '@mod-platform/js/configure/applyconfig';
 import { program } from 'commander';
 
 async function main() {
@@ -6,6 +6,7 @@ async function main() {
     .name('apply')
     .option('-v, --verbose', 'verbose mode')
     .option('-f, --force', 'force updates even if no changes detected')
+    .option('--module <modules>', 'limit to these modules (comma separated, not supported by all updates')
     .argument('[subsystems...]', 'Subsystems to reconfigure (eg registry, wrd)');
 
   program.parse();
@@ -23,7 +24,10 @@ async function main() {
   }
 
   const subsystems = (program.args.length ? program.args : "all") as ConfigurableSubsystem[];
-  await applyConfiguration({ subsystems, verbose, force, source: "wh apply" });
+  const opts: ApplyConfigurationOptions = { subsystems, verbose, force, source: "wh apply" };
+  if (program.opts().module)
+    opts.modules = program.opts().module.split(',');
+  await applyConfiguration(opts);
 }
 
 main();
