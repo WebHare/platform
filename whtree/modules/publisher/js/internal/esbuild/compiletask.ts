@@ -461,7 +461,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
   const cutoff = Date.now() - 86400 * 1000; //delete files older than one day. but gz files should go away immediately *iff* we're building for dev mode
   for (const name of removefiles) {
     const props = await fs.lstat(path.join(bundle.outputpath, name)).catch(_ => null);
-    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && name.endsWith('.gz')))) {
+    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && (name.endsWith('.gz') || name.endsWith('.br'))))) {
       if (props?.isDirectory())
         await fs.rm(path.join(bundle.outputpath, name), { recursive: true });
       else
