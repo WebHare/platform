@@ -12,6 +12,7 @@ import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datet
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
+import * as geoip from "@webhare/geoip";
 import { IPCEncodedException, IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
@@ -1333,6 +1334,30 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setJSValue(await service.getStats());
   });
 
+  wasmmodule.registerAsyncExternalFunction("__GETGEOIPCITYBYIP:SYSTEM_GEOIP:R:S", async (vm, id_set, var_ip) => {
+    const result = await geoip.lookupCityInfo(var_ip.getString());
+    if (!result) {
+      id_set.setDefault(VariableType.Record);
+      return;
+    }
+
+    id_set.setJSValue({
+      city: result.city?.names?.en ?? "",
+      country_code: result.country?.iso_code ?? "",
+      country_name: result.country?.names?.en ?? "",
+      postal_code: result.postal?.code ?? "",
+      region_code: result.subdivisions?.[0]?.iso_code ?? "",
+      region_name: result.subdivisions?.[0]?.names?.en ?? ""
+    });
+    //ensure the lat/lngcells are floats
+    id_set.ensureCell("latitude").setFloat(result.location?.latitude ?? 0);
+    id_set.ensureCell("longitude").setFloat(result.location?.longitude ?? 0);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__GETGEOIPCOUNTRYBYIP:SYSTEM_GEOIP:S:S", async (vm, id_set, var_ip) => {
+    const result = await geoip.lookupCountryInfo(var_ip.getString());
+    id_set.setString(result?.country?.iso_code ?? "");
+  });
 }
 
 //The HareScriptJob wraps the actual job inside the Worker
