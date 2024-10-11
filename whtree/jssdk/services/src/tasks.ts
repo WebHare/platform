@@ -56,11 +56,11 @@ export class TaskRequest<TaskDataType, TaskResultType extends object | null = ob
   }
 
   resolveByPermanentFailure(error: string, { result }: { result?: object } = {}): TaskResponse {
-    return { type: "failed", error, result: result ?? null };
+    return { type: "failed", error: error || "Unspecified permanent failure", result: result ?? null };
   }
 
   resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
-    return { type: "failedtemporarily", error, result: result ?? null, nextretry: nextRetry ?? null, trace: getStackTrace() } satisfies TaskResponseFailedTemporarily;
+    return { type: "failedtemporarily", error: error || "Unspecified temporary failure", result: result ?? null, nextretry: nextRetry ?? null, trace: getStackTrace() } satisfies TaskResponseFailedTemporarily;
   }
 
   resolveByRestart(when: Date, { newData, auxData }: { newData?: unknown; auxData?: unknown } = {}): TaskResponse {
