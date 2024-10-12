@@ -138,11 +138,12 @@
 
   <backend>
     <webrule path="allroots:/.publisher/common/" match="initial" handlebydir="web/common/" priority="after" />
+    <!-- Legacy server worker path, WH5.6 moves this to the central assetpacks-->
     <webrule path="allroots:/.publisher/common/pwa/serviceworker/"
              match="initial"
-             priority="after"
-             redirecttodir="var:ap/publisher.pwaserviceworker/">
+             priority="after">
       <addheader header="Service-Worker-Allowed" value="/" />
+      <tryfolder path="whdata::generated/platform/ap/platform.pwaserviceworker/" />
     </webrule>
     <webrule path="allroots:/.publisher/tools/" match="initial" handlebydir="web/common/" priority="after" />  <!-- Joined with /common/ in 4.23 -->
     <webrule path="allroots:/.publisher/debug/" match="initial" priority="after" redirecttodir="web:/common/debug/" />  <!-- Joined with /common/ in 4.23 -->
@@ -604,16 +605,7 @@
                istemplate="true"
                path="data/webdesigntemplates/blank"
                siteprofile="webdesigns/[designname_lc]/[designname_lc].siteprl.xml" />
-    <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml">
-      <!-- TODO support top level assetpacks so we don't need to hijack a <webdesign> just to build an assetpack -->
-
-      <!-- TODO proper name because 'sharedworker' isn't really a proper name for a non-browser environment -->
-      <assetpack name="pwaserviceworker"
-                 entrypoint="webfeatures/pwa/pwaserviceworker"
-                 environment="sharedworker"
-                 supportedlanguages="en"
-                 webharepolyfills="false" />
-    </webdesign>
+    <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml"/>
 
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="setembeddedobjectrenderer" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />

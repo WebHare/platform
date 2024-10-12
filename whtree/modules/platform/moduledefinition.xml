@@ -39,7 +39,9 @@
       <addheader header="Access-Control-Allow-Origin" value="*" />  <!-- TODO should we permit only locally known hosts? -->
       <tryfolder path="whdata::generated/platform/ap/" />
     </webrule>
-    <webrule path="allroots:/.wh/ea/ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after" />
+    <webrule path="allroots:/.wh/ea/ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after">
+      <addheader header="Service-Worker-Allowed" value="/" />
+    </webrule>
     <webrule path="allroots:/.wh/ea/p/" match="initial" handlebydir="web/wh-assets/" priority="after" />
     <webrule path="allroots:/.wh/ea/uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />

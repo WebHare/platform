@@ -125,7 +125,7 @@ function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML):
         // assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
         compatibility: assetpack.compatibility || whconstant_default_compatibility,
         webHarePolyfills: assetpack.webharePolyfills ?? true,
-        environment: "window", //TODO can we rempve this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
+        environment: "window", //TODO can we remove this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
         afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
         esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
         extraRequires: []

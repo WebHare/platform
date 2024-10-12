@@ -27,6 +27,12 @@ backendServices:
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices
 
+assetPacks:
+  pwaserviceworker:
+    entryPoint: webfeatures/pwaserviceworker/pwaserviceworker
+    supportedLanguages: [en]
+    webharePolyfills: false
+
 webFeatures:
   identityprovider:
     siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml
