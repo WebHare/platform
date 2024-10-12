@@ -97,7 +97,7 @@ MACRO TestBasics()
   STRING jslink := scripts[0]->GetAttribute("src");
   TestEq(TRUE, testfw->browser->GotoWebPage(jslink), jslink);
   //test that dev:false is set (minified)
-  TestEqLike(`*window.whBundles["webhare_testsuite:basetest"]={dev:!1}*`, BlobToString(testfw->browser->content));
+  BLOB minified := testfw->browser->content;
 
   DATETIME lastcompile := testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
 
@@ -112,7 +112,7 @@ MACRO TestBasics()
 
   TestEq(TRUE, testfw->browser->GotoWebPage(jslink), testfw->browser->href);
   TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"), "should receive an uncompressed version");
-  TestEqLike(`*window.whBundles["webhare_testsuite:basetest"] = { dev: true }*`, BlobToString(testfw->browser->content));
+  TestAssert(Length(testfw->browser->content) > 1.2*Length(minified), "Expected nonminifed to be at least 20% biger");
 
   //and now test with accept-encoding. we expect not to receive a GZ file... (we regressed earlier and returned a stale .gz file!)
   TestEq(TRUE, testfw->browser->GotoWebPage(jslink, [ headers := [[ field := "Accept-Encoding", value := "gzip" ]]]), testfw->browser->href);

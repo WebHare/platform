@@ -46,15 +46,15 @@ export interface WHConfigScriptData_LegacyFields {
 
 let config, siteroot;
 let dtapStage = DTAPStage.Production;
-if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
-  const whconfigel = typeof document !== "undefined" ? document.querySelector('script#wh-config') : null;
-  if (whconfigel?.textContent) {
-    config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
 
-    //Fallbacks for pages last published with WH5.3 *and* pages published from HareScript which still emit lowercase props
-    siteroot = config.siteRoot ?? config.siteroot;
-    dtapStage = config.dtapstage ?? config.dtapStage ?? dtapStage;
-  }
+//if document is undefined, we're serverside or in a worker
+const whconfigel = typeof document !== "undefined" ? document.querySelector('script#wh-config') : null;
+if (whconfigel?.textContent) {
+  config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
+
+  //Fallbacks for pages last published with WH5.3 *and* pages published from HareScript which still emit lowercase props
+  siteroot = config.siteRoot ?? config.siteroot;
+  dtapStage = config.dtapstage ?? config.dtapStage ?? dtapStage;
 }
 
 initEnv(dtapStage, '/');
