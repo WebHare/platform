@@ -18,14 +18,14 @@ async function testWebHareConfig() {
   test.eqPartial({
     entryPoint: "mod::webhare_testsuite/webdesigns/basetest/js/basetest",
     extraRequires: ["mod::webhare_testsuite/webdesigns/basetest/js/addtopack"],
-    webHarePolyfills: true
+    whPolyfills: true
   }, basetestpack);
 
   const authormodepack = assetpacks.find(_ => _.name === "publisher:authormode");
   test.eqPartial({
     entryPoint: "mod::publisher/webdesigns/authormode/authormode.tsx",
     extraRequires: [],
-    webHarePolyfills: false
+    whPolyfills: false
   }, authormodepack);
 
   const services = getExtractedConfig("services");

@@ -156,7 +156,7 @@ export interface AssetPackManifest {
 
 export interface BundleConfig {
   languages: string[];
-  webharepolyfills: boolean;
+  whpolyfills: boolean;
   compatibility: string;
   environment: string;
   //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
@@ -230,7 +230,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
   const rootfiles = [
-    ...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
+    ...(bundle.bundleconfig.whpolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
     services.toFSPath(bundle.entrypoint),
     ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node)).map(_ => services.toFSPath(_))
   ];

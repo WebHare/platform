@@ -748,7 +748,7 @@ STATIC OBJECTTYPE AssetPackController
     {
       RECORD bundleconfig := CELL[ modulepack.extrarequires
                                  , languages := modulepack.supportedlanguages
-                                 , modulepack.webharepolyfills
+                                 , modulepack.whpolyfills
                                  , modulepack.environment
                                  , modulepack.aftercompiletask
                                  , modulepack.assetbaseurl

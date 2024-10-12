@@ -15,7 +15,7 @@ LOADLIB "mod::system/lib/services.whlib";
 
 RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , languages := DEFAULT STRING ARRAY
-                           , webharepolyfills := TRUE
+                           , whpolyfills := TRUE
                            , environment := "window"
                            , aftercompiletask := ""
                            , compatibility := whconstant_default_compatibility
