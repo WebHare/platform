@@ -1,10 +1,6 @@
 /* WebHare database SQL driver
 */
 
-// This gets TypeScript to refer to us by our @webhare/... name in auto imports:
-declare module "@webhare/whdb" {
-}
-
 import {
   sql,
   Kysely,
@@ -29,18 +25,6 @@ import { ensureScopedResource, getScopedResource, setScopedResource } from '@web
 import { WHDBPgClient } from './connection';
 import { HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
-
-export { isSameUploadedBlob } from "./blobs";
-
-// Export kysely helper stuff for use in external modules
-export {
-  sql
-} from "kysely";
-export type {
-  ColumnType,
-  Generated,
-  GeneratedAlways
-} from "kysely";
 
 /** Transaction options  */
 export interface WorkOptions {
@@ -437,15 +421,13 @@ export function escapePGIdentifier(str: string): string {
   return retval;
 }
 
-function getConnection() {
+export function getConnection() {
   return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {
     if (isWorkOpen())
       await rollbackWork();
     return await conn.close();
   });
 }
-
-export const __getConnection = getConnection; //TODO don't export this from `@webhare/whdb`
 
 class StashedWork {
   private stashed: WHDBConnectionImpl | null;

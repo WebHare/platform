@@ -1,4 +1,5 @@
-import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
+import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
+import { getConnection } from "@webhare/whdb/src/impl";
 import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
@@ -565,7 +566,7 @@ export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: 
     }
   }
 
-  const connection = __getConnection();
+  const connection = getConnection();
   type ResultRowType = Record<string, unknown>;
   const result = await connection.query(sqlquery.getString(), args) as FullPostgresQueryResult<ResultRowType>;
 
