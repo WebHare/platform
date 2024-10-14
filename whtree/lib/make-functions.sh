@@ -53,6 +53,21 @@ estimate_buildj()
   fi
 }
 
+wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a servicemanager.ts, they will all inherit the discovered setting
+{
+  if [ -z "$WEBHARE_NODE_MAJOR" ]; then # Not locked in the (docker) environment
+    WEBHARE_NODE_MAJOR="$(grep ^node_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+    [ -n "$WEBHARE_NODE_MAJOR" ] || die "Could not set WEBHARE_NODE_MAJOR from $WEBHARE_DIR/etc/platform.conf"
+  fi
+
+  if [ "$WEBHARE_PLATFORM" == "darwin" ] && [ -x "$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node" ]; then
+    WEBHARE_NODE_BINARY="$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node"
+  fi
+  [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
+
+  export WEBHARE_NODE_MAJOR WEBHARE_NODE_BINARY
+}
+
 setup_builddir()
 {
   if [ -n "$WHBUILD_DEBUG" ]; then
@@ -81,6 +96,62 @@ setup_builddir()
   if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
     WHBUILD_DOWNLOADCACHE="$WHBUILD_BUILDROOT/downloadcache"
   fi
+}
+
+vercomp () {
+  # Based on https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
+  if [[ $1 == $2 ]]
+  then
+      return 0
+  fi
+  local IFS=.
+  # Truncate after first '-' (%%-* truncates after first, %-* truncates after last)
+  local ver1number="${1%%-*}" ver2number="${2%%-*}"
+  local ver1suffix ver2suffix
+  # check if we truncated something, if so, grab the suffix
+  [ "$ver1number" != "$1" ] && ver1suffix="-${1#*-}"
+  [ "$ver2number" != "$2" ] && ver2suffix="-${2#*-}"
+
+  local i ver1=($ver1number) ver2=($ver2number)
+
+  # fill empty fields in ver1 with zeros
+  for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+  do
+      ver1[i]=0
+  done
+
+  for ((i=0; i<${#ver1[@]}; i++))
+  do
+      if [[ -z ${ver2[i]} ]]
+      then
+          # fill empty fields in ver2 with zeros
+          ver2[i]=0
+      fi
+
+      if ((10#${ver1[i]} > 10#${ver2[i]}))
+      then
+          return 1 #ver1 (LHS) is NEWER than ver2
+      fi
+      if ((10#${ver1[i]} < 10#${ver2[i]}))
+      then
+          return 2
+      fi
+  done
+
+  if [[ $ver2suffix =~ - ]] && ! [[ $ver1suffix =~ - ]] ; then #Comparing 1.2.3 to 1.2.3-xyz
+    return 1 #ver1 (without a -xxx) is thus newer than ver2
+  fi
+  if [[ $ver1suffix =~ - ]] && ! [[ $ver2suffix =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
+    return 2 #ver1 is older
+  fi
+  if [[ "$ver1suffix" < "$ver2suffix" ]]; then
+    return 2 #ver1 is older
+  fi
+  if [[ "$ver1suffix" > "$ver2suffix" ]]; then
+    return 1 #ver1 is newer
+  fi
+
+  return 0
 }
 
 getwebhareversion()

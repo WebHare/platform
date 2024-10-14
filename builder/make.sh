@@ -2,14 +2,13 @@
 
 set -eo pipefail
 
-SCRIPTPATH="$(realpath "${BASH_SOURCE[0]}")"
 WEBHARE_CHECKEDOUT_TO="$(cd "${BASH_SOURCE%/*}/.."; pwd)"
 source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
 estimate_buildj
 
 if [ "$WEBHARE_PLATFORM" == "linux" ]; then
   MAKE=/usr/local/bin/make #ensure we get make 4.4.1
-  read -r _ TOTALMEM _ <<< "$(cat /proc/meminfo| grep ^MemTotal)"
+  read -r _ TOTALMEM _ <<< "$(grep ^MemTotal /proc/meminfo)"
   EXPECTMEMORY=3900000 #almost 4GB but give some tolerance
   # With too little memory the buildtoolchains will randomly segfault, and defaults for Docker/podman can be smaller than that. use eg podman machine set -m 4096
   [ "$TOTALMEM" -lt "$EXPECTMEMORY" ] && die "You need at least 4GB of memory to build WebHare ($TOTALMEM < $EXPECTMEMORY)"
@@ -27,6 +26,99 @@ export WHBUILD_BUILDROOT
 if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$WHBUILD_ALLOW" ]; then
   # Prevent you from accidentally breaking a running WebHare installation - did you think you were running this locally?
   die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
+fi
+
+# Setup the build system
+getwebhareversion
+
+[ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+
+if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
+  if ! which brew >/dev/null 2>&1 ; then
+    echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
+    exit 1
+  fi
+
+  if [ -z "$NOBREW" ]; then
+    # Only (re)install homebrew if webhare-deps.rb changed
+    DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
+
+    # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
+    # Also reinstall if important apps are missing which may point to a partial/failed brew installation
+    CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
+    if [ "$DEPSFILE" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ] || ! hash gmake 2>/dev/null; then
+      export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR" # homebrew filters most env vars
+      export HOMEBREW_WEBHARE_CHECKEDOUT_TO="$WEBHARE_CHECKEDOUT_TO"
+      echo -n "Brew: "
+      if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
+      echo "$TODAY" > "$CHECKFILE"
+    fi
+  fi
+
+  if ! which node >/dev/null 2>&1 ; then
+    echo "'node' still not available, please install it ('brew link node' or 'brew link node@<version>'?)"
+    exit 1
+  fi
+
+elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
+  REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel libpq-devel"
+  if ! which ccache > /dev/null 2>&1 ; then
+    REQUIREPACKAGES="$REQUIREPACKAGES ccache"
+  fi
+  MISSINGPACKAGES=
+  for P in $REQUIREPACKAGES; do
+    ASSUME=0
+    for Q in $WEBHARE_ASSUMEPACKAGES ; do
+      if [ "$P" == "$Q" ]; then
+        ASSUME=1
+      fi
+    done
+    if [ "$ASSUME" == "1" ]; then
+      continue
+    fi
+    if ! rpm -q $P >/dev/null ; then
+      MISSINGPACKAGES="$MISSINGPACKAGES $P"
+    fi
+  done
+
+  if [ -n "$MISSINGPACKAGES" ]; then
+    echo ""
+    echo "We need to install the following packages:"
+    echo "$MISSINGPACKAGES"
+    echo ""
+    if [ "$WEBHARE_IN_DOCKER" == "1" ]; then
+      die "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
+    fi
+    if [ "$FORCE" != "1" ]; then
+      echo "If you want me to install them, type YES"
+      echo ""
+      read answer
+      if [ "$answer" != "YES" ]; then
+        die "Then I fear you're on your own"
+      fi
+    fi
+
+    sudo dnf install -y $MISSINGPACKAGES
+  fi
+fi
+
+vercomp "`npm -v`" "$REQUIRENPMVERSION" ||:
+if [ "$?" == "2" ]; then
+  echo "You have npm $(npm -v), we desire $REQUIRENPMVERSION or higher"
+  echo "You may need to update nodejs or manually install npm (eg npm install -g npm)"
+  exit 1
+fi
+
+if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
+  # TODO find a nice way to share URL and versions with Docker file
+  [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
+  # Additional dependencies
+  if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh" "$WHBUILD_ASSETROOT" 2.0.32 ; then
+    echo "setup-pdfbox failed"
+  fi
+  if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh" "$WHBUILD_ASSETROOT" 2.9.2; then
+    echo "setup-tika failed"
+  fi
 fi
 
 # Is emsdk installed?
@@ -47,9 +139,6 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   fi
   source "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk_env.sh"
 fi
-
-# Update/regenerate platformconf.h
-getwebhareversion
 
 # Convert version number to 5 digit style used in C++/HareScript (GetWebHareVersionNumber)
 if [[ $WEBHARE_VERSION =~ ^([0-9]{1})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
