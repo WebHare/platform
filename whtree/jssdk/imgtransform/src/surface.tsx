@@ -45,7 +45,6 @@ type EditStep = {
 
 //image canvas
 export class ImageSurface {
-  eventTarget: HTMLElement;
   node: HTMLElement;
   imgData: {
     size: Size;
@@ -80,8 +79,7 @@ export class ImageSurface {
   options: ImageSurfaceOptions = {};
   originalImage: HTMLImageElement | ImageBitmap | null = null;
 
-  constructor(eventTarget: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
-    this.eventTarget = eventTarget;
+  constructor(public eventTarget: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
     this.options = {
       editorBackground: "",
       maxLength: 0,

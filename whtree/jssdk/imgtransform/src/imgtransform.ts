@@ -50,10 +50,12 @@ export type ImgTransformSaveOptions = {
 
 
 //stylesheet for when running in Shadow mode
-const stylesheet = ` //copied from apps.css
-/****************************************************************************************************************************
- * Image editor
- */
+const stylesheet = `
+:host {
+  overflow: hidden;
+  display: inline-block;
+  position: relative;
+}
 
 .wh-toolbar,
 .wh-toolbar-panel
@@ -221,8 +223,8 @@ const stylesheet = ` //copied from apps.css
   margin:0 auto;
   z-index: 0;
 }
-  .wh-cropbox .wh-cropbox-mask
-, .wh-cropbox .wh-cropbox-img
+  .wh-cropbox-mask
+, .wh-cropbox-img
 {
   position:absolute;
   top:0;
@@ -234,14 +236,14 @@ const stylesheet = ` //copied from apps.css
   overflow: hidden;
 }
 
-.wh-cropbox .wh-cropbox-mask
+.wh-cropbox-mask
 {
   background-color: #000;
   opacity:0.6;
   position: absolute;
   z-index: 1;
 }
-.wh-cropbox .wh-cropbox-dragger
+.wh-cropbox-dragger
 {
   position:absolute;
   border:1px solid #fff;
@@ -253,7 +255,7 @@ const stylesheet = ` //copied from apps.css
   cursor:pointer;
   z-index: 2;
 }
-.wh-cropbox .wh-cropbox-viewport
+.wh-cropbox-viewport
 {
   position:absolute;
   border:1px solid #000;
@@ -261,41 +263,41 @@ const stylesheet = ` //copied from apps.css
   width:inherit;
   height:inherit;
 }
-.wh-cropbox .wh-cropbox-viewport > div
+.wh-cropbox-viewport > div
 {
   position:absolute;
   background-color: #000;
 }
-  .wh-cropbox .wh-cropbox-viewport .vline1
-, .wh-cropbox .wh-cropbox-viewport .vline2
+  .wh-cropbox-viewport .vline1
+, .wh-cropbox-viewport .vline2
 {
   height:inherit;
   width:1px;
   top:0;
   bottom:0;
 }
-.wh-cropbox .wh-cropbox-viewport .vline1
+.wh-cropbox-viewport .vline1
 {
   left:33%;
 }
-.wh-cropbox .wh-cropbox-viewport .vline2
+.wh-cropbox-viewport .vline2
 {
   right:33%;
 }
 
-  .wh-cropbox .wh-cropbox-viewport .hline1
-, .wh-cropbox .wh-cropbox-viewport .hline2
+  .wh-cropbox-viewport .hline1
+, .wh-cropbox-viewport .hline2
 {
   height:1px;
   width:inherit;
   left:0;
   right:0;
 }
-.wh-cropbox .wh-cropbox-viewport .hline1
+.wh-cropbox-viewport .hline1
 {
   top:33%;
 }
-.wh-cropbox .wh-cropbox-viewport .hline2
+.wh-cropbox-viewport .hline2
 {
   bottom:33%;
 }
