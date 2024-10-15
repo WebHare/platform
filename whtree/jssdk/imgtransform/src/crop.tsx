@@ -101,7 +101,7 @@ class PhotoCrop extends SurfaceTool {
     for (let c = 0; c < 4; c++) {
       const dragger: DraggerElement = <div class="wh-cropbox-dragger" />;
       dragger.classList.add(["wh-cropbox-dragger-nw", "wh-cropbox-dragger-sw", "wh-cropbox-dragger-ne", "wh-cropbox-dragger-se"][c]);
-      this.cropBox!.append(dragger);
+      this.surface.node.parentNode!.append(dragger);
       this.draggers.push(dragger);
 
       let pos = { x: 0, y: 0 };
@@ -117,7 +117,6 @@ class PhotoCrop extends SurfaceTool {
 
       movable.enable(this.draggers[c]);
       this.draggers[c].addEventListener("dompack:move", evt => this.onDragMove(dragger, evt));
-
 
       const mask = <div class="wh-cropbox-mask" style={`width: ${this.maskSize.width}px; height: ${this.maskSize.height}px`} />;
       this.cropBox!.append(mask);
@@ -539,8 +538,12 @@ class PhotoCrop extends SurfaceTool {
     let y1 = this.draggers[0][DraggerPos].y;
     let x2 = x1;
     let y2 = y1;
+
+    const cropboxOffset = dompack.getRelativeBounds(this.cropBox!, this.draggers[0].offsetParent!);
     for (let c = 0; c < this.draggers.length; c++) {
-      Object.assign(this.draggers[c].style, { top: this.draggers[c][DraggerPos].y + 'px', left: this.draggers[c][DraggerPos].x + 'px' });
+      this.draggers[c].style.top = this.draggers[c][DraggerPos].y + cropboxOffset.top + 'px';
+      this.draggers[c].style.left = this.draggers[c][DraggerPos].x + cropboxOffset.left + 'px';
+
       if (c > 0) {
         if (this.draggers[c][DraggerPos].x > x2)
           x2 = this.draggers[c][DraggerPos].x;

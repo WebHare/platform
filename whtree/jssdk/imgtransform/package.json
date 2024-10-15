@@ -1,14 +1,14 @@
 {
-  "name": "@webhare/image-edit",
+  "name": "@webhare/imgtransform",
   "version": "",
-  "description": "The WebHare bult-in image editor",
-  "main": "src/image-edit.ts",
+  "description": "The WebHare built-in image transformer (eg. crop, rotate, focalpoint)",
+  "main": "src/imgtransform.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/image-edit.ts"
+      "./src/imgtransform.ts"
     ]
   },
   "dependencies": {},

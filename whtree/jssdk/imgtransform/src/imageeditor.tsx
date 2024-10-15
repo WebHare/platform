@@ -13,7 +13,8 @@ import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./
 
 import "@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json"; //TODO gettid system currently cant read from a JSSDK folder. our caller will have to register texts
 import "@mod-tollium/web/ui/common.lang.json"; //TODO that's a lot of texts from which we only need a small part
-import type { ImagePoint } from "./image-edit";
+import type { ImgPoint } from "./imgtransform";
+import type { ResizeMethodName } from "@webhare/services/src/descriptor";
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
@@ -49,14 +50,13 @@ export type SetModalLayerOpacityCallback = (opacity: number) => void;
 
 type ImageAction = "all" | "crop" | "rotate" | "refpoint";
 
-export type ImgSize = {
-  method?: "none" | "fill" | "fitcanvas" | "scalecanvas" | "stretch" | "fit" | "scale";
+export type LegacyImgSize = {
+  method?: ResizeMethodName;
   setwidth?: number;
   setheight?: number;
   noforce?: boolean;
   format?: string;
   bgcolor?: string;
-  fixorientation?: boolean;
   allowedactions?: ImageAction[];
 };
 
@@ -64,7 +64,7 @@ export interface ImageEditorOptions extends ImageSurfaceOptions {
   width?: number;
   height?: number;
   toolbarHeight?: number;
-  imgSize?: ImgSize;
+  imgSize?: LegacyImgSize;
   setStatus?: (status: string, warning?: string) => void;
   setModalLayerOpacity?: SetModalLayerOpacityCallback;
   onMetadataChange?: () => void;
@@ -84,7 +84,6 @@ export class ImageEditor {
   orgBlob: Blob | null = null;
   cropSize: RectSize | null = null;
   cropRatio: RectSize | null = null;
-  fixorientation: boolean = true;
   allowedactions: ImageAction[] = [];
   previewing: boolean = false;
   dirty: boolean = false;
@@ -160,7 +159,7 @@ export class ImageEditor {
     this.orgBlob = options.orgblob;
     this.surface.setImg(img, options);
   }
-  getFocalPoint(): ImagePoint | null {
+  getFocalPoint(): ImgPoint | null {
     return this.surface.refPoint ? { //They're integers in HS so we'll keep rounding for now
       x: Math.round(this.surface.refPoint.x),
       y: Math.round(this.surface.refPoint.y)
@@ -215,7 +214,6 @@ export class ImageEditor {
           this.cropper.comp.options.ratioSize = this.cropRatio;
       }
 
-      this.fixorientation = this.options.imgSize.fixorientation === true;
       this.allowedactions = this.options.imgSize.allowedactions ?? [];
     } else {
       this.allowedactions = [];
@@ -277,7 +275,7 @@ export class ImageEditor {
   }
 }
 
-function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: ImgSize, refPoint: RefPoint | boolean, forUpload?: boolean) {
+function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: LegacyImgSize, refPoint: RefPoint | boolean, forUpload?: boolean) {
   let resizeMethod = imgSize.method;
   if (!resizeMethod)
     return;
@@ -305,11 +303,7 @@ function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: ImgSize, ref
       canvasHeight = Math.round(canvasWidth * imageHeight / imageWidth);
     }
 
-    if (resizeMethod === "stretch") {
-      // Just stretch to canvas
-      imageWidth = canvasWidth;
-      imageHeight = canvasHeight;
-    } else if (resizeMethod.indexOf("fit") === 0 && imageWidth <= canvasWidth && imageHeight <= canvasHeight) {
+    if (resizeMethod.indexOf("fit") === 0 && imageWidth <= canvasWidth && imageHeight <= canvasHeight) {
       // Don't resize
       if (resizeMethod === "fit") {
         canvasWidth = imageWidth;
@@ -410,7 +404,7 @@ function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: ImgSize, ref
 }
 
 // Check if the given resize method is applied for an image with given widht, height and MIME type
-export function resizeMethodApplied(imgSize: ImgSize, width: number, height: number, mimeType: string) {
+function resizeMethodApplied(imgSize: LegacyImgSize, width: number, height: number, mimeType: string) {
   // If preserveifunchanged is not set (unless resize method is "none"), the method is applied
   if (!imgSize.noforce && imgSize.method !== "none")
     return true;
@@ -426,7 +420,6 @@ export function resizeMethodApplied(imgSize: ImgSize, width: number, height: num
     case "fill":
     case "fitcanvas":
     case "scalecanvas":
-    case "stretch":
       // Image method is applied if the image doesn't match both the set width and height exactly
       //ADDME: If image has transparency, only skip editor if conversionbackground is transparent
       return width !== imgSize.setwidth || height !== imgSize.setheight;

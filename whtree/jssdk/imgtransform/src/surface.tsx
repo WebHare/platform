@@ -9,7 +9,7 @@ import { PhotoCrop, PhotoCropProps } from "./crop";
 import { PhotoPoint, PhotoPointProps } from "./refpoint";
 import { PhotoRotate, PhotoRotateProps } from "./scaling";
 
-import type { ImageEditSettings, ImagePoint } from "@webhare/image-edit";
+import type { ImgTransformSettings, ImgPoint } from "@webhare/imgtransform";
 
 export type ImageSurfaceOptions = {
   getBusyLock?: (() => Disposable) | null;
@@ -45,7 +45,6 @@ type EditStep = {
 
 //image canvas
 export class ImageSurface {
-  eventTarget: HTMLElement;
   node: HTMLElement;
   imgData: {
     size: Size;
@@ -80,8 +79,7 @@ export class ImageSurface {
   options: ImageSurfaceOptions = {};
   originalImage: HTMLImageElement | ImageBitmap | null = null;
 
-  constructor(eventTarget: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
-    this.eventTarget = eventTarget;
+  constructor(public eventTarget: HTMLElement, _toolbar: Toolbar, options?: ImageSurfaceOptions) {
     this.options = {
       editorBackground: "",
       maxLength: 0,
@@ -114,7 +112,7 @@ export class ImageSurface {
     }
   }
 
-  setImgBitmap(img: ImageBitmap, settings: ImageEditSettings) {
+  setImgBitmap(img: ImageBitmap, settings: ImgTransformSettings) {
     this.setupImage(settings.focalPoint, img, 0);
   }
 
@@ -158,7 +156,7 @@ export class ImageSurface {
   stop() {
   }
 
-  private setupImage(focalPoint: ImagePoint | null, img: HTMLImageElement | ImageBitmap, orientation: number) {
+  private setupImage(focalPoint: ImgPoint | null, img: HTMLImageElement | ImageBitmap, orientation: number) {
     let width = img.width;
     let height = img.height;
 
