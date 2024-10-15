@@ -1,7 +1,7 @@
 /* Formats used, mostly not public because pretty HareScript specific (eg the idea of overflowing after 4K) */
 
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
-import { uploadBlob } from "./whdb";
+import { uploadBlob } from "./impl";
 import { parseTyped, stringify } from "@webhare/std";
 import { decodeHSON } from "@webhare/hscompat/hson";
 

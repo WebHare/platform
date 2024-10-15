@@ -2,7 +2,7 @@ import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, stashWork, runInWork, runInSeparateWork } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, runInWork, runInSeparateWork } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { createVM, loadlib } from "@webhare/harescript";
@@ -11,6 +11,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
+import { stashWork } from "@webhare/whdb/src/impl";
 
 async function cleanup() {
   await beginWork();

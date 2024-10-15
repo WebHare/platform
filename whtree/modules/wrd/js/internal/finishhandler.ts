@@ -1,5 +1,6 @@
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { FinishHandler, broadcastOnCommit, finishHandlerFactory } from "@webhare/whdb";
+import { FinishHandler, broadcastOnCommit } from "@webhare/whdb";
+import { finishHandlerFactory } from "@webhare/whdb/src/impl";
 
 
 class WRDFinishHandler implements FinishHandler {
