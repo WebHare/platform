@@ -1,6 +1,6 @@
 <?wh
 
-/* TODO this is the old implementation. I doubt it was really used though anymore... eg form mail witties used UC links and the form app export didn't acutally export the '- link' column
+/* TODO this is the old implementation. I doubt it was really used though anymore... eg form mail witties used UC links and the form app export didn't actually export the '- link' column
         WH5.6.2 will no longer link to this file */
 
 LOADLIB "mod::system/lib/database.whlib";
