@@ -87,6 +87,7 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
   OBJECT waitscreen;
   PUBLIC MACRO PTR onauthorize;
   PUBLIC MACRO PTR oncheck;
+  PUBLIC MACRO PTR onchange;
   PUBLIC PROPERTY value(__value, SetValue);
 
   MACRO NEW()
@@ -99,6 +100,7 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
     this->pvt_invisibletitle := TRUE;
     this->onauthorize := def.onauthorize;
     this->oncheck := def.oncheck;
+    this->onchange := def.onchange;
   }
 
   UPDATE MACRO PreInitComponent()
@@ -117,6 +119,8 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
     {
       ^authorization->value := "";
     }
+    IF(this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
   }
   MACRO EndCurrentAuth()
   {
@@ -192,6 +196,10 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
       }
     }
     this->SetValue(tokeninfo);
+  }
+  MACRO DoClear()
+  {
+    this->SetValue(DEFAULT RECORD);
   }
 >;
 
