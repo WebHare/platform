@@ -8,7 +8,7 @@ import { ensureScopedResource, setScopedResource } from "@webhare/services/src/c
 import { tagToHS, tagToJS, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, omit, pick, stringify } from "@webhare/std";
+import { isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
@@ -35,37 +35,36 @@ interface GetFieldsOptions {
 interface EntityCloseOptions {
   mode?: WRDCloseMode;
 }
-interface WRDTypeConfigurationBase {
+interface WRDTypeMetadataBase {
+  id: number;
   metaType: WRDMetaType;
-  title?: string;
-  deleteClosedAfter?: number;
-  keepHistoryDays?: number;
-  hasPersonalData?: boolean;
+  tag: string;
+  title: string;
+  deleteClosedAfter: number;
+  keepHistoryDays: number;
+  hasPersonalData: boolean;
 }
 
-interface WRDObjectTypeConfiguration extends WRDTypeConfigurationBase {
+interface WRDObjectTypeMetadata extends WRDTypeMetadataBase {
   metaType: "object";
 }
 
-interface WRDAttachmentTypeConfiguration extends WRDTypeConfigurationBase {
+interface WRDAttachmentTypeMetadata extends WRDTypeMetadataBase {
   metaType: "attachment";
-  left?: string;
+  left: string;
 }
 
-interface WRDLinkTypeConfiguration extends WRDTypeConfigurationBase {
+interface WRDLinkTypeMetadata extends WRDTypeMetadataBase {
   metaType: "link";
-  left?: string;
-  right?: string;
+  left: string;
+  right: string;
 }
 
-interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
+interface WRDDomainTypeMetadata extends WRDTypeMetadataBase {
   metaType: "domain";
 }
 
-type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
-
-// Updatable type metadata
-type WRDTypeMetadata = Omit<WRDTypeConfiguration, "metaType">;
+export type WRDTypeMetadata = WRDObjectTypeMetadata | WRDAttachmentTypeMetadata | WRDLinkTypeMetadata | WRDDomainTypeMetadata;
 
 type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attributeType'> & Partial<Omit<WRDAttributeConfiguration, 'attributeType'>>;
 
@@ -235,14 +234,19 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     this.coVMSchemaCacheSymbol = Symbol("WHCoVMSchemaCache " + this.tag);
   }
 
-  async getId(): Promise<number> {
+  async getId(opts: { allowMissing: true }): Promise<number | null>;
+  async getId(opts?: { allowMissing?: boolean }): Promise<number>;
+
+  async getId({ allowMissing = false } = {}): Promise<number | null> {
     if (this.schemaData)
       return (await this.schemaData).schema.id;
     const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id"]).where("name", "=", this.tag).executeTakeFirst();
     if (dbschema)
       return dbschema.id;
+    else if (allowMissing)
+      return null;
     else
-      throw new Error(`WRD Schema ${this.tag} not found in the database`);
+      throw new Error(`No such WRD schema '${this.tag}'`);
   }
 
   /*private*/ async __ensureSchemaData({ refresh = false } = {}): Promise<SchemaData> {
@@ -273,11 +277,17 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return match.id;
   }
 
-  async createType(tag: string, config: WRDTypeConfiguration): Promise<WRDType<S, string>> {
+
+  async createType(tag: string, config: Partial<WRDTypeMetadata> & Pick<WRDTypeMetadata, "metaType">): Promise<WRDType<S, string>> {
     const hstag = tagToHS(tag);
     const schemaobj = await this.getWRDSchema();
-    const left = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
-    const right = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
+    const left = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.left);
+    const right = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.right);
+
+    if (config.id) //TODO I want to Omit<... "id"|"tag"> but then it won't accept left/right etc anymore...
+      throw new Error("Cannot specify an id when creating a new type");
+    if (config.tag) //TODO I want to Omit<... "id"|"tag"> but then it won't accept left/right etc anymore...
+      throw new Error("Cannot specify tag in the configuration object when creating a new type");
 
     const createrequest = {
       title: "",
@@ -301,22 +311,37 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return type;
   }
 
-  async describeType(tag: string) {
-    const type = await this[getWRDSchemaType](tag, true);
-    if (!type)
+  /** Describe a wrdType
+   * @param tagOrId - Either the string tag or the type number to describe
+   */
+  async describeType(tagOrId: string | number): Promise<WRDTypeMetadata | null> {
+    const schemaid = await this.getId();
+    const typeinfo = await db<PlatformDB>().
+      selectFrom("wrd.types").
+      selectAll().
+      where("wrd_schema", "=", schemaid).
+      where(cb => typeof tagOrId === "string" ? cb.where("tag", "=", tagToHS(tagOrId)) : cb.where("id", "=", tagOrId)).
+      executeTakeFirst();
+
+    if (!typeinfo)
       return null;
 
-    const linkfrom = await type.$get("linkfrom") as number;
-    const linkto = await type.$get("linkto") as number;
-    const metatype = await type.$get("metatype") as number;
-    const keepHistoryDays = await type.$get("keephistorydays") as number;
+    const retval: WRDTypeMetadata = {
+      id: typeinfo.id,
+      tag: tagToJS(typeinfo.tag),
+      metaType: WRDMetaTypes[typeinfo.metatype - 1],
+      title: typeinfo.title,
+      deleteClosedAfter: typeinfo.deleteclosedafter,
+      keepHistoryDays: typeinfo.keephistorydays,
+      hasPersonalData: typeinfo.haspersonaldata,
+    } satisfies WRDTypeMetadataBase as WRDTypeMetadata; //TODO workaround to still get some validation even though metaType doesn't validate
 
-    return {
-      left: linkfrom ? await this.__getTypeTag(linkfrom) : null,
-      right: linkto ? await this.__getTypeTag(linkto) : null,
-      metaType: WRDMetaTypes[metatype - 1],
-      keepHistoryDays
-    };
+    if (retval.metaType === "link" || retval.metaType === "attachment")
+      retval.left = await this.__getTypeTag(typeinfo.requiretype_left || 0) ?? throwError(`No such type ${typeinfo.requiretype_left} (resolving left entity for type ${this.tag}:${typeinfo.tag} (#${typeinfo.id}))`);
+    if (retval.metaType === "link")
+      retval.right = await this.__getTypeTag(typeinfo.requiretype_right || 0) ?? throwError(`No such type ${typeinfo.requiretype_right} (resolving right entity for type ${this.tag}:${typeinfo.tag} (#${typeinfo.id}))`);
+
+    return retval;
   }
 
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
@@ -345,7 +370,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
         const wrd_api = loadlib("mod::wrd/lib/api.whlib"); //FIXME
         const wrdschema = await wrd_api.OpenWRDSchema(this.tag) as HSVMObject | null;
         if (!wrdschema)
-          throw new Error(`No such WRD schema ${this.tag}`);
+          throw new Error(`No such WRD schema '${this.tag}'`);
 
         /* ensure listeners are in place to discard the cache where needed */
         await this.__ensureSchemaData();
@@ -519,7 +544,15 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   /** Test whether this type actually exists in the database */
   async exists() {
-    return Boolean(await this.schema[getWRDSchemaType](this.tag, true));
+    const schemaid = await this.schema.getId();
+    const typeinfo = await db<PlatformDB>().
+      selectFrom("wrd.types").
+      select(["id"]). //we need to select *something* or the PG/Kysely integration goes boom
+      where("wrd_schema", "=", schemaid).
+      where("tag", "=", tagToHS(this.tag)).
+      executeTakeFirst();
+
+    return Boolean(typeinfo);
   }
 
   async _getType() {
@@ -541,7 +574,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return this.attrs = await this.attrPromise;
   }
 
-  async updateMetadata(newmetadata: Partial<WRDTypeMetadata>) {
+  async updateMetadata(newmetadata: Partial<Omit<WRDTypeMetadata, "id" | "metaType">>) {
     await (await this._getType()).updateMetadata(newmetadata);
   }
 

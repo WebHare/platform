@@ -52,6 +52,7 @@ async function testDeleteClosedAfter() {
   // Update the schema to not delete closed entities and re-add the entity with a limitdate and modification date in the past
   await whdb.beginWork();
   await schema.getType("wrdPerson").updateMetadata({ deleteClosedAfter: 0 });
+  test.eq(0, (await schema.describeType("wrdPerson"))!.deleteClosedAfter);
   person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdLimitDate: limitDate, wrdModificationDate: limitDate, wrdContactEmail: "testdelete2@beta.webhare.net" });
   await whdb.commitWork();
   // Cleanup, the entity should still be there
@@ -62,6 +63,7 @@ async function testDeleteClosedAfter() {
   // Update the schema to delete closed entities
   await whdb.beginWork();
   await schema.getType("wrdPerson").updateMetadata({ deleteClosedAfter });
+  test.eq(deleteClosedAfter, (await schema.describeType("wrdPerson"))!.deleteClosedAfter);
   await whdb.commitWork();
   // Cleanup, the entity should now be gone
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
