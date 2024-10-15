@@ -69,7 +69,8 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
       if (options.verbose)
         console.log("Updating WRD schemas based on their schema definitions");
       const applyupdates = loadlib("mod::wrd/lib/internal/metadata/applyupdates.whlib");
-      if (!await applyupdates.UpdateAllModuleSchemas({ schemamasks: [], reportupdates: true, reportskips: verbose, force: options.force }))
+      const schemamasks = options?.modules ? options?.modules.map(_ => `${_}:*`) : [];
+      if (!await applyupdates.UpdateAllModuleSchemas({ schemamasks, reportupdates: true, reportskips: verbose, force: options.force }))
         process.exitCode = 1;
 
       await beginWork();
