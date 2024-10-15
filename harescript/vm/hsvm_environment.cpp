@@ -588,13 +588,6 @@ void Environment::LinkLibrary(Library *lib)
         }
 }
 
-bool TimeStampsRoughlyEqual(Blex::DateTime left, Blex::DateTime right)
-{
-        uint64_t left_msecs = left.GetDays() * 86400000 + left.GetMsecs();
-        uint64_t right_msecs = right.GetDays() * 86400000 + right.GetMsecs();
-        return left_msecs == right_msecs || left_msecs + 1 == right_msecs || left_msecs == right_msecs + 1;
-}
-
 Library::Library(const std::string &_liburi)
 : cm_isloaded(false)
 , cm_refcount(0)
@@ -634,7 +627,7 @@ bool Library::IsLocalUpTodate(FileSystem &filesystem, Blex::ContextKeeper &keepe
                 sourcetime = file->GetSourceModTime();
                 currentclibpath = file->GetClibPath();
 
-                if (!TimeStampsRoughlyEqual(wrappedlibrary.resident.sourcetime, sourcetime) || clibpath != currentclibpath)
+                if (!wrappedlibrary.resident.sourcetime.isEqual(sourcetime, Blex::DiskTimeToleranceMS) || clibpath != currentclibpath)
                     return false;
         }
 

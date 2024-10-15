@@ -45,6 +45,9 @@ inline AccessFlags operator |= (AccessFlags &tomodify, AccessFlags or_with)
 
 class Directory;
 
+// Maximum modtime tolerance to consider 2 modtimes to be equal. Needed for safe esmcripten/native comparisons when comparing a stored/serialized time with an actual on disk time
+inline constexpr int DiskTimeToleranceMS = 1;
+
 ///status of a file or path
 class BLEXLIB_PUBLIC PathStatus
 {
