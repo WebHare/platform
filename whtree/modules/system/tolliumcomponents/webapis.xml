@@ -34,11 +34,13 @@
   <fragment name="oauth2authorization">
     <actions>
       <windowopenaction name="authorize" onwindowopen="doauthorize"/>
+      <action name="clear" onexecute="doclear" tid="~clear"/>
     </actions>
     <contents>
       <line>
         <textedit name="authorization" enabled="false" width="1pr" />
         <button action="authorize" />
+        <button action="clear" />
       </line>
     </contents>
   </fragment>
