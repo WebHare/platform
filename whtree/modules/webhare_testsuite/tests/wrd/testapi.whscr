@@ -252,7 +252,7 @@ MACRO TestSchema()
                                                              ]);
 
   TestEqMembers(CELL[ test_image := [ width := 385 ], bigimage := [ width := 100, height := 62 ], thumbnail := [width := 25 ]], testpersonrec, '*');
-  TestEqLike("/.uc/*", testpersonrec.bigimage.link);
+  TestEqLike("/.wh/ea/uc/*", testpersonrec.bigimage.link);
   TestEq(FALSE, CellExists(testpersonrec.bigimage,'data'));
 
   TestThrowsLike("Column*#*not allowed*", PTR persontype->RunQuery( [ outputcolumns := ["test_free#wrd_limitdate"] ] ));
@@ -1456,7 +1456,7 @@ MACRO TestEnrichBulk()
   result := wrdperson->Enrich([[ getid := p2 ]
                               ], "GETID"
                               , [ img := WrapImageField("TEST_IMAGE", [ method := "fitcanvas", setwidth:=120, setheight:=90])  ]);
-  TestEqLike("/.uc/*", result[0].img.link);
+  TestEqLike("/.wh/ea/uc/*", result[0].img.link);
 
   result := wrdperson->Enrich([[ getid := p1 ]
                               ,[ getid := p_gone ]

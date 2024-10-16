@@ -28,7 +28,7 @@ MACRO TestAppLayout()
   RECORD versioninfo2 := DecodeJSONBlob(testfw->browser->content);
   TestEq(versioninfo.updatetok, versioninfo2.updatetok);
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(pwasite->webroot, "/.publisher/common/pwa/serviceworker/ap.mjs")), "our overlay isn't there");
+  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(pwasite->webroot, "/.wh/ea/ap/platform.pwaserviceworker/ap.mjs")), "our overlay isn't there");
   TestEq("/", testfw->browser->GetResponseHeader("Service-Worker-Allowed"));
 }
 

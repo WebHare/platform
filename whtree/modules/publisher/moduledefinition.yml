@@ -4,7 +4,7 @@ assetPacks:
     supportedLanguages:
       - en
       - nl
-    webharePolyfills: false #we shouldn't polyfill with this assetpack, we're loaded side-by-side to an existing one
+    whPolyfills: false #we shouldn't polyfill with this assetpack, we're loaded side-by-side to an existing one
     module: true
 
 webFeatures:

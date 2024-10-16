@@ -188,7 +188,7 @@ definitions:
           compatibility:
             description: "The compatibility settings for generated code. es2016-es2021 or esnext. See also https://esbuild.github.io/content-types/#javascript"
             type: string
-          webharePolyfills:
+          whPolyfills:
             description: "Whether to include WebHare polyfills (defaults to true)"
             type: boolean
           module:

@@ -15,7 +15,7 @@ export interface AssetPack {
   designRoot: string;
   assetBaseUrl: string;
   compatibility: string;
-  webHarePolyfills: boolean;
+  whPolyfills: boolean;
   environment: string;
   afterCompileTask: string;
   esBuildSettings: string;
@@ -79,7 +79,7 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           designRoot: designroot, //FIXME does an assetpack need this? why?
           assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
           compatibility: getAttr(assetpacknode, "compatibility", whconstant_default_compatibility),
-          webHarePolyfills: getAttr(assetpacknode, "webharepolyfills", true),
+          whPolyfills: getAttr(assetpacknode, "webharepolyfills", true),
           environment: getAttr(assetpacknode, "environment", "window"),
           afterCompileTask: addModule(mod, getAttr(assetpacknode, "aftercompiletask")),
           esBuildSettings: getAttr(assetpacknode, "esbuildsettings"), //FIXME deprecate this, we should just let users supply a JS function to apply to the esbuild config
@@ -124,8 +124,8 @@ function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML):
         // designRoot: designroot, //FIXME does an assetpack need this? why?
         // assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
         compatibility: assetpack.compatibility || whconstant_default_compatibility,
-        webHarePolyfills: assetpack.webharePolyfills ?? true,
-        environment: "window", //TODO can we rempve this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
+        whPolyfills: assetpack.whPolyfills ?? true,
+        environment: "window", //TODO can we remove this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
         afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
         esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
         extraRequires: []

@@ -46,8 +46,6 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
   build.onLoad({ filter: /^\/\/:entrypoint\.js/ }, args => {
     //generate entrypoint.js.
     let prologue = "";
-    if (bundle.bundleconfig.environment === 'window')  //TODO not sure if anything relevant still relies on whBundles?
-      prologue = `window.whBundles||=[];window.whBundles["${bundle.outputtag}"]={dev:${bundle.isdev}};`;
     prologue += `import "@webhare/frontend/src/init";`; //it's side effects will initialize @webhare/env dtapstage
 
     const paths = JSON.parse(decodeURIComponent(args.path.split('?')[1])) as string[];
@@ -158,7 +156,7 @@ export interface AssetPackManifest {
 
 export interface BundleConfig {
   languages: string[];
-  webharepolyfills: boolean;
+  whpolyfills: boolean;
   compatibility: string;
   environment: string;
   //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
@@ -232,7 +230,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
   const rootfiles = [
-    ...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
+    ...(bundle.bundleconfig.whpolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
     services.toFSPath(bundle.entrypoint),
     ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node)).map(_ => services.toFSPath(_))
   ];
@@ -241,7 +239,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
     entryPoints: ["//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles))],
-    publicPath: '', //bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/`
+    publicPath: '',
     // This is a workaround for broken stacktrace resolving caused by esbuild generating ../../../../ paths but running out of path components when building relative URLs in stack-mapper in stacktrace-gps
     sourceRoot: "@mod-humpty/dumpty/had/a/great/fall/humpty/dumpty/fell/of/the/wall.js",
     bundle: true,

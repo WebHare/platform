@@ -7,7 +7,7 @@ export type { AuthorModeOptions };
  * @returns A promise resolving to an array containing the assetpack script and CSS nodes
 */
 export function loadAssetPack(apname: string) {
-  const basepath = `/.ap/${apname.replace(':', '.')}/ap.`;
+  const basepath = `/.wh/ea/ap/${apname.replace(':', '.')}/ap.`;
   if (document.querySelector(`script[src$="${CSS.escape(basepath + "mjs")}"`))
     return; //we have it already
 

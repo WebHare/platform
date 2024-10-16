@@ -17,7 +17,7 @@ LOADLIB "wh::dbase/postgresql.whlib";
     @public
     @loadlib mod::wrd/lib/api.whlib
     @short Get a link to a (resized) image in WRD
-    @param baseurl Base url for links. If left empty, the link will start with "/.uc/"
+    @param baseurl Base url for links. If left empty, the link will start with "/.wh/ea/uc/"
     @param imageid Setting id of the file
     @param scalemethod Image processing method
     @return URL for the file
@@ -31,7 +31,7 @@ PUBLIC STRING FUNCTION GetCachedWRDImageURL(STRING baseurl, INTEGER64 imageid, R
     @public
     @loadlib mod::wrd/lib/api.whlib
     @short Get a link to a file in WRD
-    @param baseurl Base url for links. If left empty, the link will start with "/.uc/"
+    @param baseurl Base url for links. If left empty, the link will start with "/.wh/ea/uc/"
     @param fileid Setting id of the file
     @return URL for the file
 */

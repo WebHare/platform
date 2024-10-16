@@ -218,6 +218,19 @@ getscripttorun()
   eval $VARNAME=\$1
 }
 
+move_dir() { # oldlocation newparentlocation newsublocation
+  if [ -d "$1" ]; then
+    echo "Migrating $1 to $2/$3"
+    # If a conflicting dir exists, you upgraded WebHare while it was running. Removing it, images will get recreated
+    rm -rf -- "$2"/"$3" >/dev/null 2>&1
+    mkdir -p -- "$2"
+    if ! mv "$1" "$2"/"$3" ; then
+      # If this failed.. cross disk partition? we'll delete it in the background and have it regenerated.
+      rm -rf -- "$1" > /dev/null 2>&1 &
+    fi
+  fi
+}
+
 #setup_for_console is invoked when we're starting a major subprocess (console or exec)
 setup_for_console()
 {
@@ -232,15 +245,11 @@ setup_for_console()
   export __WEBHARE_WHDATA_PREPARED=1
 
   # WH 5.0 - move the unified cache (image cache) into the right place. To avoid races we *have* to do this before we start WebHare - it should normally be done in a sec...
-  if [ -d "$WEBHARE_DATAROOT"/ephemeral/system.uc2 ]; then
-    # If a conflicting dir exists, you upgraded WebHare while it was running. Removing it, images will get recreated
-    rm -rf -- "$WEBHARE_DATAROOT"/storage/system/output/uc >/dev/null 2>&1
-    mkdir -p -- "$WEBHARE_DATAROOT"/storage/system/output
-    if ! mv "$WEBHARE_DATAROOT"/ephemeral/system.uc2 "$WEBHARE_DATAROOT"/storage/system/output/uc ; then
-      # If this failed.. cross disk partition? we'll delete it in the background and have it regenerated.
-      rm -rf -- "$WEBHARE_DATAROOT"/ephemeral/system.uc2 > /dev/null 2>&1 &
-    fi
-  fi
+  move_dir "$WEBHARE_DATAROOT"ephemeral/system.uc2 "$WEBHARE_DATAROOT"caches/platform uc
+  # WH 5.6 - move the unified cache into the right place, for real this time
+  move_dir "$WEBHARE_DATAROOT"storage/system/output/uc "$WEBHARE_DATAROOT"caches/platform uc
+  # WH 5.6 - move assetpacks into generated/
+  move_dir "$WEBHARE_DATAROOT"publisher.ap "$WEBHARE_DATAROOT"generated/platform ap
 }
 
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it

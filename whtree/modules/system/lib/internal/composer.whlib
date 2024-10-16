@@ -257,7 +257,7 @@ PUBLIC STATIC OBJECTTYPE ComposerBase
     IF(inpath LIKE "cid:*")
       RETURN DEFAULT BLOB;
 
-    IF (inpath LIKE "*/.uc/*") // image cache
+    IF (inpath LIKE "*/.wh/ea/uc/*") // image cache
     {
       RECORD data := GetCachedDataFromURL(inpath);
       IF (NOT RecordExists(data))

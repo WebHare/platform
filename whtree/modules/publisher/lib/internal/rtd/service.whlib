@@ -310,7 +310,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
     INTEGER match := (SELECT AS INTEGER #embedded+1 FROM this->embedded WHERE url = inurl)-1;
     IF(match=-1)
     {
-      IF(inurl LIKE "*/.uc/*")
+      IF(inurl LIKE "*/.wh/ea/uc/*")
       {
         //This may be a recently received image now being reflected through the image cache.
         RECORD wrapped := this->AddNewImage(inurl);
@@ -567,7 +567,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
   PUBLIC RECORD FUNCTION GetImage(STRING src)
   {
     RECORD img := SELECT * FROM this->embedded WHERE url = VAR src;
-    IF(NOT RecordExists(img) AND src LIKE "*/.uc/*") //try without servername
+    IF(NOT RecordExists(img) AND src LIKE "*/.wh/ea/uc/*") //try without servername
     {
       img := SELECT * FROM this->embedded WHERE url = "/" || UnpackURL(src).urlpath;
 

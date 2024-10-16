@@ -35,7 +35,7 @@ IF(unp.urlpath LIKE ".uc/*")
   STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
   hash := Left(hash, 3) || "/" || SubString(hash, 3);
 
-  STRING diskpath := MergePath(GetModuleStorageRoot("system") || "output/uc", hash);
+  STRING diskpath := GetUnifiedCacheDiskRoot() || hash;
   Print(`Disk cache location: ${diskpath}\n`);
 
   //Analyze unified cache URL

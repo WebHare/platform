@@ -577,7 +577,7 @@ MACRO IntLinktest()
 
   OBJECT ARRAY images := docblobdom->GetElementsByTagName("img")->GetCurrentElements();
   TestEq(1, Length(images));
-  TestEq(TRUE, images[0]->GetAttribute("src") LIKE "/.uc/*");
+  TestEq(TRUE, images[0]->GetAttribute("src") LIKE "/.wh/ea/uc/*");
 
   myrichdoc := NEW EditableRichDocument;
   myrichdoc->ImportFromRecord(thedoc);
