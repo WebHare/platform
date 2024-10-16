@@ -52,6 +52,11 @@ STRING FUNCTION GetFileInfo(RECORD filerec)
   RETURN `${filerec.filename} (${(filerec.length + 1023) / 1024} KB, ${filerec.mimetype})`;
 }
 
+PUBLIC STRING FUNCTION __GetLinkToAttachment(STRING hash, INTEGER id) //seen some external users build manual webtool dl.shtml links .. so we'll export it for them..
+{
+  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.wh/common/download/?type=formattachment&attachment=" || EncryptForThisServer("platform:formattachment", CELL[ hash, id ]));
+}
+
 ///@private
 PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
 <
@@ -125,20 +130,31 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
       ELSE
         this->files := RecordExists(val) ? RECORD[val] : DEFAULT RECORD ARRAY;
   }
+  STRING FUNCTION GetLinkToWrappedBlob(RECORD val)
+  {
+    IF(RecordExists(val) AND CellExists(val,'__BLOBSOURCE') AND val.__blobsource LIKE "r*")
+    {
+      INTEGER id := ToInteger(Substring(val.__blobsource,1),0);
+      RETURN __GetLinkToAttachment(val.hash, id);
+    }
+
+    IF(RecordExists(val) AND CellExists(val,'__BLOBSOURCE') AND val.__blobsource != "")
+      RETURN GetCachedFileLink(val, [ baseurl := GetPrimaryWebhareInterfaceURL()
+                                    , filename := val.filename
+                                    ]);
+    RETURN "";
+  }
   UPDATE PUBLIC RECORD FUNCTION GetComposableData()
   {
+    RECORD ARRAY files := SELECT *, link := this->GetLinkToWrappedBlob(files), text := GetFileInfo(CELL[ ...files, length := Length(files.data) ] ) FROM this->files;
     RECORD val := this->value;
     STRING link;
-    IF(RecordExists(val) AND CellExists(val,'__BLOBSOURCE') AND val.__blobsource != "")
-      link := GetCachedFileLink(val, [ baseurl := GetPrimaryWebhareInterfaceURL()
-                                     , filename := val.filename
-                                     ]);
 
     RETURN CELL[ title := this->title
                , raw   := val
-               , text  := RecordExists(val) ? GetFileInfo(CELL[ ...val, length := Length(val.data) ] ) : ""
-               , files := RecordExists(val) ? [ val ] : DEFAULT RECORD ARRAY
-               , link
+               , text  := Detokenize((SELECT AS STRING ARRAY text FROM files), '\n')
+               , files
+               , link  := Length(files) > 0 ? files[0].link : ""
                ];
   }
   UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
@@ -235,24 +251,26 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
   }
   UPDATE PUBLIC RECORD FUNCTION GetStorageValue()
   {
-    IF(NOT RecordExists(this->value))
-      RETURN DEFAULT RECORD;
+    IF(Length(This->pvt_files) = 0)
+      RETURN DEFAULT RECORD ARRAY;
 
-    //Now generate hash and dominantcolors...
-    RECORD storevalue := WrapBlob(this->value.data, this->value.filename, [ generatehash := TRUE, extractdominantcolor := TRUE ]);
-    RECORD metadata := CELL[...storevalue, DELETE data, length := Length64(storevalue.data)];
-    RETURN [ result      := metadata
-           , attachments := RECORD[this->value]
-           ];
+    RECORD ARRAY result, attachments;
+    FOREVERY(RECORD file FROM this->files)
+    {
+      //Now generate hash and dominantcolors...
+      RECORD storevalue := WrapBlob(file.data, file.filename, [ generatehash := TRUE, extractdominantcolor := TRUE ]);
+      RECORD metadata := CELL[...storevalue, DELETE data, length := Length64(storevalue.data), seqnr := #file ];
+
+      INSERT metadata INTO result AT END;
+      INSERT file INTO attachments AT END;
+    }
+
+    RETURN CELL[ result, attachments ];
   }
   UPDATE PUBLIC MACRO SetFromStorage(VARIANT invalue, RECORD ARRAY attachments)
   {
-    IF(NOT RecordExists(invalue) OR Length(attachments)=0)
-    {
-      this->value := DEFAULT RECORD;
-      RETURN;
-    }
-    this->value := attachments[0];
+    //formresults pre WH 5.6.1 may not store the seqnr
+    this->files := SELECT * FROM attachments ORDER BY CellExists(attachments,'seqnr') ? attachments.seqnr : -1;
   }
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
   {
@@ -281,54 +299,69 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
 
     RETURN cols;
   }
-  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  //We need to return one record (per result) - but we're allowed to put arrays inside these record cells
+  UPDATE PUBLIC RECORD FUNCTION EnrichAFormattedResult(RECORD exportoptions, VARIANT storedvalue, INTEGER formresult, RECORD ARRAY allattachments)
   {
+    RECORD ARRAY rows;
+    IF(TYPEID(storedvalue) = TYPEID(RECORD)) //Pre WH5.6.1 stores as record
+      rows := RECORD[ storedvalue ];
+    ELSE
+      rows := storedvalue;
+
     IF (NOT exportoptions.isfullexport)
     {
-      RETURN
-          SELECT file := GetFileInfo(value)
-            FROM inputvalues;
+      IF(NOT IsValueSet(storedvalue))
+        RETURN CELL[ file := STRING[] ];
+
+      RETURN [ file := SELECT AS STRING ARRAY GetFileInfo(rows) FROM rows ];
     }
 
     IF (exportoptions.inlineattachments)
     {
-      RETURN SELECT file := [ title := GetFileInfo(value), file := value ] FROM inputvalues;
-    }
-    ELSE IF (exportoptions.withattachments)
-    {
-      INTEGER ARRAY formresultids :=
-          SELECT AS INTEGER ARRAY formresult
-            FROM inputvalues
-           WHERE RecordExists(value);
+      IF(NOT IsValueSet(storedvalue))
+        RETURN CELL[ file := RECORD[] ]; //because file is a RECORD[] here and a STRING[] elsewhere, we cant just put this IF at the top of this function
 
-      RECORD ARRAY attachments :=
+      RETURN [ file := SELECT title := GetFileInfo(rows), file := rows FROM rows ];
+    }
+
+    //formresults pre WH 5.6.1 may not store the seqnr
+    RECORD ARRAY attachments := SELECT * FROM allattachments WHERE allattachments.formresult = VAR formresult ORDER BY CellExists(allattachments,'seqnr') ? allattachments.seqnr : -1;
+    IF (exportoptions.withattachments)
+    {
+      IF(NOT IsValueSet(storedvalue))
+        RETURN CELL[ file := STRING[], filedata := RECORD[] ];
+
+      RETURN [ file := (SELECT AS STRING ARRAY GetFileInfo(rows) FROM rows)
+             , filedata := (SELECT *, data := attachments[#rows].file FROM rows)
+             ];
+    }
+    ELSE
+    {
+      IF(NOT IsValueSet(storedvalue))
+        RETURN CELL[ file := STRING[], filedata := RECORD[], filelink := STRING[] ];
+
+      RETURN [ file := (SELECT AS STRING ARRAY GetFileInfo(rows) FROM rows)
+             , filelink := (SELECT AS STRING ARRAY __GetLinkToAttachment(rows.hash, attachments[#rows].id) FROM rows)
+             , filedata := RECORD[]
+             ];
+    }
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    INTEGER ARRAY formresultids := SELECT AS INTEGER ARRAY formresult FROM inputvalues WHERE IsValueSet(value);
+
+    RECORD ARRAY allattachments;
+
+    IF(exportoptions.isfullexport AND NOT exportoptions.inlineattachments)
+      allattachments :=
           SELECT *
             FROM publisher.formattachments
            WHERE formattachments.formresult IN formresultids
                  AND formattachments.question = exportoptions.storename
         ORDER BY formattachments.formresult;
 
-      RETURN
-          SELECT TEMPORARY attachmentpos := RecordLowerBound(attachments, inputvalues, [ "FORMRESULT" ])
-               , file := GetFileInfo(value)
-               , filedata := RecordExists(value) AND attachmentpos.found
-                      ? CELL[ ...value
-                            , data :=             attachments[attachmentpos.position].file
-                            ]
-                      : DEFAULT RECORD
-            FROM inputvalues;
-    }
-    ELSE
-    {
-      STRING linkbase;
-      IF(exportoptions.isfullexport)
-        linkbase := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.publisher/backend/webtools/dl.shtml");
-
-      RETURN SELECT file := GetFileInfo(value)
-                  , filelink := RecordExists(value) AND linkbase != "" ? linkbase || "?f=" || EncryptForThisServer("publisher:formupload", CELL[formresult, exportoptions.storename, value.hash]) : ""
-                  , filedata := DEFAULT RECORD
-               FROM inputvalues;
-    }
+    RECORD ARRAY results := SELECT AS RECORD ARRAY this->EnrichAFormattedResult(exportoptions, value, formresult, allattachments) FROM inputvalues;
+    RETURN results;
   }
 >;
 

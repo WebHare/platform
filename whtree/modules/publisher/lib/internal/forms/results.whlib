@@ -193,7 +193,13 @@ STATIC OBJECTTYPE FormResultExporter
         FOREVERY(RECORD row FROM lang.rows)
         {
           FOREVERY(RECORD col FROM ourmatch.outcolumns)
-            row := Cellinsert(row, col.name, GetCell(conversionlist[#row], col.inputname));
+          {
+            VARIANT cellvalue := GetCell(conversionlist[#row], col.inputname);
+            IF(TYPEID(cellvalue) = TYPEID(STRING ARRAY))
+              cellvalue := Detokenize(cellvalue,'; ');
+
+            row := Cellinsert(row, col.name, cellvalue);
+          }
 
           lang.rows[#row]:=row;
         }
@@ -242,18 +248,27 @@ STATIC OBJECTTYPE FormResultExporter
           STRING colname := GenerateColumnName(#col);
           FOREVERY (RECORD row FROM rows)
           {
-            RECORD celldata := GetCell(row, col.name);
-            STRING path;
-            IF (RecordExists(celldata))
+            STRING ARRAY paths;
+            RECORD ARRAY files;
+            VARIANT inval := GetCell(row, col.name);
+            IF(TYPEID(inval) = TYPEID(RECORD))  //existing components may supply a single row for an attachment type
             {
-              path := "uploads/" || Right("000000" || #row + 2, 6) || "-" || colname || "-" || GetSafeFileName(celldata.filename);
-              INSERT
-                  [ path :=   path
-                  , file :=   celldata
-                  ] INTO attachments AT END;
+              IF(RecordExists(inval))
+                INSERT inval INTO files AT END;
+            }
+            ELSE
+            {
+              files := inval;
             }
 
-            rows[#row] := CELL[ ...row, ...CellInsert(CELL[], col.name, path) ];
+            FOREVERY(RECORD file FROM files)
+            {
+              STRING path := "uploads/" || Right("000000" || #row + 2, 6) || "-" || colname || "-" || GetSafeFileName(file.filename);
+              INSERT CELL[ path, file ] INTO attachments AT END;
+              INSERT path INTO paths AT END;
+            }
+
+            rows[#row] := CELL[ ...row, ...CellInsert(CELL[], col.name, Detokenize(paths,' ;')) ];
           }
         }
       }

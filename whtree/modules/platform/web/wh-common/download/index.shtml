@@ -1,0 +1,34 @@
+<?wh
+/* This is /.wh/common/download/
+*/
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+
+IF(GetWebVariable("type") = "formattachment")
+{
+  AddHTTPHeader("X-Robots-Tag","noindex, nofollow, noarchive", FALSE);
+  RECORD dlinfo := DecryptForThisServer("platform:formattachment", GetWebVariable("attachment"), [ fallback := DEFAULT RECORD ]);
+  IF(RecordExists(dlinfo))
+  {
+    IF(NOT CheckIPRateLimit(dlinfo, 3).accepted) //fomresults are not intended as a hosting provider, 3 downloads/minute is enough
+      AbortWithHTTPError(429);
+
+    OpenPrimary();
+    RECORD attachment := SELECT * FROM publisher.formattachments WHERE id = dlinfo.id;
+    IF(RecordExists(attachment))
+    {
+      RECORD meta := SplitBlobSetting(attachment.metadata, attachment.file, 0);
+      IF(meta.hash = dlinfo.hash) //still the same file, so the link is trustworthy
+      {
+        AddHTTPHeader("Content-Type", meta.mimetype, FALSE);
+        AddHTTPHeader("Content-Disposition", "attachment; filename=" || EncodeJava(meta.filename), FALSE);
+        SendWebFile(attachment.file);
+      }
+    }
+  }
+}
+AbortWithHTTPError(403);

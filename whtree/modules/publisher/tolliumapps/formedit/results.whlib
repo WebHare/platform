@@ -361,36 +361,46 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
 
     FOREVERY(RECORD col FROM data.cols)
     {
-      OBJECT text := this->CreateTolliumComponent("text");
-      VARIANT celldata := GetCell(data.row, col.name);
-      text->title := UCTruncate(col.title,30);
-
-      IF(col.type = "file")
-      {
-        text->value := celldata.title;
-        OBJECT downloadaction := this->CreateTolliumComponent("downloadaction");
-        downloadaction->ondownload := PTR this->DoDownload(#1, celldata, data.resultid, col);
-        text->action := downloadaction;
-      }
+      VARIANT origcelldata := GetCell(data.row, col.name);
+      //Convert to array if needed
+      VARIANT cellarray;
+      IF(IsTypeidArray(TYPEID(origcelldata)))
+        cellarray := origcelldata;
       ELSE
+        cellarray := VARIANT[origcelldata];
+
+      FOREVERY(VARIANT celldata FROM cellarray) //we'll just repeat the element if its an array (multifile)
       {
-        IF(col.type = "datetime")
-          text->value := this->contexts->user->FormatDatetime(celldata, "minutes", col.storeutc, FALSE);
-        ELSE IF(col.type = "date")
-          text->value := this->contexts->user->FormatDate(celldata, FALSE, FALSE);
-        ELSE IF(col.type = "boolean")
-          text->value := GetTid(celldata ? "tollium:tilde.yes" : "tollium:tilde.no");
-        ELSE IF(col.type = "integer")
-          text->value := ToString(celldata);
-        ELSE IF(col.type = "money")
-          text->value := this->contexts->user->FormatMoney(celldata, 0, FALSE);
+        OBJECT text := this->CreateTolliumComponent("text");
+        text->title := UCTruncate(col.title,30);
+
+        IF(col.type = "file")
+        {
+          text->value := celldata.title;
+          OBJECT downloadaction := this->CreateTolliumComponent("downloadaction");
+          downloadaction->ondownload := PTR this->DoDownload(#1, celldata, data.resultid, col);
+          text->action := downloadaction;
+        }
         ELSE
-          text->value := celldata;
+        {
+          IF(col.type = "datetime")
+            text->value := this->contexts->user->FormatDatetime(celldata, "minutes", col.storeutc, FALSE);
+          ELSE IF(col.type = "date")
+            text->value := this->contexts->user->FormatDate(celldata, FALSE, FALSE);
+          ELSE IF(col.type = "boolean")
+            text->value := GetTid(celldata ? "tollium:tilde.yes" : "tollium:tilde.no");
+          ELSE IF(col.type = "integer")
+            text->value := ToString(celldata);
+          ELSE IF(col.type = "money")
+            text->value := this->contexts->user->FormatMoney(celldata, 0, FALSE);
+          ELSE
+            text->value := celldata;
 
-        text->selectable := TRUE; //selectable is incompatible with clickable hyperlink
+          text->selectable := TRUE; //selectable is incompatible with clickable hyperlink
+        }
+
+        ^fields->InsertComponentAfter(text, DEFAULT OBJECT, TRUE);
       }
-
-      ^fields->InsertComponentAfter(text, DEFAULT OBJECT, TRUE);
     }
   }
 

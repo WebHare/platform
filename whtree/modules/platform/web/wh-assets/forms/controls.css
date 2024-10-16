@@ -160,6 +160,14 @@
   background-color: var(--wh-button-background-color,#ccc);
   color: var(--wh-button-color, inherit);
   padding: var(--wh-button-padding, 5px 10px);
+  transition: var(--wh-button-transition);
+
+  &:hover
+  {
+    border: var(--wh-button-border--hover, var(--wh-button-border, 1px solid #333));
+    background-color: var(--wh-button-background-color--hover, var(--wh-button-background-color,#ccc));
+    color: var(--wh-button-color--hover, var(--wh-button-color, inherit));
+  }
 }
 
 .file__deletebutton {

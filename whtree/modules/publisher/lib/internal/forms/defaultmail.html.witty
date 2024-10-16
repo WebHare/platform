@@ -24,7 +24,15 @@
                 <div class="defaultmail__results__line">
                   <h3 class="defaultmail__results__fieldline__title">[title]</h3>
                   <div class="defaultmail__results__fieldline__value">
-                    [if link]<a href="[link]">[text]</a>[else][text][/if]
+                    [if files]
+                      [forevery files]
+                        <a href="[link]">[text]</a><br> [! filename is just the name, text is 'goudvis.png (74 KB, image/png)' !]
+                      [/forevery]
+                    [elseif link]
+                      <a href="[link]">[text]</a>
+                    [else]
+                      [text]
+                    [/if]
                   </div>
                 </div>
               [/if]
