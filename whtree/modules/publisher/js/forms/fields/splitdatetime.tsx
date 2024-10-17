@@ -46,68 +46,6 @@ function formatISODate(dateparts) {
   return formatDate("Y-M-D", dateparts);
 }
 
-function parseDate(format, newdate, nofail) {
-  if (!newdate) //empty
-    return null;
-
-  const setdate = newdate.split('/').join('-').split('.').join('-');
-  const parts = setdate.split('-');
-
-  if (parts.length === 3)//parseable
-  {
-    format = format.toLowerCase();
-    const dayoffset = format.indexOf('d');
-    const monthoffset = format.indexOf('m');
-    const yearoffset = format.indexOf('y');
-
-    const daypos = 0 + (dayoffset > monthoffset ? 1 : 0) + (dayoffset > yearoffset ? 1 : 0);
-    const monthpos = 0 + (monthoffset > dayoffset ? 1 : 0) + (monthoffset > yearoffset ? 1 : 0);
-    const yearpos = 0 + (yearoffset > dayoffset ? 1 : 0) + (yearoffset > monthoffset ? 1 : 0);
-
-    const day = parseInt(parts[daypos], 0);
-    const month = parseInt(parts[monthpos], 0);
-    const year = parseInt(parts[yearpos], 0);
-
-    // The browser will always add 1900 for years 0-99, so handle years < 100
-    // if (year >= 0 && year < 100 && this.options.cutoffyear > 0)
-    // {
-    //   if (year < this.options.cutoffyear)
-    //     year += 2000;
-    //   else
-    //     year += 1900;
-    // }
-    if (isValidDate(year, month, day))
-      return { year, month, day };
-  }
-  if (nofail)
-    return undefined;
-
-  throw new Error(`Invalid date value: '${newdate}'`);
-}
-
-function getLocalToday() {
-  const today = new Date;
-  return { year: today.getFullYear(), month: 1 + today.getMonth(), day: today.getDate() };
-}
-
-function getOrdinalDay(date) {
-
-}
-function makeJSLocalDate(dateparts) {
-  return new Date(dateparts.year - 1900, dateparts.month - 1, dateparts.day);
-}
-
-function makeJSUTCDate(dateparts) {
-  return new Date(Date.UTC(dateparts.year, dateparts.month - 1, dateparts.day));
-}
-
-function formatJSLocalISODate(dateobj) {
-  return dateobj.getFullYear() + '-' + ('0' + (dateobj.getMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getDate()).slice(-2);
-}
-function formatJSUTCISODate(dateobj) {
-  return dateobj.getUTCFullYear() + '-' + ('0' + (dateobj.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getUTCDate()).slice(-2);
-}
-
 function ensureLabelID(inputnode) {
   const id = inputnode.id;
   if (id === "") {
