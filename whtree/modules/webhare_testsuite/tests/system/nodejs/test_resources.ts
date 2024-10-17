@@ -113,6 +113,10 @@ async function testWebHareBlobs() {
   test.eq(19, diskblob.size);
   test.eq("This is a testfile\n", await diskblob.text());
 
+  //test compatibility with the JS Blob
+  const Blob_blob = await WebHareBlob.fromBlob(new Blob(["Hello, ", "World", "\n"]));
+  test.eq("Hello, World\n", await Blob_blob.text());
+
   //test HSVM Compatibility APIs
   test.eq("Hello, World", Buffer.from(helloblob.__getAsSyncUInt8Array()).toString('utf8'));
   test.eq("This is a testfile\n", Buffer.from(diskblob.__getAsSyncUInt8Array()).toString('utf8'));
