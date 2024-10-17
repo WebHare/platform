@@ -23,11 +23,12 @@ PUBLIC STATIC OBJECTTYPE TextEditor EXTEND TolliumScreenBase
   {
     RECORD filedata := this->contexts->editdocumentapi->GetMetadata();
     ^code->value := BlobToString(filedata.data);
-    //^code->dirty := FALSE;
+    ^dirtylistener->ClearDirty();
   }
 
   MACRO StoreData()
   {
+    ^dirtylistener->ClearDirty();
     this->contexts->editdocumentapi->UpdateMetadata( [ data := StringToBlob(^code->value) ]);
   }
 

@@ -20,11 +20,17 @@ export abstract class WebHareBlob {
     return Boolean((thingy as WebHareBlob)?.[brandWebhareBlob]);
   }
 
-  /** Create a in-memory WebHareBlob from a string */
+  /** Create a in-memory WebHareBlob from a string or buffer */
   static from(str: string | Buffer): WebHareBlob {
     if (str instanceof Buffer)
       return new WebHareMemoryBlob(str);
     return new WebHareMemoryBlob(new TextEncoder().encode(str));
+  }
+
+  /** Create a WebHare blob from a JavaScript Blob */
+  static async fromBlob(blob: Blob): Promise<WebHareBlob> {
+    //TODO avoid excessive copies/memory usage, stream the blob?
+    return WebHareBlob.from(Buffer.from(await blob.arrayBuffer()));
   }
 
   /** Create a WebHare blob from a file on disk */

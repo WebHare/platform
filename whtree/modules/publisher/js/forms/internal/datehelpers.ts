@@ -137,21 +137,10 @@ export function getWeekNumber(jsdate: Date) {
   return 1 + Math.round(((jsdate.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
 }
 
-// export function getOrdinalDay(date)
-// {
-
-// }
-export function makeJSLocalDate(dateparts: DateParts) {
-  return new Date(dateparts.year - 1900, dateparts.month - 1, dateparts.day);
-}
-
 export function makeJSUTCDate(dateparts: DateParts) {
   return new Date(Date.UTC(dateparts.year, dateparts.month - 1, dateparts.day));
 }
 
-export function formatJSLocalISODate(dateobj: Date) {
-  return dateobj.getFullYear() + '-' + ('0' + (dateobj.getMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getDate()).slice(-2);
-}
 export function formatJSUTCISODate(dateobj: Date) {
   return dateobj.getUTCFullYear() + '-' + ('0' + (dateobj.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + dateobj.getUTCDate()).slice(-2);
 }
