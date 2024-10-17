@@ -27,7 +27,7 @@ export abstract class WebHareBlob {
     return new WebHareMemoryBlob(new TextEncoder().encode(str));
   }
 
-  /** Create a WebHare blob from a JavScript Blob */
+  /** Create a WebHare blob from a JavaScript Blob */
   static async fromBlob(blob: Blob): Promise<WebHareBlob> {
     //TODO avoid excessive copies/memory usage, stream the blob?
     return WebHareBlob.from(Buffer.from(await blob.arrayBuffer()));
