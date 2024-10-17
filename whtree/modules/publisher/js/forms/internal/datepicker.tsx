@@ -256,6 +256,8 @@ class Calendar2 extends CalendarTable {
     this.yearspinner.max = this.maxdate ? this.maxdate.year : 2099;
 
     let showdate = this.date ?? suggestion ?? this.today;
+    if (this.mindate && datehelpers.makeJSUTCDate(showdate) < datehelpers.makeJSUTCDate(this.mindate))
+      showdate = this.mindate;
     if (this.maxdate && datehelpers.makeJSUTCDate(showdate) > datehelpers.makeJSUTCDate(this.maxdate))
       showdate = this.maxdate;
 
