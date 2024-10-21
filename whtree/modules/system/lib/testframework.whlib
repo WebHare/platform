@@ -11,7 +11,6 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::util/comparisons.whlib";

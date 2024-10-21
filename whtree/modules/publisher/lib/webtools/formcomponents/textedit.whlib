@@ -3,11 +3,8 @@
     @topic forms/standardcomponents
 */
 
-LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::xml/xsd.whlib";
-
-LOADLIB "mod::system/lib/mailer.whlib";
 
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";

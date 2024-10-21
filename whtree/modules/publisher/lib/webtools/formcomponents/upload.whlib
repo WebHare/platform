@@ -6,7 +6,6 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
