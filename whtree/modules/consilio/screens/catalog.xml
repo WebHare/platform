@@ -96,7 +96,7 @@
       <button name="edititem_button" action="edititem" icon="tollium:actions/edit" tid="~edit" />
       <button name="deleteitem_button" action="delete" icon="tollium:actions/delete" tid="~delete" />
       <divider type="line" />
-      <button name="checkcatalog_button" icon="tollium:agenda/tasks" action="rebuildcatalog" tid=".rebuildcatalog" />
+      <button name="checkcatalog_button" action="rebuildcatalog" icon="tollium:agenda/tasks" tid=".rebuildcatalog" />
       <button action="previewcatalog" icon="tollium:actions/search" tid=".preview" />
     </toolbar>
 
@@ -209,9 +209,9 @@
         <row>
           <cell layout="left">
             <line>
-              <button type="icon" action="addpattern" hinttid=".addpattern" icon="tollium:actions/add" />
-              <button type="icon" action="editpattern" hinttid=".editpattern" icon="tollium:actions/edit" />
-              <button type="icon" action="deletepattern" hinttid=".deletepattern" icon="tollium:actions/delete" />
+              <button action="addpattern" hinttid=".addpattern" icon="tollium:actions/add" />
+              <button action="editpattern" hinttid=".editpattern" icon="tollium:actions/edit" />
+              <button action="deletepattern" hinttid=".deletepattern" icon="tollium:actions/delete" />
             </line>
           </cell>
           <cell layout="right">

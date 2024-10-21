@@ -1,18 +1,18 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:system="http://www.webhare.net/xmlns/system/components"
-         lib="screens/userrights/dialogs/addgranttousers.whlib">
+         library="/lib/screens/userrights/dialogs/addgranttousers.whlib">
 
   <!-- Add a right to pre-chosen users/roles -->
   <screen name="addgranttousers"
-          title=""
-          minwidth="80x"
           width="120x"
-          minheight="20x"
           height="35x"
+          minwidth="80x"
+          minheight="20x"
           allowresize="true"
+          footerbuttons="ok cancel"
+          gid="userrights.rights"
           savestate="size"
-          gid="userrights.rights" >
-
+          title="">
     <actions>
       <action name="submitaction" onexecute="submit" title="" />
     </actions>
@@ -25,28 +25,25 @@
         <part width="2pr">
           <list name="rightslist"
                 height="1pr"
-                selectmode="single"
-                gid="userrights.commondialogs.columns"
-                selectableflags="canmanage"
-                openaction="submitaction"
+                borders="top right bottom"
                 flags="canmanage"
+                gid="userrights.commondialogs.columns"
                 onselect="onrightselect"
-                sortable="false"
-                borders="top right bottom">
+                openaction="submitaction"
+                selectableflags="canmanage"
+                selectmode="single"
+                sortable="false">
             <column name="title" type="text" width="1pr" tid=".right" />
             <column name="description" type="text" width="2pr" />
-
             <style name="ungrantable" textcolor="#9a9a9a" />
           </list>
         </part>
       </split>
       <line layout="left">
-        <checkbox name="grantwithgrantoption" title="" labeltid=".withgrantoption"/>
+        <checkbox name="grantwithgrantoption" labeltid=".withgrantoption" title="" />
       </line>
       <textarea name="comment" tid="system:userrights.commondialogs.rights.comment" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
+
 </screens>

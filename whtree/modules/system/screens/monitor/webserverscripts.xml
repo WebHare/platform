@@ -1,29 +1,29 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/webserverscripts.whlib"
-         gid="monitor.webserverscripts">
+         gid="monitor.webserverscripts"
+         library="/lib/screens/monitor/webserverscripts.whlib">
 
-  <screen name="webserverscripts"
-          tid=".title"
-          gid=".manager"
-          >
+  <screen name="webserverscripts" gid=".manager" tid=".title">
     <actions gid=".actions">
-      <action name="details" onexecute="dodetails"  shortcut="enter">
+      <action name="details" onexecute="dodetails" shortcut="enter">
         <enableon source="applist" min="1" max="1" checkflags="hasdetails" />
       </action>
-      <action name="terminate" onexecute="doterminate"  shortcut="del">
+      <action name="terminate" onexecute="doterminate" shortcut="del">
         <enableon source="applist" min="1" max="1" />
       </action>
     </actions>
+
     <menus>
       <menu name="contextmenu">
-        <item action="details" disablemode="hidden"/>
-        <item action="terminate" disablemode="hidden"/>
+        <item action="details" disablemode="hidden" />
+        <item action="terminate" disablemode="hidden" />
       </menu>
     </menus>
+
     <compositions>
       <eventlistener name="listener" masks="system:internal.scriptmanager.statechange" onevents="onscriptevent" />
     </compositions>
-    <body layout="form" height="1pr" spacers="none">
+
+    <body height="1pr" layout="form" spacers="none">
       <split type="vertical">
         <part height="2pr">
           <grid height="1pr">
@@ -32,17 +32,16 @@
             <row height="1pr">
               <cell>
                 <list name="applist"
-                      selectmode="single"
-                      openaction="details"
-                      borders="right"
                       height="1pr"
+                      borders="right"
                       flags="hasdetails"
-                      selectcontextmenu="contextmenu"
                       onselect="onapplistselect"
-                      >
-                  <column name="name"    type="text" width="35x" />
-                  <column name="status"  type="text" width="12x" />
-                  <column name="since"   type="datetime" precision="milliseconds" width="22x" storeutc="true" />
+                      openaction="details"
+                      selectcontextmenu="contextmenu"
+                      selectmode="single">
+                  <column name="name" type="text" width="35x" />
+                  <column name="status" type="text" width="12x" />
+                  <column name="since" type="datetime" width="22x" precision="milliseconds" storeutc="true" />
                   <column name="lasterror" type="text" />
                 </list>
               </cell>
@@ -57,16 +56,20 @@
           <list name="historylist"
                 height="1pr"
                 borders="none"
-                selectmode="single"
                 onselect="onmessageselect"
-                sortcolumn="date"
+                selectmode="single"
                 sortascending="false"
-                >
-            <column name="date"    type="datetime" precision="milliseconds" width="22x" storeutc="true" sortkeyname="datesortkey" />
+                sortcolumn="date">
+            <column name="date"
+                    type="datetime"
+                    width="22x"
+                    precision="milliseconds"
+                    sortkeyname="datesortkey"
+                    storeutc="true" />
             <column name="message" type="text" />
           </list>
-          <box tid=".details" height="1pr" hr="false">
-            <text name="detailtext" height="10x" title="" selectable="true" />
+          <box height="1pr" hr="false" tid=".details">
+            <text name="detailtext" height="10x" selectable="true" title="" />
           </box>
         </part>
       </split>

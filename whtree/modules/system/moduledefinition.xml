@@ -416,6 +416,7 @@
              handlebyscript="web/global/acme.shtml"
              priority="after" />
     <webrule path="allroots:/.webhare/direct/" match="initial" handlebydir="web/global/direct/" priority="after" />
+
     <!-- Legacy image cache URL. They should start using /.wh/ea/uc/ since WH 5.6.2 -->
     <webrule path="allroots:/.uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
@@ -1043,9 +1044,10 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:boolean name="isfoldertype">
         <d:documentation>Whether to allow creation of a folder with this type in the Publisher</d:documentation>
       </d:boolean>
-      <d:varchar name="scopedtype" maxlength="256"> <!-- FIXME mark as unique=true as soon as our PG driver supports unique NULLS (*or* we should be assigning random scopedtypes to existing types?) -->
-      <d:documentation>JavaScript short name</d:documentation>
-    </d:varchar>
+      <d:varchar name="scopedtype" maxlength="256">
+        <!-- FIXME mark as unique=true as soon as our PG driver supports unique NULLS (*or* we should be assigning random scopedtypes to existing types?) -->
+        <d:documentation>JavaScript short name</d:documentation>
+      </d:varchar>
       <d:varchar name="namespace" maxlength="256" nullable="false" unique="true">
         <d:documentation>The human readable name through which you can refer to this contenttype.
           Guidelines:          <br />

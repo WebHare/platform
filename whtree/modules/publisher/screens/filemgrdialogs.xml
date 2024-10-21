@@ -1,8 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/filemgrdialogs.whlib"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="filemgrdialogs"
-         >
+         library="/lib/screens/filemgrdialogs.whlib">
 
   <messageboxes gid=".messageboxes">
     <messagebox name="deleteindexconfirm" icon="question" buttons="yes no cancel" />
@@ -14,18 +12,18 @@
   <screen name="selecttype"
           width="60x"
           height="20x"
-          gid=".selecttype"
-          title=""
           allowresize="true"
-          savestate="size"
           defaultbutton="submitscreenbutton"
-          >
+          gid=".selecttype"
+          savestate="size"
+          title="">
     <actions>
       <action name="submitscreen" onexecute="submit" title="">
         <enableon source="types" min="1" max="1" />
       </action>
       <action name="cancelscreen" onexecute="cancel" title="" />
     </actions>
+
     <body>
       <panel>
         <grid>
@@ -36,38 +34,42 @@
               <text name="explain" title="" value="" wordwrap="true" />
             </cell>
             <cell>
-              <textedit name="filter" onchange="gotfilterchange" visible="false" tid="common.filter" />
+              <textedit name="filter" onchange="gotfilterchange" tid="common.filter" visible="false" />
             </cell>
           </row>
         </grid>
       </panel>
       <panel width="1pr" height="1pr">
         <list name="types"
-              selectmode="single"
-              openaction="submitscreen"
-              emptytid=".notypes"
-              columnheaders="false"
               width="1pr"
               height="1pr"
-              rowkeytype="string">
-          <column name="title" iconname="icon" type="text" />
+              columnheaders="false"
+              emptytid=".notypes"
+              openaction="submitscreen"
+              rowkeytype="string"
+              selectmode="single">
+          <column name="title" type="text" iconname="icon" />
           <column name="template" type="integer" width="13x" align="right" emptyvalue="0" />
           <column name="contenttype" type="text" />
           <column name="type" type="integer" width="13x" align="right" />
         </list>
       </panel>
     </body>
+
     <footer>
       <grid>
         <col width="1pr" />
         <col />
         <row>
           <cell layout="left">
-            <checkbox name="showalltypes" title="" labeltid="tolliumapps.common.settings.showalltypes" onchange="onalltypeschange" />
+            <checkbox name="showalltypes"
+                      labeltid="tolliumapps.common.settings.showalltypes"
+                      onchange="onalltypeschange"
+                      title="" />
           </cell>
           <cell layout="right">
             <line>
-              <button action="submitscreen" name="submitscreenbutton" tid="~ok" />
+              <button name="submitscreenbutton" action="submitscreen" tid="~ok" />
               <button action="cancelscreen" tid="~cancel" />
             </line>
           </cell>
@@ -76,30 +78,24 @@
     </footer>
   </screen>
 
-  <screen name="gotoobject" gid=".gotoobject">
+  <screen name="gotoobject" footerbuttons="ok cancel" gid=".gotoobject">
     <body>
       <combobox name="obj" width="50x" autocomplete="true" placeholdertid=".objplaceholder" required="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="failedpublish" gid=".failedpublish"
-          allowresize="true" savestate="size">
+  <screen name="failedpublish" allowresize="true" footerbuttons="close" gid=".failedpublish" savestate="size">
     <compositions>
-      <eventlistener name="waitforpublished" onevents="onpublished" groupinterval="500" />
+      <eventlistener name="waitforpublished" groupinterval="500" onevents="onpublished" />
     </compositions>
+
     <body>
-      <text name="message" wordwrap="true" title="" minwidth="60x" width="1pr" selectable="true" />
-      <textarea name="details" enabled="false" title="" width="1pr" height="1pr" minheight="15x" minwidth="75x" />
+      <text name="message" width="1pr" minwidth="60x" selectable="true" title="" wordwrap="true" />
+      <textarea name="details" width="1pr" height="1pr" minwidth="75x" minheight="15x" enabled="false" title="" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="repubmask" gid=".repubmask">
+  <screen name="repubmask" footerbuttons="ok cancel" gid=".repubmask">
     <body>
       <line>
         <textedit name="republishmask" required="true" />
@@ -109,64 +105,63 @@
         <option rowkey="" tid=".limittodesign-allsites" />
       </select>
       <line layout="left">
-        <checkbox name="recursive" title="" labeltid=".recursive" value="true" />
+        <checkbox name="recursive" labeltid=".recursive" title="" value="true" />
       </line>
       <line layout="left">
-        <checkbox name="nontemplatetoo" title="" labeltid=".nontemplatetoo" />
+        <checkbox name="nontemplatetoo" labeltid=".nontemplatetoo" title="" />
       </line>
       <line layout="left">
-        <checkbox name="iffailed" title="" labeltid=".iffailed"  />
+        <checkbox name="iffailed" labeltid=".iffailed" title="" />
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
   <screen name="showmodifications"
-          gid="filemanager.main.showmodifications"
-          minwidth="320px"
           width="620px"
-          minheight="150px"
           height="800px"
+          minwidth="320px"
+          minheight="150px"
           allowresize="true"
-          savestate="size"
-          >
+          gid="filemanager.main.showmodifications"
+          savestate="size">
     <actions>
       <action name="openinpublisher" onexecute="doopeninpublisher">
         <enableon source="modifications" min="1" max="1" />
       </action>
       <action name="refresh" onexecute="dorefresh" />
       <action name="export" onexecute="doexport" />
-      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close"/>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close" />
     </actions>
+
     <menus>
       <menu name="selection">
         <item action="openinpublisher" />
       </menu>
     </menus>
+
     <body>
       <panel spacers="bottom">
         <line layout="left">
           <datetime name="dtfrom" type="datetime" precision="minutes" />
-          <button action="refresh" name="refreshbutton" />
+          <button name="refreshbutton" action="refresh" />
         </line>
       </panel>
       <panel height="1pr">
         <list name="modifications"
-              selectmode="single"
-              height="1pr"
               width="1pr"
+              height="1pr"
+              emptytid=".empty"
               openaction="openinpublisher"
               selectcontextmenu="selection"
-              emptytid=".empty"
-              sortascending="false"
-              />
+              selectmode="single"
+              sortascending="false" />
+
         <!-- Columns set in whlib -->
       </panel>
     </body>
+
     <footer>
-      <!--<button action="close" />-->
+      <!-- <button action="close" /> -->
       <line layout="right">
         <button action="export" />
         <button action="close" />

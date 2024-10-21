@@ -1,37 +1,28 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="fonts.whlib"
-         gid="tolliumapps.dashboard.fonts">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.fonts" library="fonts.whlib">
 
   <screen name="installedfonts">
     <actions>
-      <action name="inspect" tid="~inspect" onexecute="DoInspect">
+      <action name="inspect" onexecute="DoInspect" tid="~inspect">
         <enableon source="fonts" min="1" max="1" />
       </action>
     </actions>
+
     <body height="1pr" spacers="none">
-      <list name="fonts"
-            height="1pr"
-            icons="tollium:status/checked"
-            borders="none"
-            selectmode="single"
-            openaction="inspect">
-        <column type="text" name="family" width="2pr" sortkeyname="familystyle" />
-        <column type="text" name="style" width="1pr" />
-        <column type="icon" name="isboldicon" width="8x" align="center" />
-        <column type="icon" name="isitalicicon" width="8x" align="center" />
-        <column type="icon" name="istruetypeicon" width="8x" align="center" />
-        <column type="text" name="filename" width="2pr" />
+      <list name="fonts" height="1pr" borders="none" icons="tollium:status/checked" openaction="inspect" selectmode="single">
+        <column name="family" type="text" width="2pr" sortkeyname="familystyle" />
+        <column name="style" type="text" width="1pr" />
+        <column name="isboldicon" type="icon" width="8x" align="center" />
+        <column name="isitalicicon" type="icon" width="8x" align="center" />
+        <column name="istruetypeicon" type="icon" width="8x" align="center" />
+        <column name="filename" type="text" width="2pr" />
       </list>
     </body>
   </screen>
 
-  <screen name="fontinfo" allowresize="true" height="10gr" width="60x">
+  <screen name="fontinfo" width="60x" height="10gr" allowresize="true" footerbuttons="close">
     <body>
-      <textarea enabled="false" name="css" minwidth="30x" minheight="5x" width="1pr" height="1pr" />
+      <textarea name="css" width="1pr" height="1pr" minwidth="30x" minheight="5x" enabled="false" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
 </screens>

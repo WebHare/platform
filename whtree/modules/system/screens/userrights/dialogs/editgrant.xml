@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          gid="userrights.commondialogs.rights"
-         lib="screens/userrights/dialogs/editgrant.whlib">
+         library="/lib/screens/userrights/dialogs/editgrant.whlib">
 
   <screen name="editrightgrant" footerbuttons="ok cancel">
     <body>

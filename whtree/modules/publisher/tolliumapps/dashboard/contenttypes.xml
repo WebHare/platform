@@ -6,10 +6,10 @@
     <actions>
       <action name="recompile" onexecute="dorecompile" shortcut="ctrl+e" />
       <action name="searchfsobjects" onexecute="dosearchfsobjects">
-        <enableon source="types" min="1" max="1" checkflags="isfsobjecttype"/>
+        <enableon source="types" min="1" max="1" checkflags="isfsobjecttype" />
       </action>
       <action name="searchwidgets" onexecute="dosearchwidgets">
-        <enableon source="types" min="1" max="1" checkflags="iswidgettype"/>
+        <enableon source="types" min="1" max="1" checkflags="iswidgettype" />
       </action>
       <action name="viewtype" onexecute="doviewtype" shortcut="ctrl+i" tid="~properties">
         <enableon source="types" min="1" max="1" />
@@ -46,7 +46,7 @@
                 selectmode="single"
                 sortcolumn="namespace">
             <column name="id" type="integer" width="8x" tid="~id" />
-            <column name="namespace" type="text" iconname="typeicon" width="2pr" />
+            <column name="namespace" type="text" width="2pr" iconname="typeicon" />
             <column name="scopedtype" type="text" width="1pr" />
             <column name="codesource" type="text" width="2pr" />
             <column name="type" type="text" width="24x" />

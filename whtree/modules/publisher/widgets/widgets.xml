@@ -5,51 +5,73 @@
 
   <tabsextension name="anchorwidget" gid=".anchorwidget" implementation="lib">
     <newtab>
-      <textedit name="anchorname" cellname="name" composition="contentdata" minwidth="40x" width="1pr" required="true" />
+      <textedit composition="contentdata" cellname="name" name="anchorname" width="1pr" minwidth="40x" required="true" />
     </newtab>
   </tabsextension>
 
-  <tabsextension name="slideshowwidget" gid=".slideshowwidget" implementation="none" allowresize="true">
-    <newtab minwidth="50x" minheight="9x" height="1pr">
+  <tabsextension name="slideshowwidget" allowresize="true" gid=".slideshowwidget" implementation="none">
+    <newtab height="1pr" minwidth="50x" minheight="9x">
       <heading tid=".slides" />
-      <arrayedit cellname="slides" composition="contentdata" height="1pr" orderable="true" roweditscreen="#editslide" minrows="1" errorlabeltid=".slides">
-        <column type="blobrecord" name="image" />
-        <column type="text" name="title" tid="~title"/>
+      <arrayedit composition="contentdata"
+                 cellname="slides"
+                 height="1pr"
+                 errorlabeltid=".slides"
+                 minrows="1"
+                 orderable="true"
+                 roweditscreen="#editslide">
+        <column name="image" type="blobrecord" />
+        <column name="title" type="text" tid="~title" />
         <p:intextlinkcolumn name="link" />
       </arrayedit>
     </newtab>
   </tabsextension>
 
-  <screen name="editslide" gid=".slideshowwidget" width="80x" height="35x" allowresize="true" savestate="size" implementation="rowedit">
+  <screen name="editslide"
+          width="80x"
+          height="35x"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".slideshowwidget"
+          implementation="rowedit"
+          savestate="size">
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
-      <imgedit composition="row" cellname="image" height="1pr" width="1pr" required="true" />
-      <textedit composition="row" cellname="title" tid="~title" width="1pr" />
+      <imgedit composition="row" cellname="image" width="1pr" height="1pr" required="true" />
+      <textedit composition="row" cellname="title" width="1pr" tid="~title" />
       <p:intextlink composition="row" cellname="link" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <tabsextension name="twocolumnswidget" gid=".twocolumnswidget" implementation="none" allowresize="true">
-    <newtab >
-      <grid height="1pr" minheight="400px" minwidth="600px" >
+  <tabsextension name="twocolumnswidget" allowresize="true" gid=".twocolumnswidget" implementation="none">
+    <newtab>
+      <grid height="1pr" minwidth="600px" minheight="400px">
         <cell width="1pr">
-          <richdocument composition="contentdata" name="rtdleft" cellname="rtdleft" errorlabeltid=".rtdleft" height="1pr" width="1pr" />
+          <richdocument composition="contentdata"
+                        cellname="rtdleft"
+                        name="rtdleft"
+                        width="1pr"
+                        height="1pr"
+                        errorlabeltid=".rtdleft" />
         </cell>
         <cell width="1pr">
-          <richdocument composition="contentdata" name="rtdright" cellname="rtdright" errorlabeltid=".rtdright" height="1pr" width="1pr" />
+          <richdocument composition="contentdata"
+                        cellname="rtdright"
+                        name="rtdright"
+                        width="1pr"
+                        height="1pr"
+                        errorlabeltid=".rtdright" />
         </cell>
       </grid>
     </newtab>
   </tabsextension>
 
-  <tabsextension name="wittywidget" gid=".witty" implementation="none" allowresize="true">
+  <tabsextension name="wittywidget" allowresize="true" gid=".witty" implementation="none">
     <newtab>
-      <textarea height="1pr" width="1pr" composition="contentdata" cellname="wittycode" required="true" maxlength="4096" />
+      <textarea composition="contentdata" cellname="wittycode" width="1pr" height="1pr" maxlength="4096" required="true" />
     </newtab>
   </tabsextension>
+
 </screens>

@@ -44,9 +44,9 @@
           <grid height="1pr">
             <cell width="1pr">
               <list name="contentsources" height="1pr" selectmode="single">
-                <column name="catalog" width="1pr" type="text" tid="consilio:common.terms.catalog" />
-                <column name="contentsource" width="1pr" type="text" tid="consilio:common.terms.contentsource"/>
-                <column name="root" width="2pr" type="text"/>
+                <column name="catalog" type="text" width="1pr" tid="consilio:common.terms.catalog" />
+                <column name="contentsource" type="text" width="1pr" tid="consilio:common.terms.contentsource" />
+                <column name="root" type="text" width="2pr" />
               </list>
             </cell>
             <cell>

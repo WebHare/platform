@@ -1,4 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="debugging" lib="screens/debugging.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="debugging" library="/lib/screens/debugging.whlib">
 
   <screen name="reflectdialog"
           width="650px"

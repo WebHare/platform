@@ -1,31 +1,29 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         gid="components">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="components">
 
-  <fragment name="selectuser" lib="components/selectuser.whlib" gid=".selectuser">
+  <fragment name="selectuser" gid=".selectuser" lib="components/selectuser.whlib">
     <actions>
       <action name="edit" onexecute="doedit" title="" />
       <action name="clear" onexecute="doclear" title="" />
     </actions>
     <contents>
       <line>
-        <textedit name="username" title="" enabled="false" width="1pr" />
-        <button action="edit" name="editbtn" title="" icon="tollium:actions/edit" hinttid="~edit"/>
-        <button action="clear" name="clearbtn" title="" icon="tollium:actions/delete" hinttid="~clear"/>
+        <textedit name="username" width="1pr" enabled="false" title="" />
+        <button name="editbtn" action="edit" hinttid="~edit" icon="tollium:actions/edit" title="" />
+        <button name="clearbtn" action="clear" hinttid="~clear" icon="tollium:actions/delete" title="" />
       </line>
     </contents>
   </fragment>
 
-  <fragment name="passwordvalidationchecks" lib="components/passwordvalidationchecks.whlib" gid=".passwordvalidationchecks">
+  <fragment name="passwordvalidationchecks" gid=".passwordvalidationchecks" lib="components/passwordvalidationchecks.whlib">
     <contents>
       <line layout="left">
         <checkbox name="password_hibp" labeltid=".passwordcheckhibp" title="" />
       </line>
-      <textedit name="password_minlength" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-      <textedit name="password_lowercase" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-      <textedit name="password_uppercase" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-      <textedit name="password_digits" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-      <textedit name="password_symbols" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+      <textedit name="password_minlength" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
+      <textedit name="password_lowercase" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
+      <textedit name="password_uppercase" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
+      <textedit name="password_digits" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
+      <textedit name="password_symbols" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
       <browsecustom name="password_noreuse" onbrowse="GotBrowseNoReuse" onmapvalue="MapDuration" />
       <browsecustom name="password_maxage" onbrowse="GotBrowseMaxAge" onmapvalue="MapDuration" />
       <line layout="left">

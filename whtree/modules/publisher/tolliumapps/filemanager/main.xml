@@ -1,8 +1,7 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="main.whlib"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="filemanager.main"
-         >
+         library="main.whlib">
 
   <messageboxes gid=".messageboxes">
     <messagebox name="emptytrashconfirm" icon="question" buttons="yes no" />
@@ -14,12 +13,11 @@
     <messagebox name="cannotmovepinned" icon="error" buttons="ok" />
     <messagebox name="cannotmovesomepinned" icon="error" buttons="ok" />
     <messagebox name="usernotfound" icon="warning" buttons="ok" />
-    <messagebox name="confirmmove" icon="question" buttons="yes no" default="yes" dontshowagain="yes"  />
-    <messagebox name="confirmmovemultiple" icon="question" buttons="yes no" default="yes" dontshowagain="yes"  />
+    <messagebox name="confirmmove" icon="question" buttons="yes no" default="yes" dontshowagain="yes" />
+    <messagebox name="confirmmovemultiple" icon="question" buttons="yes no" default="yes" dontshowagain="yes" />
     <messagebox name="resetordering" icon="question" buttons="yes no" />
-    <messagebox name="addedtostartmenu" buttons="ok" icon="information" dontshowagain="ok" />
+    <messagebox name="addedtostartmenu" icon="information" buttons="ok" dontshowagain="ok" />
     <messagebox name="cannotmoveorcopytovirtualfolder" icon="error" buttons="ok" />
-
     <messagebox name="nositecontext" icon="information" buttons="ok" />
     <messagebox name="foldercontainsnosites" icon="error" buttons="ok" />
     <messagebox name="surerepublishfolderoutsidesite" icon="question" buttons="yes no" />
@@ -31,233 +29,250 @@
 
   <screen name="app"
           allowresize="true"
-          menubar="menubar"
-          icon="tollium:filemgr/mydocuments"
           flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults"
           gid=".app"
-          tid=".apptitle"
-          onshow="onshow">
-
+          icon="tollium:filemgr/mydocuments"
+          menubar="menubar"
+          onshow="onshow"
+          tid=".apptitle">
     <actions gid=".actions">
       <!-- File Manager menu -->
-      <action name="newinstance"
-              shortcut="ctrl+alt+t"
-              onexecute="donewinstance" />
-      <action name="newinstancewithfolder"
-              onexecute="donewinstance"
-              tid=".newinstance">
-        <enableon source="foldertreeproxy" checkflags="!isvirtual" min="1" max="1" />
+      <action name="newinstance" onexecute="donewinstance" shortcut="ctrl+alt+t" />
+      <action name="newinstancewithfolder" onexecute="donewinstance" tid=".newinstance">
+        <enableon source="foldertreeproxy" min="1" max="1" checkflags="!isvirtual" />
       </action>
-      <action name="prefs"
-              tid="~preferences"
-              shortcut="ctrl+,"
-              onexecute="doprefs" />
-      <action name="addtostartmenu"
-              tid="~addtostartmenu"
-              frameflags="outsiderecyclebin" >
-        <enableon source="foldertreeproxy" checkflags="!isvirtual isfolder" min="1" max="1" onexecute="doaddtostartmenufoldertree" />
-        <enableon source="filelist" checkflags="!isvirtual isfolder" min="1" max="1" onexecute="doaddtostartmenufilelist" />
+      <action name="prefs" onexecute="doprefs" shortcut="ctrl+," tid="~preferences" />
+      <action name="addtostartmenu" frameflags="outsiderecyclebin" tid="~addtostartmenu">
+        <enableon source="foldertreeproxy"
+                  min="1"
+                  max="1"
+                  checkflags="!isvirtual isfolder"
+                  onexecute="doaddtostartmenufoldertree" />
+        <enableon source="filelist" min="1" max="1" checkflags="!isvirtual isfolder" onexecute="doaddtostartmenufilelist" />
       </action>
-      <action name="exit"
-              tid="~exit"
-              shortcut="ctrl+q"
-              onexecute="doexit" />
+      <action name="exit" onexecute="doexit" shortcut="ctrl+q" tid="~exit" />
 
       <!-- File menu -->
-      <uploadaction name="upload"
-              shortcut="ctrl+u"
-              onupload="onupload"
-              multiple="true">
-        <enableon source="foldertreeproxy" checkflags="canadd" min="1" />
+      <uploadaction name="upload" multiple="true" onupload="onupload" shortcut="ctrl+u">
+        <enableon source="foldertreeproxy" min="1" checkflags="canadd" />
       </uploadaction>
-      <action name="newfile"
-              shortcut="ctrl+alt+n"
-              onexecute="donewfile"
-              ellipsis="true">
-        <enableon source="foldertreeproxy" checkflags="canadd" min="1" />
+      <action name="newfile" ellipsis="true" onexecute="donewfile" shortcut="ctrl+alt+n">
+        <enableon source="foldertreeproxy" min="1" checkflags="canadd" />
       </action>
-      <action name="newfolder"
-              shortcut="ctrl+shift+n"
-              onexecute="donewfolder"
-              ellipsis="true">
-        <enableon source="foldertreeproxy" checkflags="canadd" min="1" />
+      <action name="newfolder" ellipsis="true" onexecute="donewfolder" shortcut="ctrl+shift+n">
+        <enableon source="foldertreeproxy" min="1" checkflags="canadd" />
       </action>
-      <action name="newitem"
-              onexecute="donewitem"
-              ellipsis="true"
-              title="">
-        <enableon source="foldertreeproxy" checkflags="canadd" min="1" />
+      <action name="newitem" ellipsis="true" onexecute="donewitem" title="">
+        <enableon source="foldertreeproxy" min="1" checkflags="canadd" />
       </action>
       <uploadaction name="replace" onupload="onreplace">
-        <enableon source="filelist" checkflags="candownload canedit canwrite" min="1" max="1" requirefocus="true" />
+        <enableon source="filelist" min="1" max="1" checkflags="candownload canedit canwrite" requirefocus="true" />
       </uploadaction>
       <action name="duplicate" onexecute="doduplicate">
-        <enableon source="filelist" checkflags="isactive canwrite" min="1" max="1" requirefocus="true" />
+        <enableon source="filelist" min="1" max="1" checkflags="isactive canwrite" requirefocus="true" />
       </action>
-      <action name="newsite" onexecute="donewsite" title="" frameflags="issysop" ellipsis="true">
-        <enableon source="foldertreeproxy" checkflags="isactive !iswithinsite canadd" min="1" />
+      <action name="newsite" ellipsis="true" frameflags="issysop" onexecute="donewsite" title="">
+        <enableon source="foldertreeproxy" min="1" checkflags="isactive !iswithinsite canadd" />
       </action>
       <action name="converttosite" frameflags="issysop">
-        <enableon source="foldertreeproxy" checkflags="isactive isfolder !iswithinsite canwrite" min="1" max="1" onexecute="doconverttositefoldertree" />
-        <enableon source="filelist" checkflags="isactive isfolder !iswithinsite canwrite" min="1" max="1" onexecute="doconverttositefilelist" />
+        <enableon source="foldertreeproxy"
+                  min="1"
+                  max="1"
+                  checkflags="isactive isfolder !iswithinsite canwrite"
+                  onexecute="doconverttositefoldertree" />
+        <enableon source="filelist"
+                  min="1"
+                  max="1"
+                  checkflags="isactive isfolder !iswithinsite canwrite"
+                  onexecute="doconverttositefilelist" />
       </action>
       <action name="converttofolder" frameflags="issysop">
-        <enableon source="foldertreeproxy" checkflags="isactive isfolder issite canwrite" min="1" max="1" onexecute="doconverttofolderfoldertree" />
-        <enableon source="filelist" checkflags="isactive isfolder issite canwrite" min="1" max="1" onexecute="doconverttofolderfilelist" />
+        <enableon source="foldertreeproxy"
+                  min="1"
+                  max="1"
+                  checkflags="isactive isfolder issite canwrite"
+                  onexecute="doconverttofolderfoldertree" />
+        <enableon source="filelist"
+                  min="1"
+                  max="1"
+                  checkflags="isactive isfolder issite canwrite"
+                  onexecute="doconverttofolderfilelist" />
       </action>
       <action name="togglepreview" onexecute="dotogglepreview" />
 
       <!-- This action is always enabled, and doesn't appear in menu's as an action. As such, it's usable for both
            the 'open' action and the 'extract' action' -->
-      <action name="open"
-              tid="~open"
-              onexecute="doopen">
-        <enableon source="filelist" checkflags="canopen" min="1" max="1" />
+      <action name="open" onexecute="doopen" tid="~open">
+        <enableon source="filelist" min="1" max="1" checkflags="canopen" />
       </action>
+
       <!-- FIXME: This function works for folders, but needs to work for a selection of files/folders -->
       <action name="createarchive" ellipsis="true">
-        <enableon source="foldertree" min="1" max="1" checkflags="!isvirtual isfolder" onexecute="docreatearchivefromfoldertree" requirefocus="true" />
-        <enableon source="filelist"   min="1" max="1" checkflags="!isvirtual" onexecute="docreatearchivefromfilelist" requirefocus="true" />
+        <enableon source="foldertree"
+                  min="1"
+                  max="1"
+                  checkflags="!isvirtual isfolder"
+                  onexecute="docreatearchivefromfoldertree"
+                  requirefocus="true" />
+        <enableon source="filelist"
+                  min="1"
+                  max="1"
+                  checkflags="!isvirtual"
+                  onexecute="docreatearchivefromfilelist"
+                  requirefocus="true" />
       </action>
-
       <action name="managerights">
-        <enableon source="foldertree" min="1" max="1" checkflags="canwrite isactive !isvirtual" onexecute="domanagerightsfromfoldertree" />
-        <enableon source="filelist"   min="1" max="1" checkflags="canwrite isactive !isvirtual" onexecute="domanagerightsfromfilelist" />
+        <enableon source="foldertree"
+                  min="1"
+                  max="1"
+                  checkflags="canwrite isactive !isvirtual"
+                  onexecute="domanagerightsfromfoldertree" />
+        <enableon source="filelist"
+                  min="1"
+                  max="1"
+                  checkflags="canwrite isactive !isvirtual"
+                  onexecute="domanagerightsfromfilelist" />
       </action>
-
-      <downloadaction name="download" shortcut="ctrl+d" ondownload="ondownload">
-        <enableon source="filelist" checkflags="candownload" min="1" max="1" requirefocus="true" />
+      <downloadaction name="download" ondownload="ondownload" shortcut="ctrl+d">
+        <enableon source="filelist" min="1" max="1" checkflags="candownload" requirefocus="true" />
       </downloadaction>
-
-      <action name="republish_recursive"
-              shortcut="ctrl+e">
-        <enableon source="filelist" checkflags="canpublish" selectionmatch="any" min="1" onexecute="dorepubfile" requirefocus="true" />
-        <enableon source="filelist" checkflags="!isvirtual isfolder" selectionmatch="any" min="1" onexecute="dorepubfile" requirefocus="true" />
-        <enableon source="foldertree" checkflags="!isvirtual canpublishrecursive !isroot" min="1" max="1" onexecute="dorepubfolderrecurse" requirefocus="true" />
+      <action name="republish_recursive" shortcut="ctrl+e">
+        <enableon source="filelist"
+                  min="1"
+                  checkflags="canpublish"
+                  onexecute="dorepubfile"
+                  requirefocus="true"
+                  selectionmatch="any" />
+        <enableon source="filelist"
+                  min="1"
+                  checkflags="!isvirtual isfolder"
+                  onexecute="dorepubfile"
+                  requirefocus="true"
+                  selectionmatch="any" />
+        <enableon source="foldertree"
+                  min="1"
+                  max="1"
+                  checkflags="!isvirtual canpublishrecursive !isroot"
+                  onexecute="dorepubfolderrecurse"
+                  requirefocus="true" />
       </action>
-
-      <action name="republish_nonrecursive"
-              shortcut="ctrl+alt+e">
-        <enableon source="foldertree" checkflags="canpublish" min="1" max="1" onexecute="dorepubfolder" requirefocus="true" />
+      <action name="republish_nonrecursive" shortcut="ctrl+alt+e">
+        <enableon source="foldertree" min="1" max="1" checkflags="canpublish" onexecute="dorepubfolder" requirefocus="true" />
       </action>
-      <action name="repubmask" onexecute="dorepubmask" frameflags="fullpublisheraccess" ellipsis="true"/>
-      <windowopenaction name="viewbrowser" shortcut="ctrl+b" onwindowopen="onviewbrowserlist">
+      <action name="repubmask" ellipsis="true" frameflags="fullpublisheraccess" onexecute="dorepubmask" />
+      <windowopenaction name="viewbrowser" onwindowopen="onviewbrowserlist" shortcut="ctrl+b">
         <enableon source="filelist" min="1" max="1" checkflags="canpublish" />
       </windowopenaction>
-      <windowopenaction name="viewbrowserlive" shortcut="ctrl+shift+b" onwindowopen="onviewbrowserlive" frameflags="issupervisor">
+      <windowopenaction name="viewbrowserlive"
+                        frameflags="issupervisor"
+                        onwindowopen="onviewbrowserlive"
+                        shortcut="ctrl+shift+b">
         <enableon source="filelist" min="1" max="1" checkflags="ispublish" requirefocus="true" />
       </windowopenaction>
-      <windowopenaction name="setdebugsettings" onwindowopen="onsetdebugsettings" frameflags="issupervisor" >
+      <windowopenaction name="setdebugsettings" frameflags="issupervisor" onwindowopen="onsetdebugsettings">
         <enableon source="foldertreeproxy" min="1" max="1" checkflags="canpublish" />
       </windowopenaction>
       <action name="contentlinkto">
-        <enableon source="foldertree" min="1" onexecute="docontentlinktotree" checkflags="!isroot isactive" frameflags="fullpublisheraccess"/>
-        <enableon source="filelist" min="1" onexecute="docontentlinktolist" checkflags="isactive" frameflags="fullpublisheraccess"/>
+        <enableon source="foldertree"
+                  min="1"
+                  checkflags="!isroot isactive"
+                  frameflags="fullpublisheraccess"
+                  onexecute="docontentlinktotree" />
+        <enableon source="filelist"
+                  min="1"
+                  checkflags="isactive"
+                  frameflags="fullpublisheraccess"
+                  onexecute="docontentlinktolist" />
       </action>
       <action name="internallinkto">
-        <enableon source="foldertree" min="1" onexecute="dointernallinktotree" checkflags="!isroot isactive" frameflags="fullpublisheraccess"/>
-        <enableon source="filelist" min="1" onexecute="dointernallinktolist" checkflags="isactive" frameflags="fullpublisheraccess"/>
+        <enableon source="foldertree"
+                  min="1"
+                  checkflags="!isroot isactive"
+                  frameflags="fullpublisheraccess"
+                  onexecute="dointernallinktotree" />
+        <enableon source="filelist"
+                  min="1"
+                  checkflags="isactive"
+                  frameflags="fullpublisheraccess"
+                  onexecute="dointernallinktolist" />
       </action>
 
       <!-- Edit menu -->
-      <action name="copyto"
-              tid="~copyto"
-              ellipsis="true">
-        <enableon source="foldertree" min="1" onexecute="docopytotree" checkflags="!isroot !isvirtual" />
-        <enableon source="filelist" min="1" onexecute="docopytolist" checkflags="!isvirtual" />
+      <action name="copyto" ellipsis="true" tid="~copyto">
+        <enableon source="foldertree" min="1" checkflags="!isroot !isvirtual" onexecute="docopytotree" />
+        <enableon source="filelist" min="1" checkflags="!isvirtual" onexecute="docopytolist" />
       </action>
-      <action name="moveto" tid="~moveto" ellipsis="true">
+      <action name="moveto" ellipsis="true" tid="~moveto">
         <enableon source="foldertree" min="1" checkflags="!isvirtual candelete" onexecute="domovetotree" />
         <enableon source="filelist" min="1" checkflags="!isvirtual candelete" onexecute="domovetolist" />
       </action>
-      <action name="delete"
-              tid="~delete"
-              shortcut="del">
+      <action name="delete" shortcut="del" tid="~delete">
         <enableon source="foldertree" min="1" checkflags="candelete" onexecute="dodeletetree" />
-        <enableon source="filelist" min="1" checkflags="candelete" selectionmatch="any" onexecute="dodeletelist" />
+        <enableon source="filelist" min="1" checkflags="candelete" onexecute="dodeletelist" selectionmatch="any" />
       </action>
       <action name="restore">
         <enableon source="filelist" min="1" checkflags="canrestore" onexecute="dorestorelist" requirefocus="true" />
       </action>
-      <action name="selectall"
-              tid="~selectall"
-              onexecute="doselectall">
-        <enableon source="foldertreeproxy" checkflags="!islockedsite" min="1" />
+      <action name="selectall" onexecute="doselectall" tid="~selectall">
+        <enableon source="foldertreeproxy" min="1" checkflags="!islockedsite" />
       </action>
-      <action name="invertselection"
-              tid="~invertselection"
-              onexecute="doinvertselection">
-        <enableon source="foldertreeproxy" checkflags="!islockedsite" min="1" />
+      <action name="invertselection" onexecute="doinvertselection" tid="~invertselection">
+        <enableon source="foldertreeproxy" min="1" checkflags="!islockedsite" />
       </action>
-      <action name="rename"
-              tid="~rename" />
-      <action name="props"
-              tid="~properties"
-              shortcut="ctrl+i">
+      <action name="rename" tid="~rename" />
+      <action name="props" shortcut="ctrl+i" tid="~properties">
         <enableon source="foldertree" min="1" checkflags="!isvirtual" onexecute="dopropstree" />
         <enableon source="filelist" min="1" max="1" checkflags="!isvirtual" onexecute="dopropslist" />
       </action>
-      <action name="inspect"
-              tid="~inspect"
-              shortcut="ctrl+shift+i"
-              onexecute="doinspect">
+      <action name="inspect" onexecute="doinspect" shortcut="ctrl+shift+i" tid="~inspect">
         <enableon source="foldertree" min="1" checkflags="!isvirtual" frameflags="issupervisor" />
         <enableon source="filelist" min="1" max="1" checkflags="!isvirtual" frameflags="issupervisor" />
       </action>
       <action name="editfileorfoldertype" onexecute="doeditfileorfoldertype">
-        <enableon source="foldertree" checkflags="canchangetype" min="1" onexecute="doeditfoldertype" />
+        <enableon source="foldertree" min="1" checkflags="canchangetype" onexecute="doeditfoldertype" />
+
         <!-- Action will not be enabled if both files and folders are selected in the filelist -->
-        <enableon source="filelist" checkflags="canchangetype !isfolder" min="1" onexecute="doeditfileorfoldertype" />
-        <enableon source="filelist" checkflags="canchangetype isfolder" min="1" onexecute="doeditfileorfoldertype" />
+        <enableon source="filelist" min="1" checkflags="canchangetype !isfolder" onexecute="doeditfileorfoldertype" />
+        <enableon source="filelist" min="1" checkflags="canchangetype isfolder" onexecute="doeditfileorfoldertype" />
       </action>
 
       <!-- Go To menu -->
-      <action name="goup"
-              shortcut="bksp"
-              onexecute="dogoup">
+      <action name="goup" onexecute="dogoup" shortcut="bksp">
         <enableon source="foldertreeproxy" min="1" checkflags="!isroot !isvirtual" />
       </action>
-      <action name="gotoresult" onexecute="dogotoresult" frameflags="searchresults" tid="tolliumapps.common.actions.revealinpublisher">
+      <action name="gotoresult"
+              frameflags="searchresults"
+              onexecute="dogotoresult"
+              tid="tolliumapps.common.actions.revealinpublisher">
         <enableon source="filelist" min="1" />
       </action>
-      <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g"  />
-
+      <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g" />
       <action name="linkcheck">
         <enableon source="foldertree" min="1" checkflags="issite" onexecute="dolinkchecktree" />
         <enableon source="filelist" min="1" max="1" checkflags="issite" onexecute="dolinkchecklist" />
       </action>
-
       <action name="showmodifications">
         <enableon source="foldertree" min="1" checkflags="!isroot isfolder" onexecute="doshowmodificationstree" />
-        <enableon source="filelist" min="1" max="1" onexecute="doshowmodificationslist" checkflags="isfolder" />
+        <enableon source="filelist" min="1" max="1" checkflags="isfolder" onexecute="doshowmodificationslist" />
       </action>
-
       <action name="exportseoreport">
         <enableon source="foldertree" min="1" checkflags="iswithinsite" onexecute="doexportseoreport" />
       </action>
-
       <action name="reportissues" frameflags="fullpublisheraccess" onexecute="doreportissues" />
       <action name="reportsitesummary" frameflags="fullpublisheraccess" onexecute="doreportsitesummary" />
-
-      <action name="pinitems" onexecute="dopinitems" frameflags="showpinning">
+      <action name="pinitems" frameflags="showpinning" onexecute="dopinitems">
         <enableon source="filelist" min="1" checkflags="canwrite isactive !ispinned" selectionmatch="any" />
       </action>
-
-      <action name="unpinitems" onexecute="dounpinitems" frameflags="showpinning">
+      <action name="unpinitems" frameflags="showpinning" onexecute="dounpinitems">
         <enableon source="filelist" min="1" checkflags="canwrite isactive ispinned" selectionmatch="any" />
       </action>
-
       <action name="propsnoselection" onexecute="dopropstree" tid="~properties">
-        <enableon source="foldertreeproxy" checkflags="canadd isactive !isroot" min="1" />
+        <enableon source="foldertreeproxy" min="1" checkflags="canadd isactive !isroot" />
       </action>
-
-      <action name="previewrefresh" onexecute="previewbrowser->dopreviewrefresh"/>
-
+      <action name="previewrefresh" onexecute="previewbrowser->dopreviewrefresh" />
       <action name="togglefoldertree" onexecute="dotogglefoldertree" />
-
       <action name="showfoldertree" onexecute="doshowfoldertree" />
       <action name="hidefoldertree" onexecute="dohidefoldertree" />
-
       <action name="movetotop" onexecute="domovetotop">
         <enableon source="filelist" min="1" checkflags="!ordering_first" />
       </action>
@@ -270,34 +285,42 @@
       <action name="movetobottom" onexecute="domovetobottom">
         <enableon source="filelist" min="1" checkflags="!ordering_last" />
       </action>
-      <action name="setorderingby" onexecute="dosetorderingby" ellipsis="true"/>
+      <action name="setorderingby" ellipsis="true" onexecute="dosetorderingby" />
       <action name="resetordering" onexecute="doresetordering" />
       <action name="setfilelistmulti" onexecute="dosetfilelistmulti" />
       <action name="setfilelistsingle" onexecute="dosetfilelistsingle" />
-      <!-- <action name="toggleordering" onexecute="dotoggleordering" /> -->
 
-      <action name="manageurlhistory" onexecute="domanageurlhistory" tid="publisher:urlhistory.manage" shortcut="ctrl+shift+u">
+      <!-- <action name="toggleordering" onexecute="dotoggleordering" /> -->
+      <action name="manageurlhistory"
+              onexecute="domanageurlhistory"
+              shortcut="ctrl+shift+u"
+              tid="publisher:urlhistory.manage">
         <enableon source="filelist" min="1" max="1" checkflags="!isfolder canwrite isactive iswithinsite" />
       </action>
-      <action name="managewhfsregister" onexecute="domanagewhfsregister" frameflags="issysop" />
+      <action name="managewhfsregister" frameflags="issysop" onexecute="domanagewhfsregister" />
       <action name="reporturlhistory" tid="publisher:urlhistory.report">
-        <enableon source="foldertree" checkflags="isfolder isactive iswithinsite" min="1" max="1" onexecute="onreporturlhistory_foldertree" />
-        <enableon source="filelist" checkflags="isfolder isactive iswithinsite" min="1" max="1" onexecute="onreporturlhistory_filelist" />
+        <enableon source="foldertree"
+                  min="1"
+                  max="1"
+                  checkflags="isfolder isactive iswithinsite"
+                  onexecute="onreporturlhistory_foldertree" />
+        <enableon source="filelist"
+                  min="1"
+                  max="1"
+                  checkflags="isfolder isactive iswithinsite"
+                  onexecute="onreporturlhistory_filelist" />
       </action>
-
-      <action name="siteproperties" onexecute="dositeproperties" frameflags="issysop" shortcut="ctrl+alt+i">
-        <enableon source="foldertree" checkflags="isactive issite" min="1" max="1" />
-        <enableon source="filelist" checkflags="isactive issite" min="1" max="1" />
+      <action name="siteproperties" frameflags="issysop" onexecute="dositeproperties" shortcut="ctrl+alt+i">
+        <enableon source="foldertree" min="1" max="1" checkflags="isactive issite" />
+        <enableon source="filelist" min="1" max="1" checkflags="isactive issite" />
       </action>
-
-      <windowopenaction name="openinseparatetab" onwindowopen="doopeninseparatetab" frameflags="issysop">
+      <windowopenaction name="openinseparatetab" frameflags="issysop" onwindowopen="doopeninseparatetab">
         <enableon source="foldertree" min="1" max="1" />
         <enableon source="filelist" min="1" max="1" />
       </windowopenaction>
-      <windowopenaction name="openeditinseparatetab" onwindowopen="doopeneditinseparatetab" frameflags="issysop" >
-        <enableon source="filelist" min="1" max="1"  checkflags="canopen" requirefocus="true" />
+      <windowopenaction name="openeditinseparatetab" frameflags="issysop" onwindowopen="doopeneditinseparatetab">
+        <enableon source="filelist" min="1" max="1" checkflags="canopen" requirefocus="true" />
       </windowopenaction>
-
       <action name="managefoldersync" frameflags="issysop" onexecute="domanagefoldersync" shortcut="ctrl+alt+shift+o">
         <enableon source="foldertree" min="1" max="1" checkflags="canwrite" />
         <enableon source="filelist" min="1" max="1" checkflags="isfolder canwrite" />
@@ -306,8 +329,7 @@
         <enableon source="foldertree" min="1" max="1" checkflags="canwrite" onexecute="dosyncfolder" />
         <enableon source="filelist" min="1" checkflags="isfolder canwrite" onexecute="dosyncfoldersubs" />
       </action>
-
-      <helpaction name="help" manual="publisher/filemanager" tid="~help" languages="nl"/>
+      <helpaction name="help" languages="nl" manual="publisher/filemanager" tid="~help" />
     </actions>
 
     <menus gid=".menus">
@@ -318,49 +340,56 @@
           <item action="exit" />
         </item>
         <item name="filemenu" tid="tollium:common.menus.file">
-          <item tid=".new" name="newitemmenu">
-            <item tid=".newfile" action="newfile" />
-            <item tid=".newfolder" action="newfolder" />
-            <item name="newsite_menu" tid=".newsite" action="newsite" />
+          <item name="newitemmenu" tid=".new">
+            <item action="newfile" tid=".newfile" />
+            <item action="newfolder" tid=".newfolder" />
+            <item name="newsite_menu" action="newsite" tid=".newsite" />
           </item>
-          <item tid=".upload" action="upload" />
-          <divider/>
+          <item action="upload" tid=".upload" />
+          <divider />
           <item action="open" />
           <item action="download" tid=".download" />
           <item action="replace" tid=".replace" />
-          <divider/>
-          <item action="createarchive"/>
           <divider />
-
-          <item tid=".republish" name="republish_menu">
+          <item action="createarchive" />
+          <divider />
+          <item name="republish_menu" tid=".republish">
             <item action="republish_recursive" />
             <item action="republish_nonrecursive" />
             <divider />
             <item action="repubmask" />
           </item>
+
           <!-- schedule tasks -->
           <divider />
           <item name="insertpos_file" title="" visible="false" />
         </item>
-
         <item name="editmenu" tid="tollium:common.menus.edit">
           <item action="copyto" ellipsis="true" />
-          <item action="moveto" ellipsis="true"/>
-          <item action="duplicate"  />
-          <divider/>
-          <item name="contentlinktoitem" action="contentlinkto" tid="filemanager.main.app.actions.contentlinkto" ellipsis="true" disablemode="hidden" />
-          <item name="internallinktoitem" action="internallinkto" tid="filemanager.main.app.actions.internallinkto" ellipsis="true" disablemode="hidden" />
-          <divider/>
+          <item action="moveto" ellipsis="true" />
+          <item action="duplicate" />
+          <divider />
+          <item name="contentlinktoitem"
+                action="contentlinkto"
+                disablemode="hidden"
+                ellipsis="true"
+                tid="filemanager.main.app.actions.contentlinkto" />
+          <item name="internallinktoitem"
+                action="internallinkto"
+                disablemode="hidden"
+                ellipsis="true"
+                tid="filemanager.main.app.actions.internallinkto" />
+          <divider />
           <item name="restore_menu" action="restore" tid="main.actions.restore" />
           <divider />
           <item action="selectall" />
           <item action="invertselection" />
           <divider />
           <item tid=".ordering">
-            <item action="movetotop"/>
-            <item action="moveup"/>
-            <item action="movedown"/>
-            <item action="movetobottom"/>
+            <item action="movetotop" />
+            <item action="moveup" />
+            <item action="movedown" />
+            <item action="movetobottom" />
             <divider />
             <item action="setorderingby" />
             <item action="resetordering" />
@@ -375,56 +404,55 @@
           <item action="delete" />
           <item action="props" />
         </item>
-
-        <item tid=".goto" name="gotomenu">
+        <item name="gotomenu" tid=".goto">
           <item action="goup" tid=".goup" />
           <divider />
           <item action="gotoresult" disablemode="hidden" />
           <item action="gotoanything" />
         </item>
-
         <item tid="tollium:common.menus.view">
           <item action="viewbrowser" tid=".viewbrowser" />
-          <divider/>
+          <divider />
           <item action="newinstance" />
-          <divider/>
+          <divider />
           <item action="showfoldertree" />
-          <item action="hidefoldertree"/>
+          <item action="hidefoldertree" />
 
           <!-- Tree on/off -->
-          <divider/>
-          <item action="setfilelistmulti"/>
-          <item action="setfilelistsingle"/>
+          <divider />
+          <item action="setfilelistmulti" />
+          <item action="setfilelistsingle" />
+
           <!-- sort by -->
-          <divider/>
-          <item tid=".sortby" name="sortby">
-          </item>
-          <divider/>
-          <item name="togglepreviewitem" action="togglepreview" title=""/>
-          <item action="previewrefresh"/>
+          <divider />
+          <item name="sortby" tid=".sortby" />
+          <divider />
+          <item name="togglepreviewitem" action="togglepreview" title="" />
+          <item action="previewrefresh" />
         </item>
         <divider />
-
         <item tid=".sites">
-          <item tid=".siteproperties" action="siteproperties" />
-          <divider/>
-          <item tid=".linkcheck" action="linkcheck" />
-          <item tid=".showmodifications" action="showmodifications" />
-          <item tid=".issues" action="reportissues" />
+          <item action="siteproperties" tid=".siteproperties" />
+          <divider />
+          <item action="linkcheck" tid=".linkcheck" />
+          <item action="showmodifications" tid=".showmodifications" />
+          <item action="reportissues" tid=".issues" />
           <item action="exportseoreport" />
           <item action="reportsitesummary" />
           <item action="reporturlhistory" />
-          <divider/>
-          <item action="converttosite" name="converttositemenuitem" tid="main.actions.converttosite" disablemode="hidden" />
-          <item action="converttofolder" name="converttofoldermenuitem" tid="main.actions.converttofolder" disablemode="hidden" />
+          <divider />
+          <item name="converttositemenuitem" action="converttosite" disablemode="hidden" tid="main.actions.converttosite" />
+          <item name="converttofoldermenuitem"
+                action="converttofolder"
+                disablemode="hidden"
+                tid="main.actions.converttofolder" />
         </item>
-
         <item name="utilitiesmenu">
           <item action="viewbrowserlive" />
           <item action="setdebugsettings" />
           <divider />
           <item action="openinseparatetab" />
-          <item action="openeditinseparatetab"/>
+          <item action="openeditinseparatetab" />
           <divider />
           <item action="managewhfsregister" disablemode="hidden" />
           <item action="managefoldersync" />
@@ -439,36 +467,34 @@
         <item action="help" />
         <item action="exit" />
       </menu>
-
       <menu name="newfilemenu">
-        <item action="newfile" tid="filemanager.main.app.actions.newfile" disablemode="hidden" />
-        <item action="newfolder" tid="filemanager.main.app.actions.newfolder" disablemode="hidden" />
-        <item tid=".upload" action="upload" disablemode="hidden" />
-        <divider/>
+        <item action="newfile" disablemode="hidden" tid="filemanager.main.app.actions.newfile" />
+        <item action="newfolder" disablemode="hidden" tid="filemanager.main.app.actions.newfolder" />
+        <item action="upload" disablemode="hidden" tid=".upload" />
+        <divider />
         <item action="selectall" disablemode="hidden" />
       </menu>
-
       <menu name="listselectmenu">
         <item action="open" disablemode="hidden" />
-        <item action="restore" disablemode="hidden"/>
-        <divider/>
-        <item action="download" tid=".download" disablemode="hidden" />
-        <item action="replace" tid=".replace" disablemode="hidden" />
+        <item action="restore" disablemode="hidden" />
+        <divider />
+        <item action="download" disablemode="hidden" tid=".download" />
+        <item action="replace" disablemode="hidden" tid=".replace" />
         <item action="gotoresult" disablemode="hidden" />
-        <divider/>
+        <divider />
         <item action="republish_recursive" disablemode="hidden" tid=".republish" />
         <divider />
-        <item action="viewbrowser" tid=".viewbrowser" disablemode="hidden" />
-        <divider/>
-        <item action="duplicate" tid=".duplicate" disablemode="hidden" ellipsis="true"/>
-        <item action="copyto" disablemode="hidden" ellipsis="true"/>
-        <item action="moveto" disablemode="hidden" ellipsis="true"/>
-        <divider/>
+        <item action="viewbrowser" disablemode="hidden" tid=".viewbrowser" />
+        <divider />
+        <item action="duplicate" disablemode="hidden" ellipsis="true" tid=".duplicate" />
+        <item action="copyto" disablemode="hidden" ellipsis="true" />
+        <item action="moveto" disablemode="hidden" ellipsis="true" />
+        <divider />
         <item action="createarchive" disablemode="hidden" />
         <divider />
         <item action="pinitems" disablemode="hidden" />
         <item action="unpinitems" disablemode="hidden" />
-        <item action="editfileorfoldertype" disablemode="hidden"  ellipsis="true"/>
+        <item action="editfileorfoldertype" disablemode="hidden" ellipsis="true" />
         <item action="inspect" disablemode="hidden" />
         <item action="manageurlhistory" disablemode="hidden" />
         <item action="siteproperties" disablemode="hidden" />
@@ -477,29 +503,27 @@
         <item action="delete" disablemode="hidden" />
         <item action="props" disablemode="hidden" />
       </menu>
-
       <menu name="foldertreeselect">
-        <item action="newinstancewithfolder" disablemode="hidden"/>
+        <item action="newinstancewithfolder" disablemode="hidden" />
         <item action="restore" disablemode="hidden" />
         <divider />
         <item tid=".republish">
-          <item action="republish_recursive" tid="main.actions.repubfolderrecurse" disablemode="hidden" />
-          <item action="republish_nonrecursive" tid="main.actions.repubfolder" disablemode="hidden" />
+          <item action="republish_recursive" disablemode="hidden" tid="main.actions.repubfolderrecurse" />
+          <item action="republish_nonrecursive" disablemode="hidden" tid="main.actions.repubfolder" />
         </item>
         <divider />
         <item action="copyto" disablemode="hidden" />
         <item action="moveto" disablemode="hidden" />
-        <divider/>
+        <divider />
         <item action="createarchive" disablemode="hidden" />
-        <divider/>
-        <item action="editfileorfoldertype" disablemode="hidden" ellipsis="true"/>
+        <divider />
+        <item action="editfileorfoldertype" disablemode="hidden" ellipsis="true" />
         <item action="inspect" disablemode="hidden" />
         <item action="siteproperties" disablemode="hidden" />
         <item name="insertpos_treeselect" title="" visible="false" />
         <divider />
         <item action="delete" disablemode="hidden" />
         <item action="props" disablemode="hidden" />
-
       </menu>
     </menus>
 
@@ -508,126 +532,151 @@
     </compositions>
 
     <toolbar>
-      <button action="newfile"
-              icon="tollium:objects/file+tollium:overlays/add" />
-      <button action="newfolder"
-              icon="tollium:objects/folder+tollium:overlays/add" />
-
+      <button action="newfile" icon="tollium:objects/file+tollium:overlays/add" />
+      <button action="newfolder" icon="tollium:objects/folder+tollium:overlays/add" />
       <divider type="line" />
-
-      <button action="upload"
-              name="uploadbutton"
-              tid="publisher:filemanager.main.app.actions.upload"
-              icon="tollium:filemgr/uploadfile" />
-      <button action="replace"
-              name="replacebutton"
-              tid="~replace"
-              icon="tollium:actions/replace" />
-      <button action="download"
-              icon="tollium:actions/download" />
-
+      <button name="uploadbutton"
+              action="upload"
+              icon="tollium:filemgr/uploadfile"
+              tid="publisher:filemanager.main.app.actions.upload" />
+      <button name="replacebutton" action="replace" icon="tollium:actions/replace" tid="~replace" />
+      <button action="download" icon="tollium:actions/download" />
       <divider type="line" />
-
-      <button action="viewbrowser"
-              icon="tollium:filemgr/previewsite" />
-
+      <button action="viewbrowser" icon="tollium:filemgr/previewsite" />
       <divider type="line" />
-
-      <button action="delete"
-              name="deletebutton"
-              tid="~delete"
-              icon="tollium:actions/trash" />
-      <button action="props"
-              icon="tollium:actions/properties" />
+      <button name="deletebutton" action="delete" icon="tollium:actions/trash" tid="~delete" />
+      <button action="props" icon="tollium:actions/properties" />
     </toolbar>
 
     <!-- The main screen -->
     <body spacers="none">
-      <split type="horizontal" name="mainsplit">
+      <split name="mainsplit" type="horizontal">
         <part width="1pr" spacers="none">
-          <split type="horizontal" name="filefoldersplit">
+          <split name="filefoldersplit" type="horizontal">
             <part name="folderpart" width="1pr">
               <panel name="foldertreebuttonsholder" backgroundcolor="#f0f0f0" borders="bottom">
                 <line layout="tabs-space">
-                  <button icon="tollium:buttonbar/hidepart" type="icon" action="togglefoldertree" />
+                  <button action="togglefoldertree" icon="tollium:buttonbar/hidepart" />
                   <spacer name="togglespacer" />
-                  <button name="folderpath" icon="tollium:buttonbar/folderpath" type="icon"/>
+                  <button name="folderpath" icon="tollium:buttonbar/folderpath" />
                   <spacer name="toggleref" width="0" visible="false" />
                 </line>
               </panel>
               <publisher:foldertree name="foldertree"
-                                    onselect="ontreeselect"
-                                    selectmode="single"
-                                    selectcontextmenu="foldertreeselect"
-                                    flags="iswithinsite ispublished canpublish canpublishrecursive canchangetype issite isroot canmoveto"
-                                    filteritems="filtertreeitems"
-                                    savestate="selection"
-                                    showprotected="true"
+                                    borders="none"
                                     columnheaders="false"
-                                    borders="none">
+                                    filteritems="filtertreeitems"
+                                    flags="iswithinsite ispublished canpublish canpublishrecursive canchangetype issite isroot canmoveto"
+                                    onselect="ontreeselect"
+                                    savestate="selection"
+                                    selectcontextmenu="foldertreeselect"
+                                    selectmode="single"
+                                    showprotected="true">
                 <acceptdrops ondrop="ontypeddrop">
                   <!-- Accept desktop files dragged into the browser -->
-                  <acceptfile targetflags="!isroot isfolder canadd" requiretarget="1" />
+                  <acceptfile requiretarget="1" targetflags="!isroot isfolder canadd" />
+
                   <!-- Accept files and folders being moved to folders or without target (move to current folder) -->
-                  <accepttype type="system:whfsfile" targetflags="!isroot isfolder canmoveto" sourceflags="canmove" dropeffects="move" requiretarget="1" />
-                  <accepttype type="system:whfsfolder" targetflags="isfolder canmoveto" sourceflags="canmove" dropeffects="move" requiretarget="1" />
+                  <accepttype type="system:whfsfile"
+                              dropeffects="move"
+                              requiretarget="1"
+                              sourceflags="canmove"
+                              targetflags="!isroot isfolder canmoveto" />
+                  <accepttype type="system:whfsfolder"
+                              dropeffects="move"
+                              requiretarget="1"
+                              sourceflags="canmove"
+                              targetflags="isfolder canmoveto" />
+
                   <!-- Accept files and folders being copied to folders or without target (copy to current folder) -->
-                  <accepttype type="system:whfsfile" targetflags="!isroot isfolder canadd" dropeffects="copy" requiretarget="1" />
-                  <accepttype type="system:whfsfolder" targetflags="isfolder" dropeffects="copy" requiretarget="1" />
+                  <accepttype type="system:whfsfile"
+                              dropeffects="copy"
+                              requiretarget="1"
+                              targetflags="!isroot isfolder canadd" />
+                  <accepttype type="system:whfsfolder" dropeffects="copy" requiretarget="1" targetflags="isfolder" />
                 </acceptdrops>
               </publisher:foldertree>
             </part>
             <part name="filepart" width="2pr" spacers="none">
               <panel name="filelistbuttonsholder" backgroundcolor="#f0f0f0">
                 <line layout="tabs-space">
-                  <buttongroup layout="horizontal" borders="right" name="folderbuttonsfilespacegroup">
-                    <button name="showpart" icon="tollium:buttonbar/showpart" type="icon" action="togglefoldertree" />
-                    <button name="folderup" icon="tollium:actions/levelup" type="icon" action="goup" hinttid=".folderuphint"/>
-                    <button name="folderpath2" icon="tollium:buttonbar/folderpath" type="icon"/>
+                  <buttongroup name="folderbuttonsfilespacegroup" borders="right" layout="horizontal">
+                    <button name="showpart" action="togglefoldertree" icon="tollium:buttonbar/showpart" />
+                    <button name="folderup" action="goup" hinttid=".folderuphint" icon="tollium:actions/levelup" />
+                    <button name="folderpath2" icon="tollium:buttonbar/folderpath" />
                   </buttongroup>
                   <spacer />
-                  <select name="sortorderselect" onchange="onsortorderselectchange" type="pulldown" title="" rowkeytype="string" />
-
-                  <buttongroup layout="horizontal" borders="left right" name="sortbuttonsgroup">
+                  <select name="sortorderselect"
+                          type="pulldown"
+                          onchange="onsortorderselectchange"
+                          rowkeytype="string"
+                          title="" />
+                  <buttongroup name="sortbuttonsgroup" borders="left right" layout="horizontal">
                     <!-- <button name="enablesortingbutton" action="toggleordering" icon="tollium:buttonbar/setordering" type="icon" /> -->
-                    <button name="movetotopbutton" action="movetotop" icon="tollium:actions/to_top" type="icon" hinttid=".movetotopbutton" />
-                    <button name="moveupbutton" action="moveup" icon="tollium:actions/up" type="icon" hinttid=".moveupbutton" />
-                    <button name="movedownbutton" action="movedown" icon="tollium:actions/down" type="icon" hinttid=".movedownbutton"/>
-                    <button name="movetobottombutton" action="movetobottom" icon="tollium:actions/to_bottom" type="icon" hinttid=".movetobottombutton" />
+                    <button name="movetotopbutton"
+                            action="movetotop"
+                            hinttid=".movetotopbutton"
+                            icon="tollium:actions/to_top" />
+                    <button name="moveupbutton" action="moveup" hinttid=".moveupbutton" icon="tollium:actions/up" />
+                    <button name="movedownbutton" action="movedown" hinttid=".movedownbutton" icon="tollium:actions/down" />
+                    <button name="movetobottombutton"
+                            action="movetobottom"
+                            hinttid=".movetobottombutton"
+                            icon="tollium:actions/to_bottom" />
                   </buttongroup>
-                  <buttongroup layout="horizontal" borders="left">
-                    <button name="filelistmulti" action="setfilelistmulti" icon="tollium:buttonbar/showmultirow" type="icon" hinttid=".filelistmultihint" />
-                    <button name="filelistsingle" action="setfilelistsingle" icon="tollium:buttonbar/showsinglerow" type="icon" hinttid=".filelistsinglehint" />
+                  <buttongroup borders="left" layout="horizontal">
+                    <button name="filelistmulti"
+                            action="setfilelistmulti"
+                            hinttid=".filelistmultihint"
+                            icon="tollium:buttonbar/showmultirow" />
+                    <button name="filelistsingle"
+                            action="setfilelistsingle"
+                            hinttid=".filelistsinglehint"
+                            icon="tollium:buttonbar/showsinglerow" />
                   </buttongroup>
                 </line>
               </panel>
               <panel height="1pr">
                 <publisher:filelist name="filelist"
-                                    selectmode="multiple"
-                                    selectcontextmenu="listselectmenu"
+                                    width="1pr"
+                                    height="1pr"
+                                    borders="none"
+                                    columnheaders="true"
+                                    filteritems="filterlistitems"
+                                    flags="iswithinsite ispublished ispublish canpublish canpublishrecursive canchangetype canedit isfilelistitem ispinned ordering_first ordering_last issite canopen islinktype issubmittedforapproval"
+                                    foldertree="foldertree"
                                     newcontextmenu="newfilemenu"
                                     onselect="onlistselect"
-                                    onstatusclick="onliststatusclick"
                                     onsortorderchange="OnSortOrderChange"
-                                    height="1pr"
+                                    onstatusclick="onliststatusclick"
                                     openaction="open"
-                                    flags="iswithinsite ispublished ispublish canpublish canpublishrecursive canchangetype canedit isfilelistitem ispinned ordering_first ordering_last issite canopen islinktype issubmittedforapproval"
-                                    filteritems="filterlistitems"
-                                    showprotected="true"
-                                    columnheaders="true"
-                                    width="1pr"
                                     rowlayout="onerow"
-                                    borders="none"
-                                    foldertree="foldertree">
+                                    selectcontextmenu="listselectmenu"
+                                    selectmode="multiple"
+                                    showprotected="true">
                   <acceptdrops ondrop="ontypeddrop">
                     <!-- Accept desktop files dragged into the browser -->
-                    <acceptfile targetflags="!isroot isfolder canadd" requiretarget="0" />
+                    <acceptfile requiretarget="0" targetflags="!isroot isfolder canadd" />
+
                     <!-- Accept files and folders being moved to folders or without target (move to current folder) -->
-                    <accepttype type="system:whfsfile" targetflags="!isroot isfolder canadd" sourceflags="canmove" dropeffects="move" requiretarget="0" />
-                    <accepttype type="system:whfsfolder" targetflags="isfolder canadd" sourceflags="canmove" dropeffects="move" requiretarget="0" />
+                    <accepttype type="system:whfsfile"
+                                dropeffects="move"
+                                requiretarget="0"
+                                sourceflags="canmove"
+                                targetflags="!isroot isfolder canadd" />
+                    <accepttype type="system:whfsfolder"
+                                dropeffects="move"
+                                requiretarget="0"
+                                sourceflags="canmove"
+                                targetflags="isfolder canadd" />
+
                     <!-- Accept files and folders being copied to folders or without target (copy to current folder) -->
-                    <accepttype type="system:whfsfile" targetflags="!isroot isfolder canadd" dropeffects="copy" requiretarget="0" />
-                    <accepttype type="system:whfsfolder" targetflags="isfolder canadd" dropeffects="copy" requiretarget="0" />
+                    <accepttype type="system:whfsfile"
+                                dropeffects="copy"
+                                requiretarget="0"
+                                targetflags="!isroot isfolder canadd" />
+                    <accepttype type="system:whfsfolder" dropeffects="copy" requiretarget="0" targetflags="isfolder canadd" />
+
                     <!-- Accept files and folders being inserted before other objects or without target (move to end of list)
                          We currently don't support positional drops from external components, only drag and drop to reorder
                          within the filelist. Only items in the filelist have the 'isfilelistitem' flag set, so we'll use that
@@ -635,42 +684,49 @@
                          The 'false' flag prevents items from being added as subnodes of other items. Dragging to the end of
                          the list (appending to no target) is always allowed, regardless of appendchild flags.
                          These accepttypes are enabled/disabled dynamically, based on the selected sort order -->
-                    <accepttype type="system:whfsfile" locations="position" sourceflags="isfilelistitem" appendchildflags="false" dropeffects="move" requiretarget="0" />
-                    <accepttype type="system:whfsfolder" locations="position" sourceflags="isfilelistitem" appendchildflags="false" dropeffects="move" requiretarget="0" />
+                    <accepttype type="system:whfsfile"
+                                appendchildflags="false"
+                                dropeffects="move"
+                                locations="position"
+                                requiretarget="0"
+                                sourceflags="isfilelistitem" />
+                    <accepttype type="system:whfsfolder"
+                                appendchildflags="false"
+                                dropeffects="move"
+                                locations="position"
+                                requiretarget="0"
+                                sourceflags="isfilelistitem" />
                   </acceptdrops>
                 </publisher:filelist>
               </panel>
             </part>
           </split>
         </part>
-        <part width="1pr" spacers="none" name="previewbrowserpart">
+        <part name="previewbrowserpart" width="1pr" spacers="none">
           <publisher:previewbrowser name="previewbrowser" onpreviewedobjectchange="onpreviewedobjectchange" />
         </part>
       </split>
     </body>
   </screen>
 
-  <screen name="converttositedialog" gid=".converttosite" tid=".windowtitle" onunload="onunload">
+  <screen name="converttositedialog" footerbuttons="yes no" gid=".converttosite" onunload="onunload" tid=".windowtitle">
     <body>
       <grid height="30px">
         <col />
         <col />
         <row>
           <cell>
-            <image value="tollium:messageboxes/question" title="" width="48px" height="48px" name="icon" />
+            <image name="icon" width="48px" height="48px" title="" value="tollium:messageboxes/question" />
           </cell>
           <cell>
             <text name="message" title="" />
             <line layout="left">
-              <checkbox name="showprops" title="" public="true" labeltid=".showpropsafter" />
+              <checkbox name="showprops" labeltid=".showpropsafter" public="true" title="" />
             </line>
           </cell>
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="yes no" />
-    </footer>
   </screen>
 
 </screens>

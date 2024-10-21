@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="servicemanager.whlib"
-         gid="tolliumapps.dashboard.servicemanager">
+         gid="tolliumapps.dashboard.servicemanager"
+         library="servicemanager.whlib">
 
   <screen name="servicemanager">
     <actions>
@@ -14,6 +14,7 @@
         <enableon source="applist" min="1" checkflags="canenable enabled" />
       </action>
     </actions>
+
     <menus>
       <menu name="contextmenu">
         <item action="enable" disablemode="hidden" />
@@ -22,30 +23,31 @@
         <item action="restart" />
       </menu>
     </menus>
+
     <compositions>
       <eventlistener name="listener" masks="system:internal.apprunner.refresh" onevents="onapprunnerrefreshevent" />
     </compositions>
-    <body layout="form" height="1pr" spacers="none">
+
+    <body height="1pr" layout="form" spacers="none">
       <grid height="1pr">
         <col width="1pr" />
         <col />
-        <row height='1pr'>
+        <row height="1pr">
           <cell>
             <list name="applist"
-                  selectmode="single"
                   height="1pr"
+                  borders="right"
+                  flags="canenable enabled"
                   icons="tollium:status/checked tollium:status/serious_error tollium:status/negative tollium:status/neutral"
                   selectcontextmenu="contextmenu"
-                  flags="canenable enabled"
-                  borders="right"
-                  >
+                  selectmode="single">
               <column name="rowkey" type="text" width="30x" tid=".name" />
-              <column name="icon" type="icon" title=""/>
+              <column name="icon" type="icon" title="" />
               <column name="type" type="text" width="13x" />
               <column name="owner" type="text" width="21x" />
-              <column name="since"  type="datetime" precision="milliseconds" width="21x" storeutc="true" />
+              <column name="since" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
               <column name="lasterror" type="text" />
-              <column name="pid" type="text" align="right" width="10x" />
+              <column name="pid" type="text" width="10x" align="right" />
             </list>
           </cell>
           <cell spacers="left right top">

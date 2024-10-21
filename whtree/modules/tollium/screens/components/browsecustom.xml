@@ -1,10 +1,8 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="components/browsecustom.whlib"
-         gid="components.browsecustom">
+         gid="components.browsecustom"
+         library="/lib/components/browsecustom.whlib">
 
-  <fragment name="browsecustom"
-            gid=".browsecustom"
-            >
+  <fragment name="browsecustom" gid=".browsecustom">
     <actions>
       <action name="browse" onexecute="dobrowse" title="" />
       <action name="clear" onexecute="doclear" title="" />
@@ -12,8 +10,8 @@
     <contents>
       <line>
         <textedit name="titletext" enabled="false" hiderequiredifdisabled="false" />
-        <button name="browsebutton" action="browse" title="" icon="tollium:actions/edit" />
-        <button name="clearbutton" action="clear" title="" icon="tollium:actions/delete" />
+        <button name="browsebutton" action="browse" icon="tollium:actions/edit" title="" />
+        <button name="clearbutton" action="clear" icon="tollium:actions/delete" title="" />
       </line>
     </contents>
   </fragment>

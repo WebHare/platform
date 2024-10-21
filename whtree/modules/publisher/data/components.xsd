@@ -1,16 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<xs:schema
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:sc="http://www.webhare.net/xmlns/system/common"
-  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns="http://www.webhare.net/xmlns/publisher/components"
-  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  targetNamespace="http://www.webhare.net/xmlns/publisher/components"
-  xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-  elementFormDefault="qualified"
-  xml:lang="en">
+<xs:schema xmlns="http://www.webhare.net/xmlns/publisher/components"
+           xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+           xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
+           xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           targetNamespace="http://www.webhare.net/xmlns/publisher/components"
+           xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
@@ -25,33 +22,38 @@
   <xs:element name="foldertree" type="FolderTree">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" fragment="components.foldertree" />
+        <tai:tolliumcomponent fragment="components.foldertree" placement="block" />
         <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
+
   <xs:element name="filelist" type="FileList">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" fragment="components.filelist" />
+        <tai:tolliumcomponent fragment="components.filelist" placement="block" />
         <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
-  <xs:element name="browseforobject" type="BrowseForObject">
-  </xs:element>
+
+  <xs:element name="browseforobject" type="BrowseForObject" />
+
   <xs:element name="thumbnailview" type="ThumbnailView">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" fragment="components.thumbnailview" />
+        <tai:tolliumcomponent fragment="components.thumbnailview" placement="block" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
+
   <xs:element name="whfsrefcolumn" type="WHFSRefColumn" />
+
   <xs:element name="browseforobjectarray" type="BrowseForObjectArray">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" objecttype="/lib/components/browseforobjectarray.whlib#PublisherBrowseForObjectArray" />
+        <tai:tolliumcomponent objecttype="/lib/components/browseforobjectarray.whlib#PublisherBrowseForObjectArray"
+                              placement="block" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -59,7 +61,7 @@
   <xs:element name="previewbrowser">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/previewbrowser.xml#previewbrowser" />
+        <tai:tolliumcomponent fragment="/tolliumcomponents/previewbrowser.xml#previewbrowser" placement="block" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -67,7 +69,7 @@
       <xs:attribute name="onpreviewedobjectchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature arguments="integer string"/>
+            <tai:callbacksignature arguments="integer string" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -77,14 +79,16 @@
   <xs:element name="sharedblocks">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" fragment="components/sharedblocks.sharedblocks" validator="mod::publisher/lib/screens/components/sharedblocks.whlib#ValidateSharedBlocks" />
-        <tai:extraparser field="sources" type="s:array" target="./p:source" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
+        <tai:tolliumcomponent fragment="components/sharedblocks.sharedblocks"
+                              placement="block"
+                              validator="mod::publisher/lib/screens/components/sharedblocks.whlib#ValidateSharedBlocks" />
+        <tai:extraparser type="s:array" field="sources" target="./p:source" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
-      <xs:sequence> <!-- FIXME: source is deprecated. use a library -->
-        <xs:element ref="source" minOccurs="0" maxOccurs="unbounded">
-        </xs:element>
+      <xs:sequence>
+        <!-- FIXME: source is deprecated. use a library -->
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="source" />
       </xs:sequence>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -93,14 +97,15 @@
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature/>
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="source"> <!-- ADDME can't we avoid having to declare this top level? we don't really want a p:source component -->
+  <xs:element name="source">
+    <!-- ADDME can't we avoid having to declare this top level? we don't really want a p:source component -->
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent />
@@ -112,26 +117,24 @@
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="whfsinstance" type="WHFSInstance">
-  </xs:element>
-  <xs:element name="whfsinstanceoptions" type="WHFSInstanceOptions">
-  </xs:element>
-  <xs:element name="fsobjects" type="FSObjects">
-  </xs:element>
-  <xs:element name="fslibrary" type="FSLibrary">
-  </xs:element>
-  <xs:element name="internallinks" type="InternalLinks">
-  </xs:element>
+  <xs:element name="whfsinstance" type="WHFSInstance" />
+
+  <xs:element name="whfsinstanceoptions" type="WHFSInstanceOptions" />
+
+  <xs:element name="fsobjects" type="FSObjects" />
+
+  <xs:element name="fslibrary" type="FSLibrary" />
+
+  <xs:element name="internallinks" type="InternalLinks" />
 
   <xs:complexType name="WHFSInstance">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/whfsinstance.whlib#WHFSInstance" />
+        <tai:tolliumcomponent objecttype="/lib/components/whfsinstance.whlib#WHFSInstance" placement="composition" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:CompositionBase" />
     <xs:attributeGroup ref="tc:IsComposable" />
-
     <xs:attribute name="typedef" type="xs:string" />
     <xs:attribute name="fsobject" type="tc:ComponentRef">
       <xs:annotation>
@@ -140,14 +143,14 @@
     </xs:attribute>
   </xs:complexType>
 
-
   <xs:complexType name="WHFSInstanceOptions">
     <xs:annotation>
       <xs:appinfo>
         <xs:documentation>
           This option source can be used to use an array member from an instance as options for a select.
         </xs:documentation>
-        <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/whfsinstanceoptions.whlib#WHFSInstanceOptions" />
+        <tai:tolliumcomponent objecttype="/lib/components/whfsinstanceoptions.whlib#WHFSInstanceOptions"
+                              placement="optionsource" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -291,7 +294,7 @@
   <xs:complexType name="FSObjects">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSObjects" />
+        <tai:tolliumcomponent objecttype="/lib/components/fsobjects.whlib#FSObjects" placement="optionsource" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -317,7 +320,7 @@
   <xs:complexType name="FSLibrary">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSLibrary" />
+        <tai:tolliumcomponent objecttype="/lib/components/fsobjects.whlib#FSLibrary" placement="optionsource" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -335,7 +338,7 @@
   <xs:complexType name="InternalLinks">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="rte" objecttype="/lib/components/internallinks.whlib#InternalLinks" />
+        <tai:tolliumcomponent objecttype="/lib/components/internallinks.whlib#InternalLinks" placement="rte" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -344,10 +347,9 @@
   <!-- ADDME: Description of the attributes -->
   <xs:complexType name="FolderTree">
     <xs:sequence>
-      <xs:element ref="s:acceptdrops" minOccurs="0" maxOccurs="1" />
+      <xs:element minOccurs="0" maxOccurs="1" ref="s:acceptdrops" />
     </xs:sequence>
     <xs:attributeGroup ref="tc:ComponentBase" />
-
     <xs:attribute name="selectmode" type="s:SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
@@ -372,14 +374,14 @@
     <xs:attribute name="selectcontextmenu" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          The name of the menu to show when right-clicking on events (as defined in a &lt;menu>).
+          The name of the menu to show when right-clicking on events (as defined in a &lt;menu&gt;).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="newcontextmenu" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).
+          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu&gt;).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -423,7 +425,7 @@
     <xs:attribute name="filteritems" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
+          <tai:callbacksignature arguments="recordarray" returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           A callback function to filter out items or add extra fields (like user-defined flags)
@@ -478,24 +480,22 @@
         <xs:list>
           <xs:simpleType>
             <xs:restriction base="xs:string">
-              <xs:enumeration value="expanded"/>
-              <xs:enumeration value="selection"/>
+              <xs:enumeration value="expanded" />
+              <xs:enumeration value="selection" />
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
       </xs:simpleType>
     </xs:attribute>
-
     <xs:attributeGroup ref="s:ListBorders" />
   </xs:complexType>
 
   <xs:complexType name="FileList">
     <xs:sequence>
-      <xs:element ref="s:acceptdrops" minOccurs="0" maxOccurs="1" />
+      <xs:element minOccurs="0" maxOccurs="1" ref="s:acceptdrops" />
     </xs:sequence>
     <xs:attributeGroup ref="tc:ComponentBase" />
     <xs:attributeGroup ref="FSContentsOverviewOptions" />
-
     <xs:attribute name="selectmode" type="s:SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
@@ -520,14 +520,14 @@
     <xs:attribute name="selectcontextmenu" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          The name of the menu to show when right-clicking on events (as defined in a &lt;menu>).
+          The name of the menu to show when right-clicking on events (as defined in a &lt;menu&gt;).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="newcontextmenu" type="tc:ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu>).
+          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu&gt;).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -621,7 +621,7 @@
     <xs:attribute name="filteritems" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
+          <tai:callbacksignature arguments="recordarray" returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <!-- FIXME: Doc -->
@@ -648,8 +648,8 @@
     <xs:attribute name="rowlayout" default="onerow">
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="onerow"/>
-          <xs:enumeration value="tworows"/>
+          <xs:enumeration value="onerow" />
+          <xs:enumeration value="tworows" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
@@ -663,8 +663,8 @@
         <xs:list>
           <xs:simpleType>
             <xs:restriction base="xs:string">
-              <xs:enumeration value="expanded"/>
-              <xs:enumeration value="selection"/>
+              <xs:enumeration value="expanded" />
+              <xs:enumeration value="selection" />
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
@@ -677,12 +677,12 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/intextlink.xml#intextlink" />
-          <tai:extraparser field="linkhandlers" type="s:bodynode" target="./s:linkhandlers" />
+          <tai:tolliumcomponent fragment="/tolliumcomponents/intextlink.xml#intextlink" placement="inline" />
+          <tai:extraparser type="s:bodynode" field="linkhandlers" target="./s:linkhandlers" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
-        <xs:element ref="s:linkhandlers" minOccurs="0" maxOccurs="1" />
+        <xs:element minOccurs="0" maxOccurs="1" ref="s:linkhandlers" />
       </xs:sequence>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="tc:IsDirtyable" />
@@ -697,16 +697,14 @@
     </xs:complexType>
   </xs:element>
 
-
   <xs:element name="intextlinkcolumn">
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/intextlinkcolumn.whlib#IntExtLinkColumn" />
-          <tai:fixedfield field="type" type="xs:string" value="text" />
+          <tai:tolliumcomponent objecttype="/lib/components/intextlinkcolumn.whlib#IntExtLinkColumn" placement="listcolumn" />
+          <tai:fixedfield type="xs:string" field="type" value="text" />
         </xs:appinfo>
       </xs:annotation>
-
       <xs:attributeGroup ref="tc:ListColumnBase" />
     </xs:complexType>
   </xs:element>
@@ -720,7 +718,6 @@
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
-
 
   <!-- Common options for <browseforobject>, <browseforobjectarray>, <thumbnailview>
        used to determine which file/folder objects to allow for selection
@@ -757,20 +754,16 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
   </xs:attributeGroup>
-
-
 
   <xs:complexType name="BrowseForObject">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" fragment="components.browseforobject" />
+        <tai:tolliumcomponent fragment="components.browseforobject" placement="inline" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComposableComponentBase" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
-
     <xs:attributeGroup ref="BrowseFilterOptions" />
 
     <!--
@@ -820,9 +813,7 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attributeGroup ref="sc:Required" />
-
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
@@ -876,11 +867,8 @@
     </xs:attribute>
   </xs:complexType>
 
-
-
   <xs:complexType name="ThumbnailView">
     <xs:attributeGroup ref="tc:ComponentBase" />
-
     <xs:attributeGroup ref="BrowseFilterOptions" />
     <xs:attributeGroup ref="FSContentsOverviewOptions" />
 
@@ -899,7 +887,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attribute name="selectmode" type="s:SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
@@ -938,7 +925,7 @@
         <xs:documentation>
 
             The onselect event will fire when the selection changes.
-            (use ->value or ->selection to read what was selected)
+            (use -&gt;value or -&gt;selection to read what was selected)
 
         </xs:documentation>
       </xs:annotation>
@@ -950,21 +937,16 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
   </xs:complexType>
-
-
 
   <xs:complexType name="WHFSRefColumn">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/whfsrefcolumn.whlib#WHFSRefColumn" />
-        <tai:fixedfield field="type" type="xs:string" value="text" />
+        <tai:tolliumcomponent objecttype="/lib/components/whfsrefcolumn.whlib#WHFSRefColumn" placement="listcolumn" />
+        <tai:fixedfield type="xs:string" field="type" value="text" />
       </xs:appinfo>
     </xs:annotation>
-
     <xs:attributeGroup ref="tc:ListColumnBase" />
-
     <xs:attribute name="display">
       <xs:annotation>
         <xs:documentation>
@@ -975,13 +957,12 @@
       </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="title"/>
-          <xs:enumeration value="name"/>
-          <xs:enumeration value="path"/>
+          <xs:enumeration value="title" />
+          <xs:enumeration value="name" />
+          <xs:enumeration value="path" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-
     <xs:attribute name="checkboxname" type="s:Name">
       <xs:annotation>
         <xs:documentation>
@@ -991,7 +972,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attribute name="checkboxvisible" type="s:Name">
       <xs:annotation>
         <xs:documentation>
@@ -1001,7 +981,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attribute name="align" type="s:HorizontalAlignment" default="left">
       <xs:annotation>
         <xs:documentation>
@@ -1011,7 +990,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attribute name="style" type="xs:string">
       <xs:annotation>
         <xs:documentation>
@@ -1021,21 +999,15 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
   </xs:complexType>
-
-
 
   <xs:complexType name="BrowseForObjectArray">
     <xs:attributeGroup ref="tc:ComposableComponentBase" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
-
     <xs:attributeGroup ref="sc:Gid" />
     <xs:attribute name="emptytid" type="sc:Tid" />
     <xs:attribute name="empty" type="xs:string" />
-
     <xs:attributeGroup ref="BrowseFilterOptions" />
-
     <xs:attribute name="browsetype" type="xs:string" default="list">
       <xs:annotation>
         <xs:documentation>
@@ -1043,7 +1015,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attribute name="sortable" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
@@ -1080,7 +1051,6 @@
     <xs:attribute name="description" type="xs:string" />
     -->
     <xs:attributeGroup ref="sc:Required" />
-
     <xs:attribute name="errorlabeltid" type="sc:Tid">
       <xs:annotation>
         <xs:documentation>
@@ -1095,7 +1065,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
@@ -1138,13 +1107,11 @@
     </xs:attribute>
   </xs:complexType>
 
-
-
   <xs:element name="embedvideo">
     <xs:annotation>
       <xs:documentation>Search for video and offers the accompanying metadata as an embedvideo instance</xs:documentation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/embedvideo.xml#embedvideocomponent" />
+        <tai:tolliumcomponent fragment="/tolliumcomponents/embedvideo.xml#embedvideocomponent" placement="inline" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -1168,20 +1135,16 @@
     </xs:complexType>
   </xs:element>
 
-
-
   <xs:element name="managedtagedit">
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="components.managedtagedit" />
+          <tai:tolliumcomponent fragment="components.managedtagedit" placement="inline" />
         </xs:appinfo>
       </xs:annotation>
-
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="tc:IsDirtyable" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
-
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
@@ -1189,12 +1152,9 @@
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
-
       <xs:attribute name="autocreate" type="xs:boolean" />
       <xs:attribute name="taglibrary" type="xs:string" />
-
       <xs:attribute name="allowmultiple" type="xs:boolean" />
-
       <xs:attribute name="placeholder" type="xs:string">
         <xs:annotation>
           <xs:documentation>
@@ -1202,7 +1162,6 @@
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
-
       <xs:attribute name="placeholdertid" type="sc:Tid">
         <xs:annotation>
           <xs:documentation>
@@ -1217,17 +1176,16 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="components.formcondition" />
+          <tai:tolliumcomponent fragment="components.formcondition" placement="inline" />
         </xs:appinfo>
       </xs:annotation>
-
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="tc:IsDirtyable" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature/>
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -1249,7 +1207,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="components.singleformcondition" />
+          <tai:tolliumcomponent fragment="components.singleformcondition" placement="inline" />
         </xs:appinfo>
       </xs:annotation>
     </xs:complexType>
@@ -1259,8 +1217,8 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/formcondition.whlib#FormConditionColumn" />
-          <tai:fixedfield field="type" type="xs:string" value="text" />
+          <tai:tolliumcomponent objecttype="/lib/components/formcondition.whlib#FormConditionColumn" placement="listcolumn" />
+          <tai:fixedfield type="xs:string" field="type" value="text" />
         </xs:appinfo>
       </xs:annotation>
 
@@ -1276,16 +1234,13 @@
           This is an internal component used by Publisher search
         </xs:documentation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="block" fragment="/tolliumapps/filemanager/search.xml#searchfilter" />
+          <tai:tolliumcomponent fragment="/tolliumapps/filemanager/search.xml#searchfilter" placement="block" />
         </xs:appinfo>
       </xs:annotation>
-
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="tc:IsDirtyable" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
-
       <xs:attribute name="type" type="xs:string" />
-
       <xs:attribute name="matchtype" type="xs:string" />
       <xs:attribute name="textquery" type="xs:string" />
       <xs:attribute name="datequeryperiod" type="xs:integer" default="999999" />
@@ -1299,7 +1254,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="block" fragment="mod::publisher/tolliumapps/forum/components.xml#postings" />
+          <tai:tolliumcomponent fragment="mod::publisher/tolliumapps/forum/components.xml#postings" placement="block" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />
@@ -1309,7 +1264,8 @@
   <xs:element name="selectmailtemplate">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" fragment="mod::publisher/tolliumcomponents/siteprofcomps.xml#selectmailtemplate" />
+        <tai:tolliumcomponent fragment="mod::publisher/tolliumcomponents/siteprofcomps.xml#selectmailtemplate"
+                              placement="inline" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -1322,7 +1278,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/snippet.xml#snippet" />
+          <tai:tolliumcomponent fragment="/tolliumcomponents/snippet.xml#snippet" placement="inline" />
         </xs:appinfo>
         <xs:documentation>
           A snippet selection component
@@ -1338,7 +1294,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/slot.xml#dcslot" />
+          <tai:tolliumcomponent fragment="/tolliumcomponents/slot.xml#dcslot" placement="inline" />
         </xs:appinfo>
         <xs:documentation>
           A slot selection component
@@ -1347,8 +1303,8 @@
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
       <xs:attributeGroup ref="sc:Required" />
-      <xs:attribute name="slottypes" use="required" >
-        <xs:simpleType >
+      <xs:attribute name="slottypes" use="required">
+        <xs:simpleType>
           <xs:list itemType="xs:string" />
         </xs:simpleType>
       </xs:attribute>
@@ -1359,7 +1315,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/beacon.xml#dcbeacon" />
+          <tai:tolliumcomponent fragment="/tolliumcomponents/beacon.xml#dcbeacon" placement="inline" />
         </xs:appinfo>
         <xs:documentation>
           A beacon selection component
@@ -1397,12 +1353,12 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/conditionedit.xml#conditionedit" />
-          <tai:extraparser field="types" type="s:array" target="./p:conditiontype" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
+          <tai:tolliumcomponent fragment="/tolliumcomponents/conditionedit.xml#conditionedit" placement="block" />
+          <tai:extraparser type="s:array" field="types" target="./p:conditiontype" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
-        <xs:element ref="conditiontype" minOccurs="1" maxOccurs="unbounded" />
+        <xs:element minOccurs="1" maxOccurs="unbounded" ref="conditiontype" />
       </xs:sequence>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="sc:Required" />
@@ -1429,7 +1385,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/conditionedit.xml#condition" />
+          <tai:tolliumcomponent fragment="/tolliumcomponents/conditionedit.xml#condition" placement="inline" />
         </xs:appinfo>
       </xs:annotation>
     </xs:complexType>
@@ -1442,7 +1398,7 @@
           <tai:tolliumcomponent />
         </xs:appinfo>
       </xs:annotation>
-      <xs:attribute name="name" type="sc:Name" use="required" />  <!--ADDME: Prohibit use of "and", "or", "not"? -->
+      <xs:attribute name="name" type="sc:Name" use="required" />  <!-- ADDME: Prohibit use of "and", "or", "not"? -->
       <xs:attributeGroup ref="sc:TidOrTitle" />
       <xs:attribute name="fragment" type="tc:ScreenFragmentReference" use="required" />
     </xs:complexType>
@@ -1452,7 +1408,7 @@
     <xs:annotation>
       <xs:documentation>Wraps a fsobject, usually the one being added/edited</xs:documentation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="composition" objecttype="/tolliumcomponents/fsobject.whlib#fsobject" />
+        <tai:tolliumcomponent objecttype="/tolliumcomponents/fsobject.whlib#fsobject" placement="composition" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

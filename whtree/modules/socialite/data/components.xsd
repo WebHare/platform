@@ -1,43 +1,38 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<xs:schema
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:sc="http://www.webhare.net/xmlns/system/common"
-  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns="http://www.webhare.net/xmlns/socialite/components"
-  targetNamespace="http://www.webhare.net/xmlns/socialite/components"
-  xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"
-  elementFormDefault="qualified"
-  xml:lang="en">
+<xs:schema xmlns="http://www.webhare.net/xmlns/socialite/components"
+           xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"
+           xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
+           xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           targetNamespace="http://www.webhare.net/xmlns/socialite/components"
+           xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
 
   <xs:simpleType name="NonEmptyString">
     <xs:restriction base="xs:string">
-      <xs:pattern value=".+"/>
+      <xs:pattern value=".+" />
     </xs:restriction>
   </xs:simpleType>
-
 
   <!--
 
   New generic video components
 
   -->
-
   <xs:element name="map">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="block" objecttype="/lib/screens/components/map.whlib#GoogleMapComponent" />
-        <tai:extraparser field="icons" type="s:array" target="./socialite:icon" />
+        <tai:tolliumcomponent objecttype="/lib/screens/components/map.whlib#GoogleMapComponent" placement="block" />
+        <tai:extraparser type="s:array" field="icons" target="./socialite:icon" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
       <xs:sequence>
-        <xs:element ref="icon" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="icon" />
       </xs:sequence>
       <xs:attributeGroup ref="tc:ComponentBase" />
       <xs:attribute name="maptype" type="xs:string" default="map" />
@@ -62,21 +57,21 @@
       <xs:attribute name="onmove" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature  />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onzoom" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature  />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onselect" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature  />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -104,8 +99,8 @@
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
-      <xs:attribute name="name" type="NonEmptyString" use="required"/>
-      <xs:attribute name="icon" type="NonEmptyString" use="required"/>
+      <xs:attribute name="name" type="NonEmptyString" use="required" />
+      <xs:attribute name="icon" type="NonEmptyString" use="required" />
       <xs:attribute name="shadow" type="xs:string" />
       <xs:attribute name="anchor_x" type="xs:integer" />
       <xs:attribute name="anchor_y" type="xs:integer" />
@@ -121,7 +116,7 @@
   <xs:element name="locationedit">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" objecttype="/lib/screens/components/locationedit.whlib#GoogleLocationEdit" />
+        <tai:tolliumcomponent objecttype="/lib/screens/components/locationedit.whlib#GoogleLocationEdit" placement="inline" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

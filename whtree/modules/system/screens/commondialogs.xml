@@ -1,30 +1,37 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/commondialogs.whlib"
-         xmlns:system="http://www.webhare.net/xmlns/system/components"
-         xmlns:email="http://www.webhare.net/xmlns/system/email">
+         xmlns:email="http://www.webhare.net/xmlns/system/email"
+         library="/lib/screens/commondialogs.whlib">
 
-  <screen name="mailer" gid="commondialogs.mailer" tid=".title" width="850px" height="650px" allowresize="true" savestate="size" defaultbutton="send">
+  <screen name="mailer"
+          width="850px"
+          height="650px"
+          allowresize="true"
+          defaultbutton="send"
+          gid="commondialogs.mailer"
+          savestate="size"
+          tid=".title">
     <actions>
       <action name="send" onexecute="submit" />
-      <action name="abort" onexecute="cancel" tid="~cancel"/>
+      <action name="abort" onexecute="cancel" tid="~cancel" />
     </actions>
 
     <body>
       <panel layout="form" spacers="bottom">
-        <textedit name="mailerfrom" required="true" width="1pr" validationchecks="name-email-maysendfrom" />
-        <textedit name="mailerto" required="true" width="1pr" validationchecks="name-emails-maysendto" />
+        <textedit name="mailerfrom" width="1pr" required="true" validationchecks="name-email-maysendfrom" />
+        <textedit name="mailerto" width="1pr" required="true" validationchecks="name-emails-maysendto" />
         <textedit name="mailercc" width="1pr" validationchecks="name-emails-maysendto" />
         <textedit name="mailerbcc" width="1pr" validationchecks="name-emails-maysendto" />
-        <textedit name="mailersubject" required="true" width="1pr" />
+        <textedit name="mailersubject" width="1pr" required="true" />
       </panel>
-      <richarea type="email" name="textareahtml" height="1pr" />
+      <richarea name="textareahtml" type="email" height="1pr" />
       <panel spacers="top" />
-      <email:attachments name="attachments" height="7x" /> <!-- spacers="top" -->
+      <email:attachments name="attachments" height="7x" />  <!-- spacers="top" -->
     </body>
+
     <footer>
       <line layout="right">
-        <button action="send" name="sendbutton" tid=".send" />
-        <button action="abort"/>
+        <button name="sendbutton" action="send" tid=".send" />
+        <button action="abort" />
       </line>
     </footer>
   </screen>

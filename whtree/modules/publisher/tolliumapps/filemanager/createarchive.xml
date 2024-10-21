@@ -1,34 +1,29 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="createarchive.whlib"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.filemanager.createarchive"
-         >
+         library="createarchive.whlib">
 
-  <screen name="createarchivefile" gid=".dialog" title="">
+  <screen name="createarchivefile" footerbuttons="ok cancel" gid=".dialog" title="">
     <body layout="left">
       <heading tid=".fileformat" />
-      <select type="radio" name="fileformat" onchange="onfileformatchange" title="">
+      <select name="fileformat" type="radio" onchange="onfileformatchange" title="">
         <option rowkey="zip" />
         <option rowkey="webhare" />
       </select>
       <heading name="subfolders" />
-      <select type="radio" rowkeytype="boolean" name="recursive" visible="false"  title="" >
-        <option rowkey="true" tid=".recursive"/>
-        <option rowkey="false" tid=".notrecursive"/>
+      <select name="recursive" type="radio" rowkeytype="boolean" title="" visible="false">
+        <option rowkey="true" tid=".recursive" />
+        <option rowkey="false" tid=".notrecursive" />
       </select>
       <heading tid=".fileaction" />
-      <select type="radio" name="fileaction" onchange="onfileactionchange" title="">
+      <select name="fileaction" type="radio" onchange="onfileactionchange" title="">
         <option rowkey="savefile" tid=".savefile">
-          <publisher:browseforobject name="savelocation" title="" acceptfiles="false" showclear="false" required="true" />
+          <publisher:browseforobject name="savelocation" acceptfiles="false" required="true" showclear="false" title="" />
         </option>
         <option rowkey="downloadfile" tid=".downloadfile" />
       </select>
-      <textedit name="filename" required="true" width="1pr" />
-
+      <textedit name="filename" width="1pr" required="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

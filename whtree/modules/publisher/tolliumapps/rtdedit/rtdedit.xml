@@ -1,14 +1,12 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="rtdedit.whlib"
-         gid="tolliumapps.rtedit">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.rtedit" library="rtdedit.whlib">
 
   <screen name="richdoc" title="">
     <compositions>
       <dirtylistener name="dirtylistener" ondirty="ondirty" />
     </compositions>
+
     <body>
-      <richdocument name="rte" width="1pr" height="1pr" dirtylistener="dirtylistener" borders="none" />
+      <richdocument name="rte" width="1pr" height="1pr" borders="none" dirtylistener="dirtylistener" />
     </body>
   </screen>
 

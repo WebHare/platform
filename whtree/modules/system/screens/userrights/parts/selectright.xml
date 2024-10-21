@@ -1,20 +1,17 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
-         xmlns:system="http://www.webhare.net/xmlns/system/components">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
 
   <!-- select right -->
-  <fragment name="selectright" lib="screens/userrights/parts/selectright.whlib" gid="userrights.commondialogs.rights">
-
+  <fragment name="selectright" gid="userrights.commondialogs.rights" lib="screens/userrights/parts/selectright.whlib">
     <contents>
-      <box name="grantbox" tid=".grant" hr="false">
-        <text name="grantcreationdate" visible="false" tid=".grantdatetime" />
-        <text name="grantgrantor" visible="false" tid=".grantor" />
+      <box name="grantbox" hr="false" tid=".grant">
+        <text name="grantcreationdate" tid=".grantdatetime" visible="false" />
+        <text name="grantgrantor" tid=".grantor" visible="false" />
         <text name="rightsgroup" visible="false" />
         <text name="objectpath" visible="false" />
         <text name="singleright" visible="false" />
         <select name="rightslist" type="pulldown" onchange="onrightselect" />
         <line layout="left">
-          <checkbox name="grantwithgrantoption" title="" labeltid=".withgrantoption"/>
+          <checkbox name="grantwithgrantoption" labeltid=".withgrantoption" title="" />
         </line>
       </box>
     </contents>

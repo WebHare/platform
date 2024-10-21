@@ -1,12 +1,10 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="texteditor.whlib"
-         gid="tolliumapps.texteditor">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.texteditor" library="texteditor.whlib">
 
   <screen name="texteditor" title="">
     <compositions>
       <dirtylistener name="dirtylistener" ondirty="ondirty" />
     </compositions>
+
     <body>
       <codeedit name="code" width="1pr" height="1pr" dirtylistener="dirtylistener" />
     </body>

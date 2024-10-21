@@ -1,4 +1,6 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tollium:components.imgedit" lib="components/imgedit.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tollium:components.imgedit"
+         library="/lib/components/imgedit.whlib">
 
   <fragment name="tolliumimgedit">
     <actions>
@@ -36,37 +38,23 @@
                   <text width="1pr" title="" />
                   <buttongroup borders="left" layout="horizontal">
                     <button name="uploadbutton"
-                            type="icon"
                             action="act_upload"
                             hinttid=".add_image"
                             icon="tollium:filemgr/uploadfile"
                             title="" />
                     <button name="publisherbutton"
-                            type="icon"
                             action="act_publisher"
                             hinttid=".select_image"
                             icon="tollium:actions/open"
                             title="" />
                     <button name="medialibrarybutton"
-                            type="icon"
                             action="act_medialibrary"
                             hinttid=".media_library"
                             icon="tollium:folders/photoalbum"
                             title="" />
-                    <button name="editbutton"
-                            type="icon"
-                            action="edit"
-                            hinttid=".edit_image"
-                            icon="tollium:actions/edit"
-                            title="" />
-                    <button name="clearbutton"
-                            type="icon"
-                            action="clear"
-                            hinttid=".clear_image"
-                            icon="tollium:actions/delete"
-                            title="" />
+                    <button name="editbutton" action="edit" hinttid=".edit_image" icon="tollium:actions/edit" title="" />
+                    <button name="clearbutton" action="clear" hinttid=".clear_image" icon="tollium:actions/delete" title="" />
                     <button name="otherbutton"
-                            type="icon"
                             hinttid=".other_actions"
                             icon="tollium:objects/ellipsis"
                             menu="otheractions"
@@ -96,14 +84,13 @@
               <panel height="1pr" layout="left" spacers="all">
                 <line>
                   <text name="imagedimensionsheader" title="" valuetid=".imagedimensions" />
-                  <spacer width="1pr"/>
-                  <image action="closeinfopanel" width="16px" height="16px" value="tollium:actions/delete"/>
+                  <spacer width="1pr" />
+                  <image width="16px" height="16px" action="closeinfopanel" value="tollium:actions/delete" />
                 </line>
-
-                <text name="imagedimensions" title="" wordwrap="true"/>
+                <text name="imagedimensions" title="" wordwrap="true" />
                 <text />
                 <heading name="moreinformationheader" tid=".moreinformation" />
-                <text name="moreinformation" title="" wordwrap="true"/>
+                <text name="moreinformation" title="" wordwrap="true" />
               </panel>
             </panel>
           </tab>

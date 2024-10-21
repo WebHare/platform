@@ -1,13 +1,18 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/sysmgmt/filesystem.whlib"
-         gid="sysmgmt"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="sysmgmt" library="/lib/screens/sysmgmt/filesystem.whlib">
 
-  <screen name="filesystem" gid=".filesystem" tid=".title" icon="tollium:filemgr/mydocuments" minwidth="400px" minheight="350px" allowresize="true" savestate="size">
+  <screen name="filesystem"
+          minwidth="400px"
+          minheight="350px"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".filesystem"
+          icon="tollium:filemgr/mydocuments"
+          savestate="size"
+          tid=".title">
     <body>
       <box name="publication">
         <line>
-          <textedit name="maxpublishtime" valuetype="integer" minvalue="60" maxvalue="1000000" width="8x" emptyvalue="0" />
+          <textedit name="maxpublishtime" width="8x" minvalue="60" maxvalue="1000000" emptyvalue="0" valuetype="integer" />
           <text valuetid="tollium:common.units.seconds" />
         </line>
         <select name="queueloglevel" type="pulldown" rowkeytype="integer">
@@ -17,21 +22,17 @@
         </select>
         <textedit name="defaultcontentlisting" width="1pr" />
       </box>
-
       <box name="trashcan">
         <line>
-          <textedit name="trashcanexpire" valuetype="integer" minvalue="0" maxvalue="1000000" width="8x" />
+          <textedit name="trashcanexpire" width="8x" minvalue="0" maxvalue="1000000" valuetype="integer" />
           <text valuetid="tollium:common.units.days" />
         </line>
         <line>
-          <textedit name="trashcanmaxsize" valuetype="integer" minvalue="0" maxvalue="1000000" width="8x" />
+          <textedit name="trashcanmaxsize" width="8x" minvalue="0" maxvalue="1000000" valuetype="integer" />
           <text value="MB" />
         </line>
       </box>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

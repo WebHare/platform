@@ -1,27 +1,28 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/commondialogs/urlhistory.whlib"
-         gid="urlhistory">
+         gid="urlhistory"
+         library="/lib/screens/commondialogs/urlhistory.whlib">
 
-  <screen name="urlhistory" tid=".screentitle" allowresize="true" width="100x" height="23x">
+  <screen name="urlhistory" width="100x" height="23x" allowresize="true" tid=".screentitle">
     <actions>
-      <action name="bulkimport" onexecute="dobulkimport"/>
+      <action name="bulkimport" onexecute="dobulkimport" />
     </actions>
+
     <compositions>
       <record name="entries" />
     </compositions>
+
     <body>
-      <!--line layout="left">
+      <!-- line layout="left">
         <text width="1pr" wordwrap="true" title="" valuetid=".urlhistory_explain"/>
-      </line-->
-      <listedit name="history"
-                composition="entries"
-                ongetchildren="getchildren"
-                onrowedit="dorowedit"
-                onrowdelete="dorowdelete"
-                buttons="add edit delete"
+      </line -->
+      <listedit composition="entries"
+                name="history"
                 width="1pr"
-                height="1pr">
+                height="1pr"
+                buttons="add edit delete"
+                ongetchildren="getchildren"
+                onrowdelete="dorowdelete"
+                onrowedit="dorowedit">
         <!-- FIXME: ListEdit & ArrayEdit don't support selectmode="multiple" yet; wire that up and have a good hard look at the APIs supporting it.
                 onrowsdelete="dorowsdelete"
         -->
@@ -29,37 +30,44 @@
         <column name="date" type="datetime" width="16x" storeutc="true" />
       </listedit>
     </body>
+
     <footer>
       <grid>
         <cell width="1pr">
           <button action="bulkimport" />
         </cell>
         <cell>
-          <defaultformbuttons buttons="close"/>
+          <defaultformbuttons buttons="close" />
         </cell>
       </grid>
     </footer>
   </screen>
 
-  <screen name="editurlhistoryentrydlg" tid=".editscreentitle" allowresize="true" savestate="size">
+  <screen name="editurlhistoryentrydlg" allowresize="true" footerbuttons="ok cancel" savestate="size" tid=".editscreentitle">
     <body>
-      <textedit name="url" required="true" width="1pr" validationchecks="url" minwidth="80x" placeholdertid="tollium:common.examples.https-url"/>
+      <textedit name="url"
+                width="1pr"
+                minwidth="80x"
+                placeholdertid="tollium:common.examples.https-url"
+                required="true"
+                validationchecks="url" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="inputbulkhistorydlg" tid=".screentitle" allowresize="true" minwidth="100x" minheight="9x" height="16x" savestate="size">
+  <screen name="inputbulkhistorydlg"
+          height="16x"
+          minwidth="100x"
+          minheight="9x"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          savestate="size"
+          tid=".screentitle">
     <body>
       <line layout="left">
-        <text title="" valuetid=".explanation" width="1pr" wordwrap="true"/>
+        <text width="1pr" title="" valuetid=".explanation" wordwrap="true" />
       </line>
-      <textarea name="urls" required="true" width="1pr" height="1pr" placeholdertid="tollium:common.examples.https-url"/>
+      <textarea name="urls" width="1pr" height="1pr" placeholdertid="tollium:common.examples.https-url" required="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

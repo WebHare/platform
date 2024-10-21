@@ -1,21 +1,16 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/sysmgmt/remoting.whlib"
-         gid="sysmgmt.remoting">
+         gid="sysmgmt.remoting"
+         library="/lib/screens/sysmgmt/remoting.whlib">
 
-  <screen name="main"
-          tid=".title"
-          gid=".main"
-          allowresize="true"
-          savestate="size"
-          >
+  <screen name="main" allowresize="true" footerbuttons="close" gid=".main" savestate="size" tid=".title">
     <actions gid=".actions">
-      <action name="edit" onexecute="doedit"  shortcut="ctrl+q" tid="~edit">
+      <action name="edit" onexecute="doedit" shortcut="ctrl+q" tid="~edit">
         <enableon source="services" min="1" />
       </action>
-      <action name="close" onexecute="cancel"  shortcut="ctrl+q" tid="~close"/>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close" />
     </actions>
 
-    <body layout="form" height="1pr">
+    <body height="1pr" layout="form">
       <grid height="1pr">
         <col width="1pr" />
         <col />
@@ -24,10 +19,9 @@
             <list name="services"
                   minwidth="50x"
                   minheight="30x"
-                  selectmode="single"
-                  openaction="edit"
                   icons="tollium:status/checked"
-                  >
+                  openaction="edit"
+                  selectmode="single">
               <column name="module" type="text" />
               <column name="service" type="text" />
               <column name="log_raw_requests_icon" type="icon" width="16px" />
@@ -44,36 +38,25 @@
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
-
-  <screen name="editservice"
-          tid=".title"
-          gid=".editservice"
-          width="40x"
-          >
+  <screen name="editservice" width="40x" footerbuttons="ok cancel" gid=".editservice" tid=".title">
     <compositions>
       <record name="config" />
     </compositions>
 
-    <body layout="form" height="1pr">
-      <box tid=".debugsettings" layout="left">
+    <body height="1pr" layout="form">
+      <box layout="left" tid=".debugsettings">
         <checkbox composition="config" cellname="log_raw_requests" labeltid=".log_raw_requests" title="" />
         <checkbox composition="config" cellname="log_decoded_requests" labeltid=".log_decoded_requests" title="" />
         <checkbox composition="config" cellname="log_decoded_responses" labeltid=".log_decoded_responses" title="" />
         <checkbox composition="config" cellname="log_raw_responses" labeltid=".log_raw_responses" title="" />
         <checkbox composition="config" cellname="profile" labeltid=".profile" title="" />
         <line layout="form">
-          <textedit composition="config" cellname="rpcloglevel" valuetype="integer" minvalue="0" maxvalue="7" width="5x"/>
+          <textedit composition="config" cellname="rpcloglevel" width="5x" minvalue="0" maxvalue="7" valuetype="integer" />
         </line>
       </box>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

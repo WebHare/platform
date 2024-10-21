@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="movetoselect.whlib"
-         gid="tolliumcomponents.movetoselect">
+         gid="tolliumcomponents.movetoselect"
+         library="movetoselect.whlib">
 
   <fragment name="movetoselect">
     <actions>
@@ -14,17 +14,27 @@
     <contents>
       <grid name="maingrid" height="1pr">
         <cell width="1pr">
-          <textedit name="sourcefilterfield" title="" width="1pr" onchange="onsourcefilterchange" visible="false" />
-          <list name="sourcelist" height="1pr" selectmode="multiple" ongetrows="getsourcerows" openaction="addtoselection" emptytid=".allisselected" />
+          <textedit name="sourcefilterfield" width="1pr" onchange="onsourcefilterchange" title="" visible="false" />
+          <list name="sourcelist"
+                height="1pr"
+                emptytid=".allisselected"
+                ongetrows="getsourcerows"
+                openaction="addtoselection"
+                selectmode="multiple" />
         </cell>
         <cell>
           <spacer height="1pr" />
-          <button type="icon" action="addtoselection" icon="tollium:actions/right"/>
-          <button type="icon" action="removefromselection" icon="tollium:actions/left"/>
+          <button action="addtoselection" icon="tollium:actions/right" />
+          <button action="removefromselection" icon="tollium:actions/left" />
           <spacer height="1pr" />
         </cell>
         <cell width="1pr">
-          <list name="selectionlist" height="1pr" selectmode="multiple" ongetrows="getselectionrows" openaction="removefromselection" emptytid=".nothingisselected"/>
+          <list name="selectionlist"
+                height="1pr"
+                emptytid=".nothingisselected"
+                ongetrows="getselectionrows"
+                openaction="removefromselection"
+                selectmode="multiple" />
         </cell>
       </grid>
     </contents>

@@ -1,47 +1,69 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         gid="components">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="components">
 
-  <fragment name="foldertree" lib="components/foldertree.whlib" gid=".foldertree">
+  <fragment name="foldertree" gid=".foldertree" lib="components/foldertree.whlib">
     <compositions>
-      <eventlistener name="folderlistener" masks="system:whfs.folder.*" onevents="onfoldersignals" groupinterval="1000" />
+      <eventlistener name="folderlistener" groupinterval="1000" masks="system:whfs.folder.*" onevents="onfoldersignals" />
     </compositions>
     <contents>
-      <list name="thelist" ongetpath="OnGetPath" ongetchildren="OnGetChildren" onselect="OnSelectHandler" sortable="false"> <!-- oncelledit="oncelledit" -->
-        <column name="name" type="text" tree="true" tid=".folders" iconname="icon" iconoverlayname="iconoverlay" hintname="pvt_namehint" /> <!-- edittype="textedit"  -->
+      <list name="thelist" ongetchildren="OnGetChildren" ongetpath="OnGetPath" onselect="OnSelectHandler" sortable="false">
+        <!-- oncelledit="oncelledit" -->
+        <column name="name"
+                type="text"
+                hintname="pvt_namehint"
+                iconname="icon"
+                iconoverlayname="iconoverlay"
+                tid=".folders"
+                tree="true" />  <!-- edittype="textedit" -->
         <style name="protected" />
       </list>
     </contents>
   </fragment>
 
-  <fragment name="filelist" lib="components/filelist.whlib" gid=".filelist">
+  <fragment name="filelist" gid=".filelist" lib="components/filelist.whlib">
     <actions>
       <!-- Other actions -->
       <action name="filter" onexecute="dofilter" title="" />
     </actions>
     <compositions>
-      <eventlistener name="folderlistener" onevents="onfoldersignals" groupinterval="1000" />
+      <eventlistener name="folderlistener" groupinterval="1000" onevents="onfoldersignals" />
     </compositions>
     <contents>
-      <panel name="filterpanel" spacers="all" visible="false" borders="top" defaultbutton="filterbutton">
-        <panel name="folderfilter" /> <!-- this panel receives the external filter options -->
+      <panel name="filterpanel" borders="top" defaultbutton="filterbutton" spacers="all" visible="false">
+        <panel name="folderfilter" />  <!-- this panel receives the external filter options -->
         <line layout="right">
           <button name="filterbutton" action="filter" />
         </line>
       </panel>
       <panel borders="bottom" spacers="none">
-        <panel name="resultslimitedpanel" layout="left" borders="top" backgroundcolor="#feffde" spacers="left right" visible="false">
-          <text name="resultslimited" title="" wordwrap="true" onclicklink="onshowallresults" />
+        <panel name="resultslimitedpanel"
+               backgroundcolor="#feffde"
+               borders="top"
+               layout="left"
+               spacers="left right"
+               visible="false">
+          <text name="resultslimited" onclicklink="onshowallresults" title="" wordwrap="true" />
         </panel>
       </panel>
-      <list name="mylist" rowkeytype="integer" highlightname="pvt_highlight" ongetrows="ongetrows" onsortorderchange="gotsortorderchange"> <!-- oncelledit="oncelledit" -->
-        <column name="icon" type="icon" title="" sortkeyname="pvt_name_sort" iconlink="false" />
-        <column name="name" type="text" sortkeyname="pvt_name_sort" hintname="pvt_namehint" iconname="icon" />
-        <column name="name_noicon" type="text" sortkeyname="pvt_name_sort" hintname="pvt_namehint" />
+      <list name="mylist"
+            highlightname="pvt_highlight"
+            ongetrows="ongetrows"
+            onsortorderchange="gotsortorderchange"
+            rowkeytype="integer">
+        <!-- oncelledit="oncelledit" -->
+        <column name="icon" type="icon" iconlink="false" sortkeyname="pvt_name_sort" title="" />
+        <column name="name" type="text" hintname="pvt_namehint" iconname="icon" sortkeyname="pvt_name_sort" />
+        <column name="name_noicon" type="text" hintname="pvt_namehint" sortkeyname="pvt_name_sort" />
         <column name="title" type="text" sortkeyname="pvt_title_sort" />
-        <column name="modified" type="text" sortkeyname="pvt_modified_sort" width="13x" storeutc="true" align="right" />
-<!--        <column name="ordering" type="integer" sortkeyname="pvt_ordering_sort" width="5x" align="right"  /> -->
-        <column name="statusicons" type="icons" align="right" minwidth="10x" width="12x" hintname="pvt_statushint" iconlink="true" />
+        <column name="modified" type="text" width="13x" align="right" sortkeyname="pvt_modified_sort" storeutc="true" />
+
+<!-- <column name="ordering" type="integer" sortkeyname="pvt_ordering_sort" width="5x" align="right"  /> -->
+        <column name="statusicons"
+                type="icons"
+                width="12x"
+                minwidth="10x"
+                align="right"
+                hintname="pvt_statushint"
+                iconlink="true" />
 
 <!--
         <rowlayout name="onerow">
@@ -78,22 +100,20 @@
           </draglayout>
         </rowlayout>
       -->
-
         <style name="protected" />
       </list>
     </contents>
   </fragment>
 
-  <fragment name="thumbnailview" lib="components/thumbnailview.whlib" gid=".thumbnailview">
-    <contents>
-    </contents>
+  <fragment name="thumbnailview" gid=".thumbnailview" lib="components/thumbnailview.whlib">
+    <contents />
   </fragment>
 
-  <fragment name="managedtagedit" lib="components/managedtagedit.whlib" gid=".managedtagedit">
+  <fragment name="managedtagedit" gid=".managedtagedit" lib="components/managedtagedit.whlib">
     <contents>
-      <tagedit name="tagedit"
-               onvalidatetags="gotvalidatetags">
-        <autosuggest name="autosuggest" suggestobjectname="mod::publisher/lib/components/managedtagedit.whlib#managedtageditautocomplete" />
+      <tagedit name="tagedit" onvalidatetags="gotvalidatetags">
+        <autosuggest name="autosuggest"
+                     suggestobjectname="mod::publisher/lib/components/managedtagedit.whlib#managedtageditautocomplete" />
       </tagedit>
     </contents>
   </fragment>
@@ -106,8 +126,8 @@
     <contents>
       <line>
         <textedit name="path" enabled="false" />
-        <button name="browse" action="browseaction" title="" icon="tollium:actions/edit" />
-        <button name="clear" action="clearaction" title="" icon="tollium:actions/delete" />
+        <button name="browse" action="browseaction" icon="tollium:actions/edit" title="" />
+        <button name="clear" action="clearaction" icon="tollium:actions/delete" title="" />
       </line>
     </contents>
   </fragment>
@@ -119,92 +139,103 @@
     </actions>
     <contents>
       <line>
-        <textedit name="condition" title="" enabled="false" width="1pr" />
-        <button name="edit" action="editaction" title="" icon="tollium:actions/edit" />
-        <button name="clear" action="clearaction" title="" icon="tollium:actions/delete" />
+        <textedit name="condition" width="1pr" enabled="false" title="" />
+        <button name="edit" action="editaction" icon="tollium:actions/edit" title="" />
+        <button name="clear" action="clearaction" icon="tollium:actions/delete" title="" />
       </line>
     </contents>
   </fragment>
 
-  <screen name="editformcondition" lib="components/formcondition.whlib" gid=".formcondition" width="80x">
+  <screen name="editformcondition"
+          width="80x"
+          footerbuttons="ok cancel"
+          gid=".formcondition"
+          library="/lib/components/formcondition.whlib">
     <body name="subconditions">
       <!-- singleformcondition components are added dynamically -->
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <fragment name="singleformcondition" lib="components/formcondition.whlib" gid=".formcondition">
+  <fragment name="singleformcondition" gid=".formcondition" lib="components/formcondition.whlib">
     <actions>
-      <action name="addcondition" title="" onexecute="doaddcondition" />
-      <action name="deletecondition" title="" onexecute="dodeletecondition" />
-      <action name="editvaluein" title="" onexecute="doeditvaluein" />
+      <action name="addcondition" onexecute="doaddcondition" title="" />
+      <action name="deletecondition" onexecute="dodeletecondition" title="" />
+      <action name="editvaluein" onexecute="doeditvaluein" title="" />
     </actions>
     <contents>
       <line>
-        <image name="subconditionline" title="" value="tollium:forms/subcondition" width="16px" height="16px" />
-        <select name="field" title="" type="pulldown" onchange="onfieldselect" width="1pr" />
-        <inlineblock name="settings_in" title="" width="2pr" visible="false">
-          <!-- For single-value fields, only 'in' match type is supported  -->
+        <image name="subconditionline" width="16px" height="16px" title="" value="tollium:forms/subcondition" />
+        <select name="field" type="pulldown" width="1pr" onchange="onfieldselect" title="" />
+        <inlineblock name="settings_in" width="2pr" title="" visible="false">
+          <!-- For single-value fields, only 'in' match type is supported -->
           <line>
             <text title="" valuetid=".value_in" />
-            <textedit name="value_in" title="" enabled="false" width="1pr">
-              <button name="select_in" tid=".selectvalues" type="icon" icon="tollium:actions/edit" action="editvaluein" />
+            <textedit name="value_in" width="1pr" enabled="false" title="">
+              <button name="select_in" action="editvaluein" icon="tollium:actions/edit" tid=".selectvalues" />
             </textedit>
           </line>
         </inlineblock>
-        <inlineblock name="settings_match" title="" width="2pr" visible="false">
-        <!-- For multi-value fields, different match types are supported -->
+        <inlineblock name="settings_match" width="2pr" title="" visible="false">
+          <!-- For multi-value fields, different match types are supported -->
           <line>
             <text title="" valuetid=".matchtype" />
-            <select name="matchtype" title="" type="pulldown">
+            <select name="matchtype" type="pulldown" title="">
               <option rowkey="in" />
               <option rowkey="has" />
               <option rowkey="is" />
             </select>
-            <textedit name="value_match" title="" enabled="false" width="1pr">
-              <button name="select_match" tid=".selectvalues" type="icon" icon="tollium:actions/edit" action="editvaluein" />
+            <textedit name="value_match" width="1pr" enabled="false" title="">
+              <button name="select_match" action="editvaluein" icon="tollium:actions/edit" tid=".selectvalues" />
             </textedit>
           </line>
         </inlineblock>
-        <inlineblock name="settings_hasvalue" title="" width="2pr" visible="false">
-          <select name="value_hasvalue" title="" rowkeytype="boolean" type="pulldown">
+        <inlineblock name="settings_hasvalue" width="2pr" title="" visible="false">
+          <select name="value_hasvalue" type="pulldown" rowkeytype="boolean" title="">
             <option rowkey="false" />
             <option rowkey="true" />
           </select>
         </inlineblock>
-        <inlineblock name="settings_datetime" title="" width="2pr" visible="false">
+        <inlineblock name="settings_datetime" width="2pr" title="" visible="false">
           <line>
-            <select name="matchtype_datetime" title="" type="pulldown">
+            <select name="matchtype_datetime" type="pulldown" title="">
               <option rowkey="AGE&lt;" tid=".age_smaller" />
-              <option rowkey="AGE&gt;=" tid=".age_larger" />
+              <option rowkey="AGE>=" tid=".age_larger" />
             </select>
-            <textedit name="datetime_age" valuetype="integer" maxlength="3" emptyvalue="0" suffixtid="~units.years" title="" errorlabeltid=".datetime_age" />
+            <textedit name="datetime_age"
+                      maxlength="3"
+                      emptyvalue="0"
+                      errorlabeltid=".datetime_age"
+                      suffixtid="~units.years"
+                      title=""
+                      valuetype="integer" />
           </line>
         </inlineblock>
-        <inlineblock name="settings_sub" title="" width="2pr" visible="false">
-          <text name="settings_suffix" title="" valuetid=".matchtype-suffix" width="1pr" />
+        <inlineblock name="settings_sub" width="2pr" title="" visible="false">
+          <text name="settings_suffix" width="1pr" title="" valuetid=".matchtype-suffix" />
         </inlineblock>
-        <button action="deletecondition" name="deleteconditionbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
-        <button action="addcondition" name="addconditionbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
+        <button name="deleteconditionbutton" action="deletecondition" icon="tollium:buttonbar/minus" title="" />
+        <button name="addconditionbutton" action="addcondition" icon="tollium:buttonbar/plus" title="" />
       </line>
       <line>
         <spacer name="subconditionspacer" width="16px" />
-        <inlineblock name="subconditions" title="" width="1pr">
+        <inlineblock name="subconditions" width="1pr" title="">
           <!-- singleformcondition components are added dynamically -->
         </inlineblock>
       </line>
     </contents>
   </fragment>
 
-  <screen name="selectvalues" lib="components/formcondition.whlib" gid=".formcondition" allowresize="true" savestate="size" width="70x" height="12gr">
+  <screen name="selectvalues"
+          width="70x"
+          height="12gr"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".formcondition"
+          library="/lib/components/formcondition.whlib"
+          savestate="size">
     <body>
-      <select name="value" title="" type="checkboxlist" height="1pr" />
+      <select name="value" type="checkboxlist" height="1pr" title="" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

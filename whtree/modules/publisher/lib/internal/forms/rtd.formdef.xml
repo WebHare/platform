@@ -1,7 +1,9 @@
 <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" gid="site.rtd" library="rtd.whlib">
+
   <form name="embedvideo" gid=".embedvideo" objectname="EmbedVideoForm">
     <page>
-      <textedit name="videourl" placeholder="https://www.youtube.com/watch?v=VideoID" validationchecks="url" required="1" />
+      <textedit name="videourl" placeholder="https://www.youtube.com/watch?v=VideoID" required="1" validationchecks="url" />
     </page>
   </form>
+
 </formdefinitions>

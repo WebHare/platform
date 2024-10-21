@@ -1,7 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         library="sisow.whlib"
-         gid="tolliumapps.payments.sisow">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.payments.sisow" library="sisow.whlib">
 
   <tabsextension name="configsisow" implementation="lib">
     <actions>
@@ -11,11 +8,21 @@
       <record name="methodsettings" />
     </compositions>
     <insert position="providertab" where="atend">
-      <textedit composition="methodsettings" name="merchantid" cellname="merchantid" required="true" />
-      <textedit composition="methodsettings" name="merchantsecret" cellname="merchantsecret" required="true"/>
+      <textedit composition="methodsettings" cellname="merchantid" name="merchantid" required="true" />
+      <textedit composition="methodsettings" cellname="merchantsecret" name="merchantsecret" required="true" />
       <button action="connect" />
-      <checkbox composition="methodsettings" cellname="testmode" title="" labeltid="tolliumapps.payments.common.testmode" name="testmode" />
-      <select composition="methodsettings" cellname="methods" type="checkbox" height="1pr" name="methods" gid="tolliumapps.payments.common" rowkeytype="string" />
+      <checkbox composition="methodsettings"
+                cellname="testmode"
+                name="testmode"
+                labeltid="tolliumapps.payments.common.testmode"
+                title="" />
+      <select composition="methodsettings"
+              cellname="methods"
+              name="methods"
+              type="checkbox"
+              height="1pr"
+              gid="tolliumapps.payments.common"
+              rowkeytype="string" />
     </insert>
   </tabsextension>
 

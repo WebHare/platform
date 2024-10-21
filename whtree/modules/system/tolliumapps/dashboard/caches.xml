@@ -1,22 +1,26 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="caches.whlib"
-         gid="tolliumapps.dashboard.caches">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.caches" library="caches.whlib">
 
   <screen name="precalculatedcache">
     <actions>
       <action name="delete" tid="~delete">
-        <enableon source="cacheentries" min="1" onexecute="ondelete"/>
+        <enableon source="cacheentries" min="1" onexecute="ondelete" />
       </action>
     </actions>
+
     <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="cacheentries" ongetrows="ongetcacheentries" height="1pr" borders="right" selectmode="multiple" eventmasks="system:precalccache.updated">
-            <column name="rowkey" type="integer" tid=".id" width="10x"/>
+          <list name="cacheentries"
+                height="1pr"
+                borders="right"
+                eventmasks="system:precalccache.updated"
+                ongetrows="ongetcacheentries"
+                selectmode="multiple">
+            <column name="rowkey" type="integer" width="10x" tid=".id" />
             <column name="hash" type="text" width="34x" />
             <column name="func" type="text" />
             <column name="state" type="text" width="14x" />
-            <column name="lastuse" type="datetime" storeutc="true" width="18x" />
+            <column name="lastuse" type="datetime" width="18x" storeutc="true" />
           </list>
         </cell>
         <cell spacers="top left right">
@@ -25,6 +29,5 @@
       </grid>
     </body>
   </screen>
-
 
 </screens>

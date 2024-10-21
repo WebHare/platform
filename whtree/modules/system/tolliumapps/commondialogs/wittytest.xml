@@ -1,11 +1,18 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="wittytest.whlib"
-         gid="tolliumapps.commondialogs.wittytest">
+         gid="tolliumapps.commondialogs.wittytest"
+         library="wittytest.whlib">
 
-  <screen name="wittytest" allowresize="true" savestate="size" width="130x" height="24x" onunload="GotUnload">
+  <screen name="wittytest"
+          width="130x"
+          height="24x"
+          allowresize="true"
+          footerbuttons="close"
+          onunload="GotUnload"
+          savestate="size">
     <compositions>
       <eventlistener name="wittylistener" onevents="onwittyupdate" />
     </compositions>
+
     <body spacers="none">
       <tabs height="1pr" savestate="selectedtab">
         <tab name="data">
@@ -28,24 +35,23 @@
       </tabs>
       <textedit name="wittypath" width="1pr" enabled="false" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-
-  <screen name="emailtest" allowresize="true" savestate="size" width="130x" height="24x">
+  <screen name="emailtest" width="130x" height="24x" allowresize="true" savestate="size">
     <actions>
-      <action name="refresh"     onexecute="reloademail" tid="~refresh" />
-      <action name="sendpreview" onexecute="dosendpreview" ellipsis="true" />
+      <action name="refresh" onexecute="reloademail" tid="~refresh" />
+      <action name="sendpreview" ellipsis="true" onexecute="dosendpreview" />
     </actions>
+
     <compositions>
       <eventlistener name="wittylistener" onevents="onwittyupdate" />
     </compositions>
+
     <toolbar>
-      <button action="refresh"     icon="tollium:actions/reload" />
+      <button action="refresh" icon="tollium:actions/reload" />
       <button action="sendpreview" icon="tollium:mailclient/previewmail" />
     </toolbar>
+
     <body spacers="none">
       <tabs height="1pr" savestate="selectedtab">
         <tab name="data">
@@ -55,8 +61,7 @@
           <panel spacers="all">
             <textedit name="wittypath" width="1pr" enabled="false" />
           </panel>
-
-          <panel height="1gr"  backgroundcolor="#FEFFDE" spacers="left right">
+          <panel height="1gr" backgroundcolor="#FEFFDE" spacers="left right">
             <text valuetid=".htmlapproximation" />
           </panel>
           <codeedit name="htmlsource" width="1pr" height="1pr" enabled="false" />
@@ -66,10 +71,10 @@
         </tab>
       </tabs>
     </body>
+
     <footer>
       <grid>
-        <cell width="1pr">
-        </cell>
+        <cell width="1pr" />
         <cell>
           <defaultformbuttons buttons="close" />
         </cell>
@@ -77,10 +82,7 @@
     </footer>
   </screen>
 
-
-  <screen name="sendemailpreview" width="70x"
-          tid=".sendemailpreview_frametitle"
-          footerbuttons="ok cancel">
+  <screen name="sendemailpreview" width="70x" footerbuttons="ok cancel" tid=".sendemailpreview_frametitle">
     <body>
       <textedit name="email" width="1pr" required="true" tid="~email" validationchecks="emails" />
     </body>

@@ -1,79 +1,120 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
-         xmlns:system="http://www.webhare.net/xmlns/system/components"
-         lib="screens/userrights/userrights.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="/lib/screens/userrights/userrights.whlib">
 
   <screen name="main"
           allowresize="true"
-          menubar="menubar"
-          icon="tollium:users/users"
-          gid="userrights"
-          tid=".screentitles.main"
           flags="issysop anygrantablerights issupervisor"
-          onmessage="gotmessage">
+          gid="userrights"
+          icon="tollium:users/users"
+          menubar="menubar"
+          onmessage="gotmessage"
+          tid=".screentitles.main">
     <actions gid=".actions">
-      <action name="syncauthobjects" onexecute="dosyncauthobjects" frameflags="issysop" />
-      <action name="setuserdefaults" onexecute="dosetuserdefaults" frameflags="issysop" />
-      <action name="exportallgrants" onexecute="doexportallgrants" frameflags="issysop" />
-      <action name="exit" onexecute="doexit" tid="~exit" shortcut="ctrl+q" />
-
+      <action name="syncauthobjects" frameflags="issysop" onexecute="dosyncauthobjects" />
+      <action name="setuserdefaults" frameflags="issysop" onexecute="dosetuserdefaults" />
+      <action name="exportallgrants" frameflags="issysop" onexecute="doexportallgrants" />
+      <action name="exit" onexecute="doexit" shortcut="ctrl+q" tid="~exit" />
       <action name="edit" hinttid=".edit-hint">
-        <enableon source="unittree->unitlist" min="1" max="1" checkflags="canmanageunit !isroot" onexecute="unittree->doeditunit" />
-        <enableon source="unitcontents->userandrolelist" min="1" max="1" checkflags="isrole canedit" onexecute="unitcontents->doeditrole" />
-        <enableon source="unitcontents->userandrolelist" min="1" max="1" checkflags="!isrole canedit" onexecute="unitcontents->doedituser" />
-        <enableon source="userrolerightslist->directpermissions" min="1" max="1" checkflags="canmanage" onexecute="userrolerightslist->doeditgrant" />
-        <enableon source="objectrightslist->authobjectlistbyobject" min="1" max="1" checkflags="isright" onexecute="objectrightslist->doeditrightonobject" />
+        <enableon source="unittree->unitlist"
+                  min="1"
+                  max="1"
+                  checkflags="canmanageunit !isroot"
+                  onexecute="unittree->doeditunit" />
+        <enableon source="unitcontents->userandrolelist"
+                  min="1"
+                  max="1"
+                  checkflags="isrole canedit"
+                  onexecute="unitcontents->doeditrole" />
+        <enableon source="unitcontents->userandrolelist"
+                  min="1"
+                  max="1"
+                  checkflags="!isrole canedit"
+                  onexecute="unitcontents->doedituser" />
+        <enableon source="userrolerightslist->directpermissions"
+                  min="1"
+                  max="1"
+                  checkflags="canmanage"
+                  onexecute="userrolerightslist->doeditgrant" />
+        <enableon source="objectrightslist->authobjectlistbyobject"
+                  min="1"
+                  max="1"
+                  checkflags="isright"
+                  onexecute="objectrightslist->doeditrightonobject" />
       </action>
-
-      <action name="delete" hinttid=".delete-hint" shortcut="del" >
-        <enableon source="unittree->unitlist" min="1" max="1" checkflags="candelete" onexecute="unittree->dodeleteunit" requirefocus="true" />
-        <enableon source="unitcontents->userandrolelist" min="1" checkflags="candelete" onexecute="unitcontents->dodeleteuserorrole" requirefocus="true" />
-        <enableon source="userrolerightslist->directpermissions" min="1" checkflags="canmanage" onexecute="userrolerightslist->dorevokefromusers" />
-        <enableon source="userrolerightslist->userlistbyrole" min="1" onexecute="userrolerightslist->doremoveusersfromrole" checkflags="candelete" />
-        <enableon source="objectrightslist->authobjectlistbyobject" min="1" checkflags="isright !inherited canmanage" onexecute="objectrightslist->dorevokerightonobject"/>
+      <action name="delete" hinttid=".delete-hint" shortcut="del">
+        <enableon source="unittree->unitlist"
+                  min="1"
+                  max="1"
+                  checkflags="candelete"
+                  onexecute="unittree->dodeleteunit"
+                  requirefocus="true" />
+        <enableon source="unitcontents->userandrolelist"
+                  min="1"
+                  checkflags="candelete"
+                  onexecute="unitcontents->dodeleteuserorrole"
+                  requirefocus="true" />
+        <enableon source="userrolerightslist->directpermissions"
+                  min="1"
+                  checkflags="canmanage"
+                  onexecute="userrolerightslist->dorevokefromusers" />
+        <enableon source="userrolerightslist->userlistbyrole"
+                  min="1"
+                  checkflags="candelete"
+                  onexecute="userrolerightslist->doremoveusersfromrole" />
+        <enableon source="objectrightslist->authobjectlistbyobject"
+                  min="1"
+                  checkflags="isright !inherited canmanage"
+                  onexecute="objectrightslist->dorevokerightonobject" />
       </action>
-
-      <action name="grant" hinttid=".grant-hint" ellipsis="true" frameflags="anygrantablerights">
-        <enableon source="unitcontents->userandrolelist"  min="1" max="1" onexecute="unitcontents->doaddrighttousers"/>
-        <enableon source="objecttree->objectlist" min="1" max="1" checkflags="cangrantany" onexecute="objectrightslist->dograntrightonobject"/>
-        <enableon source="objectrightslist->authobjectlistbyobject" min="0" max="0" checkflags="canmange" onexecute="objectrightslist->dograntrightonobject" />
+      <action name="grant" ellipsis="true" frameflags="anygrantablerights" hinttid=".grant-hint">
+        <enableon source="unitcontents->userandrolelist" min="1" max="1" onexecute="unitcontents->doaddrighttousers" />
+        <enableon source="objecttree->objectlist"
+                  min="1"
+                  max="1"
+                  checkflags="cangrantany"
+                  onexecute="objectrightslist->dograntrightonobject" />
+        <enableon source="objectrightslist->authobjectlistbyobject"
+                  min="0"
+                  max="0"
+                  checkflags="canmange"
+                  onexecute="objectrightslist->dograntrightonobject" />
       </action>
-
-      <action name="togglesearchbar" shortcut="alt+f3" onexecute="dotogglesearchbutton" tid=".togglesearchbar"/>
-
+      <action name="togglesearchbar" onexecute="dotogglesearchbutton" shortcut="alt+f3" tid=".togglesearchbar" />
       <action name="copypermissions" frameflags="issysop">
-        <enableon source="unitcontents->userandrolelist" min="1" max="1" checkflags="!isrole canedit" onexecute="docopypermissions" requirefocus="true" />
+        <enableon source="unitcontents->userandrolelist"
+                  min="1"
+                  max="1"
+                  checkflags="!isrole canedit"
+                  onexecute="docopypermissions"
+                  requirefocus="true" />
       </action>
-
-      <action name="showauditlog" onexecute="DoShowAuditLog" frameflags="issupervisor" />
+      <action name="showauditlog" frameflags="issupervisor" onexecute="DoShowAuditLog" />
     </actions>
 
     <menus gid=".menus">
-
       <menu name="menubar">
-        <item tid=".new" name="newmenu" ellipsis="true">
-          <item action="unittree->newunit" ellipsis="true"/>
+        <item name="newmenu" ellipsis="true" tid=".new">
+          <item action="unittree->newunit" ellipsis="true" />
           <item action="unittree->newuser" ellipsis="true" />
           <item action="unittree->newrole" ellipsis="true" />
         </item>
-        <divider/>
-        <item action="unitcontents->addroletousers"  />
-        <item action="unitcontents->addrighttousers"  />
+        <divider />
+        <item action="unitcontents->addroletousers" />
+        <item action="unitcontents->addrighttousers" />
         <item action="unitcontents->adduserstorole" tid="userrights.actions.adduserstorole" />
         <item action="copypermissions" />
-        <divider/>
+        <divider />
         <divider />
         <item action="unitcontents->move" />
         <item action="delete" />
-        <item action="edit"  />
+        <item action="edit" />
         <divider />
-        <item action="togglesearchbar"  />
+        <item action="togglesearchbar" />
         <divider />
-        <item action="unitcontents->openas"/>
-        <item action="unitcontents->getresetlink"/>
+        <item action="unitcontents->openas" />
+        <item action="unitcontents->getresetlink" />
         <item action="syncauthobjects" disablemode="hidden" />
-        <item action="setuserdefaults" disablemode="hidden"  />
-        <item action="showauditlog" disablemode="hidden"  />
+        <item action="setuserdefaults" disablemode="hidden" />
+        <item action="showauditlog" disablemode="hidden" />
         <divider />
         <item name="exportsmenu" tid=".exports">
           <item action="exportallgrants" />
@@ -86,21 +127,23 @@
         <item action="exit" />
       </menu>
     </menus>
+
     <toolbar>
-      <button menu="newmenu" tid=".new" icon="tollium:actions/add" ellipsis="true"/>
-      <divider/>
-      <button action="unitcontents->addroletousers" icon="tollium:users/addrole"/>
-      <button action="grant" icon="tollium:users/addright" name="grantbutton" tid=".actions.grant"/>
-      <button action="unitcontents->adduserstorole" icon="tollium:users/adduser"/>
+      <button ellipsis="true" icon="tollium:actions/add" menu="newmenu" tid=".new" />
+      <divider />
+      <button action="unitcontents->addroletousers" icon="tollium:users/addrole" />
+      <button name="grantbutton" action="grant" icon="tollium:users/addright" tid=".actions.grant" />
+      <button action="unitcontents->adduserstorole" icon="tollium:users/adduser" />
       <button action="delete" icon="tollium:actions/delete" />
       <button action="edit" icon="tollium:actions/properties" />
       <divider />
-      <button action="togglesearchbar" icon="tollium:actions/search" name="togglesearchbarbutton" />
+      <button name="togglesearchbarbutton" action="togglesearchbar" icon="tollium:actions/search" />
     </toolbar>
+
     <body spacers="none">
       <split type="horizontal">
         <part width="1pr">
-          <tabs type="regular" name="viewmode" height="1pr" gid=".tabs" onselect="ontabchange">
+          <tabs name="viewmode" type="regular" height="1pr" gid=".tabs" onselect="ontabchange">
             <tab name="unitstab">
               <split type="horizontal">
                 <part width="35x">
@@ -111,8 +154,9 @@
                     <part height="1pr">
                       <includefragment name="unitcontents" fragment="userrights/parts/unitcontents.unitcontents" />
                     </part>
-                    <part height="1pr" spacers="none" borders="right bottom">
-                      <includefragment name="userrolerightslist" fragment="userrights/parts/userrolerightslist.userrolerightslist" />
+                    <part height="1pr" borders="right bottom" spacers="none">
+                      <includefragment name="userrolerightslist"
+                                       fragment="userrights/parts/userrolerightslist.userrolerightslist" />
                     </part>
                   </split>
                 </part>
@@ -130,12 +174,13 @@
             </tab>
           </tabs>
         </part>
-        <part width="320px" name="searchbar" visible="false">
+        <part name="searchbar" width="320px" visible="false">
           <panel backgroundcolor="#f0f0f0" borders="bottom" spacers="left">
             <line layout="tabs-space">
-              <text valuetid="userrights.searchbox"/>
+              <text valuetid="userrights.searchbox" />
               <spacer name="togglespacer" />
-              <!--button icon="tollium:buttonbar/showpart" type="icon" action="togglesearchbar" hinttid=".closesearchbar"/-->
+
+              <!-- button icon="tollium:buttonbar/showpart" type="icon" action="togglesearchbar" hinttid=".closesearchbar"/ -->
             </line>
           </panel>
           <includefragment name="userrolesearch" fragment="userrights/parts/userrolesearch.userrolesearch" />

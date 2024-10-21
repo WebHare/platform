@@ -14,7 +14,7 @@
           savestate="size">
     <compositions>
       <p:fsobject name="siteroot" />
-      <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" fsobject="siteroot" />
+      <p:whfsinstance name="sitesettings" fsobject="siteroot" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" />
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">

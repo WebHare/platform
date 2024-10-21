@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/sysmgmt/adhoccache.whlib"
-         gid="sysmgmt.adhoccache">
+         gid="sysmgmt.adhoccache"
+         library="/lib/screens/sysmgmt/adhoccache.whlib">
 
   <screen name="status" interval="5000" oninterval="dorefresh">
     <actions>
@@ -8,6 +8,7 @@
       <action name="refresh" onexecute="dorefresh" />
       <action name="flushcache" onexecute="doflushcache" />
     </actions>
+
     <body>
       <text name="oldestitem" />
       <text name="cachesize" />
@@ -15,6 +16,7 @@
       <text name="hits" />
       <text name="misses" />
     </body>
+
     <footer>
       <line layout="right">
         <button action="settings" />
@@ -25,18 +27,15 @@
     </footer>
   </screen>
 
-  <screen name="settings" tid=".settingstitle" >
+  <screen name="settings" footerbuttons="ok cancel" tid=".settingstitle">
     <body>
       <line>
-        <textedit name="maxentries" valuetype="integer" width="8x" required="true" />
+        <textedit name="maxentries" width="8x" required="true" valuetype="integer" />
         <text name="maxentries_current" title="" />
       </line>
-      <textedit name="minperlibrary" valuetype="integer" width="8x" required="true" />
+      <textedit name="minperlibrary" width="8x" required="true" valuetype="integer" />
       <panel height="1pr" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

@@ -44,7 +44,6 @@
     </attributes>
   </attachment>
   -->
-
   <attachment tag="whuser_appaccount" linkfrom="wrd_relation" title="WebHare app account">
     <attributes>
       <free tag="device" title="Device" />

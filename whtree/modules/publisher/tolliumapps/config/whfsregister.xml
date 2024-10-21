@@ -1,33 +1,35 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="whfsregister.whlib"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.config.whfsregister"
-         >
+         library="whfsregister.whlib">
 
-  <screen name="whfsregister" width="80x" height="16x" allowresize="true" savestate="size">
+  <screen name="whfsregister" width="80x" height="16x" allowresize="true" footerbuttons="close" savestate="size">
     <body>
-      <listedit name="slots" ongetrows="ongetslots" buttons="edit" onrowedit="onslotedit" minwidth="50x" minheight="12x" height="1pr" editableflags="canedit" flags="canedit"
-                eventmasks="system:internal.whfsregisterchange">
+      <listedit name="slots"
+                height="1pr"
+                minwidth="50x"
+                minheight="12x"
+                buttons="edit"
+                editableflags="canedit"
+                eventmasks="system:internal.whfsregisterchange"
+                flags="canedit"
+                ongetrows="ongetslots"
+                onrowedit="onslotedit">
         <column name="name" type="text" />
         <column name="title" type="text" tid="~title" />
         <column name="currentpath" type="text" />
       </listedit>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="editrow">
+  <screen name="editrow" footerbuttons="ok cancel">
     <body>
       <text name="name" wordwrap="true" />
-      <text name="title" wordwrap="true" tid="~title" />
-      <text name="description" wordwrap="true" tid="~description" />
+      <text name="title" tid="~title" wordwrap="true" />
+      <text name="description" tid="~description" wordwrap="true" />
       <publisher:browseforobject name="value" showclear="false" />
-      <combobox name="site" width="1pr" autocomplete="true"/>
+      <combobox name="site" width="1pr" autocomplete="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
+
 </screens>

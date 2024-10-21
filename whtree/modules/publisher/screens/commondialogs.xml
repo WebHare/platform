@@ -1,7 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/commondialogs.whlib"
-         gid="commondialogs">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="commondialogs" library="/lib/screens/commondialogs.whlib">
 
   <messageboxes gid=".messageboxes">
     <messagebox name="movetotrashconfirm" icon="question" buttons="yes no" dontshowagain="yes" />
@@ -14,31 +11,28 @@
     <messagebox name="deletefsobjects" icon="warning" buttons="yes no" />
     <messagebox name="fsobjectalreadyinlist" icon="warning" buttons="yes no" />
     <messagebox name="norightstoeditfile" icon="error" buttons="ok" />
-
     <messagebox name="replace_file_with_other_type" icon="warning" buttons="yes no" default="no" />
     <messagebox name="editordoesnotsupportversionedsites" icon="error" buttons="ok" />
   </messageboxes>
 
-
-  <screen name="selectsitedialog" gid=".selectsitedialog" width="50x" height="30x" allowresize="true">
+  <screen name="selectsitedialog" width="50x" height="30x" allowresize="true" gid=".selectsitedialog">
     <actions>
       <action name="selectsite" onexecute="submit" tid="~ok">
         <enableon source="sites" min="1" />
       </action>
     </actions>
+
     <body>
-      <textedit name="filter" onchange="gotfilterchange" defaultbutton="selectbutton" width="1pr" />
-      <list name="sites"
-            selectmode="single"
-            openaction="selectsite"
-            rowkeytype="integer">
+      <textedit name="filter" width="1pr" defaultbutton="selectbutton" onchange="gotfilterchange" />
+      <list name="sites" openaction="selectsite" rowkeytype="integer" selectmode="single">
         <column name="name" type="text" />
       </list>
     </body>
+
     <footer layout="right">
       <line>
         <button name="selectbutton" action="selectsite" tid="~ok" />
-        <button tolliumresult="cancel" tid="~cancel" />
+        <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>

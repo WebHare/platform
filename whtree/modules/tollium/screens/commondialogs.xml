@@ -1,26 +1,22 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/commondialogs.whlib"
-         gid="commondialogs">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="commondialogs" library="/lib/screens/commondialogs.whlib">
 
   <messageboxes gid=".messageboxes">
     <!-- The 'showmessage' messagebox just shows the first parameter in an information messagebox, can be used to quickly
          display some information without having to create a (temporary) messagebox -->
     <messagebox name="showmessage" icon="" buttons="ok" />
-
     <messagebox name="errors" icon="error" buttons="ok" />
     <messagebox name="warnings" icon="warning" buttons="ok" />
     <messagebox name="wrong_file_type" icon="error" buttons="ok" />
     <messagebox name="some_wrong_file_type" icon="question" buttons="yes no" />
     <messagebox name="remove_file_confirmation" icon="question" buttons="yes no" default="no" />
     <messagebox name="remove_image_confirmation" icon="question" buttons="yes no" default="no" />
-
     <messagebox name="notimplemented" icon="information" buttons="close" />
     <messagebox name="confirmrowdeletion" icon="information" buttons="yes no" />
     <messagebox name="exceptionemailsent" icon="information" buttons="close" tid="commondialogs.exception.emailsent" />
-    <messagebox name="confirmclearcontents" buttons="yes no" icon="warning" />
-    <messagebox name="webhareclosedformaintenance" buttons="ok" icon="warning" />
-    <messagebox name="addedtostartmenu" buttons="ok" icon="information" dontshowagain="ok" />
-    <messagebox name="alreadyaddedtostartmenu" buttons="ok" icon="information" />
+    <messagebox name="confirmclearcontents" icon="warning" buttons="yes no" />
+    <messagebox name="webhareclosedformaintenance" icon="warning" buttons="ok" />
+    <messagebox name="addedtostartmenu" icon="information" buttons="ok" dontshowagain="ok" />
+    <messagebox name="alreadyaddedtostartmenu" icon="information" buttons="ok" />
   </messageboxes>
 
   <screen name="showmessagebox" title="">
@@ -30,23 +26,24 @@
         <col width="1pr" />
         <row height="1pr">
           <cell>
-            <image name="pvt_icon" title="" width="32px" height="32px" />
+            <image name="pvt_icon" width="32px" height="32px" title="" />
           </cell>
           <cell layout="left">
-            <text name="message" title="" wordwrap="true" width="60x" selectable="true" />
+            <text name="message" width="60x" selectable="true" title="" wordwrap="true" />
           </cell>
         </row>
       </grid>
     </body>
+
     <footer>
       <grid width="1pr">
         <col />
         <col width="1pr" />
         <row>
           <cell layout="left">
-            <checkbox name="pvt_dontbugme" title="" label="" onchange="dontbugmechanged" visible="false" />
+            <checkbox name="pvt_dontbugme" label="" onchange="dontbugmechanged" title="" visible="false" />
           </cell>
-          <cell name="buttons" layout="right" /><!-- Buttons are added dynamically -->
+          <cell name="buttons" layout="right" />  <!-- Buttons are added dynamically -->
         </row>
       </grid>
     </footer>
@@ -59,23 +56,24 @@
         <col width="1pr" />
         <row height="1pr">
           <cell>
-            <image name="pvt_icon" title="" width="32px" height="32px" />
+            <image name="pvt_icon" width="32px" height="32px" title="" />
           </cell>
           <cell layout="left">
-            <text name="pvt_message" title="" wordwrap="true" width="60x" selectable="true" />
+            <text name="pvt_message" width="60x" selectable="true" title="" wordwrap="true" />
           </cell>
         </row>
       </grid>
     </body>
+
     <footer>
       <grid width="1pr">
         <col />
         <col width="1pr" />
         <row>
           <cell layout="left">
-            <checkbox name="pvt_dontbugme" title="" label="" onchange="dontbugmechanged" visible="false" />
+            <checkbox name="pvt_dontbugme" label="" onchange="dontbugmechanged" title="" visible="false" />
           </cell>
-          <cell name="buttons" layout="right" /><!-- Buttons are added dynamically -->
+          <cell name="buttons" layout="right" />  <!-- Buttons are added dynamically -->
         </row>
       </grid>
     </footer>
@@ -85,15 +83,18 @@
     <actions>
       <uploadaction name="upload" onupload="doupload" />
     </actions>
+
     <body name="body">
       <button action="upload" />
+
       <!-- A file component is added dynamically, because it doesn't exist in XML anymore -->
       <panel height="1pr" />
     </body>
+
     <footer>
       <line layout="right">
-        <button name="okbutton" tolliumresult="tollium_submit" tid="~ok" />
-        <button tolliumresult="cancel" tid="~cancel" />
+        <button name="okbutton" tid="~ok" tolliumresult="tollium_submit" />
+        <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>
@@ -102,17 +103,18 @@
     <actions>
       <downloadaction name="download" ondownload="dodownload" ondownloadstarted="ondownloadstarted" />
     </actions>
-    <body name="body" width="600px">
-      <text name="file" width="1pr" ellipsis="true"/>
-      <text name="size" />
-      <text name="type" visible="false"/>
 
+    <body name="body" width="600px">
+      <text name="file" width="1pr" ellipsis="true" />
+      <text name="size" />
+      <text name="type" visible="false" />
       <panel height="1pr" />
     </body>
+
     <footer>
       <line layout="right">
-        <button action="download" tid="~download"/>
-        <button tolliumresult="cancel" tid="~cancel" />
+        <button action="download" tid="~download" />
+        <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>
@@ -121,31 +123,31 @@
     <actions>
       <windowopenaction name="windowopen" onwindowopen="dowindowopen" />
     </actions>
+
     <body name="body">
       <panel height="1pr" />
     </body>
+
     <footer>
       <line layout="right">
         <button action="windowopen" />
-        <button tolliumresult="cancel" tid="~cancel" />
+        <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>
 
-  <screen name="qrcallback" gid=".qrcallback" tid=".title">
+  <screen name="qrcallback" footerbuttons="close" gid=".qrcallback" tid=".title">
     <compositions>
       <callbacklistener name="callbacklistener" oncallback="onqrcallback" />
     </compositions>
+
     <body layout="left">
       <image name="qrcode" title="" />
-      <text name="description" title="" valuetid=".description" width="1pr" wordwrap="true" public="true" />
+      <text name="description" width="1pr" public="true" title="" valuetid=".description" wordwrap="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="ordering" minwidth="60x" minheight="30x" gid=".ordering">
+  <screen name="ordering" minwidth="60x" minheight="30x" footerbuttons="ok cancel" gid=".ordering">
     <actions>
       <action name="totop" onexecute="dototop">
         <enableon source="orderlist" min="1" max="1" />
@@ -160,61 +162,60 @@
         <enableon source="orderlist" min="1" max="1" />
       </action>
     </actions>
+
     <body>
       <grid height="1pr">
         <col width="1pr" />
         <col />
         <row height="1pr">
           <cell>
-            <list name="orderlist" columnheaders="false" sortable="false" selectmode="single" public="true">
+            <list name="orderlist" columnheaders="false" public="true" selectmode="single" sortable="false">
               <column name="title" type="text" title="" />
             </list>
           </cell>
           <cell>
-            <button action="totop" width="1pr"/>
-            <button action="oneup" width="1pr"/>
-            <button action="onedown" width="1pr"/>
-            <button action="tobottom" width="1pr"/>
+            <button width="1pr" action="totop" />
+            <button width="1pr" action="oneup" />
+            <button width="1pr" action="onedown" />
+            <button width="1pr" action="tobottom" />
           </cell>
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="loaderror" gid=".loaderror" width="120x" height="30x" implementation="none" allowresize="true">
+  <screen name="loaderror"
+          width="120x"
+          height="30x"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".loaderror"
+          implementation="none">
     <body>
       <text valuetid=".loadfailure" />
-      <text name="parseerrors" valuetid=".parsererrors" title="" public="true" wordwrap="true" width="1pr" />
+      <text name="parseerrors" width="1pr" public="true" title="" valuetid=".parsererrors" wordwrap="true" />
       <panel height="1pr">
         <list name="errors" public="true">
-          <column name="resourcename" type="text" tid=".filename" width="36x" />
-          <column name="line" type="integer" tid=".linenum" width="12x" />
+          <column name="resourcename" type="text" width="36x" tid=".filename" />
+          <column name="line" type="integer" width="12x" tid=".linenum" />
           <column name="message" type="text" tid=".message" />
         </list>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-
-
-  <screen name="progressscreen"
-          gid=".progress"
-          tid=".title">
+  <screen name="progressscreen" gid=".progress" tid=".title">
     <actions>
       <action name="cancelaction" onexecute="docancel" tid="~cancel" />
     </actions>
+
     <body width="75x" layout="left">
       <heading tid=".progress" />
       <progress name="progress" max="100" title="" />
-      <text name="status" title="" valuetid=".initializing" ellipsis="true" />
+      <text name="status" ellipsis="true" title="" valuetid=".initializing" />
       <text name="timeelapsed" valuetid=".zeroseconds" />
     </body>
+
     <footer>
       <line layout="right">
         <button action="cancelaction" />
@@ -222,16 +223,18 @@
     </footer>
   </screen>
 
-  <screen name="exceptionscreen" gid=".exception" tid=".title" height="45x" width="130x">
+  <screen name="exceptionscreen" width="130x" height="45x" gid=".exception" tid=".title">
     <actions>
       <action name="sendemail" onexecute="dosendemail" tid=".email" />
       <action name="closeaction" onexecute="doclose" tid="~close" />
     </actions>
+
     <body layout="left">
       <text valuetid=".exception" wordwrap="true" />
       <text tid=".description" />
-      <textarea title="" name="description" enabled="false" height="1pr" minwidth="100x" />
+      <textarea name="description" height="1pr" minwidth="100x" enabled="false" title="" />
     </body>
+
     <footer>
       <grid width="1pr">
         <col width="1pr" />
@@ -250,41 +253,43 @@
     </footer>
   </screen>
 
-  <screen name="exceptionadditional" gid="commondialogs.exception" tid=".additionaltitle" width="75x" implementation="none" allpublic="true">
+  <screen name="exceptionadditional"
+          width="75x"
+          allpublic="true"
+          footerbuttons="ok cancel"
+          gid="commondialogs.exception"
+          implementation="none"
+          tid=".additionaltitle">
     <body layout="left">
       <text title="" valuetid=".explainadditional" wordwrap="true" />
-      <textarea title="" name="usercomment" height="5x" />
+      <textarea name="usercomment" height="5x" title="" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="browseserverpath" gid=".browseserverpath"
-          lib="screens/commondialogs/browseserverpath.whlib"
-          width="75x" height="40x" allowresize="true" savestate="size"
-          >
+  <screen name="browseserverpath"
+          width="75x"
+          height="40x"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".browseserverpath"
+          library="/lib/screens/commondialogs/browseserverpath.whlib"
+          savestate="size">
     <body>
       <panel width="1pr" height="1pr">
         <list name="folders"
-              ongetpath="ongetpath"
-              ongetchildren="ongetchildren"
-              selectmode="single"
               width="1pr"
               height="1pr"
-              onselect="onselect"
-              sortable="false"
               icons="files/application_x-webhare-unknown folders/normal"
-           >
-          <column type="text" name="name" tree="true" iconname="showtype" />
+              ongetchildren="ongetchildren"
+              ongetpath="ongetpath"
+              onselect="onselect"
+              selectmode="single"
+              sortable="false">
+          <column name="name" type="text" iconname="showtype" tree="true" />
         </list>
       </panel>
       <textedit name="showpath" width="1pr" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-
   </screen>
 
 </screens>

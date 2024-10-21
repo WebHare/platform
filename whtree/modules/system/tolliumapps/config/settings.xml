@@ -1,15 +1,16 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="settings.whlib"
          xmlns:s="http://www.webhare.net/xmlns/system/components"
-         gid="tolliumapps.config.settings">
+         gid="tolliumapps.config.settings"
+         library="settings.whlib">
 
-  <screen name="settings" minwidth="450px">
+  <screen name="settings" minwidth="450px" footerbuttons="ok cancel">
     <actions>
       <windowopenaction name="registergeonames" onwindowopen="doregistergeonames" />
       <windowopenaction name="registergeoip2" onwindowopen="doregistergeoip2" />
     </actions>
+
     <compositions>
-      <radiogroup name="displaytype"/>
+      <radiogroup name="displaytype" />
       <s:registrynode name="modulemgr" node="system.modulemgr" />
       <s:registrynode name="tweaks" node="system.webserver.global" />
       <s:registrynode name="tasks" node="system.tasks" />
@@ -20,43 +21,47 @@
       <s:registrynode name="security" node="system.webserver.security" />
       <s:registrynode name="wrdglobalconfig" node="wrd.globalconfig" />
     </compositions>
+
     <body height="1pr" spacers="none">
       <tabs name="tabs">
         <tab tid=".branding">
           <grid>
-            <col/>
-            <col width="1pr"/>
+            <col />
+            <col width="1pr" />
             <row>
               <cell>
-                <radiobutton group="displaytype" rowkey="displayname" enablecomponents="displayname" labeltid=".displayname"/>
+                <radiobutton enablecomponents="displayname" group="displaytype" labeltid=".displayname" rowkey="displayname" />
               </cell>
               <cell>
-                <textedit name="displayname" title="" width="1pr" errorlabeltid=".displayname"/>
+                <textedit name="displayname" width="1pr" errorlabeltid=".displayname" title="" />
               </cell>
             </row>
             <row>
               <cell>
-                <radiobutton group="displaytype" rowkey="displayimage" enablecomponents="displayimage" labeltid=".displayimage"/>
+                <radiobutton enablecomponents="displayimage"
+                             group="displaytype"
+                             labeltid=".displayimage"
+                             rowkey="displayimage" />
               </cell>
               <cell>
-                <imgedit name="displayimage" title="" width="1pr" height="5gr" errorlabeltid=".displayimage" required="true"/>
+                <imgedit name="displayimage" width="1pr" height="5gr" errorlabeltid=".displayimage" required="true" title="" />
               </cell>
             </row>
           </grid>
-          <heading tid=".dashboardbackground"/>
-          <imgedit name="dashboardbackground" title="" width="1pr" height="7gr" allowedactions="all refpoint" />
+          <heading tid=".dashboardbackground" />
+          <imgedit name="dashboardbackground" width="1pr" height="7gr" allowedactions="all refpoint" title="" />
         </tab>
         <tab tid=".login">
-          <heading tid=".logindialog"/>
-          <textedit name="infotitle" tid=".infotitle" width="1pr" />
-          <textarea name="infotext" tid=".infotext" width="1pr" />
-          <heading tid=".dashboardbackground"/>
+          <heading tid=".logindialog" />
+          <textedit name="infotitle" width="1pr" tid=".infotitle" />
+          <textarea name="infotext" width="1pr" tid=".infotext" />
+          <heading tid=".dashboardbackground" />
           <line layout="left">
-            <imgedit name="loginbackground" width="1pr" height="1pr" allowedactions="all refpoint" title=""/>
+            <imgedit name="loginbackground" width="1pr" height="1pr" allowedactions="all refpoint" title="" />
           </line>
         </tab>
         <tab tid=".server">
-          <heading tid=".identity"/>
+          <heading tid=".identity" />
           <select name="webhareurl" type="pulldown" rowkeytype="integer" />
           <textedit name="servername" required="true" />
           <select name="servertype" type="pulldown">
@@ -65,89 +70,97 @@
             <option rowkey="test" />
             <option rowkey="development" />
           </select>
-          <heading tid=".harescript"/>
+          <heading tid=".harescript" />
           <line>
-            <textedit composition="tweaks" cellname="scripttimeout" valuetype="integer" width="8x" tid=".scripttimeout" />
-            <text title="" valuetid="~units.seconds"/>
+            <textedit composition="tweaks" cellname="scripttimeout" width="8x" tid=".scripttimeout" valuetype="integer" />
+            <text title="" valuetid="~units.seconds" />
           </line>
           <line>
-            <textedit composition="tweaks" cellname="historyseconds" valuetype="integer" width="8x"  tid=".processhistory" /> <!-- title="Nr of seconds to keep process history" /-->
-            <text title="" valuetid="~units.seconds"/>
+            <textedit composition="tweaks" cellname="historyseconds" width="8x" tid=".processhistory" valuetype="integer" />  <!-- title="Nr of seconds to keep process history" / -->
+            <text title="" valuetid="~units.seconds" />
           </line>
         </tab>
         <tab tid=".services">
           <heading tid=".webhareservices" />
           <line layout="left">
-            <checkbox name="embeddeddocs" enablecomponents="docroot" title="" labeltid=".embeddeddocs" />
-            <textedit name="docroot" width="1pr" validationchecks="http-url" required="true" />
+            <checkbox name="embeddeddocs" enablecomponents="docroot" labeltid=".embeddeddocs" title="" />
+            <textedit name="docroot" width="1pr" required="true" validationchecks="http-url" />
           </line>
-          <heading tid=".geonames"/>
+          <heading tid=".geonames" />
           <line layout="left">
             <text title="" valuetid=".geonamesinfo" wordwrap="true" />
           </line>
           <textedit composition="geonames" cellname="accountname" />
           <line layout="left">
-            <text title="" valuetid=".registergeonames" action="registergeonames" wordwrap="true" />
+            <text action="registergeonames" title="" valuetid=".registergeonames" wordwrap="true" />
           </line>
-          <heading tid=".geiop2"/>
+          <heading tid=".geiop2" />
           <textedit composition="geoip2" cellname="licensekey" />
           <line layout="left">
-            <text title="" valuetid=".registergeoip2" action="registergeoip2" wordwrap="true" />
+            <text action="registergeoip2" title="" valuetid=".registergeoip2" wordwrap="true" />
           </line>
         </tab>
         <tab tid=".security">
           <line layout="left">
-            <checkbox name="allowpasswordreset" title="" labeltid=".allowpasswordreset" />
+            <checkbox name="allowpasswordreset" labeltid=".allowpasswordreset" title="" />
           </line>
           <line layout="left">
-            <checkbox composition="security" cellname="autodenyipv6" title="" labeltid=".autodenyipv6" /> <!-- "Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" /-->
+            <checkbox composition="security" cellname="autodenyipv6" labeltid=".autodenyipv6" title="" />  <!-- "Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" / -->
           </line>
           <textedit name="checkipallowmask" width="1pr" />
           <line>
-            <textedit composition="security" cellname="fullaccessips" tid=".fullaccessips" /><!-- title="List of IP addresses that bypass access rule login requirements, comma-separated" /-->
-            <text title="" valuetid=".commaexplain"/>
+            <textedit composition="security" cellname="fullaccessips" tid=".fullaccessips" />  <!-- title="List of IP addresses that bypass access rule login requirements, comma-separated" / -->
+            <text title="" valuetid=".commaexplain" />
           </line>
           <heading tid="~advanced" />
           <line>
-            <textedit composition="proxy" cellname="trustxforwardedfor" width="1pr" tid=".trustxforwarded" /> <!--"A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" / -->
-            <text title="" valuetid=".commaexplain"/>
+            <textedit composition="proxy" cellname="trustxforwardedfor" width="1pr" tid=".trustxforwarded" />  <!-- "A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" / -->
+            <text title="" valuetid=".commaexplain" />
           </line>
-          <textedit composition="security" cellname="ciphersuite" tid=".overrideopenssl" width="1pr" /> <!-- title="Override OpenSSL ciphersuite list for webserver listening ports" /-->
+          <textedit composition="security" cellname="ciphersuite" width="1pr" tid=".overrideopenssl" />  <!-- title="Override OpenSSL ciphersuite list for webserver listening ports" / -->
         </tab>
         <tab tid=".archiving">
           <line>
-            <textedit composition="modulemgr" cellname="archivedays" valuetype="integer" width="6x" />
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="modulemgr" cellname="archivedays" width="6x" valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <heading tid=".logfiles" />
           <line>
-            <textedit composition="tweaks" cellname="accesslogdays" valuetype="integer" tid=".accesslog" width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="tweaks" cellname="accesslogdays" width="6x" tid=".accesslog" valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <line>
-            <textedit composition="tweaks" cellname="pxllogdays" valuetype="integer" tid=".pxllog"  width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="tweaks" cellname="pxllogdays" width="6x" tid=".pxllog" valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <line>
-            <textedit composition="tweaks" cellname="errorlogdays" valuetype="integer" tid=".errorlog"  width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="tweaks" cellname="errorlogdays" width="6x" tid=".errorlog" valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <line>
-            <textedit composition="tweaks" cellname="usagelogdays" valuetype="integer" tid=".usagelog"  width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="tweaks" cellname="usagelogdays" width="6x" tid=".usagelog" valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <line>
-            <textedit composition="wrdglobalconfig" cellname="keepauditlogdays" valuetype="integer" tid=".wrdauditlogdays"  width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="wrdglobalconfig"
+                      cellname="keepauditlogdays"
+                      width="6x"
+                      tid=".wrdauditlogdays"
+                      valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <heading tid=".tasks" />
           <line>
-            <textedit composition="tasks" cellname="finishedretention" valuetype="integer" tid=".tasksfinishedretention"  width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="tasks"
+                      cellname="finishedretention"
+                      width="6x"
+                      tid=".tasksfinishedretention"
+                      valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
           <line>
-            <textedit composition="smtp" cellname="mailretention" valuetype="integer" width="6x"/>
-            <text title="" valuetid="~units.days"/>
+            <textedit composition="smtp" cellname="mailretention" width="6x" valuetype="integer" />
+            <text title="" valuetid="~units.days" />
           </line>
         </tab>
         <tab tid=".passwordrestrictions">
@@ -155,24 +168,27 @@
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
   <screen name="selectduration" footerbuttons="ok cancel" gid=".duration">
     <compositions>
       <record name="duration" />
     </compositions>
+
     <body>
-      <textedit composition="duration" cellname="years" name="years" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="months" name="months" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="weeks" name="weeks" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="days" name="days" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="hours" name="hours" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="minutes" name="minutes" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="seconds" name="seconds" valuetype="integer" minvalue="0" width="8x" />
-      <textedit composition="duration" cellname="milliseconds" name="milliseconds" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="years" name="years" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration" cellname="months" name="months" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration" cellname="weeks" name="weeks" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration" cellname="days" name="days" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration" cellname="hours" name="hours" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration" cellname="minutes" name="minutes" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration" cellname="seconds" name="seconds" width="8x" minvalue="0" valuetype="integer" />
+      <textedit composition="duration"
+                cellname="milliseconds"
+                name="milliseconds"
+                width="8x"
+                minvalue="0"
+                valuetype="integer" />
     </body>
   </screen>
 

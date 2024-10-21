@@ -1,95 +1,93 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
+  <import definitionfile="/data/wrdschemas/authschema.xml" />
 
-  <migration tag="system:updatesaml" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#UpdateSAML"/>
+  <migration tag="system:updatesaml" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#UpdateSAML" />
 
-  <object tag="WRD_AUTHDOMAIN_SAMLPROVIDERBASE" title="Authentication domain SAML service base">
+  <object tag="wrd_authdomain_samlproviderbase" title="Authentication domain SAML service base">
     <attributes>
-      <free tag="SAMLENTITYID" title="SAML Entity ID" />
-      <whfsintextlink tag="KEYPAIR" title="Link to private key/certificate" />
-      <free tag="HASHMETHOD" title="Hash method for XML Signature to use (eg SHA-256)" description="For compatibility, default is 'SHA-1'"/>
-
-      <array tag="CONNECTIONS" title="Connected providers">
-        <free tag="SAMLENTITYID" title="SAML Entity ID" />
-        <file tag="CERTIFICATE" title="Provider certificate" />
-        <free tag="DESCRIPTION" title="Description" />
-        <free tag="METADATAURL" title="URL of metadata" />
-        <datetime tag="VALIDUNTIL" title="Valid until" />
-        <file tag="ENTITYDESCRIPTOR" title="Entity descriptor" />
+      <free tag="samlentityid" title="SAML Entity ID" />
+      <whfsintextlink tag="keypair" title="Link to private key/certificate" />
+      <free tag="hashmethod"
+            description="For compatibility, default is 'SHA-1'"
+            title="Hash method for XML Signature to use (eg SHA-256)" />
+      <array tag="connections" title="Connected providers">
+        <free tag="samlentityid" title="SAML Entity ID" />
+        <file tag="certificate" title="Provider certificate" />
+        <free tag="description" title="Description" />
+        <free tag="metadataurl" title="URL of metadata" />
+        <datetime tag="validuntil" title="Valid until" />
+        <file tag="entitydescriptor" title="Entity descriptor" />
       </array>
-
-      <boolean tag="ALLOW_REDIRECTBINDING" title="Allow and publish the redirect binding" />
-
-      <free tag="ORGANIZATION_NAME" title="Organization short name" />
-      <free tag="ORGANIZATION_DISPLAYNAME" title="Organization display name" />
-      <free tag="ORGANIZATION_URL" title="Organization URL" />
-
-      <array tag="CONTACTS" title="Contacts">
-        <free tag="TYPE" title="Contact type" />
-        <free tag="COMPANY" title="Company" />
-        <free tag="GIVENNAME" title="First name" />
-        <free tag="SURNAME" title="Last name" />
-        <email tag="EMAIL" title="Email address" />
-        <telephone tag="TELEPHONE" title="Telephone" />
+      <boolean tag="allow_redirectbinding" title="Allow and publish the redirect binding" />
+      <free tag="organization_name" title="Organization short name" />
+      <free tag="organization_displayname" title="Organization display name" />
+      <free tag="organization_url" title="Organization URL" />
+      <array tag="contacts" title="Contacts">
+        <free tag="type" title="Contact type" />
+        <free tag="company" title="Company" />
+        <free tag="givenname" title="First name" />
+        <free tag="surname" title="Last name" />
+        <email tag="email" title="Email address" />
+        <telephone tag="telephone" title="Telephone" />
       </array>
     </attributes>
   </object>
 
-  <object tag="WRD_AUTHDOMAIN_SAML_IDP" title="Authentication domain SAML identity provider" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+  <object tag="wrd_authdomain_saml_idp"
+          parent="wrd_authdomain_samlproviderbase"
+          title="Authentication domain SAML identity provider">
     <attributes>
-      <array tag="SUPPORTEDNAMEIDFORMATS" title="Supported name identifier formats">
-        <free tag="NAMEIDFORMAT" title="Name identifier format" />
+      <array tag="supportednameidformats" title="Supported name identifier formats">
+        <free tag="nameidformat" title="Name identifier format" />
       </array>
     </attributes>
   </object>
 
-  <object tag="WRD_AUTHDOMAIN_SAML_SP" title="Authentication domain SAML service provider" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+  <object tag="wrd_authdomain_saml_sp"
+          parent="wrd_authdomain_samlproviderbase"
+          title="Authentication domain SAML service provider">
     <attributes>
-      <free tag="NAMEIDPOLICY" title="NameID policy to use (optional)" />
+      <free tag="nameidpolicy" title="NameID policy to use (optional)" />
     </attributes>
   </object>
 
   <!-- Type of the entity is determined by type of parent. parent is SP -> this is an IDP, parent is IDP -> this is an SP -->
-  <attachment tag="WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY" title="Authentication domain SAML connected service provider" linkfrom="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+  <attachment tag="wrd_authdomain_saml_connected_entity"
+              linkfrom="wrd_authdomain_samlproviderbase"
+              title="Authentication domain SAML connected service provider">
     <attributes>
-      <free tag="SAMLENTITYID" title="SAML Entity ID" />
-      <free tag="METADATAURL" title="Metadata URL used for import" />
-
-      <array tag="CERTIFICATES" title="Certificates">
-        <file tag="DATA" title="Certificate data (X.509, PEM-encoded with headers)" />
-        <datetime tag="ACCEPTUNTIL" title="Accept until date" />
+      <free tag="samlentityid" title="SAML Entity ID" />
+      <free tag="metadataurl" title="Metadata URL used for import" />
+      <array tag="certificates" title="Certificates">
+        <file tag="data" title="Certificate data (X.509, PEM-encoded with headers)" />
+        <datetime tag="acceptuntil" title="Accept until date" />
       </array>
 
       <!-- this aggregates all the service endpoints from the descriptors -->
-      <array tag="SERVICEENDPOINTS" title="Service endpoints">
-        <free tag="TYPE" title="Endpoint type" />
-        <free tag="BINDING" title="Binding" />
-        <free tag="LOCATION" title="Location" />
-        <free tag="RESPONSELOCATION" title="Response location" />
-        <integer tag="INDEX" title="Index" />
-        <boolean tag="ISDEFAULT" title="Is default endpoint (for this type)" />
+      <array tag="serviceendpoints" title="Service endpoints">
+        <free tag="type" title="Endpoint type" />
+        <free tag="binding" title="Binding" />
+        <free tag="location" title="Location" />
+        <free tag="responselocation" title="Response location" />
+        <integer tag="index" title="Index" />
+        <boolean tag="isdefault" title="Is default endpoint (for this type)" />
       </array>
-
-      <array tag="SUPPORTEDNAMEIDFORMATS" title="Supported name identifier formats">
-        <free tag="NAMEIDFORMAT" title="Name identifier format" />
+      <array tag="supportednameidformats" title="Supported name identifier formats">
+        <free tag="nameidformat" title="Name identifier format" />
       </array>
-
-      <free tag="ORGANIZATION_NAME" title="Organization short name" />
-      <free tag="ORGANIZATION_DISPLAYNAME" title="Organization display name" />
-      <free tag="ORGANIZATION_URL" title="Organization URL" />
-
-      <array tag="CONTACTS" title="Contacts">
-        <free tag="TYPE" title="Contact type" />
-        <free tag="COMPANY" title="Company" />
-        <free tag="GIVENNAME" title="First name" />
-        <free tag="SURNAME" title="Last name" />
-        <email tag="EMAIL" title="Email address" />
-        <telephone tag="TELEPHONE" title="Telephone" />
+      <free tag="organization_name" title="Organization short name" />
+      <free tag="organization_displayname" title="Organization display name" />
+      <free tag="organization_url" title="Organization URL" />
+      <array tag="contacts" title="Contacts">
+        <free tag="type" title="Contact type" />
+        <free tag="company" title="Company" />
+        <free tag="givenname" title="First name" />
+        <free tag="surname" title="Last name" />
+        <email tag="email" title="Email address" />
+        <telephone tag="telephone" title="Telephone" />
       </array>
-
-      <boolean tag="SIGNATURE_OPTIONAL" title="if TRUE, don't require a signature from this entity" />
+      <boolean tag="signature_optional" title="if TRUE, don't require a signature from this entity" />
     </attributes>
   </attachment>
 

@@ -1,15 +1,13 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/users.whlib"
-         gid="monitor">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor" library="/lib/screens/monitor/users.whlib">
 
   <screen name="users" gid=".users" title="">
     <actions>
       <action name="kill" shortcut="del" title="">
-        <enableon source="onlineusers" min="1" onexecute="dokillallsessions" checkflags="haveapplications" />
+        <enableon source="onlineusers" min="1" checkflags="haveapplications" onexecute="dokillallsessions" />
         <enableon source="apps" min="1" onexecute="dokillsession" />
       </action>
       <action name="sendmessagetouser" onexecute="dosendmessagetouser">
-        <enableon source="onlineusers" min="1" onexecute="dosendmessagetouser" checkflags="haveapplications" />
+        <enableon source="onlineusers" min="1" checkflags="haveapplications" onexecute="dosendmessagetouser" />
       </action>
       <action name="sendglobalmessage" onexecute="dosendglobalmessage" />
       <action name="openwebharelogin" onexecute="doopenwebharelogin" />
@@ -36,33 +34,35 @@
             <row height="1pr">
               <cell>
                 <list name="onlineusers"
-                      highlightname="isself"
-                      selectmode="single"
+                      height="1pr"
                       borders="right"
+                      flags="haveapplications"
+                      highlightname="isself"
                       onselect="onuserselect"
                       selectcontextmenu="usercontextmenu"
-                      flags="haveapplications"
-                      height="1pr">
+                      selectmode="single">
                   <column name="username" type="text" />
                   <column name="realname" type="text" />
-                  <column name="logintime" type="datetime" precision="seconds" storeutc="true" width="18x" />
-                  <column name="lastaccess" type="datetime" precision="seconds" storeutc="true" width="18x" />
-                  <column name="ipaddress" type="text" sortkeyname="ipaddress_sort" width="11x" />
-                  <!--column name="typename" type="text" /-->
+                  <column name="logintime" type="datetime" width="18x" precision="seconds" storeutc="true" />
+                  <column name="lastaccess" type="datetime" width="18x" precision="seconds" storeutc="true" />
+                  <column name="ipaddress" type="text" width="11x" sortkeyname="ipaddress_sort" />
+
+                  <!-- column name="typename" type="text" / -->
                   <column name="appcount" type="text" width="12x" align="right" />
+
                   <!-- <column name="appmemory" type="text" width="12x" align="right" /> -->
                 </list>
               </cell>
               <cell spacers="left right">
-                <box tid=".messaging" hr="false">
-                  <button action="sendmessagetouser" width="1pr"/>
-                  <button action="sendglobalmessage" width="1pr"/>
+                <box hr="false" tid=".messaging">
+                  <button width="1pr" action="sendmessagetouser" />
+                  <button width="1pr" action="sendglobalmessage" />
                 </box>
-                <box tid=".loginstatus" hr="false">
+                <box hr="false" tid=".loginstatus">
                   <text name="loginstatus" title="" />
                   <line layout="left">
-                    <button action="openwebharelogin" width="1pr" />
-                    <button action="closewebharelogin" width="1pr" />
+                    <button width="1pr" action="openwebharelogin" />
+                    <button width="1pr" action="closewebharelogin" />
                   </line>
                 </box>
                 <heading tid=".stats" />
@@ -82,35 +82,38 @@
                 <panel spacers="left">
                   <heading tid=".apps" />
                 </panel>
-
                 <list name="apps"
                       height="1pr"
-                      selectmode="single"
                       borders="top right"
                       onselect="onapplicationselect"
-                      selectcontextmenu="appcontextmenu" >
-                  <column type="text" name="sessionid" tid=".sessionid" width="18x" />
-                  <column type="text" name="ipaddress" tid=".ipaddress" width="11x" />
+                      selectcontextmenu="appcontextmenu"
+                      selectmode="single">
+                  <column name="sessionid" type="text" width="18x" tid=".sessionid" />
+                  <column name="ipaddress" type="text" width="11x" tid=".ipaddress" />
+
                   <!-- <column type="text" name="running" tid=".running" width="4x" /> -->
-                  <column type="text" name="started" tid=".timestarted" width="8x" />
-                  <column type="text" name="lastactive" tid=".lastactive" width="8x" />
+                  <column name="started" type="text" width="8x" tid=".timestarted" />
+                  <column name="lastactive" type="text" width="8x" tid=".lastactive" />
+
                   <!-- <column type="text" name="lastpoll" tid=".lastpoll" width="8x" /> -->
+
                   <!-- <column type="text" name="memusage" tid=".memoryusage" width="11x" align="right" />
                   <column type="text" name="objects" tid=".objectcount" width="8x" align="right" /> -->
-                  <column type="text" name="app" tid=".application" width="25x" />
-                  <column type="text" name="title" tid=".applicationtitle" />
+                  <column name="app" type="text" width="25x" tid=".application" />
+                  <column name="title" type="text" tid=".applicationtitle" />
+
                   <!-- <column type="text" name="starturl" tid=".starturl" width="1pr" /> -->
-                  <column type="text" name="browser" />
+                  <column name="browser" type="text" />
                 </list>
               </cell>
               <cell>
-                <box name="appstats" visible="false" width="28x">
+                <box name="appstats" width="28x" visible="false">
                   <text name="backingstore" />
                   <text name="blobstore" />
                   <text name="heap" />
                   <text name="stack" />
                   <text name="instructions" />
-                  <text name="library" visible="false" /><!-- current almost always modules/system/scripts/internal/tolliums.shtml, so not really interesting -->
+                  <text name="library" visible="false" />  <!-- current almost always modules/system/scripts/internal/tolliums.shtml, so not really interesting -->
                   <text name="objectcount" />
                 </box>
               </cell>
@@ -122,41 +125,38 @@
   </screen>
 
   <screen name="sendmessage"
-          allowresize="true"
-          height="30x"
           width="100x"
+          height="30x"
           minwidth="70x"
-          savestate="size position"
-          gid=".sendmessage">
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".sendmessage"
+          savestate="size position">
     <body>
       <box name="applytemplate" visible="false">
-        <select name="template" type="pulldown" onchange="ontemplatechange" flags="showserverupdate">
+        <select name="template" type="pulldown" flags="showserverupdate" onchange="ontemplatechange">
           <option rowkey="none" />
           <divider />
           <option rowkey="serverupdate" flags="showserverupdate" selected="true" />
         </select>
         <tabs type="server" height="1pr">
           <tab>
-            <visibleon source="template" checkflags="showserverupdate" min="1" />
-            <box tid=".serverupdate" hr="false">
-              <datetime name="updatewhen" type="datetime" precision="minutes" onselect="ontemplatechange" />
+            <visibleon checkflags="showserverupdate" min="1" source="template" />
+            <box hr="false" tid=".serverupdate">
+              <datetime name="updatewhen" type="datetime" onselect="ontemplatechange" precision="minutes" />
               <line>
-                <textedit name="updatetime" valuetype="integer" width="5x" value="5" onchange="ontemplatechange" />
+                <textedit name="updatetime" width="5x" onchange="ontemplatechange" value="5" valuetype="integer" />
                 <text title="" valuetid=".minutes" />
               </line>
             </box>
           </tab>
         </tabs>
       </box>
-      <box tid=".message" height="1pr" vscroll="true" hr="false">
-        <textedit name="title" required="true" maxlength="50" />
-        <textarea name="msg" required="true" height="1pr" maxlength="200" />
+      <box height="1pr" hr="false" tid=".message" vscroll="true">
+        <textedit name="title" maxlength="50" required="true" />
+        <textarea name="msg" height="1pr" maxlength="200" required="true" />
       </box>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
-
 
 </screens>

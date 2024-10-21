@@ -5,12 +5,12 @@
 
   <screen name="editvideo" footerbuttons="ok cancel" tid="siteprofile.widgets.embedvideo">
     <body>
-      <p:embedvideo name="embedvideo" required="true" onchange="onvideochange"/>
-      <time precision="seconds" name="starttime" />
-      <time precision="seconds" name="endtime" />
+      <p:embedvideo name="embedvideo" onchange="onvideochange" required="true" />
+      <time name="starttime" precision="seconds" />
+      <time name="endtime" precision="seconds" />
       <lines layout="left">
-        <checkbox name="loop" title="" labeltid=".loop"/>
-        <checkbox name="mutedautoplay" title="" labeltid=".mutedautoplay"/>
+        <checkbox name="loop" labeltid=".loop" title="" />
+        <checkbox name="mutedautoplay" labeltid=".mutedautoplay" title="" />
       </lines>
     </body>
   </screen>

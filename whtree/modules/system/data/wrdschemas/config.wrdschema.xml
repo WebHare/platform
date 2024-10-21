@@ -104,14 +104,17 @@
       <boolean tag="is_critical" />
       <json tag="jump_to" description="Jump instruction to application which can provide more information" />
       <datetime tag="snoozed_until" description="Time until we start actively reporting this error again" />
-      <enumarray tag="scopes" description="Special scopes for some checks" allowedvalues="gdpr policy" />
+      <enumarray tag="scopes" allowedvalues="gdpr policy" description="Special scopes for some checks" />
     </attributes>
   </object>
 
   <!-- history of this check -->
   <attachment tag="server_check_history" linkfrom="server_check">
     <attributes>
-      <enum tag="event" allowedvalues="start change stop snooze dismiss" required="true" gid="tolliumapps.dashboard.platform.eventtypes" />
+      <enum tag="event"
+            allowedvalues="start change stop snooze dismiss"
+            gid="tolliumapps.dashboard.platform.eventtypes"
+            required="true" />
       <free tag="message_text" description="Message text (start and change events)" />
       <json tag="message_tid" description="Message tid (start and change events)" />
       <free tag="comment" description="Comment (snooze and dismiss)" />
@@ -122,10 +125,9 @@
 
   <object tag="custom_check_messages">
     <attributes>
-      <free tag="wrd_title" required="true" description="Message text" />
+      <free tag="wrd_title" description="Message text" required="true" />
       <json tag="conditions" typedeclaration="mod::system/data/wrdschemas/config_types.ts#ManualCheckMessagesConditions" />
     </attributes>
   </object>
-
 
 </schemadefinition>

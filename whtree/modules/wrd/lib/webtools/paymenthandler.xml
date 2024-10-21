@@ -1,19 +1,23 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         gid="forms.paymenthandler"
-         library="paymenthandler.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="forms.paymenthandler" library="paymenthandler.whlib">
 
-  <tabsextension name="paymentsettings" implementation="lib" allowresize="true">
+  <tabsextension name="paymentsettings" allowresize="true" implementation="lib">
     <newtab tid=".handler">
       <textedit name="orderid" maxlength="30" />
       <select name="amounttype" type="radio">
         <option rowkey="fixed">
-          <textedit name="amount" valuetype="money" minvalue="0.01" title="" errorlabeltid=".amounttype-fixed" required="true" emptyvalue="0"/>
+          <textedit name="amount"
+                    minvalue="0.01"
+                    emptyvalue="0"
+                    errorlabeltid=".amounttype-fixed"
+                    required="true"
+                    title=""
+                    valuetype="money" />
         </option>
         <option rowkey="fromfield">
-          <select name="field" type="pulldown" required="true" errorlabeltid=".amounttype-fromfield" title=""/>
+          <select name="field" type="pulldown" errorlabeltid=".amounttype-fromfield" required="true" title="" />
         </option>
       </select>
     </newtab>
   </tabsextension>
+
 </screens>

@@ -1,12 +1,8 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          gid="tolliumapps.commondialogs.runscript"
          library="runscript.whlib">
 
-  <screen name="runscriptdialog"
-          width="110x"
-          height="45x"
-          allowresize="true">
+  <screen name="runscriptdialog" width="110x" height="45x" allowresize="true">
     <actions>
       <action name="saveoutput" onexecute="dosaveoutput" tid=".saveoutput" />
       <action name="terminate" onexecute="doterminate" tid=".terminate" />

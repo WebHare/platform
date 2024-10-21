@@ -41,8 +41,8 @@
 
   <screen name="mailroutes" width="130x" height="40x" allowresize="true" footerbuttons="close">
     <actions>
-      <action name="mailconfig" onexecute="domailconfig" tid="~edit"/>
-      <action name="senderconfig" onexecute="dosenderconfig" tid="~edit"/>
+      <action name="mailconfig" onexecute="domailconfig" tid="~edit" />
+      <action name="senderconfig" onexecute="dosenderconfig" tid="~edit" />
     </actions>
 
     <body spacers="none">
@@ -98,7 +98,7 @@
             <column name="mask" type="text" width="1pr" tid=".mask" />
             <column name="wrd_title" type="text" width="2pr" tid="~description" />
           </wrd:entitiesedit>
-          <text valuetid=".receiverlistmaybeskipped" wordwrap="true" width="1pr" />
+          <text width="1pr" valuetid=".receiverlistmaybeskipped" wordwrap="true" />
         </tab>
         <tab name="emailcorrectionstab">
           <wrd:entitiesedit name="emailcorrections"

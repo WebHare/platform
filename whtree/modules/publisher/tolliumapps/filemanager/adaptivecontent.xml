@@ -50,21 +50,43 @@
     </compositions>
     <contents>
       <line>
-        <p:beacon composition="value" cellname="beacon" emptytid=".nobeacons" errorlabeltid=".beacon" required="true" tid=".is" rowkeyfield="name" />
+        <p:beacon composition="value"
+                  cellname="beacon"
+                  emptytid=".nobeacons"
+                  errorlabeltid=".beacon"
+                  required="true"
+                  rowkeyfield="name"
+                  tid=".is" />
         <textedit composition="value" cellname="maxdays" width="10x" emptyvalue="0" suffixtid=".days" valuetype="integer" />
       </line>
     </contents>
   </fragment>
 
-  <fragment name="visitdatecondition_before" gid=".conditions.visitdatecondition" objectname="adaptivecontent.whlib#visitdatecondition">
+  <fragment name="visitdatecondition_before"
+            gid=".conditions.visitdatecondition"
+            objectname="adaptivecontent.whlib#visitdatecondition">
     <contents>
-      <datetime name="date" type="datetime" precision="minutes" required="true" storeutc="true" title="" errorlabeltid=".name-before"/>
+      <datetime name="date"
+                type="datetime"
+                errorlabeltid=".name-before"
+                precision="minutes"
+                required="true"
+                storeutc="true"
+                title="" />
     </contents>
   </fragment>
 
-  <fragment name="visitdatecondition_after" gid=".conditions.visitdatecondition" objectname="adaptivecontent.whlib#visitdatecondition">
+  <fragment name="visitdatecondition_after"
+            gid=".conditions.visitdatecondition"
+            objectname="adaptivecontent.whlib#visitdatecondition">
     <contents>
-      <datetime name="date" type="datetime" precision="minutes" required="true" storeutc="true" title="" errorlabeltid=".name-after"/>
+      <datetime name="date"
+                type="datetime"
+                errorlabeltid=".name-after"
+                precision="minutes"
+                required="true"
+                storeutc="true"
+                title="" />
     </contents>
   </fragment>
 

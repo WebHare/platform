@@ -1,14 +1,13 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         gid="contentproviders">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="contentproviders">
 
-  <screen name="custom" gid=".custom" title="" lib="contentproviders/customcontent.whlib">
+  <screen name="custom" gid=".custom" library="/lib/contentproviders/customcontent.whlib" title="">
     <compositions>
       <record name="mysettings" />
     </compositions>
+
     <body>
-      <textedit composition="mysettings" cellname="library" name="library" required="true" width="1pr" />
-      <textedit composition="mysettings" cellname="contentobject" name="contentobject" required="true" width="1pr" />
+      <textedit composition="mysettings" cellname="library" name="library" width="1pr" required="true" />
+      <textedit composition="mysettings" cellname="contentobject" name="contentobject" width="1pr" required="true" />
 
       <!-- The STRING lastcontentscheck composition value is stored here and displayed as DATETIME in the lastcontentscheck text -->
       <textedit composition="mysettings" cellname="lastcontentscheck" visible="false" />

@@ -1,47 +1,54 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         library="systemnews.whlib"
-         gid="tolliumapps.dashboard.systemnews">
+         gid="tolliumapps.dashboard.systemnews"
+         library="systemnews.whlib">
 
   <screen name="overview" title="">
     <actions>
-      <action name="add" onexecute="doadd" tid="~add" shortcut="ctrl+n"/>
-      <action name="edit" onexecute="doedit" tid="~edit" shortcut="enter">
-        <enableon source="newslist" min="1" max="1"/>
+      <action name="add" onexecute="doadd" shortcut="ctrl+n" tid="~add" />
+      <action name="edit" onexecute="doedit" shortcut="enter" tid="~edit">
+        <enableon source="newslist" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" tid="~delete" shortcut="del">
+      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
         <enableon source="newslist" min="1" />
       </action>
     </actions>
+
     <menus>
       <menu name="newslist_sel" gid="mailer.actions">
-        <item action="edit" disablemode="hidden"/>
-        <item action="delete" disablemode="hidden"/>
+        <item action="edit" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
       </menu>
       <menu name="newslist_nosel" gid="mailer.actions">
-        <item action="add" disablemode="hidden"/>
+        <item action="add" disablemode="hidden" />
       </menu>
     </menus>
+
     <toolbar>
       <button action="add" icon="tollium:actions/add" />
-      <button action="edit" icon="tollium:actions/edit"/>
-      <button action="delete" icon="tollium:actions/delete"/>
+      <button action="edit" icon="tollium:actions/edit" />
+      <button action="delete" icon="tollium:actions/delete" />
     </toolbar>
+
     <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
           <list name="newslist"
                 height="1pr"
-                selectcontextmenu="newslist_sel"
+                borders="right"
                 newcontextmenu="newslist_nosel"
                 openaction="edit"
+                selectcontextmenu="newslist_sel"
                 selectmode="multiple"
                 sortascending="false"
-                sortcolumn="publishdate"
-                borders="right">
-            <column type="text" width="3pr" name="title" tid="~title" />
-            <column type="text" name="createdby_string" />
-            <column type="datetime" name="publish_from" storeutc="true" tid=".publishdate" sortkeyname="publishdate_creationdate"/>
+                sortcolumn="publishdate">
+            <column name="title" type="text" width="3pr" tid="~title" />
+            <column name="createdby_string" type="text" />
+            <column name="publish_from"
+                    type="datetime"
+                    sortkeyname="publishdate_creationdate"
+                    storeutc="true"
+                    tid=".publishdate" />
             <style name="inactive" textcolor="#9a9a9a" />
           </list>
         </cell>
@@ -54,37 +61,81 @@
     </body>
   </screen>
 
-  <screen name="updatenewsitem" title="">
+  <screen name="updatenewsitem" footerbuttons="ok cancel" title="">
     <compositions>
       <wrd:entity name="newsitem" />
     </compositions>
+
     <body spacers="none">
       <tabs type="regular">
-        <tab tid=".newsitem" height="1pr">
-          <textedit composition="newsitem" cellname="announcement_title" tid="~title" name="title" maxlength="250" required="true" minwidth="40x" width="1pr"/>
-          <richdocument composition="newsitem" cellname="announcement_text" name="message" minheight="13x" minwidth="85x" width="1pr" height="1pr" required="true" contentareawidth="300px" errorlabeltid=".message" />
-          <textedit composition="newsitem" cellname="announcement_author" name="userid" title="" visible="false" valuetype="integer" />
+        <tab height="1pr" tid=".newsitem">
+          <textedit composition="newsitem"
+                    cellname="announcement_title"
+                    name="title"
+                    width="1pr"
+                    minwidth="40x"
+                    maxlength="250"
+                    required="true"
+                    tid="~title" />
+          <richdocument composition="newsitem"
+                        cellname="announcement_text"
+                        name="message"
+                        width="1pr"
+                        height="1pr"
+                        minwidth="85x"
+                        minheight="13x"
+                        contentareawidth="300px"
+                        errorlabeltid=".message"
+                        required="true" />
+          <textedit composition="newsitem"
+                    cellname="announcement_author"
+                    name="userid"
+                    title=""
+                    valuetype="integer"
+                    visible="false" />
         </tab>
         <tab name="target">
-          <box checkbox="true" tid=".publishdate" enablecomponents="publish_date_from publish_date_until" value="false" name="usepublishdate" onchange="onpublishdatechange">
+          <box name="usepublishdate"
+               checkbox="true"
+               enablecomponents="publish_date_from publish_date_until"
+               onchange="onpublishdatechange"
+               tid=".publishdate"
+               value="false">
             <line>
-              <datetime composition="newsitem" type="datetime" cellname="publish_from" tid=".publish_date_from" name="publish_date_from" enabled="false" storeutc="true" />
-              <datetime composition="newsitem" type="datetime" cellname="publish_until" tid=".publish_date_until" name="publish_date_until" enabled="false" storeutc="true" />
+              <datetime composition="newsitem"
+                        cellname="publish_from"
+                        name="publish_date_from"
+                        type="datetime"
+                        enabled="false"
+                        storeutc="true"
+                        tid=".publish_date_from" />
+              <datetime composition="newsitem"
+                        cellname="publish_until"
+                        name="publish_date_until"
+                        type="datetime"
+                        enabled="false"
+                        storeutc="true"
+                        tid=".publish_date_until" />
             </line>
           </box>
           <heading tid=".audience" />
           <listedit name="unitlist"
                     height="1pr"
-                    columnheaders="false"
-                    ongetchildren="dogetunits"
                     buttons="add delete"
-                    onrowedit="doaddunit"
-                    onrowdelete="dodeleteunit"
+                    columnheaders="false"
                     emptytid=".allunits"
+                    ongetchildren="dogetunits"
+                    onrowdelete="dodeleteunit"
+                    onrowedit="doaddunit"
                     rowkeytype="entityid">
             <column name="title" type="text" tid="~title" />
           </listedit>
-          <select tid=".targetlang" composition="newsitem" cellname="target_language" type="pulldown" rowkeytype="integer" required="false">
+          <select composition="newsitem"
+                  cellname="target_language"
+                  type="pulldown"
+                  required="false"
+                  rowkeytype="integer"
+                  tid=".targetlang">
             <option rowkey="0" tid=".targetlang-nlen" />
             <option rowkey="1" tid=".targetlang-en" />
             <option rowkey="2" tid=".targetlang-nl" />
@@ -92,9 +143,6 @@
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

@@ -1,29 +1,43 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         library="tasks.whlib"
-         gid="tolliumapps.objectprops.tasks">
+         gid="tolliumapps.objectprops.tasks"
+         library="tasks.whlib">
 
-  <screen name="taskprops" title="">
+  <screen name="taskprops" footerbuttons="ok cancel" title="">
     <compositions>
       <radiogroup name="event" />
     </compositions>
+
     <body>
-      <radiobutton name="start" group="event" rowkey="1" tid=".event" labeltid=".event-start" />
-      <radiobutton name="end" group="event" rowkey="2" title="" labeltid=".event-end" />
+      <radiobutton name="start" group="event" labeltid=".event-start" rowkey="1" tid=".event" />
+      <radiobutton name="end" group="event" labeltid=".event-end" rowkey="2" title="" />
       <line>
-        <radiobutton name="move" group="event" rowkey="3" title="" labeltid=".event-move" enablecomponents="folder" />
-        <publisher:browseforobject name="folder" acceptfiles="false" required="true" errorlabeltid=".event-move" title="" showclear="false"/>
+        <radiobutton name="move" enablecomponents="folder" group="event" labeltid=".event-move" rowkey="3" title="" />
+        <publisher:browseforobject name="folder"
+                                   acceptfiles="false"
+                                   errorlabeltid=".event-move"
+                                   required="true"
+                                   showclear="false"
+                                   title="" />
       </line>
-      <radiobutton name="delete" group="event" rowkey="4" title="" labeltid=".event-delete" />
-      <radiobutton name="setindexdoc" group="event" rowkey="5" title="" labeltid=".event-setindexdoc" />
+      <radiobutton name="delete" group="event" labeltid=".event-delete" rowkey="4" title="" />
+      <radiobutton name="setindexdoc" group="event" labeltid=".event-setindexdoc" rowkey="5" title="" />
       <line>
-        <radiobutton name="button_replacewith" group="event" rowkey="6" title="" labeltid=".event-replacewith" enablecomponents="replacewith" />
-        <publisher:browseforobject name="replacewith" acceptfolders="false" required="true" errorlabeltid=".event-replacewith" title="" showclear="false"/>
+        <radiobutton name="button_replacewith"
+                     enablecomponents="replacewith"
+                     group="event"
+                     labeltid=".event-replacewith"
+                     rowkey="6"
+                     title="" />
+        <publisher:browseforobject name="replacewith"
+                                   acceptfolders="false"
+                                   errorlabeltid=".event-replacewith"
+                                   required="true"
+                                   showclear="false"
+                                   title="" />
       </line>
       <datetime name="when" type="datetime" precision="minutes" required="true" storeutc="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
+
 </screens>

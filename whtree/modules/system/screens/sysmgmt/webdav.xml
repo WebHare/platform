@@ -1,4 +1,6 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="sysmgmt.webdav" lib="screens/sysmgmt/webdav.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="sysmgmt.webdav"
+         library="/lib/screens/sysmgmt/webdav.whlib">
 
   <screen name="webdav_data" width="100x" height="30x" allowresize="true" footerbuttons="close" gid=".data" tid=".title">
     <actions>
@@ -19,7 +21,7 @@
       <menu name="contextmenu">
         <item action="editfolder" />
         <item action="deletefolder" />
-        <divider/>
+        <divider />
         <item action="rightsfolder" />
       </menu>
       <menu name="newcontextmenu">

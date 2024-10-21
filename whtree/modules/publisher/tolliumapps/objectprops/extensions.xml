@@ -1,9 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="extensions.whlib">
 
-  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
-                 name="lifecycle"
-                 gid="tolliumapps.objectprops.extensions.lifecycle"
-                 implementation="lib">
+  <tabsextension name="lifecycle" gid="tolliumapps.objectprops.extensions.lifecycle" implementation="lib">
     <insert position="tasksettings" where="atend">
       <heading tid=".lifecycle" />
       <line>
