@@ -892,7 +892,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ]);
   test.eq([pprecies], result.matched);
 
-  // Test array update
+  // Test that arrays overwrite, unmentioned fields should go away
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
     {
       ...fixedFields,

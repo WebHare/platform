@@ -1,7 +1,7 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDType } from "./schema";
 import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
-import { db, nextVal, nextVals, sql } from "@webhare/whdb";
+import { db, isSameUploadedBlob, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
@@ -19,6 +19,7 @@ import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
 import { ValueQueryChecker } from "./checker";
 import { runSimpleWRDQuery } from "./queries";
 import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
+import { hashStream } from "@webhare/services/src/descriptor";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
@@ -176,6 +177,7 @@ function reuseFreeSettings(encodedSettings: EncodedSetting[], current: Array<Ent
           enc.id = item.id;
           if (enc.sub)
             reuseFreeSettings(enc.sub, current, currentIdMap, item.id);
+
           break;
         }
     } else if (enc.sub)
@@ -197,32 +199,105 @@ function flattenSettings(encodedSettings: EncodedSetting[], parent: EncodedSetti
   return retval;
 }
 
-async function generateNewSettingList(entityId: number, encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>): Promise<{
+function isSameSetting(cur: EntitySettingsRec, item: Partial<EntitySettingsRec>): boolean | Promise<boolean> {
+  for (const directCompare of ["rawdata", "setting", "ordering", "attribute", "parentsetting"] as const) { //TODO link & linktype?
+    if (!cur[directCompare]) {
+      if (item[directCompare])
+        return false; //this setting can't be eliminated, an unset value is now being set
+    } else if (!item[directCompare])
+      return false; //this setting can't be eliminated, a set value is now cleared
+    else if (cur[directCompare] !== item[directCompare])
+      return false; //this setting can't be eliminated, a value changed
+  }
+
+  const curblob = cur.blobdata;
+  const itemblob = item.blobdata;
+
+  if (!curblob) {
+    if (itemblob)
+      return false; //a blob is set, so we can't eliminate this setting
+  } else {
+    if (!itemblob)
+      return false;
+    if (!isSameUploadedBlob(curblob, itemblob) || itemblob.size !== curblob.size)
+      return false;
+
+    if (!item.rawdata?.startsWith('hson:')) { //if rawdata has hson: data, it has to be a wrapped blob. as we already established rawdata is equal above, assume the blobs are
+      //we'll need to compare the actual hashes... (TODO we should convince records/jsons etc that have overflown to still store a hash?) or have PG store a hash for every blob)
+      return (async () => await hashStream(await itemblob.getStream()) !== await hashStream(await curblob.getStream()))();
+    }
+  }
+
+  return true;
+}
+
+async function findSameSetting<T extends EntitySettingsRec>(current: Array<T & { used: boolean }>, item: Partial<T>): Promise<(T & { used: boolean }) | null> {
+  for (const cur of current) {
+    const compareres = isSameSetting(cur, item);
+    if (compareres === true)
+      return cur;
+    if (compareres !== false && await compareres === true)
+      return cur;
+  }
+  return null;
+}
+
+async function generateNewSettingList(entityId: number, encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>, reusedIds: number[], reusedAttributes: Set<number>): Promise<{
   newIds: number[];
   newSets: Array<EntitySettingsRec & { unique_rawdata: string; sub?: unknown }>;
   newLinks: EntitySettingsWHFSLinkRec[];
 }> {
+  // Any row that has an id which is still reusable, can keep that. tryReusePassedSettings will clear ids on rows that are not reusable
   tryReusePassedSettings(encodedSettings, current, currentIdMap, null);
   reuseFreeSettings(encodedSettings, current, currentIdMap, null);
 
-  // Reuse all settings that have been left unused
   const parentMap = new Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>;
   const flattened = flattenSettings(encodedSettings, null, parentMap);
+
+  const finallist: typeof flattened = [];
+
+  // Eliminate all unchanged attributes from the update set (ie keep them in the database, unchanged)
+  // We need to process already assigned items first, to make sure we don't 'steal' them from the current list
+  for (const item of flattened) { //TODO merge us with reuseFreeSettings
+    if (item.id) {
+      const match = current.find(_ => _.id === item.id)!;
+      const compareRes = isSameSetting(match, item);
+      if ((compareRes === true) || (compareRes !== false && await compareRes === true)) {
+        continue; //no change, eliminate completely!
+      }
+      finallist.push(item); //okay, update it
+    }
+  }
+
+  for (const item of flattened)
+    if (!item.id) {
+      const matchcur = await findSameSetting(current, item);
+      if (matchcur) {
+        matchcur.used = true;
+        continue;
+      }
+      finallist.push(item);
+    }
+
+  // Reuse all settings that have been left unused. This should help keep attributes together in the database
   const unused = current.filter(item => !item.used).sort((a, b) => a.id - b.id);
   if (unused.length) {
     let upos = 0;
-    for (const item of flattened) {
+    for (const item of finallist) {
       if (!item.id) {
         const useItem = unused[upos++];
         useItem.used = true;
         item.id = useItem.id;
+        reusedIds.push(useItem.id);
+        reusedAttributes.add(useItem.attribute);
         if (upos === unused.length)
           break;
       }
     }
   }
+
   let noIdCount = 0;
-  for (const item of flattened) {
+  for (const item of finallist) {
     //check against potential internal issues
     if (!item.attribute)
       throw new Error(`Generated a setting without attribute: ${JSON.stringify(item)}`);
@@ -230,9 +305,10 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     if (!item.id)
       ++noIdCount;
   }
+
   const newIds = await nextVals("wrd.entity_settings.id", noIdCount);
   let ipos = 0;
-  for (const item of flattened) {
+  for (const item of finallist) {
     if (!item.id)
       item.id = newIds[ipos++];
   }
@@ -240,24 +316,29 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     child.parentsetting = parent.id;
   }
 
+  const newSettings = new Map(finallist.map(item => (
+    [
+      item.id!, {
+        id: item.id!, //after the above loop, all items have an id
+        entity: entityId,
+        parentsetting: item.parentsetting || null,
+        rawdata: item.rawdata || "",
+        unique_rawdata: item.unique_rawdata || "",
+        blobdata: item.blobdata || null,
+        setting: item.setting || null,
+        ordering: item.ordering || 0,
+        attribute: item.attribute,
+      }
+    ])));
+
   return {
     newIds,
-    newLinks: flattened.filter(item => item.link).map(item => ({
+    newLinks: finallist.filter(item => item.link).map(item => ({
       id: item.id!,
       linktype: item.linktype || 0,
       fsobject: item.link!
     })),
-    newSets: flattened.map(item => ({
-      id: item.id!,
-      entity: entityId,
-      parentsetting: item.parentsetting || null,
-      rawdata: item.rawdata || "",
-      unique_rawdata: item.unique_rawdata || "",
-      blobdata: item.blobdata || null,
-      setting: item.setting || null,
-      ordering: item.ordering || 0,
-      attribute: item.attribute,
-    }))
+    newSets: [...newSettings.values()]
   };
 }
 
@@ -287,7 +368,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
       .execute();
   }
 
-  const updatedAttrs = [...new Set(current.map(rec => rec.attribute).concat(newsets.map(rec => rec.attribute)))].sort();
+  const updatedAttrs = [...new Set(newsets.map(rec => rec.attribute))].sort();
   const updatedSettings = newsets.map(item => item.id);
   const linkCheckSettings = newsets.filter(item => linkCheckAttrs.has(item.attribute)).map(item => item.id);
   const deletedSettings = current.filter(rec => !rec.used).map(rec => rec.id);
@@ -823,7 +904,10 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           .execute();
     }
 
-    const newSets = await generateNewSettingList(result.entityId, splitData.settings, cursettings, new Map(cursettings.map(setting => [setting.id, setting])));
+    const reusedIds = new Array<number>(); //will receive actually reused IDs
+    const reusedAttributes = new Set<number>(); //will receive attributes from which we reused IDs
+    const newSets = await generateNewSettingList(result.entityId, splitData.settings, cursettings, new Map(cursettings.map(setting => [setting.id, setting])), reusedIds, reusedAttributes);
+    deletedSettingIds.push(...reusedIds);
 
     // FIXME: when is_temp_coming_alive is TRUE, ensure that all required root settings have a value
 
@@ -846,15 +930,16 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
     //    checklinks_settingids:= updateres.linkchecksettings;
     //    allsettingids:= allsettingids CONCAT updateres.updatedsettings;
-    //    deletedsettingids:= deletedsettingids CONCAT updateres.deletedsettings;
+    deletedSettingIds.push(...updateres.deletedSettings);
 
 
     const changed_attrs = new Set<string>;
-    for (const attrId of updateres.updatedAttrs) {
+    for (const attrId of [...updateres.updatedAttrs, ...reusedAttributes]) {
       const rootAttr = typeRec.attrRootAttrMap.get(attrId);
       if (rootAttr)
         changed_attrs.add(rootAttr.tag);
     }
+
     for (const [tag, cells] of Object.entries(baseAttrCells)) {
       if (tag === "wrdId" || tag === "wrdType" || tag === "wrdModificationDate" || Array.isArray(cells))
         continue;
@@ -934,6 +1019,10 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
             deletedsettings: getTypedArray(VariableType.IntegerArray, deletedSettingIds),
           }
         };
+
+        if (!changes.modifications.entityrec.modificationdate)
+          changes.modifications.entityrec.modificationdate = now; //ensure we serialize the value we picked in the end
+
         if (is_temp_coming_alive) {
           const changesNewSettings = await db<PlatformDB>()
             .selectFrom("wrd.entity_settings")
@@ -956,7 +1045,6 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         changes.modifications.whfslinks = await getWHFSLinksForChanges(changes.modifications.settings.map(s => (s as { id: number }).id));
 
         const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
-
         const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
         const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
         const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);

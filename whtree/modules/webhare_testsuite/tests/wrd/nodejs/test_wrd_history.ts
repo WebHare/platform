@@ -8,6 +8,7 @@ import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { generateRandomId } from "@webhare/std";
 
 
 const keepHistoryDays = 1;
@@ -21,7 +22,7 @@ async function testChanges() { //  tests
   const hsWrdSchema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(testSchemaTag) as HSVMObject;
   const hsPersontype = await hsWrdSchema.getType("WRD_PERSON") as HSVMObject;
 
-  await whdb.beginWork();
+  await whdb.beginWork(); //change 0 - initial insert
 
   // TODO testframework should manage the beta test unit
   const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
@@ -41,6 +42,8 @@ async function testChanges() { //  tests
     testFile: await ResourceDescriptor.from("", { mediaType: "application/msword", fileName: "testfile.doc" }),
     testImage: goldfishImg
   };
+
+  const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreationDate", "wrdGuid", "wrdLimitDate"])].toSorted();
 
   const testPersonId = await wrdschema.insert("wrdPerson", initialPersonData);
 
@@ -89,8 +92,7 @@ async function testChanges() { //  tests
 
   await whdb.commitWork();
 
-  // Do a dummy update
-  await whdb.beginWork();
+  await whdb.beginWork(); //unstored change - dummy update
 
   await wrdschema.update("wrdPerson", testPersonId, initialPersonData);
   const afterUpdateSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
@@ -104,7 +106,7 @@ async function testChanges() { //  tests
     test.eqPartial([
       {
         entity: 0, //entity is about the user making the change, not the affected entities
-        summaries: ['wrdCreationDate,wrdFirstName,wrdGuid,wrdLastName,wrdLimitDate']
+        summaries: [initialFields.join(',')] //TODO what is the point of making this a string[] of comma separated lists?
       }
     ], changesets);
 
@@ -120,8 +122,7 @@ async function testChanges() { //  tests
     ], change0);
   }
 
-  // Do a modtime-only update
-  await whdb.beginWork();
+  await whdb.beginWork(); //change 1 - only modtime update
   const modtimeOnlyUpdate = new Date;
   await wrdschema.update("wrdPerson", testPersonId, { wrdModificationDate: modtimeOnlyUpdate });
   await whdb.commitWork();
@@ -130,7 +131,7 @@ async function testChanges() { //  tests
     const changesets = await hsPersontype.ListChangesets(testPersonId);
     test.eqPartial([
       {
-        summaries: ['wrdCreationDate,wrdFirstName,wrdGuid,wrdLastName,wrdLimitDate']
+        summaries: [initialFields.join(',')]
       }, {
         summaries: ['']
       }
@@ -149,27 +150,53 @@ async function testChanges() { //  tests
   }
 
   const oldSettings = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFile", "testImage"]);
-  // console.log(oldSettings);
 
   {
-    await whdb.beginWork();
+    await whdb.beginWork();  //change 2 - updates wrdFirstName, testFree, testFile, testArray
     test.eq("testfile.doc", prefields.testFile?.fileName);
     // Two separate changes in separate transactions, each within its own changeset
     await wrdschema.update("wrdPerson", testPersonId, { wrdFirstName: "updated first name", testFree: "updated test field", testFile: oldSettings.testImage, testArray: [{ testInt: 1 }] });
     test.eq(1, (await wrdschema.getFields("wrdPerson", testPersonId, ["testArray"])).testArray[0].testInt);
     await whdb.commitWork();
 
-    await whdb.beginWork();
+    {
+      const changesets = await hsPersontype.ListChangesets(testPersonId);
+      test.eqPartial([
+        {
+          entity: 0, //entity is about the user making the change, not the affected entities
+          summaries: [initialFields.join(',')]
+        },
+        {},
+        {
+          summaries: ['testArray,testFile,testFree,wrdFirstName']
+        }
+      ], changesets);
+    }
+
+
+    await whdb.beginWork(); //change 3 - updates testFile, testJson
+    const longdata = generateRandomId("base64url", 4096);
     const intfields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate"]);
     test.eq("goudvis.png", intfields.testFile?.fileName);
-    await wrdschema.update("wrdPerson", testPersonId, { testFile: null });
+    await wrdschema.update("wrdPerson", testPersonId, { testFile: null, testJson: { mixedCase: [longdata] } });
     const postfields = await wrdschema.getFields("wrdPerson", testPersonId, ["testFile", "wrdModificationDate"]);
     test.eq(null, postfields.testFile);
     await whdb.commitWork();
 
     /* TODO port listchangesets, ideally test against both HS and JS implementations for a while */
     const changesets = await hsPersontype.ListChangesets(testPersonId);
-    test.eq(3, changesets.length); //FIXME there should be three! we're missing the original insert
+    test.eqPartial([
+      {},
+      {},
+      {
+        summaries: ['testArray,testFile,testFree,wrdFirstName']
+      },
+      {
+        summaries: ['testFile,testJson']
+      }
+    ], changesets);
+
+    test.eq(4, changesets.length); //FIXME there should be three! we're missing the original insert
 
     const change0 = await hsPersontype.GetChanges(changesets[0].id);
     test.eqPartial([
@@ -182,19 +209,50 @@ async function testChanges() { //  tests
       }
     ], change0);
 
-    /* FIXME FROM here were already fail..
-    const change1 = await hsPersontype.GetChanges(changesets[1].id);
+    const change2 = await hsPersontype.GetChanges(changesets[2].id);
     test.eqPartial([
       {
-        id: change1[0].id,
+        id: change2[0].id,
         entity: testPersonId,
         changetype: "edit",
-        when: intfields.wrdModificationDate,
-        oldsettings: mapEntityToHS(prefields)
+        oldsettings: {
+          test_array: [],
+          test_file: {
+            filename: 'testfile.doc',
+          },
+          test_free: 'Free field',
+          wrd_modificationdate: modtimeOnlyUpdate,
+          wrd_firstname: 'John'
+        },
+        modifications: {
+          wrd_modificationdate: intfields.wrdModificationDate,
+          test_array: [{ test_int: 1 }],
+          test_file: {
+            filename: 'goudvis.png',
+          },
+          test_free: 'updated test field'
+        }
       }
-    ], change1);
+    ], change2);
+
+    const change3 = await hsPersontype.GetChanges(changesets[3].id);
+    test.eqPartial([
+      {
+        id: change3[0].id,
+        entity: testPersonId,
+        changetype: "edit",
+        oldsettings: {
+          test_file: {
+            filename: 'goudvis.png',
+          },
+          wrd_modificationdate: intfields.wrdModificationDate,
+          test_json: null
+        }
+      }
+    ], change3);
+
     // const hsWRDScheam =
-    */
+    // */
   }
 
   /*

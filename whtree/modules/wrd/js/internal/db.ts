@@ -1,6 +1,6 @@
 import { db, Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
-import { tagToJS } from "@webhare/wrd/src/wrdsupport";
+import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDMetaTypeId } from "./types";
 
 const selectSchemaColumns = ["id"] as const;
@@ -16,6 +16,7 @@ export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTyp
 
   parentAttrMap: Map<number | null, AttrRec[]>;
   rootAttrMap: Map<string, AttrRec>;
+  attrHSNameMap: Map<number, string>;
   attrRootAttrMap: Map<number, AttrRec>;
   consilioLinkCheckAttrs: Set<number>;
   whfsLinkAttrs: Set<number>;
@@ -96,6 +97,8 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
   const schema = await schemaquery.executeTakeFirst();
   if (!schema)
     throw new Error(`No such schema ${JSON.stringify(tag)}`);
+
+  //Get types, prepare their objects (TODO proper classes for these typeobjects containing attrRootAttrMap etc)
   const types = (await db<PlatformDB>()
     .selectFrom("wrd.types")
     .select(selectTypeColumns)
@@ -109,12 +112,15 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       parentAttrMap: new Map<number | null, AttrRec[]>,
       rootAttrMap: new Map<string, AttrRec>,
       attrRootAttrMap: new Map<number, AttrRec>,
+      attrHSNameMap: new Map<number, string>,
       consilioLinkCheckAttrs: new Set<number>,
       whfsLinkAttrs: new Set<number>,
       uniqueAttrs: new Set<number>,
       emailAttrs: new Set<number>,
     }));
   const typeids: number[] = types.map(t => t.id);
+
+  //Gathers *all* attributes for all types
   const attrs = (await db<PlatformDB>()
     .selectFrom("wrd.attrs")
     .select(selectAttrColumns)
@@ -125,6 +131,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       isreadonly: false,
       tag: tagToJS(attr.tag),
     })).map(attr => ({ ...attr, fullTag: attr.tag }));
+
   const typeTagMap = new Map(types.map(type => [type.tag, type]));
   const typeIdMap = new Map(types.map(type => [type.id, type]));
   for (const typerec of types) {
@@ -142,6 +149,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
     }
     attrs.push(...getBaseAttrsFor(typerec));
   }
+
   const allAttrs: typeof attrs = [];
   for (const attr of attrs) {
     const inTypes = typeIdMap.get(attr.type)!.childTypeIds;
@@ -168,8 +176,11 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
     for (const [parent, childAttrs] of Map.groupBy(typeAttrs, attr => attr.parent))
       type.parentAttrMap.set(parent, childAttrs);
     for (const attr of typeAttrs) {
-      if (!attr.parent)
+      if (!attr.parent) {
         type.rootAttrMap.set(attr.tag, attr);
+        type.attrRootAttrMap.set(attr.id, attr);
+        type.attrHSNameMap.set(attr.id, tagToHS(attr.tag));
+      }
       if (attr.isunique)
         type.uniqueAttrs.add(attr.id);
       if ([WRDAttributeTypeId.RichDocument, WRDAttributeTypeId.WHFSInstance, WRDAttributeTypeId.URL].includes(attr.attributetype) || attr.checklinks)
@@ -180,7 +191,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
         type.emailAttrs.add(attr.id);
     }
     for (const rootAttr of type.rootAttrMap.values())
-      recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap, rootAttr.tag + ".");
+      recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap, type.attrHSNameMap, rootAttr.tag + ".");
   }
   return {
     schema,
@@ -191,13 +202,14 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
 }
 
 // Set root attr for every attr, and also the fullTag
-function recurseStoreRootAttrs(rootAttr: AttrRec, current: number, parentAttrMap: Map<number | null, AttrRec[]>, attrRootAttrMap: Map<number, AttrRec>, attrBasePath: string) {
+function recurseStoreRootAttrs(rootAttr: AttrRec, current: number, parentAttrMap: Map<number | null, AttrRec[]>, attrRootAttrMap: Map<number, AttrRec>, attrHSNameMap: Map<number, string>, attrBasePath: string) {
   const attrs = parentAttrMap.get(current);
   if (attrs)
     for (const attr of attrs) {
       attr.fullTag = attrBasePath + attr.tag;
+      attrHSNameMap.set(attr.id, tagToHS(attr.fullTag));
       attrRootAttrMap.set(attr.id, rootAttr);
       if (parentAttrMap.has(attr.id))
-        recurseStoreRootAttrs(rootAttr, attr.id, parentAttrMap, attrRootAttrMap, attr.fullTag + ".");
+        recurseStoreRootAttrs(rootAttr, attr.id, parentAttrMap, attrRootAttrMap, attrHSNameMap, attr.fullTag + ".");
     }
 }

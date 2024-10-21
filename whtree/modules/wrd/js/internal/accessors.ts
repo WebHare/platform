@@ -1959,7 +1959,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
       dbLoc: { source: 3, id: val.id, cc }
     };
 
-    const blob = val.blobdata ?? WebHareBlob.from("");
+    const blob = val.blobdata;
     return new ResourceDescriptor(blob, meta);
   }
 
@@ -1979,7 +1979,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
         const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
         if (value.resource.size)
           await uploadBlob(value.resource);
-        const setting: EncodedSetting = { rawdata, blobdata: value.resource, attribute: this.attr.id, id: value.dbLoc?.id };
+        const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute: this.attr.id, id: value.dbLoc?.id };
         if (value.sourceFile) {
           setting.linktype = 2;
           setting.link = value.sourceFile;
