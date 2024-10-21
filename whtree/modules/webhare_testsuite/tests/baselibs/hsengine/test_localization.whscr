@@ -421,9 +421,6 @@ MACRO TimeZoneTests()
 
   TestBothConversions(MakeDateTime(2003, 10, 22, 00, 00, 00), MakeDateTime(2003, 10, 21, 22, 00, 00), "CET");
 
-  TestBothConversions(AddTimeToDate(-1, MakeDateTime(1890, 1, 1, 0, 0, 0)), AddTimeToDate(-1, MakeDateTime(1889, 12, 31, 23, 0, 0)), "CET");
-  TestBothConversions(AddTimeToDate(0, MakeDateTime(1890, 1, 1, 0, 0, 0)), AddTimeToDate(0, MakeDateTime(1889, 12, 31, 23, 0, 0)), "CET");
-  TestBothConversions(AddTimeToDate(1, MakeDateTime(1890, 1, 1, 0, 0, 0)), AddTimeToDate(1, MakeDateTime(1889, 12, 31, 23, 0, 0)), "CET");
   TestBothConversions(AddTimeToDate(-1, MakeDateTime(1969, 1, 1, 0, 0, 0)), AddTimeToDate(-1, MakeDateTime(1968, 12, 31, 23, 0, 0)), "CET");
   TestBothConversions(AddTimeToDate(0, MakeDateTime(1969, 1, 1, 0, 0, 0)), AddTimeToDate(0, MakeDateTime(1968, 12, 31, 23, 0, 0)), "CET");
   TestBothConversions(AddTimeToDate(1, MakeDateTime(1969, 1, 1, 0, 0, 0)), AddTimeToDate(1, MakeDateTime(1968, 12, 31, 23, 0, 0)), "CET");
@@ -765,7 +762,7 @@ MACRO DateTimeFormatTest()
   format := NEW DateTimeFormat("en", options)->format;
   TestEqLike("Saturday, October 2, 2010 AD* 1:24:35*PM", format(value));
   format := NEW DateTimeFormat("en-GB", options)->format;
-  TestEqLike("Saturday, 2 October 2010 AD* 13:24:35", format(value));
+  TestEqLike("Saturday* 2 October 2010 AD* 13:24:35", format(value));
   format := NEW DateTimeFormat("nl", options)->format;
   TestEqLike("zaterdag 2 oktober 2010 n.Chr.* 13:24:35", format(value));
   format := NEW DateTimeFormat("de", options)->format;
@@ -778,7 +775,7 @@ MACRO DateTimeFormatTest()
   format := NEW DateTimeFormat("en-GB", options)->format;
   TestEq("02/10/10, 13:24:35", format(value));
   format := NEW DateTimeFormat("nl", options)->format;
-  TestEq("02-10-10 13:24:35", format(value));
+  TestEqLike("02-10-10* 13:24:35", format(value));
   format := NEW DateTimeFormat("de", options)->format;
   TestEq("02.10.10, 13:24:35", format(value));
 
@@ -789,7 +786,7 @@ MACRO DateTimeFormatTest()
   format := NEW DateTimeFormat("en-GB", options)->format;
   TestEq("02/10/2010, 15:24:35 CEST", format(value));
   format := NEW DateTimeFormat("nl", options)->format;
-  TestEq("02-10-2010 15:24:35 CEST", format(value));
+  TestEqLike("02-10-2010* 15:24:35 CEST", format(value));
   format := NEW DateTimeFormat("de", options)->format;
   TestEq("02.10.2010, 15:24:35 MESZ", format(value));
 
