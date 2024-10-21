@@ -724,25 +724,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       }
     }
 
-    //RECORD ARRAY cursettings;
-
-    /* There are three relevant timestamps
-       - updatedat: Update datetime. If default, update current values and don't care about history.
-                                     If not default, close existing values and use the specified time for the new values
-       - viewdate: The relevant date for the current values. Equal to updatedat, but if updatedat = dewfault, set to now
-       - changedate: The entity date change, used as a quick way to see whether the entity's data was updaated
-    */
-
-
-    //If modification date is not made explicit, use now. (never use updatedat, we can't have lastmodifieds in the future)
-    if (!splitData.entity.modificationdate)
-      splitData.entity.modificationdate = now;
-
-
     let cursettings = new Array<EntitySettingsRec & { used: false }>;
 
     if (isNew) {
-      //const tag = splitData.entity.tag ?? "";
       if (!splitData.entity.guid) {
         splitData.entity.guid = Buffer.from(generateRandomId("uuidv4").replaceAll(/-/g, ""), "hex");
       }
@@ -750,9 +734,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       splitData.entity = {
         id: result.entityId,
         type: typeRec.id,
-        creationdate: splitData.entity.modificationdate,
+        creationdate: splitData.entity.creationdate || splitData.entity.modificationdate || now,
         limitdate: maxDateTime,
-        modificationdate: splitData.entity.modificationdate,
+        modificationdate: splitData.entity.modificationdate || now,
         ...splitData.entity
       };
     } else {
@@ -823,12 +807,20 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       else if (currentinfo.type !== typeRec.id && !typeRec.childTypeIds.includes(currentinfo.type))
         throw new Error(`Trying to update entity #${result.entityId} of type #${currentinfo.type} but we are type #${typeRec.id}`);
 
-      await db<PlatformDB>()
-        .updateTable("wrd.entities")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .set(splitData.entity as any)
-        .where("id", "=", result.entityId)
-        .execute();
+      if (orgentityrec) {
+        // Eliminate unchanged values from splitData
+        for (const key of Object.keys(splitData.entity))
+          if ((splitData.entity as Record<string, unknown>)[key] === (orgentityrec as Record<string, unknown>)[key])
+            delete (splitData.entity as Record<string, unknown>)[key];
+      }
+
+      if (Object.keys(splitData.entity).length) //avoid updating moddate if we update nothing else
+        await db<PlatformDB>()
+          .updateTable("wrd.entities")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .set({ modificationdate: now, ...splitData.entity } as any)
+          .where("id", "=", result.entityId)
+          .execute();
     }
 
     const newSets = await generateNewSettingList(result.entityId, splitData.settings, cursettings, new Map(cursettings.map(setting => [setting.id, setting])));
@@ -857,11 +849,21 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     //    deletedsettingids:= deletedsettingids CONCAT updateres.deletedsettings;
 
 
-    const changed_attrs = new Set<string>();
+    const changed_attrs = new Set<string>;
     for (const attrId of updateres.updatedAttrs) {
       const rootAttr = typeRec.attrRootAttrMap.get(attrId);
       if (rootAttr)
         changed_attrs.add(rootAttr.tag);
+    }
+    for (const [tag, cells] of Object.entries(baseAttrCells)) {
+      if (tag === "wrdId" || tag === "wrdType" || tag === "wrdModificationDate" || Array.isArray(cells))
+        continue;
+      if (typeof cells === 'string' && cells in splitData.entity)
+        changed_attrs.add(tag);
+    }
+
+    if (!changed_attrs.size && !("modificationdate" in splitData.entity)) { // No changes - not even 'just' to modificationdate
+      return result; // Nothing to do, no history to generate
     }
 
     if (!isNew && allow_unique_rawdata && "limitdate" in splitData.entity) {
@@ -918,80 +920,71 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           }
         }
 
-        for (const [tag, cells] of Object.entries(baseAttrCells)) {
-          // FIXME: review this
-          if (tag === "wrdId" || tag === "wrdType" || tag === "wrdModificationDate" || Array.isArray(cells))
-            continue;
-          if (typeof cells === "string" && cells in entityrecchanges)
-            changed_attrs.add(tag);
-        }
-
-        if (changed_attrs.size) {
-          const changeId = await nextVal("wrd.changes.id");
-          const changes: Changes<number | null> = {
-            oldsettings: {
-              entityrec: orgentityrec ? serializeChangeEntity(orgentityrec) : null,
-              settings: [],
-              whfslinks: [],
-            },
-            modifications: {
-              entityrec: serializeChangeEntity(entityrecchanges),
-              settings: [],
-              whfslinks: [],
-              deletedsettings: getTypedArray(VariableType.IntegerArray, deletedSettingIds),
-            }
-          };
-          if (is_temp_coming_alive) {
-            const changesNewSettings = await db<PlatformDB>()
-              .selectFrom("wrd.entity_settings")
-              .selectAll()
-              .where("entity", "=", result.entityId)
-              .execute();
-            changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
-          } else {
-            const changesOldSettings = cursettings.map(s => omit(s, ["used"]));
-            const changesNewSettings = await db<PlatformDB>()
-              .selectFrom("wrd.entity_settings")
-              .selectAll()
-              .where("id", "=", sql`any(${updateres.updatedSettings})`)
-              .execute();
-            changes.oldsettings.settings = await saveEntitySettingAttachments(changeId, changesOldSettings);
-            changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
+        const changeId = await nextVal("wrd.changes.id");
+        const changes: Changes<number | null> = {
+          oldsettings: {
+            entityrec: orgentityrec ? serializeChangeEntity(orgentityrec) : null,
+            settings: [],
+            whfslinks: [],
+          },
+          modifications: {
+            entityrec: serializeChangeEntity(entityrecchanges),
+            settings: [],
+            whfslinks: [],
+            deletedsettings: getTypedArray(VariableType.IntegerArray, deletedSettingIds),
           }
-
-          changes.oldsettings.whfslinks = orgwhfslinks;
-          changes.modifications.whfslinks = await getWHFSLinksForChanges(changes.modifications.settings.map(s => (s as { id: number }).id));
-
-          const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
-
-          const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
-          const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
-          const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);
-
-          let changeset = options.changeset ?? wrdFinishHandler().getAutoChangeSet(schemadata.schema.id);
-          if (!changeset) {
-            changeset = await createChangeSet(schemadata.schema.id, now);
-            wrdFinishHandler().setAutoChangeSet(schemadata.schema.id, changeset);
-          }
-
-          await db<PlatformDB>()
-            .insertInto("wrd.changes")
-            .values({
-              id: changeId,
-              creationdate: now,
-              changeset,
-              type: typeRec.id,
-              entity: splitData.entity.guid ?? orgentityrec!.guid,
-              oldsettings,
-              oldsettings_blob,
-              modifications,
-              modifications_blob,
-              source,
-              source_blob,
-              summary: [...changed_attrs].sort().join(","),
-            })
+        };
+        if (is_temp_coming_alive) {
+          const changesNewSettings = await db<PlatformDB>()
+            .selectFrom("wrd.entity_settings")
+            .selectAll()
+            .where("entity", "=", result.entityId)
             .execute();
+          changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
+        } else {
+          const changesOldSettings = cursettings.map(s => omit(s, ["used"]));
+          const changesNewSettings = await db<PlatformDB>()
+            .selectFrom("wrd.entity_settings")
+            .selectAll()
+            .where("id", "=", sql`any(${updateres.updatedSettings})`)
+            .execute();
+          changes.oldsettings.settings = await saveEntitySettingAttachments(changeId, changesOldSettings);
+          changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
         }
+
+        changes.oldsettings.whfslinks = orgwhfslinks;
+        changes.modifications.whfslinks = await getWHFSLinksForChanges(changes.modifications.settings.map(s => (s as { id: number }).id));
+
+        const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
+
+        const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
+        const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
+        const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);
+
+        let changeset = options.changeset ?? wrdFinishHandler().getAutoChangeSet(schemadata.schema.id);
+        if (!changeset) {
+          changeset = await createChangeSet(schemadata.schema.id, now);
+          wrdFinishHandler().setAutoChangeSet(schemadata.schema.id, changeset);
+        }
+
+        await db<PlatformDB>()
+          .insertInto("wrd.changes")
+          .values({
+            id: changeId,
+            creationdate: now,
+            changeset,
+            type: typeRec.id,
+            entity: splitData.entity.guid ?? orgentityrec!.guid,
+            oldsettings,
+            oldsettings_blob,
+            modifications,
+            modifications_blob,
+            source,
+            source_blob,
+            summary: [...changed_attrs].sort().join(","),
+          })
+          .execute();
+
       }
     }
 

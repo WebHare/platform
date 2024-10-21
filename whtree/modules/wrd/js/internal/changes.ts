@@ -4,6 +4,7 @@ import { EntityPartialRec, EntityRec, EntitySettingsRec, TypeRec, selectEntitySe
 import { isTruthy, omit } from "@webhare/std";
 import { encodeWRDGuid } from "./accessors";
 import { setHareScriptType, IPCMarshallableData, HareScriptType } from "@webhare/hscompat/hson";
+import { tagToHS } from "@webhare/wrd/src/wrdsupport";
 
 
 export type ChangesSettings<T extends string | number | null> = Array<Omit<EntitySettingsRec, "blobdata" | "entity" | "setting" | "attribute"> & { blobseqnr: number; setting: T; attribute: T }>;
@@ -163,7 +164,7 @@ function mapChangesRefs<A extends number | string | null, B extends number | str
 
 // Converts all types and entity references in a changes record to strings
 export async function mapChangesIdsToRefs(typeRec: TypeRec, changes: Changes<number | null>): Promise<Changes<string>> {
-  const attrMapping = new Map([...typeRec.rootAttrMap.values()].map(attr => [attr.id, attr.tag]));
+  const attrMapping = new Map([...typeRec.rootAttrMap.values()].map(attr => [attr.id, tagToHS(attr.tag)]));
   const ids = gatherEntitiesFromChanges(changes);
   const settingsMapping = await getIdToGuidMap(ids);
   return mapChangesRefs(changes, attrMapping, settingsMapping, "");

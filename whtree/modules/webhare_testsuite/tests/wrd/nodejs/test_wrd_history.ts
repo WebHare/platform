@@ -6,22 +6,20 @@ import type { Combine } from "@mod-wrd/js/internal/types";
 import { type WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
+import { db } from "@webhare/whdb";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 
 
 const keepHistoryDays = 1;
-
-// function mapEntityToHS(ent: any) {
-//   ent = toSnakeCase(ent);
-//   if ("wrd_first_name" in ent)
-//     ent = { ...ent, wrd_firstname: ent.wrd_first_name, wrd_first_name: undefined };
-
-//   return ent;
-// }
 
 async function testChanges() { //  tests
   const wrdschema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
   test.eqPartial({ keepHistoryDays }, await wrdschema.describeType("wrdPerson"));
   test.eqPartial({ keepHistoryDays }, await wrdschema.describeType("personattachment"));
+
+  // TODO port listchangesets, ideally test against both HS and JS implementations for a while
+  const hsWrdSchema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(testSchemaTag) as HSVMObject;
+  const hsPersontype = await hsWrdSchema.getType("WRD_PERSON") as HSVMObject;
 
   await whdb.beginWork();
 
@@ -30,7 +28,7 @@ async function testChanges() { //  tests
 
   // Create a person with some testdata
   const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
-  const testPersonId = await wrdschema.insert("wrdPerson", {
+  const initialPersonData = {
     wrdFirstName: "John",
     wrdLastName: "Doe",
     wrdContactEmail: "other@example.com",
@@ -42,7 +40,9 @@ async function testChanges() { //  tests
     testEmail: "email@example.com",
     testFile: await ResourceDescriptor.from("", { mediaType: "application/msword", fileName: "testfile.doc" }),
     testImage: goldfishImg
-  });
+  };
+
+  const testPersonId = await wrdschema.insert("wrdPerson", initialPersonData);
 
   /* TODO also set richdoc and all these fields
     RECORD newdata := [ test_single_domain := domain1value1->id
@@ -83,17 +83,80 @@ async function testChanges() { //  tests
   }
                               */
 
+  //whitebox test - get raw setting ids. these shouldn't change either
+  const initialSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
+  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate"]);
+
   await whdb.commitWork();
+
+  // Do a dummy update
+  await whdb.beginWork();
+
+  await wrdschema.update("wrdPerson", testPersonId, initialPersonData);
+  const afterUpdateSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
+  test.eq([...initialSettingIds], [...afterUpdateSettingIds]);
+  test.eq(prefields.wrdModificationDate, (await wrdschema.getFields("wrdPerson", testPersonId, ["wrdModificationDate"])).wrdModificationDate);
+
+  await whdb.commitWork();
+
+  {
+    const changesets = await hsPersontype.ListChangesets(testPersonId);
+    test.eqPartial([
+      {
+        entity: 0, //entity is about the user making the change, not the affected entities
+        summaries: ['wrdCreationDate,wrdFirstName,wrdGuid,wrdLastName,wrdLimitDate']
+      }
+    ], changesets);
+
+    const change0 = await hsPersontype.GetChanges(changesets[0].id);
+    test.eqPartial([
+      {
+        id: change0[0].id,
+        entity: testPersonId,
+        changetype: "new",
+        when: prefields.wrdModificationDate,
+        oldsettings: null,
+      }
+    ], change0);
+  }
+
+  // Do a modtime-only update
+  await whdb.beginWork();
+  const modtimeOnlyUpdate = new Date;
+  await wrdschema.update("wrdPerson", testPersonId, { wrdModificationDate: modtimeOnlyUpdate });
+  await whdb.commitWork();
+
+  {
+    const changesets = await hsPersontype.ListChangesets(testPersonId);
+    test.eqPartial([
+      {
+        summaries: ['wrdCreationDate,wrdFirstName,wrdGuid,wrdLastName,wrdLimitDate']
+      }, {
+        summaries: ['']
+      }
+    ], changesets);
+
+    const change1 = await hsPersontype.GetChanges(changesets[1].id);
+    test.eqPartial([
+      {
+        id: change1[0].id,
+        entity: testPersonId,
+        changetype: "edit",
+        oldsettings: { wrd_modificationdate: prefields.wrdModificationDate },
+      }
+    ], change1);
+    test.assert(modtimeOnlyUpdate <= change1[0].when && change1[0].when <= new Date, "Changeset moddate is not exactly the set wrdModificationDate! they can't be overridden");
+  }
 
   const oldSettings = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFile", "testImage"]);
   // console.log(oldSettings);
 
   {
     await whdb.beginWork();
-    const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate"]);
     test.eq("testfile.doc", prefields.testFile?.fileName);
     // Two separate changes in separate transactions, each within its own changeset
     await wrdschema.update("wrdPerson", testPersonId, { wrdFirstName: "updated first name", testFree: "updated test field", testFile: oldSettings.testImage, testArray: [{ testInt: 1 }] });
+    test.eq(1, (await wrdschema.getFields("wrdPerson", testPersonId, ["testArray"])).testArray[0].testInt);
     await whdb.commitWork();
 
     await whdb.beginWork();
@@ -105,10 +168,8 @@ async function testChanges() { //  tests
     await whdb.commitWork();
 
     /* TODO port listchangesets, ideally test against both HS and JS implementations for a while */
-    const hsWrdSchema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(testSchemaTag) as HSVMObject;
-    const hsPersontype = await hsWrdSchema.getType("WRD_PERSON") as HSVMObject;
     const changesets = await hsPersontype.ListChangesets(testPersonId);
-    test.eq(2, changesets.length); //FIXME there should be three! we're missing the original insert
+    test.eq(3, changesets.length); //FIXME there should be three! we're missing the original insert
 
     const change0 = await hsPersontype.GetChanges(changesets[0].id);
     test.eqPartial([
