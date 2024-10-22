@@ -13,6 +13,10 @@ function testPick() {
 
   // @ts-expect-error -- May not mention keys that don't exist in the type
   test.eq([{ a: 1, b: 2 }], pick([{ a: 1, b: 2, c: 3 }], ["a", "b", "d"]));
+
+  // unions: allowed to name all keys of all union members
+  const testUnion = Math.random() < 2 ? { d: 1, t: "a", a: 1 } : { d: 2, t: "b", b: 1 };
+  test.eq({ t: "a", a: 1 }, pick(testUnion, ["t", "a", "b"]));
 }
 
 function testOmit() {
@@ -24,6 +28,10 @@ function testOmit() {
 
   // @ts-expect-error -- May not mention keys that don't exist in the type
   test.eq([{ a: 1, b: 2 }], omit([{ a: 1, b: 2, c: 3 }], ["c", "d"]));
+
+  // unions: allowed to name all keys of all union members
+  const testUnion = Math.random() < 2 ? { d: 1, t: "a", a: 1 } : { d: 2, t: "b", b: 1 };
+  test.eq({ d: 1, t: "a" }, omit(testUnion, ["a", "b"]));
 }
 
 function testFreezeRecursive() {
