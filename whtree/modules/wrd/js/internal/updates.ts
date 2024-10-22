@@ -844,7 +844,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .orderBy("ordering")
         .execute()).map(row => ({ ...row, used: false }));
 
-      // If changing the GUID, also update the corresponding authobject - FIXME this might be unexpected if a user is renumbering an enity in eg a backup schema or related schema sharing guids!
+      // If changing the GUID, also update the corresponding authobject - FIXME this might be unexpected if a user is renumbering an entity in eg a backup schema or related schema sharing guids!
       if (splitData.entity.guid && entityBaseInfo) {
         // Calculate the guids (from the decoded data, want sanitized data)
         const oldGuid = encodeWRDGuid(entityBaseInfo.guid);
