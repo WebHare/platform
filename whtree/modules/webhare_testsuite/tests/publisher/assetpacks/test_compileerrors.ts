@@ -186,7 +186,7 @@ async function testCompileerrors() {
 
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
   }
 
   console.log("scss files dependencies");
@@ -240,7 +240,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.rpc.json")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.scss")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/js/gettid.ts")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/default.xml")));
@@ -307,7 +307,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
 
     result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
     test.assert(result.haserrors === true);
@@ -322,7 +322,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript.tsx")), 'test-typescript.tsx');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript-2.tsx")), 'test-typescript-2.tsx'); // loaded by test-typescript.tsx
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/folder/index.tsx")), 'typescript/index.tsx'); // loaded by test-typescript.tsx
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
   }
 }
 

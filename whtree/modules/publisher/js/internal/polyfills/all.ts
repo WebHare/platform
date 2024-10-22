@@ -1,2 +1,2 @@
-import "./modern";
+import "@webhare/tsrun/src/polyfills";
 import "./publisher-integration";
