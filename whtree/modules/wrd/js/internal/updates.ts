@@ -1044,7 +1044,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         changes.oldsettings.whfslinks = orgwhfslinks;
         changes.modifications.whfslinks = await getWHFSLinksForChanges(changes.modifications.settings.map(s => (s as { id: number }).id));
 
-        const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
+        const mappedChanges = await mapChangesIdsToRefs(typeRec, changes); //Convert ids to guids / attribute tags
         const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
         const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
         const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);

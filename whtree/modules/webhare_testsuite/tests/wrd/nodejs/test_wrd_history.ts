@@ -518,29 +518,64 @@ async function testChanges() { //  tests
           ]
         ], RemoveIrrelevantColumns(changes));
   }
+*/
 
-  // Deleted entities
   {
-    testfw->BeginWork();
+    await whdb.beginWork(); // Deleted entities
+    const newperson = await wrdschema.insert("wrdPerson", { wrdContactEmail: "shortlived@beta.webhare.net", whuserUnit: testunit });
+    const att = await wrdschema.insert("personattachment", { wrdLeftEntity: newperson });
+    await wrdschema.update("personattachment", att, { wrdLeftEntity: testPersonId });
 
-    OBJECT newperson := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "shortlived@beta.webhare.net", whuser_unit := testfw->testunit ]);
-    OBJECT att := schemaobj->^personattachment->CreateEntity([ wrd_leftentity := newperson->id ]);
-    att->UpdateEntity([ wrd_leftentity := testpersonobj->id ]);
+    const hsPersonAttachmentType = await hsWrdSchema.getType("PERSONATTACHMENT") as HSVMObject;
+    const changesets = await hsPersonAttachmentType.ListChangesets(att);
 
-    RECORD ARRAY changesets := SELECT * FROM schemaobj->^personattachment->ListChangesets(att->id);
+    {
+      const changes = await hsPersonAttachmentType.GetChanges(changesets[0].id); // one entity of this type changed
+      test.eqPartial([
+        {
+          oldsettings: null,
+          modifications: {
+            wrd_leftentity: newperson
+          },
+          changetype: 'new'
+        },
+        {
+          oldsettings: {
+            wrd_leftentity: newperson
+          },
+          modifications: {
+            wrd_leftentity: testPersonId
+          },
+          changetype: 'edit'
+        }
+      ], changes);
 
-    RECORD ARRAY changes := schemaobj->^personattachment->GetChanges(changesets[0].id); // one entity of this type changed
-    TestEQ(newperson->id, changes[1].oldsettings.wrd_leftentity);
-    TestEQ(testpersonobj->id, changes[1].modifications.wrd_leftentity);
+      test.eq(newperson, changes[1].oldsettings.wrd_leftentity);
+      test.eq(testPersonId, changes[1].modifications.wrd_leftentity);
+    }
 
-    newperson->DeleteEntity();
+    await wrdschema.delete("wrdPerson", newperson);
 
-    changes := schemaobj->^personattachment->GetChanges(changesets[0].id); // one entity of this type changed
-    TestEQ(0, changes[1].oldsettings.wrd_leftentity); // can't reconstruct
-    TestEQ(testpersonobj->id, changes[1].modifications.wrd_leftentity);
+    {
+      const changes = await hsPersonAttachmentType.GetChanges(changesets[0].id); // one entity of this type changed
+      test.eqPartial([
+        {
+        },
+        {
+          oldsettings: {
+            wrd_leftentity: 0 //can't reconstruct after a delete
+          },
+          modifications: {
+            wrd_leftentity: testPersonId
+          },
+          changetype: 'edit'
+        }
+      ], changes);
+    }
 
-    testfw->CommitWork();
+    await whdb.commitWork();
   }
+  /*
 
   // Temporary objects
   {
