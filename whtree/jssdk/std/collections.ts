@@ -35,6 +35,35 @@ export function emplace<T extends Map<any, any> | WeakMap<any, any>>(
   return setvalue;
 }
 
+// the `| keyof X` is needed to be able to use a `keyof X` type as key parameter in DistributedPick or DistributedOmit in generics
+export type DistributedKeys<X extends object> = (X extends object ? keyof X : never) | keyof X;
+
+/** Applies Pick to all types in a union. Allows all keys that are present in any object in the union. Warning: You might not be
+    able to use all keys of the union if TypeScript has narrowed the union to a specific type. Eg:
+```typescript
+type A = { x: number; t: "a"; a: number } | { x: number; t: "b"; b: number };
+const a: A = { t: "a", a: 1 };
+const b = pick(a, ["t", "a", "b"]); // No overload matches this call. <snip> Type '"b"' is not assignable to type '"a" | "t" | "d"'.
+```
+    @typeParam T - Type of the supplied object
+    @typeParam K - Type of the property keys to return
+    @returns Type with only the specified keys (distributed over the union if present)
+*/
+export type DistributedPick<X extends object, Y extends DistributedKeys<X>> = X extends object ? Pick<X, keyof X & Y> : never;
+
+/** Applies Omit to all types in a union. Allows all keys that are not present in any object in the union. Warning: You might not be
+    able to use all keys of the union if TypeScript has narrowed the union to a specific type. Eg:
+```typescript
+type A = { x: number; t: "a"; a: number } | { x: number; t: "b"; b: number };
+const a: A = { t: "a", a: 1 };
+const b = omit(a, ["b"]); // No overload matches this call. <snip> Type '"b"' is not assignable to type '"a" | "t" | "d"'.
+```
+    @typeParam T - Type of the supplied object
+    @typeParam K - Type of the property keys to leave out
+    @returns Type with only the specified keys left out (distributed over the union if present)
+*/
+export type DistributedOmit<X extends object, Y extends DistributedKeys<X>> = X extends object ? Omit<X, keyof X & Y> : never;
+
 /** Returns an object with a selection of properties
     @typeParam T - Type of the supplied object
     @typeParam K - Type of the property keys to return
@@ -42,7 +71,7 @@ export function emplace<T extends Map<any, any> | WeakMap<any, any>>(
     @param keys - Names of the properties to pick
     @returns Resulting object
 */
-export function pick<T extends object, K extends string & NoInfer<keyof T>>(obj: T, keys: readonly K[]): Pick<T, K>;
+export function pick<T extends object, K extends string & NoInfer<DistributedKeys<T>>>(obj: T, keys: readonly K[]): DistributedPick<T, K>;
 
 /** Returns an array with a selection of properties
     @typeParam T - Type of the supplied array
@@ -51,17 +80,17 @@ export function pick<T extends object, K extends string & NoInfer<keyof T>>(obj:
     @param keys - Names of the properties to pick
     @returns Resulting array
 */
-export function pick<T extends object, K extends string & NoInfer<keyof T>>(arr: T[], keys: readonly K[]): Array<Pick<T, K>>;
+export function pick<T extends object, K extends string & NoInfer<DistributedKeys<T>>>(arr: T[], keys: readonly K[]): Array<DistributedPick<T, K>>;
 
-export function pick<T extends object, K extends string & NoInfer<keyof T>>(value: T | T[], keys: readonly K[]): Pick<T, K> | Array<Pick<T, K>> {
+export function pick<T extends object, K extends string & NoInfer<DistributedKeys<T>>>(value: T | T[], keys: readonly K[]): DistributedPick<T, K> | Array<DistributedPick<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => pick(elt, keys));
-  const ret = {} as Pick<T, K>;
+  const ret = {} as T;
   keys.forEach((key: K) => {
     if (key in value)
       ret[key] = value[key];
   });
-  return ret;
+  return ret as object as DistributedPick<T, K>;
 }
 
 /** Returns an object with a selection of properties left out
@@ -71,7 +100,7 @@ export function pick<T extends object, K extends string & NoInfer<keyof T>>(valu
     @param keys - Names of the properties to remove
     @returns Resulting object
 */
-export function omit<T extends object, K extends string & NoInfer<keyof T>>(obj: T, keys: readonly K[]): Omit<T, K>;
+export function omit<T extends object, K extends string & NoInfer<DistributedKeys<T>>>(obj: T, keys: readonly K[]): DistributedOmit<T, K>;
 
 /** Returns an array with a selection of properties left out
     @typeParam T - Type of the supplied array
@@ -80,17 +109,17 @@ export function omit<T extends object, K extends string & NoInfer<keyof T>>(obj:
     @param keys - Names of the properties to leave out
     @returns Resulting array
 */
-export function omit<T extends object, K extends string & NoInfer<keyof T>>(arr: T[], keys: readonly K[]): Array<Omit<T, K>>;
+export function omit<T extends object, K extends string & NoInfer<DistributedKeys<T>>>(arr: T[], keys: readonly K[]): Array<DistributedOmit<T, K>>;
 
-export function omit<T extends object, K extends string & NoInfer<keyof T>>(value: T | T[], keys: readonly K[]): Omit<T, K> | Array<Omit<T, K>> {
+export function omit<T extends object, K extends string & NoInfer<DistributedKeys<T>>>(value: T | T[], keys: readonly K[]): DistributedOmit<T, K> | Array<DistributedOmit<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => omit(elt, keys));
-  const ret = {} as Omit<T, K>;
+  const ret = {} as T;
   for (const [key, val] of Object.entries(value)) {
     if (!keys.includes(key as K))
-      ret[key as Exclude<keyof T, K>] = val;
+      ret[key as K] = val;
   }
-  return ret;
+  return ret as object as DistributedOmit<T, K>;
 }
 
 /** Shuffle an array in-place

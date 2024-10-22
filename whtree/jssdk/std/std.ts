@@ -7,7 +7,7 @@ export { sleep, createDeferred, wrapInTimeout, serialize, wrapSerialized, type D
 export { nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase, type ToSnakeCase, type ToCamelCase } from "./types";
 export { encodeString, decodeString, escapeRegExp, wildcardsToRegExp, stringify, parseTyped, slugify, isValidEmail, isValidUrl, joinURL, type StringEncodings, toCLocaleLowercase, toCLocaleUppercase } from "./strings";
 export { generateRandomId } from "./platformbased";
-export { shuffle, emplace, pick, omit, isTruthy, mapGroupBy, objectGroupBy, type EmplaceHandler } from "./collections";
+export { shuffle, emplace, pick, omit, isTruthy, mapGroupBy, objectGroupBy, type EmplaceHandler, type DistributedKeys, type DistributedOmit, type DistributedPick } from "./collections";
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
 export { addDuration, parseDuration, convertWaitPeriodToDate, isValidDate, isValidTime, type Duration, type WaitPeriod } from "./datetime";
 export { isDate, isBlob, isFile, isError, isPromise } from "./quacks";
