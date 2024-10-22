@@ -56,7 +56,7 @@ if(nodeMajor >= 21) { //apply patches to resolve https://gitlab.webhare.com/webh
     `let type=sigToWasmTypes\(original.sig\);`,
     `/*modified by fix-emcc-output.js*/let type=sigToWasmTypes\(original.sig\);if(Module.fixAsyncImportForAsyncStorage)original=Module.fixAsyncImportForAsyncStorage(original);`);
 
-    applyFix('add hook for fixing async hook behaviour, for sync imports (debug)', /{suspending:"first"}\)}}/m,
+    applyFix('add hook for fixing async hook behaviour, for sync imports (prod)', /{suspending:"first"}\)}}/m,
     `{suspending:"first"})}}`,
     `{suspending:"first"})}/*modified by fix-emcc-output.js*/else if(Module.fixSyncImportForAsyncStorage){imports[x]=original=Module.fixSyncImportForAsyncStorage(original);}}`);
 
