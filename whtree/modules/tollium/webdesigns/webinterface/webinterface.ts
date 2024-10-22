@@ -12,6 +12,7 @@ import startTolliumShell from '@mod-tollium/shell';
 
 //we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
 import "@webhare/tsrun/src/polyfills";
+import "@mod-publisher/js/internal/polyfills/iterator-helpers";
 
 if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps
