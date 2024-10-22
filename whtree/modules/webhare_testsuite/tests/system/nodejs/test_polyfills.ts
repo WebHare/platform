@@ -121,6 +121,20 @@ function testIterators() {
   { //find
     test.eq(2, naturals().find(v => v > 1));
   }
+
+  { //from
+    class Iter {
+      next() {
+        return { done: false, value: 1 };
+      }
+    }
+
+    const iter = new Iter();
+    const wrapper = Iterator.from(iter);
+
+    test.eq({ value: 1, done: false }, wrapper.next());
+    test.eq([1, 1, 1], [...wrapper.take(3)]);
+  }
 }
 
 test.run([

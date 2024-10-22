@@ -498,6 +498,31 @@
     },
   });
 
+  //iterator.from from https://github.com/rauschma/iterator-helpers-polyfill/
+
+  function isObject(value: unknown) {
+    if (value === null) return false;
+    const t = typeof value;
+    return t === 'object' || t === 'function';
+  }
+
+  function GetIteratorFlattenable<T>(obj: Record<symbol, any>): T {
+    if (!isObject(obj)) {
+      throw new TypeError();
+    }
+    const method = obj[Symbol.iterator];
+    let iterator = undefined;
+    if (typeof method !== 'function') {
+      iterator = obj;
+    } else {
+      iterator = method.call(obj);
+    }
+    if (!isObject(iterator)) {
+      throw new TypeError();
+    }
+    return iterator;
+  }
+
   if (!('Iterator' in globalThis)) {
     const Iterator = function Iterator() { };
 
@@ -506,4 +531,47 @@
     // @ts-expect-error We're still missing From in this poyfill
     (globalThis).Iterator = Iterator;
   }
+
+
+  //----- Static method -----
+  // Must be done after Iterator.prototype was set up,
+  // so that `extends Iterator` works below
+
+  class WrappedIterator<T, TReturn = any, TNext = undefined> extends Iterator<T, TReturn, TNext> {
+    #iterator;
+    constructor(iterator: Iterator<T, TReturn, TNext>) {
+      super();
+      this.#iterator = iterator;
+    }
+    override next(...args: [] | [TNext]): any {
+      return this.#iterator.next(...args);
+    }
+    // `async` helps with line (*)
+    override return(value?: TReturn | PromiseLike<TReturn>): any {
+      const returnMethod = this.#iterator.return;
+      if (returnMethod === undefined) {
+        return { done: true, value: value as any }; // (*)
+      }
+      return returnMethod.call(this.#iterator);
+    }
+  }
+
+  function Iterator_from<T>(value: any) {
+    const iterator = GetIteratorFlattenable<Iterator<T>>(value);
+    if (iterator instanceof Iterator) {
+      return iterator;
+    }
+    // `iterator´ does not support the new API – wrap it so that it does
+    return new WrappedIterator(iterator);
+  }
+
+  Object.defineProperty(
+    Iterator, 'from',
+    {
+      writable: true,
+      enumerable: false,
+      configurable: true,
+      value: Iterator_from,
+    }
+  );
 })();
