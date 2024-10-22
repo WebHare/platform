@@ -685,10 +685,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .where("id", "=", entityId)
         .executeTakeFirst();
 
-
-
-    const is_temp = isNew ? Boolean(options.temp) : Boolean(entityBaseInfo && entityBaseInfo.creationdate.getTime() === maxDateTimeTotalMsecs);
-    const is_temp_coming_alive = is_temp && !isNew && splitData.entity.creationdate && splitData.entity.creationdate.getTime() < maxDateTimeTotalMsecs;
+    const finalCL = { ...entityBaseInfo, ...splitData.entity };
+    const isTemp = finalCL.creationdate?.getTime() === maxDateTimeTotalMsecs;
+    const isTempComingAlive = entityBaseInfo?.creationdate?.getTime() === maxDateTimeTotalMsecs && finalCL.creationdate?.getTime() !== maxDateTimeTotalMsecs;
     let entity_limit = splitData.entity.limitdate;
     if (!entity_limit)
       entity_limit = entityBaseInfo?.limitdate ?? maxDateTime;
@@ -739,7 +738,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       }
     }
   */
-    if (is_temp_coming_alive && !options.importMode) {
+    if (isTempComingAlive && !options.importMode) {
       const toCheck: RecordOutputMap<S[T]> = {};
       let haveToCheck = false;
       for (const rootAttr of typeRec.rootAttrMap) {
@@ -781,10 +780,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     }
     */
 
-    const finalCL = { ...entityBaseInfo, ...splitData.entity };
-    if (!options.temp &&
-      !options.importMode &&
+    if (!options.importMode &&
       finalCL.creationdate &&
+      finalCL.creationdate?.getTime() !== maxDateTimeTotalMsecs &&
       finalCL.limitdate &&
       finalCL.creationdate?.getTime() > finalCL.limitdate?.getTime()) {
       throw new Error(`wrdLimitDate is set before wrdCreationDate`);
@@ -846,7 +844,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .orderBy("ordering")
         .execute()).map(row => ({ ...row, used: false }));
 
-      // If changing the GUID, also update the corresponding authobject
+      // If changing the GUID, also update the corresponding authobject - FIXME this might be unexpected if a user is renumbering an enity in eg a backup schema or related schema sharing guids!
       if (splitData.entity.guid && entityBaseInfo) {
         // Calculate the guids (from the decoded data, want sanitized data)
         const oldGuid = encodeWRDGuid(entityBaseInfo.guid);
@@ -926,12 +924,13 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
 
     const setsWithoutSub = omit(newSets.newSets, ['sub']);
     const updateres = await handleSettingsUpdates(cursettings, setsWithoutSub, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, newSets.newLinks, options.whfsmapper);
+    if (isTemp)
+      return result; //Updates are done, no history for temporaries
 
     //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
     //    checklinks_settingids:= updateres.linkchecksettings;
     //    allsettingids:= allsettingids CONCAT updateres.updatedsettings;
     deletedSettingIds.push(...updateres.deletedSettings);
-
 
     const changed_attrs = new Set<string>;
     for (const attrId of [...updateres.updatedAttrs, ...reusedAttributes]) {
@@ -981,9 +980,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     // console.log(await db<PlatformDB>().selectFrom("wrd.entity_settings").selectAll().where("entity", "=", result.entityId).execute());
 
     if (typeRec.keephistorydays > 0 || historyDebugging) {
-      const newrec = { ...orgentityrec, ...splitData.entity };
+      const newrec = { ...orgentityrec, modificationdate: now, ...splitData.entity };
       if (newrec.creationdate) { // Entity is now not temporary?
-        if (is_temp_coming_alive) {// Treat a previously temp entity as completely new
+        if (isTempComingAlive) {// Treat a previously temp entity as completely new
           isNew = true;
           orgentityrec = undefined;
           splitData.entity = newrec;
@@ -993,7 +992,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         const entityrecchanges: EntityPartialRec = {};
         if (isNew || !orgentityrec) {
           for (const [key, value] of Object.entries(splitData.entity)) {
-            if (!isDefaultHareScriptValue(value))
+            if (!isDefaultHareScriptValue(value))// && !["creationdate", "guid", "id"].includes(key))
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               entityrecchanges[key as keyof EntityPartialRec] = value as any;
           }
@@ -1023,7 +1022,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         if (!changes.modifications.entityrec.modificationdate)
           changes.modifications.entityrec.modificationdate = now; //ensure we serialize the value we picked in the end
 
-        if (is_temp_coming_alive) {
+        if (isTempComingAlive) {
           const changesNewSettings = await db<PlatformDB>()
             .selectFrom("wrd.entity_settings")
             .selectAll()

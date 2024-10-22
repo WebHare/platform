@@ -562,6 +562,8 @@ PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype
 
 PUBLIC STRING FUNCTION EncodeWRDGUID(STRING rawguid)
 {
+  IF(rawguid != "" AND Length(rawguid) != 16)
+    THROW NEW Exception(`Input is not a wrd: guid: '${encodejava(rawguid)}'`);
   RETURN rawguid != "" ? "wrd:" || EncodeBase16(rawguid) : "";
 }
 

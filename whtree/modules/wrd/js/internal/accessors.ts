@@ -56,6 +56,9 @@ export type AwaitableEncodedValue = {
 };
 
 export function encodeWRDGuid(guid: Buffer) {
+  if (guid.length !== 16)
+    throw new Error(`Input to encodeWRDGuid is not a raw guid`);
+
   const guidhex = guid.toString("hex");
   return `${guidhex.substring(0, 8)}-${guidhex.substring(8, 12)}-${guidhex.substring(12, 16)}-${guidhex.substring(16, 20)}-${guidhex.substring(20)}`;
 

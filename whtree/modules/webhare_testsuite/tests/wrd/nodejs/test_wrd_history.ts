@@ -9,6 +9,7 @@ import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { generateRandomId } from "@webhare/std";
+import { UUIDToWrdGuid, defaultDateTime } from "@webhare/hscompat";
 
 
 const keepHistoryDays = 1;
@@ -88,7 +89,7 @@ async function testChanges() { //  tests
 
   //whitebox test - get raw setting ids. these shouldn't change either
   const initialSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
-  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate"]);
+  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate", "wrdGuid", "wrdCreationDate", "wrdLimitDate"]);
 
   await whdb.commitWork();
 
@@ -111,13 +112,20 @@ async function testChanges() { //  tests
     ], changesets);
 
     const change0 = await hsPersontype.GetChanges(changesets[0].id);
-    test.eqPartial([
+    test.eq([
       {
         id: change0[0].id,
         entity: testPersonId,
         changetype: "new",
         when: prefields.wrdModificationDate,
         oldsettings: null,
+        modifications: {
+          ...change0[0].modifications,
+          wrd_id: testPersonId,
+          wrd_guid: UUIDToWrdGuid(prefields.wrdGuid),
+          wrd_creationdate: prefields.wrdCreationDate,
+          wrd_limitdate: defaultDateTime
+        }
       }
     ], change0);
   }
@@ -575,57 +583,66 @@ async function testChanges() { //  tests
 
     await whdb.commitWork();
   }
-  /*
 
-  // Temporary objects
   {
-    testfw->BeginWork();
+    await whdb.beginWork(); // Temporary objects
+    const tempperson = await wrdschema.insert("wrdPerson", { wrdContactEmail: "temporary+1@beta.webhare.net" }, { temp: true });
+    test.eq([], await hsPersontype.ListChangesets(tempperson));
 
-    OBJECT tempperson := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+1@beta.webhare.net" ], [ temp := TRUE ]);
-    TestEQ(RECORD[], schemaobj->^wrd_person->ListChangesets(tempperson->id));
+    await wrdschema.update("wrdPerson", tempperson, { wrdContactEmail: "temporary+2@beta.webhare.net" });
+    test.eq([], await hsPersontype.ListChangesets(tempperson));
 
-    tempperson->UpdateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net" ]);
-    TestEQ(RECORD[], schemaobj->^wrd_person->ListChangesets(tempperson->id));
+    await wrdschema.update("wrdPerson", tempperson, { wrdCreationDate: new Date, wrdLimitDate: null, whuserUnit: testunit });
+    const postfields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdContactEmail", "wrdId", "wrdCreationDate", "wrdGuid", "wrdLimitDate", "wrdModificationDate", "whuserUnit"]);
 
-    tempperson->UpdateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net", wrd_creationdate := GetCurrentDateTime(), wrd_limitdate := MAX_DATETIME, whuser_unit := testfw->testunit ]);
-    RECORD postfields := tempperson->GetFields([ "wrd_contact_email", "wrd_id", "wrd_creationdate", "wrd_guid", "wrd_limitdate", "wrd_modificationdate", "whuser_unit" ]);
+    await whdb.commitWork();
 
-    testfw->CommitWork();
+    const changesets = await hsPersontype.ListChangesets(tempperson);
+    const changes = await hsPersontype.GetChanges(changesets[0].id);
+    test.eq([
+      {
+        id: changes[0].id,
+        changetype: 'new',
+        entity: tempperson,
+        when: postfields.wrdModificationDate,
+        oldsettings: null,
+        modifications: {
+          wrd_contact_email: postfields.wrdContactEmail,
+          whuser_unit: testunit,
+          wrd_modificationdate: postfields.wrdModificationDate,
 
-    RECORD ARRAY changesets := SELECT * FROM schemaobj->^wrd_person->ListChangesets(tempperson->id);
-    TestEQ(1, LENGTH(changesets));
+          wrd_id: tempperson, //FIXME why is this is the changeset? due to it being a tempBecomingAlive?
+          wrd_guid: UUIDToWrdGuid(postfields.wrdGuid), //TODO and guid? although this sounds a bit more reasonable..
+          wrd_creationdate: postfields.wrdCreationDate,
+          wrd_limitdate: defaultDateTime
+        }
+      }
+    ], changes);
 
-    RECORD ARRAY changes := schemaobj->^wrd_person->GetChanges(changesets[0].id);
-    TestEQ(
-        [ [ id :=             changes[0].id
-          , entity :=         tempperson->id
-          , changetype :=     "new"
-          , when :=           postfields.wrd_modificationdate
-          , modifications :=  postfields
-          , oldsettings :=    DEFAULT RECORD
-          ]
-        ], changes);
+    await whdb.beginWork();
+    await wrdschema.close("wrdPerson", tempperson);
+    await whdb.commitWork();
 
-    testfw->BeginWork();
-    tempperson->CloseEntity();
-    testfw->CommitWork();
-
-    changesets := SELECT * FROM schemaobj->^wrd_person->ListChangesets(tempperson->id);
-    TestEQ(2, LENGTH(changesets));
-
-    RECORD postclosefields := tempperson->GetFields([ "wrd_limitdate", "wrd_modificationdate" ]);
-
-    changes := schemaobj->^wrd_person->GetChanges(changesets[1].id);
-    TestEQ(
-        [ [ id :=             changes[0].id
-          , entity :=         tempperson->id
-          , changetype :=     "close"
-          , when :=           postclosefields.wrd_modificationdate
-          , oldsettings :=    CELL[ postfields.wrd_limitdate, postfields.wrd_modificationdate ]
-          , modifications :=  postclosefields
-          ]
-        ], changes);
+    const changesets2 = await hsPersontype.ListChangesets(tempperson);
+    test.eq(2, changesets2.length);
+    const postclosefields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdLimitDate", "wrdModificationDate"], { historyMode: "all" });
+    const changes2 = await hsPersontype.GetChanges(changesets2[1].id);
+    test.eqPartial([
+      {
+        changetype: 'close',
+        entity: tempperson,
+        when: postclosefields.wrdModificationDate,
+        oldsettings: {
+          wrd_limitdate: defaultDateTime,
+        },
+        modifications: {
+          wrd_limitdate: postclosefields.wrdLimitDate,
+          wrd_modificationdate: postclosefields.wrdModificationDate
+        }
+      }
+    ], changes2);
   }
+  /*
 
   // Entity that is created and closed in the same changeset
   {
