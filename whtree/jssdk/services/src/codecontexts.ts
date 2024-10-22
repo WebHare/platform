@@ -28,11 +28,12 @@ const activecontexts = new Map<string, ActiveContextData>;
 const activecontexts_finalizationregistry = new FinalizationRegistry<string>(id => activecontexts.delete(id));
 
 
-class WrappedGenerator<G extends Generator<T, TReturn, TNext>, T = unknown, TReturn = unknown, TNext = unknown> implements Generator<T, TReturn, TNext> {
+class WrappedGenerator<G extends Generator<T, TReturn, TNext>, T = unknown, TReturn = unknown, TNext = unknown> extends Iterator<T, TReturn, TNext> implements Generator<T, TReturn, TNext> {
   codecontext;
   generator;
 
   constructor(codecontext: CodeContext, generator: G) {
+    super();
     this.codecontext = codecontext;
     this.generator = generator;
   }

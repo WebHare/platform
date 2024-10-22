@@ -461,9 +461,9 @@ export type Insertable<T extends TypeDefinition> = {
   // Exclude all non-insertable keys by remapping the key value to 'never'
   [K in keyof T as ToWRDAttr<T[K]>["__insertable"] extends true ? K : never]?: GetInputType<T[K]>
 } & {
-    // Make sure all members that are insertable and required are added non-optionally. No need to repeat the value type here, that will just merge
-    [K in keyof T as InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
-  };
+  // Make sure all members that are insertable and required are added non-optionally. No need to repeat the value type here, that will just merge
+  [K in keyof T as InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
+};
 
 /** Returns the type for updating a WRD entity */
 export type Updatable<T extends TypeDefinition> = {

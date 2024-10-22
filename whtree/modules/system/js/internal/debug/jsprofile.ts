@@ -1,12 +1,6 @@
-///@ts-ignore -- not provided yet
 import { Session } from 'node:inspector/promises';
 
-interface SessionInterface {
-  connect: () => Promise<void>;
-  post: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
-}
-
-let session: SessionInterface | undefined;
+let session: Session | undefined;
 const process_exit_backup = process.exit.bind(process);
 
 async function finishProfile() {
