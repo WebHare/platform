@@ -233,7 +233,7 @@ function verifyCodeChallenge(verifier: string, challenge: string, method: CodeCh
 export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings> {
   const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
   if (!settings)
-    throw new Error(`WRD Schema ${wrdschema.tag} not found in the database`);
+    throw new Error(`No such WRD schema '${wrdschema.tag}'`);
 
   const persontype = wrdschema.getType("wrdPerson");
   const attrs = await persontype.ensureAttributes();

@@ -2,7 +2,7 @@ import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@mod-wrd/js/internal/types";
-import { WRDSchema, listSchemas, openWRDSchemaById } from "@webhare/wrd";
+import { WRDSchema, describeEntity, listSchemas, openWRDSchemaById } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { JsonWebKey } from "node:crypto";
@@ -13,7 +13,7 @@ import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
 import type { Platform_BasewrdschemaSchemaType, WRD_TestschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
-import { isChange } from "@mod-wrd/js/internal/schema";
+import { isChange, type WRDTypeMetadata } from "@mod-wrd/js/internal/schema";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { Money, type AddressValue } from "@webhare/std";
@@ -164,6 +164,16 @@ async function testNewAPI() {
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
+
+  test.eq({
+    schema: testSchemaTag,
+    schemaId: await schema.getId(),
+    type: "whuserUnit",
+    typeId: (await schema.describeType("whuserUnit"))?.id ?? 0,
+    wrdGuid: (await schema.getFields("whuserUnit", unit_id, ["wrdGuid"])).wrdGuid,
+    wrdTag: "TAG"
+  }, await describeEntity(unit_id));
+
   const sub_unit_id = await schema.insert("whuserUnit", { wrdTitle: "Sub unit", wrdTag: "SUBTAG", wrdLeftEntity: unit_id });
 
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
@@ -882,7 +892,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   ]);
   test.eq([pprecies], result.matched);
 
-  // Test array update
+  // Test that arrays overwrite, unmentioned fields should go away
   result = await schema.modify("wrdPerson").sync("wrdContactEmail", [
     {
       ...fixedFields,
@@ -1164,7 +1174,7 @@ async function testImportMode() {
 
   const wrdschema = await getWRDSchema<MySchema>();
   await wrdschema.createType("testImportModeDom", { metaType: "domain" });
-  const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" });
+  const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" } satisfies Partial<WRDTypeMetadata>);
   await link.createAttribute("enum", { attributeType: "enum", allowedValues: ["a", "b"], isRequired: true });
   await link.createAttribute("enumArray", { attributeType: "enumArray", allowedValues: ["a", "b"], isRequired: true });
   await link.createAttribute("statusRecord", { attributeType: "deprecatedStatusRecord", allowedValues: ["a", "b"], isRequired: true });

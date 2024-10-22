@@ -120,6 +120,9 @@ STRING FUNCTION GenerateAddressFormal(RECORD lang, RECORD entity, BOOLEAN jsmode
 
 STRING FUNCTION GenerateGUID(RECORD entity, BOOLEAN jsmode)
 {
+  IF(IsValidUUID(entity.guid)) //this might happen in TS changesets which sends data through pretty low level encoders
+    RETURN jsmode ? entity.guid : UUIdToWRDGuid(entity.guid);
+
   STRING wrdguid := EncodeWRDGUID(entity.guid);
   RETURN jsmode ? WRDGuidToUUId(wrdguid) : wrdguid;
 }

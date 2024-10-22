@@ -2941,7 +2941,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RECORD ARRAY changes :=
         SELECT *
              , oldsettings :=   ReadAnyFromDatabase(oldsettings, oldsettings_blob)
-             , modifications := ReadAnyFromDatabase(modifications, modifications_blob)
+             , modifications := EnforceStructure([settings := RECORD[]], ReadAnyFromDatabase(modifications, modifications_blob))
              , source :=        ReadAnyFromDatabase(source, source_blob)
           FROM wrd.changes
          WHERE changeset = changesetid
@@ -3770,10 +3770,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RECORD ARRAY mapping;
     FOREVERY (STRING rawguid FROM allrawguids)
     {
+      STRING searchguid := Length(rawguid)=36 //uuid, from a TS changeset
+        ? DecodeWRDGUID(UUIdToWRDGuid(rawguid))
+        : rawguid;
+
       INTEGER id :=
           SELECT AS INTEGER entities.id
             FROM wrd.entities, wrd.types
-           WHERE entities.guid = rawguid
+           WHERE entities.guid = searchguid
              AND entities.type = types.id
              AND types.wrd_schema = this->pvt_wrdschema->id;
 

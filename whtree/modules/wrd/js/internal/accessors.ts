@@ -56,6 +56,9 @@ export type AwaitableEncodedValue = {
 };
 
 export function encodeWRDGuid(guid: Buffer) {
+  if (guid.length !== 16)
+    throw new Error(`Input to encodeWRDGuid is not a raw guid`);
+
   const guidhex = guid.toString("hex");
   return `${guidhex.substring(0, 8)}-${guidhex.substring(8, 12)}-${guidhex.substring(12, 16)}-${guidhex.substring(16, 20)}-${guidhex.substring(20)}`;
 
@@ -1959,7 +1962,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
       dbLoc: { source: 3, id: val.id, cc }
     };
 
-    const blob = val.blobdata ?? WebHareBlob.from("");
+    const blob = val.blobdata;
     return new ResourceDescriptor(blob, meta);
   }
 
@@ -1979,7 +1982,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
         const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
         if (value.resource.size)
           await uploadBlob(value.resource);
-        const setting: EncodedSetting = { rawdata, blobdata: value.resource, attribute: this.attr.id, id: value.dbLoc?.id };
+        const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute: this.attr.id, id: value.dbLoc?.id };
         if (value.sourceFile) {
           setting.linktype = 2;
           setting.link = value.sourceFile;

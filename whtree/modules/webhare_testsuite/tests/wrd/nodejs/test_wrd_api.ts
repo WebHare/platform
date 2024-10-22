@@ -23,8 +23,12 @@ async function testWRDUntypedApi() { //  tests
   test.eqPartial({ attributeType: "enum", isRequired: false, allowedValues: ["male", "female", "other"] }, await persontype.describeAttribute("wrdGender"));
 
   test.eq(null, await wrdschema.describeType("noSuchType"));
-  test.eqPartial({ left: "wrdPerson", right: null }, await wrdschema.describeType("personattachment"));
+  test.eqPartial({ left: "wrdPerson", right: undefined, tag: "personattachment" }, await wrdschema.describeType("personattachment"));
 
+  const persontypeDescribed = await wrdschema.describeType("wrdPerson");
+  test.assert(persontypeDescribed);
+  test.eqPartial({ tag: "wrdPerson" }, persontypeDescribed);
+  test.eq(persontypeDescribed, await wrdschema.describeType(persontypeDescribed.id), "Describe should understand both id and tag");
 
   await whdb.beginWork();
   const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest", wrdContactEmail: "querytest@beta.webhare.net" }));

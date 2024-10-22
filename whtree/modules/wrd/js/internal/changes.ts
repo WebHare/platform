@@ -163,8 +163,7 @@ function mapChangesRefs<A extends number | string | null, B extends number | str
 
 // Converts all types and entity references in a changes record to strings
 export async function mapChangesIdsToRefs(typeRec: TypeRec, changes: Changes<number | null>): Promise<Changes<string>> {
-  const attrMapping = new Map([...typeRec.rootAttrMap.values()].map(attr => [attr.id, attr.tag]));
   const ids = gatherEntitiesFromChanges(changes);
   const settingsMapping = await getIdToGuidMap(ids);
-  return mapChangesRefs(changes, attrMapping, settingsMapping, "");
+  return mapChangesRefs(changes, typeRec.attrHSNameMap, settingsMapping, "");
 }

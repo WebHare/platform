@@ -1358,6 +1358,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const result = await geoip.lookupCountryInfo(var_ip.getString());
     id_set.setString(result?.country?.iso_code ?? "");
   });
+
+  wasmmodule.registerAsyncExternalFunction("DEBUGGER:::VA", async (vm, id_set) => {
+    // eslint-disable-next-line no-debugger
+    debugger;
+    id_set.setJSValue([]);
+  });
 }
 
 //The HareScriptJob wraps the actual job inside the Worker

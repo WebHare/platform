@@ -1,7 +1,7 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDType } from "./schema";
 import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
-import { db, nextVal, nextVals, sql } from "@webhare/whdb";
+import { db, isSameUploadedBlob, nextVal, nextVals, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
@@ -19,6 +19,7 @@ import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
 import { ValueQueryChecker } from "./checker";
 import { runSimpleWRDQuery } from "./queries";
 import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
+import { hashStream } from "@webhare/services/src/descriptor";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
@@ -176,6 +177,7 @@ function reuseFreeSettings(encodedSettings: EncodedSetting[], current: Array<Ent
           enc.id = item.id;
           if (enc.sub)
             reuseFreeSettings(enc.sub, current, currentIdMap, item.id);
+
           break;
         }
     } else if (enc.sub)
@@ -197,32 +199,105 @@ function flattenSettings(encodedSettings: EncodedSetting[], parent: EncodedSetti
   return retval;
 }
 
-async function generateNewSettingList(entityId: number, encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>): Promise<{
+function isSameSetting(cur: EntitySettingsRec, item: Partial<EntitySettingsRec>): boolean | Promise<boolean> {
+  for (const directCompare of ["rawdata", "setting", "ordering", "attribute", "parentsetting"] as const) { //TODO link & linktype?
+    if (!cur[directCompare]) {
+      if (item[directCompare])
+        return false; //this setting can't be eliminated, an unset value is now being set
+    } else if (!item[directCompare])
+      return false; //this setting can't be eliminated, a set value is now cleared
+    else if (cur[directCompare] !== item[directCompare])
+      return false; //this setting can't be eliminated, a value changed
+  }
+
+  const curblob = cur.blobdata;
+  const itemblob = item.blobdata;
+
+  if (!curblob) {
+    if (itemblob)
+      return false; //a blob is set, so we can't eliminate this setting
+  } else {
+    if (!itemblob)
+      return false;
+    if (!isSameUploadedBlob(curblob, itemblob) || itemblob.size !== curblob.size)
+      return false;
+
+    if (!item.rawdata?.startsWith('hson:')) { //if rawdata has hson: data, it has to be a wrapped blob. as we already established rawdata is equal above, assume the blobs are
+      //we'll need to compare the actual hashes... (TODO we should convince records/jsons etc that have overflown to still store a hash?) or have PG store a hash for every blob)
+      return (async () => await hashStream(await itemblob.getStream()) !== await hashStream(await curblob.getStream()))();
+    }
+  }
+
+  return true;
+}
+
+async function findSameSetting<T extends EntitySettingsRec>(current: Array<T & { used: boolean }>, item: Partial<T>): Promise<(T & { used: boolean }) | null> {
+  for (const cur of current) {
+    const compareres = isSameSetting(cur, item);
+    if (compareres === true)
+      return cur;
+    if (compareres !== false && await compareres === true)
+      return cur;
+  }
+  return null;
+}
+
+async function generateNewSettingList(entityId: number, encodedSettings: EncodedSetting[], current: Array<EntitySettingsRec & { used: boolean }>, currentIdMap: Map<number, EntitySettingsRec & { used: boolean }>, reusedIds: number[], reusedAttributes: Set<number>): Promise<{
   newIds: number[];
   newSets: Array<EntitySettingsRec & { unique_rawdata: string; sub?: unknown }>;
   newLinks: EntitySettingsWHFSLinkRec[];
 }> {
+  // Any row that has an id which is still reusable, can keep that. tryReusePassedSettings will clear ids on rows that are not reusable
   tryReusePassedSettings(encodedSettings, current, currentIdMap, null);
   reuseFreeSettings(encodedSettings, current, currentIdMap, null);
 
-  // Reuse all settings that have been left unused
   const parentMap = new Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>;
   const flattened = flattenSettings(encodedSettings, null, parentMap);
+
+  const finallist: typeof flattened = [];
+
+  // Eliminate all unchanged attributes from the update set (ie keep them in the database, unchanged)
+  // We need to process already assigned items first, to make sure we don't 'steal' them from the current list
+  for (const item of flattened) { //TODO merge us with reuseFreeSettings
+    if (item.id) {
+      const match = current.find(_ => _.id === item.id)!;
+      const compareRes = isSameSetting(match, item);
+      if ((compareRes === true) || (compareRes !== false && await compareRes === true)) {
+        continue; //no change, eliminate completely!
+      }
+      finallist.push(item); //okay, update it
+    }
+  }
+
+  for (const item of flattened)
+    if (!item.id) {
+      const matchcur = await findSameSetting(current, item);
+      if (matchcur) {
+        matchcur.used = true;
+        continue;
+      }
+      finallist.push(item);
+    }
+
+  // Reuse all settings that have been left unused. This should help keep attributes together in the database
   const unused = current.filter(item => !item.used).sort((a, b) => a.id - b.id);
   if (unused.length) {
     let upos = 0;
-    for (const item of flattened) {
+    for (const item of finallist) {
       if (!item.id) {
         const useItem = unused[upos++];
         useItem.used = true;
         item.id = useItem.id;
+        reusedIds.push(useItem.id);
+        reusedAttributes.add(useItem.attribute);
         if (upos === unused.length)
           break;
       }
     }
   }
+
   let noIdCount = 0;
-  for (const item of flattened) {
+  for (const item of finallist) {
     //check against potential internal issues
     if (!item.attribute)
       throw new Error(`Generated a setting without attribute: ${JSON.stringify(item)}`);
@@ -230,9 +305,10 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     if (!item.id)
       ++noIdCount;
   }
+
   const newIds = await nextVals("wrd.entity_settings.id", noIdCount);
   let ipos = 0;
-  for (const item of flattened) {
+  for (const item of finallist) {
     if (!item.id)
       item.id = newIds[ipos++];
   }
@@ -240,24 +316,29 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     child.parentsetting = parent.id;
   }
 
+  const newSettings = new Map(finallist.map(item => (
+    [
+      item.id!, {
+        id: item.id!, //after the above loop, all items have an id
+        entity: entityId,
+        parentsetting: item.parentsetting || null,
+        rawdata: item.rawdata || "",
+        unique_rawdata: item.unique_rawdata || "",
+        blobdata: item.blobdata || null,
+        setting: item.setting || null,
+        ordering: item.ordering || 0,
+        attribute: item.attribute,
+      }
+    ])));
+
   return {
     newIds,
-    newLinks: flattened.filter(item => item.link).map(item => ({
+    newLinks: finallist.filter(item => item.link).map(item => ({
       id: item.id!,
       linktype: item.linktype || 0,
       fsobject: item.link!
     })),
-    newSets: flattened.map(item => ({
-      id: item.id!,
-      entity: entityId,
-      parentsetting: item.parentsetting || null,
-      rawdata: item.rawdata || "",
-      unique_rawdata: item.unique_rawdata || "",
-      blobdata: item.blobdata || null,
-      setting: item.setting || null,
-      ordering: item.ordering || 0,
-      attribute: item.attribute,
-    }))
+    newSets: [...newSettings.values()]
   };
 }
 
@@ -287,7 +368,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
       .execute();
   }
 
-  const updatedAttrs = [...new Set(current.map(rec => rec.attribute).concat(newsets.map(rec => rec.attribute)))].sort();
+  const updatedAttrs = [...new Set(newsets.map(rec => rec.attribute))].sort();
   const updatedSettings = newsets.map(item => item.id);
   const linkCheckSettings = newsets.filter(item => linkCheckAttrs.has(item.attribute)).map(item => item.id);
   const deletedSettings = current.filter(rec => !rec.used).map(rec => rec.id);
@@ -604,10 +685,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .where("id", "=", entityId)
         .executeTakeFirst();
 
-
-
-    const is_temp = isNew ? Boolean(options.temp) : Boolean(entityBaseInfo && entityBaseInfo.creationdate.getTime() === maxDateTimeTotalMsecs);
-    const is_temp_coming_alive = is_temp && !isNew && splitData.entity.creationdate && splitData.entity.creationdate.getTime() < maxDateTimeTotalMsecs;
+    const finalCL = { ...entityBaseInfo, ...splitData.entity };
+    const isTemp = finalCL.creationdate?.getTime() === maxDateTimeTotalMsecs;
+    const isTempComingAlive = entityBaseInfo?.creationdate?.getTime() === maxDateTimeTotalMsecs && finalCL.creationdate?.getTime() !== maxDateTimeTotalMsecs;
     let entity_limit = splitData.entity.limitdate;
     if (!entity_limit)
       entity_limit = entityBaseInfo?.limitdate ?? maxDateTime;
@@ -658,7 +738,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       }
     }
   */
-    if (is_temp_coming_alive && !options.importMode) {
+    if (isTempComingAlive && !options.importMode) {
       const toCheck: RecordOutputMap<S[T]> = {};
       let haveToCheck = false;
       for (const rootAttr of typeRec.rootAttrMap) {
@@ -700,10 +780,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     }
     */
 
-    const finalCL = { ...entityBaseInfo, ...splitData.entity };
-    if (!options.temp &&
-      !options.importMode &&
+    if (!options.importMode &&
       finalCL.creationdate &&
+      finalCL.creationdate?.getTime() !== maxDateTimeTotalMsecs &&
       finalCL.limitdate &&
       finalCL.creationdate?.getTime() > finalCL.limitdate?.getTime()) {
       throw new Error(`wrdLimitDate is set before wrdCreationDate`);
@@ -724,25 +803,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       }
     }
 
-    //RECORD ARRAY cursettings;
-
-    /* There are three relevant timestamps
-       - updatedat: Update datetime. If default, update current values and don't care about history.
-                                     If not default, close existing values and use the specified time for the new values
-       - viewdate: The relevant date for the current values. Equal to updatedat, but if updatedat = dewfault, set to now
-       - changedate: The entity date change, used as a quick way to see whether the entity's data was updaated
-    */
-
-
-    //If modification date is not made explicit, use now. (never use updatedat, we can't have lastmodifieds in the future)
-    if (!splitData.entity.modificationdate)
-      splitData.entity.modificationdate = now;
-
-
     let cursettings = new Array<EntitySettingsRec & { used: false }>;
 
     if (isNew) {
-      //const tag = splitData.entity.tag ?? "";
       if (!splitData.entity.guid) {
         splitData.entity.guid = Buffer.from(generateRandomId("uuidv4").replaceAll(/-/g, ""), "hex");
       }
@@ -750,9 +813,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       splitData.entity = {
         id: result.entityId,
         type: typeRec.id,
-        creationdate: splitData.entity.modificationdate,
+        creationdate: splitData.entity.creationdate || splitData.entity.modificationdate || now,
         limitdate: maxDateTime,
-        modificationdate: splitData.entity.modificationdate,
+        modificationdate: splitData.entity.modificationdate || now,
         ...splitData.entity
       };
     } else {
@@ -781,7 +844,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .orderBy("ordering")
         .execute()).map(row => ({ ...row, used: false }));
 
-      // If changing the GUID, also update the corresponding authobject
+      // If changing the GUID, also update the corresponding authobject - FIXME this might be unexpected if a user is renumbering an entity in eg a backup schema or related schema sharing guids!
       if (splitData.entity.guid && entityBaseInfo) {
         // Calculate the guids (from the decoded data, want sanitized data)
         const oldGuid = encodeWRDGuid(entityBaseInfo.guid);
@@ -823,15 +886,26 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       else if (currentinfo.type !== typeRec.id && !typeRec.childTypeIds.includes(currentinfo.type))
         throw new Error(`Trying to update entity #${result.entityId} of type #${currentinfo.type} but we are type #${typeRec.id}`);
 
-      await db<PlatformDB>()
-        .updateTable("wrd.entities")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .set(splitData.entity as any)
-        .where("id", "=", result.entityId)
-        .execute();
+      if (orgentityrec) {
+        // Eliminate unchanged values from splitData
+        for (const key of Object.keys(splitData.entity))
+          if ((splitData.entity as Record<string, unknown>)[key] === (orgentityrec as Record<string, unknown>)[key])
+            delete (splitData.entity as Record<string, unknown>)[key];
+      }
+
+      if (Object.keys(splitData.entity).length) //avoid updating moddate if we update nothing else
+        await db<PlatformDB>()
+          .updateTable("wrd.entities")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .set({ modificationdate: now, ...splitData.entity } as any)
+          .where("id", "=", result.entityId)
+          .execute();
     }
 
-    const newSets = await generateNewSettingList(result.entityId, splitData.settings, cursettings, new Map(cursettings.map(setting => [setting.id, setting])));
+    const reusedIds = new Array<number>(); //will receive actually reused IDs
+    const reusedAttributes = new Set<number>(); //will receive attributes from which we reused IDs
+    const newSets = await generateNewSettingList(result.entityId, splitData.settings, cursettings, new Map(cursettings.map(setting => [setting.id, setting])), reusedIds, reusedAttributes);
+    deletedSettingIds.push(...reusedIds);
 
     // FIXME: when is_temp_coming_alive is TRUE, ensure that all required root settings have a value
 
@@ -850,18 +924,30 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
 
     const setsWithoutSub = omit(newSets.newSets, ['sub']);
     const updateres = await handleSettingsUpdates(cursettings, setsWithoutSub, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, newSets.newLinks, options.whfsmapper);
+    if (isTemp)
+      return result; //Updates are done, no history for temporaries
 
     //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
     //    checklinks_settingids:= updateres.linkchecksettings;
     //    allsettingids:= allsettingids CONCAT updateres.updatedsettings;
-    //    deletedsettingids:= deletedsettingids CONCAT updateres.deletedsettings;
+    deletedSettingIds.push(...updateres.deletedSettings);
 
-
-    const changed_attrs = new Set<string>();
-    for (const attrId of updateres.updatedAttrs) {
+    const changed_attrs = new Set<string>;
+    for (const attrId of [...updateres.updatedAttrs, ...reusedAttributes]) {
       const rootAttr = typeRec.attrRootAttrMap.get(attrId);
       if (rootAttr)
         changed_attrs.add(rootAttr.tag);
+    }
+
+    for (const [tag, cells] of Object.entries(baseAttrCells)) {
+      if (tag === "wrdId" || tag === "wrdType" || tag === "wrdModificationDate" || Array.isArray(cells))
+        continue;
+      if (typeof cells === 'string' && cells in splitData.entity)
+        changed_attrs.add(tag);
+    }
+
+    if (!changed_attrs.size && !("modificationdate" in splitData.entity)) { // No changes - not even 'just' to modificationdate
+      return result; // Nothing to do, no history to generate
     }
 
     if (!isNew && allow_unique_rawdata && "limitdate" in splitData.entity) {
@@ -894,9 +980,9 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     // console.log(await db<PlatformDB>().selectFrom("wrd.entity_settings").selectAll().where("entity", "=", result.entityId).execute());
 
     if (typeRec.keephistorydays > 0 || historyDebugging) {
-      const newrec = { ...orgentityrec, ...splitData.entity };
+      const newrec = { ...orgentityrec, modificationdate: now, ...splitData.entity };
       if (newrec.creationdate) { // Entity is now not temporary?
-        if (is_temp_coming_alive) {// Treat a previously temp entity as completely new
+        if (isTempComingAlive) {// Treat a previously temp entity as completely new
           isNew = true;
           orgentityrec = undefined;
           splitData.entity = newrec;
@@ -906,7 +992,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         const entityrecchanges: EntityPartialRec = {};
         if (isNew || !orgentityrec) {
           for (const [key, value] of Object.entries(splitData.entity)) {
-            if (!isDefaultHareScriptValue(value))
+            if (!isDefaultHareScriptValue(value))// && !["creationdate", "guid", "id"].includes(key))
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               entityrecchanges[key as keyof EntityPartialRec] = value as any;
           }
@@ -918,80 +1004,74 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           }
         }
 
-        for (const [tag, cells] of Object.entries(baseAttrCells)) {
-          // FIXME: review this
-          if (tag === "wrdId" || tag === "wrdType" || tag === "wrdModificationDate" || Array.isArray(cells))
-            continue;
-          if (typeof cells === "string" && cells in entityrecchanges)
-            changed_attrs.add(tag);
-        }
-
-        if (changed_attrs.size) {
-          const changeId = await nextVal("wrd.changes.id");
-          const changes: Changes<number | null> = {
-            oldsettings: {
-              entityrec: orgentityrec ? serializeChangeEntity(orgentityrec) : null,
-              settings: [],
-              whfslinks: [],
-            },
-            modifications: {
-              entityrec: serializeChangeEntity(entityrecchanges),
-              settings: [],
-              whfslinks: [],
-              deletedsettings: getTypedArray(VariableType.IntegerArray, deletedSettingIds),
-            }
-          };
-          if (is_temp_coming_alive) {
-            const changesNewSettings = await db<PlatformDB>()
-              .selectFrom("wrd.entity_settings")
-              .selectAll()
-              .where("entity", "=", result.entityId)
-              .execute();
-            changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
-          } else {
-            const changesOldSettings = cursettings.map(s => omit(s, ["used"]));
-            const changesNewSettings = await db<PlatformDB>()
-              .selectFrom("wrd.entity_settings")
-              .selectAll()
-              .where("id", "=", sql`any(${updateres.updatedSettings})`)
-              .execute();
-            changes.oldsettings.settings = await saveEntitySettingAttachments(changeId, changesOldSettings);
-            changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
+        const changeId = await nextVal("wrd.changes.id");
+        const changes: Changes<number | null> = {
+          oldsettings: {
+            entityrec: orgentityrec ? serializeChangeEntity(orgentityrec) : null,
+            settings: [],
+            whfslinks: [],
+          },
+          modifications: {
+            entityrec: serializeChangeEntity(entityrecchanges),
+            settings: [],
+            whfslinks: [],
+            deletedsettings: getTypedArray(VariableType.IntegerArray, deletedSettingIds),
           }
+        };
 
-          changes.oldsettings.whfslinks = orgwhfslinks;
-          changes.modifications.whfslinks = await getWHFSLinksForChanges(changes.modifications.settings.map(s => (s as { id: number }).id));
+        if (!changes.modifications.entityrec.modificationdate)
+          changes.modifications.entityrec.modificationdate = now; //ensure we serialize the value we picked in the end
 
-          const mappedChanges = await mapChangesIdsToRefs(typeRec, changes);
-
-          const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
-          const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
-          const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);
-
-          let changeset = options.changeset ?? wrdFinishHandler().getAutoChangeSet(schemadata.schema.id);
-          if (!changeset) {
-            changeset = await createChangeSet(schemadata.schema.id, now);
-            wrdFinishHandler().setAutoChangeSet(schemadata.schema.id, changeset);
-          }
-
-          await db<PlatformDB>()
-            .insertInto("wrd.changes")
-            .values({
-              id: changeId,
-              creationdate: now,
-              changeset,
-              type: typeRec.id,
-              entity: splitData.entity.guid ?? orgentityrec!.guid,
-              oldsettings,
-              oldsettings_blob,
-              modifications,
-              modifications_blob,
-              source,
-              source_blob,
-              summary: [...changed_attrs].sort().join(","),
-            })
+        if (isTempComingAlive) {
+          const changesNewSettings = await db<PlatformDB>()
+            .selectFrom("wrd.entity_settings")
+            .selectAll()
+            .where("entity", "=", result.entityId)
             .execute();
+          changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
+        } else {
+          const changesOldSettings = cursettings.map(s => omit(s, ["used"]));
+          const changesNewSettings = await db<PlatformDB>()
+            .selectFrom("wrd.entity_settings")
+            .selectAll()
+            .where("id", "=", sql`any(${updateres.updatedSettings})`)
+            .execute();
+          changes.oldsettings.settings = await saveEntitySettingAttachments(changeId, changesOldSettings);
+          changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);
         }
+
+        changes.oldsettings.whfslinks = orgwhfslinks;
+        changes.modifications.whfslinks = await getWHFSLinksForChanges(changes.modifications.settings.map(s => (s as { id: number }).id));
+
+        const mappedChanges = await mapChangesIdsToRefs(typeRec, changes); //Convert ids to guids / attribute tags
+        const { data: oldsettings, datablob: oldsettings_blob } = await prepareAnyForDatabase(mappedChanges.oldsettings);
+        const { data: modifications, datablob: modifications_blob } = await prepareAnyForDatabase(mappedChanges.modifications);
+        const { data: source, datablob: source_blob } = await prepareAnyForDatabase(historyDebugging ? { stacktrace: getStackTrace() } : null);
+
+        let changeset = options.changeset ?? wrdFinishHandler().getAutoChangeSet(schemadata.schema.id);
+        if (!changeset) {
+          changeset = await createChangeSet(schemadata.schema.id, now);
+          wrdFinishHandler().setAutoChangeSet(schemadata.schema.id, changeset);
+        }
+
+        await db<PlatformDB>()
+          .insertInto("wrd.changes")
+          .values({
+            id: changeId,
+            creationdate: now,
+            changeset,
+            type: typeRec.id,
+            entity: splitData.entity.guid ?? orgentityrec!.guid,
+            oldsettings,
+            oldsettings_blob,
+            modifications,
+            modifications_blob,
+            source,
+            source_blob,
+            summary: [...changed_attrs].sort().join(","),
+          })
+          .execute();
+
       }
     }
 
