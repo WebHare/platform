@@ -44,7 +44,7 @@
                     selectcontextmenu="bundlecontextmenu"
                     selectmode="multiple"
                     sortcolumn="outputtag">
-                <column name="status" type="text" width="12x" sortkeyname="status_sort"/>
+                <column name="status" type="text" width="12x" sortkeyname="status_sort" />
                 <column name="outputtag" type="text" width="25x" />
                 <column name="lastcompile" type="datetime" width="23x" precision="seconds" storeutc="true" />
                 <column name="watchcount" type="integer" width="10x" align="right" emptyvalue="0" />
@@ -83,6 +83,7 @@
     <actions>
       <downloadaction name="downloadmetafile" ondownload="dodownloadmetafile" />
     </actions>
+
     <compositions>
       <eventlistener name="listener" onevents="gotevents" />
     </compositions>

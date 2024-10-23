@@ -1,15 +1,14 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/logs.whlib"
-         gid="monitor">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor" library="/lib/screens/monitor/logs.whlib">
 
   <screen name="logs" gid=".logs.panel">
     <actions>
       <action name="runlogsscreen" onexecute="dorunlogsscreen" />
     </actions>
+
     <body height="1pr" spacers="none">
       <grid width="1pr">
-        <col width="1pr"/>
-        <col/>
+        <col width="1pr" />
+        <col />
         <row>
           <cell spacers="left">
             <heading name="errorlogbox" />
@@ -19,55 +18,60 @@
           </cell>
         </row>
       </grid>
-      <list name="errorlog"
-            selectmode="none"
-            width="1pr"
-            height="1pr"
-            borders="top right bottom"
-            sortascending="false">
-        <column name="date"    type="text" width="30x" />
+      <list name="errorlog" width="1pr" height="1pr" borders="top right bottom" selectmode="none" sortascending="false">
+        <column name="date" type="text" width="30x" />
         <column name="message" type="text" />
       </list>
       <panel spacers="left right">
-        <heading name="servicemanagerlogbox"/>
+        <heading name="servicemanagerlogbox" />
       </panel>
       <list name="servicemanagerlog"
-            selectmode="none"
             width="1pr"
-            borders="top right bottom"
             height="1pr"
+            borders="top right bottom"
+            selectmode="none"
             sortascending="false">
-        <column name="date"    type="text" width="30x" />
+        <column name="date" type="text" width="30x" />
         <column name="message" type="text" />
       </list>
     </body>
   </screen>
 
-  <screen name="overview" tid=".title" width="120x" height="50x" allowresize="true" savestate="true" gid=".logs.overview" flags="haveopenineditor">
+  <screen name="overview"
+          width="120x"
+          height="50x"
+          allowresize="true"
+          flags="haveopenineditor"
+          footerbuttons="close"
+          gid=".logs.overview"
+          savestate="true"
+          tid=".title">
     <actions>
       <action name="applysettingsaction" onexecute="doapplysettingsaction" title="" />
       <action name="download" onexecute="dodownloadfile" />
       <action name="openstacktrace" onexecute="doopenstacktrace">
         <enableon source="stacktrace" min="1" />
       </action>
-      <action name="openineditor" onexecute="doopenineditor" frameflags="haveopenineditor" tid="~openineditor">
+      <action name="openineditor" frameflags="haveopenineditor" onexecute="doopenineditor" tid="~openineditor">
         <enableon source="stacktrace" min="1" max="1" requirefocus="true" />
       </action>
     </actions>
+
     <menus>
       <menu name="stacktracecontextmenu">
         <item action="openineditor" disablemode="hidden" />
       </menu>
     </menus>
-    <body layout="form" height="1pr">
+
+    <body height="1pr" layout="form">
       <split type="horizontal">
         <part width="1pr" spacers="right">
           <box tid=".settings">
             <line>
-              <textedit valuetype="integer" name="nr_kb" defaultbutton="applysettings" width="10x" />
-              <button action="applysettingsaction" name="applysettings" />
+              <textedit name="nr_kb" width="10x" defaultbutton="applysettings" valuetype="integer" />
+              <button name="applysettings" action="applysettingsaction" />
             </line>
-            <select type="pulldown" name="logtype" onchange="onlogtypechange">
+            <select name="logtype" type="pulldown" onchange="onlogtypechange">
               <option rowkey="access" />
               <option rowkey="debug" />
               <option rowkey="errors" />
@@ -76,22 +80,18 @@
               <option rowkey="servicemanager" />
             </select>
             <line>
-              <select type="pulldown" name="dateoption" onchange="refreshloglist" />
-              <button action="download"  />
+              <select name="dateoption" type="pulldown" onchange="refreshloglist" />
+              <button action="download" />
             </line>
           </box>
           <split type="vertical">
             <part height="1pr">
               <panel>
-                <textedit name="filter" onchange="refreshloglist" width="1pr" trimwhitespace="false" />
+                <textedit name="filter" width="1pr" onchange="refreshloglist" trimwhitespace="false" />
               </panel>
               <panel height="1pr">
-                <list name="loglist"
-                      selectmode="single"
-                      onselect="onloglistclick"
-                      sortascending="false"
-                      height="1pr">
-                  <column name="date"         type="text" width="25x" />
+                <list name="loglist" height="1pr" onselect="onloglistclick" selectmode="single" sortascending="false">
+                  <column name="date" type="text" width="25x" />
                   <column name="message_part" type="text" />
                 </list>
               </panel>
@@ -99,10 +99,7 @@
           </split>
         </part>
         <part width="1pr" spacers="left">
-          <tabs name="dataviewtabs"
-                onselect="refreshdataviewtab"
-                height="1pr"
-                >
+          <tabs name="dataviewtabs" height="1pr" onselect="refreshdataviewtab">
             <tab name="tab_raw">
               <textarea name="fullmessage" height="1pr" title="" />
             </tab>
@@ -117,18 +114,17 @@
               NOTE: this version is ripped from debugger.xml
               -->
               <list name="stacktrace"
-                    selectmode="single"
-                    rowlayout="tworows"
                     height="1pr"
-                    sortable="false"
                     borders="all"
                     gid=".stacktrace"
                     openaction="openstacktrace"
+                    rowlayout="tworows"
                     selectcontextmenu="stacktracecontextmenu"
-                    >
+                    selectmode="single"
+                    sortable="false">
                 <column name="filename" type="text" />
                 <column name="position" type="text" width="10x" />
-                <column name="func" type="text"  tid=".stacktrace-function" />
+                <column name="func" type="text" tid=".stacktrace-function" />
                 <rowlayout name="tworows">
                   <col coldef="func" />
                   <col coldef="position" />
@@ -141,15 +137,11 @@
                   </row>
                 </rowlayout>
               </list>
-
             </tab>
           </tabs>
         </part>
       </split>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
 </screens>

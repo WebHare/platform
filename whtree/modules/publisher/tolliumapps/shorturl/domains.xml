@@ -54,8 +54,8 @@
                      cellname="setvariables"
                      name="setvariables"
                      width="1pr"
-                     minwidth="60x"
                      height="1pr"
+                     minwidth="60x"
                      orderable="true"
                      roweditscreen="#setvariableprops">
             <column name="name" type="text" tid=".variablename" />

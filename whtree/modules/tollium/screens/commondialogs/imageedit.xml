@@ -1,22 +1,20 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/commondialogs/imageedit.whlib"
-         gid="commondialogs.imageedit">
-  
-  <screen name="main" gid=".main" flags="canundo" >
+         gid="commondialogs.imageedit"
+         library="/lib/screens/commondialogs/imageedit.whlib">
+
+  <screen name="main" flags="canundo" footerbuttons="ok cancel" gid=".main">
     <actions>
       <action name="crop" onexecute="docrop">
         <enableon source="img" min="1" />
-       </action>
-      <action name="undo" onexecute="doundo" frameflags="canundo" />
+      </action>
+      <action name="undo" frameflags="canundo" onexecute="doundo" />
     </actions>
+
     <body>
       <image name="img" width="300px" height="150px" title="" />
       <button action="crop" />
       <button action="undo" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />    
-    </footer>
   </screen>
-  
-</screens>  
+
+</screens>

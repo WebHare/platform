@@ -1,106 +1,109 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" lib="screens/exchange.whlib" gid="exchange">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="exchange" library="/lib/screens/exchange.whlib">
 
   <messageboxes gid=".messageboxes">
     <messagebox name="distinctoverflow" buttons="ok" />
   </messageboxes>
 
-  <screen name="import" gid=".import" allowresize="true" savestate="size" minwidth="600px" minheight="400px" flags="canlinkitem">
+  <screen name="import"
+          minwidth="600px"
+          minheight="400px"
+          allowresize="true"
+          flags="canlinkitem"
+          gid=".import"
+          savestate="size">
     <actions>
-      <action name="map" onexecute="domap" frameflags="canlinkitem" />
+      <action name="map" frameflags="canlinkitem" onexecute="domap" />
       <action name="unmap" onexecute="dodeletelink">
         <enableon source="incolumns" min="1" max="1" checkflags="islinked" />
       </action>
       <action name="updatemapping" onexecute="doupdatemapping">
-        <enableon source="incolumns" min="1" max="1" checkflags="ismapped"/>
+        <enableon source="incolumns" min="1" max="1" checkflags="ismapped" />
       </action>
       <action name="deletelink" onexecute="dodeletelink">
         <enableon source="incolumns" min="1" max="1" checkflags="islinked" />
       </action>
     </actions>
+
     <menus>
       <menu name="incolumnsmenu">
         <item action="updatemapping" disablemode="hidden" />
         <item action="deletelink" disablemode="hidden" />
       </menu>
     </menus>
+
     <body spacers="none">
       <wizard name="wizard" height="1pr">
         <page name="importdatapage" oninit="onimportdatapageinit" onnext="onimportdatapagenext">
-          <panel name="importdescriptionpanel" visible="false" layout="left">
-            <text title="" name="importdescriptiontext" wordwrap="true" width="1pr" />
+          <panel name="importdescriptionpanel" layout="left" visible="false">
+            <text name="importdescriptiontext" width="1pr" title="" wordwrap="true" />
           </panel>
           <box name="fileuploadbox" hr="false">
             <line layout="left">
               <text valuetid=".choosefile" />
             </line>
-            <fileedit name="importfile" onbeforechange="onbeforeimportfilechange" onchange="onimportfilechange" required="true" />
+            <fileedit name="importfile"
+                      onbeforechange="onbeforeimportfilechange"
+                      onchange="onimportfilechange"
+                      required="true" />
           </box>
         </page>
         <page name="columnspage" oninit="oncolumnspageinit" onnext="oncolumnspagenext" spacers="left top bottom">
           <box name="mapbox" height="1pr" hr="false">
-            <text title="" width="1pr" wordwrap="true" valuetid=".mapexplain"/>
+            <text width="1pr" title="" valuetid=".mapexplain" wordwrap="true" />
             <panel layout="left" spacers="bottom">
-              <select name="headertype" type="radio" onchange="onheadertypechange" title="" >
-                <option rowkey="withheaders" selected="true"/>
+              <select name="headertype" type="radio" onchange="onheadertypechange" title="">
+                <option rowkey="withheaders" selected="true" />
                 <option rowkey="noheaders" />
               </select>
             </panel>
             <split type="horizontal">
-              <part width="3pr" >
+              <part width="3pr">
                 <!-- FIXME: Better use WRD icons(?) -->
                 <list name="incolumns"
                       width="100x"
                       height="1pr"
-                      selectmode="single"
                       borders="left top bottom"
-                      onselect="onincolumnsselect"
                       flags="ismapped islinked"
-                      selectcontextmenu="incolumnsmenu"
-                      sortcolumn="columnname"
-                      openaction="updatemapping"
                       icons="tollium:objects/idcard
                              tollium:forms/pulldown
                              tollium:forms/textedit
                              tollium:forms/textedit
                              tollium:objects/envelope
                              tollium:forms/textedit
-                             tollium:forms/textedit
-                             "
-                      >
+                             tollium:forms/textedit"
+                      onselect="onincolumnsselect"
+                      openaction="updatemapping"
+                      selectcontextmenu="incolumnsmenu"
+                      selectmode="single"
+                      sortcolumn="columnname">
                   <acceptdrops ondrop="onincolumndrop">
-                    <accepttype type="local:targetattribute"
-                                dropeffects="move"
-                                requiretarget="true"
-                                sourceflags="islinkable"
-                                />
+                    <accepttype type="local:targetattribute" dropeffects="move" requiretarget="true" sourceflags="islinkable" />
                   </acceptdrops>
 
-                  <!--column type="integer" name="rowkey" width="4x" /-->
-                  <column type="text" name="columnname" />
-                  <column type="text" name="exampledata" />
+                  <!-- column type="integer" name="rowkey" width="4x" / -->
+                  <column name="columnname" type="text" />
+                  <column name="exampledata" type="text" />
+
                   <!-- FIXME: Check FIXME in whlib's BuildImportColumnsList
                   <column type="text" name="importcolumn" iconname="typeicon"/>
                   -->
-                  <column type="text" name="importcolumn"/>
+                  <column name="importcolumn" type="text" />
                 </list>
               </part>
               <part width="2pr" spacers="left">
                 <grid width="1pr" height="1pr">
-                  <col/>
-                  <col width="1pr"/>
+                  <col />
+                  <col width="1pr" />
                   <row height="1pr">
                     <cell>
-                      <panel height="1pr" spacers="all"/>
-                      <button action="map" width="1pr"/>
-                      <button action="unmap" width="1pr"/>
-                      <panel height="1pr"/>
+                      <panel height="1pr" spacers="all" />
+                      <button width="1pr" action="map" />
+                      <button width="1pr" action="unmap" />
+                      <panel height="1pr" />
                     </cell>
                     <cell>
                       <list name="wrdcolumns"
                             width="1pr"
-                            selectmode="single"
-                            onselect="onwrdcolumnsselect"
-                            openaction="map"
                             flags="islinkable"
                             icons="tollium:forms/textedit
                                    tollium:forms/pulldown
@@ -108,18 +111,19 @@
                                    tollium:forms/textedit
                                    tollium:forms/email
                                    tollium:forms/textedit
-                                   tollium:forms/textedit
-                                   "
-                            >
+                                   tollium:forms/textedit"
+                            onselect="onwrdcolumnsselect"
+                            openaction="map"
+                            selectmode="single">
                         <acceptdrops ondrop="onwrdcolumndrop">
                           <accepttype type="local:importcolumn"
                                       dropeffects="move"
                                       requiretarget="false"
-                                      sourceflags="islinked"
-                                      />
+                                      sourceflags="islinked" />
                         </acceptdrops>
-                        <column type="text" tree="true" name="title" iconname="typeicon"/>
-                        <!--column type="text" name="stringicon"/-->
+                        <column name="title" type="text" iconname="typeicon" tree="true" />
+
+                        <!-- column type="text" name="stringicon"/ -->
                         <style name="isrequired" bold="true" />
                       </list>
                     </cell>
@@ -129,93 +133,81 @@
             </split>
           </box>
         </page>
-        <page name="startimport" oninit="onstartimportinit" isfinish="true">
-          <box tid=".previewexplainbox" hr="false">
-            <text valuetid=".clicknexttostart" width="1pr" wordwrap="true"/>
+        <page name="startimport" isfinish="true" oninit="onstartimportinit">
+          <box hr="false" tid=".previewexplainbox">
+            <text width="1pr" valuetid=".clicknexttostart" wordwrap="true" />
           </box>
           <panel height="1pr">
-            <list name="previewrows" height="1pr">
-            </list>
+            <list name="previewrows" height="1pr" />
           </panel>
         </page>
       </wizard>
     </body>
   </screen>
 
-  <screen name="importresults" gid=".importresults">
+  <screen name="importresults" footerbuttons="close" gid=".importresults">
     <actions>
       <action name="downloadduplicate" onexecute="dodownloadduplicate" />
       <action name="downloadinvalid" onexecute="dodownloadinvalid" />
     </actions>
+
     <body>
       <text name="numnew" />
       <text name="numupdate" />
       <line>
         <text name="numinvalid" />
-        <text title="" action="downloadinvalid" name="downloadinvalid_button" valuetid=".downloadinvalid"/>
+        <text name="downloadinvalid_button" action="downloadinvalid" title="" valuetid=".downloadinvalid" />
       </line>
       <line>
         <text name="numduplicate" />
-        <text title="" action="downloadduplicate" name="downloadduplicate_button" valuetid=".downloadduplicate"/>
+        <text name="downloadduplicate_button" action="downloadduplicate" title="" valuetid=".downloadduplicate" />
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
-
   </screen>
 
-  <screen name="mapdomain" gid=".mapdomain" allowresize="true" savestate="size" flags="canmapitem">
+  <screen name="mapdomain" allowresize="true" flags="canmapitem" footerbuttons="ok cancel" gid=".mapdomain" savestate="size">
     <actions>
-      <action name="map" onexecute="domap" frameflags="canmapitem" />
+      <action name="map" frameflags="canmapitem" onexecute="domap" />
       <action name="unmap" onexecute="dounmap">
         <enableon source="invals" min="1" max="1" checkflags="ismapped" />
       </action>
     </actions>
+
     <body>
-      <text name="remapinfo" title="" valuetid=".remapinfo" width="1pr" wordwrap="true" />
+      <text name="remapinfo" width="1pr" title="" valuetid=".remapinfo" wordwrap="true" />
       <split type="horizontal">
-        <part width="2pr" >
+        <part width="2pr">
           <list name="invals"
-                selectmode="single"
+                borders="left top bottom"
                 flags="ismapped"
                 onselect="onlistselect"
-                borders="left top bottom"
+                selectmode="single"
                 sortcolumn="inval">
             <acceptdrops ondrop="oninvaldrop">
-              <accepttype type="local:allowedval"
-                          requiretarget="true"
-                          />
+              <accepttype type="local:allowedval" requiretarget="true" />
             </acceptdrops>
-            <column type="text" name="inval" />
-            <column type="integer" name="occurences" width="6x" />
-            <column type="text" name="maptoval" />
+            <column name="inval" type="text" />
+            <column name="occurences" type="integer" width="6x" />
+            <column name="maptoval" type="text" />
           </list>
         </part>
         <part width="2pr" spacers="left">
           <grid width="1pr" height="1pr">
-            <col/>
-            <col width="1pr"/>
+            <col />
+            <col width="1pr" />
             <row height="1pr">
               <cell>
-                <panel height="1pr"/>
-                <button action="map" width="1pr"/>
-                <button action="unmap" width="1pr"/>
-                <panel height="1pr"/>
+                <panel height="1pr" />
+                <button width="1pr" action="map" />
+                <button width="1pr" action="unmap" />
+                <panel height="1pr" />
               </cell>
               <cell>
-                <list name="allowedvals"
-                      openaction="map"
-                      selectmode="single"
-                      onselect="onlistselect"
-                      minwidth="25x" >
+                <list name="allowedvals" minwidth="25x" onselect="onlistselect" openaction="map" selectmode="single">
                   <acceptdrops ondrop="onallowedvaldrop">
-                    <accepttype type="local:inval"
-                                requiretarget="false"
-                                sourceflags="ismapped"
-                                />
+                    <accepttype type="local:inval" requiretarget="false" sourceflags="ismapped" />
                   </acceptdrops>
-                  <column type="text" name="title" />
+                  <column name="title" type="text" />
                 </list>
               </cell>
             </row>
@@ -223,20 +215,18 @@
         </part>
       </split>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="syncoptions" gid=".syncoptions" title="">
+  <screen name="syncoptions" footerbuttons="ok cancel" gid=".syncoptions" title="">
     <actions>
-      <action name="selectall" title="" onexecute="doselectall" />
-      <action name="selectnone" title="" onexecute="doselectnone" />
-      <action name="selectnonpersonal" title="" onexecute="doselectnonpersonal" />
+      <action name="selectall" onexecute="doselectall" title="" />
+      <action name="selectnone" onexecute="doselectnone" title="" />
+      <action name="selectnonpersonal" onexecute="doselectnonpersonal" title="" />
     </actions>
+
     <body layout="left">
-      <text name="synctypelabel" title="" labelfor="synctype" />
-      <select name="synctype" title="" type="radio" onchange="onsynctypechange">
+      <text name="synctypelabel" labelfor="synctype" title="" />
+      <select name="synctype" type="radio" onchange="onsynctypechange" title="">
         <option rowkey="nonpersonaldata" />
         <option rowkey="alldata" />
         <option rowkey="selecttypes" />
@@ -244,28 +234,24 @@
       <line>
         <spacer width="16px" />
         <inlineblock name="selecttypes" title="">
-          <list
-              name="includetypes"
-              columnheaders="false"
-              icons="tollium:users/user"
-              width="40x"
-              height="20x"
-              oncheck="onselectedcheck">
-            <column type="text" name="title" title="" checkboxname="selected" sortkeyname="sortpersonaldata" />
-            <column type="icon" name="haspersonaldata" title="" />
+          <list name="includetypes"
+                width="40x"
+                height="20x"
+                columnheaders="false"
+                icons="tollium:users/user"
+                oncheck="onselectedcheck">
+            <column name="title" type="text" checkboxname="selected" sortkeyname="sortpersonaldata" title="" />
+            <column name="haspersonaldata" type="icon" title="" />
           </list>
           <line>
             <text tid=".select" />
-            <text title="" valuetid=".select-all" action="selectall" />
-            <text title="" valuetid=".select-none" action="selectnone" />
-            <text title="" valuetid=".select-nonpersonal" action="selectnonpersonal" />
+            <text action="selectall" title="" valuetid=".select-all" />
+            <text action="selectnone" title="" valuetid=".select-none" />
+            <text action="selectnonpersonal" title="" valuetid=".select-nonpersonal" />
           </line>
         </inlineblock>
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

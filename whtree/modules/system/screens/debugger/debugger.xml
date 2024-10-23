@@ -1,35 +1,30 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/debugger/debugger.whlib"
-         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
-         gid="debugger">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="debugger" library="/lib/screens/debugger/debugger.whlib">
 
   <!-- main debugger screen: current connected job
   -->
   <screen name="main"
           allowresize="true"
           flags="candetach canpause cancontinue havefile canviewvariables have_catalog runningprofile canrundelayedaction"
-          menubar="menubar" icon="tollium:objects/bug">
-
+          icon="tollium:objects/bug"
+          menubar="menubar">
     <actions>
       <action name="debugconfig" onexecute="dodebugconfig" />
       <action name="openfile" onexecute="doopenfile" shortcut="ctrl+o" />
       <action name="closefile" onexecute="doclosefile">
         <enableon source="files" min="1" />
       </action>
-      <action name="symbolsearch" onexecute="dosymbolsearch" shortcut="f3" frameflags="have_catalog" />
+      <action name="symbolsearch" frameflags="have_catalog" onexecute="dosymbolsearch" shortcut="f3" />
       <action name="exit" onexecute="doexit" />
-
       <action name="selectjob" onexecute="doselectjob" />
       <action name="ruleconnect" onexecute="doruleconnect" />
       <action name="changeautoreconnect" onexecute="dochangeautoreconnect" />
-      <action name="pausejob" onexecute="dopausejob" frameflags="canpause" />
-      <action name="continuejob" onexecute="docontinuejob" frameflags="cancontinue" shortcut="f8" />
-      <action name="stepjob" onexecute="dostepjob" frameflags="cancontinue" shortcut="f10" />
-      <action name="stepintojob" onexecute="dostepintojob" frameflags="cancontinue" shortcut="f11" />
-      <action name="stepoutjob" onexecute="dostepoutjob" frameflags="cancontinue" shortcut="shift+f11" />
-      <action name="runtocursor" onexecute="doruntocursor" frameflags="cancontinue havefile" shortcut="alt+f11" />
-      <action name="detachjob" onexecute="dodetachjob" frameflags="candetach" />
-
+      <action name="pausejob" frameflags="canpause" onexecute="dopausejob" />
+      <action name="continuejob" frameflags="cancontinue" onexecute="docontinuejob" shortcut="f8" />
+      <action name="stepjob" frameflags="cancontinue" onexecute="dostepjob" shortcut="f10" />
+      <action name="stepintojob" frameflags="cancontinue" onexecute="dostepintojob" shortcut="f11" />
+      <action name="stepoutjob" frameflags="cancontinue" onexecute="dostepoutjob" shortcut="shift+f11" />
+      <action name="runtocursor" frameflags="cancontinue havefile" onexecute="doruntocursor" shortcut="alt+f11" />
+      <action name="detachjob" frameflags="candetach" onexecute="dodetachjob" />
       <action name="openstacktraceitem" onexecute="doopenstacktraceitem">
         <enableon source="stacktrace" min="1" />
       </action>
@@ -40,22 +35,24 @@
         <enableon source="breakpoints" min="1" />
       </action>
       <action name="removeallbreakpoints" onexecute="doremoveallbreakpoints" />
-      <action name="viewframevariable" onexecute="doviewframevariable" frameflags="canviewvariables">
+      <action name="viewframevariable" frameflags="canviewvariables" onexecute="doviewframevariable">
         <enableon source="framevariables" min="1" />
       </action>
       <action name="showerrortext" onexecute="doshowerrortext" />
-      <action name="getmemorysnapshot" onexecute="dogetmemorysnapshot" frameflags="canrundelayedaction" />
-      <action name="getmemorysnapshotwithunreferenced" onexecute="dogetmemorysnapshotwithunreferenced" frameflags="canrundelayedaction" />
-      <action name="getobjectsnapshot" onexecute="dogetobjectsnapshot" frameflags="canrundelayedaction" />
-      <action name="getblobreferences" onexecute="dogetblobreferenceswithunreferenced" frameflags="canrundelayedaction" />
-      <action name="gethandlelist" onexecute="dogethandlelist" frameflags="canrundelayedaction" />
-      <action name="getadhoccachelist" onexecute="dogetadhoccachelist" frameflags="canrundelayedaction" />
+      <action name="getmemorysnapshot" frameflags="canrundelayedaction" onexecute="dogetmemorysnapshot" />
+      <action name="getmemorysnapshotwithunreferenced"
+              frameflags="canrundelayedaction"
+              onexecute="dogetmemorysnapshotwithunreferenced" />
+      <action name="getobjectsnapshot" frameflags="canrundelayedaction" onexecute="dogetobjectsnapshot" />
+      <action name="getblobreferences" frameflags="canrundelayedaction" onexecute="dogetblobreferenceswithunreferenced" />
+      <action name="gethandlelist" frameflags="canrundelayedaction" onexecute="dogethandlelist" />
+      <action name="getadhoccachelist" frameflags="canrundelayedaction" onexecute="dogetadhoccachelist" />
       <action name="showprofiles" onexecute="doshowprofiles" />
-
-      <action name="startfunctionprofiling" onexecute="dostartfunctionprofiling" frameflags="canrundelayedaction !runningprofile" />
-      <action name="startmemoryprofiling" onexecute="dostartmemoryprofiling" frameflags="canrundelayedaction !runningprofile" />
-      <action name="stopprofiling" onexecute="dostopprofiling" frameflags="canrundelayedaction runningprofile" />
-
+      <action name="startfunctionprofiling"
+              frameflags="canrundelayedaction !runningprofile"
+              onexecute="dostartfunctionprofiling" />
+      <action name="startmemoryprofiling" frameflags="canrundelayedaction !runningprofile" onexecute="dostartmemoryprofiling" />
+      <action name="stopprofiling" frameflags="canrundelayedaction runningprofile" onexecute="dostopprofiling" />
       <action name="openineditor" tid="~openineditor">
         <enableon source="files" min="1" onexecute="doopenfileineditor" />
         <enableon source="stacktrace" min="1" onexecute="doopenstacktraceitemineditor" />
@@ -99,18 +96,15 @@
           <item action="showprofiles" />
         </item>
       </menu>
-
       <menu name="files_context">
         <item action="openfile" />
         <item action="closefile" disablemode="hidden" />
         <divider />
         <item action="openineditor" />
       </menu>
-
       <menu name="stacktrace_context">
         <item action="openineditor" />
       </menu>
-
       <menu name="breakpoints_context">
         <item action="openbreakpoint" />
         <item action="removebreakpoint" disablemode="hidden" />
@@ -118,23 +112,22 @@
         <divider />
         <item action="openineditor" />
       </menu>
-
     </menus>
 
     <toolbar>
-      <button action="debugconfig" icon="tollium:actions/configure"/>
+      <button action="debugconfig" icon="tollium:actions/configure" />
       <divider />
-      <button action="selectjob" icon="tollium:applications/monitoring"/>
-      <button action="ruleconnect"  icon="tollium:actions/link"/>
-      <button name="autoreconnect" action="changeautoreconnect" icon="tollium:actions/autolink"/>
+      <button action="selectjob" icon="tollium:applications/monitoring" />
+      <button action="ruleconnect" icon="tollium:actions/link" />
+      <button name="autoreconnect" action="changeautoreconnect" icon="tollium:actions/autolink" />
       <divider />
-      <button action="continuejob" icon="tollium:actions/play"/>
-      <button action="pausejob" icon="tollium:actions/pause"/>
-      <button action="stepjob" icon="tollium:actions/skip"/>
-      <button action="stepintojob"  icon="tollium:actions/stepinto"/>
-      <button action="stepoutjob" icon="tollium:actions/stepoutof"/>
-      <button action="runtocursor" icon="tollium:actions/runtocursor"/>
-      <button action="detachjob" icon="tollium:actions/unlink"/>
+      <button action="continuejob" icon="tollium:actions/play" />
+      <button action="pausejob" icon="tollium:actions/pause" />
+      <button action="stepjob" icon="tollium:actions/skip" />
+      <button action="stepintojob" icon="tollium:actions/stepinto" />
+      <button action="stepoutjob" icon="tollium:actions/stepoutof" />
+      <button action="runtocursor" icon="tollium:actions/runtocursor" />
+      <button action="detachjob" icon="tollium:actions/unlink" />
     </toolbar>
 
     <body>
@@ -147,33 +140,27 @@
                 <text valuetid=".files" />
                 <spacer />
                 <buttongroup layout="horizontal">
-                  <button action="openfile" icon="tollium:actions/open" type="icon"/>
-                  <button action="closefile" icon="tollium:objects/cross" type="icon"/>
+                  <button action="openfile" icon="tollium:actions/open" />
+                  <button action="closefile" icon="tollium:objects/cross" />
                 </buttongroup>
               </line>
             </panel>
-
             <list name="files"
-                  selectmode="single"
-                  onselect="gotselectfile"
                   height="1pr"
-                  rowkeytype="string"
-                  columnheaders="false"
-                  selectevent="synchronous"
-                  selectcontextmenu="files_context"
-                  newcontextmenu="files_context"
                   borders="top left bottom"
-                  >
+                  columnheaders="false"
+                  newcontextmenu="files_context"
+                  onselect="gotselectfile"
+                  rowkeytype="string"
+                  selectcontextmenu="files_context"
+                  selectevent="synchronous"
+                  selectmode="single">
               <column name="filename" type="text" tree="true" />
             </list>
           </panel>
         </part>
         <part width="3pr" borders="top bottom">
-          <panel name="filestatus"
-                 backgroundcolor="#FFFEE2"
-                 borders="bottom"
-                 spacers="left right"
-                 visible="false">
+          <panel name="filestatus" backgroundcolor="#FFFEE2" borders="bottom" spacers="left right" visible="false">
             <grid name="stoppedwitherror" visible="false">
               <col width="1pr" />
               <col />
@@ -189,10 +176,7 @@
             <text name="filehasbeenchanged" title="" valuetid=".filehasbeenchanged" visible="false" />
             <text name="multiplesourceversionsloaded" title="" valuetid=".multiplesourceversionsloaded" visible="false" />
           </panel>
-          <codeedit name="filecontents"
-                    height="1pr"
-                    enabled="false"
-                    ongutterclick="gotgutterclick" />
+          <codeedit name="filecontents" height="1pr" enabled="false" ongutterclick="gotgutterclick" />
         </part>
         <part width="50x">
           <split type="vertical">
@@ -204,17 +188,17 @@
                 </line>
               </panel>
               <list name="stacktrace"
-                    selectmode="single"
+                    height="1pr"
+                    borders="right"
                     onselect="gotstacktraceitemselect"
                     openaction="openstacktraceitem"
-                    selectcontextmenu="stacktrace_context"
                     rowlayout="tworows"
-                    height="1pr"
-                    sortable="false"
-                    borders="right">
+                    selectcontextmenu="stacktrace_context"
+                    selectmode="single"
+                    sortable="false">
                 <column name="filename" type="text" />
                 <column name="position" type="text" width="10x" />
-                <column name="func" type="text"  tid=".stacktrace-function" />
+                <column name="func" type="text" tid=".stacktrace-function" />
                 <rowlayout name="tworows">
                   <col coldef="func" />
                   <col coldef="position" />
@@ -229,29 +213,24 @@
               </list>
             </part>
             <part height="1pr">
-              <list name="framevariables"
-                    selectmode="single"
-                    openaction="viewframevariable"
-                    borders="right"
-                    >
-                <column name="name" type="text"  tid=".framevariable" />
+              <list name="framevariables" borders="right" openaction="viewframevariable" selectmode="single">
+                <column name="name" type="text" tid=".framevariable" />
                 <column name="value" type="text" width="2pr" />
               </list>
             </part>
             <part height="1pr">
               <list name="breakpoints"
-                    selectmode="multiple"
                     height="1pr"
+                    borders="right bottom"
+                    newcontextmenu="breakpoints_context"
                     openaction="openbreakpoint"
                     selectcontextmenu="breakpoints_context"
-                    newcontextmenu="breakpoints_context"
-                    borders="right bottom"
-                    >
+                    selectmode="multiple">
                 <column name="filename" type="text" tid=".breakpoint-filename" />
                 <column name="line" type="integer" width="7x" />
               </list>
               <panel layout="left" spacers="left">
-                <checkbox name="breakonexception" title="" labeltid=".breakonexception" onchange="GotBreakOnExceptionChange" />
+                <checkbox name="breakonexception" labeltid=".breakonexception" onchange="GotBreakOnExceptionChange" title="" />
               </panel>
             </part>
           </split>
@@ -262,13 +241,13 @@
   </screen>
 
   <screen name="selectjob"
-          allowresize="true"
-          gid=".selectjob"
-          onunload="gotunload"
           width="150x"
           height="30x"
+          allowresize="true"
+          gid=".selectjob"
           interval="1000"
           oninterval="gotinterval"
+          onunload="gotunload"
           savestate="size">
     <actions>
       <action name="connect" onexecute="submit">
@@ -293,62 +272,53 @@
     <body>
       <split type="horizontal">
         <part width="1pr">
-          <list name="processlist"
-                selectmode="single"
-                onselect="gotselectprocess"
-                borders="top left bottom">
+          <list name="processlist" borders="top left bottom" onselect="gotselectprocess" selectmode="single">
             <column name="processcode" type="integer64" width="6x" />
             <column name="clientname" type="text" />
           </list>
         </part>
         <part width="2pr">
           <list name="joblist"
-                selectmode="single"
-                onselect="gotselectjob"
-                sortcolumn="creationdate"
-                openaction="connect"
+                borders="top right bottom"
                 flags="canconnect candisconnect canterminate"
+                onselect="gotselectjob"
+                openaction="connect"
                 selectcontextmenu="contextmenu"
-                borders="top right bottom">
+                selectmode="single"
+                sortcolumn="creationdate">
             <column name="groupid" type="text" width="25x" />
             <column name="scriptshow" type="text" width="3pr" tid=".script" />
             <column name="status" type="text" />
-            <column name="creationdate" type="datetime" width="21x" storeutc="true" precision="milliseconds" />
-            <column name="cpu" type="money" decimals="1" round="true" width="8x" align="right" />
+            <column name="creationdate" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
+            <column name="cpu" type="money" width="8x" align="right" decimals="1" round="true" />
           </list>
         </part>
       </split>
     </body>
+
     <footer>
       <line>
-        <checkbox name="autobreakjob" value="true" title="" labeltid=".autobreakjob" />
+        <checkbox name="autobreakjob" labeltid=".autobreakjob" title="" value="true" />
         <checkbox name="displayerrorterminated"
-                  value="false"
-                  title=""
                   labeltid=".displayerrorterminated"
-                  onchange="gotdisplayerrorterminatedchange" />
-        <spacer width="1pr"/>
+                  onchange="gotdisplayerrorterminatedchange"
+                  title=""
+                  value="false" />
+        <spacer width="1pr" />
         <button action="connect" />
-        <button tolliumresult="cancel" tid="~cancel" />
+        <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>
 
-  <screen name="ruleconnector"
-          allowresize="true"
-          gid=".ruleconnector"
-          width="120x"
-          height="45x"
-          onunload="gotunload"
-          >
-
+  <screen name="ruleconnector" width="120x" height="45x" allowresize="true" gid=".ruleconnector" onunload="gotunload">
     <actions>
       <action name="connect" onexecute="doconnect">
         <enableon source="matches" min="1" max="1" />
       </action>
       <action name="activate" onexecute="doactivate" />
       <action name="activateautoconnect" onexecute="doactivateautoconnect" />
-      <action name="deactivate" onexecute="dodeactivate" enabled="false" />
+      <action name="deactivate" enabled="false" onexecute="dodeactivate" />
     </actions>
 
     <compositions>
@@ -363,23 +333,31 @@
         <row>
           <cell>
             <line>
-              <radiobutton name="scripttype_script" group="scripttype" rowkey="script" tid=".scripttype" labeltid=".type_script" />
-              <radiobutton name="scripttype_tolliumapp" group="scripttype" rowkey="tolliumapp" title="" labeltid=".type_tolliumapp" />
+              <radiobutton name="scripttype_script"
+                           group="scripttype"
+                           labeltid=".type_script"
+                           rowkey="script"
+                           tid=".scripttype" />
+              <radiobutton name="scripttype_tolliumapp"
+                           group="scripttype"
+                           labeltid=".type_tolliumapp"
+                           rowkey="tolliumapp"
+                           title="" />
             </line>
-            <textedit name="scriptmask" defaultbutton="activatebutton" value="*application*" required="true" />
+            <textedit name="scriptmask" defaultbutton="activatebutton" required="true" value="*application*" />
             <textedit name="scriptexcludemasks" defaultbutton="activatebutton" />
-            <combobox name="appname" tid=".app" required="true" />
+            <combobox name="appname" required="true" tid=".app" />
             <line>
-              <radiobutton name="user_all" group="user" rowkey="all" tid=".user" labeltid=".user_all" />
-              <radiobutton name="user_me" group="user" rowkey="me" title="" labeltid=".user_me" />
+              <radiobutton name="user_all" group="user" labeltid=".user_all" rowkey="all" tid=".user" />
+              <radiobutton name="user_me" group="user" labeltid=".user_me" rowkey="me" title="" />
             </line>
           </cell>
           <cell>
-            <checkbox name="site_start" title="" labeltid=".site_start" />
-            <checkbox name="site_terminate" title="" labeltid=".site_terminate" />
-            <checkbox name="site_terminateerrors" title="" labeltid=".site_terminateerrors" />
-            <checkbox name="site_authenticationrecord" title="" labeltid=".site_authenticationrecord" />
-            <checkbox name="site_debuggertrap" title="" labeltid=".site_debuggertrap" />
+            <checkbox name="site_start" labeltid=".site_start" title="" />
+            <checkbox name="site_terminate" labeltid=".site_terminate" title="" />
+            <checkbox name="site_terminateerrors" labeltid=".site_terminateerrors" title="" />
+            <checkbox name="site_authenticationrecord" labeltid=".site_authenticationrecord" title="" />
+            <checkbox name="site_debuggertrap" labeltid=".site_debuggertrap" title="" />
           </cell>
         </row>
       </grid>
@@ -390,17 +368,16 @@
       </line>
       <panel height="1pr">
         <list name="matches"
-              selectmode="single"
               height="1pr"
-              openaction="connect"
               emptytid=".notactive"
               onselect="onjobselect"
+              openaction="connect"
               rowkeytype="string"
-              >
+              selectmode="single">
           <column name="groupid" type="text" width="25x" />
           <column name="scriptshow" type="text" width="3pr" tid=".script" />
           <column name="status" type="text" />
-          <column name="creationdate" type="datetime" width="21x" storeutc="true" precision="milliseconds" />
+          <column name="creationdate" type="datetime" width="21x" precision="milliseconds" storeutc="true" />
         </list>
       </panel>
       <heading tid=".details" />
@@ -408,6 +385,7 @@
       <text name="app" />
       <text name="url" />
     </body>
+
     <footer>
       <grid>
         <col width="1pr" />
@@ -415,13 +393,13 @@
         <row>
           <cell layout="left">
             <line>
-              <checkbox name="autobreakjob" value="true" title="" labeltid=".autobreakjob" onchange="onautobreakjobchange" />
+              <checkbox name="autobreakjob" labeltid=".autobreakjob" onchange="onautobreakjobchange" title="" value="true" />
             </line>
           </cell>
           <cell>
             <line layout="right">
               <button action="connect" />
-              <button tolliumresult="close" tid="~close" />
+              <button tid="~close" tolliumresult="close" />
             </line>
           </cell>
         </row>
@@ -429,41 +407,29 @@
     </footer>
   </screen>
 
-  <screen name="debugconfig" tid=".debugconfig">
+  <screen name="debugconfig" footerbuttons="ok cancel" tid=".debugconfig">
     <body>
       <line>
         <textedit name="zombietimeout" valuetype="integer" />
-        <text valuetid=".zombietimeoutinfo" /> <!-- seconds, 0 to disable -->
+        <text valuetid=".zombietimeoutinfo" />  <!-- seconds, 0 to disable -->
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="symbolsearch"
-          gid=".symbolsearch"
-          tid=".symbolsearch"
-          allowresize="true"
-          width="90x"
-          height="30x" >
+  <screen name="symbolsearch" width="90x" height="30x" allowresize="true" gid=".symbolsearch" tid=".symbolsearch">
     <actions>
       <action name="open" onexecute="doopen">
         <enableon source="results" min="1" />
       </action>
     </actions>
+
     <body>
-      <textedit name="searchfor" onchange="gotsearchforchange" width="1pr" defaultbutton="openbutton" />
-      <list name="results"
-            selectmode="single"
-            rowlayout="tworows"
-            openaction="open"
-            >
+      <textedit name="searchfor" width="1pr" defaultbutton="openbutton" onchange="gotsearchforchange" />
+      <list name="results" openaction="open" rowlayout="tworows" selectmode="single">
         <column name="definition" type="text" width="3pr" />
         <column name="path" type="text" />
-        <column name="type" type="text" align="right" width="1pr" />
-        <column name="position" type="text" align="right" width="10x" tid=".type" />
-
+        <column name="type" type="text" width="1pr" align="right" />
+        <column name="position" type="text" width="10x" align="right" tid=".type" />
         <rowlayout name="tworows">
           <col coldef="definition" />
           <col coldef="type" combinewithnext="true" />
@@ -479,20 +445,20 @@
         </rowlayout>
       </list>
     </body>
+
     <footer>
       <line layout="right">
         <button name="openbutton" action="open" tid=".open" />
-        <button tolliumresult="close" tid="~close" />
+        <button tid="~close" tolliumresult="close" />
       </line>
     </footer>
   </screen>
 
   <screen name="variabletext" width="100x" height="40x">
     <body>
-      <codeedit name="text"
-                enabled="false"
-                height="1pr"/>
+      <codeedit name="text" height="1pr" enabled="false" />
     </body>
+
     <footer>
       <grid>
         <col width="1pr" />
@@ -517,15 +483,10 @@
     </footer>
   </screen>
 
-  <screen name="erroroutput" width="100x" height="40x">
+  <screen name="erroroutput" width="100x" height="40x" footerbuttons="close">
     <body>
-      <codeedit name="errortext"
-                enabled="false"
-                height="1pr"/>
+      <codeedit name="errortext" height="1pr" enabled="false" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
 </screens>

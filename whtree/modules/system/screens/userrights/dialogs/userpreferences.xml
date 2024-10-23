@@ -1,47 +1,53 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
          xmlns:system="http://www.webhare.net/xmlns/system/components"
          xmlns:webapis="http://www.webhare.net/xmlns/system/webapis"
-         lib="screens/userrights/dialogs/userpreferences.whlib"
-         gid="userrights">
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="userrights"
+         library="/lib/screens/userrights/dialogs/userpreferences.whlib">
 
-  <screen name="userpreferences" gid=".edituser" interval="2000" oninterval="gotinterval" icon="tollium:users/user">
+  <screen name="userpreferences" gid=".edituser" icon="tollium:users/user" interval="2000" oninterval="gotinterval">
     <actions>
       <action name="resetwarnings" onexecute="doresetwarnings" />
       <action name="resetsavedstates" onexecute="doresetsavedstates" />
       <action name="openapppasswords" onexecute="doopenapppasswords" title="" />
     </actions>
+
     <compositions>
       <wrd:entity name="userobj" />
       <eventlistener name="entitylistener" onevents="GotEntityEvents" />
     </compositions>
+
     <body spacers="none">
-      <panel name="warningpanel" borders="bottom" backgroundcolor="#FEFFDE" spacers="left right">
+      <panel name="warningpanel" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right">
         <text name="warning_passwordexpired" title="" valuetid=".warning_passwordexpired" visible="false" />
-        <text name="warning_passwordabouttoexpire" title="" wordwrap="true" visible="false" />
-        <text name="warning_passwordrequire2fa" title="" valuetid=".warning_passwordrequire2fa" wordwrap="true" visible="false" />
+        <text name="warning_passwordabouttoexpire" title="" visible="false" wordwrap="true" />
+        <text name="warning_passwordrequire2fa"
+              title=""
+              valuetid=".warning_passwordrequire2fa"
+              visible="false"
+              wordwrap="true" />
       </panel>
       <panel name="userinfopage">
         <tabs name="usertabs" type="regular">
           <tab name="account">
-            <!--<text  composition="userobj" cellname="wrd_fullname"/>-->
-            <textedit name="fullname" cellname="wrd_title" composition="userobj" readonly="true" tid=".fullname" />
+            <!-- <text  composition="userobj" cellname="wrd_fullname"/> -->
+            <textedit composition="userobj" cellname="wrd_title" name="fullname" readonly="true" tid=".fullname" />
             <textedit name="username" tid=".username" />
             <authenticationsettings name="authenticationsettings" />
-            <text name="appaccounts" valuetid=".appaccountstab" action="openapppasswords" title="" />
+            <text name="appaccounts" action="openapppasswords" title="" valuetid=".appaccountstab" />
           </tab>
           <tab name="preferences">
             <select name="language" type="pulldown" tid=".prefslang" />
             <select name="decimalsep" type="pulldown" />
             <select name="thousandsep" type="pulldown" />
             <webapis:timezoneedit name="timezone" />
-            <textedit name="browsertitleprefix" visible="true"/>
+            <textedit name="browsertitleprefix" visible="true" />
             <lines layout="left">
-              <checkbox name="showdeveloperapps" title="" labeltid=".showdeveloperapps" />
+              <checkbox name="showdeveloperapps" labeltid=".showdeveloperapps" title="" />
             </lines>
             <heading tid=".savedstate" />
             <line layout="left">
-              <text title="" valuetid=".resetsavedstates" action="resetsavedstates" />
+              <text action="resetsavedstates" title="" valuetid=".resetsavedstates" />
               <text title="" valuetid=".resetsavedstates-labelend" />
             </line>
           </tab>
@@ -49,27 +55,27 @@
             <panel spacers="left right">
               <heading tid=".warnings" />
               <line>
-                <text title="" valuetid=".resetwarnings" action="resetwarnings" />
+                <text action="resetwarnings" title="" valuetid=".resetwarnings" />
                 <text title="" valuetid=".resetwarnings-labelend" />
               </line>
             </panel>
-            <panel name="notificationstab" spacers="none" height="1pr"/>
+            <panel name="notificationstab" height="1pr" spacers="none" />
+
             <!-- Loaded from the 'notificationsettings' screen -->
           </tab>
           <tab name="startmenu" tid=".favorites">
-            <grid height="1pr" >
+            <grid height="1pr">
               <col width="1pr" />
               <row height="1pr">
                 <cell height="1pr">
                   <arrayedit name="shortcuts"
-                             height="1pr"
                              width="1pr"
+                             height="1pr"
                              buttons="edit delete"
-                             roweditscreen="#shortcuteditor"
                              icons="tollium:status/positive tollium:status/serious_error"
-                             sortable="false"
                              orderable="true"
-                           >
+                             roweditscreen="#shortcuteditor"
+                             sortable="false">
                     <column name="app" type="text" />
                     <column name="title" type="text" />
                   </arrayedit>
@@ -80,59 +86,63 @@
         </tabs>
       </panel>
     </body>
+
     <footer name="okcancel">
       <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
 
-
-  <screen name="shortcuteditor" tid=".windowtitle" gid="userrights.shortcuteditor" implementation="rowedit">
+  <screen name="shortcuteditor"
+          footerbuttons="ok cancel"
+          gid="userrights.shortcuteditor"
+          implementation="rowedit"
+          tid=".windowtitle">
     <compositions>
       <record name="row" />
     </compositions>
+
     <body name="fields">
       <textedit composition="row" cellname="title" required="true" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="appaccounts"
-          gid=".appaccounts"
-          tid=".windowtitle"
           minwidth="80x"
           minheight="18x"
           allowresize="true"
-          savestate="size">
+          footerbuttons="close"
+          gid=".appaccounts"
+          savestate="size"
+          tid=".windowtitle">
     <body>
       <panel name="appaccountspanel" height="1pr">
         <heading name="appaccountstab" />
-        <wrd:entitiesedit name="appaccounts" height="1pr" deletemode="close" entityeditscreen=".appaccount" buttons="add delete">
+        <wrd:entitiesedit name="appaccounts"
+                          height="1pr"
+                          buttons="add delete"
+                          deletemode="close"
+                          entityeditscreen=".appaccount">
           <column name="scope" type="text" />
           <column name="device" type="text" />
-          <column name="lastuse" type="date" storeutc="true" width="12x" tid=".lastlogin" />
+          <column name="lastuse" type="date" width="12x" storeutc="true" tid=".lastlogin" />
         </wrd:entitiesedit>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="appaccount" gid=".appaccount" tid=".windowtitle" minwidth="80x">
+  <screen name="appaccount" minwidth="80x" gid=".appaccount" tid=".windowtitle">
     <body spacers="none">
       <wizard name="wizard">
-        <page onnext="ondevicepagenext" name="devicepage">
-          <select type="pulldown" name="scope" required="true">
-            <!--TODO centralized scope registry -->
-            <option rowkey="" title="" invalidselection="true"/>
+        <page name="devicepage" onnext="ondevicepagenext">
+          <select name="scope" type="pulldown" required="true">
+            <!-- TODO centralized scope registry -->
+            <option rowkey="" invalidselection="true" title="" />
             <option rowkey="consilio:opensearch" title="consilio:opensearch" />
             <option rowkey="system:webdav" title="system:webdav" />
           </select>
-          <textedit name="device" width="1pr" required="true" placeholdertid=".device-placeholder"/>
+          <textedit name="device" width="1pr" placeholdertid=".device-placeholder" required="true" />
         </page>
-        <page oninit="onpasswordpageinit" isfinish="true" name="passwordpage">
+        <page name="passwordpage" isfinish="true" oninit="onpasswordpageinit">
           <line layout="left">
             <text valuetid=".lookverycarefullyiwillshowthisonlyonce" wordwrap="true" />
           </line>
@@ -143,48 +153,51 @@
     </body>
   </screen>
 
-  <screen name="notificationsettings" tid=".windowtitle" gid=".notificationsettings">
+  <screen name="notificationsettings" gid=".notificationsettings" tid=".windowtitle">
     <actions>
       <action name="requestpermission" onexecute="dorequestpermission" />
       <action name="testnotification" onexecute="dotestnotification" />
-      <action name="editnotification" tid="~edit" onexecute="doeditnotification">
+      <action name="editnotification" onexecute="doeditnotification" tid="~edit">
         <enableon source="notifications" min="1" max="1" />
       </action>
-      <action name="deletenotification" tid="~delete" onexecute="dodeletenotification">
+      <action name="deletenotification" onexecute="dodeletenotification" tid="~delete">
         <enableon source="notifications" min="1" max="1" />
       </action>
     </actions>
+
     <compositions>
       <eventlistener name="listener" onevents="gotnewnotificationevents" />
     </compositions>
+
     <body height="1pr" spacers="none">
       <panel height="1pr" spacers="left right bottom">
         <heading tid=".notificationballoons" />
-        <text action="testnotification" valuetid=".testnotification" title=""/>
+        <text action="testnotification" title="" valuetid=".testnotification" />
         <grid height="1pr">
           <col width="1pr" />
           <col />
           <row height="1pr">
             <cell height="1pr">
               <list name="notifications"
-                    selectmode="single" openaction="editnotification"
+                    minheight="8x"
                     emptytid=".nonotifications"
-                    minheight="8x">
+                    openaction="editnotification"
+                    selectmode="single">
                 <column name="module" type="text" width="1pr" />
                 <column name="title" type="text" width="2pr" />
-                <column name="status" iconname="statusicon" type="text" width="1pr" />
+                <column name="status" type="text" width="1pr" iconname="statusicon" />
               </list>
             </cell>
             <cell>
-              <button action="editnotification" width="1pr" />
-              <button action="deletenotification" width="1pr" />
+              <button width="1pr" action="editnotification" />
+              <button width="1pr" action="deletenotification" />
             </cell>
           </row>
         </grid>
         <panel visible="false">
           <line layout="left">
-            <checkbox name="onlypriority" title="" labeltid=".onlypriority" enablecomponents="showpriority" visible="false"/>
-            <select name="showpriority" tid=".onlypriority" type="pulldown" rowkeytype="integer" gid=".priorities">
+            <checkbox name="onlypriority" enablecomponents="showpriority" labeltid=".onlypriority" title="" visible="false" />
+            <select name="showpriority" type="pulldown" gid=".priorities" rowkeytype="integer" tid=".onlypriority">
               <option rowkey="-2" tid=".verylow" />
               <option rowkey="-1" tid=".low" />
               <option rowkey="0" tid=".normal" />
@@ -198,42 +211,48 @@
             <option rowkey="browser" />
             <option rowkey="desktop" />
           </select>
-          <text title="" valuetid=".timeoutlabel"/>
-          <textedit title="" errorlabeltid=".timeout" name="timeout" valuetype="integer" emptyvalue="0" width="5x" placeholder="5"/>
+          <text title="" valuetid=".timeoutlabel" />
+          <textedit name="timeout"
+                    width="5x"
+                    emptyvalue="0"
+                    errorlabeltid=".timeout"
+                    placeholder="5"
+                    title=""
+                    valuetype="integer" />
           <text title="" valuetid=".timeout-desc" />
         </line>
       </panel>
-      <tabs name="permissiontabs" type="server" height="1gr" >
-        <tab height="1gr" backgroundcolor="#FEFFDE" spacers="left right" name="requestpermissiontab" title="">
+      <tabs name="permissiontabs" type="server" height="1gr">
+        <tab name="requestpermissiontab" height="1gr" backgroundcolor="#FEFFDE" spacers="left right" title="">
           <line layout="left">
-            <text title="" valuetid=".requestexplain"/>
-            <text action="requestpermission" valuetid=".requestpermission"/>
+            <text title="" valuetid=".requestexplain" />
+            <text action="requestpermission" valuetid=".requestpermission" />
           </line>
         </tab>
-        <tab height="1gr" backgroundcolor="#FEFFDE" spacers="left right" name="permissiondeniedtab" title="">
+        <tab name="permissiondeniedtab" height="1gr" backgroundcolor="#FEFFDE" spacers="left right" title="">
           <line layout="left">
-            <text title="" valuetid=".deniedexplain" width="1pr" />
+            <text width="1pr" title="" valuetid=".deniedexplain" />
           </line>
         </tab>
-        <tab height="1gr" spacers="left right" name="permissiongrantedtab" title="">
+        <tab name="permissiongrantedtab" height="1gr" spacers="left right" title="">
           <line layout="left">
-            <text title="" valuetid=".grantedexplain" width="1pr" />
+            <text width="1pr" title="" valuetid=".grantedexplain" />
           </line>
         </tab>
-        <tab height="1gr" spacers="left right" name="notsupportedtab" title="">
+        <tab name="notsupportedtab" height="1gr" spacers="left right" title="">
           <line layout="left">
-            <text title="" valuetid=".notsupportedtabexplain" width="1pr" />
+            <text width="1pr" title="" valuetid=".notsupportedtabexplain" />
           </line>
         </tab>
       </tabs>
     </body>
+
     <footer name="buttons">
-      <defaultformbuttons buttons="ok cancel"/>
+      <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
 
-
-  <screen name="editnotification" tid=".title" gid=".editnotification">
+  <screen name="editnotification" footerbuttons="ok cancel" gid=".editnotification" tid=".title">
     <body>
       <panel height="1pr">
         <select name="shownotification" type="radio">
@@ -242,9 +261,6 @@
         </select>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

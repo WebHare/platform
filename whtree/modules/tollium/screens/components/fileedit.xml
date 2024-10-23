@@ -1,18 +1,26 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="components/fileedit.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="/lib/components/fileedit.whlib">
 
   <fragment name="fileedit">
     <actions>
-      <uploadaction name="replacefile" tid="~replace" onupload="doreplacefile" />
-      <downloadaction name="savefile" tid="~save" ondownload="dosavefile" />
-      <action name="removefile" tid="~delete" onexecute="doremovefile" />
+      <uploadaction name="replacefile" onupload="doreplacefile" tid="~replace" />
+      <downloadaction name="savefile" ondownload="dosavefile" tid="~save" />
+      <action name="removefile" onexecute="doremovefile" tid="~delete" />
     </actions>
     <contents>
       <line>
         <text name="filename" title="" />
-        <button name="replace" action="replacefile" type="icon" icon="tollium:actions/replace" hinttid="tollium:components.fileedit.hints.replace_file" />
-        <button name="save" action="savefile" type="icon" icon="tollium:actions/save" hinttid="tollium:components.fileedit.hints.save_file"/>
-        <button name="remove" action="removefile" type="icon" icon="tollium:actions/delete" hinttid="tollium:components.fileedit.hints.delete_file" />
+        <button name="replace"
+                action="replacefile"
+                hinttid="tollium:components.fileedit.hints.replace_file"
+                icon="tollium:actions/replace" />
+        <button name="save"
+                action="savefile"
+                hinttid="tollium:components.fileedit.hints.save_file"
+                icon="tollium:actions/save" />
+        <button name="remove"
+                action="removefile"
+                hinttid="tollium:components.fileedit.hints.delete_file"
+                icon="tollium:actions/delete" />
       </line>
     </contents>
   </fragment>

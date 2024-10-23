@@ -1,19 +1,19 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="commondialogs.whlib"
-         gid="tolliumapps.payments.commondialogs">
+         gid="tolliumapps.payments.commondialogs"
+         library="commondialogs.whlib">
 
-  <screen name="paymentproviders" height="15x" width="120x" allowresize="true" savestate="size">
+  <screen name="paymentproviders" width="120x" height="15x" allowresize="true" footerbuttons="close" savestate="size">
     <actions>
       <action name="addprovider" onexecute="doadd" tid="~add" />
-      <action name="editprovider" onexecute="doedit" tid="~edit" >
-        <enableon source="providers" min="1" max="1"  />
+      <action name="editprovider" onexecute="doedit" tid="~edit">
+        <enableon source="providers" min="1" max="1" />
       </action>
       <action name="deleteprovider" onexecute="dodelete" tid="~delete">
         <enableon source="providers" min="1" max="1" />
       </action>
     </actions>
+
     <menus>
       <menu name="selectcontextmenu">
         <item action="editprovider" />
@@ -21,58 +21,63 @@
         <item action="deleteprovider" />
       </menu>
     </menus>
+
     <body>
       <grid height="1pr">
         <col width="1pr" />
         <col />
         <row height="1pr">
           <cell>
-            <list name="providers" selectmode="single" minheight="8x" height="1pr" width="1pr" openaction="editprovider" selectcontextmenu="selectcontextmenu" ongetrows="GetProviders">
+            <list name="providers"
+                  width="1pr"
+                  height="1pr"
+                  minheight="8x"
+                  ongetrows="GetProviders"
+                  openaction="editprovider"
+                  selectcontextmenu="selectcontextmenu"
+                  selectmode="single">
               <column name="title" type="text" tid="~title" />
               <column name="type" type="text" />
               <column name="tag" type="text" />
             </list>
           </cell>
           <cell>
-            <button action="addprovider" width="1pr"/>
-            <button action="editprovider" width="1pr"/>
-            <button action="deleteprovider" width="1pr"/>
+            <button width="1pr" action="addprovider" />
+            <button width="1pr" action="editprovider" />
+            <button width="1pr" action="deleteprovider" />
           </cell>
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="selectpaymentprovider" >
+  <screen name="selectpaymentprovider" footerbuttons="ok cancel">
     <body>
       <select name="methods" type="pulldown" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="paymentprovider">
     <actions>
       <helpaction name="helpaction" title="" />
     </actions>
+
     <compositions>
       <wrd:entity name="provider" />
     </compositions>
+
     <body spacers="none">
-      <tabs type="regular" height="1pr" name="providertabs">
-        <tab tid=".generic" name="providertab">
-          <textedit composition="provider" cellname="wrd_tag" tid="~tag" width="1pr" />
+      <tabs name="providertabs" type="regular" height="1pr">
+        <tab name="providertab" tid=".generic">
+          <textedit composition="provider" cellname="wrd_tag" width="1pr" tid="~tag" />
         </tab>
       </tabs>
     </body>
+
     <footer>
       <grid>
         <cell width="1pr">
-          <button action="helpaction" name="helpbutton" tid="~help" />
+          <button name="helpbutton" action="helpaction" tid="~help" />
         </cell>
         <cell>
           <defaultformbuttons buttons="ok cancel" />
@@ -81,11 +86,12 @@
     </footer>
   </screen>
 
-  <screen name="paymentinfo" flags="canmanagepayments ispending">
+  <screen name="paymentinfo" flags="canmanagepayments ispending" footerbuttons="close">
     <actions>
-      <action name="recheckpayment" onexecute="dorecheckpayment" frameflags="canmanagepayments"/>
-      <action name="cancelpayment" onexecute="docancelpayment" frameflags="canmanagepayments ispending"/>
+      <action name="recheckpayment" frameflags="canmanagepayments" onexecute="dorecheckpayment" />
+      <action name="cancelpayment" frameflags="canmanagepayments ispending" onexecute="docancelpayment" />
     </actions>
+
     <body>
       <grid height="1pr">
         <cell width="1pr">
@@ -103,36 +109,32 @@
         </cell>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="pendingpayments" allowresize="true" savestate="size" width="70x" height="14x">
+  <screen name="pendingpayments" width="70x" height="14x" allowresize="true" footerbuttons="close" savestate="size">
     <actions>
       <action name="openpaymententity" onexecute="doopenpaymententity">
         <enableon source="pendingpayments" min="1" />
       </action>
     </actions>
+
     <body>
       <grid height="1pr">
         <cell width="1pr">
-          <list name="pendingpayments" ongetrows="ongetpendingpayments" height="1pr" selectmode="single">
-            <column name="creationdate" type="datetime" storeutc="true" precision="seconds" width="22x" tid=".paymentdate"/>
+          <list name="pendingpayments" height="1pr" ongetrows="ongetpendingpayments" selectmode="single">
+            <column name="creationdate" type="datetime" width="22x" precision="seconds" storeutc="true" tid=".paymentdate" />
             <column name="paymententity" type="integer" width="12x" />
             <column name="paymentref" type="text" tid=".paymentreference" />
             <column name="paymentoptiontag" type="text" />
-            <column name="amountpayable" type="money" decimals="2" align="right" width="10x"/>
+            <column name="amountpayable" type="money" width="10x" align="right" decimals="2" />
             <column name="status" type="text" />
           </list>
         </cell>
         <cell>
-          <button action="openpaymententity" width="1pr"/>
+          <button width="1pr" action="openpaymententity" />
         </cell>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
+
 </screens>

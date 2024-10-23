@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.filemanager.config" library="config.whlib">
 
-  <screen name="prefs" gid=".prefs">
+  <screen name="prefs" footerbuttons="ok cancel" gid=".prefs">
     <body layout="form">
       <select name="opts" type="checkbox">
         <option rowkey="propsafterupload" />
@@ -19,10 +19,6 @@
         <checkbox name="showwhfsprivate" labeltid=".showwhfsprivate" title="" />
       </box>
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

@@ -1,18 +1,17 @@
-<?xml version="1.0" ?>
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="dba.whlib" gid="tolliumapps.dba">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dba" library="dba.whlib">
 
-  <screen name="main" allowresize="true" savestate="size" gid=".main" tid=".dba" menubar="menubar" width="160x" height="40x">
+  <screen name="main" width="160x" height="40x" allowresize="true" gid=".main" menubar="menubar" savestate="size" tid=".dba">
     <!-- All possible global actions -->
     <actions>
       <action name="addcolumn">
         <enableon source="columns" max="-1" />
       </action>
       <action name="delete" tid="~delete">
-        <enableon source="databases" checkflags="candelete" min="1" max="1" onexecute="dodelete" />
-        <enableon source="columns" checkflags="candelete" min="1" max="1" onexecute="dodeletecolumn" />
+        <enableon source="databases" min="1" max="1" checkflags="candelete" onexecute="dodelete" />
+        <enableon source="columns" min="1" max="1" checkflags="candelete" onexecute="dodeletecolumn" />
       </action>
       <action name="runsqlclient" onexecute="dorunsqlclient" />
-      <action name="updateschemas" onexecute="doupdateschemas"/>
+      <action name="updateschemas" onexecute="doupdateschemas" />
     </actions>
 
     <menus>
@@ -23,19 +22,15 @@
         <divider />
         <item action="delete" />
       </menu>
-
       <menu name="selection_databases">
         <item action="delete" />
       </menu>
-
       <menu name="selection_columns">
         <item action="delete" />
       </menu>
-
       <menu name="noselection_columns">
         <item action="addcolumn" />
       </menu>
-
     </menus>
 
     <!-- The button bar -->
@@ -52,57 +47,53 @@
                 width="1pr"
                 height="1pr"
                 borders="none"
-                selectmode="single"
-                onselect="onselectschema"
                 columnheaders="0"
                 flags="candelete isschema istable"
-                ongetpath="ondatabasestreepath"
-                ongetchildren="ondatabasesloaditems"
-                selectcontextmenu="selection_databases"
                 icons="tollium:database/database tollium:database/schema tollium:database/table tollium:database/view"
-                savestate="selection">
-            <column type="text" tree="1" name="name" iconname="icon" edittype="textedit" title="" />
+                ongetchildren="ondatabasesloaditems"
+                ongetpath="ondatabasestreepath"
+                onselect="onselectschema"
+                savestate="selection"
+                selectcontextmenu="selection_databases"
+                selectmode="single">
+            <column name="name" type="text" edittype="textedit" iconname="icon" title="" tree="1" />
           </list>
         </part>
         <part width="5pr">
-          <tabs width="5pr" height="1pr" name="dbtabs">
+          <tabs name="dbtabs" width="5pr" height="1pr">
             <tab tid=".columns">
-              <visibleon source="databases" checkflags="istable" min="1" max="1" />
+              <visibleon checkflags="istable" max="1" min="1" source="databases" />
               <panel height="1pr">
                 <list name="columns"
-                      selectmode="single"
-                      icons="tollium:security/key"
-                      selectcontextmenu="selection_columns"
-                      newcontextmenu="noselection_columns"
                       flags="candelete"
-                      >
-                  <column width="2pr"  type="text" name="columnname" iconname="icon" />
-                  <column width="2pr"  type="text" name="columntype" />
-                  <column width="2pr"  type="text" name="references" />
-                  <column width="3pr"  type="text" name="constraints" />
+                      icons="tollium:security/key"
+                      newcontextmenu="noselection_columns"
+                      selectcontextmenu="selection_columns"
+                      selectmode="single">
+                  <column name="columnname" type="text" width="2pr" iconname="icon" />
+                  <column name="columntype" type="text" width="2pr" />
+                  <column name="references" type="text" width="2pr" />
+                  <column name="constraints" type="text" width="3pr" />
                 </list>
               </panel>
             </tab>
             <tab tid=".indices">
-              <visibleon source="databases" checkflags="istable" min="1" max="1" />
+              <visibleon checkflags="istable" max="1" min="1" source="databases" />
               <panel height="1pr">
-                <list name="indices"
-                      selectmode="single"
-                      icons="tollium:security/key"
-                      >
-                  <column width="2pr"  type="text" name="name" />
-                  <column width="5x"  type="text" name="is_unique" />
-                  <column width="5x"  type="text" name="is_uppercase" />
-                  <column width="3pr"  type="text" name="cols" tid=".columns" />
+                <list name="indices" icons="tollium:security/key" selectmode="single">
+                  <column name="name" type="text" width="2pr" />
+                  <column name="is_unique" type="text" width="5x" />
+                  <column name="is_uppercase" type="text" width="5x" />
+                  <column name="cols" type="text" width="3pr" tid=".columns" />
                 </list>
               </panel>
             </tab>
-            <tab tid=".databasewhlib" name="databasewhlibtab" spacers="none">
-              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
+            <tab name="databasewhlibtab" spacers="none" tid=".databasewhlib">
+              <visibleon checkflags="isschema" max="1" min="1" source="databases" />
               <codeedit name="databasewhlib" width="1pr" height="1pr" />
             </tab>
-            <tab tid=".interfaces" name="interfacestab" spacers="none">
-              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
+            <tab name="interfacestab" spacers="none" tid=".interfaces">
+              <visibleon checkflags="isschema" max="1" min="1" source="databases" />
               <codeedit name="interfaces" width="1pr" height="1pr" />
             </tab>
           </tabs>

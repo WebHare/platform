@@ -1,7 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         library="mollie.whlib"
-         gid="tolliumapps.payments.mollie">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.payments.mollie" library="mollie.whlib">
 
   <tabsextension name="configmollie" implementation="lib">
     <actions>
@@ -11,12 +8,16 @@
       <record name="methodsettings" />
     </compositions>
     <insert position="providertab" where="atend">
-      <textedit composition="methodsettings" cellname="apikey" required="true" name="apikey" />
+      <textedit composition="methodsettings" cellname="apikey" name="apikey" required="true" />
       <line layout="left">
-        <checkbox composition="methodsettings" cellname="webhooks" name="webhooks" title="" labeltid="tolliumapps.payments.common.webhooks" />
+        <checkbox composition="methodsettings"
+                  cellname="webhooks"
+                  name="webhooks"
+                  labeltid="tolliumapps.payments.common.webhooks"
+                  title="" />
       </line>
       <button action="connect" />
-      <select type="checkbox" height="1pr" name="methods" gid="tolliumapps.payments.common" rowkeytype="string" />
+      <select name="methods" type="checkbox" height="1pr" gid="tolliumapps.payments.common" rowkeytype="string" />
     </insert>
   </tabsextension>
 

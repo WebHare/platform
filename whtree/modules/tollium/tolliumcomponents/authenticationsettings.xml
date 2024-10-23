@@ -101,7 +101,7 @@
           </line>
           <line layout="left">
             <textedit name="totpsecret" width="1pr" enabled="false" visible="false">
-              <button type="icon" action="copytotpsecret" icon="tollium:actions/copy" title="" />
+              <button action="copytotpsecret" icon="tollium:actions/copy" title="" />
             </textedit>
           </line>
           <textedit name="entercode" maxlength="9" required="true" />

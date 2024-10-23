@@ -5,7 +5,7 @@
     <to type="all" />
     <debugsettings title="Commonly used">
       <option tag="etr" title="Show error stacktraces" />
-      <option tag="apr" title="Auto-profile dynamic pagines" requireright="" />
+      <option requireright="" tag="apr" title="Auto-profile dynamic pagines" />
     </debugsettings>
     <debugsettings title="Tollium debugging">
       <option tag="ild" title="Image loading: debug SVG composition" />
@@ -16,7 +16,7 @@
       <option tag="anl" title="Social &amp; analytics" />
       <option tag="ner" title="No errorhandler.js" />
       <option tag="win" title="Witty invocations" />
-      <option tag="pxl" title="Pxl events" requireright=""/>
+      <option requireright="" tag="pxl" title="Pxl events" />
       <option tag="bac" title="Beacons/Adapative Content" />
       <option tag="npm" title="Don't set previewmode when previewing" />  <!-- "No Preview Mode" -->
     </debugsettings>

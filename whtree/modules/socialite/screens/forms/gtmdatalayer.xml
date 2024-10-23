@@ -1,10 +1,10 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="/lib/internal/forms/gtmdatalayer.whlib"
-         gid="screens.forms.gtmdatalayer">
+         gid="screens.forms.gtmdatalayer"
+         library="/lib/internal/forms/gtmdatalayer.whlib">
 
   <tabsextension name="settings" implementation="lib">
     <insert position="settings" where="after">
-      <textedit name="formname" required="true" width="1pr" />
+      <textedit name="formname" width="1pr" required="true" />
     </insert>
   </tabsextension>
 

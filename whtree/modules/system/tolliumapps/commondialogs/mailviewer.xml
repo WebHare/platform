@@ -3,44 +3,44 @@
          library="mailviewer.whlib">
 
   <screen name="mailqueuedialog"
-          tid="tolliumapps.dashboard.mailqueue.mailqueuepanel"
-          allowresize="true"
           width="130x"
           height="40x"
-          footerbuttons="close">
+          allowresize="true"
+          footerbuttons="close"
+          tid="tolliumapps.dashboard.mailqueue.mailqueuepanel">
     <body name="body">
     </body>
   </screen>
 
-  <screen name="mailviewer" width="110x" height="50x" allowresize="true" footerbuttons="close" flags="issysop">
+  <screen name="mailviewer" width="110x" height="50x" allowresize="true" flags="issysop" footerbuttons="close">
     <actions>
-      <action name="simulatesoftbounce" onexecute="dosimulatesoftbounce" frameflags="issysop"/>
-      <action name="simulatehardbounce" onexecute="dosimulatehardbounce" frameflags="issysop"/>
-      <action name="simulatecomplaint" onexecute="dosimulatecomplaint" frameflags="issysop"/>
-      <action name="simulatedelivery" onexecute="dosimulatedelivery" frameflags="issysop"/>
+      <action name="simulatesoftbounce" frameflags="issysop" onexecute="dosimulatesoftbounce" />
+      <action name="simulatehardbounce" frameflags="issysop" onexecute="dosimulatehardbounce" />
+      <action name="simulatecomplaint" frameflags="issysop" onexecute="dosimulatecomplaint" />
+      <action name="simulatedelivery" frameflags="issysop" onexecute="dosimulatedelivery" />
     </actions>
+
     <body spacers="none">
       <tabs name="tabs" type="server" height="1pr">
         <tab tid=".mailcontents">
           <emailcontents name="mailcontents" />
         </tab>
-        <tab tid=".taskinfo" spacers="top left bottom right">
+        <tab spacers="top left bottom right" tid=".taskinfo">
           <!-- bit ugly, but with only one form label outside the box this is a quick presentation fix.. -->
           <heading tid=".errors" />
           <line layout="left">
-            <textarea enabled="false" name="errors" height="5gr" title="" />
+            <textarea name="errors" height="5gr" enabled="false" title="" />
           </line>
-
           <box name="callbackinfo" hr="false">
-            <textedit name="callbackfunc" width="1pr"/>
-            <textedit name="callbackdata" width="1pr"/>
-             <inlineblock tid=".simulate">
-               <line>
-                  <button action="simulatesoftbounce" />
-                  <button action="simulatehardbounce" />
-              <button action="simulatecomplaint" />
-              <button action="simulatedelivery" />
-            </line>
+            <textedit name="callbackfunc" width="1pr" />
+            <textedit name="callbackdata" width="1pr" />
+            <inlineblock tid=".simulate">
+              <line>
+                <button action="simulatesoftbounce" />
+                <button action="simulatehardbounce" />
+                <button action="simulatecomplaint" />
+                <button action="simulatedelivery" />
+              </line>
             </inlineblock>
           </box>
         </tab>

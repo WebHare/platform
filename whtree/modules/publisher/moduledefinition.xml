@@ -98,9 +98,7 @@
         <requireright right="system:supervisor" />
       </accesscheck>
     </application>
-    <application name="feedback"
-                 icon="tollium:actions/checklist"
-                 screen="tolliumapps/feedback/main.xml#main">
+    <application name="feedback" icon="tollium:actions/checklist" screen="tolliumapps/feedback/main.xml#main">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
@@ -138,10 +136,9 @@
 
   <backend>
     <webrule path="allroots:/.publisher/common/" match="initial" handlebydir="web/common/" priority="after" />
-    <!-- Legacy server worker path, WH5.6 moves this to the central assetpacks-->
-    <webrule path="allroots:/.publisher/common/pwa/serviceworker/"
-             match="initial"
-             priority="after">
+
+    <!-- Legacy server worker path, WH5.6 moves this to the central assetpacks -->
+    <webrule path="allroots:/.publisher/common/pwa/serviceworker/" match="initial" priority="after">
       <addheader header="Service-Worker-Allowed" value="/" />
       <tryfolder path="whdata::generated/platform/ap/platform.pwaserviceworker/" />
     </webrule>
@@ -165,10 +162,7 @@
     </webrule>
 
     <!-- Legacy assetpack URLs. They should start using /.wh/ea/ap/ since WH 5.6.2 -->
-    <webrule path="allroots:/.ap/"
-             match="initial"
-             cachecontrol="public, max-age=31536000, immutable"
-             priority="after">
+    <webrule path="allroots:/.ap/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
       <addheader header="Access-Control-Allow-Origin" value="*" />  <!-- ADDME: would be nicer to only permit local known hosts -->
       <tryfolder path="whdata::generated/platform/ap/" />
     </webrule>
@@ -605,7 +599,7 @@
                istemplate="true"
                path="data/webdesigntemplates/blank"
                siteprofile="webdesigns/[designname_lc]/[designname_lc].siteprl.xml" />
-    <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml"/>
+    <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml" />
 
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="setembeddedobjectrenderer" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
@@ -753,9 +747,7 @@
                 transports="jsonrpc">
       <accesscheck />
     </webservice>
-    <webservice name="formsts"
-                service="lib/internal/forms/service.ts#FormService"
-                transports="jsonrpc">
+    <webservice name="formsts" service="lib/internal/forms/service.ts#FormService" transports="jsonrpc">
       <accesscheck />
     </webservice>
     <webservice name="designfiles"

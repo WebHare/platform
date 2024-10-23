@@ -12,24 +12,9 @@
           <line layout="tabs-space">
             <text width="1pr" title="" value="" />
             <buttongroup borders="left" layout="horizontal">
-              <button name="previewbutton"
-                      type="icon"
-                      action="preview"
-                      hinttid=".preview_video"
-                      icon="tollium:actions/play"
-                      title="" />
-              <button name="searchbutton"
-                      type="icon"
-                      action="act_search"
-                      hinttid=".search_video"
-                      icon="tollium:actions/edit"
-                      title="" />
-              <button name="clearbutton"
-                      type="icon"
-                      action="clear"
-                      hinttid=".clear_video"
-                      icon="tollium:actions/delete"
-                      title="" />
+              <button name="previewbutton" action="preview" hinttid=".preview_video" icon="tollium:actions/play" title="" />
+              <button name="searchbutton" action="act_search" hinttid=".search_video" icon="tollium:actions/edit" title="" />
+              <button name="clearbutton" action="clear" hinttid=".clear_video" icon="tollium:actions/delete" title="" />
             </buttongroup>
           </line>
         </panel>

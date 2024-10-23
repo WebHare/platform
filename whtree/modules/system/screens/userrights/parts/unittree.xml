@@ -1,39 +1,31 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
          xmlns:system="http://www.webhare.net/xmlns/system/components">
 
   <!-- unit tree -->
-  <fragment name="unittree" lib="screens/userrights/parts/unittree.whlib" gid="userrights.unittree">
+  <fragment name="unittree" gid="userrights.unittree" lib="screens/userrights/parts/unittree.whlib">
     <actions gid="userrights.actions">
-      <action name="newrole" tid=".newrole" hinttid=".newrole-hint" onexecute="doaddrole" ellipsis="true">
+      <action name="newrole" ellipsis="true" hinttid=".newrole-hint" onexecute="doaddrole" tid=".newrole">
         <enableon source="unitlist" min="1" max="1" checkflags="canmanageroles !isroot" />
       </action>
-
-      <action name="newunit" tid=".newunit" hinttid=".newunit-hint" onexecute="doaddunit" ellipsis="true">
+      <action name="newunit" ellipsis="true" hinttid=".newunit-hint" onexecute="doaddunit" tid=".newunit">
         <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit" />
       </action>
-
-      <action name="newuser" hinttid=".newuser-hint" onexecute="doadduser" ellipsis="true">
+      <action name="newuser" ellipsis="true" hinttid=".newuser-hint" onexecute="doadduser">
         <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit !isroot" />
       </action>
-
-      <action name="exportusersinunit" onexecute="doexportusersinunit"  ellipsis="true">
+      <action name="exportusersinunit" ellipsis="true" onexecute="doexportusersinunit">
         <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit" />
       </action>
-
-      <action name="move" hinttid=".move-hint" ellipsis="true">
+      <action name="move" ellipsis="true" hinttid=".move-hint">
         <enableon source="unitlist" min="1" max="1" checkflags="candelete" onexecute="domoveunitfromunitlist" />
       </action>
-
       <action name="delete" hinttid=".delete-hint" shortcut="del">
         <enableon source="unitlist" min="1" max="1" checkflags="candelete" onexecute="dodeleteunit" requirefocus="true" />
       </action>
-
       <action name="edit" hinttid=".edit-hint">
         <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit !isroot" onexecute="doeditunit" />
       </action>
     </actions>
-
     <menus>
       <menu name="selectcontextmenu">
         <item action="newunit" disablemode="hidden" />
@@ -44,38 +36,40 @@
         <divider />
         <item action="move" disablemode="hidden" />
         <item action="delete" disablemode="hidden" />
-        <divider/>
+        <divider />
         <item action="edit" disablemode="hidden" />
       </menu>
-
     </menus>
-
     <contents>
       <list name="unitlist"
-            onselect="onselecthandler"
-            selectmode="single"
+            borders="all"
             columnheaders="true"
-            openaction="edit"
             flags="canmanageunit canmanageroles candelete isroot canselect"
             icons="tollium:users/user tollium:users/users tollium:users/mask tollium:actions/search"
-            selectcontextmenu="selectcontextmenu"
-            selectableflags="canselect"
+            onselect="onselecthandler"
+            openaction="edit"
             rowkeytype="entityid"
-            borders="all"
-            >
-
+            selectableflags="canselect"
+            selectcontextmenu="selectcontextmenu"
+            selectmode="single">
         <acceptdrops ondrop="ontypeddrop">
-          <accepttype type="system:unit" targetflags="canmanageunit" sourceflags="candelete" dropeffects="move" noloops="true" />
-          <accepttype type="system:role" targetflags="canmanageroles" sourceflags="candelete" dropeffects="move" requiretarget="true" />
-          <accepttype type="system:user" targetflags="canmanageunit" sourceflags="candelete" dropeffects="move" requiretarget="true" />
+          <accepttype type="system:unit"
+                      dropeffects="move"
+                      noloops="true"
+                      sourceflags="candelete"
+                      targetflags="canmanageunit" />
+          <accepttype type="system:role"
+                      dropeffects="move"
+                      requiretarget="true"
+                      sourceflags="candelete"
+                      targetflags="canmanageroles" />
+          <accepttype type="system:user"
+                      dropeffects="move"
+                      requiretarget="true"
+                      sourceflags="candelete"
+                      targetflags="canmanageunit" />
         </acceptdrops>
-
-        <column name="title"
-                tid=".units"
-                type="text"
-                tree="true"
-                iconname="icon" />
-
+        <column name="title" type="text" iconname="icon" tid=".units" tree="true" />
       </list>
     </contents>
   </fragment>

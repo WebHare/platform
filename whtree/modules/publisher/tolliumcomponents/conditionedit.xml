@@ -1,4 +1,6 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.conditionedit" library="conditionedit.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumcomponents.conditionedit"
+         library="conditionedit.whlib">
 
   <fragment name="conditionedit">
     <contents>
@@ -10,21 +12,21 @@
 
   <fragment name="condition">
     <actions>
-      <action name="addcondition" title="" onexecute="doaddcondition" />
-      <action name="deletecondition" title="" onexecute="dodeletecondition" />
+      <action name="addcondition" onexecute="doaddcondition" title="" />
+      <action name="deletecondition" onexecute="dodeletecondition" title="" />
     </actions>
     <compositions>
-      <dirtylistener name="dirtylistener" public="true" ondirty="OnConditionDirty" />
+      <dirtylistener name="dirtylistener" ondirty="OnConditionDirty" public="true" />
     </compositions>
     <contents>
       <line>
-        <image name="subconditionline" title="" value="tollium:forms/subcondition" width="16px" height="16px" />
-        <select name="field" title="" type="pulldown" onchange="onfieldselect" />
-        <inlineblock name="conditioncontainer" title="" width="1pr">
+        <image name="subconditionline" width="16px" height="16px" title="" value="tollium:forms/subcondition" />
+        <select name="field" type="pulldown" onchange="onfieldselect" title="" />
+        <inlineblock name="conditioncontainer" width="1pr" title="">
           <!-- The condition fragment is loaded here -->
         </inlineblock>
-        <button action="deletecondition" name="deleteconditionbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
-        <button action="addcondition" name="addconditionbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
+        <button name="deleteconditionbutton" action="deletecondition" icon="tollium:buttonbar/minus" title="" />
+        <button name="addconditionbutton" action="addcondition" icon="tollium:buttonbar/plus" title="" />
       </line>
       <line>
         <spacer name="subconditionspacer" width="16px" />

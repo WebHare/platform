@@ -120,8 +120,8 @@
               <text name="failures" />
             </cell>
           </grid>
-          <box name="lasterrorsbox" tid=".lasterrors" checkbox="false" hr="false" layout="left" height="1pr">
-            <textarea name="lasterrors" height="1pr" enabled="false" title=""/>
+          <box name="lasterrorsbox" height="1pr" checkbox="false" hr="false" layout="left" tid=".lasterrors">
+            <textarea name="lasterrors" height="1pr" enabled="false" title="" />
           </box>
         </part>
         <part>

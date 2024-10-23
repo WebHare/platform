@@ -5,7 +5,7 @@
 
   <tabsextension name="snippeteditor" allowresize="true">
     <newtab>
-      <richdocument composition="contentdata" cellname="snippettext" height="1pr" width="1pr" minheight="8gr" minwidth="70x" />
+      <richdocument composition="contentdata" cellname="snippettext" width="1pr" height="1pr" minwidth="70x" minheight="8gr" />
     </newtab>
   </tabsextension>
 

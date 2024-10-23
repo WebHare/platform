@@ -26,7 +26,7 @@
 
     <compositions>
       <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
-      <dirtylistener name="dirtylistener" /> <!-- added for editapi compatibility, not used yet -->
+      <dirtylistener name="dirtylistener" />  <!-- added for editapi compatibility, not used yet -->
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">
@@ -48,7 +48,7 @@
               <heading name="maintab_heading" doclink="publisher:objectprops/nametitle" tid=".nametitle" />
               <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
               <textedit name="title" width="1pr" maxlength="256" tid="~title" />
-              <heading name="seotab_heading" doclink="publisher:objectprops/seo"  />
+              <heading name="seotab_heading" doclink="publisher:objectprops/seo" />
               <textedit composition="seosettings"
                         cellname="seotitle"
                         name="seotitle"

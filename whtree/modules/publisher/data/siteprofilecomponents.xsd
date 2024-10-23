@@ -1,16 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<xs:schema
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
-  targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-  elementFormDefault="qualified"
-  xml:lang="en">
+<xs:schema xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+           xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+           xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
+           xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
+           xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
 
@@ -18,16 +13,16 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tai:tolliumcomponent placement="screens"/>
-          <tai:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
+          <tai:tolliumcomponent placement="screens" />
+          <tai:childcomponents adoptfields="compositions" field="compositions" target="./sp:compositions" />
           <tai:childcomponents field="newtabs" target="./sp:newtab" />
-          <tai:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
+          <tai:childcomponents adoptfields="lines position where" field="inserts" target="./sp:insert" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
-        <xs:element ref="compositions" minOccurs="0" maxOccurs="1" />
-        <xs:element ref="insert" minOccurs="0" maxOccurs="unbounded" />
-        <xs:element ref="newtab" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element minOccurs="0" maxOccurs="1" ref="compositions" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="insert" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="newtab" />
       </xs:sequence>
       <xs:attribute name="name" type="xs:string" />
       <xs:attribute name="developeronly" type="xs:boolean" />
@@ -35,7 +30,9 @@
   </xs:element>
 
   <xs:element name="compositions" type="s:Compositions" />
+
   <xs:element name="newtab" type="s:NewTab" />
+
   <xs:element name="insert" type="s:TabsExtensionInsert" />
 
 </xs:schema>

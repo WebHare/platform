@@ -1,12 +1,12 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:system="http://www.webhare.net/xmlns/system/components"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         lib="screens/userrights/dialogs/editauthobject.whlib">
+         library="/lib/screens/userrights/dialogs/editauthobject.whlib">
 
   <screen name="editunit" allowresize="true" footerbuttons="ok cancel" gid="userrights.editunit">
     <compositions>
       <wrd:entity name="entity" wrdtype="WHUSER_UNIT" />
-      <record name="expiration" composition="entity" cellname="expiration" />
+      <record composition="entity" cellname="expiration" name="expiration" />
     </compositions>
 
     <body spacers="none">
@@ -21,20 +21,19 @@
                    name="override_passwordchecks"
                    checkbox="true"
                    enablecomponents="passwordchecks" />
-          <system:passwordvalidationchecks composition="entity"
-                                           cellname="passwordchecks"
-                                           name="passwordchecks" />
+          <system:passwordvalidationchecks composition="entity" cellname="passwordchecks" name="passwordchecks" />
           <heading composition="entity"
                    cellname="override_expiration"
                    name="override_expiration"
                    checkbox="true"
                    enablecomponents="expiraton_locknologin" />
-          <browsecustom name="expiraton_locknologin" onbrowse="selectduration" onmapvalue="mapduration" composition="expiration" cellname="locknologin" />
+          <browsecustom composition="expiration"
+                        cellname="locknologin"
+                        name="expiraton_locknologin"
+                        onbrowse="selectduration"
+                        onmapvalue="mapduration" />
           <heading tid=".policy" />
-          <select composition="entity"
-                  cellname="usereditpolicy"
-                  name="usereditpolicy"
-                  type="pulldown" />
+          <select composition="entity" cellname="usereditpolicy" name="usereditpolicy" type="pulldown" />
         </tab>
       </tabs>
     </body>

@@ -1231,6 +1231,7 @@
     <xs:attribute name="name" type="xs:string" />
     <xs:attribute name="screen" type="xs:string" />
     <xs:attribute name="separateapp" type="xs:boolean" />
+
     <!-- deprecated and ignored since WH5.6 -->
     <xs:attribute name="supportsversioning" />
   </xs:complexType>

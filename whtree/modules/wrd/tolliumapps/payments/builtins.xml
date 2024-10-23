@@ -1,8 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="builtins.whlib"
-         gid="tolliumapps.payments.builtins">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.payments.builtins" library="builtins.whlib">
 
   <tabsextension name="configtestpsp" implementation="lib">
     <compositions>
@@ -14,11 +10,25 @@
         <option rowkey="form" />
       </select>
       <line>
-        <textedit composition="methodsettings" cellname="sleep" name="sleep" width="8x" valuetype="integer" minvalue="0" maxvalue="60000" />
+        <textedit composition="methodsettings"
+                  cellname="sleep"
+                  name="sleep"
+                  width="8x"
+                  minvalue="0"
+                  maxvalue="60000"
+                  valuetype="integer" />
         <text valuetid="~units.milliseconds" />
       </line>
-      <checkbox composition="methodsettings" cellname="disablewithissuer" name="disablewithissuer" title="" labeltid=".disablewithissuer" />
-      <checkbox composition="methodsettings" cellname="disablenoissuer" name="disablenoissuer" title="" labeltid=".disablenoissuer" />
+      <checkbox composition="methodsettings"
+                cellname="disablewithissuer"
+                name="disablewithissuer"
+                labeltid=".disablewithissuer"
+                title="" />
+      <checkbox composition="methodsettings"
+                cellname="disablenoissuer"
+                name="disablenoissuer"
+                labeltid=".disablenoissuer"
+                title="" />
     </insert>
   </tabsextension>
 
@@ -27,8 +37,15 @@
       <record name="methodsettings" />
     </compositions>
     <insert position="providertab" where="atend">
-      <textedit composition="methodsettings" cellname="methodtitle" required="true" name="methodtitle" tid="~title" />
-      <textedit composition="methodsettings" cellname="expiredays" valuetype="integer" minvalue="1" maxvalue="99999" emptyvalue="0" suffixtid="~units.days" maxlength="4"/>
+      <textedit composition="methodsettings" cellname="methodtitle" name="methodtitle" required="true" tid="~title" />
+      <textedit composition="methodsettings"
+                cellname="expiredays"
+                maxlength="4"
+                minvalue="1"
+                maxvalue="99999"
+                emptyvalue="0"
+                suffixtid="~units.days"
+                valuetype="integer" />
     </insert>
   </tabsextension>
 

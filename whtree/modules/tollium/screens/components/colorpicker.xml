@@ -1,27 +1,33 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="components/colorpicker.whlib"
-         gid="components.colorpicker">
+         gid="components.colorpicker"
+         library="/lib/components/colorpicker.whlib">
 
   <fragment name="coloredit" gid=".edit">
     <actions>
-      <action name="selectaction" tid="~select" hinttid="tollium:components.colorpicker.hints.select_color" onexecute="selectcolor" />
-      <action name="clearaction" tid="~clear" hinttid="tollium:components.colorpicker.hints.clear_color" onexecute="clearcolor" />
+      <action name="selectaction"
+              hinttid="tollium:components.colorpicker.hints.select_color"
+              onexecute="selectcolor"
+              tid="~select" />
+      <action name="clearaction"
+              hinttid="tollium:components.colorpicker.hints.clear_color"
+              onexecute="clearcolor"
+              tid="~clear" />
     </actions>
     <contents>
       <line>
-        <image name="preview" title="" width="16px" height="16px" />
-        <button action="selectaction" type="icon" icon="tollium:actions/dropper" />
-        <button action="clearaction" type="icon" icon="tollium:actions/delete" />
+        <image name="preview" width="16px" height="16px" title="" />
+        <button action="selectaction" icon="tollium:actions/dropper" />
+        <button action="clearaction" icon="tollium:actions/delete" />
       </line>
     </contents>
   </fragment>
 
-  <screen name="colorpicker" gid=".picker">
+  <screen name="colorpicker" footerbuttons="ok cancel" gid=".picker">
     <actions>
-      <action name="submitcolor" title="notused" onexecute="colorsubmitted" />
+      <action name="submitcolor" onexecute="colorsubmitted" title="notused" />
     </actions>
-    <body>
 
+    <body>
       <!-- RGB Sliders -->
       <panel name="sliders_rgb">
         <grid>
@@ -30,21 +36,45 @@
           <row>
             <cell layout="center" valign="middle">
               <panel>
-                <image name="preview" title="" width="24px" height="36px" minwidth="24px" minheight="36px" />
+                <image name="preview" width="24px" height="36px" minwidth="24px" minheight="36px" title="" />
               </panel>
             </cell>
             <cell>
               <line>
-                <slider name="rslider" min="0" max="255" step="1" updatecomponent="rvalue" width="300px" fill="true" fillcolor="#ff0000" onchange="rgbcompchanged" />
-                <text name="rvalue" title="" width="5x" />
+                <slider name="rslider"
+                        width="300px"
+                        fill="true"
+                        fillcolor="#ff0000"
+                        max="255"
+                        min="0"
+                        onchange="rgbcompchanged"
+                        step="1"
+                        updatecomponent="rvalue" />
+                <text name="rvalue" width="5x" title="" />
               </line>
               <line>
-                <slider name="gslider" min="0" max="255" step="1" updatecomponent="gvalue" width="300px" fill="true" fillcolor="#00ff00" onchange="rgbcompchanged" />
-                <text name="gvalue" title="" width="5x" />
+                <slider name="gslider"
+                        width="300px"
+                        fill="true"
+                        fillcolor="#00ff00"
+                        max="255"
+                        min="0"
+                        onchange="rgbcompchanged"
+                        step="1"
+                        updatecomponent="gvalue" />
+                <text name="gvalue" width="5x" title="" />
               </line>
               <line>
-                <slider name="bslider" min="0" max="255" step="1" updatecomponent="bvalue" width="300px" fill="true" fillcolor="#0000ff" onchange="rgbcompchanged" />
-                <text name="bvalue" title="" width="5x" />
+                <slider name="bslider"
+                        width="300px"
+                        fill="true"
+                        fillcolor="#0000ff"
+                        max="255"
+                        min="0"
+                        onchange="rgbcompchanged"
+                        step="1"
+                        updatecomponent="bvalue" />
+                <text name="bvalue" width="5x" title="" />
               </line>
             </cell>
           </row>
@@ -55,7 +85,7 @@
       <panel name="colors_16">
         <spacer />
         <panel>
-          <table name="colors_16_table" openaction="submitcolor" onselect="colorselected" selectmode="single" />
+          <table name="colors_16_table" onselect="colorselected" openaction="submitcolor" selectmode="single" />
         </panel>
         <spacer />
       </panel>
@@ -64,18 +94,14 @@
       <panel name="colors_375">
         <spacer />
         <panel>
-          <table name="colors_375_table" openaction="submitcolor" onselect="colorselected" selectmode="single" />
+          <table name="colors_375_table" onselect="colorselected" openaction="submitcolor" selectmode="single" />
         </panel>
         <spacer />
       </panel>
-
       <line layout="left">
-        <textedit name="color" tid=".colorvalue" required="true" width="10x" onchange="valuechanged" />
+        <textedit name="color" width="10x" onchange="valuechanged" required="true" tid=".colorvalue" />
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

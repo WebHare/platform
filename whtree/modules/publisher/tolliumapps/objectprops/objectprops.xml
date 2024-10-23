@@ -26,7 +26,7 @@
 
     <compositions>
       <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
-      <dirtylistener name="dirtylistener" /> <!-- added for editapi compatibility, not used yet -->
+      <dirtylistener name="dirtylistener" />  <!-- added for editapi compatibility, not used yet -->
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">
@@ -51,11 +51,7 @@
 
           <!-- link-type specific fields -->
           <publisher:intextlink name="link" width="1pr" visible="false" />
-          <publisher:browseforobject name="path"
-                                     width="1pr"
-                                     acceptfolders="false"
-                                     onchange="onpathchange"
-                                     visible="false" />
+          <publisher:browseforobject name="path" width="1pr" acceptfolders="false" onchange="onpathchange" visible="false" />
 
           <!-- Site-specific fields -->
 
@@ -69,7 +65,7 @@
           <text name="deleted" tid=".deleted" visible="false" />
           <text name="originallocation" visible="false" />
           <spacer name="properties" visible="false" />  <!-- this is just an insertion point -->
-          <heading name="restrictions"  />
+          <heading name="restrictions" />
           <line layout="left">
             <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
             <text name="objectpinned" title="" visible="false" />
@@ -82,8 +78,7 @@
               <text name="notpublishedtext" title="" value="" />
             </panel>
             <panel name="publicationsettings">
-              <heading name="publicationsettings_heading"
-                       tid=".publicationsettings" />
+              <heading name="publicationsettings_heading" tid=".publicationsettings" />
               <line layout="left">
                 <checkbox name="publish" labeltid=".publish" title="" />
               </line>
@@ -92,7 +87,6 @@
               </line>
             </panel>
           </panel>
-
         </tab>
         <tab name="seotab" title="">
           <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />

@@ -1,20 +1,21 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         library="ingenico.whlib"
-         gid="tolliumapps.payments.ingenico">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.payments.ingenico" library="ingenico.whlib">
 
   <tabsextension name="configingenico" implementation="lib">
     <compositions>
       <record name="methodsettings" />
     </compositions>
     <insert position="providertab" where="atend">
-      <textedit composition="methodsettings" cellname="pspid" required="true" name="pspid"/>
-      <textedit composition="methodsettings" cellname="sha1_in" required="true" name="sha1_in" />
-      <textedit composition="methodsettings" cellname="sha1_out" required="true" name="sha1_out" />
+      <textedit composition="methodsettings" cellname="pspid" name="pspid" required="true" />
+      <textedit composition="methodsettings" cellname="sha1_in" name="sha1_in" required="true" />
+      <textedit composition="methodsettings" cellname="sha1_out" name="sha1_out" required="true" />
       <textedit composition="methodsettings" cellname="sha1_in_directlink" />
       <textedit composition="methodsettings" cellname="apiuser" />
       <textedit composition="methodsettings" cellname="apipassword" />
-      <textedit composition="methodsettings" cellname="expiry_minutes" suffixtid="~units.minutes" valuetype="integer" value="10080"/>
+      <textedit composition="methodsettings"
+                cellname="expiry_minutes"
+                suffixtid="~units.minutes"
+                value="10080"
+                valuetype="integer" />
       <select composition="methodsettings" cellname="rebranded" type="radio">
         <option rowkey="" tid=".norebranding" />
         <option rowkey="abnamro" title="ABN AMRO Internetkassa" />
@@ -23,15 +24,15 @@
         <option rowkey="test" />
         <option rowkey="prod" />
       </select>
-      <select composition="methodsettings" cellname="methods" type="checkbox" height="1pr" name="methods">
-        <!--ADDME ?bancontact/mistercash
+      <select composition="methodsettings" cellname="methods" name="methods" type="checkbox" height="1pr">
+        <!-- ADDME ?bancontact/mistercash
          e-Commerce & DirectLink only (feedback parameter value: Bancontact/Mister Cash)
        -->
-        <option rowkey="Bank transfer" title="Bank transfer"/>
-        <option rowkey="Bank transfer BE" title="Bank transfer BE"/>
-        <option rowkey="Bank transfer DE" title="Bank transfer DE"/>
-        <option rowkey="Bank transfer FR" title="Bank transfer FR"/>
-        <option rowkey="Bank transfer NL" title="Bank transfer NL"/>
+        <option rowkey="Bank transfer" title="Bank transfer" />
+        <option rowkey="Bank transfer BE" title="Bank transfer BE" />
+        <option rowkey="Bank transfer DE" title="Bank transfer DE" />
+        <option rowkey="Bank transfer FR" title="Bank transfer FR" />
+        <option rowkey="Bank transfer NL" title="Bank transfer NL" />
         <option rowkey="Belfius Direct Net" title="Belfius Direct Net" />
         <option rowkey="CBC Online" title="CBC Online" />
         <option rowkey="DirectEbankingDE" title="Sofortüberweisung (DE)" />
@@ -44,7 +45,7 @@
         <option rowkey="Amazon Checkout" title="Amazon Checkout" />
         <option rowkey="TUNZ" title="TUNZ" />
       </select>
-      <textedit enabled="false" width="1pr" name="directhttpurl" />
+      <textedit name="directhttpurl" width="1pr" enabled="false" />
     </insert>
   </tabsextension>
 

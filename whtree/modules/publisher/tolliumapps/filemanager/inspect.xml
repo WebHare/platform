@@ -1,13 +1,17 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         library="inspect.whlib"
-         gid="filemanager.inspect">
+         gid="filemanager.inspect"
+         library="inspect.whlib">
 
-  <screen name="inspect" gid=".inspect" title=""
+  <screen name="inspect"
+          width="120x"
+          height="32x"
           minwidth="70x"
-          width="120x" height="32x"
-          allowresize="true" savestate="size"
-          >
+          allowresize="true"
+          footerbuttons="close"
+          gid=".inspect"
+          savestate="size"
+          title="">
     <actions>
       <action name="editdbinfo" tid="~edit">
         <enableon source="dbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdbinfo" />
@@ -21,12 +25,11 @@
         <enableon source="dbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdbinfo" />
         <enableon source="draftdbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdraftdbinfo" />
       </action>
-
       <downloadaction name="dbinfodownload" tid="~download">
         <enableon source="dbinfo" min="1" max="1" checkflags="candownload" ondownload="ondbinfodownload" />
         <enableon source="draftdbinfo" min="1" max="1" checkflags="candownload" ondownload="ondraftdbinfodownload" />
       </downloadaction>
-      <action name="jumptoreference" tid="~edit" onexecute="dojumptoreference">
+      <action name="jumptoreference" onexecute="dojumptoreference" tid="~edit">
         <enableon source="refs" min="1" max="1" />
       </action>
       <action name="openineditor" tid="~openineditor">
@@ -44,23 +47,23 @@
       <menu name="appliesmenu">
         <item action="openineditor" />
       </menu>
-  </menus>
+    </menus>
 
     <compositions>
       <record name="fsobjecttypesettings" />
       <eventlistener masks="publisher:internal.siteprofiles.memberschanged" onevent="onrefresh" />
     </compositions>
 
-    <body layout="form" height="1pr" spacers="none">
+    <body height="1pr" layout="form" spacers="none">
       <tabs name="maintabs" height="1pr" savestate="selectedtab">
         <tab name="contenttypes" layout="left" tid=".contenttypes">
           <panel height="1pr">
             <list name="dbinfo"
-                  selectmode="single"
-                  openaction="editdbinfo"
+                  borders="all"
                   flags="canedit candownload canpreview"
+                  openaction="editdbinfo"
                   selectcontextmenu="dbinfomenu"
-                  borders="all">
+                  selectmode="single">
               <column name="name" type="text" tree="true" />
               <column name="type" type="text" width="20x" />
               <column name="data" type="text" />
@@ -71,9 +74,9 @@
           <split type="horizontal" splitter="transparent">
             <part width="1pr">
               <list name="drafts"
-                    selectmode="single"
-                    onselect="gotselectdraft"
                     borders="top bottom left"
+                    onselect="gotselectdraft"
+                    selectmode="single"
                     sortascending="false">
                 <column name="when" type="datetime" width="18x" precision="minutes" storeutc="true" />
                 <column name="user" type="text" width="1pr" />
@@ -82,11 +85,11 @@
             </part>
             <part width="2pr">
               <list name="draftdbinfo"
-                    selectmode="single"
-                    openaction="editdbinfo"
+                    borders="top right bottom"
                     flags="canedit candownload canpreview"
+                    openaction="editdbinfo"
                     selectcontextmenu="dbinfomenu"
-                    borders="top right bottom">
+                    selectmode="single">
                 <column name="name" type="text" tree="true" />
                 <column name="type" type="text" width="20x" />
                 <column name="data" type="text" />
@@ -98,75 +101,74 @@
           <textedit name="searchapplyrules" onchange="refreshapplyrules" tid="~search" />
           <split type="vertical" height="1pr">
             <part height="1pr">
-              <list name="applies" selectmode="single" borders="top left right" onselect="onapplyselect" height="1pr" sortable="false" selectcontextmenu="appliesmenu">
+              <list name="applies"
+                    height="1pr"
+                    borders="top left right"
+                    onselect="onapplyselect"
+                    selectcontextmenu="appliesmenu"
+                    selectmode="single"
+                    sortable="false">
                 <column name="path" type="text" width="1pr" />
-                <column name="applied" type="text" width="1pr"/>
-                <column name="startline" type="integer" tid="~line" align="right" width="6x"/>
+                <column name="applied" type="text" width="1pr" />
+                <column name="startline" type="integer" width="6x" align="right" tid="~line" />
               </list>
             </part>
             <part height="1pr" borders="left bottom right">
-              <codeedit height="1pr" enabled="false" name="applyblock" />
+              <codeedit name="applyblock" height="1pr" enabled="false" />
             </part>
           </split>
         </tab>
         <tab name="consilio" title="Consilio">
-          <includefragment fragment="inspect/consilio.xml#consiliotab" name="consiliotab"/>
+          <includefragment name="consiliotab" fragment="inspect/consilio.xml#consiliotab" />
         </tab>
         <tab name="fsobjecttype">
           <text name="typetitle" />
-          <textedit name="namespace" enabled="false" width="1pr" />
+          <textedit name="namespace" width="1pr" enabled="false" />
           <text name="fstypeid" />
-          <textedit name="searchprovider" enabled="false" width="1pr" />
+          <textedit name="searchprovider" width="1pr" enabled="false" />
           <text name="ishidden" />
           <heading name="dynamicexecution" visible="false" />
-          <textedit name="dynamicexecution_startmacro" enabled="false" visible="false" width="1pr" />
-          <textedit name="dynamicexecution_webpageobjectname" enabled="false" visible="false" width="1pr" />
-          <text name="dynamicexecution_cached" visible="false"  />
+          <textedit name="dynamicexecution_startmacro" width="1pr" enabled="false" visible="false" />
+          <textedit name="dynamicexecution_webpageobjectname" width="1pr" enabled="false" visible="false" />
+          <text name="dynamicexecution_cached" visible="false" />
         </tab>
         <tab name="history">
-          <list name="historyitems" height="1pr" width="1pr">
-            <column name="when" type="datetime" storeutc="true" precision="milliseconds"/>
+          <list name="historyitems" width="1pr" height="1pr">
+            <column name="when" type="datetime" precision="milliseconds" storeutc="true" />
             <column name="type" type="text" />
             <column name="user" type="integer" />
-            <column name="login" type="text" tid="~username"/>
-            <column name="fullname" type="text" tid="~fullname"/>
+            <column name="login" type="text" tid="~username" />
+            <column name="fullname" type="text" tid="~fullname" />
           </list>
         </tab>
         <tab name="references">
-          <list name="refs"
-                height="1pr"
-                selectmode="single"
-                openaction="jumptoreference"
-                emptytid=".noreferences">
+          <list name="refs" height="1pr" emptytid=".noreferences" openaction="jumptoreference" selectmode="single">
             <column name="path" type="text" />
             <column name="namespace" type="text" />
           </list>
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
-
-  <screen name="ctypefieldedit" gid=".ctypefieldedit" allowresize="true" savestate="size">
+  <screen name="ctypefieldedit" allowresize="true" footerbuttons="ok cancel" gid=".ctypefieldedit" savestate="size">
     <body name="body">
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
-  <screen name="stringfieldpreview" gid=".stringfieldpreview" allowresize="true" savestate="size" width="100x" height="18x">
+  <screen name="stringfieldpreview"
+          width="100x"
+          height="18x"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".stringfieldpreview"
+          savestate="size">
     <body name="body">
       <text name="field" />
-      <panel borders="top right left bottom" height="1pr" width="1pr">
-        <codeedit name="datafield" enabled="false" height="1pr" width="1pr"/>
+      <panel width="1pr" height="1pr" borders="top right left bottom">
+        <codeedit name="datafield" width="1pr" height="1pr" enabled="false" />
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
+
 </screens>

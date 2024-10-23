@@ -1,15 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         lib="screens/commondialogs/simplequerybuilder.whlib"
-         gid="commondialogs.simplequerybuilder">
+         gid="commondialogs.simplequerybuilder"
+         library="/lib/screens/commondialogs/simplequerybuilder.whlib">
 
-  <screen name="simplequerybuilder"
-          allowresize="true"
-          tid=".apptitle"
-          gid=".main"
-          onshow="onshow"
-          savestate="position size">
+  <screen name="simplequerybuilder" allowresize="true" gid=".main" onshow="onshow" savestate="position size" tid=".apptitle">
     <actions>
       <action name="addfilter" onexecute="doaddfilter" />
       <action name="addalternative" onexecute="doaddalternative">
@@ -21,7 +15,6 @@
       <action name="deletefilter" onexecute="dodeletefilter">
         <enableon source="filterlist" min="1" checkflags="candelete" />
       </action>
-
       <action name="addcolumn" onexecute="doaddcolumn" />
       <action name="editcolumn" onexecute="doeditcolumn">
         <enableon source="columns" min="1" max="1" checkflags="caneditcolumn" />
@@ -36,11 +29,9 @@
         <line layout="left">
           <text valuetid=".sourcename" />
         </line>
-        <select name="types"
-                type="pulldown"
-                onchange="ontypechange" />
+        <select name="types" type="pulldown" onchange="ontypechange" />
       </box>
-      <box tid=".filtersbox" height="1pr" hr="false">
+      <box height="1pr" hr="false" tid=".filtersbox">
         <grid height="1pr">
           <col width="1pr" />
           <col />
@@ -48,11 +39,11 @@
             <cell>
               <panel height="1pr">
                 <list name="filterlist"
-                      selectmode="single"
-                      height="1pr"
                       width="1pr"
+                      height="1pr"
                       flags="canaddalternative canedit candelete"
                       openaction="editfilter"
+                      selectmode="single"
                       sortable="false">
                   <column name="title" type="text" />
                   <column name="specifics" type="text" />
@@ -60,12 +51,12 @@
               </panel>
             </cell>
             <cell>
-              <button action="addfilter" width="1pr" tid="~add"/>
-              <button action="addalternative" width="1pr" />
+              <button width="1pr" action="addfilter" tid="~add" />
+              <button width="1pr" action="addalternative" />
               <line>
-                <button action="editfilter" width="1pr" tid="~edit" />
+                <button width="1pr" action="editfilter" tid="~edit" />
               </line>
-              <button action="deletefilter" width="1pr"  tid="~delete"/>
+              <button width="1pr" action="deletefilter" tid="~delete" />
             </cell>
           </row>
         </grid>
@@ -77,10 +68,7 @@
           <row height="1pr">
             <cell>
               <panel height="1pr">
-                <list name="columns"
-                      selectmode="multiple"
-                      flags="caneditcolumn"
-                      openaction="editcolumn">
+                <list name="columns" flags="caneditcolumn" openaction="editcolumn" selectmode="multiple">
                   <column name="rename" type="text" />
                   <column name="title" type="text" />
                   <column name="tag" type="text" />
@@ -88,53 +76,39 @@
               </panel>
             </cell>
             <cell>
-              <button action="addcolumn" width="1pr" />
-              <button action="editcolumn" width="1pr" />
-              <button action="deletecolumn" width="1pr" />
+              <button width="1pr" action="addcolumn" />
+              <button width="1pr" action="editcolumn" />
+              <button width="1pr" action="deletecolumn" />
             </cell>
           </row>
         </grid>
       </box>
     </body>
+
     <footer name="dialogbuttons">
       <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
 
-  <screen name="addeditcolumn" allowresize="true" savestate="position size">
+  <screen name="addeditcolumn" allowresize="true" footerbuttons="ok cancel" savestate="position size">
     <body>
-      <select name="field"
-              type="pulldown" />
-
+      <select name="field" type="pulldown" />
       <textedit name="rename" width="1pr" />
       <text valuetid=".leaveemptyfortagname" />
       <panel height="1pr" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-
-  <screen name="addeditfilter" allowresize="true" savestate="position size">
+  <screen name="addeditfilter" allowresize="true" footerbuttons="ok cancel" savestate="position size">
     <compositions>
       <wrd:entity name="filterentity" />
     </compositions>
+
     <body>
-      <select name="field"
-              type="pulldown"
-              onchange="onfieldchange" />
-
-      <select name="condition"
-              type="pulldown" />
-
-      <checkbox title=""
-                name="casesensitive"
-                labeltid=".casesensitive" />
+      <select name="field" type="pulldown" onchange="onfieldchange" />
+      <select name="condition" type="pulldown" />
+      <checkbox name="casesensitive" labeltid=".casesensitive" title="" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

@@ -1,35 +1,32 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/reports/issues.whlib"
          gid="reports.issues"
-         >
+         library="/lib/screens/reports/issues.whlib">
 
-  <screen name="main"
-          gid=".main" tid=".screentitle"
-          icon="tollium:filemgr/mydocuments"
-          allowresize="true"
-          >
+  <screen name="main" allowresize="true" gid=".main" icon="tollium:filemgr/mydocuments" tid=".screentitle">
     <actions>
       <action name="viewinpublisher" onexecute="doviewinpublisher">
-        <enableon source="errors" checkflags="viewable" min="1" max="1" />
+        <enableon source="errors" min="1" max="1" checkflags="viewable" />
       </action>
     </actions>
+
     <body>
       <list name="errors"
-            selectmode="single"
-            openaction="viewinpublisher"
+            width="1pr"
+            height="1pr"
+            minwidth="80x"
+            minheight="5x"
             emptytid=".nosites"
-            gid=".columns"
-            width="1pr" height="1pr"
-            minwidth="80x" minheight="5x"
-            sortcolumn="name_order"
             flags="selectable viewable"
+            gid=".columns"
+            openaction="viewinpublisher"
             selectableflags="selectable"
-            >
-        <column name="name" type="text" tree="true" sortkeyname="name_order" width="1pr" /><!-- iconname="icon" -->
+            selectmode="single"
+            sortcolumn="name_order">
+        <column name="name" type="text" width="1pr" sortkeyname="name_order" tree="true" />  <!-- iconname="icon" -->
         <column name="errordata" type="text" width="1pr" />
-        <!--column name="url"  type="text"-->
-        <column name="fullpath" type="text" width="2pr" />
 
+        <!-- column name="url"  type="text" -->
+        <column name="fullpath" type="text" width="2pr" />
         <style name="site" bold="true" />
       </list>
     </body>

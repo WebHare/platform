@@ -1,21 +1,16 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<xs:schema
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:todd="http://www.webhare.net/xmlns/tollium/portal/components"
-  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
-  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
-  targetNamespace="http://www.webhare.net/xmlns/tollium/portal/components"
-  elementFormDefault="qualified"
-  xml:lang="en">
+<xs:schema xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+           xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           targetNamespace="http://www.webhare.net/xmlns/tollium/portal/components"
+           xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
 
   <xs:element name="addtostartmenu">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="menu" objecttype="/lib/internal/portalcomponents.whlib#AddToStartMenu" />
+        <tai:tolliumcomponent objecttype="/lib/internal/portalcomponents.whlib#AddToStartMenu" placement="menu" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

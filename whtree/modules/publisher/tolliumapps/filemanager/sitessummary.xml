@@ -1,39 +1,38 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="sitessummary.whlib"
-         gid="sysmgmt.sitessummary"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="sysmgmt.sitessummary" library="sitessummary.whlib">
 
   <screen name="sitessummary"
-          gid=".sitessummary" tid=".title"
+          width="130x"
+          height="25x"
           allowresize="true"
+          footerbuttons="close"
+          gid=".sitessummary"
           icon="tollium:filemgr/mydocuments"
-          width="130x" height="25x">
+          tid=".title">
     <actions>
       <action name="editsite" onexecute="doeditsite" title="" />
     </actions>
+
     <body>
       <panel width="1pr" height="1pr">
         <list name="summary"
-              selectmode="single"
-              openaction="editsite"
+              width="1pr"
+              height="1pr"
+              minwidth="80x"
+              minheight="5x"
               emptytid=".nosites"
-              width="1pr" height="1pr"
-              minwidth="80x" minheight="5x"
-              >
+              openaction="editsite"
+              selectmode="single">
           <column name="name" type="text" />
-          <column name="files" type="integer" sortkeyname="files_sort" width="10x" align="right" />
-          <column name="folders" type="integer" sortkeyname="folders_sort" width="10x" align="right" />
-          <column name="inputsize" type="text" sortkeyname="inputsize_sort" width="15x" align="right" />
-          <column name="outputsize" type="text" sortkeyname="outputsize_sort" width="15x" align="right" />
-          <column name="puberrors" type="integer" sortkeyname="puberrors_sort" width="10x" align="right" emptyvalue="-1" />
-          <column name="pubwarnings" type="integer" sortkeyname="pubwarnings_sort" width="10x" align="right" emptyvalue="-1" />
-          <column name="brokenlinks" type="integer" sortkeyname="brokenlinks_sort" width="10x" align="right" emptyvalue="-1" />
+          <column name="files" type="integer" width="10x" align="right" sortkeyname="files_sort" />
+          <column name="folders" type="integer" width="10x" align="right" sortkeyname="folders_sort" />
+          <column name="inputsize" type="text" width="15x" align="right" sortkeyname="inputsize_sort" />
+          <column name="outputsize" type="text" width="15x" align="right" sortkeyname="outputsize_sort" />
+          <column name="puberrors" type="integer" width="10x" align="right" emptyvalue="-1" sortkeyname="puberrors_sort" />
+          <column name="pubwarnings" type="integer" width="10x" align="right" emptyvalue="-1" sortkeyname="pubwarnings_sort" />
+          <column name="brokenlinks" type="integer" width="10x" align="right" emptyvalue="-1" sortkeyname="brokenlinks_sort" />
         </list>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
 </screens>

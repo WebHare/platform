@@ -1,5 +1,4 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumcomponents.previewbrowser"
          library="previewbrowser.whlib">
 
@@ -13,39 +12,36 @@
       <eventlistener name="previewlistener" onevents="onpreviewupdateevents" />
     </compositions>
     <contents>
-      <panel name="urlpanel" backgroundcolor="#f0f0f0" spacers="left" borders="bottom">
+      <panel name="urlpanel" backgroundcolor="#f0f0f0" borders="bottom" spacers="left">
         <line layout="tabs-space">
-          <url name="previewurl" title="" width="1pr" />
-          <select name="deviceselect" type="pulldown" title="" onchange="ondevicechange" rowkeytype="string">
-          </select>
-          <buttongroup layout="horizontal" borders="left">
-            <button type="icon" icon="tollium:actions/reload" action="previewrefresh" hinttid=".refreshhint"/>
+          <url name="previewurl" width="1pr" title="" />
+          <select name="deviceselect" type="pulldown" onchange="ondevicechange" rowkeytype="string" title="" />
+          <buttongroup borders="left" layout="horizontal">
+            <button action="previewrefresh" hinttid=".refreshhint" icon="tollium:actions/reload" />
           </buttongroup>
         </line>
       </panel>
       <statuspanel name="info" type="info" visible="false">
-        <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
+        <text name="previewmessage" onclicklink="onpreviewmessageclick" title="" value="" wordwrap="true" />
       </statuspanel>
-<!--       <panel name="info" backgroundcolor="#FEFFDE" visible="false" spacers="left" borders="bottom">
+
+<!-- <panel name="info" backgroundcolor="#FEFFDE" visible="false" spacers="left" borders="bottom">
         <line>
           <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
         </line>
       </panel>
  -->
-      <panel name="browserpanel" backgroundcolor="#ffffff" height="1pr">
-        <iframe name="browserframe" height="1pr" oncallback="onbrowserframecallback" onmessage="onbrowsermessage"/>
+      <panel name="browserpanel" height="1pr" backgroundcolor="#ffffff">
+        <iframe name="browserframe" height="1pr" oncallback="onbrowserframecallback" onmessage="onbrowsermessage" />
       </panel>
     </contents>
   </fragment>
 
-  <screen name="previewbrowsercustom" implementation="none" gid=".custom">
+  <screen name="previewbrowsercustom" footerbuttons="ok cancel" gid=".custom" implementation="none">
     <body>
-      <textedit name="width" valuetype="integer" width="10x" public="true" minvalue="0" />
-      <textedit name="height" valuetype="integer" width="10x" public="true" minvalue="0" />
+      <textedit name="width" width="10x" minvalue="0" public="true" valuetype="integer" />
+      <textedit name="height" width="10x" minvalue="0" public="true" valuetype="integer" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

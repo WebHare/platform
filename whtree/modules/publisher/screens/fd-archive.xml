@@ -1,15 +1,13 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/fd-archive.whlib"
-         gid="filedialogs">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="filedialogs" library="/lib/screens/fd-archive.whlib">
 
   <messageboxes gid="dialogs">
     <messagebox name="warnreplace" buttons="ok cancel" dontshowagain="ok" />
   </messageboxes>
 
-  <screen name="extracthere" gid=".archive" title="">
+  <screen name="extracthere" footerbuttons="ok cancel" gid=".archive" title="">
     <body layout="left">
       <heading tid=".formtitle" />
-      <select type="radio" name="unpack_options" title="">
+      <select name="unpack_options" type="radio" title="">
         <option rowkey="overwrite" tid=".unpack_options-overwrite" />
         <option rowkey="replace" tid=".unpack_options-replace" />
         <option rowkey="dont_overwrite" selected="true" tid=".unpack_options-dont_overwrite" />
@@ -22,8 +20,6 @@
         <checkbox name="delete_archive" labeltid=".delete_archive" title="" />
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
+
 </screens>

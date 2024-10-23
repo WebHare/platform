@@ -1,4 +1,5 @@
 <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" gid="site">
+
   <form name="testpage" gid=".testpage" library="testpage.whlib" objectname="TestPageForm">
     <page>
       <richtext name="text" title="RTD1">
@@ -6,69 +7,77 @@
           <p>Test wrapping of long richtexts. Validate this on IE11! Lorizzle ipsizzle dolizzle sit amet, yo mamma adipiscing hizzle. Nullam sapizzle velit, aliquet volutpizzle, da bomb that's the shizzle, gravida vizzle, dawg. Pellentesque tellivizzle tortor. Get down get down erizzle. Sure izzle dolor dapibizzle turpis tempizzle get down get down. Mauris pellentesque that's the shizzle et boom shackalack. Shut the shizzle up izzle tortor. Pellentesque eleifend rhoncizzle nisi. In pot habitasse shizznit dictumst. Shizznit fo shizzle my nizzle. Curabitur my shizz urna, pretium izzle, get down get down ac, mah nizzle vitae, nunc. Shizzlin dizzle suscipizzle. Rizzle sempizzle you son of a bizzle shit yippiyo.</p>
         </body>
       </richtext>
-      <textedit name="textedit" title='input type="text"' placeholder="Type a text" />
-      <textedit name="suffixed" title='prefix/suffix' placeholder="Type a text" prefix="EUR" suffix="(inc vat)" valuetype="integer"/> <!-- FIXME money -->
-      <textedit name="email" title='input type="email"' placeholder="president@whitehouse.gov" validationchecks="email"/>
-      <textarea name="textarea" title='textarea' placeholder="type some text" />
-      <password name="password" title='input type="password"' placeholder="enter your password" suffix="at most 3 characters"/>
+      <textedit name="textedit" placeholder="Type a text" title='input type="text"' />
+      <textedit name="suffixed"
+                placeholder="Type a text"
+                prefix="EUR"
+                suffix="(inc vat)"
+                title="prefix/suffix"
+                valuetype="integer" />  <!-- FIXME money -->
+      <textedit name="email" placeholder="president@whitehouse.gov" title='input type="email"' validationchecks="email" />
+      <textarea name="textarea" placeholder="type some text" title="textarea" />
+      <password name="password" placeholder="enter your password" suffix="at most 3 characters" title='input type="password"' />
       <date name="date" title='input type="date"' />
       <time name="time" title='input type="time"' />
       <upload name="upload" title='input type="file"' />
-      <select name="selectfield" title='select' type="pulldown" placeholder="Select an option">
+      <select name="selectfield" type="pulldown" placeholder="Select an option" title="select">
         <option rowkey="1" title="Option 1" />
         <option rowkey="2" title="Option 2" />
         <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three" />
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
-        <option rowkey="disabled" title="Disabled option" enabled="false" />
+        <option enabled="false" rowkey="disabled" title="Disabled option" />
       </select>
-      <select name="radiohorizontal" title='input type="radio" horizontally' type="radio" orientation="horizontal">
+      <select name="radiohorizontal" type="radio" orientation="horizontal" title='input type="radio" horizontally'>
         <option rowkey="1" title="One" />
         <option rowkey="2" title="Two" />
         <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three" />
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
       </select>
-      <select name="radiowithaddendum" title='input radio with addendums' type="radio">
+      <select name="radiowithaddendum" type="radio" title="input radio with addendums">
         <option rowkey="1" title="One" />
         <option rowkey="2" title="Two,">
-          <textedit name="radioaddendum" title='especially' placeholder="Type a text" />
+          <textedit name="radioaddendum" placeholder="Type a text" title="especially" />
         </option>
         <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three">
-          <textarea name="radioaddendum2" title='Why' placeholder="Type a text" />
+          <textarea name="radioaddendum2" placeholder="Type a text" title="Why" />
         </option>
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
       </select>
-      <select name="checkboxhorizontal" title='input type="checkbox" horizontally' type="checkbox" orientation="horizontal">
+      <select name="checkboxhorizontal" type="checkbox" orientation="horizontal" title='input type="checkbox" horizontally'>
         <option rowkey="1" title="One" />
         <option rowkey="2" title="Two" />
         <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three" />
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
       </select>
-      <select name="checkboxwithaddendum" title='input checkbox with addendums' type="checkbox">
+      <select name="checkboxwithaddendum" type="checkbox" title="input checkbox with addendums">
         <option rowkey="1" title="One" />
         <option rowkey="2" title="Two,">
-          <textedit name="checkboxaddendum" title='with an especially long text that would cause whitespace wrappings in most forms, especially given the fact we are repeating an especially long text that would cause whitespace wrappings in most forms' placeholder="Type a text" />
+          <textedit name="checkboxaddendum"
+                    placeholder="Type a text"
+                    title="with an especially long text that would cause whitespace wrappings in most forms, especially given the fact we are repeating an especially long text that would cause whitespace wrappings in most forms" />
         </option>
         <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three">
-          <textarea name="checkboxaddendum3" title='Why now' placeholder="Type a text" />
+          <textarea name="checkboxaddendum3" placeholder="Type a text" title="Why now" />
         </option>
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
       </select>
-      <select name="selectwithaddendum" title='select with addendum' type="pulldown" rowkeytype="boolean">
-        <option rowkey="false" title="Option 1"/>
-        <option rowkey="true" title="Option 2," selected="true">
-          <textedit name="checkboxaddendum2" title='if other' placeholder="Type a text" />
+      <select name="selectwithaddendum" type="pulldown" rowkeytype="boolean" title="select with addendum">
+        <option rowkey="false" title="Option 1" />
+        <option rowkey="true" selected="true" title="Option 2,">
+          <textedit name="checkboxaddendum2" placeholder="Type a text" title="if other" />
         </option>
       </select>
-      <rtd name="rtd" title="RTD" rtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype"/>
-      <imgedit name="imgedit" title="Image edit"/>
-      <checkbox name="agree1" title="With title" label="I agree with any terms or conditions"/>
-      <checkbox name="agree2" title="" label="I agree with any terms or conditions (no title)"/>
+      <rtd name="rtd" rtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype" title="RTD" />
+      <imgedit name="imgedit" title="Image edit" />
+      <checkbox name="agree1" label="I agree with any terms or conditions" title="With title" />
+      <checkbox name="agree2" label="I agree with any terms or conditions (no title)" title="" />
     </page>
+
     <page>
       <richtext name="text2" title="RTD2">
         <body xmlns="http://www.w3.org/1999/xhtml">
@@ -76,10 +85,11 @@
         </body>
       </richtext>
       <group name="addressgroup" title="Address field">
-        <address name="address" title="Address" countrylist="NL BE" options="nl-zip-suggest" />
+        <address name="address" countrylist="NL BE" options="nl-zip-suggest" title="Address" />
       </group>
-      <upload name="multiupload" title="Up to 4 files" maxfiles="4" />
-      <imgedit name="multiimage" title="Up to 8 images" maxfiles="8" />
+      <upload name="multiupload" maxfiles="4" title="Up to 4 files" />
+      <imgedit name="multiimage" maxfiles="8" title="Up to 8 images" />
     </page>
   </form>
+
 </formdefinitions>

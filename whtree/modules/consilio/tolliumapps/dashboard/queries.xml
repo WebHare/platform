@@ -1,6 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="queries.whlib"
-         gid="tolliumapps.dashboard.queries">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.queries" library="queries.whlib">
 
   <screen name="queries" title="">
     <actions>
@@ -9,14 +7,21 @@
       </action>
       <action name="clearqueries" onexecute="doclearqueries" tid="~clear" />
     </actions>
+
     <compositions>
       <eventlistener name="consiliolistener" onevents="onconsilioevents" />
     </compositions>
+
     <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="right" empty="Live queries are temporarily unavailable">
-            <column name="when" type="datetime" storeutc="true" width="15x" />
+          <list name="queries"
+                height="1pr"
+                borders="right"
+                empty="Live queries are temporarily unavailable"
+                openaction="openquery"
+                selectmode="single">
+            <column name="when" type="datetime" width="15x" storeutc="true" />
             <column name="catalog" type="text" width="20x" />
             <column name="query" type="text" width="1pr" />
           </list>
@@ -29,7 +34,7 @@
     </body>
   </screen>
 
-  <screen name="inspectquery" width="120x" height="35x" allowresize="true">
+  <screen name="inspectquery" width="120x" height="35x" allowresize="true" footerbuttons="close">
     <actions>
       <action name="runquery" onexecute="dorunquery" />
     </actions>
@@ -52,10 +57,6 @@
         </part>
       </split>
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
 </screens>

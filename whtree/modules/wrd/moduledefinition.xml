@@ -12,10 +12,9 @@
 
   <publisher>
     <webdesignplugin name="wrdauth"
-                     namespace="http://www.webhare.net/xmlns/wrd"
-                     objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin"
                      composerhook="js/internal/wrdauthplugin.ts#hookComposer"
-                     />
+                     namespace="http://www.webhare.net/xmlns/wrd"
+                     objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin" />
     <webdesignplugin name="formpayments"
                      namespace="http://www.webhare.net/xmlns/wrd"
                      objectname="lib/internal/psp/paymentsplugin.whlib#formpaymentsplugin" />
@@ -456,8 +455,9 @@
 
   <wrdschemas>
     <schema tag="testschema" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
+
     <!-- TODO abstract schema? -->
-    <schema tag="idp" definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" title="Identity Provider" autocreate="false" />
+    <schema tag="idp" autocreate="false" definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" title="Identity Provider" />
   </wrdschemas>
 
 </module>

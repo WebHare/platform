@@ -1,5 +1,4 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.objectprops.references"
          library="references.whlib">
 
@@ -13,7 +12,7 @@
     <newtab tid=".references">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="documents" selectmode="single" openaction="open" defaultbutton="openbutton">
+          <list name="documents" defaultbutton="openbutton" openaction="open" selectmode="single">
             <column name="whfspath" type="text" />
             <column name="title" type="text" tid="~title" />
             <column name="url" type="url" />

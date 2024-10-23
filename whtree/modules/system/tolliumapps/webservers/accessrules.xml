@@ -50,14 +50,18 @@
     </menus>
 
     <body height="1pr">
-      <textedit name="filter" placeholdertid=".filter-placeholder" width="1pr" onchange="onfilterchange" />
+      <textedit name="filter" width="1pr" onchange="onfilterchange" placeholdertid=".filter-placeholder" />
       <grid height="1pr">
         <cell width="1pr">
           <list name="accessrulelist"
                 height="1pr"
                 flags="webhareusers externalusers canview"
                 gid=".columns"
-                icons="tollium:users/user tollium:folders/normal tollium:tollium/tollium tollium:status/redirectpermanent tollium:status/redirecttemp"
+                icons="tollium:users/user
+                       tollium:folders/normal
+                       tollium:tollium/tollium
+                       tollium:status/redirectpermanent
+                       tollium:status/redirecttemp"
                 newcontextmenu="nosel"
                 openaction="edit"
                 selectcontextmenu="sel"

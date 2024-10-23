@@ -9,7 +9,6 @@ LOADLIB "wh::filetypes/harescript.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
 LOADLIB "mod::system/lib/internal/validation/scan.whlib";

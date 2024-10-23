@@ -1,39 +1,40 @@
-<screens
-    xmlns="http://www.webhare.net/xmlns/tollium/screens"
-    xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-    lib="screens/schemamanager.whlib"
-    gid="schemamanager">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="schemamanager"
+         library="/lib/screens/schemamanager.whlib">
 
   <messageboxes gid=".messageboxes">
-    <messagebox name="import_schema_replaced"   icon="information" buttons="ok" />
-    <messagebox name="import_schema_protected"   icon="error" buttons="ok" />
-    <messagebox name="import_schema_norights"   icon="error" buttons="ok" />
+    <messagebox name="import_schema_replaced" icon="information" buttons="ok" />
+    <messagebox name="import_schema_protected" icon="error" buttons="ok" />
+    <messagebox name="import_schema_norights" icon="error" buttons="ok" />
     <messagebox name="import_schema_errors" icon="error" buttons="ok" />
   </messageboxes>
 
   <screen name="main"
-          flags="right_superuser right_schemacreate"
-          gid=".main"
           width="95x"
           height="35x"
-          allowresize="true" savestate="true"
+          allowresize="true"
           defaultbutton="openschemabutton"
-          >
+          flags="right_superuser right_schemacreate"
+          gid=".main"
+          savestate="true">
     <actions gid=".actions">
       <action name="openschema" onexecute="doopenschema" tid="~open">
         <enableon source="schemas" min="1" max="1" />
       </action>
       <action name="close" onexecute="cancel" />
-
-      <action name="gotoid" onexecute="dogotoid" frameflags="right_superuser" shortcut="ctrl+shift+g" tid="tolliumapps.schemamanager.gotoid.gotoid" />
-      <action name="newschema" onexecute="doaddschema" frameflags="right_schemacreate" />
-      <action name="delschema" onexecute="dodelschema" frameflags="right_superuser" >
+      <action name="gotoid"
+              frameflags="right_superuser"
+              onexecute="dogotoid"
+              shortcut="ctrl+shift+g"
+              tid="tolliumapps.schemamanager.gotoid.gotoid" />
+      <action name="newschema" frameflags="right_schemacreate" onexecute="doaddschema" />
+      <action name="delschema" frameflags="right_superuser" onexecute="dodelschema">
         <enableon source="schemas" min="1" />
       </action>
-      <action name="editschema" onexecute="doeditschema" frameflags="right_schemacreate">
+      <action name="editschema" frameflags="right_schemacreate" onexecute="doeditschema">
         <enableon source="schemas" min="1" max="1" />
       </action>
-
       <uploadaction name="importschema" frameflags="right_schemacreate" onupload="onimport" />
       <action name="synchronize" onexecute="DoSynchronize">
         <enableon source="schemas" min="1" max="1" checkflags="!isprotected right_metadata" />
@@ -51,111 +52,122 @@
         <row height="1pr">
           <cell>
             <list name="schemas"
-                  selectmode="multiple"
                   flags="right_metadata isprotected"
                   icons="tollium:status/pinned tollium:users/users"
-                  openaction="openschema">
+                  openaction="openschema"
+                  selectmode="multiple">
               <acceptdrops ondrop="ondrop">
                 <acceptfile frameflags="right_schemacreate" />
               </acceptdrops>
-              <column name="tag" type="text" width="2pr" tid="~tag"/>
-              <column name="title" type="text" width="3pr" tid="~title"/>
+              <column name="tag" type="text" width="2pr" tid="~tag" />
+              <column name="title" type="text" width="3pr" tid="~title" />
               <column name="protected" type="icon" />
               <column name="usermgmt" type="icon" />
             </list>
           </cell>
           <cell>
-            <button action="newschema" tid="~add" width="1pr" />
-            <button action="editschema" tid="~edit" width="1pr" />
-            <button action="delschema" tid="~delete" width="1pr"  />
+            <button width="1pr" action="newschema" tid="~add" />
+            <button width="1pr" action="editschema" tid="~edit" />
+            <button width="1pr" action="delschema" tid="~delete" />
             <spacer height="1gr" />
-            <button action="gotoid" width="1pr" />
-            <button action="importschema" tid="~import" width="1pr" />
-            <button action="synchronize" tid="~synchronize" width="1pr" />
+            <button width="1pr" action="gotoid" />
+            <button width="1pr" action="importschema" tid="~import" />
+            <button width="1pr" action="synchronize" tid="~synchronize" />
           </cell>
         </row>
       </grid>
     </body>
+
     <footer>
       <line layout="right">
         <button name="openschemabutton" action="openschema" tid="~open" />
-        <button tolliumresult="cancel" tid="~cancel" />
+        <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>
 
-  <screen name="newschema" gid=".newschema" width="50x">
+  <screen name="newschema" width="50x" footerbuttons="ok cancel" gid=".newschema">
     <body>
-      <textedit name="name" tid="~tag" required="true" maxlength="256" width="1pr" />
-      <textarea name="description" tid="~description" maxlength="1024" height="5x"/>
+      <textedit name="name" width="1pr" maxlength="256" required="true" tid="~tag" />
+      <textarea name="description" height="5x" maxlength="1024" tid="~description" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="importschema" gid=".importschema">
+  <screen name="importschema" footerbuttons="ok cancel" gid=".importschema">
     <body>
-      <checkbox name="ignoremissingreferences" title="" labeltid=".ignoremissingreferences" value="true" />
+      <checkbox name="ignoremissingreferences" labeltid=".ignoremissingreferences" title="" value="true" />
       <textedit name="renameto" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="schemaprops" gid=".schemaprops">
+  <screen name="schemaprops" footerbuttons="ok cancel" gid=".schemaprops">
     <compositions>
       <record name="wrdschema" />
       <record name="paymentapiconfig" />
     </compositions>
+
     <body spacers="none">
       <tabs>
         <tab name="schema">
-          <textedit composition="wrdschema" cellname="name" tid="~tag" required="true" maxlength="256" />
-          <textedit composition="wrdschema" cellname="title" tid="~title" maxlength="256" />
-          <textarea composition="wrdschema" cellname="description" tid="~description" maxlength="1024" />
+          <textedit composition="wrdschema" cellname="name" maxlength="256" required="true" tid="~tag" />
+          <textedit composition="wrdschema" cellname="title" maxlength="256" tid="~title" />
+          <textarea composition="wrdschema" cellname="description" maxlength="1024" tid="~description" />
           <line layout="left">
-            <checkbox composition="wrdschema" cellname="protected" name="protected" title="" labeltid=".protect" />
+            <checkbox composition="wrdschema" cellname="protected" name="protected" labeltid=".protect" title="" />
           </line>
           <line layout="left">
-            <checkbox composition="wrdschema" cellname="usermgmt" name="usermgmt" title="" labeltid=".usermgmt" />
+            <checkbox composition="wrdschema" cellname="usermgmt" name="usermgmt" labeltid=".usermgmt" title="" />
           </line>
-          <select type="pulldown" composition="wrdschema" rowkeytype="integer" cellname="accounttype" name="accounttype" onchange="onaccounttypechange" />
-          <select type="pulldown" composition="wrdschema" rowkeytype="integer" cellname="accountemail" name="accountemail" />
-          <select type="pulldown" composition="wrdschema" rowkeytype="integer" cellname="accountlogin" name="accountlogin" />
-          <select type="pulldown" composition="wrdschema" rowkeytype="integer" cellname="accountpassword" name="accountpassword" />
-          <datetime composition="wrdschema" cellname="creationdate" storeutc="true" tid="~creationdate" readonly="true" type="datetime" />
+          <select composition="wrdschema"
+                  cellname="accounttype"
+                  name="accounttype"
+                  type="pulldown"
+                  onchange="onaccounttypechange"
+                  rowkeytype="integer" />
+          <select composition="wrdschema" cellname="accountemail" name="accountemail" type="pulldown" rowkeytype="integer" />
+          <select composition="wrdschema" cellname="accountlogin" name="accountlogin" type="pulldown" rowkeytype="integer" />
+          <select composition="wrdschema"
+                  cellname="accountpassword"
+                  name="accountpassword"
+                  type="pulldown"
+                  rowkeytype="integer" />
+          <datetime composition="wrdschema"
+                    cellname="creationdate"
+                    type="datetime"
+                    readonly="true"
+                    storeutc="true"
+                    tid="~creationdate" />
         </tab>
         <tab name="addressvalidation">
           <wrd:addressvalidation name="validationsettings" />
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="synchronizeschema" allowresize="true" width="90x" height="20x" savestate="size">
+  <screen name="synchronizeschema" width="90x" height="20x" allowresize="true" footerbuttons="close" savestate="size">
     <body>
-      <listedit name="syncpoints" height="1pr" emptytid=".nosyncpoints" ongetrows="ongetsyncpoints" onrowedit="oneditsyncpoint" onrowdelete="ondeletesyncpoint">
+      <listedit name="syncpoints"
+                height="1pr"
+                emptytid=".nosyncpoints"
+                ongetrows="ongetsyncpoints"
+                onrowdelete="ondeletesyncpoint"
+                onrowedit="oneditsyncpoint">
         <column name="peer" type="text" />
         <column name="remotewrdschema" type="text" />
       </listedit>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-   </footer>
   </screen>
 
-  <screen name="editschemasyncpoint">
+  <screen name="editschemasyncpoint" footerbuttons="ok cancel">
     <actions>
       <action name="selectpeer" onexecute="DoSelectPeer" tid="~select" />
     </actions>
+
     <compositions>
       <record name="rec" />
     </compositions>
+
     <body>
       <line>
         <textedit composition="rec" cellname="peer" name="peer" enabled="false" hiderequiredifdisabled="false" />
@@ -165,9 +177,6 @@
         <textedit composition="rec" cellname="remotewrdschema" name="remotewrdschema" width="1pr" required="true" />
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="deleteschemaprod" defaultbutton="cancelbutton" gid="tolliumapps.schemamanager.deleteschemaprod" title="">
@@ -181,10 +190,10 @@
       </statuspanel>
       <grid>
         <cell spacers="top bottom left">
-          <image name="pvt_icon" width="32px" height="32px" value="tollium:messageboxes/warning" title="" />
+          <image name="pvt_icon" width="32px" height="32px" title="" value="tollium:messageboxes/warning" />
         </cell>
-        <cell layout="left" spacers="all"  minwidth="50x">
-          <text name="warndeletion" title=""/>
+        <cell minwidth="50x" layout="left" spacers="all">
+          <text name="warndeletion" title="" />
           <checkbox name="confirmmoduleowneddeletion" onchange="onconfirmchange" title="" />
         </cell>
       </grid>
@@ -200,7 +209,7 @@
 
   <screen name="gotoid" footerbuttons="ok cancel" gid="tolliumapps.schemamanager.gotoid">
     <body>
-      <textedit name="id" valuetype="integer" required="true" emptyvalue="0" />
+      <textedit name="id" emptyvalue="0" required="true" valuetype="integer" />
     </body>
   </screen>
 

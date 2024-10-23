@@ -1,86 +1,106 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         xmlns:system="http://www.webhare.net/xmlns/system/components"
          xmlns:webapis="http://www.webhare.net/xmlns/system/webapis"
-         lib="screens/userrights/dialogs/users.whlib"
-         gid="userrights">
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="userrights"
+         library="/lib/screens/userrights/dialogs/users.whlib">
 
   <screen name="edituser" flags="cangrantany" gid=".edituser">
     <compositions>
       <wrd:entity name="userobj" />
     </compositions>
+
     <body spacers="none">
       <panel name="userinfopage">
-        <tabs type="regular" name="screentabs">
+        <tabs name="screentabs" type="regular">
           <tab name="account">
-            <!--<text  composition="userobj" cellname="wrd_fullname"/>-->
-            <textedit cellname="" name="email" composition="userobj" tid="~email" validationchecks="email" maxlength="256" />
-            <textedit cellname="" name="username" composition="userobj" required="true" tid="~username" maxlength="256" />
-            <textedit cellname="wrd_firstname" name="wrd_firstname" composition="userobj" />
-            <textedit cellname="wrd_infix" name="wrd_infix" composition="userobj" />
-            <textedit cellname="wrd_lastname" name="wrd_lastname" composition="userobj" />
+            <!-- <text  composition="userobj" cellname="wrd_fullname"/> -->
+            <textedit composition="userobj" cellname="" name="email" maxlength="256" tid="~email" validationchecks="email" />
+            <textedit composition="userobj" cellname="" name="username" maxlength="256" required="true" tid="~username" />
+            <textedit composition="userobj" cellname="wrd_firstname" name="wrd_firstname" />
+            <textedit composition="userobj" cellname="wrd_infix" name="wrd_infix" />
+            <textedit composition="userobj" cellname="wrd_lastname" name="wrd_lastname" />
             <passwordfield name="password" entercurrentpassword="false" />
             <authenticationsettings name="authenticationsettings" />
-            <select name="language" type="pulldown" tid="userrights.edituser.prefslang" width="1pr" />
-            <select composition="userobj" cellname="whuser_disable_type" gid="tolliumapps.userrights.common" tid=".accountstatus" type="radio" name="whuser_disable_type">
+            <select name="language" type="pulldown" width="1pr" tid="userrights.edituser.prefslang" />
+            <select composition="userobj"
+                    cellname="whuser_disable_type"
+                    name="whuser_disable_type"
+                    type="radio"
+                    gid="tolliumapps.userrights.common"
+                    tid=".accountstatus">
               <option rowkey="" tid=".accountstatus-active" />
               <option rowkey="inactive" />
               <option rowkey="manual" enablecomponents="whuser_disablereason" />
             </select>
-            <textarea name="whuser_disablereason" composition="userobj" cellname="whuser_disablereason" required="true" />
+            <textarea composition="userobj" cellname="whuser_disablereason" name="whuser_disablereason" required="true" />
             <spacer name="insertpoint_account" visible="false" />
           </tab>
           <tab name="advanced">
-            <datetime readonly="true" name="creationdate" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="wrd_creationdate"  />
-            <datetime readonly="true" name="lastlogin" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="whuser_lastlogin" tid=".lastlogin" />
-            <textedit readonly="true" name="lastip" enabled="false" tid=".lastip" visible="false" />
-
+            <datetime composition="userobj"
+                      cellname="wrd_creationdate"
+                      name="creationdate"
+                      type="datetime"
+                      enabled="false"
+                      readonly="true"
+                      storeutc="true" />
+            <datetime composition="userobj"
+                      cellname="whuser_lastlogin"
+                      name="lastlogin"
+                      type="datetime"
+                      enabled="false"
+                      readonly="true"
+                      storeutc="true"
+                      tid=".lastlogin" />
+            <textedit name="lastip" enabled="false" readonly="true" tid=".lastip" visible="false" />
             <line layout="left">
               <text valuetid=".explainguid" wordwrap="true" />
             </line>
             <line layout="left">
-              <checkbox name="enableguidedit" title="" labeltid="userrights.edituser.enableguidedit" visible="false" enablecomponents="wrd_guid" />
-              <textedit name="wrd_guid" required="true" width="1pr" title="" />
+              <checkbox name="enableguidedit"
+                        enablecomponents="wrd_guid"
+                        labeltid="userrights.edituser.enableguidedit"
+                        title=""
+                        visible="false" />
+              <textedit name="wrd_guid" width="1pr" required="true" title="" />
             </line>
             <spacer name="insertpoint_advanced" visible="false" />
           </tab>
           <tab name="commentbox" tid="~comments">
-            <textarea title="" name="comments" composition="userobj" cellname="whuser_comment" height="1pr" width="1pr"/>
+            <textarea composition="userobj" cellname="whuser_comment" name="comments" width="1pr" height="1pr" title="" />
           </tab>
         </tabs>
       </panel>
     </body>
+
     <footer name="okcancel">
-      <defaultformbuttons buttons="ok cancel"/>
+      <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
 
-  <screen name="setuserdefaults" gid="setuserdefaults" tid=".title">
+  <screen name="setuserdefaults" footerbuttons="ok cancel" gid="setuserdefaults" tid=".title">
     <body>
-      <box tid=".settings" hr="false">
-        <select name="language" type="pulldown" tid="userrights.edituser.prefslang" width="1pr" />
+      <box hr="false" tid=".settings">
+        <select name="language" type="pulldown" width="1pr" tid="userrights.edituser.prefslang" />
+
         <!--
         <select name="timeformat" type="pulldown" tid="userrights.edituser.prefstime" />
         <select name="dateformat" type="pulldown" tid="userrights.edituser.prefsdate" />
         -->
         <webapis:timezoneedit name="timezone" tid="userrights.edituser.timezone" />
-        <select name="decimalsep" type="pulldown" tid="userrights.edituser.decimalsep" width="1pr">
-          <option rowkey="." tid="userrights.edituser.dot" selected="true" />
+        <select name="decimalsep" type="pulldown" width="1pr" tid="userrights.edituser.decimalsep">
+          <option rowkey="." selected="true" tid="userrights.edituser.dot" />
           <option rowkey="," tid="userrights.edituser.comma" />
           <option rowkey=":" tid="userrights.edituser.colon" />
         </select>
-        <select name="thousandsep" type="pulldown" tid="userrights.edituser.thousandsep" width="1pr">
+        <select name="thousandsep" type="pulldown" width="1pr" tid="userrights.edituser.thousandsep">
           <option rowkey="" tid="userrights.edituser.none" />
           <option rowkey=" " tid="userrights.edituser.space" />
           <option rowkey="." tid="userrights.edituser.dot" />
-          <option rowkey="," tid="userrights.edituser.comma" selected="true" />
+          <option rowkey="," selected="true" tid="userrights.edituser.comma" />
           <option rowkey="'" tid="userrights.edituser.apostrophe" />
         </select>
       </box>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

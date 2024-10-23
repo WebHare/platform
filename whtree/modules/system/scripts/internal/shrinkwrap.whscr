@@ -6,7 +6,6 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";

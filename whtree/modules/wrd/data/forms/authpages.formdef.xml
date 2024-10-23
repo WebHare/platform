@@ -1,38 +1,36 @@
-<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms"
-                 xmlns:wrd="http://www.webhare.net/xmlns/wrd/forms"
-                 gid="site.forms.authpages">
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" gid="site.forms.authpages">
 
   <form name="login" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="LoginForm">
     <page>
-      <textedit name="username" required="1" tid=".username" autocomplete="username"/>
-      <password name="password" required="1" tid=".password" autocomplete="current-password"/>
+      <textedit name="username" autocomplete="username" required="1" tid=".username" />
+      <password name="password" autocomplete="current-password" required="1" tid=".password" />
     </page>
   </form>
 
   <form name="forgotpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ForgotPasswordForm">
     <page>
-      <textedit name="email" required="1"  tid=".email" autocomplete="email" />
+      <textedit name="email" autocomplete="email" required="1" tid=".email" />
     </page>
   </form>
 
   <form name="resetpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ResetPasswordForm">
     <page>
-      <password name="passwordnew" required="1"  tid=".passwordnew" autocomplete="new-password" />
-      <password name="passwordrepeat" required="1"  tid=".passwordrepeat" autocomplete="new-password" />
+      <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
+      <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
     </page>
   </form>
 
   <form name="emailchange" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="EmailChangeForm">
     <page>
-      <textedit name="email" required="1"  tid=".email" autocomplete="email" />
+      <textedit name="email" autocomplete="email" required="1" tid=".email" />
     </page>
   </form>
 
   <form name="passwordchange" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="PasswordChangeForm">
     <page>
-      <password name="currentpassword" required="1"  tid=".currentpassword" autocomplete="current-password" />
-      <password name="passwordnew" required="1"  tid=".passwordnew" autocomplete="new-password" />
-      <password name="passwordrepeat" required="1"  tid=".passwordrepeat" autocomplete="new-password" />
+      <password name="currentpassword" autocomplete="current-password" required="1" tid=".currentpassword" />
+      <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
+      <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
     </page>
   </form>
 

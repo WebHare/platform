@@ -43,7 +43,7 @@
     </compositions>
 
     <body height="1pr" spacers="none">
-      <panel backgroundcolor="#f0f0f0" spacers="left right" borders="bottom">
+      <panel backgroundcolor="#f0f0f0" borders="bottom" spacers="left right">
         <line layout="tabs-space">
           <select name="showdeleted" type="pulldown" onchange="onshowdeletedchange" rowkeytype="boolean" title="">
             <option rowkey="false" tid=".dontshowdeleted" />

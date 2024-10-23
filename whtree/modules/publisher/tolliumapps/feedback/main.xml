@@ -34,7 +34,7 @@
           <item action="close" />
           <item action="reopen" />
           <divider />
-          <item tid=".forwardto" name="forwardtoitem"/>
+          <item name="forwardtoitem" tid=".forwardto" />
           <divider />
           <item action="delete" />
         </item>
@@ -60,8 +60,8 @@
     <toolbar>
       <button action="escalate" icon="tollium:actions/escalate" />
       <button action="close" icon="tollium:status/positive" />
-      <divider/>
-      <button menu="forwardtomenu" icon="tollium:actions/forward" tid=".forwardto"/>
+      <divider />
+      <button icon="tollium:actions/forward" menu="forwardtomenu" tid=".forwardto" />
     </toolbar>
 
     <body spacers="none">
@@ -108,11 +108,11 @@
                 flags="canescalate canclose canreopen"
                 ongetchildren="getfeedbackrows"
                 onselect="onfeedbackselect"
+                rowkeytype="entityid"
                 selectcontextmenu="selectcontext"
                 selectmode="single"
                 sortascending="false"
-                sortcolumn="wrd_modificationdate"
-                rowkeytype="entityid">
+                sortcolumn="wrd_modificationdate">
             <column name="feedbackid" type="text" width="12x" />
             <column name="status" type="text" width="10x" optiongid="tolliumapps.feedback.types" />
             <column name="wrd_creationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />

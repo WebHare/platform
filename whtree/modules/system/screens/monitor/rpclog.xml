@@ -1,6 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/rpclog.whlib"
-         gid="monitor">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor" library="/lib/screens/monitor/rpclog.whlib">
 
   <screen name="rpclog" gid=".rpclog.panel">
     <actions>
@@ -8,23 +6,24 @@
         <enableon source="logslist" min="1" />
       </action>
     </actions>
+
     <compositions>
       <eventlistener masks="system:registry.system.logging.rpc" onevents="gotregistryevents" />
     </compositions>
+
     <body height="1pr" spacers="none">
-      <grid height="1pr" width="80x">
-        <col width="1pr"/>
-        <col/>
+      <grid width="80x" height="1pr">
+        <col width="1pr" />
+        <col />
         <row height="1pr">
           <cell>
             <list name="logslist"
-                  selectmode="single"
-                  borders="right"
                   height="1pr"
-                  openaction="properties"
+                  borders="right"
                   icons="tollium:status/negative tollium:status/checked tollium:status/warning"
-                  >
-              <column name="title" type="text" width="30x"/>
+                  openaction="properties"
+                  selectmode="single">
+              <column name="title" type="text" width="30x" />
               <column name="until" type="text" iconname="untilicon" />
             </list>
           </cell>
@@ -36,22 +35,25 @@
     </body>
   </screen>
 
-  <screen name="editrpclogsettings" tid=".title" gid=".rpclog.settings" width="50x">
-    <body layout="form" height="1pr">
+  <screen name="editrpclogsettings" width="50x" footerbuttons="ok cancel" gid=".rpclog.settings" tid=".title">
+    <body height="1pr" layout="form">
       <select name="loguntil" type="radio">
         <option rowkey="not" />
         <option rowkey="forever" />
         <option rowkey="until">
-          <datetime name="loguntildate" type="datetime" precision="minutes" title="" required="true" storeutc="true" errorlabeltid=".loguntildate" />
+          <datetime name="loguntildate"
+                    type="datetime"
+                    errorlabeltid=".loguntildate"
+                    precision="minutes"
+                    required="true"
+                    storeutc="true"
+                    title="" />
         </option>
       </select>
       <lines layout="left">
-        <checkbox name="profile" title="" labeltid=".profile" />
+        <checkbox name="profile" labeltid=".profile" title="" />
       </lines>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

@@ -50,13 +50,8 @@
               <text title="" valuetid=".folders" />
               <spacer name="togglespacer" />
               <buttongroup borders="left" layout="horizontal">
-                <button name="gotobutton"
-                        type="icon"
-                        action="gotoanything"
-                        disablemode="hidden"
-                        icon="tollium:folders/open"
-                        title="" />
-                <button name="folderpathbutton" type="icon" disablemode="hidden" icon="tollium:folders/star" title="" />
+                <button name="gotobutton" action="gotoanything" disablemode="hidden" icon="tollium:folders/open" title="" />
+                <button name="folderpathbutton" disablemode="hidden" icon="tollium:folders/star" title="" />
               </buttongroup>
               <spacer name="toggleref" width="0" visible="false" />
             </line>

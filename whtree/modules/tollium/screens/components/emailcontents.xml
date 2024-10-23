@@ -38,10 +38,7 @@
           <!-- we put the mail inside borders so you can see where the mail would be (possibly incorrectly) touching the edges on some mail clients -->
           <panel height="1pr" spacers="top bottom left right">
             <panel height="1pr" borders="top bottom left right">
-              <iframe name="preview"
-                      width="1pr"
-                      height="1pr"
-                      sandbox="allow-popups allow-popups-to-escape-sandbox" />
+              <iframe name="preview" width="1pr" height="1pr" sandbox="allow-popups allow-popups-to-escape-sandbox" />
             </panel>
           </panel>
         </part>

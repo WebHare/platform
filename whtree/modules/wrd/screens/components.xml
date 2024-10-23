@@ -1,17 +1,16 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-  gid="components">
-
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="components">
 
   <fragment name="quickfilter" gid=".quickfilter" lib="components/quickfilter.whlib">
     <actions>
-      <action name="searchfree" frameflags="can_search_free"  onexecute="dosearchfree" />
+      <action name="searchfree" frameflags="can_search_free" onexecute="dosearchfree" />
     </actions>
     <contents>
       <line>
         <select name="freeattr" type="pulldown" defaultbutton="btn_searchfree" onchange="onselectfreeattr" />
-        <textedit name="freevalue" defaultbutton="btn_searchfree" width="30x" />
-        <button name="btn_searchfree" action="searchfree" hinttid=".searchhint" tid="~search"/>
+        <textedit name="freevalue" width="30x" defaultbutton="btn_searchfree" />
+        <button name="btn_searchfree" action="searchfree" hinttid=".searchhint" tid="~search" />
       </line>
     </contents>
   </fragment>
@@ -19,7 +18,7 @@
   <fragment name="gender" lib="components/gender.whlib">
     <contents>
       <select name="gender" type="pulldown" rowkeytype="integer">
-        <option rowkey="0" title="" invalidselection="true" />
+        <option rowkey="0" invalidselection="true" title="" />
         <option rowkey="1" tid="wrd:common.gender.male" />
         <option rowkey="2" tid="wrd:common.gender.female" />
         <option rowkey="3" tid="wrd:common.gender.other" />
@@ -29,8 +28,8 @@
 
   <fragment name="domaintagedit" lib="components/domaintagedit.whlib">
     <contents>
-      <tagedit name="tagedit" title="" width="1pr">
-        <autosuggest suggestobjectname="mod::wrd/lib/components/domaintagedit.whlib#domaintagsautosuggest" name="autosuggest" />
+      <tagedit name="tagedit" width="1pr" title="">
+        <autosuggest name="autosuggest" suggestobjectname="mod::wrd/lib/components/domaintagedit.whlib#domaintagsautosuggest" />
       </tagedit>
     </contents>
   </fragment>
@@ -52,37 +51,40 @@
     </contents>
   </fragment>
 
-
   <fragment name="arraybox" gid=".arraybox" lib="components/arraybox.whlib">
     <contents>
       <box name="mybox" height="1pr" title="">
-        <arrayedit name="listobj" height="1pr" onrowedit="editrow"/>
+        <arrayedit name="listobj" height="1pr" onrowedit="editrow" />
       </box>
     </contents>
   </fragment>
 
   <fragment name="tolliumwrdaddressfield" lib="components/addressfield.whlib">
     <actions>
-      <action name="changeaction" onexecute="changeaddress" title=""/>
+      <action name="changeaction" onexecute="changeaddress" title="" />
     </actions>
     <contents>
-      <inlineblock height="3gr" name="block" tid=".addressfield">
+      <inlineblock name="block" height="3gr" tid=".addressfield">
         <grid height="1pr">
           <cell width="1pr">
-            <textarea minwidth="30x" width="1pr" height="1pr" name="addressfield" defaultbutton="changebutton" enabled="false" title="" hiderequiredifdisabled="false" />
+            <textarea name="addressfield"
+                      width="1pr"
+                      height="1pr"
+                      minwidth="30x"
+                      defaultbutton="changebutton"
+                      enabled="false"
+                      hiderequiredifdisabled="false"
+                      title="" />
           </cell>
           <cell>
-            <button name="changebutton" tid="~edit" action="changeaction" />
+            <button name="changebutton" action="changeaction" tid="~edit" />
           </cell>
         </grid>
       </inlineblock>
     </contents>
   </fragment>
 
-  <fragment
-      name="addressvalidation"
-      lib="components/addressvalidation.whlib"
-      gid=".addressvalidation">
+  <fragment name="addressvalidation" gid=".addressvalidation" lib="components/addressvalidation.whlib">
     <contents>
       <select name="validationtype" type="pulldown" onchange="ontypeselected">
         <option rowkey="" tid=".validationtype-default" />
@@ -95,27 +97,25 @@
     </contents>
   </fragment>
 
-  <tabsextension
-      name="pdoksettings"
-      gid=".addressvalidation.pdok"
-      implementation="lib"
-      lib="internal/addressverification/pdok.whlib">
+  <tabsextension name="pdoksettings"
+                 gid=".addressvalidation.pdok"
+                 implementation="lib"
+                 lib="internal/addressverification/pdok.whlib">
     <actions>
       <windowopenaction name="showmoreinfo" onwindowopen="doshowmoreinfo" title="" />
     </actions>
     <newtab>
       <panel layout="left">
         <text valuetid=".description" wordwrap="true" />
-        <text valuetid="components.addressvalidation.moreinfo" wordwrap="true" action="showmoreinfo" />
+        <text action="showmoreinfo" valuetid="components.addressvalidation.moreinfo" wordwrap="true" />
       </panel>
     </newtab>
   </tabsextension>
 
-  <tabsextension
-      name="fallbacksettings"
-      gid=".addressvalidation.fallback"
-      implementation="lib"
-      lib="internal/addressverification/fallback.whlib">
+  <tabsextension name="fallbacksettings"
+                 gid=".addressvalidation.fallback"
+                 implementation="lib"
+                 lib="internal/addressverification/fallback.whlib">
     <newtab>
       <panel layout="left">
         <text valuetid=".description" wordwrap="true" />
@@ -123,58 +123,55 @@
     </newtab>
   </tabsextension>
 
-  <tabsextension
-      name="postcodeapisettings"
-      gid=".addressvalidation.postcodeapi"
-      implementation="lib"
-      lib="internal/addressverification/postcodeapi.whlib">
+  <tabsextension name="postcodeapisettings"
+                 gid=".addressvalidation.postcodeapi"
+                 implementation="lib"
+                 lib="internal/addressverification/postcodeapi.whlib">
     <actions>
       <windowopenaction name="showmoreinfo" onwindowopen="doshowmoreinfo" title="" />
     </actions>
     <newtab>
       <panel layout="left">
         <text valuetid=".description" wordwrap="true" />
-        <text valuetid="components.addressvalidation.moreinfo" wordwrap="true" action="showmoreinfo" />
+        <text action="showmoreinfo" valuetid="components.addressvalidation.moreinfo" wordwrap="true" />
       </panel>
       <textedit name="apikey" required="true" />
     </newtab>
   </tabsextension>
 
-  <tabsextension
-      name="webservicessettings"
-      gid=".addressvalidation.webservices"
-      implementation="lib"
-      lib="internal/addressverification/webservices_nl.whlib">
+  <tabsextension name="webservicessettings"
+                 gid=".addressvalidation.webservices"
+                 implementation="lib"
+                 lib="internal/addressverification/webservices_nl.whlib">
     <actions>
       <windowopenaction name="showmoreinfo" onwindowopen="doshowmoreinfo" title="" />
     </actions>
     <newtab>
       <panel layout="left">
         <text valuetid=".description" wordwrap="true" />
-        <text valuetid="components.addressvalidation.moreinfo" wordwrap="true" action="showmoreinfo" />
+        <text action="showmoreinfo" valuetid="components.addressvalidation.moreinfo" wordwrap="true" />
       </panel>
       <textedit name="login" required="true" />
       <textedit name="password" password="true" required="true" />
     </newtab>
   </tabsextension>
 
-  <tabsextension
-      name="postcodenlsettings"
-      gid=".addressvalidation.postcodenl"
-      implementation="lib"
-      lib="internal/addressverification/postcode_nl.whlib">
+  <tabsextension name="postcodenlsettings"
+                 gid=".addressvalidation.postcodenl"
+                 implementation="lib"
+                 lib="internal/addressverification/postcode_nl.whlib">
     <actions>
       <windowopenaction name="showmoreinfo" onwindowopen="doshowmoreinfo" title="" />
     </actions>
     <newtab>
       <panel layout="left">
         <text valuetid=".description" wordwrap="true" />
-        <text valuetid="components.addressvalidation.moreinfo" wordwrap="true" action="showmoreinfo" />
+        <text action="showmoreinfo" valuetid="components.addressvalidation.moreinfo" wordwrap="true" />
       </panel>
-      <textedit name="apikey" required="true" width="1pr" />
-      <textedit name="secret" password="true" required="true" width="1pr" />
+      <textedit name="apikey" width="1pr" required="true" />
+      <textedit name="secret" width="1pr" password="true" required="true" />
       <line layout="left">
-        <checkbox title="" labeltid=".fullsubscription" name="fullsubscription" />
+        <checkbox name="fullsubscription" labeltid=".fullsubscription" title="" />
       </line>
     </newtab>
   </tabsextension>

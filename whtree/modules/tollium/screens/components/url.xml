@@ -1,17 +1,16 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="/lib/components/url.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="/lib/components/url.whlib">
 
   <fragment name="tolliumurl">
     <actions>
-      <copyaction name="copylink" title="" source="previewurl" />
-      <windowopenaction name="openlink" title="" onwindowopen="onopenlink" />
+      <copyaction name="copylink" source="previewurl" title="" />
+      <windowopenaction name="openlink" onwindowopen="onopenlink" title="" />
       <action name="qrlink" onexecute="doqrlink" title="" />
     </actions>
     <contents>
-      <textedit width="1pr" name="previewurl" enabled="false" title="">
-        <button name="copybutton" type="icon" icon="tollium:actions/copy" action="copylink" title="" />
-        <button name="qrbutton" type="icon" icon="tollium:objects/qr" action="qrlink" title="" />
-        <button name="openbutton" type="icon" icon="tollium:actions/openlink" action="openlink" title="" />
+      <textedit name="previewurl" width="1pr" enabled="false" title="">
+        <button name="copybutton" action="copylink" icon="tollium:actions/copy" title="" />
+        <button name="qrbutton" action="qrlink" icon="tollium:objects/qr" title="" />
+        <button name="openbutton" action="openlink" icon="tollium:actions/openlink" title="" />
       </textedit>
     </contents>
   </fragment>

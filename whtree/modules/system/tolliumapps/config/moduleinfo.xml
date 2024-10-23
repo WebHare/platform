@@ -1,4 +1,3 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="moduleinfo.whlib" gid="tolliumapps.config">
-
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.config" library="moduleinfo.whlib">
 
 </screens>

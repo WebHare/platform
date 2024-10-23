@@ -1,8 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="search.whlib"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         gid="filemanager.search"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="filemanager.search" library="search.whlib">
 
   <screen name="filterpanel" gid=".filterpanel" title="">
     <body name="filters" layout="left">
@@ -18,51 +14,68 @@
       <action name="deletefilter" onexecute="dodeletefilter" title="" />
     </actions>
     <contents>
-      <inlineblock name="comp" title="" width="1pr" layout="left">
+      <inlineblock name="comp" width="1pr" layout="left" title="">
         <line>
-          <select name="filtertype" type="pulldown" title="" onchange="onselecttype" rowkeytype="string" />
-
+          <select name="filtertype" type="pulldown" onchange="onselecttype" rowkeytype="string" title="" />
           <text name="matchlabel" title="" visible="false" />
-          <select name="matchtype" type="pulldown" title="" visible="false" onchange="onselectmatchtype" />
-
+          <select name="matchtype" type="pulldown" onchange="onselectmatchtype" title="" visible="false" />
           <textedit name="textquery" width="1pr" title="" />
-          <textedit name="datequeryperiod" title="" valuetype="integer" emptyvalue="0" visible="false" width="5x" onchange="onchangedatequery" />
-          <select name="datequeryunit" title="" type="pulldown" visible="false" onchange="onchangedatequery">
+          <textedit name="datequeryperiod"
+                    width="5x"
+                    emptyvalue="0"
+                    onchange="onchangedatequery"
+                    title=""
+                    valuetype="integer"
+                    visible="false" />
+          <select name="datequeryunit" type="pulldown" onchange="onchangedatequery" title="" visible="false">
             <option rowkey="days" tid=".filtertypes.period-days" />
             <option rowkey="weeks" tid=".filtertypes.period-weeks" />
             <option rowkey="months" tid=".filtertypes.period-months" />
             <option rowkey="years" tid=".filtertypes.period-years" />
           </select>
-          <date name="datequerydate" title="" visible="false" onselect="onchangedatequery" />
+          <date name="datequerydate" onselect="onchangedatequery" title="" visible="false" />
           <select name="valuequery" type="pulldown" orientation="horizontal" title="" visible="false" />
-          <textedit name="selectquery" width="1pr" title="" enabled="false" visible="false" />
-          <button name="selectqueryselectbutton" action="selectqueryselect" type="icon" icon="tollium:actions/edit" title="" visible="false"/>
-          <button name="selectqueryclearbutton" action="selectqueryclear" type="icon" icon="tollium:actions/delete" title="" visible="false"/>
+          <textedit name="selectquery" width="1pr" enabled="false" title="" visible="false" />
+          <button name="selectqueryselectbutton"
+                  action="selectqueryselect"
+                  icon="tollium:actions/edit"
+                  title=""
+                  visible="false" />
+          <button name="selectqueryclearbutton"
+                  action="selectqueryclear"
+                  icon="tollium:actions/delete"
+                  title=""
+                  visible="false" />
           <inlineblock name="customquery" title="" visible="false" />
-
           <spacer name="buttonspacer" width="1pr" visible="false" />
-          <button action="deletefilter" name="deletefilterbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
-          <button action="addfilter" name="addfilterbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
+          <button name="deletefilterbutton" action="deletefilter" icon="tollium:buttonbar/minus" title="" />
+          <button name="addfilterbutton" action="addfilter" icon="tollium:buttonbar/plus" title="" />
         </line>
       </inlineblock>
     </contents>
   </fragment>
 
-  <screen name="selecttype" gid=".filterpanel.types"
-          width="40x" height="20x" allowresize="true" savestate="size" defaultbutton="ok_button">
+  <screen name="selecttype"
+          width="40x"
+          height="20x"
+          allowresize="true"
+          defaultbutton="ok_button"
+          gid=".filterpanel.types"
+          savestate="size">
     <body>
       <line>
         <spacer width="1pr" />
         <textedit name="filter" onchange="onfilterchange" visible="false" />
       </line>
       <list name="typeslist" width="1pr" height="1pr" selectmode="multiple">
-        <column name="title" iconname="icon" type="text" />
+        <column name="title" type="text" iconname="icon" />
         <column name="namespace" type="text" />
       </list>
     </body>
+
     <footer>
       <line>
-        <checkbox name="showall" title="" labeltid=".showall" onchange="onshowallchange" />
+        <checkbox name="showall" labeltid=".showall" onchange="onshowallchange" title="" />
         <spacer width="1pr" />
         <button name="ok_button" tid="~ok" tolliumresult="ok" />
         <button tid="~cancel" tolliumresult="cancel" />

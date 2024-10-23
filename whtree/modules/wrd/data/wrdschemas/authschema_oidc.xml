@@ -1,20 +1,22 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
+  <import definitionfile="/data/wrdschemas/authschema.xml" />
 
-  <object tag="WRDAUTH_OIDC_CLIENT"> <!-- these are our OIDC registrations, ie where this WRD Schema is a service provider to an external identity provider -->
+  <object tag="wrdauth_oidc_client">
+    <!-- these are our OIDC registrations, ie where this WRD Schema is a service provider to an external identity provider -->
     <attributes>
-      <free tag="WRD_TITLE" unique="true" required="true"/>
-      <integer tag="WRD_ORDERING" /> <!-- TODO make this object a domain and then use the builtin wrd_ordering -->
-      <free tag="METADATAURL" />
-      <free tag="CLIENTID" />
-      <free tag="CLIENTSECRET" />
-      <free tag="ADDITIONALSCOPES" />
-      <free tag="LOGINFIELD" /> <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->
-
-      <free tag="REDIRECT_URI" description="Override the redirect URI used. Must point a page implementing the OAuth2 landing code"/>
-      <enum tag="VISIBILITY" allowedvalues="hidden ifused" description="Limit visibility of this login option. hidden: always hide. ifused: show after first use or triggering. "/>
+      <free tag="wrd_title" required="true" unique="true" />
+      <integer tag="wrd_ordering" />  <!-- TODO make this object a domain and then use the builtin wrd_ordering -->
+      <free tag="metadataurl" />
+      <free tag="clientid" />
+      <free tag="clientsecret" />
+      <free tag="additionalscopes" />
+      <free tag="loginfield" />  <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->
+      <free tag="redirect_uri"
+            description="Override the redirect URI used. Must point a page implementing the OAuth2 landing code" />
+      <enum tag="visibility"
+            allowedvalues="hidden ifused"
+            description="Limit visibility of this login option. hidden: always hide. ifused: show after first use or triggering. " />
     </attributes>
   </object>
 

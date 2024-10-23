@@ -43,7 +43,10 @@
     <footer>
       <grid>
         <cell layout="left">
-          <checkbox name="showalltypes" labeltid="tolliumapps.common.settings.showalltypes" onchange="onalltypeschange" title="" />
+          <checkbox name="showalltypes"
+                    labeltid="tolliumapps.common.settings.showalltypes"
+                    onchange="onalltypeschange"
+                    title="" />
         </cell>
         <cell width="1pr">
           <line layout="right">
