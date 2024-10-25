@@ -217,7 +217,7 @@ PUBLIC STATIC OBJECTTYPE FrameManager EXTEND EventEmitter
     IF (ObjectExists(frame))
     {
       FOREVERY (OBJECT child FROM frame->childframes)
-        this->RemoveFramesRecursively(frame->childframes);
+        this->RemoveFramesRecursively(child);
     }
 
     IF (ismainframe)
@@ -241,7 +241,7 @@ PUBLIC STATIC OBJECTTYPE FrameManager EXTEND EventEmitter
   MACRO GotFrameDetached(RECORD data)
   {
     RECORD frame := this->FindFrame(data.frameid);
-    IF (frame.found)
+    IF (frame.found AND data.reason = 'remove')
       this->RemoveFramesRecursively(frame.frame);
   }
 
