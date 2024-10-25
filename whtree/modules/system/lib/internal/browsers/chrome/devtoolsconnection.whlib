@@ -109,8 +109,8 @@ PUBLIC STATIC OBJECTTYPE DevToolsConnection EXTEND EventEmitter
     CATCH (OBJECT e)
     {
       LogHareScriptException(e);
-      PRINT(`Error in the DevTools receiver loop: ${e->what}\n${AnyToString(e->trace, "boxed")}`);
-      TerminateScript();
+      PrintTo(2,`Error in the DevTools receiver loop: ${e->what}\n${AnyToString(e->trace, "boxed")}`);
+      ABORT(`Error in the DevTools receiver loop: ${e->what}`);
     }
   }
 
