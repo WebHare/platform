@@ -179,9 +179,9 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
 
   //Remove old files - but only if we have a full view of which files there should be
   if (targets.includes('all')) {
-    await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-    await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-    await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+    await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+    await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+    await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   }
   return;
 }
