@@ -543,9 +543,16 @@ void PathStatus::ParseStatbuf(void const *__statbuf, const char *)
             flags = Other;
 
 #if defined(__EMSCRIPTEN__)
+        // don't know exactly when the bug that the nsecs field was filled by msecs was fixed, it was wrong in 3.1.60 and fixed in 3.1.70
+  #if (__EMSCRIPTEN_major__ > 3 || (__EMSCRIPTEN_major__ == 3 && (__EMSCRIPTEN_minor__ > 1 || (__EMSCRIPTEN_minor__ == 1 && __EMSCRIPTEN_tiny >= 70))))
+        modtime=Blex::DateTime::FromTimeT(statbuf.st_mtime, statbuf.st_mtim.tv_nsec / 1000000);
+        accesstime=Blex::DateTime::FromTimeT(statbuf.st_atime, statbuf.st_atim.tv_nsec / 1000000);
+        createtime=Blex::DateTime::FromTimeT(statbuf.st_ctime, statbuf.st_ctim.tv_nsec / 1000000);
+  #else
         modtime=Blex::DateTime::FromTimeT(statbuf.st_mtime, statbuf.st_mtim.tv_nsec / 1000);
         accesstime=Blex::DateTime::FromTimeT(statbuf.st_atime, statbuf.st_atim.tv_nsec / 1000);
         createtime=Blex::DateTime::FromTimeT(statbuf.st_ctime, statbuf.st_ctim.tv_nsec / 1000);
+  #endif
 #elif defined(PLATFORM_LINUX)
         modtime=Blex::DateTime::FromTimeT(statbuf.st_mtime, statbuf.st_mtim.tv_nsec / 1000000);
         accesstime=Blex::DateTime::FromTimeT(statbuf.st_atime, statbuf.st_atim.tv_nsec / 1000000);

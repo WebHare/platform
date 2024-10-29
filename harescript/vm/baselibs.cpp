@@ -17,7 +17,7 @@
 // Show debug stuff
 //#define SHOW_PACKET
 //#define SHOW_GENERATORS
-#define SHOW_WFM
+//#define SHOW_WFM
 
 #if defined(SHOW_PACKET) && defined(WHBUILD_DEBUG)
  #define PACKET_PRINT(x) DEBUGPRINT(x)
