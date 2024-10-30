@@ -16,6 +16,7 @@ ENV LC_ALL=C \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
   WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR \
+  WEBHARE_NODE_BINARY=node \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
   PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
