@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -eo pipefail
 
 WEBHARE_CHECKEDOUT_TO="$(cd "${BASH_SOURCE%/*}/.."; pwd)"
@@ -28,6 +27,52 @@ if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$WHBUILD_ALLOW" ]; then
   die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
 fi
 
+generateFormula()
+{
+  cat << HERE
+# typed: false
+# frozen_string_literal: true
+
+# This is a dummy formula that is used to install the dependencies for WebHare
+class WebhareDeps < Formula
+  desc "WebHare dependency descriptions"
+  homepage "https://www.webhare.dev/"
+
+  # dummy.tar.gz is an empty tar.gz, but we need to provide brew with *something*
+  url "file://${BASH_SOURCE%/*}/../addons/darwin/dummy.tar.gz"
+  version "1"
+  sha256 "6d888e48bcda88870b318feee151d42ace8054fb5cd9a10df56786348cc61628"
+
+  depends_on "libtool"
+  depends_on "autoconf"
+  depends_on "automake"
+  depends_on "ccache"
+  depends_on "freetype"
+  depends_on "fswatch"
+  depends_on "giflib"
+  depends_on "icu4c"
+  depends_on "jq"
+  depends_on "libmaxminddb"
+  depends_on "libpng"
+  depends_on "libtiff"
+  depends_on "make"
+  depends_on "node@$WEBHARE_NODE_MAJOR"
+  depends_on "openssl"
+  depends_on "pixman"
+  depends_on "pkg-config"
+  depends_on "postgresql@13" # The one shipped for 4.35 up to 5.6
+  depends_on "postgresql@16" # Newly added in 5.6
+  depends_on "rapidjson"
+  depends_on "opensearch"
+
+  def install
+    # Note that we can't have the file have any of the usual meta filenames eg. README
+    prefix.install "dummy.txt"
+  end
+end
+HERE
+}
+
 # Setup the build system
 getwebhareversion
 
@@ -46,9 +91,8 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
     # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
     # Also reinstall if important apps are missing which may point to a partial/failed brew installation
     CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
-    if [ "$DEPSFILE" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ] || ! hash gmake 2>/dev/null; then
-      export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR" # homebrew filters most env vars
-      export HOMEBREW_WEBHARE_CHECKEDOUT_TO="$WEBHARE_CHECKEDOUT_TO"
+    if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ] || ! hash gmake 2>/dev/null; then
+      generateFormula > "$DEPSFILE"
       echo -n "Brew: "
       if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
       echo "$TODAY" > "$CHECKFILE"
