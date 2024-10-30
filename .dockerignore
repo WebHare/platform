@@ -1,0 +1,15 @@
+.git
+**/node_modules
+**/engines/pdfbox*.jar
+**/webhare_testsuite
+vendor/emsdk/node
+vendor/emsdk/python
+vendor/emsdk/upstream
+vendors/emsdk/downloads
+
+# Ignore artficats from source tree builds
+whtree/bin/*
+!whtree/bin/*.sh
+!whtree/bin/wh
+whtree/lib/*
+!whtree/lib/*.sh

@@ -24,6 +24,22 @@ if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
   fi
 fi
 
+generatebuildinfo()
+{
+  [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
+  [ -n "$WEBHARE_VERSION" ] || die WEBHARE_VERSION not set
+
+    cat > "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo.tmp" << HERE
+committag="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
+version="${WEBHARE_VERSION}"
+branch="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)"
+origin=$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url)
+builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+builddate="$(date +'%Y-%m-%d')"
+buildtime="$(date +'%H:%M:%S')"
+HERE
+  mv "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo.tmp" "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo"
+}
 
 die()
 {

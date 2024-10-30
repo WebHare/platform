@@ -1,32 +1,37 @@
 #!/bin/bash
+set -eo pipefail
 
-if [ -z "$WEBHARE_BUILDDIR" ]; then
+if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
   echo "We expect to be launched by 'wh builddocker' "
   exit 1
 fi
 
 DOCKERBUILDARGS=()
 USEPODMAN=""
-cd `dirname $0`
 
-source $WEBHARE_DIR/lib/wh-functions.sh
+source "$WEBHARE_DIR/lib/wh-functions.sh"
+cd "$WEBHARE_CHECKEDOUT_TO" || exit 1
+if [ ! -f builder/base_makefile ]; then
+  echo "$(pwd) does not appear to be a proper WebHare source tree root"
+  exit 1
+fi
+
+DOCKERFILE="$(pwd)/addons/docker-build/Dockerfile"
 
 while [[ $1 =~ ^-.* ]]; do
-  if [ "$1" == "--checkout" ]; then
-    shift
-    GITCHECKOUT=$1
-  elif [ "$1" == "--nopull" ]; then
+  if [ "$1" == "--nopull" ]; then
     DOCKERPULLARG=""
   elif [ "$1" == "--podman" ]; then
     USEPODMAN="1"
     # without label=disable we can't run our build scripts. Adding `,relabel=shared` to RUN --mount=type=bind helps but makes us Docker incompatible
+    # but still buildah lets us enter intermediate stages like old docker build did, so maintaining podman is already useful for that
     DOCKERBUILDARGS+=(--security-opt=label=disable)
-  elif [ "$1" == "--nocache" -o "$1" == "--no-cache"  ]; then
+    echo "WARNING: podman builds are unsafe (stale layers) until https://github.com/containers/buildah/issues/5400 is fixed"
+  elif [ "$1" == "--nocache" ] || [ "$1" == "--no-cache"  ]; then
     DOCKERBUILDARGS+=(--no-cache)
   elif [ "$1" == "--dockerfile" ]; then
     shift
-    DOCKERBUILDARGS+=(-f)
-    DOCKERBUILDARGS+=($1)
+    DOCKERFILE="$1"
   else
     echo "Illegal option $1"
     exit 1
@@ -40,10 +45,9 @@ fi
 
 if [ -n "$CI_COMMIT_SHA" ]; then
   # validate CI environment
-  BUILDING_INSIDE_CI=1
   echo "CI build detected ($CI_COMMIT_SHA)"
   echo "CI build - environment variables:"
-  set | egrep '^(CI_|TESTFW_|WEBHARE_DEBUG)' | sort
+  set | grep -E '^(CI_|TESTFW_|WEBHARE_DEBUG)' | sort
 
   if [ -z "$CI_REGISTRY_IMAGE" ]; then
     echo "Please enable the container registry for this project"
@@ -57,40 +61,17 @@ wh_getemscriptenversion
 get_finaltag
 list_finaltag
 
-pushd ../.. >/dev/null 2>&1
-if [ ! -f builder/base_makefile ]; then
-  echo "`pwd` does not appear to be a proper WebHare source tree root"
-  exit 1
-fi
-SOURCEDIR="`pwd`"
-
-
-if [ -z "$DOCKERBUILDFOLDER" ]; then
-  DOCKERBUILDFOLDER="$HOME/.webharebuild"
-fi
-
 if [ "$DOCKERSUDO" == "1" ]; then
   SUDO=sudo
 else
   SUDO=
 fi
 
-
-popd  >/dev/null 2>&1
-
-# Avoid polluting the build tree, we'll do our work in a private folder
-WORKDIR="$WEBHARE_BUILDDIR/docker-build"
-rm -rf $WORKDIR
-mkdir -p $WORKDIR
-cd $WORKDIR
-
 TARCREATEOPTS=()
 # select the right tar implementation, we need gnu-tar
 if [ "$(uname)" == "Darwin" ]; then
   TARCREATEOPTS+=(--no-xattrs)
 fi
-
-GITCHECKOUT=
 
 DOCKERPULLARG=--pull
 
@@ -100,37 +81,7 @@ if [ "$#" != "0" ]; then
   exit 1
 fi
 
-BUILDHASHDATA=$SOURCEDIR:$GITCHECKOUT
-
-# unique workdir per checkout, so you can safely run multiple builddockers
-if [ "`uname`" == "Darwin" ]; then
-  BUILDHASH=$(echo $BUILDHASHDATA|md5)
-else
-  BUILDHASH=$(echo $BUILDHASHDATA|md5sum|cut -d' ' -f1)
-fi
-
-if [ -n "$GITCHECKOUT" ]; then
-  echo "ORG SOURCEDIR=$SOURCEDIR"
-  TEMPSOURCEDIR="/tmp/dockerbuildsource-$BUILDHASH"
-  echo "SOURCEDIR=$TEMPSOURCEDIR"
-  rm -rf -- $TEMPSOURCEDIR
-  cp -ar -- $SOURCEDIR $TEMPSOURCEDIR
-  cd $TEMPSOURCEDIR
-  if ! git checkout -f $GITCHECKOUT; then
-    echo "Error checking out '$GITCHECKOUT'"
-    exit 1
-  fi
-  SOURCEDIR="$TEMPSOURCEDIR"
-fi
-
 #############################################################################
-
-cd "$WORKDIR"
-echo "Work directory: $WORKDIR"
-if ! cp -a $SOURCEDIR/addons/docker-build/* $WORKDIR/ ; then
-  echo "Copy failed"
-  exit 1
-fi
 
 echo ""
 echo "Packaging source tree for the WebHare runner"
@@ -156,8 +107,8 @@ if [ -z "$CI_COMMIT_SHA" ]; then
   # Not a CI build, try to get git commit and branch
   # Also note that Runkit expects a com.webhare.webhare.git-commit-ref label to be present to recognize the image as a WebHare image
   # so this is the path used by Escrow builds to actually set this information
-  CI_COMMIT_SHA="`cd $SOURCEDIR ; git rev-parse HEAD 2> /dev/null`"
-  CI_COMMIT_REF_NAME="`cd $SOURCEDIR ; git rev-parse --abbrev-ref HEAD 2> /dev/null`"
+  CI_COMMIT_SHA="$(git rev-parse HEAD 2> /dev/null)"
+  CI_COMMIT_REF_NAME="$(git rev-parse --abbrev-ref HEAD 2> /dev/null)"
   if [ -n "$CI_COMMIT_SHA$CI_COMMIT_REF_NAME" ]; then
     echo "Building from git, branch '$CI_COMMIT_REF_NAME', commit '$CI_COMMIT_SHA'"
   fi
@@ -174,55 +125,14 @@ DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WEBHARE_VERSION=$WEBHARE_VERSION")
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION")
+DOCKERBUILDARGS+=(--file)
+DOCKERBUILDARGS+=("$DOCKERFILE")
 
 # Grab the main build dirs
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)
 
-[ -d whtree ] && rm -rf whtree # remove old build data
-# recurse-submodules ensures we get the tracked files but not eg. node_modules from the submodules, giving a cleaner build
-# can't combine this with --others so you'll have to add untracked files before running 'wh builddocker' now.
-# Note: alpine tar doesn't support --warning=no-unknown-keyword so we need to fix it at the source
-if ! (cd $SOURCEDIR ; git ls-files --cached --exclude-standard --recurse-submodules whtree | tar -c -T -) | tar -x ; then
-  echo "tar failed"
-  exit 1
-fi
-if [ "${PIPESTATUS[0]}" != "0" ]; then
-  echo "git archive failed with errorcode ${PIPESTATUS[0]}"
-  exit 1
-fi
-
-# Recreate tocompile dir. we need 'whtree' to exist too so we can move the fonts in place
-[ -d tocompile ] && rm -rf tocompile
-mkdir -p tocompile/whtree tocompile/whtree/lib tocompile/whtree/etc
-
-#TODO if we could move more into the 'builder' dir we could simplify this list
-cp -a "$SOURCEDIR"/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
-
-# clean emsdk state
-rm -rf tocompile/vendor/emsdk/node tocompile/vendor/emsdk/python tocompile/vendor/emsdk/upstream tocompile/vendors/emsdk/downloads
-
-# Fonts are also required for drawlib tests
-mv whtree/fonts tocompile/whtree/
-
-# make-functions.sh stores functions shared between the build and runtime process so we need it earlier.
-mv whtree/lib/make-functions.sh tocompile/whtree/lib/
-mv whtree/etc/platform.conf tocompile/whtree/etc/
-
-cat > .dockerignore << HERE
-**/engines/pdfbox*.jar
-**/webhare_testsuite
-HERE
-
-# Create version info
-mkdir -p dropins/opt/wh/whtree/modules/system/whres
-cat > dropins/opt/wh/whtree/modules/system/whres/buildinfo << HERE
-committag="$CI_COMMIT_SHA"
-builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-builddate="$(date +'%Y-%m-%d')"
-buildtime="$(date +'%H:%M:%S')"
-branch="$CI_COMMIT_REF_NAME"
-version="$WEBHARE_VERSION"
-HERE
+# Ensure our version info is up to date
+generatebuildinfo
 
 function RunBuilder()
 {
@@ -244,11 +154,7 @@ function RunBuilder()
   fi
 }
 
-
-# Fix permissions (crontab files cannot be world-writable)
-chmod 600 dropins/etc/cron.d/* 2>/dev/null
-
-echo "Build args: ${DOCKERBUILDARGS[@]}"
+echo "Build args:" "${DOCKERBUILDARGS[@]}"
 
 # Build webhare image
 if ! RunBuilder build $DOCKERPULLARG "${DOCKERBUILDARGS[@]}" -t "$BUILD_IMAGE" . ; then
@@ -259,7 +165,7 @@ fi
 # If requested, push to CI
 if [ -n "$PUSH_BUILD_IMAGES" ]; then
   if ! RunBuilder push "$BUILD_IMAGE" ; then
-    echo Push of $BUILD_IMAGE failed
+    echo "Push of $BUILD_IMAGE failed"
     exit 1
   fi
 fi
