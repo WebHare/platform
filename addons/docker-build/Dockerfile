@@ -29,6 +29,8 @@ RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
 ################# STAGE 1 - builder image
 FROM       base AS builder
 
+ARG WHBUILD_EMSCRIPTEN_VERSION
+
 # Environment variables
 ENV \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
@@ -36,9 +38,13 @@ ENV \
   WHBUILD_BUILDROOT=/tmp/compile \
   WHBUILD_NODEPS=1 \
   WHBUILD_LTO=1 \
-  WHBUILD_WASMLTO=1
+  WHBUILD_WASMLTO=1 \
+  WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION
 
 ARG WHBUILD_ASSETROOT
+
+# Add vendor stuff (needed for emsdk)
+COPY tocompile/vendor/ /opt/wh/vendor/
 
 # Base image setup
 RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
@@ -54,7 +60,7 @@ COPY tocompile/ /opt/wh/
 RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=tmpfs,target=/tmp \
     --mount=type=cache,id=compile,target=/tmp/compile  \
-    /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
+    /bin/bash -c ". /opt/wh/vendor/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
 
     ################# STAGE 2 - application image
 FROM       base AS appimage

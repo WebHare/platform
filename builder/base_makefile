@@ -215,6 +215,7 @@ DRAWLIB_STATIC_LIBS=
 DRAWLIB_BASE_LIBS+=jpeg
 
 EMCC?=emcc
+EMSCRIPTEN_VERSION_FILE := $(SRCDIR)/vendor/wh-current-emscripten-version
 
 ifeq ($(BUILDSYSTEM),gcc)
 	ifeq ($(CXX),clang++)
@@ -619,10 +620,10 @@ clean:
 clean-pch:
 	rm -f -- $(ALLPCHS_NATIVE) $(ALLPCHS_WASM)
 
-%.wasm-obj: %.cpp | $(ALLPCHS_WASM)
+%.wasm-obj: %.cpp $(EMSCRIPTEN_VERSION_FILE) | $(ALLPCHS_WASM)
 	$(call CompileCPPWasm,$<,$@)
 
-%.wasm-obj: %.c | $(ALLPCHS_WASM)
+%.wasm-obj: %.c $(EMSCRIPTEN_VERSION_FILE) | $(ALLPCHS_WASM)
 	$(call CompileCWasm,$<,$@)
 
 %.native-obj: %.cpp | $(ALLPCHS_NATIVE)
@@ -634,7 +635,7 @@ clean-pch:
 $(ALLPCHS_NATIVE): gch-native/%.gch : % | dirs
 	$(call GeneratePCHNative,,$<,$@,)
 
-$(ALLPCHS_WASM): gch-wasm/%.gch : % | dirs
+$(ALLPCHS_WASM): gch-wasm/%.gch : % $(EMSCRIPTEN_VERSION_FILE) | dirs
 	$(call GeneratePCHWasm,,$<,$@,)
 
 ######

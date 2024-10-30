@@ -18,6 +18,7 @@ else
 fi
 
 setup_builddir
+wh_getemscriptenversion
 
 export WEBHARE_BUILDDIR
 export WHBUILD_DOWNLOADCACHE
@@ -34,8 +35,16 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || die "Submodule vendor/emsdk not present"
   # TODO skip if already activated. need to support version checks then
   # TODO can we ensure wasm-clean is invoked (ideally set a proper dep) whenever emsdk is updated?
-  "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" install 3.1.60
-  "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" activate 3.1.60
+
+  if [ "$WHBUILD_EMSCRIPTEN_VERSION" != "$(cat "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version" 2> /dev/null)" ]; then
+    "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" install "$WHBUILD_EMSCRIPTEN_VERSION"
+    "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" activate "$WHBUILD_EMSCRIPTEN_VERSION"
+    echo "$WHBUILD_EMSCRIPTEN_VERSION" > "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version"
+  fi
+
+  if [ -z "$DEBUGMAKE" ] && [ -z "$EMSDK_QUIET" ]; then
+    export EMSDK_QUIET=1
+  fi
   source "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk_env.sh"
 fi
 
@@ -88,14 +97,14 @@ export SRCDIR="$WEBHARE_CHECKEDOUT_TO"
 export WEBHARE_PLATFORM
 
 retval=0
-"$MAKE" -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/builder/base_makefile "$@" || retval=$?
+"$MAKE" -rj"$WHBUILD_NUMPROC" -f "$WEBHARE_CHECKEDOUT_TO/builder/base_makefile" "$@" || retval=$?
 
 if [ "$retval" != "0" ]; then
   echo ""
   echo "Make failed with errorcode $retval"
   echo ""
 
-  [ -z "$WEBHARE_IN_DOCKER" ] && cat $WEBHARE_CHECKEDOUT_TO/builder/support/failhare.txt
+  [ -z "$WEBHARE_IN_DOCKER" ] && cat "$WEBHARE_CHECKEDOUT_TO/builder/support/failhare.txt"
   exit $retval
 fi
 

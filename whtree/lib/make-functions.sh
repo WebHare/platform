@@ -92,5 +92,15 @@ getwebhareversion()
   export WEBHARE_VERSION
 }
 
+wh_getemscriptenversion()
+{
+  if [ -z "$WHBUILD_EMSCRIPTEN_VERSION" ]; then
+    WHBUILD_EMSCRIPTEN_VERSION="$(grep ^emscripten= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+    [ -n "$WHBUILD_EMSCRIPTEN_VERSION" ] || die "Could not set WHBUILD_EMSCRIPTEN_VERSION from $WEBHARE_DIR/etc/platform.conf"
+  fi
+  export WHBUILD_EMSCRIPTEN_VERSION;
+}
+
+
 export -f die setup_builddir getwebhareversion
 export WEBHARE_PLATFORM

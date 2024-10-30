@@ -52,6 +52,7 @@ if [ -n "$CI_COMMIT_SHA" ]; then
 fi
 
 wh_getnodeconfig
+wh_getemscriptenversion
 
 get_finaltag
 list_finaltag
@@ -140,6 +141,7 @@ DOCKERBUILDARGS+=(plain)
 
 [ -n "$WEBHARE_NODE_MAJOR" ] || die "WEBHARE_NODE_MAJOR not set"
 [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
+[ -n "$WHBUILD_EMSCRIPTEN_VERSION" ] || die "WHBUILD_EMSCRIPTEN_VERSION not set"
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR")
 DOCKERBUILDARGS+=(--build-arg)
@@ -170,6 +172,8 @@ DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("CI_PIPELINE_ID=$CI_PIPELINE_ID")
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("WEBHARE_VERSION=$WEBHARE_VERSION")
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION")
 
 # Grab the main build dirs
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)
@@ -193,6 +197,9 @@ mkdir -p tocompile/whtree tocompile/whtree/lib tocompile/whtree/etc
 
 #TODO if we could move more into the 'builder' dir we could simplify this list
 cp -a "$SOURCEDIR"/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
+
+# clean emsdk state
+rm -rf tocompile/vendor/emsdk/node tocompile/vendor/emsdk/python tocompile/vendor/emsdk/upstream tocompile/vendors/emsdk/downloads
 
 # Fonts are also required for drawlib tests
 mv whtree/fonts tocompile/whtree/
