@@ -99,12 +99,11 @@ cd "make-${MAKE_VERSION}/"
 ./configure
 make -j install
 
-#install emscripten. for releases see https://github.com/emscripten-core/emscripten/tags
-cd /opt
-git clone https://github.com/emscripten-core/emsdk.git
-cd /opt/emsdk
+if [ -z "$WHBUILD_EMSCRIPTEN_VERSION" ]; then
+  echo "WHBUILD_EMSCRIPTEN_VERSION not set"
+  exit 1;
+fi
 
-EMSDKVERSION=3.1.59
-
-./emsdk install "$EMSDKVERSION"
-./emsdk activate "$EMSDKVERSION"
+/opt/wh/vendor/emsdk/emsdk install "$WHBUILD_EMSCRIPTEN_VERSION"
+/opt/wh/vendor/emsdk/emsdk activate "$WHBUILD_EMSCRIPTEN_VERSION"
+echo "$WHBUILD_EMSCRIPTEN_VERSION" > /opt/wh/vendor/wh-current-emscripten-version

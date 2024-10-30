@@ -476,7 +476,7 @@ export class WASMModule extends WASMModuleBase {
   fixAsyncExportForAsyncStorage(func: (...args: unknown[]) => unknown) {
     return (...args: unknown[]) => {
       const curExecutionAsyncId = executionAsyncId();
-      if (!this.asyncResource || this.asyncResource.asyncId() !== curExecutionAsyncId) {
+      if (this.asyncResource?.asyncId() !== curExecutionAsyncId) {
         // Create a new async resource for this call. safe the old to make sure recursive calls don't lose context
         const orgAsyncResource = this.asyncResource;
         this.asyncResource = new AsyncResource(`WASMModule`, { triggerAsyncId: curExecutionAsyncId });
@@ -500,6 +500,26 @@ export class WASMModule extends WASMModuleBase {
       }
     };
   }
+
+  fixSyncExportForAsyncStorage(func: (...args: unknown[]) => unknown) {
+    return (...args: unknown[]) => {
+      const curExecutionAsyncId = executionAsyncId();
+      if (this.asyncResource?.asyncId() !== curExecutionAsyncId) {
+        // Create a new async resource for this call. safe the old to make sure recursive calls don't lose context
+        const orgAsyncResource = this.asyncResource;
+        this.asyncResource = new AsyncResource(`WASMModule`, { triggerAsyncId: curExecutionAsyncId });
+        try {
+          return this.asyncResource.runInAsyncScope(() => func(...args));
+        } finally {
+          this.asyncResource = orgAsyncResource;
+        }
+      } else {
+        // current executionAsyncId() is already correct, just run the function
+        return func(...args);
+      }
+    };
+  }
+
 }
 
 export enum SocketError {

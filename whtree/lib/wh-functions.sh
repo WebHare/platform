@@ -753,4 +753,4 @@ load_postgres_settings()
 }
 
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
-export -f setup_buildsystem wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters wh_getnodeconfig
+export -f setup_buildsystem wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters wh_getnodeconfig wh_getemscriptenversion

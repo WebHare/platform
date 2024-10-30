@@ -215,6 +215,7 @@ DRAWLIB_STATIC_LIBS=
 DRAWLIB_BASE_LIBS+=jpeg
 
 EMCC?=emcc
+EMSCRIPTEN_VERSION_FILE := $(SRCDIR)/vendor/wh-current-emscripten-version
 
 ifeq ($(BUILDSYSTEM),gcc)
 	ifeq ($(CXX),clang++)
@@ -283,10 +284,10 @@ CompileCPPNative = $(HIDE)echo "- CompileCPPNative $1 -> $2" && $(CXX) $(CPPFLAG
 CompileCPPWasm = $(HIDE)echo "- CompileCPPWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -o$2 -c $1
 
 GenerateDepsNative = $(HIDE)echo "- GenerateDepsNative $1 -> $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .native-d,.native-obj,$2)" $3 -o $2 -c $1
-GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 -c $1
+GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 $1
 
 GeneratePCHDepsNative = $(HIDE)echo "- GeneratePCHDepsNative $1 -> $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .native-d,.gch,$2)" $3 -o $2 -c $1
-GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 -c $1
+GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 $1
 
 GeneratePCHNative = $(HIDE)echo "- GeneratePCHNative $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
 GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header $4 -o$3 -c $2
@@ -619,10 +620,10 @@ clean:
 clean-pch:
 	rm -f -- $(ALLPCHS_NATIVE) $(ALLPCHS_WASM)
 
-%.wasm-obj: %.cpp | $(ALLPCHS_WASM)
+%.wasm-obj: %.cpp $(EMSCRIPTEN_VERSION_FILE) | $(ALLPCHS_WASM)
 	$(call CompileCPPWasm,$<,$@)
 
-%.wasm-obj: %.c | $(ALLPCHS_WASM)
+%.wasm-obj: %.c $(EMSCRIPTEN_VERSION_FILE) | $(ALLPCHS_WASM)
 	$(call CompileCWasm,$<,$@)
 
 %.native-obj: %.cpp | $(ALLPCHS_NATIVE)
@@ -634,7 +635,7 @@ clean-pch:
 $(ALLPCHS_NATIVE): gch-native/%.gch : % | dirs
 	$(call GeneratePCHNative,,$<,$@,)
 
-$(ALLPCHS_WASM): gch-wasm/%.gch : % | dirs
+$(ALLPCHS_WASM): gch-wasm/%.gch : % $(EMSCRIPTEN_VERSION_FILE) | dirs
 	$(call GeneratePCHWasm,,$<,$@,)
 
 ######
