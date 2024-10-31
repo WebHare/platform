@@ -75,6 +75,14 @@ ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 # Control core sizes with ulimit... so that we can still raise them later!
 ulimit -Sc 0
 
+# Run any startup scripts (CI tests may inject these)
+for f in /opt/wh/whtree/etc/startup.d/*; do
+  if [ -x "$f" ]; then
+    echo "Running startup script $f"
+    "$f"
+  fi
+done
+
 # 1) apparently bash can reap orphans. so we can keep ourselves running
 # 2) our runsv change still wasn't good enough, it sends the terminates but doesn't wait for the children to die.
 #    but the container will SIGKILL everything once PID 1 goes away

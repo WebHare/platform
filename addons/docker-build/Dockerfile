@@ -1,3 +1,6 @@
+# WARNING: podman builds are unsafe (stale layers) until https://github.com/containers/buildah/issues/5400 is fixed
+# Updating the #date/timestamp comment on a command can help to force a rebuild
+
 ################# STAGE 0 - base image. shared between builder and runner
 FROM       ubuntu:20.04 AS base
 MAINTAINER WebHare bv <info@webhare.com>
@@ -24,7 +27,7 @@ ENV LC_ALL=C \
 RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
     --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
     --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
-    WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2024-08-19
+    WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2024-10-31
 
 ################# STAGE 1 - builder image
 FROM       base AS builder
