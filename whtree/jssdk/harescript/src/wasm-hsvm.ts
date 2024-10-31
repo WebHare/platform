@@ -109,7 +109,8 @@ export async function recompileHarescriptLibraryRaw(uri: string, options?: { for
       msg2: errorparts[6],
       message: decodeString(errorparts[7], 'html')
     (*/
-    return `E\t0\t0\t${uri}\t0\t${(e as Error).message}\t\tCompilation failed: ${(e as Error).message}`;
+    const msg = `Compilation failed: ${(e as Error).message}`;
+    return `E\t0\t0\t${uri}\t0\t${msg}\t\t${msg}`;
   }
 }
 
