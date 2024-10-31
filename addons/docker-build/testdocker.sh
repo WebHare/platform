@@ -620,8 +620,8 @@ for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
     fi
   else
     # non-git module, just copy all
-    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
-    cp -a "$MODULE/" "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/"
+    cp -a "$MODULE" "${TEMPBUILDROOT}/docker-tests/modules/"
     # TODO honor .gitignore
     # Remove wh fixmodules managed node_modules, wh fixmodules should apply them (keeps us closer to a CI environment)
     rm -r "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/node_modules "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/webdesigns/*/node_modules 2>/dev/null
