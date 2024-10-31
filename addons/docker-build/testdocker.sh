@@ -44,7 +44,7 @@ testfail()
   TESTFAIL=1
 }
 
-# Generalized semversion compare. Should return 0 if $2 >= $1
+# WH Version check. use like this:  if is_atleast_version 5.5.0 ; then  CODE TO APPLY TO 5.5.0 AND HIGHER ; fi
 is_atleast_version()
 {
   [ -z "$version" ] && die "is_atleast_version is invoked too early"
@@ -83,10 +83,9 @@ RunDocker()
 
 create_container()
 {
-  local CONTAINERID NR CONTAINERDOCKERARGS
+  local CONTAINERID NR
 
   NR=$1
-  CONTAINERDOCKERARGS="$DOCKERARGS"
 
   echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
 
@@ -157,8 +156,6 @@ create_container()
       version=$version"
     rm "$BUILDINFOFILE"
 
-    # We can now use:
-    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
   fi
 
   if ! RunDocker start "$CONTAINERID" ; then
@@ -484,8 +481,13 @@ else
   fi
 fi
 
-create_container 1
+create_container 1 #once a container is created, we have the version number
 echo "Container 1: $TESTENV_CONTAINER1"
+
+if ! is_atleast_version 5.5.0 ; then
+  echo "version macro broke or unsupported webhare version for this testdocker.sh ($version)"
+fi
+
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   create_container 2
@@ -614,11 +616,7 @@ done
 echo "$(date) Running prestart"
 
 for CONTAINERID in "${CONTAINERS[@]}"; do
-  if is_atleast_version 5.2.0-dev ; then
-    DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
-  else
-    DESTCOPYDIR=/opt/whmodules/
-  fi
+  DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
 
   # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
   RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
@@ -653,17 +651,13 @@ if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartd
 fi
 
 
-if is_atleast_version 5.0.0; then
-  echo "$(date) container1 poststartdone, look for errors"
-  if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-    if [ -z "$ALLOWSTARTUPERRORS" ]; then
-      testfail "Error logs not clean!"
-    else
-      echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-    fi
+echo "$(date) container1 poststartdone, look for errors"
+if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+  if [ -z "$ALLOWSTARTUPERRORS" ]; then
+    testfail "Error logs not clean!"
+  else
+    echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
   fi
-else
-  echo "$(date) container1 poststartdone"
 fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
@@ -673,17 +667,13 @@ if [ -n "$TESTFW_TWOHARES" ]; then
     FATALERROR=1
   fi
 
-  if is_atleast_version 5.0.0; then
-    echo "$(date) container2 poststartdone, look for errors"
-    if is_atleast_version 5.0.0 && ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-      if [ -z "$ALLOWSTARTUPERRORS" ]; then
-        testfail "Error logs not clean!"
-      else
-        echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-      fi
+  echo "$(date) container2 poststartdone, look for errors"
+  if ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+    if [ -z "$ALLOWSTARTUPERRORS" ]; then
+      testfail "Error logs not clean!"
+    else
+      echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
     fi
-  else
-    echo "$(date) container2 poststartdone"
   fi
 fi
 
@@ -695,12 +685,9 @@ if [ -z "$FATALERROR" ]; then
     # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
     echo "$(date) Check module $TESTINGMODULEREF"
     CHECKMODULEOPTS=()
-    if is_atleast_version 5.2.0-dev ; then
-      CHECKMODULEOPTS+=(--hidehints)
-    fi
-    if is_atleast_version 5.5.0-dev ; then
-      CHECKMODULEOPTS+=(--async)
-    fi
+    CHECKMODULEOPTS+=(--hidehints)
+    CHECKMODULEOPTS+=(--async)
+
     if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule "${CHECKMODULEOPTS[@]}" --color "$TESTINGMODULEREF" ; then
       testfail "wh checkmodule failed"
     fi
@@ -710,24 +697,18 @@ if [ -z "$FATALERROR" ]; then
       testfail "wh checkwebhare failed"
     fi
 
-    if is_atleast_version 5.5.0; then
-      echo "$(date) Audit module $TESTINGMODULEREF"
-      RunDocker exec "$TESTENV_CONTAINER1" mkdir /output/ # it doesn't exist yet (runtest.whscr would otherwise create it?)
-      if ! RunDocker exec "$TESTENV_CONTAINER1" wh platform:auditmodule --outputfile /output/auditmodule.json "$TESTINGMODULEREF" ; then
-        testfail "Module audit failed"
-        FATALERROR=1
-      fi
+    echo "$(date) Audit module $TESTINGMODULEREF"
+    RunDocker exec "$TESTENV_CONTAINER1" mkdir /output/ # it doesn't exist yet (runtest.whscr would otherwise create it?)
+    if ! RunDocker exec "$TESTENV_CONTAINER1" wh platform:auditmodule --outputfile /output/auditmodule.json "$TESTINGMODULEREF" ; then
+      testfail "Module audit failed"
+      FATALERROR=1
     fi
   fi # ends --nocheckmodule not set
 
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
   echo "$(date) Check assetpacks"
-  if is_atleast_version 5.4.0 ; then
-    $SUDO docker exec $TESTENV_CONTAINER1 wh assetpack check "*:*"
-  else
-    $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"
-  fi
+  $SUDO docker exec $TESTENV_CONTAINER1 wh assetpack check "*:*"
   RETVAL="$?"
   if [ "$RETVAL" != "0" ]; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
     testfail "wait assetpacks failed (errorcode $RETVAL)"
