@@ -437,7 +437,7 @@ case $INSTR in
     shift
 
     # This should match the whconstant_javascript_extensions:
-    if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -4}" == ".tsx" ]; then
+    if [ "${SCRIPT: -3}" == ".es" ] || [ "${SCRIPT: -3}" == ".js" ] || [ "${SCRIPT: -3}" == ".ts" ] || [ "${SCRIPT: -4}" == ".tsx" ] || [ "${SCRIPT: -4}" == ".mjs" ]; then
       resolveresourcepath RESOLVEDPATH "$SCRIPT"
       exec_wh_runjs "$RESOLVEDPATH" "$@"
     else
