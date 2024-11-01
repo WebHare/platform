@@ -438,6 +438,23 @@ export class ApplicationBase {
     this.shell.appmgr.notifyApplicationLockChange();
   }
 
+  /** Handle a fatal error */
+  async terminateWithFatalError(error: string) {
+    await runSimpleScreen(this,
+      {
+        //FIXME translate
+        text: `A fatal error occurred. The application will now close.\n\n${error}`,
+        buttons: [
+          {
+            name: 'close',
+            title: getTid("~close")
+          }
+        ],
+        wordWrap: true
+      });
+    this.terminateApplication();
+  }
+
   /** Terminate an application, clearing all its screens (ADDME: what if we're hosting foreign screens?)
    *
   */
