@@ -5,6 +5,7 @@ import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import './internal/debugmenu';
 import * as settings from './internal/settings';
+import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
 
 const appbase = location.href.indexOf("?") > -1 ? location.href.split('?')[0] : location.href.split('#')[0];
 let didinit = false;
@@ -113,7 +114,7 @@ export async function onReady(initfunction: () => void, options?: {
     return;
   }
 
-  const swurl = "/.wh/ea/ap/platform.pwaserviceworker/ap.mjs?app=" + encodeURIComponent(settings.getAppName());
+  const swurl = `${getAssetPackBase("platform:pwaserviceworker")}ap.mjs?app=${encodeURIComponent(settings.getAppName())}`;
 
   try {
     swregistration = await navigator.serviceWorker.register(swurl, { scope: appbase });

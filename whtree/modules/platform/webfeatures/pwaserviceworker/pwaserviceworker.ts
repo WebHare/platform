@@ -2,6 +2,7 @@
 /// <reference lib="webworker"/>
 declare const self: ServiceWorkerGlobalScope;
 
+import { getAssetPackBase } from '@mod-platform/js/concepts/frontend';
 import type { AssetPackManifest } from '@mod-publisher/js/internal/esbuild/compiletask';
 // when developing, to explicitly recompile our package: wh assetpack recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
@@ -127,12 +128,11 @@ async function downloadApplication() {
   const cache = await caches.open("pwacache-" + appname);
 
   //FIXME we can't really assume that appname (webdesignname) === assetpackname
-  const assetpackname = appname.replace(':', '.');
+  const assetbasedir = getAssetPackBase(appname);
 
   //Get the easily guessed assets first
   //FIXME move user urls to the manifest ? how abotu th /sd/ urls?
   const mainpageurl = self.registration.scope;
-  const assetbasedir = `/.wh/ea/ap/${assetpackname}/`;
   const manifestfetch = fetch(`${assetbasedir}apmanifest.json`);
   const baseassets = [
     `${assetbasedir}ap.css`,
@@ -260,7 +260,7 @@ async function onFetch(event: FetchEvent) {
   if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
     || urlpath.startsWith('/.wh/dev/')
     || urlpath.startsWith('/.dev/debug.js')
-    || urlpath.startsWith('/.wh/ea/ap/dev.devtools/')
+    || urlpath.startsWith(getAssetPackBase("dev:devtools"))
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
     || urlpath.startsWith("/.px/")) {
     return;  //well known never cached files

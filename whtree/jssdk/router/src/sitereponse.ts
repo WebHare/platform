@@ -4,6 +4,7 @@ import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
 import { encodeString, stringify } from "@webhare/std";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
+import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
 
 export class SiteResponseSettings {
   assetpack: string = '';
@@ -38,7 +39,7 @@ export function getAssetPackIntegrationCode(assetpack: string, { designRoot = ''
     scriptsettings += ' crossorigin="anonymous"';
   scriptsettings += ' async type="module"';
 
-  let bundleBaseUrl = "/.wh/ea/ap/" + assetpack.replace(":", ".") + "/";
+  let bundleBaseUrl = getAssetPackBase(assetpack);
   if (cacheBuster)
     bundleBaseUrl = "/!" + encodeURIComponent(cacheBuster) + bundleBaseUrl;
   if (designRoot)
