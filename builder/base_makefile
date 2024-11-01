@@ -574,7 +574,7 @@ all: $(ALLBUILDANDTEST) $(addsuffix -all,$(SUBPROJECTS)) wasm
 ## Other dependencies
 ##
 $(PREFIX)/jssdk/whdb/vendor/postgresql-client/package.json:
-	git -C $(SRCDIR) submodule update --init --recursive
+	git -C $(SRCDIR) submodule update --init --recursive  #update triggered for $@
 
 
 #################################################
@@ -591,7 +591,7 @@ $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_SOURCEOBJS)   $(LIBBLEX_LIBXML2_WASM_O
 
 # Checkout submodule if still needed
 $(SRCDIR)/vendor/libxml2/autogen.sh:
-	git -C $(SRCDIR) submodule update --init --recursive
+	git -C $(SRCDIR) submodule update --init --recursive #update triggered for $@
 
 $(LIBXML2_NATIVE_GENERATEDFILE): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
 	$(SRCDIR)/vendor/setup-libxml2.sh native "${WHBUILD_BUILDDIR}/vendor-native/libxml2"

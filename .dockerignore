@@ -1,15 +1,24 @@
+# To get some insight as to that's in the dockerfile:
+# printf "FROM ubuntu:20.04\nCOPY . /tmp/build" | docker build --progress=plain -f- -t tempfilelist . ; docker run --rm -ti tempfilelist /bin/bash -c "ls -lR /tmp/build; du -sch /tmp/build/*"
 .git
-**/node_modules
-**/engines/pdfbox*.jar
-**/webhare_testsuite
-vendor/emsdk/node
-vendor/emsdk/python
-vendor/emsdk/upstream
-vendors/emsdk/downloads
+node_modules
+/whtree/modules/webhare_testsuite
+
+/vendor/emsdk/node
+/vendor/emsdk/python
+/vendor/emsdk/upstream
+/vendor/emsdk/downloads
+
+# /vendor/libxml2/autom4te.cache .. tempting because of name, but ignoring this breaks the build
+/vendor/libxml2/result
+/vendor/libxml2/test
 
 # Ignore artficats from source tree builds
-whtree/bin/*
-!whtree/bin/*.sh
-!whtree/bin/wh
-whtree/lib/*
-!whtree/lib/*.sh
+/whtree/bin/*
+/whtree/lib/*
+/whtree/libexec
+/whtree/node_modules
+
+!/whtree/bin/wh
+!/whtree/bin/*.sh
+!/whtree/lib/*.sh

@@ -91,7 +91,7 @@ ARG WHBUILD_ASSETROOT
 # Install pdfbox
 RUN --mount=type=bind,source=addons/docker-build/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
-    /bin/bash /setup-pdfbox.sh "$WHBUILD_ASSETROOT" 2.0.32
+    /bin/bash /setup-pdfbox.sh "$WHBUILD_ASSETROOT" 2.0.32  # 2024-11-01
 
 # Install TIKA
 RUN --mount=type=bind,source=addons/docker-build/setup-tika.sh,target=/setup-tika.sh \
@@ -107,8 +107,16 @@ RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/set
 ADD addons/docker-build/dropins /
 
 # Throw in the whtree and addons - note: builds will always stop caching after this step
+# But one does not simply 'copy all files from the source to the target'.
+# Force all timestamps to second precisions, docker layers drop milliseconds during compression but they also seem
+# to reuse the FS between buildstemps, causing finalize-webhare to otherwise include millisecond precision timestamps (visible in libdumper)
+# while losing these on the filesystem causing unneeded recompilation
+# using a reference 'file' as setting and the *using* an envvar inside a docker command line is tricky
 RUN --mount=type=bind,source=whtree,target=/whtree/ \
-    cp --recursive --preserve=mode /whtree /opt/wh/
+    if [ -d /opt/wh/whtree/jssdk ] || [ -d /opt/wh/whtree/modules ]; then echo "jssdk/modules already have content! touching will cause layer bloat"; ls -lR /opt/wh/whtree ;  fi ; \
+    cp -a /whtree /opt/wh/ && \
+    touch -t $(date +%Y%m%d%H%M.%S) /opt/wh/whtree && \
+    find /opt/wh/whtree/jssdk /opt/wh/whtree/modules -print0 | xargs -0 -n250 touch -r /opt/wh/whtree
 
 # Add built WebHare (ie 'wh make install' from the parallel build)
 RUN --mount=type=bind,from=builder,target=/builder \
