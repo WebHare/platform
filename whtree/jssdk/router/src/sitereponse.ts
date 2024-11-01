@@ -32,7 +32,7 @@ function encodeAttr(s: string): string {
   return encodeString(s, "attribute");
 }
 
-export function getAssetpackIntegrationCode(assetpack: string, { designRoot = '', cacheBuster = '' } = {}) {
+export function getAssetPackIntegrationCode(assetpack: string, { designRoot = '', cacheBuster = '' } = {}) {
   let scriptsettings = '';
   if (designRoot !== "")
     scriptsettings += ' crossorigin="anonymous"';
@@ -127,7 +127,7 @@ export class SiteResponse<T extends object = object> {
     const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === this.settings.assetpack);
     if (!assetpacksettings)
       throw new Error(`Settings for assetpack '${this.settings.assetpack}' not found`);
-    page += getAssetpackIntegrationCode(this.settings.assetpack);
+    page += getAssetPackIntegrationCode(this.settings.assetpack);
 
 
     if (this.insertions["dependencies-bottom"])
