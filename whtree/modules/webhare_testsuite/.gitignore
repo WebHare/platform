@@ -1,0 +1,8 @@
+# We'll give webhare_testsuite a 'local' .gitignore to mirror standard module behavior as much as possible
+/node_modules
+/tsconfig.json
+/tests/node_modules
+/tests/wh/hscore/xml/generated
+
+# Writing to our own module seems a bit hacky ? we want modules to be trustworthy in content..
+/web/tests/temp

@@ -12,10 +12,11 @@ fi
 ASSETROOT="$1"
 GETVERSION="$2"
 
+mkdir -p "$WHBUILD_DOWNLOADCACHE" "$WEBHARE_CHECKEDOUT_TO"/whtree/libexec/
+
 GETFILE=pdfbox-app-$GETVERSION.jar
-mkdir -p "$WHBUILD_DOWNLOADCACHE"
 DLPATH="$WHBUILD_DOWNLOADCACHE/$GETFILE"
-DESTPATH="$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/pdfbox-app.jar
+DESTPATH="$WEBHARE_CHECKEDOUT_TO"/whtree/libexec/pdfbox-app.jar
 
 if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
   echo "Primary download failed, attempting fallback location"
@@ -25,12 +26,6 @@ if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
     exit 1
   fi
 fi
-
-
-mkdir -p "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/
-
-# Delete old versions in data/engines - this only happens on source installs and can go after april 11, 2022
-find "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/ -name 'pdfbox-app-*.jar' -exec rm {} \;
 
 [ "$DLPATH" -nt "$DESTPATH" ] && cp -v "$DLPATH" "$DESTPATH"
 exit 0

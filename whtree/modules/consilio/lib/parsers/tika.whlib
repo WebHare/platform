@@ -7,7 +7,6 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
 
@@ -28,8 +27,8 @@ PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAU
 
   TRY
   {
-    RECORD result := RunJavaServiceApp([ GetWebHareResourceDiskPath("mod::system/data/engines/tika-app.jar")
-                                       , "--config=" || GetWebHareResourceDiskPath("mod::system/data/engines/tika-default-config.xml") //disables OCR
+    RECORD result := RunJavaServiceApp([ GetInstallationRoot() || "/libexec/tika-app.jar"
+                                       , "--config=" || GetInstallationRoot() || "/etc/tika-default-config.xml" //disables OCR
                                        ,  "--html"
                                        , inputtemp ]);
     IF(result.exitcode != 0)
