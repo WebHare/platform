@@ -12,6 +12,10 @@ else
   exit 1
 fi
 
+# Podman testdocker support is still experimental. to try it:
+# wh builddocker --podman
+# wh testdocker --nopull --podman --webhareimage localhost/webhare/webhare-extern:localbuild --tag=-external checkmodules
+
 version=""
 CONTAINERS=()
 ORIGINALOPTIONS=()
@@ -34,7 +38,7 @@ LOCALDEPS=
 NOCHECKMODULE=
 FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
-
+USEPODMAN=
 
 testfail()
 {
@@ -44,7 +48,7 @@ testfail()
   TESTFAIL=1
 }
 
-# Generalized semversion compare. Should return 0 if $2 >= $1
+# WH Version check. use like this:  if is_atleast_version 5.5.0 ; then  CODE TO APPLY TO 5.5.0 AND HIGHER ; fi
 is_atleast_version()
 {
   [ -z "$version" ] && die "is_atleast_version is invoked too early"
@@ -67,26 +71,25 @@ exit_failure_sh()
 mark()
 {
   echo "$(date) --- MARK: $1 ---"
-  $SUDO docker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
+  RunDocker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
 }
 
 RunDocker()
 {
   local retval
-  echo "$(date) docker" "$@" >&2
-  $SUDO docker "$@" ; retval="$?"
+  echo "$(date)" "${CONTAINERENGINE[@]}" "$@" >&2
+  "${CONTAINERENGINE[@]}" "$@" ; retval="$?"
   if [ "$retval" != "0" ]; then
-    echo "$(date) docker returned errorcode $retval" >&2
+    echo "$(date)" "${CONTAINERENGINE[@]}" " returned errorcode $retval" >&2
   fi
   return $retval
 }
 
 create_container()
 {
-  local CONTAINERID NR CONTAINERDOCKERARGS
+  local CONTAINERID NR
 
   NR=$1
-  CONTAINERDOCKERARGS="$DOCKERARGS"
 
   echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
 
@@ -157,8 +160,6 @@ create_container()
       version=$version"
     rm "$BUILDINFOFILE"
 
-    # We can now use:
-    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
   fi
 
   if ! RunDocker start "$CONTAINERID" ; then
@@ -238,6 +239,9 @@ while true; do
     ADDMODULES="$ADDMODULES $1"
     ORIGINALOPTIONS+=("$1")
     shift
+  elif [ "$1" == "--podman" ]; then
+    USEPODMAN="1"
+    shift
   elif [ "$1" == "--webhareimage" -o "$1" == "-w" ]; then
     shift
     WEBHAREIMAGE="$1"
@@ -297,7 +301,17 @@ elif [ "$WEBHARE_PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
 
-if docker inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
+CONTAINERENGINE=()
+if [ "$DOCKERSUDO" == "1" ]; then
+  CONTAINERENGINE+=(sudo)
+fi
+if [ -n "$USEPODMAN" ]; then
+  CONTAINERENGINE+=(podman)
+else
+  CONTAINERENGINE+=(docker)
+fi
+
+if "${CONTAINERENGINE[@]}" inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
   if ! RunDocker rm -f "$FIXEDCONTAINERNAME" ; then
     exit_failure_sh Unable to cleanup existing image "$FIXEDCONTAINERNAME"
   fi
@@ -349,10 +363,8 @@ if [[ "$WEBHAREIMAGE" = "webhare/webhare-core:4.18" ]]; then
   RUNTESTARGS="$RUNTESTARGS --allownomatch"
 fi
 
-if [ "$DOCKERSUDO" == "1" ]; then
-  SUDO=sudo
-else
-  SUDO=
+if [ -n "$USEPODMAN" ] && [[ $(type -t whhook_prepare_podman) == function ]]; then
+  whhook_prepare_podman # Allow wh script hooks to prepare the build machine
 fi
 
 # Reproduce a valid command line.
@@ -429,7 +441,7 @@ function cleanup()
       RunDocker stop "$TESTENV_CONTAINER1"
     fi
 
-    # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
+    # [ "$TESTFAIL" == "0" ] || RunDocker logs $TESTENV_CONTAINER1
     RunDocker rm "$TESTENV_CONTAINER1"
   fi
   if [ -n "$TESTENV_CONTAINER2" ]; then
@@ -439,7 +451,7 @@ function cleanup()
       RunDocker stop "$TESTENV_CONTAINER2"
     fi
 
-    # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
+    # [ "$TESTFAIL" == "0" ] || RunDocker logs $TESTENV_CONTAINER2
     RunDocker rm "$TESTENV_CONTAINER2"
   fi
   if [ -n "$TEMPBUILDROOT" ]; then
@@ -484,8 +496,13 @@ else
   fi
 fi
 
-create_container 1
+create_container 1 #once a container is created, we have the version number
 echo "Container 1: $TESTENV_CONTAINER1"
+
+if ! is_atleast_version 5.5.0 ; then
+  echo "version macro broke or unsupported webhare version for this testdocker.sh ($version)"
+fi
+
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   create_container 2
@@ -603,8 +620,8 @@ for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
     fi
   else
     # non-git module, just copy all
-    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
-    cp -a "$MODULE/" "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/"
+    cp -a "$MODULE" "${TEMPBUILDROOT}/docker-tests/modules/"
     # TODO honor .gitignore
     # Remove wh fixmodules managed node_modules, wh fixmodules should apply them (keeps us closer to a CI environment)
     rm -r "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/node_modules "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/webdesigns/*/node_modules 2>/dev/null
@@ -614,17 +631,13 @@ done
 echo "$(date) Running prestart"
 
 for CONTAINERID in "${CONTAINERS[@]}"; do
-  if is_atleast_version 5.2.0-dev ; then
-    DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
-  else
-    DESTCOPYDIR=/opt/whmodules/
-  fi
+  DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
 
   # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
   RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
 
   if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
-    $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
+    RunDocker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
   fi
 
   # Find prehooks (TODO Move inside webhare image and perhaps have it try to follow the dependency order)
@@ -647,43 +660,35 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
 done
 
 echo "$(date) Wait for poststartdone container1"
-if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
+if ! RunDocker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
   testfail "Wait for poststartdone container1 failed"
   FATALERROR=1
 fi
 
 
-if is_atleast_version 5.0.0; then
-  echo "$(date) container1 poststartdone, look for errors"
-  if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+echo "$(date) container1 poststartdone, look for errors"
+if ! RunDocker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+  if [ -z "$ALLOWSTARTUPERRORS" ]; then
+    testfail "Error logs not clean!"
+  else
+    echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+  fi
+fi
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  echo "$(date) Wait for poststartdone container2"
+  if ! RunDocker exec "$TESTENV_CONTAINER2" wh waitfor --timeout 600 poststartdone ; then
+    testfail "Wait for poststartdone container2 failed"
+    FATALERROR=1
+  fi
+
+  echo "$(date) container2 poststartdone, look for errors"
+  if ! RunDocker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
     if [ -z "$ALLOWSTARTUPERRORS" ]; then
       testfail "Error logs not clean!"
     else
       echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
     fi
-  fi
-else
-  echo "$(date) container1 poststartdone"
-fi
-
-if [ -n "$TESTFW_TWOHARES" ]; then
-  echo "$(date) Wait for poststartdone container2"
-  if ! $SUDO docker exec "$TESTENV_CONTAINER2" wh waitfor --timeout 600 poststartdone ; then
-    testfail "Wait for poststartdone container2 failed"
-    FATALERROR=1
-  fi
-
-  if is_atleast_version 5.0.0; then
-    echo "$(date) container2 poststartdone, look for errors"
-    if is_atleast_version 5.0.0 && ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-      if [ -z "$ALLOWSTARTUPERRORS" ]; then
-        testfail "Error logs not clean!"
-      else
-        echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-      fi
-    fi
-  else
-    echo "$(date) container2 poststartdone"
   fi
 fi
 
@@ -695,39 +700,30 @@ if [ -z "$FATALERROR" ]; then
     # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
     echo "$(date) Check module $TESTINGMODULEREF"
     CHECKMODULEOPTS=()
-    if is_atleast_version 5.2.0-dev ; then
-      CHECKMODULEOPTS+=(--hidehints)
-    fi
-    if is_atleast_version 5.5.0-dev ; then
-      CHECKMODULEOPTS+=(--async)
-    fi
-    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule "${CHECKMODULEOPTS[@]}" --color "$TESTINGMODULEREF" ; then
+    CHECKMODULEOPTS+=(--hidehints)
+    CHECKMODULEOPTS+=(--async)
+
+    if ! RunDocker exec "$TESTENV_CONTAINER1" wh checkmodule "${CHECKMODULEOPTS[@]}" --color "$TESTINGMODULEREF" ; then
       testfail "wh checkmodule failed"
     fi
 
     echo "$(date) System-wide check (eg against siteprofile inconsistencies)"
-    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkwebhare ; then
+    if ! RunDocker exec "$TESTENV_CONTAINER1" wh checkwebhare ; then
       testfail "wh checkwebhare failed"
     fi
 
-    if is_atleast_version 5.5.0; then
-      echo "$(date) Audit module $TESTINGMODULEREF"
-      RunDocker exec "$TESTENV_CONTAINER1" mkdir /output/ # it doesn't exist yet (runtest.whscr would otherwise create it?)
-      if ! RunDocker exec "$TESTENV_CONTAINER1" wh platform:auditmodule --outputfile /output/auditmodule.json "$TESTINGMODULEREF" ; then
-        testfail "Module audit failed"
-        FATALERROR=1
-      fi
+    echo "$(date) Audit module $TESTINGMODULEREF"
+    RunDocker exec "$TESTENV_CONTAINER1" mkdir /output/ # it doesn't exist yet (runtest.whscr would otherwise create it?)
+    if ! RunDocker exec "$TESTENV_CONTAINER1" wh platform:auditmodule --outputfile /output/auditmodule.json "$TESTINGMODULEREF" ; then
+      testfail "Module audit failed"
+      FATALERROR=1
     fi
   fi # ends --nocheckmodule not set
 
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
   echo "$(date) Check assetpacks"
-  if is_atleast_version 5.4.0 ; then
-    $SUDO docker exec $TESTENV_CONTAINER1 wh assetpack check "*:*"
-  else
-    $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"
-  fi
+  RunDocker exec $TESTENV_CONTAINER1 wh assetpack check "*:*"
   RETVAL="$?"
   if [ "$RETVAL" != "0" ]; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
     testfail "wait assetpacks failed (errorcode $RETVAL)"
@@ -736,16 +732,16 @@ fi
 
 if [ -n "$GENERATEXMLTESTS" ] && [ -z "$FATALERROR" ]; then
   echo "`date` Generate XML tests"
-  $SUDO docker exec $TESTENV_CONTAINER1 wh run mod::webhare_testsuite/scripts/tests/createxmldomtestscripts.whscr
+  RunDocker exec $TESTENV_CONTAINER1 wh run mod::webhare_testsuite/scripts/tests/createxmldomtestscripts.whscr
 fi
 
 echo "`date` --- container1 servicemanager log ---"
-$SUDO docker logs $TESTENV_CONTAINER1
+RunDocker logs $TESTENV_CONTAINER1
 echo "`date` ^^^ container1 servicemanager log ^^^"
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   echo "`date` --- container2 servicemanager log ---"
-  $SUDO docker logs $TESTENV_CONTAINER2
+  RunDocker logs $TESTENV_CONTAINER2
   echo "`date` ^^^ container2 servicemanager log ^^^"
 fi
 
@@ -776,7 +772,7 @@ fi
 if [ "$ENTERSHELL" == "1" ]; then
   mark "Entering shell in container $TESTENV_CONTAINER1"
   [ "$TESTFAIL" == "1" ] && echo "***NOTE*** THERE WERE ERRORS!"
-  $SUDO docker exec -ti "$TESTENV_CONTAINER1" /bin/bash
+  RunDocker exec -ti "$TESTENV_CONTAINER1" /bin/bash
 fi
 
 mark "Done with tests - stopping containers"
@@ -797,39 +793,39 @@ fi
 
 # Can't use docker cp due to the volume at /opt/whdata/
 mkdir -p $ARTIFACTS/whdata
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml auditmodule.json | tar -x -C $ARTIFACTS/
-$SUDO docker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
+RunDocker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
+RunDocker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
+RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml auditmodule.json | tar -x -C $ARTIFACTS/
+RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
 
 if [ -n "$TESTFW_EXPORTMODULE" ]; then
-  RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
+  "${CONTAINERENGINE[@]}" exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
 fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   mkdir -p $ARTIFACTS/whdata2
-  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
-  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/tmp2/
+  RunDocker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
+  RunDocker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/tmp2/
 fi
 
 if [ -n "$COVERAGE" ]; then
-  $SUDO docker exec $TESTENV_CONTAINER1 wh run mod::system/scripts/debug/analyze_coverage.whscr
-  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
+  RunDocker exec $TESTENV_CONTAINER1 wh run mod::system/scripts/debug/analyze_coverage.whscr
+  RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
   echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
 fi
 
 if [ -n "$WEBHARE_PROFILE" ]; then
-  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
+  RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
   echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
 fi
 
-if [ "`$SUDO docker ps -q -f id=$TESTENV_CONTAINER1`" == "" ]; then
+if [ "`RunDocker ps -q -f id=$TESTENV_CONTAINER1`" == "" ]; then
   echo "Container1 exited early!"
-  $SUDO docker logs $TESTENV_CONTAINER1
+  RunDocker logs $TESTENV_CONTAINER1
 fi
-if [ -n "$TESTFW_TWOHARES" -a "`$SUDO docker ps -q -f id=$TESTENV_CONTAINER2`" == "" ]; then
+if [ -n "$TESTFW_TWOHARES" -a "`RunDocker ps -q -f id=$TESTENV_CONTAINER2`" == "" ]; then
   echo "Container2 exited early!"
-  $SUDO docker logs $TESTENV_CONTAINER2
+  RunDocker logs $TESTENV_CONTAINER2
 fi
 
 if [ "$TESTFAIL" = "0" ]; then

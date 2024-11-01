@@ -301,7 +301,6 @@ case $INSTR in
   "execbuilt")
     setup_for_console
     getwhparameters
-    setup_buildsystem
 
     DBGARGS=();
     if [ "$1" == "--dbg" ]; then
@@ -541,7 +540,7 @@ HERE
     if [[ "${OPTIONS[@]}" =~ install ]]; then
       check_webhare_not_running
     fi
-    setup_buildsystem
+
     exec "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" "${OPTIONS[@]}"
     ;;
 
@@ -560,8 +559,6 @@ HERE
 
     # Force brew to update
     touch "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
-
-    setup_buildsystem
 
     # Cannot build a target for this in the makefile, we want to serialise these steps
     for P in postuninstall clean install; do
@@ -606,7 +603,6 @@ HERE
     ;;
 
   "mic")
-    setup_buildsystem
     check_webhare_not_running
 
     "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" install ||  exit 1

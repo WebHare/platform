@@ -27,21 +27,6 @@ testEq()
   fi
 }
 
-wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a servicemanager.ts, they will all inherit the discovered setting
-{
-  if [ -z "$WEBHARE_NODE_MAJOR" ]; then # Not locked in the (docker) environment
-    WEBHARE_NODE_MAJOR="$(grep ^node_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
-    [ -n "$WEBHARE_NODE_MAJOR" ] || die "Could not set WEBHARE_NODE_MAJOR from $WEBHARE_DIR/etc/platform.conf"
-  fi
-
-  if [ "$WEBHARE_PLATFORM" == "darwin" ] && [ -x "$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node" ]; then
-    WEBHARE_NODE_BINARY="$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node"
-  fi
-  [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
-
-  export WEBHARE_NODE_MAJOR WEBHARE_NODE_BINARY
-}
-
 # run a JS/TS script, assumes the resolveplugin is ready for use
 wh_runjs()
 {
@@ -518,62 +503,6 @@ autocomplete_print_compreply()
   done
 }
 
-vercomp () {
-  # Based on https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
-  if [[ $1 == $2 ]]
-  then
-      return 0
-  fi
-  local IFS=.
-  # Truncate after first '-' (%%-* truncates after first, %-* truncates after last)
-  local ver1number="${1%%-*}" ver2number="${2%%-*}"
-  local ver1suffix ver2suffix
-  # check if we truncated something, if so, grab the suffix
-  [ "$ver1number" != "$1" ] && ver1suffix="-${1#*-}"
-  [ "$ver2number" != "$2" ] && ver2suffix="-${2#*-}"
-
-  local i ver1=($ver1number) ver2=($ver2number)
-
-  # fill empty fields in ver1 with zeros
-  for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
-  do
-      ver1[i]=0
-  done
-
-  for ((i=0; i<${#ver1[@]}; i++))
-  do
-      if [[ -z ${ver2[i]} ]]
-      then
-          # fill empty fields in ver2 with zeros
-          ver2[i]=0
-      fi
-
-      if ((10#${ver1[i]} > 10#${ver2[i]}))
-      then
-          return 1 #ver1 (LHS) is NEWER than ver2
-      fi
-      if ((10#${ver1[i]} < 10#${ver2[i]}))
-      then
-          return 2
-      fi
-  done
-
-  if [[ $ver2suffix =~ - ]] && ! [[ $ver1suffix =~ - ]] ; then #Comparing 1.2.3 to 1.2.3-xyz
-    return 1 #ver1 (without a -xxx) is thus newer than ver2
-  fi
-  if [[ $ver1suffix =~ - ]] && ! [[ $ver2suffix =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
-    return 2 #ver1 is older
-  fi
-  if [[ "$ver1suffix" < "$ver2suffix" ]]; then
-    return 2 #ver1 is older
-  fi
-  if [[ "$ver1suffix" > "$ver2suffix" ]]; then
-    return 1 #ver1 is newer
-  fi
-
-  return 0
-}
-
 verify_webhare_version()
 {
   PREVVER="$1"
@@ -598,108 +527,6 @@ verify_webhare_version()
   fi
 
   return 0
-}
-
-setup_buildsystem()
-{
-  if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
-    setup_builddir
-  fi
-
-  getwebhareversion
-
-  [ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
-
-  if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
-    if ! which brew >/dev/null 2>&1 ; then
-      echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
-      exit 1
-    fi
-
-    if [ -z "$NOBREW" ]; then
-      # Only (re)install homebrew if webhare.rb changed
-      DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
-
-      # Remove from old location (remove at Date.now >= 2024-02-13)
-      [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
-
-      # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
-      # Also reinstall if important apps are missing which may point to a partial/failed brew installation
-      CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
-      if [ "$DEPSFILE" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ] || ! hash gmake 2>/dev/null; then
-        export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR" # homebrew filters most env vars
-        export HOMEBREW_WEBHARE_CHECKEDOUT_TO="$WEBHARE_CHECKEDOUT_TO"
-        echo -n "Brew: "
-        if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
-        echo "$TODAY" > "$CHECKFILE"
-      fi
-    fi
-
-    if ! which node >/dev/null 2>&1 ; then
-      echo "'node' still not available, please install it ('brew link node' or 'brew link node@<version>'?)"
-      exit 1
-    fi
-
-  elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
-    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel libpq-devel"
-    if ! which ccache > /dev/null 2>&1 ; then
-      REQUIREPACKAGES="$REQUIREPACKAGES ccache"
-    fi
-    MISSINGPACKAGES=
-    for P in $REQUIREPACKAGES; do
-      ASSUME=0
-      for Q in $WEBHARE_ASSUMEPACKAGES ; do
-        if [ "$P" == "$Q" ]; then
-          ASSUME=1
-        fi
-      done
-      if [ "$ASSUME" == "1" ]; then
-        continue
-      fi
-      if ! rpm -q $P >/dev/null ; then
-        MISSINGPACKAGES="$MISSINGPACKAGES $P"
-      fi
-    done
-
-    if [ -n "$MISSINGPACKAGES" ]; then
-      echo ""
-      echo "We need to install the following packages:"
-      echo "$MISSINGPACKAGES"
-      echo ""
-      if [ "$WEBHARE_IN_DOCKER" == "1" ]; then
-        die "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
-      fi
-      if [ "$FORCE" != "1" ]; then
-        echo "If you want me to install them, type YES"
-        echo ""
-        read answer
-        if [ "$answer" != "YES" ]; then
-          die "Then I fear you're on your own"
-        fi
-      fi
-
-      sudo dnf install -y $MISSINGPACKAGES
-    fi
-  fi
-
-  vercomp "`npm -v`" "$REQUIRENPMVERSION"
-  if [ "$?" == "2" ]; then
-    echo "You have npm $(npm -v), we desire $REQUIRENPMVERSION or higher"
-    echo "You may need to update nodejs or manually install npm (eg npm install -g npm)"
-    exit 1
-  fi
-
-  if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
-    # TODO find a nice way to share URL and versions with Docker file
-    [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
-    # Additional dependencies
-    if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh" "$WHBUILD_ASSETROOT" 2.0.32 ; then
-      echo "setup-pdfbox failed"
-    fi
-    if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh" "$WHBUILD_ASSETROOT" 2.9.2; then
-      echo "setup-tika failed"
-    fi
-  fi
 }
 
 load_postgres_settings()
@@ -753,4 +580,4 @@ load_postgres_settings()
 }
 
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
-export -f setup_buildsystem wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters wh_getnodeconfig wh_getemscriptenversion
+export -f wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters wh_getnodeconfig wh_getemscriptenversion
