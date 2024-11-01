@@ -113,9 +113,7 @@ export async function onReady(initfunction: () => void, options?: {
     return;
   }
 
-  let swurl = "/.wh/ea/ap/platform.pwaserviceworker/ap.mjs?app=" + encodeURIComponent(settings.getAppName());
-  if (document.getElementById("wh-publisher-outputtools"))
-    swurl += "&debug=1";
+  const swurl = "/.wh/ea/ap/platform.pwaserviceworker/ap.mjs?app=" + encodeURIComponent(settings.getAppName());
 
   try {
     swregistration = await navigator.serviceWorker.register(swurl, { scope: appbase });
