@@ -772,7 +772,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
     STRING varinfo;
     STRING varcontent;                                    // dump of the contents of the data
-    STRING jscommand;                               // javascript commands
 
     BOOLEAN hasChildren  := FALSE;
     BOOLEAN expanded     := TRUE;                   // tree opened or closed
@@ -970,7 +969,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
       {
         RETURN '<li class="isarray ' || (expanded ? 'open' : 'closed')
             || '"><div class="toggleme header' || (isprivate ? ' private' : '')
-            || '" '|| jscommand ||'>' || infohdr || '\
+            || '">' || infohdr || '\
                    </div>\
                  <ul>' || varcontent || "</ul>\
                 </li>\n";
@@ -978,7 +977,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
     }
     ELSE
     {
-      RETURN '<li '|| jscommand || (isprivate ? 'class="private"' : '') || '>' || infohdr || varcontent || "</li>\n";
+      RETURN '<li ' || (isprivate ? 'class="private"' : '') || '>' || infohdr || varcontent || "</li>\n";
     }
   }
 
