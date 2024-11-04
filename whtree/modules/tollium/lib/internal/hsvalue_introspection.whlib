@@ -1065,7 +1065,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
             typename := "FUNCTION PTR"; // NOTE: we don't need to specify it's active :P
             varinfo := name;
-            varcontent := '<div class="content"\
+            varcontent := '<div class="content">\
                             definition = ' || returnTypeStr || ' (' || DeTokenize(paramslist,", ") || ')<br />\n\
                             library = '    || fptrRecord.library || '<br />\n\
                             function = '   || fptrRecord."function" /*getCell(fptrRecord,'function')*/ || '<br />\n\
