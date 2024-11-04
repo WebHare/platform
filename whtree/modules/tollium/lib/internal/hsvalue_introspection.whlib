@@ -967,12 +967,10 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
       }
       ELSE
       {
-        RETURN '<li class="isarray ' || (expanded ? 'open' : 'closed')
-            || '"><div class="toggleme header' || (isprivate ? ' private' : '')
-            || '">' || infohdr || '\
-                   </div>\
-                 <ul>' || varcontent || "</ul>\
-                </li>\n";
+        RETURN `<li class="isarray ${expanded ? 'open' : 'closed'}"">
+                  <div class="toggleme header ${isprivate ? ' private' : ''}">${infohdr}</div>
+                  <ul ${expanded ? '' : ' hidden="until-found"'}>${varcontent}</ul>
+                </li>\n`;
       }
     }
     ELSE
