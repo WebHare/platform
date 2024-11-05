@@ -21,6 +21,9 @@ PACKAGES=()
 export DEBIAN_FRONTEND=noninteractive
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
 
+# Drop in dirs used by the build
+mkdir -p /opt/wh/whtree/etc/startup.d /opt/whdata/installedmodules/
+
 # Setup users
 useradd --system --uid 20002 --user-group opensearch
 useradd --system --uid 20003 --user-group postgres

@@ -3,9 +3,10 @@
 # This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
 if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
   # Running from a whtree
-  source "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh"
-elif [ -f "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
+  source "${BASH_SOURCE[0]%/*}/../../whtree/lib/wh-functions.sh"
+elif [ -d "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
   # Running from a CI which directly downloaded wh-functions.sh
+  # shellcheck source=../../whtree/lib/wh-functions.sh
   source "${BASH_SOURCE%/*}/wh-functions.sh"
 else
   echo "Unrecognized environment for testdocker"
@@ -159,7 +160,12 @@ create_container()
       branch=$branch
       version=$version"
     rm "$BUILDINFOFILE"
+  fi
 
+  if [ -z "$ISMODULETEST" ]; then
+    [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die "If we're testing WebHare code code, WEBHARE_CHECKEDOUT_TO must be set"
+    # Runs additional verifications
+    RunDocker cp "${WEBHARE_CHECKEDOUT_TO}/addons/docker-build/startup-webhare-ci.sh" "$CONTAINERID":/opt/wh/whtree/etc/startup.d/
   fi
 
   if ! RunDocker start "$CONTAINERID" ; then
@@ -290,6 +296,8 @@ if [ -n "$ISMODULETEST" ]; then
       exit 1
     fi
   fi
+else
+  [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die "If we're testing WebHare code code, WEBHARE_CHECKEDOUT_TO must be set"
 fi
 
 # Reference to the module being tested, 'platform' when we're testing WebHare's core (allows us to share code between module and core test as some scripts accept 'platform' as a module name)
@@ -766,6 +774,13 @@ if [ -z "$FATALERROR" ]; then
         testfail "One or more tests failed"
       fi
     fi
+  fi
+fi
+
+if [ -z "$ISMODULETEST" ] && [ -z "$TESTFW_SKIP_FINALIZE_CI" ]; then
+  RunDocker cp "${WEBHARE_CHECKEDOUT_TO}/addons/docker-build/finalize-webhare-ci.sh" "$TESTENV_CONTAINER1:/tmp/"
+  if ! RunDocker exec "$TESTENV_CONTAINER1" /tmp/finalize-webhare-ci.sh ; then
+    testfail "finalize-webhare-ci.sh reported errors"
   fi
 fi
 

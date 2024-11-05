@@ -155,8 +155,8 @@ testtwohares:
 
 testbackuprestore:
   stage: test
-  script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
+  script: #TESTFW_SKIP_FINALIZE_CI because the container restart kills the script
+    - TESTFW_SKIP_FINALIZE_CI=1 addons/docker-build/testdocker.sh --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
 
 calculatecoverage:
   stage: test

@@ -53,19 +53,8 @@ logWithTime "Setup postgresql-client"
 logWithTime "Build the resolveplugin"
 modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
 
-# When running from source, rebuild buildinfo (for docker builddocker.sh generates this)
-if [ -z "$WEBHARE_IN_DOCKER" ]; then
-  logWithTime "Build the resolveplugin"
-  getwebhareversion # from make-functions.sh
-
-  cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
-committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
-version="${WEBHARE_VERSION}"
-branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
-origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
-HERE
-  mv "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" "$WEBHARE_DIR/modules/system/whres/buildinfo"
-fi
+# When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
+ [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
 if [ -n "$RUNSHRINKWRAP" ]; then
   #TODO Merge both with us?
