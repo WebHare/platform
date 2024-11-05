@@ -115,10 +115,11 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
             tableinfo.documentation = formatDocumentation(col, "");
             continue;
           }
+          if (col.getAttribute("internalcolumnname"))
+            continue; //Internal columns aren't used in TS - we rely on the WHFS APIs to provide them (and may move their logic to the WHFS API completely)
 
           const name = col.getAttribute("name");
           const isprimarykey = name === primarykey;
-          const isInternalColumn = Boolean(col.getAttribute("internalcolumnname"));
           //Read nullable and noupdate settings. These default to true resp. false
           const col_nullable: boolean = ["1", "true"].includes(col.getAttribute("nullable") || "true");
           const col_noupdate: boolean = (["1", "true"].includes(col.getAttribute("noupdate") || "false"));
@@ -189,7 +190,7 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
           }
           if (nullable)
             tstype = `${tstype} | null`;
-          if (isprimarykey || col_noupdate || isInternalColumn)
+          if (isprimarykey || col_noupdate)
             tstype = `IsGenerated<${tstype}>`;
 
           if (documentation)

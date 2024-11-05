@@ -1,12 +1,13 @@
 import { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, WHFSObject, WHFSFolder, describeWHFSType, openType } from "./whfs";
-import { db, Selectable } from "@webhare/whdb";
+import { db, Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 import { isHistoricWHFSSpace } from "./objects";
+import type { SiteRow } from "./sites";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -35,7 +36,7 @@ function matchPathRegex(pattern: string, path: string): boolean {
 }
 
 interface BaseInfo extends SiteApplicabilityInfo {
-  site: Selectable<PlatformDB, "system.sites"> | null;
+  site: SiteRow | null;
   obj: WHFSObject | null;
   parent: WHFSFolder;
   isfile: boolean;
@@ -85,9 +86,12 @@ export function getWRDPlugindata(data: Record<string, unknown> | null) {
 
 async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: boolean, type: string, name: string, isNew: boolean): Promise<BaseInfo> {
   const siteapply = await getSiteApplicabilityInfo(parent.parentSite);
-  let site: Selectable<PlatformDB, "system.sites"> | null = null;
+  let site: SiteRow | null = null;
   if (parent.parentSite) {
-    site = await db<PlatformDB>().selectFrom("system.sites").selectAll().where("id", "=", parent.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
+    site = await db<PlatformDB>().selectFrom("system.sites").
+      selectAll().
+      select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")).
+      where("id", "=", parent.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
   let typeneedstemplate = false;
@@ -145,9 +149,12 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     return await getHistoricBaseInfo(obj);
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
-  let site: Selectable<PlatformDB, "system.sites"> | null = null;
+  let site: SiteRow | null = null;
   if (obj.parentSite) {
-    site = await db<PlatformDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
+    site = await db<PlatformDB>().selectFrom("system.sites").
+      selectAll().
+      select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")).
+      where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
   let typeneedstemplate = false;
@@ -187,7 +194,7 @@ export class WHFSApplyTester {
 */
 
   //TODO shouldn't take access to dbrecord, just need to add some more fields to the base types
-  private async toIsMatch(element: CSPApplyTo, site: Selectable<PlatformDB, "system.sites"> | null, folder: WHFSFolder | null): Promise<boolean> {
+  private async toIsMatch(element: CSPApplyTo, site: SiteRow | null, folder: WHFSFolder | null): Promise<boolean> {
     switch (element.type) {
       case "and":
         for (const crit of element.criteria)
@@ -285,7 +292,7 @@ export class WHFSApplyTester {
     return `${(this.objinfo.parent.sitePath + this.objinfo.name).toUpperCase()}${this.objinfo.isfile ? "" : "/"}`;
   }
 
-  testPathConstraint(rec: CSPApplyToTo, site: Selectable<PlatformDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
+  testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): boolean {
     if (rec.pathmask && isNotLike(this.getPath("sitePath"), rec.pathmask.toUpperCase()))
       return false;
     if (rec.parentmask && (!parentitem || isNotLike(parentitem.sitePath.toUpperCase(), rec.parentmask.toUpperCase())))
