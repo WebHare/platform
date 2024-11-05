@@ -1,4 +1,4 @@
-import { systemConfigSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { scheduleTimedTask, writeRegistryKey } from "@webhare/services";
 import { omit } from "@webhare/std";

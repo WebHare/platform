@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { getTid } from "@webhare/gettid";
 import { throwError } from "@webhare/std";
 import { db, sql } from "@webhare/whdb";

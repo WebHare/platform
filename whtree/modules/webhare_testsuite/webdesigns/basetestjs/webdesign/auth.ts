@@ -1,4 +1,4 @@
-import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { type JWTPayload, type OpenIdRequestParameters, type ReportedUserInfo, type WRDAuthCustomizer } from "@webhare/wrd";
 
 export class AuthCustomizer implements WRDAuthCustomizer {

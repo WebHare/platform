@@ -1,5 +1,5 @@
 import { db } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import type { CSPContentType } from "@webhare/whfs/src/siteprofiles";
 import { wildcardsToRegExp } from "@webhare/std";

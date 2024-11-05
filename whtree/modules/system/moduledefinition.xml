@@ -18,7 +18,7 @@
     <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20240219" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2024_04_01" when="poststart" />
+    <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2024_11_05" when="poststart" />
 
     <!-- migrate whuser_disabled to whuser_disable_type -->
     <runonce script="scripts/runonce/fix_whuser_disabled.ts" tag="fix_whuser_disabled" when="poststart" />

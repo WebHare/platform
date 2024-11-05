@@ -1,4 +1,4 @@
-import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { db } from "@webhare/whdb";
 import { describeWHFSType } from "@webhare/whfs";
 

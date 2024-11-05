@@ -4,23 +4,23 @@ import { backendConfig } from "@webhare/services";
 
 async function testDevBridge() {
   test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "storage/system/generated/wrd/example.ts"));
-  test.eq("@mod-system/js/internal/generated/whdb/platform", devbridge.getImportPath(backendConfig.installationroot + "modules/system/js/internal/generated/whdb/platform.ts"));
+  test.eq("@mod-platform/generated/whdb/platform", devbridge.getImportPath(backendConfig.installationroot + "modules/platform/generated/whdb/platform.ts"));
 
   const test_platform_files = await devbridge.getGeneratedFiles({ module: "platform" });
-  test.eqPartial({ importPath: '@mod-system/js/internal/generated/whdb/platform' }, test_platform_files.find(_ => _.type === "whdb"));
+  test.eqPartial({ importPath: '@mod-platform/generated/whdb/platform' }, test_platform_files.find(_ => _.type === "whdb"));
 
   const platform_whdb_defs = await devbridge.getDatabaseDefs({ module: "platform" });
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
   // console.log(JSON.stringify(platform_whdb_defs, null, 2));
   test.eqPartial({
     interface: "PlatformDB",
-    importPath: '@mod-system/js/internal/generated/whdb/platform'
+    importPath: '@mod-platform/generated/whdb/platform'
   }, platform_whdb_defs);
   test.assert(platform_whdb_defs.schemas.consilio.tables.catalogs.columns.id);
 
   const platform_wrd_defs = await devbridge.getWRDDefs({ module: "platform" });
   test.eqPartial({
-    importPath: '@mod-system/js/internal/generated/wrd/webhare'
+    importPath: '@mod-platform/generated/wrd/webhare'
   }, platform_wrd_defs);
 
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down

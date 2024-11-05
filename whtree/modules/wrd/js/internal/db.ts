@@ -1,5 +1,5 @@
 import { db, Selectable, sql } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDMetaTypeId } from "./types";
 

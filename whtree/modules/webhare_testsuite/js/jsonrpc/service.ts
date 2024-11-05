@@ -1,4 +1,4 @@
-import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { MyService } from "./type";
 import { debugFlags } from "@webhare/env";
 import { WebRequest } from "@webhare/router";

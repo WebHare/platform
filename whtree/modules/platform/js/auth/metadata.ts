@@ -2,7 +2,7 @@ import { WebHareRouter, WebRequest, WebResponse, createJSONResponse } from "@web
 import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
-import type { Platform_BasewrdschemaSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import type { Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 

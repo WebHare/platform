@@ -4,9 +4,6 @@
    - whtree/modules/platform/generated/<type>
      - in JS/TS: @mod-platform/generated/<type>/
      - in HS/as resource: mod::platform/generated/<type>/
-   - whtree/modules/system/js/internal/generated/<type>   (might move into the above dir?)
-     - in JS/TS: @mod-system/generated/<type>/
-     - in HS/as resource: mod::system/generated/<type>/
    - whdata/storage/system/generated/<type>               (might become whdata/storage/<type> but we don't expose that as a resource in JS yet)
      - in JS/TS: wh:<type>/
       - in HS/as resource: storage::system/generated/<type>/
@@ -40,7 +37,7 @@ import { ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefpar
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
-  const builtinBaseDir = backendConfig.installationroot + "modules/system/js/internal/generated/";
+  const builtinBaseDir = backendConfig.installationroot + "modules/platform/generated/";
   const platformGeneratedDir = toFSPath("mod::platform/generated/");
 
   return { installedBaseDir, builtinBaseDir, platformGeneratedDir };
@@ -50,7 +47,7 @@ export function getGeneratedFilePath(module: string, type: string, path: string)
   if (module === "platform" && type === "schema")
     return toFSPath(`mod::platform/generated/${path}`);
   if (module === "platform" && type !== 'extract')
-    return backendConfig.installationroot + "modules/system/js/internal/generated/" + path;
+    return backendConfig.installationroot + "modules/platform/generated/" + path;
   return backendConfig.dataroot + "storage/system/generated/" + path;
 }
 

@@ -9,10 +9,10 @@ import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { IdentityProvider, createCodeVerifier } from "@webhare/wrd/src/auth";
-import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";
-import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { getAuditLog } from "@webhare/wrd/src/auditevents";
 
 const callbackUrl = "http://localhost:3000/cb";

@@ -7,7 +7,7 @@ export { AuthenticationSettings } from "./auth";
 export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "./auth";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
-import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, Insertable as WRDInsertable, Updatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
 import { encodeWRDGuid } from "@mod-wrd/js/internal/accessors";

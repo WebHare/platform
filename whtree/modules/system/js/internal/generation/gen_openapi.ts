@@ -442,7 +442,7 @@ export type TypedRestAuthorizationRequest = OpenApiTypedRestAuthorizationRequest
 
 async function generateFile(options: GenerateContext, service: OpenAPIDescriptor, module: string, name: string, isservice: boolean) {
   const importname = whconstant_builtinmodules.includes(module)
-    ? `modules/system/js/internal/generated/openapi/${module}/${name}`
+    ? `modules/platform/generated/openapi/${module}/${name}`
     : `wh:openapi/${module}/${name}`;
 
   const timername = `Generating OpenAPI ${module}:${name}`;

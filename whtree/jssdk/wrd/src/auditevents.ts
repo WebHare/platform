@@ -1,4 +1,4 @@
-import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 import { db } from "@webhare/whdb";
 

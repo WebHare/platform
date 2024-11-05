@@ -1,7 +1,7 @@
 import type { WebRequest } from "@webhare/router/src/request";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "./wrd";
-import type { WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { IdentityProvider } from "./auth";
 
 /** Get the user linked to a URL */
