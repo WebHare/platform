@@ -4,7 +4,7 @@
 if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
   # Running from a whtree
   source "${BASH_SOURCE[0]%/*}/../../whtree/lib/wh-functions.sh"
-elif [ -d "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
+elif [ -f "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
   # Running from a CI which directly downloaded wh-functions.sh
   # shellcheck source=../../whtree/lib/wh-functions.sh
   source "${BASH_SOURCE%/*}/wh-functions.sh"
