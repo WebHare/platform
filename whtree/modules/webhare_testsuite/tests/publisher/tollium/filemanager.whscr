@@ -325,6 +325,28 @@ ASYNC MACRO WalkTheTree()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+MACRO CleanupRootFolder()
+{
+  OBJECT testfolder := OpenWHFSObjectByPath("/webhare_testsuite.test-publisher-tollium-filemanager");
+  IF(ObjectExists(testfolder))
+  {
+    testfw->BeginWork();
+    testfolder->RecycleSelf();
+    testfw->CommitWork();
+  }
+}
+
+ASYNC MACRO CreateRootObject()
+{
+  CleanupRootFolder();
+
+  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), 0, [ type := 0, isfolder := TRUE ]));
+  TT("name")->value := "webhare_testsuite.test-publisher-tollium-filemanager";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  CleanupRootFolder();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // PhotoAlbums
@@ -350,6 +372,7 @@ ASYNC MACRO CreatePhotoAlbum()
 RunTestframework([ PTR PrepIt
                  , PTR InitialGotoFolder //used by eg Find.
                  , PTR WalkTheTree
+                 , PTR CreateRootObject
                  , PTR CreatePhotoAlbum
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]

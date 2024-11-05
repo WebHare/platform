@@ -71,12 +71,14 @@ export async function reset(options?: ResetOptions) {
 
   await using work = await beginWork();
 
-  const tmpfolder = await openFolder("site::webhare_testsuite.testsite/tmp", { allowMissing: true });
-  if (tmpfolder) {
-    for (const item of await tmpfolder.list()) {
-      //FIXME openObjects would still be very useful
-      const obj = await openFileOrFolder(item.id);
-      await obj.delete(); //FIXME we desire recyle
+  for (const tmpfoldername of ["site::webhare_testsuite.testsite/tmp", "site::webhare_testsuite.testsitejs/tmp"]) {
+    const tmpfolder = await openFolder(tmpfoldername, { allowMissing: true });
+    if (tmpfolder) {
+      for (const item of await tmpfolder.list()) {
+        //FIXME openObjects would still be very useful
+        const obj = await openFileOrFolder(item.id);
+        await obj.delete(); //FIXME we desire recyle
+      }
     }
   }
 
