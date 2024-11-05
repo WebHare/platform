@@ -45,7 +45,6 @@ export default class ArrayField {
   arrayBaseName;
 
   constructor(private handler: NewType, private node: HTMLElement, items: HTMLElement[], private name: string) {
-    node.dataset.whFormRegisteredField = "dynamic"; //just to keep the parent class happy
     this.arrayBaseName = node.dataset.whFormGroupFor || throwError("Missing array base name");
 
     // The template for new rows. If we have arrays-in-array, it will still be the first <template>
