@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-let debug = false, cachepath = '';
+let debug = false;
 
 type PatchedModule = InternalModule & {
   _extensions: Record<string, (mod: PatchedModule, filename: string) => void>;
@@ -18,7 +18,7 @@ type PatchedModule = InternalModule & {
 
 const Module = InternalModule as unknown as PatchedModule;
 
-function getCachePathForFile(filename: string): string {
+function getCachePathForFile(cachepath: string, filename: string): string {
   const hash = crypto
     .createHash("md5")
     .update(path.resolve(filename)) //ensures its absolute
@@ -64,8 +64,8 @@ function _transform(
   return ret.code;
 }
 
-function transpile(code: string, filename: string): string {
-  const compiledpath = getCachePathForFile(filename);
+export function transpile(cachepath: string, code: string, filename: string): string {
+  const compiledpath = getCachePathForFile(cachepath, filename);
   let file_stat = fs.statSync(filename);
   const compile_stat = fs.existsSync(compiledpath) && fs.statSync(compiledpath);
 
@@ -102,7 +102,7 @@ function transpile(code: string, filename: string): string {
 
 export function installResolveHook(config: { debug: boolean; cachePath: string }) {
   debug = config.debug;
-  cachepath = config.cachePath;
+  const cachepath = config.cachePath;
   if (!cachepath)
     throw new Error(`No cache path specified`);
 
@@ -149,7 +149,7 @@ export function installResolveHook(config: { debug: boolean; cachePath: string }
         const defaultCompile = mod._compile;
         mod._compile = (code: string) => {
           mod._compile = defaultCompile;
-          return mod._compile(transpile(code, filename), filename);
+          return mod._compile(transpile(cachepath, code, filename), filename);
         };
       }
       defaultLoader(mod, filename);
