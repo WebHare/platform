@@ -25,6 +25,11 @@ async function testWHFS() {
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
 
+  await test.throws(/Cannot open root folder/, whfs.openFolder(0));
+  await test.throws(/Cannot open root folder/, whfs.openFolder('/'));
+  test.eq(0, (await whfs.openFolder('/', { allowRoot: true })).id);
+  test.eq(0, (await whfs.openFolder(0, { allowRoot: true })).id);
+
   const testsite = await test.getTestSiteHS();
   const testsitejs = await test.getTestSiteJS();
   test.assert(testsite, "We need the HS testsite to exist");
