@@ -123,18 +123,9 @@ create_container()
   fi
 
   if [ -n "$TESTINGMODULE" ]; then
-    # we don't want WebHare to start yet. TOOD We can remove these hooks as soon as 5.3+ is our baseline for module CI
+    # We don't want WebHare to start yet so we can (ab)use the already started container to run explainmodules before it really starts
     true > "${TEMPBUILDROOT}/pause-webhare-startup"
     RunDocker cp "${TEMPBUILDROOT}/pause-webhare-startup" "$CONTAINERID":/pause-webhare-startup
-
-    echo "#!/bin/bash" > "${TEMPBUILDROOT}/sleep-launch.sh"
-    echo "until [ ! -f /pause-webhare-startup ]; do sleep .2 ; done" >> "${TEMPBUILDROOT}/sleep-launch.sh"
-    echo "exec /opt/container/real-launch.sh" >> "${TEMPBUILDROOT}/sleep-launch.sh"
-    chmod a+x "${TEMPBUILDROOT}/sleep-launch.sh"
-
-    RunDocker cp --archive "$CONTAINERID":/opt/container/launch.sh "${TEMPBUILDROOT}/real-launch.sh"
-    RunDocker cp --archive "${TEMPBUILDROOT}/real-launch.sh" "$CONTAINERID":/opt/container/real-launch.sh
-    RunDocker cp --archive "${TEMPBUILDROOT}/sleep-launch.sh" "$CONTAINERID":/opt/container/launch.sh
   fi
 
   echo "$(date) Created container with id: $CONTAINERID"
