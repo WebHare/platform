@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 function testExecSync(location: string) {
   console.log(`run testExecSync - ${location}`);
   const output = execFileSync(`node`, [`-e`, `console.log("ok");`]).toString();
-  if (output != "ok\n")
+  if (output !== "ok\n")
     throw new Error(`execFileSync failed, output should be "ok\n", but was ${JSON.stringify(output)}`);
 }
 

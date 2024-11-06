@@ -1,5 +1,5 @@
 import { addDuration, parseDuration } from "@webhare/std";
-import { System_UsermgmtSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { getAuditLog } from "@webhare/wrd/src/auditevents";

@@ -2,7 +2,7 @@ import { generateRandomId } from "@webhare/std/platformbased";
 import { SessionScopes, toFSPath } from "./services";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
 import { db, isWorkOpen, onFinishWork } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import type { UploadInstructions, UploadManifest } from "@webhare/upload";
 import * as fs from "node:fs/promises";
 import { openAsBlob } from "node:fs";

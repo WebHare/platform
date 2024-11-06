@@ -105,3 +105,6 @@ IF(ObjectExists(feedbackschema))
     GetPrimary()->CommitWork();
   }
 }
+
+//5.7 Old generated folder
+DeleteDiskDirectoryRecursive(MergePath(installationroot, "modules/system/js/internal/generated"));

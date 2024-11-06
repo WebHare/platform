@@ -288,7 +288,7 @@ MACRO InsertMemberTest()
   CloseTest("TestObjects: InsertMemberTest");
 }
 
-MACRO BaseTest()
+MACRO BaseObjectsTest()
 {
   OpenTest("TestObjects: BaseTest");
 
@@ -1658,7 +1658,7 @@ MACRO TestSharedReferenceTest()
   TestEQ([ isshared := TRUE, value := obj ], __HS_INTERNAL_TESTOBJECTSHAREDREFERENCE(obj));
 }
 
-BaseTest();
+BaseObjectsTest();
 InsertMemberTest();
 PrivateTest();
 PublicTest();

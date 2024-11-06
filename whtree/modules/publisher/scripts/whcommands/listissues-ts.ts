@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { getTid } from "@webhare/gettid";
 import { throwError } from "@webhare/std";
 import { db, sql } from "@webhare/whdb";
@@ -8,7 +8,7 @@ import { PublishedFlag_Warning, getPrioOrErrorFromPublished, testFlagFromPublish
     @param basefolder - Starting folder
     @param maximumdepth - Maximum depth. Depth=1 only gets the direct subfolders. Suggested
     @param returnfolders - Return folders too */
-async function getWHFSDescendantIds(basefolder: number, returnfolders: boolean, returnfiles: boolean, maximumdepth = 32, onlypublished = false) {
+async function getWHFSDescendantIds(basefolder: number, returnfolders: boolean, returnfiles: boolean, maximumdepth = 32) {
   if (!returnfiles && !returnfolders)
     return [];
 
@@ -23,8 +23,6 @@ async function getWHFSDescendantIds(basefolder: number, returnfolders: boolean, 
       .where("parent", "=", sql`any(${currentlevel})`);
     if (!returnfiles)
       currentsubsSQL.where("isfolder", "=", true);
-    if (onlypublished)
-      currentsubsSQL.where("publish", "=", true);
 
     const currentsubs = await currentsubsSQL.execute();
     currentlevel = currentsubs.filter(sub => sub.isfolder).map(sub => sub.id);

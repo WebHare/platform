@@ -299,24 +299,24 @@ MACRO TestAttributes(STRING tag)
             CONTINUE;
 
           OBJECT type := schemaobj->GetType(attr.domain);
-          RECORD ARRAY data := type->RunQuery([ outputcolumns := [ id := "WRD_ID" ]
+          RECORD ARRAY data2 := type->RunQuery([ outputcolumns := [ id := "WRD_ID" ]
                                               , filters := [[ field := "WRD_ID", matchtype := "!=", value := entity->id ]]
                                               ] );
 
           testvalues :=
             [ [ value := 0, valid := NOT attr.isrequired ]
-            , [ value := (SELECT AS INTEGER id FROM data), valid := TRUE ]
+            , [ value := (SELECT AS INTEGER id FROM data2), valid := TRUE ]
             ];
         }
     CASE 8
         {
           OBJECT type := schemaobj->GetType(attr.domain);
-          RECORD ARRAY data := RunWRDQuery([ sources := [ [ type := type, outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+          RECORD ARRAY data2 := RunWRDQuery([ sources := [ [ type := type, outputcolumns := [ id := "WRD_ID" ] ] ] ]);
 
           testvalues :=
             [ [ value := DEFAULT INTEGER ARRAY, valid := NOT attr.isrequired ]
-            , ...( Length(data) >= 1 ? [[ value := [ SELECT AS INTEGER id FROM data ], valid := TRUE ]] : RECORD[]) //only insert if at least one value
-            , [ value := (SELECT AS INTEGER ARRAY id FROM data), valid := TRUE ]
+            , ...( Length(data2) >= 1 ? [[ value := [ SELECT AS INTEGER id FROM data2 ], valid := TRUE ]] : RECORD[]) //only insert if at least one value
+            , [ value := (SELECT AS INTEGER ARRAY id FROM data2), valid := TRUE ]
             ];
         }
     DEFAULT
@@ -337,14 +337,14 @@ MACRO TestAttributes(STRING tag)
         TestWRDAttributeValuesEqual(rec.value, changeddata);
 
         // See what query engine returns for current value
-        RECORD data := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ] ], outputcolumns := [ value := attr.tag ] ] ] ]);
-        TestWRDAttributeValuesEqual(rec.value, data.value);
+        RECORD data2 := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ] ], outputcolumns := [ value := attr.tag ] ] ] ]);
+        TestWRDAttributeValuesEqual(rec.value, data2.value);
 
         // See what query engine equality filtering is ok
         VARIANT different_value := testvalues[(#rec + 1) % LENGTH(testvalues)].value;
         IF(EncodeHSON(different_value) != EncodeHSON(rec.value))
         {
-          data := RunWRDQuery([ sources := [ [ type := typeobj
+          data2 := RunWRDQuery([ sources := [ [ type := typeobj
                                              , historymode := "all"
                                              , filters := [ [ field := "wrd_id", value := entity->id ]
                                                           , [ field := attr.tag, value := different_value ]
@@ -353,15 +353,15 @@ MACRO TestAttributes(STRING tag)
                                              ]
                                            ]
                               ]);
-          TestEq(FALSE, RecordExists(data));
+          TestEq(FALSE, RecordExists(data2));
         }
         // See what query engine equality filtering is ok
-        data := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, value := rec.value ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
-        TestEq([ id := entity->id ], data);
+        data2 := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, value := rec.value ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+        TestEq([ id := entity->id ], data2);
 
         // See what query engine inequality filtering is ok
-        data := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, match_type := "!=", value := rec.value ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
-        TestEq(DEFAULT RECORD, data);
+        data2 := RunWRDQuery([ sources := [ [ type := typeobj, historymode := "all", filters := [ [ field := "wrd_id", value := entity->id ], [ field := attr.tag, match_type := "!=", value := rec.value ] ], outputcolumns := [ id := "WRD_ID" ] ] ] ]);
+        TestEq(DEFAULT RECORD, data2);
       }
     }
 

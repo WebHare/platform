@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { convertWaitPeriodToDate } from "@webhare/std";

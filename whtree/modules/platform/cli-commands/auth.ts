@@ -8,7 +8,7 @@ import { beginWork, commitWork } from '@webhare/whdb';
 import { IdentityProvider, compressUUID } from '@webhare/wrd/src/auth';
 import { getSchemaSettings } from '@webhare/wrd/src/settings';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
+import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { isValidWRDTag } from '@webhare/wrd/src/wrdsupport';
 

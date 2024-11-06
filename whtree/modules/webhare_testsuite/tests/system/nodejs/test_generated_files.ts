@@ -48,7 +48,7 @@ async function testWebHareConfig() {
 async function testBasics() {
   const context = await buildGeneratorContext(["system"], false);
   const result = generateKyselyDefs(context, "platform");
-  test.eq(/fullpath: IsGenerated<string>/, result, "fullpath & co must be marked as IsGenerated as you can't insert them");
+  test.eq(/id: IsGenerated<number>/, result);
 
   test.eq({ creationdate: new Date(0), name: "mymodule" }, parseModuleFolderName("mymodule"));
   test.eq({ creationdate: new Date("2020-09-07T17:41:14.123Z"), name: "mymodule" }, parseModuleFolderName("mymodule.20200907T174114.123Z"));

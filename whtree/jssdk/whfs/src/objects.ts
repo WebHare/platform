@@ -1,5 +1,5 @@
 import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
@@ -15,6 +15,7 @@ interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   fullpath: string;
   whfspath: string;
   parentsite: number | null;
+  publish: boolean;
 }
 
 /// Public version with expected javascript mixed casing
@@ -621,17 +622,11 @@ function getRootFolderDBRow(): FsObjectRow {
     errordata: "",
     scandata: "",
     published: 0,
-    //FIXME the below fields shouldn't be in FsObjectRow - they don't exist in PG but the generator is incorrectly adding generated fields
     fullpath: "",
     whfspath: "/",
-    highestparent: 0,
-    parent_inside_site: 0,
     publish: false,
     link: "",
-    url: "",
-    isactive: true,
-    parentsite: null,
-    indexurl: ""
+    parentsite: null
   };
 }
 
@@ -663,6 +658,7 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
       .select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath"))
       .select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath"))
       .select(sql<number | null>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite"))
+      .select(sql<boolean>`webhare_proc_fs_objects_publish(isfolder, published)`.as("publish"))
       .where("id", "=", location)
       .executeTakeFirst();
   }

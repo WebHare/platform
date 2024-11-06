@@ -1,5 +1,5 @@
 import { Selectable, db, nextVal, sql } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
 import { CSPContentType } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
