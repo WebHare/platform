@@ -1,21 +1,11 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::javascript.whlib";
 
-LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/otp.whlib";
-
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
-
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 ASYNC MACRO TestExpiration()
 {

@@ -8,9 +8,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/support.whlib";
-
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -25,7 +22,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
-LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

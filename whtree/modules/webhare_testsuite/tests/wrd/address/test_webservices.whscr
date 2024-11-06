@@ -9,7 +9,8 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
-LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+
 
 //https://webview.webservices.nl/documentation/files/interfaces/more/services-txt.html
 //  __webbrowser_debugall := TRUE;

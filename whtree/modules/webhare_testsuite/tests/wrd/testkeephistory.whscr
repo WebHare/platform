@@ -12,9 +12,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
-LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";

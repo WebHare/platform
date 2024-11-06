@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 PUBLIC RECORD FUNCTION DoUpdate(OBJECT wrdschema)

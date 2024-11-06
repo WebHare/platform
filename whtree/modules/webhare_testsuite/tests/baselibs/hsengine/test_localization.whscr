@@ -4,8 +4,6 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::javascript.whlib";
 
-LOADLIB "mod::system/lib/tasks.whlib";
-
 
 // We're building using Ubuntu 18.04, which currently (as of 2018-03-22) has ICU4C 60.2:
 // https://launchpad.net/ubuntu/bionic/+source/icu

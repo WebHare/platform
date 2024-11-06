@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";

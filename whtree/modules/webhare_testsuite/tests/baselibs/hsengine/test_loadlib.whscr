@@ -2,7 +2,6 @@
 /// @short Internet functions test
 
 
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/resources.whlib";

@@ -2,9 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
-LOADLIB "wh::internal/any.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 

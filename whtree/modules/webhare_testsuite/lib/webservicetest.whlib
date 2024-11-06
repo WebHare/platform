@@ -1,8 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::files.whlib";
-
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";

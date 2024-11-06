@@ -9,7 +9,6 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/anonymize.whlib";
-LOADLIB "mod::wrd/lib/imexport.whlib";
 
 
 MACRO HasPersonalDataProperty()

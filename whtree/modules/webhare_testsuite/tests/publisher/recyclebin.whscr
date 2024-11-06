@@ -10,8 +10,6 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
-
 
 
 OBJECT fullrightfolder;

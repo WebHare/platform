@@ -1,19 +1,9 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 
-LOADLIB "mod::tollium/lib/testframework.whlib";
-
-LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/testfw/payments.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
