@@ -41,6 +41,8 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
                               GROUP BY providerattr, paymentattr
                               ORDER BY Random(1,65535);
 
+  INTEGER ARRAY relevant_attrs;
+
   //ADDME limit the amount of work per run
   FOREVERY(RECORD paymentgroup FROM paymentgroups)
   {
@@ -52,6 +54,8 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
 
     IF(options.id = 0 AND (wrdschema->tag = whconstant_wrd_testschema) != for_test)
       CONTINUE;
+
+    INSERT paymentgroup.paymentattr INTO relevant_attrs AT END;
 
     OBJECT api := GetPaymentAPI(wrdschema, [ providertypeid := providerattr.wrdtype
                                            , providerfield := providerattr.attributetag
@@ -130,7 +134,7 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
     }
   }
 
-  FOREVERY(RECORD failpay FROM SELECT error FROM wrd.pendingpayments WHERE error != "" AND (options.id = 0 ? TRUE : id = options.id))
+  FOREVERY(RECORD failpay FROM SELECT error FROM wrd.pendingpayments WHERE paymentattr IN relevant_attrs AND error != "" AND (options.id = 0 ? TRUE : id = options.id))
   {
     PrintTo(2, failpay.error || "\n"); //TODO after an import, the ids in the error might be incorrect
     allok := FALSE;
