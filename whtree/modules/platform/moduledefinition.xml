@@ -27,7 +27,7 @@
     - `/.wh/common/`: implements various builtin pages
     - `/.wh/ea/p/`: Static assets part of the core WebHare 'platform' module (ie used for shadowcss assets)
     - `/.wh/ea/uc/`: The new location for the unified cache (Files and Images)
-    - `/.wh/ea/ap/`: The new location for asset packs
+    - `/.wh/ea/ap/`: The new location for asset packs (see also getAssetPackBase)
     -->
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
 

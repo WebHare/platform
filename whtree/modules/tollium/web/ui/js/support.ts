@@ -419,7 +419,7 @@ export function isDebugTypeEnabled(target: DebugTarget) {
   if (target === "all" || !debugTargets.includes(target))
     throw new Error(`Invalid debug type: ${target}`);
 
-  return enabledlogtypes.has('all') || enabledlogtypes.has(target);
+  return enabledlogtypes.has('all') || enabledlogtypes.has(target) || debugFlags["tollium-" + target];
 }
 export const IsDebugTypeEnabled = isDebugTypeEnabled;
 

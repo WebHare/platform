@@ -1,3 +1,4 @@
+import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
 import type { AuthorModeOptions } from "@mod-publisher/webdesigns/authormode/authormode";
 import { getLocal, loadCSS, loadScript } from "@webhare/dompack";
 export type { AuthorModeOptions };
@@ -7,7 +8,7 @@ export type { AuthorModeOptions };
  * @returns A promise resolving to an array containing the assetpack script and CSS nodes
 */
 export function loadAssetPack(apname: string) {
-  const basepath = `/.wh/ea/ap/${apname.replace(':', '.')}/ap.`;
+  const basepath = `${getAssetPackBase(apname)}ap.`;
   if (document.querySelector(`script[src$="${CSS.escape(basepath + "mjs")}"`))
     return; //we have it already
 

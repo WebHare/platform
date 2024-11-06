@@ -2,6 +2,7 @@
 /// <reference lib="webworker"/>
 declare const self: ServiceWorkerGlobalScope;
 
+import { getAssetPackBase } from '@mod-platform/js/concepts/frontend';
 import type { AssetPackManifest } from '@mod-publisher/js/internal/esbuild/compiletask';
 // when developing, to explicitly recompile our package: wh assetpack recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
@@ -11,7 +12,6 @@ import type { IDBPDatabase } from 'idb';
 
 const serviceworkerurl = new URL(location.href);
 const appname: string = serviceworkerurl.searchParams.get('app') ?? throwError("Unknown app name");
-const debugassetpacks: boolean = serviceworkerurl.searchParams.get('debug') === '1';
 
 const logprefix = `[SW ${appname} ${generateRandomId()}] `;
 
@@ -81,7 +81,6 @@ async function addToSwLog(data: object) {
 }
 
 interface SWStoreKeys {
-  debugassetpacks: boolean;
   currentversion: ServerVersionInfo;
   forcerefresh: Date;
   installscope: string;
@@ -129,22 +128,16 @@ async function downloadApplication() {
   const cache = await caches.open("pwacache-" + appname);
 
   //FIXME we can't really assume that appname (webdesignname) === assetpackname
-  const assetpackname = appname.replace(':', '.');
+  const assetbasedir = getAssetPackBase(appname);
 
   //Get the easily guessed assets first
   //FIXME move user urls to the manifest ? how abotu th /sd/ urls?
   const mainpageurl = self.registration.scope;
-  const assetbasedir = `/.wh/ea/ap/${assetpackname}${debugassetpacks ? '.dev' : ''}/`;
   const manifestfetch = fetch(`${assetbasedir}apmanifest.json`);
-  const baseassets = debugassetpacks
-    ? [
-      `${assetbasedir}ap.css`,
-      `${assetbasedir}ap.mjs`,
-    ]
-    : [
-      `${assetbasedir}ap.css`,
-      `${assetbasedir}ap.mjs`
-    ];
+  const baseassets = [
+    `${assetbasedir}ap.css`,
+    `${assetbasedir}ap.mjs`
+  ];
 
   //make sure we get refresh versions, Safari seems to need this or it'll just reuse its browser cache
   const mainpagefetch = fetch(mainpageurl, { cache: 'reload' });
@@ -189,7 +182,6 @@ async function downloadApplication() {
   //add them to the cache, though we really need a putAll to do this atomically..
   await Promise.all(allassets.map((asset, idx) => cache.put(asset, allfetchresults[idx])));
 
-  setSwStoreValue('debugassetpacks', debugassetpacks);
   setSwStoreValue('currentversion', versioninfo);
   setSwStoreValue('forcerefresh', new Date(versioninfo.forcerefresh));
 
@@ -268,7 +260,7 @@ async function onFetch(event: FetchEvent) {
   if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
     || urlpath.startsWith('/.wh/dev/')
     || urlpath.startsWith('/.dev/debug.js')
-    || urlpath.startsWith('/.wh/ea/ap/dev.devtools/')
+    || urlpath.startsWith(getAssetPackBase("dev:devtools"))
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
     || urlpath.startsWith("/.px/")) {
     return;  //well known never cached files
@@ -367,7 +359,6 @@ let sendingissuereport = false;
 
 interface IssueReport {
   appname: string;
-  debugassetpacks: boolean;
   when: Date;
   [key: string]: unknown;
 }
@@ -389,7 +380,6 @@ async function sendIssueReport(body: object) {
     const issuebody = {
       ...body,
       appname: appname,
-      debugassetpacks: debugassetpacks,
       when: new Date
     };
 

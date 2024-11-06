@@ -14,6 +14,7 @@ interface SimpleScreenSettings {
   }>;
   defaultbutton?: string;
   icon?: "confirmation" | "error" | "information" | "question" | "unrecoverable" | "warning";
+  wordWrap?: boolean;
   /** Called when a buttons is clicked. Signature: function (buttonname) */
   onclose?: (buttonname: string) => void;
 }
@@ -38,7 +39,8 @@ export async function runSimpleScreen(app: ApplicationBase, options: SimpleScree
         specials: [],
         allowresize: false,
         title: options.title || getTid("tollium:shell.messagebox.defaulttitle"),
-        defaultbutton: options.defaultbutton ? 'button_' + options.defaultbutton : ''
+        defaultbutton: options.defaultbutton ? 'button_' + options.defaultbutton : '',
+        width: options?.wordWrap ? '100x' : '',
       },
 
       root: {
@@ -47,7 +49,8 @@ export async function runSimpleScreen(app: ApplicationBase, options: SimpleScree
           { layout: "block", items: [{ item: "body" }], height: '1pr' },
           { layout: "block", items: [{ item: "footer" }] }
         ],
-        height: '1pr'
+        height: '1pr',
+        width: '1pr'
       },
       body: {
         type: 'panel',
@@ -63,7 +66,7 @@ export async function runSimpleScreen(app: ApplicationBase, options: SimpleScree
         isfooter: true,
         width: '1pr'
       },
-      text: { type: 'text', value: options.text }
+      text: { type: 'text', value: options.text, wordwrap: options?.wordWrap, width: '1pr' }
     };
 
     if (options.icon) {

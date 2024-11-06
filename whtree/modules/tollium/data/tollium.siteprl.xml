@@ -16,6 +16,13 @@
       <option tag="col" title="Crash on layout issues" />
       <option tag="tollium-active" title="Debug screen active/inert" />
       <option tag="tollium-focus" title="Highlight focused component" />
+      <option tag="tollium-distribute" title="Show log channel: distribute" />
+      <option tag="tollium-actionenabler" title="Show log channel: actionenabler" />
+      <option tag="tollium-rpc" title="Show log channel: rpc" />
+      <option tag="tollium-communication" title="Show log channel: communication" />
+      <option tag="tollium-messages" title="Show log channel: messages" />
+      <option tag="tollium-ui" title="Show log channel: ui" />
+      <option tag="tollium-dimensions" title="Show log channel: dimensions" />
     </debugsettings>
   </filetype>
 
