@@ -63,13 +63,13 @@ export class Site {
   async openFile(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | null>;
   async openFile(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFile>;
   async openFile(path: string, options?: OpenWHFSObjectOptions) {
-    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false);
+    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false, false);
   }
 
   async openFolder(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions) {
-    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false);
+    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false, false);
   }
 
   /** Get the webdesign for this site */
