@@ -13,34 +13,36 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   export WEBHARE_DTAPSTAGE=production
   export WEBHARE_SERVERNAME=fixup-modules.example.net
 
+  if [ -z "$WEBHARE_COMPILECACHE" ]; then
+    echo "No compilecache specified, cannot fixup modules"
+    exit 1
+  fi
+
   "$WHTREE/modules/platform/scripts/bootstrap/prepare-whdata.sh" #Ensure @mod- paths work
 
   eval `$WHTREE/bin/wh setupmyshell`  #more dogfooding
   mkdir -p /opt/whdata/tmp/
 
   # Compile system module first, needed by wh fixmodules
-  echo "Compiling the system module"
-  $WHTREE/bin/wh exec whcompile -q /opt/wh/whtree/modules/system
+  echo "Precompiling HareScript"
+  "$WHTREE/bin/wh" exec whcompile -q /opt/wh/whtree/modules/
   RETVAL=$?
   if [ $RETVAL != 0 ]; then
     echo "Compiling the system module failed with errorcode $RETVAL"
     FAIL=1
   fi
 
-  echo "Compress country flags"
-  gzip --keep /opt/wh/whtree/node_modules/flag-icons/flags/*/*.svg
+  echo "Precompiling TypeScript"
+  "$WHTREE/bin/wh" run "$WHTREE/jssdk/tsrun/src/precompile.ts" "$WEBHARE_COMPILECACHE/typescript" "$WHTREE"
 
-  #Compile the rest parallel to fixmodules
-  echo "Compiling the other core modules (background)"
-  $WHTREE/bin/wh exec whcompile -q /opt/wh/whtree/modules/consilio /opt/wh/whtree/modules/publisher /opt/wh/whtree/modules/socialite /opt/wh/whtree/modules/tollium /opt/wh/whtree/modules/wrd &
-  COMPILEPID=$!
-
-  wait $COMPILEPID
   RETVAL=$?
   if [ $RETVAL != 0 ]; then
     echo "Compiling the core modules failed with errorcode $RETVAL"
     FAIL=1
   fi
+
+  echo "Compress country flags" #TODO brotli them! easiest to do this using node, as that one ships with brotli
+  gzip --keep /opt/wh/whtree/node_modules/flag-icons/flags/*/*.svg
 
   if ls /opt/wh/whtree/currentinstall/compilecache/direct* >/dev/null 2>&1 ; then
     echo "Found direct files in the compile cache."

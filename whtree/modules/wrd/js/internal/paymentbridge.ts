@@ -171,6 +171,9 @@ export async function runPaymentRequest(driver: string, configAsJSON: string, hs
 }
 
 export async function processReturnURL(driver: string, configAsJSON: string, paymeta: string, req: WebRequestInfo) {
+  if (!paymeta)
+    return null; //payment never completely initialized.
+
   const psp = await openPSP(driver, configAsJSON);
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
@@ -182,6 +185,9 @@ export async function processReturnURL(driver: string, configAsJSON: string, pay
 }
 
 export async function processPush(driver: string, configAsJSON: string, paymeta: string, req: WebRequestInfo) {
+  if (!paymeta)
+    return null; //payment never completely initialized.
+
   const psp = await openPSP(driver, configAsJSON);
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
@@ -197,6 +203,9 @@ export async function processPush(driver: string, configAsJSON: string, paymeta:
 }
 
 export async function checkStatus(driver: string, configAsJSON: string, paymeta: string) {
+  if (!paymeta)
+    return null; //payment never completely initialized.
+
   const psp = await openPSP(driver, configAsJSON);
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
