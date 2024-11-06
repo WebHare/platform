@@ -2,18 +2,32 @@
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::system/lib/remoting/whservice.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase
 <
-  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults)
+  UPDATE PUBLIC RECORD FUNCTION Search2(STRING searchfor, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(searchfor="")
-      RETURN DEFAULT RECORD ARRAY;
+    options := ValidateOptions(CELL[maxresults := 25], options);
+    IF(searchfor = "")
+      RETURN [ erorr := "", results := RECORD[] ];
 
-    RETURN this->EnrichVideos(SELECT *
+    RECORD searchres := InvokeHostedWHService("socialite/searchvimeo2", searchfor, [ languagecode := GetTidLanguage(), maxresults := options.maxresults ]);
+    IF(searchres.error != "")
+      RETURN [ error := searchres.error, results := RECORD[] ];
+
+    RETURN [ error := ""
+           , results := this->EnrichVideos(SELECT *
                                    , videoid := id
                                    , creationdate := (CellExists(videos, "creationdate") ? creationdate : upload_date) // TEMPORARY
-                                FROM InvokeHostedWHService("socialite/searchvimeo", searchfor, [ maxresults := maxresults ]) AS videos);
+                                FROM searchres.results AS videos)
+    ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults)
+  {
+    RETURN this->Search2(searchfor, [ maxresults := maxresults ]).results;
   }
 
   UPDATE PUBLIC RECORD FUNCTION DescribeVideo(STRING videoid)

@@ -101,57 +101,9 @@
 
     <d:obsoletetable name="sessions" parentlinkcolumn="application" primarykey="id" />
 
-    <d:table name="feeds" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:obsoletecolumn name="session" />
-      <d:integer name="maxnum">
-        <d:documentation>Maximum number of entries to store</d:documentation>
-      </d:integer>
-      <d:varchar name="query" maxlength="1024">
-        <d:documentation>Query done for this feed</d:documentation>
-      </d:varchar>
-      <d:datetime name="created" nullable="0">
-        <d:documentation>original creation date of this feed</d:documentation>
-      </d:datetime>
-      <d:datetime name="lastupdateattempt" nullable="0">
-        <d:documentation>the last time we tried to sync this feed (used to detect broken feeds, if lastsync is much larger than lastupdate)</d:documentation>
-      </d:datetime>
-      <d:datetime name="lastupdate">
-        <d:documentation>last time this feeds was updated</d:documentation>
-      </d:datetime>
-      <d:datetime name="lastrequest" nullable="0">
-        <d:documentation>last time this feed was requested. note that this isn't updated for every request, as it is only used to detect feeds that haven't been requested for a long time</d:documentation>
-      </d:datetime>
-      <d:varchar name="format" maxlength="80">
-        <d:documentation>Encoding format for the feed entries</d:documentation>
-      </d:varchar>
-      <d:varchar name="lasterror" maxlength="4096">
-        <d:documentation>Last error message</d:documentation>
-      </d:varchar>
-      <d:index name="queryindex" columns="query(64)" />  <!-- TODO making this unique would be nice but might complicate upgrades... -->
-      <d:blob name="baseinfo" />
-      <d:varchar name="baseinfohash" maxlength="64" />
-    </d:table>
+    <d:obsoletetable name="feeds" />
 
-    <d:table name="feedentries" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="feed" ondelete="cascade" references=".feeds" />
-      <d:datetime name="created" nullable="0">
-        <d:documentation>original creation date of this entry</d:documentation>
-      </d:datetime>
-      <d:varchar name="messageid" maxlength="64">
-        <d:documentation>Message id</d:documentation>
-      </d:varchar>
-      <d:varchar name="data" maxlength="4096">
-        <d:documentation>Data for the entry</d:documentation>
-      </d:varchar>
-      <d:blob name="longdata">
-        <d:documentation>Long data for the entry, if it didn't fit into "data"</d:documentation>
-      </d:blob>
-      <d:boolean name="publish">
-        <d:documentation>Publish this feed entry?</d:documentation>
-      </d:boolean>
-    </d:table>
+    <d:obsoletetable name="feedentries" />
 
     <!-- TODO generalize this a bit, there are more things that need API keys that are bound to local urls. we should probably move it to a webhare configuration wrdschema -->
     <d:table name="google_apikeys" primarykey="id">

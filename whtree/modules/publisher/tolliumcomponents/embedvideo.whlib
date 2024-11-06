@@ -271,13 +271,17 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
   }
   MACRO SearchFor(STRING text)
   {
-    RECORD ARRAY results;
+    RECORD res;
     TRY
     {
       OBJECT provider := GetVideoEmbedProvider(^network->value);
       IF(NOT provider->IsAllowedToUse(this->contexts))
         RETURN;
-      results := provider->Search(text, resultsperpage+1);
+
+      res := provider->Search2(text, [maxresults:=resultsperpage+1]);
+      IF(res.error != "")
+        this->RunSimpleScreen("error", this->GetTid(".searchunavailable", res.error));
+
     }
     CATCH(OBJECT e)
     {
@@ -285,12 +289,12 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
       RETURN;
     }
 
-    results :=
+    RECORD ARRAY results :=
         SELECT *
              , video := [ network := this->network->value, videoid := videoid ]
              , thumbnail := RecordExists(thumbnail) ? thumbnail.url : ""
              , creationdate
-          FROM results;
+          FROM res.results;
 
     this->foundmovies := results;
 

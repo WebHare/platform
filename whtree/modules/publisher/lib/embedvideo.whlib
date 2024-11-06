@@ -24,6 +24,13 @@ PUBLIC OBJECTTYPE EmbedVideoProviderBase
   {
     RETURN TRUE;
   }
+  PUBLIC RECORD FUNCTION Search2(STRING keywords, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ maxresults := 250 ], options);
+    RETURN CELL [ error := ""
+                , results := this->Search(keywords, options.maxresults)
+                ];
+  }
   PUBLIC RECORD ARRAY FUNCTION Search(STRING keywords, INTEGER maxresults)
   {
     THROW NEW Exception("Search not implemented");
