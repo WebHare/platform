@@ -560,6 +560,8 @@ MACRO TestPaymentPersonEntity()
   TestEqLike("?*", payment.paymentref);
   TestEq(13.28m, payment.amountpayable);
 
+  PollPaymentStatuses(TRUE, testfw->starttime);
+
   //Test a rejection
   STRING gotourl := StartWRDTestPayment(paymentapi, pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ], orderid := "PDE1"  ]);
   CompleteWRDTestpayment2(gotourl, "approved");
