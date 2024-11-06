@@ -27,7 +27,7 @@ MACRO TestShortURLAPIDry() //dry-run, we'll roll it all back!
   TestEq(testdomainobject->id, testdomain->id);
 
   RECORD config := DownloadWebserverConfig();
-  RECORD ephemeralhost := SELECT * FROM config.hosts WHERE CellExists(hosts,'baseurl') AND baseurl = "https://ephemeral.bea.gl/";
+  RECORD ephemeralhost := SELECT * FROM EnforceStructure([[baseurl:=""]],config.hosts) WHERE baseurl = "https://ephemeral.bea.gl/";
   RECORD beaglrule := SELECT * FROM config.rules WHERE path = "/eph-shorturls/" AND ephemeralhost.id IN limitservers;
   TestEqLike("*/shorturl.shtml", beaglrule.datastorage.resource);
   TestEq([ type := "eph-shorturls", id := testdomainobject->id ], beaglrule.ruledata);

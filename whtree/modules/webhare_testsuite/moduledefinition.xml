@@ -3,7 +3,7 @@
   <meta>
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
     <version>4.31.0</version>
-    <validation>
+    <validation options="nowarnings">
       <exclude mask="tests/wh/hscore/xml/generated/*" why="Don't validate generated code" />
       <!-- <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" /> -->
       <exclude mask="tolliumapps/demo/*"
@@ -17,9 +17,13 @@
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
 
-      <!-- tid tests need to generate tid errors -->
+      <!-- tid tests need to generate tid errors, some tests explicitly have to trigger warnings -->
       <ignoremessage mask="*gettid*" regex="Invalid tid"/>
       <ignoremessage mask="*gettid*" regex="Missing tid"/>
+      <ignoremessage mask="*hsengine/test*" regex="(WHERE clause partly not|redeclared|been declared|erroneously as a RECORD|has been deprecated)"/>
+      <ignoremessage mask="*/tidtestscreen.xml" regex="Missing tid"/>
+      <ignoremessage mask="*.whscr" regex="has been deprecated"/>
+      <ignoremessage mask="*" regex="Missing tid"/>
 
       <eslint masks="nosuch.js *.ts *.tsx" />
       <format masks="*.ts *.tsx" />

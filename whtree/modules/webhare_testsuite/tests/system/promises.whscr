@@ -139,7 +139,6 @@ MACRO SetDoneInternal(INTEGER nowdone, STRING name, VARIANT value)
 MACRO CallComposedFunc(INTEGER withargs, VARIANT ARRAY funcs, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 {
   //PRINT("Compose MACRO " || withargs || " (funcs: " || LENGTH(funcs) || ")\n");
-  RECORD keeper;
   FOREVERY (VARIANT func FROM funcs)
   {
     //PRINT(" " || ExplainFunctionPtrSignature(func) || "\n");
@@ -153,16 +152,16 @@ MACRO CallComposedFunc(INTEGER withargs, VARIANT ARRAY funcs, VARIANT ARRAY args
 VARIANT FUNCTION CallComposedFuncWithReturn(INTEGER withargs, INTEGER retval, VARIANT ARRAY funcs, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 {
   //PRINT("Compose FUNCTION " || withargs || " " || retval || " (funcs: " || LENGTH(funcs) || ")\n");
-  RECORD keeper;
+  RECORD keeper2;
   FOREVERY (VARIANT func FROM funcs)
   {
     //PRINT(" " || ExplainFunctionPtrSignature(func) || "\n");
     IF (#func = retval)
     {
       IF (#func = withargs)
-        keeper := [ value := CallFunctionPTRVA(func, args) ];
+        keeper2 := [ value := CallFunctionPTRVA(func, args) ];
       ELSE
-        keeper := [ value := func() ];
+        keeper2 := [ value := func() ];
     }
     ELSE
     {
@@ -172,7 +171,7 @@ VARIANT FUNCTION CallComposedFuncWithReturn(INTEGER withargs, INTEGER retval, VA
         func();
     }
   }
-  RETURN keeper.value;
+  RETURN keeper2.value;
 }
 
 FUNCTION PTR FUNCTION Compose(VARIANT ARRAY funcs) __ATTRIBUTES__(VARARG)
