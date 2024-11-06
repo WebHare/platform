@@ -257,7 +257,7 @@ PUBLIC RECORD FUNCTION ParseAssetPackSettings(STRING outputtag, STRING insetting
   IF(insettings != "")
     settings := DecodeHSON(insettings);
 
-  RETURN EnforceStructure([ dev := GetDtapStage() = "development" AND outputtag NOT LIKE "tollium:*" ], settings);
+  RETURN EnforceStructure([ dev := GetDtapStage() = "development" AND outputtag NOT LIKE "platform:*" ], settings);
 }
 PUBLIC RECORD FUNCTION GetAssetPackSettings(INTEGER assetpackid)
 {

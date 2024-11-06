@@ -30,7 +30,7 @@
     <to type="file" filetype="http://www.webhare.net/xmlns/tollium/applicationportal" />
 
     <!-- Setup default webdesign. Sync with webinterface.siteprl.xml. Can't be embedded into <filetype> due to priority= -->
-    <webdesign assetpack="webinterface"
+    <webdesign assetpack="platform:tollium"
                async="false"
                designfolder="mod::tollium/webdesigns/webinterface"
                maxcontentwidth="960px"

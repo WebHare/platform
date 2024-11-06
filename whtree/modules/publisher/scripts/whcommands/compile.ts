@@ -2,7 +2,7 @@
 // short: Recompile a specific assetpack
 
 /* eg:
-   wh publisher:compile tollium:webinterface.dev
+   wh publisher:compile platform:tollium
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander

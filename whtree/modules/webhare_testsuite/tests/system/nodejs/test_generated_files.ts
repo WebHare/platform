@@ -21,7 +21,7 @@ async function testWebHareConfig() {
     whPolyfills: true
   }, basetestpack);
 
-  const authormodepack = assetpacks.find(_ => _.name === "publisher:authormode");
+  const authormodepack = assetpacks.find(_ => _.name === "platform:authormode");
   test.eqPartial({
     entryPoint: "mod::publisher/webdesigns/authormode/authormode.tsx",
     extraRequires: [],
