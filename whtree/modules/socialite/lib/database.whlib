@@ -30,30 +30,6 @@ PUBLIC SCHEMA
     > applicationkeys
   , TABLE
     < INTEGER "id" NULL := 0
-    , STRING "query"
-    , DATETIME "created"
-    , DATETIME "lastupdateattempt"
-    , DATETIME "lastupdate"
-    , DATETIME "lastrequest"
-    , STRING "format"
-    , INTEGER maxnum
-    , STRING lasterror
-    , BLOB baseinfo
-    , STRING baseinfohash
-    ; KEY id
-    > "feeds"
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "feed" NULL := 0
-    , DATETIME "created"
-    , STRING "data"
-    , BLOB "longdata"
-    , STRING "messageid"
-    , BOOLEAN "publish"
-    ; KEY id
-    > "feedentries"
-  , TABLE
-    < INTEGER "id" NULL := 0
     , STRING "domain"
     , STRING "apikey"
     , INTEGER keytype
