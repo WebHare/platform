@@ -30,6 +30,9 @@ PUBLIC STRING FUNCTION GetBundleOutputRootPath()
 
 PUBLIC STRING FUNCTION GetBundleOutputPath(STRING outputtag)
 {
+  IF(outputtag LIKE "platform:*")
+    RETURN GetModuleInstallationRoot("platform") || '/generated/ap/' || Substitute(outputtag,':','.') || "/";
+
   RETURN GetEnvironmentVariable("WEBHARE_DATAROOT") || 'generated/platform/ap/' || Substitute(outputtag,':','.') || "/";
 }
 
@@ -83,7 +86,7 @@ PUBLIC MACRO RemoveObsoleteCacheFolders()
   RECORD ARRAY currentfolders := ReadDiskDirectory(GetBundleOutputRootPath(), "*");
   FOREVERY(RECORD folder FROM currentfolders)
   {
-    IF(folder.name NOT IN validfolders)
+    IF(folder.name LIKE "platform.*" OR folder.name NOT IN validfolders)
     {
       LogInfo("publisher:assetpackcontrol", "Deleting obsolete assetpack " || folder.name, [ type := "publisher:deleteassetpack", name := folder.name ]);
       DeleteDiskDirectoryRecursive(folder.path);
@@ -217,9 +220,8 @@ PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
        FROM system_internal.assetpacks
       WHERE (outputtag LIKE "*:*" ? IsModuleInstalled(Tokenize(outputtag,':')[0]) : TRUE);
 
-  // Prefer tollium first, then the rest. The check order is order in which recompiles are scheduled.
-   dbbundles := SELECT * FROM dbbundles
-                     ORDER BY outputtag LIKE "tollium:*" DESC;
+  // Prefer core packs first, then the rest. The check order is order in which recompiles are scheduled.
+  dbbundles := SELECT * FROM dbbundles ORDER BY outputtag LIKE "platform:*" DESC;
 
   RETURN dbbundles;
 }
