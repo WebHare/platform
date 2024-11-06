@@ -10,6 +10,8 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/pages.whlib";
 
+LOADLIB "mod::tollium/webdesigns/webinterface/lib/webinterface.whlib";
+
 PUBLIC OBJECTTYPE WRDAuthSupport EXTEND WRDAuthSupportBase
 <
   MACRO NEW(OBJECT plugin) : WRDAuthSupportBase(plugin)
@@ -22,10 +24,14 @@ PUBLIC OBJECTTYPE WRDAuthSupport EXTEND WRDAuthSupportBase
   }
 >;
 
-PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND WRDAuthSupportBase
+PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND TolliumWRDAuthSupport
 <
   UPDATE PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
   {
+    RECORD tolliumresult := TolliumWRDAuthSupport::IsLoginDenied(userid,options);
+    IF(RecordExists(tolliumresult)) //basic tollium rules already rejected it
+      RETURN tolliumresult;
+
     IF(options.isimpersonation)
       RETURN DEFAULT RECORD;
     RECORD userinfo := this->plugin->wrdschema->^WRD_PERSON->GetEntityFields(userid, [ "WRD_CONTACT_EMAIL" ]);
@@ -35,7 +41,7 @@ PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND WRDAuthSupportBase
   }
   UPDATE PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
   {
-    RECORD policy := WRDAuthSupportBase::GetUserEditPolicy(userid, fields, atsubmit);
+    RECORD policy := TolliumWRDAuthSupport::GetUserEditPolicy(userid, fields, atsubmit);
     IF (policy.passwordvalidationchecks = "") // allow override
       policy.passwordvalidationchecks := "lowercase:1 noreuse:P2D maxage:P1D";
     RETURN policy;

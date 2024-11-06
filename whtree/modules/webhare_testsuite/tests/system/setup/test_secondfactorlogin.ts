@@ -197,7 +197,6 @@ test.registerTests(
       test.clickToddButton('Login');
       await test.wait('ui');
 
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.setTodd('totpcode', totpbackupcodes[0]);
       await test.wait('ui');
 
@@ -213,6 +212,28 @@ test.registerTests(
       test.clickToddButton('Yes');
       await test.wait('load');
       await test.wait('ui');
+    },
+
+    "login but first lock pietje",
+    async function () {
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#LockUser', 'pietje@allow2fa.test.webhare.net');
+      test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
+      test.setTodd('password', 'xecret');
+      test.clickToddButton('Login');
+      await test.wait('ui');
+
+      test.setTodd('totpcode', totpbackupcodes[1]);
+      await test.wait('ui');
+
+      test.click(test.compByName("secondfactorloginbutton"));
+      await test.wait('ui');
+
+      await test.waitForElement(["t-text", /Login failed: this user account is disabled/]);
+      test.clickToddButton('OK');
+      await test.wait('load'); //should reload
+
+      // should be logged in
+      test.assert(!test.qS("#dashboard-logout"));
     }
 
   ]);
