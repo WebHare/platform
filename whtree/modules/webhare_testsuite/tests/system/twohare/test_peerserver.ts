@@ -1,22 +1,18 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 // Note: you need two webhares to run this test. See twoharetests.sh
 
 import * as test from "@mod-tollium/js/testframework";
-import * as dompack from "dompack";
+import { invokeSetupForTestSetup, type TestSetupData } from "@mod-webhare_testsuite/js/wts-testhelpers";
 
-let setupdata, setup2data;
+let setupdata: TestSetupData | null = null;
+let setup2data: TestSetupData | null = null;
 
 test.registerTests(
   [
     async function () {
-      const setup1 = test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
-        , { createsysop: true });
+      const setup1 = invokeSetupForTestSetup({ createsysop: true });
 
       //this removes the testsuite module on the second server
-      const setup2 = test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
-        , { onpeerserver: true });
+      const setup2 = invokeSetupForTestSetup({ onpeerserver: true });
       setupdata = await setup1;
       setup2data = await setup2;
       await test.load(test.getWrdLogoutURL(setupdata.testportalurl + "?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp)/managefoldersync/add/selectpeer&notifications=0"));
@@ -34,11 +30,13 @@ test.registerTests(
     async function () {
       test.clickToddButton("Add");
       await test.wait("ui");
-      test.setTodd('peer', setupdata.peerserver);
+      test.setTodd('peer', setupdata!.peerserver);
 
-      const oauth_auth_wait = Promise.withResolvers();
+      const oauth_auth_wait = Promise.withResolvers<void>();
+      //@ts-ignore yes it's an ugly hack..
       test.getWin().open = async url => {
         const overlay = test.getDoc().createElement("div");
+        //@ts-ignore yes it's an ugly hack..
         window.parent.overlay = overlay;
         overlay.innerHTML =
           `<div style="position:fixed; top: 20px; left:20px; width:800px; height:640px;">
@@ -46,7 +44,7 @@ test.registerTests(
            </div>`;
         test.getDoc().body.appendChild(overlay);
 
-        while (true) {
+        for (; ;) {
           if (!test.compByName("peer"))
             break; //dialog is gone so peering must have completed
 
@@ -54,8 +52,8 @@ test.registerTests(
              the second webhare has been configured with the feature webhare_testsuite:insecure_interface on its backend
              which disables some security and loads remotecontrol.js which will do the actual login for us when postMessage
              as there's no way to directly control the iframe of course */
-          overlay.querySelector("iframe").contentWindow.postMessage(
-            { dopeering: { overridetoken: new URL(setup2data.overridetoken, location.href).searchParams.get("overridetoken") } }, "*");
+          overlay!.querySelector("iframe")!.contentWindow!.postMessage(
+            { dopeering: { overridetoken: new URL(setup2data!.overridetoken, location.href).searchParams.get("overridetoken") } }, "*");
 
           await test.sleep(100);
         }

@@ -276,7 +276,7 @@ test.registerTests(
       loadpage: test.getTestScreen('tests/enabled.enablecomponentstest_arrayedit'),
       waits: ['ui']
     },
-    test.testClickTolliumLabel("Enabled", "Enable arrayedit"),
+    test.testClickTolliumLabel("Enabled", { name: "Enable arrayedit" }),
     {
       name: "select arrayedit row",
       test: function (doc, win) {

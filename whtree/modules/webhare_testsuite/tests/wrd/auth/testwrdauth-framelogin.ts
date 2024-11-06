@@ -1,12 +1,8 @@
 import * as test from '@mod-tollium/js/testframework';
+import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
 
 const webroot = test.getTestSiteRoot();
-let setupdata: {
-  sysopuser: string;
-  sysoppassword: string;
-  alternatesite: string;
-
-} | undefined;
+let setupdata: TestSetupData | null = null;
 
 async function tryProtectedURL(gotourl: string) {
   //"Try direct access first"
@@ -37,13 +33,13 @@ test.registerTests(
   [
     "Test with protected subdir",
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true, requirealternatesite: true });
+      setupdata = await invokeSetupForTestSetup({ createsysop: true, requirealternatesite: true });
       await tryProtectedURL(setupdata!.alternatesite + "requirewhaccount");
     },
 
     "Now try with a protected ROOT",
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true, requirealternatesite: true, protectroot: true });
+      setupdata = await invokeSetupForTestSetup({ createsysop: true, requirealternatesite: true, protectroot: true });
       await tryProtectedURL(setupdata!.alternatesite);
     }
   ]);

@@ -1,36 +1,30 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
+import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
+import { isTruthy } from '@webhare/std';
 
 const webroot = test.getTestSiteRoot();
-let setupdata = null;
-let pietje_resetlink;
-let totpsecret;
+let setupdata: TestSetupData | null = null;
+let pietje_resetlink = '';
+let totpsecret = '';
 let totpdata;
-let totpbackupcodes;
-
-function getAppInStartMenuByName(name) {
-  return Array.from(test.qSA('li li')).filter(node => node.textContent === name)[0];
-}
-
+let totpbackupcodes = '';
 
 test.registerTests(
   [
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
+      setupdata = await invokeSetupForTestSetup({ createsysop: true });
     },
 
     "create Pietje",
     async function () {
-      await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata?.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
+      test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
       await test.wait('ui');
 
-      test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("webhare_testsuite.unit"))[0]);
+      test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
       await test.wait('ui');
 
       // Create user pietje@allow2fa.test.webhare.net
@@ -64,7 +58,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: password must have at least one lowercase character
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -73,7 +67,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eq(/has been updated/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/has been updated/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
 
       // reloads to login window
@@ -91,7 +85,7 @@ test.registerTests(
 
     "enable TOTP",
     async function enable2FA() {
-      test.click(test.qS("#dashboard-user-name"));
+      test.click("#dashboard-user-name");
       await test.wait('ui');
       test.click(test.qSA("button").filter(e => e.textContent === "Change")[1]);
       await test.wait('ui');
@@ -112,18 +106,18 @@ test.registerTests(
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: -61 });
 
       test.setTodd('entercode', totpdata.code);
-      test.click(test.qSA("button").filter(e => e.textContent.startsWith("Next"))[0]);
+      test.click(test.qSA("button").filter(e => e.textContent?.startsWith("Next"))[0]);
       await test.wait('ui');
 
-      test.eq(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.setTodd('entercode', totpdata.code);
-      test.click(test.qSA("button").filter(e => e.textContent.startsWith("Next"))[0]);
+      test.click(test.qSA("button").filter(e => e.textContent?.startsWith("Next"))[0]);
       await test.wait('ui');
 
-      totpbackupcodes = test.getCurrentScreen().getValue("backupcodes_text").split("\n").filter(_ => _);
+      totpbackupcodes = test.getCurrentScreen().getValue("backupcodes_text").split("\n").filter(isTruthy);
 
       test.clickToddButton('Finish');
       await test.wait('ui');
@@ -138,7 +132,7 @@ test.registerTests(
       await test.wait('ui');
       await test.sleep(100); // wait for dashboard to appear
 
-      test.click(test.qS("#dashboard-logout"));
+      test.click("#dashboard-logout");
       await test.wait('ui');
       test.clickToddButton('Yes');
       await test.wait('load');
@@ -168,7 +162,7 @@ test.registerTests(
       await test.wait('ui');
       test.click(test.compByName("secondfactorloginbutton"));
       await test.wait('ui');
-      test.eq(/This code is not valid/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/This code is not valid/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
 
       // STORY: test an valid code (after using an invalid code)
@@ -183,7 +177,7 @@ test.registerTests(
       test.assert(Boolean(test.qS("#dashboard-logout")));
 
       // logout
-      test.click(test.qS("#dashboard-logout"));
+      test.click("#dashboard-logout");
       await test.wait('ui');
       test.clickToddButton('Yes');
       await test.wait('load');
@@ -208,7 +202,7 @@ test.registerTests(
       test.assert(Boolean(test.qS("#dashboard-logout")));
 
       // logout
-      test.click(test.qS("#dashboard-logout"));
+      test.click("#dashboard-logout");
       await test.wait('ui');
       test.clickToddButton('Yes');
       await test.wait('load');
