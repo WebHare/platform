@@ -10,7 +10,11 @@ import * as zlib from "node:zlib";
 
 import { AssetPackManifest, recompile, type RecompileSettings } from '@mod-publisher/js/internal/esbuild/compiletask';
 import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
-import { backendConfig, toResourcePath } from '@webhare/services';
+import { backendConfig, toFSPath, toResourcePath } from '@webhare/services';
+
+function mapDepPaths(deps: string[]) {
+  return deps.map(dep => toFSPath(dep, { allowUnmatched: true }) ?? dep);
+}
 
 async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   const outputtag = `webhare_testsuite:test_compileerrors`;
@@ -36,7 +40,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   const result = await recompile(settings);
 
   JSON.stringify(result); //detect cycles etc;
-  if (!result.haserrors) {
+  if (!result.errors.length) {
     //verify the manifest
     const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
@@ -54,10 +58,10 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     });
   }
 
-  for (const dep of result.info.dependencies.fileDependencies) {
+  for (const dep of result.fileDependencies) {
     if (dep.startsWith("//"))
       throw new Error(`Invalid depdenency path ${dep}`); //prefix '//' might leak through
-    if (!fs.existsSync(dep))
+    if (!fs.existsSync(toFSPath(dep, { allowUnmatched: true }) ?? dep))
       throw new Error(`Incorrectly claiming filedep ${dep} (missing extension?)`);
   }
 
@@ -68,10 +72,8 @@ async function testCompileerrors() {
   console.log("should properly detect broken scss");
   {
     const result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es", true);
-    test.assert(result.haserrors === true);
-    test.assert(Array.isArray(result.info.errors));
-    test.assert(result.info.errors.length >= 1);
-    test.assert(result.info.errors[0].message);
+    test.assert(result.errors.length >= 1);
+    test.assert(result.errors[0].message);
 
     //TODO preferably esbuild would also point to the SCSS, we'll re-investigate that once dart-sass improves its error output
     const acceptablenames = [
@@ -79,49 +81,46 @@ async function testCompileerrors() {
       backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.es"   // <-- esbuild
     ];
     console.log("Acceptable locations:", acceptablenames);
-    console.log("Reported location:", result.info.errors[0].resource);
-    console.log(result.info);
-    test.assert(acceptablenames.includes(result.info.errors[0].resource));
+    console.log("Reported location:", result.errors[0].resource);
+    console.log(result);
+    test.assert(acceptablenames.includes(result.errors[0].resource));
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.scss")));
     test.assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.es")));
-    test.assert(filedeps.filter(entry => entry[0] !== '/').length === 0); //no weird entries, no 'stdin'...
+    test.eq([], filedeps.filter(entry => entry[0] !== '/' && !entry.startsWith("mod::"))); //no weird entries, no 'stdin'...
 
-    const missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    const missingdeps = mapDepPaths(result.missingDependencies);
     test.assert(missingdeps.length === 0);
-
   }
 
   console.log("should properly report broken location");
   {
     const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/include-import-fail.es"), true);
-    test.assert(result.haserrors === true);
-    test.assert(Array.isArray(result.info.errors));
-    test.assert(result.info.errors.length >= 1);
-    test.assert(result.info.errors[0].message);
+    test.assert(result.errors.length >= 1);
+    test.assert(result.errors[0].message);
 
 
     const acceptablenames = [backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es"]; // <-- esbuild
 
     console.log("Acceptable locations:", acceptablenames);
-    console.log("Reported location:", result.info.errors[0].resource);
-    test.assert(acceptablenames.includes(result.info.errors[0].resource));
+    console.log("Reported location:", result.errors[0].resource);
+    test.assert(acceptablenames.includes(result.errors[0].resource));
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
 
     test.assert(filedeps.includes(path.join(__dirname, "dependencies/include-import-fail.es")));
     test.assert(filedeps.includes(path.join(__dirname, "dependencies/deeper/import-fail.es")));
-    test.assert(filedeps.filter(entry => entry[0] !== '/').length === 0); //no weird entries, no 'stdin'...
+    test.eq([], filedeps.filter(entry => entry[0] !== '/' && !entry.startsWith("mod::"))); //no weird entries, no 'stdin'...
   }
 
   console.log("looking for a nonexisting node_module should register missingDependencies on node_modules");
   {
     let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-module.es"), true);
 
-    test.assert(result.haserrors === true);
+    test.assert(result.errors.length > 0);
 
-    let missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    let missingdeps = mapDepPaths(result.missingDependencies);
     test.assert(missingdeps.includes(path.join(backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule")));
     test.assert(missingdeps.includes(path.join(backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.js")));
     test.assert(missingdeps.includes(path.join(backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.es")));
@@ -134,18 +133,18 @@ async function testCompileerrors() {
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/package.json")));
 
     result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet.scss"), true);
-    test.assert(result.haserrors === true);
+    test.assert(result.errors.length > 0);
 
-    missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    missingdeps = mapDepPaths(result.missingDependencies);
     test.assert(missingdeps.includes(path.join(backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.sass")));
 
     result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet-singlequote.scss"), true);
-    test.assert(result.haserrors === true);
+    test.assert(result.errors.length > 0);
 
-    missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    missingdeps = mapDepPaths(result.missingDependencies);
     test.assert(missingdeps.includes(path.join(backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my2.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss.scss")));
@@ -154,9 +153,9 @@ async function testCompileerrors() {
   console.log("verify compression");
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/chunks", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     // console.log(filedeps);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/chunks.ts")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/async.ts")));
@@ -177,9 +176,9 @@ async function testCompileerrors() {
   console.log("browser override in package.json works");
   {
     const result = await compileAdhocTestBundle(__dirname + "/data/browser-override", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/data/browser-override/test.browser.mjs")));
     test.assert(!filedeps.includes(path.join(__dirname, "/data/browser-override/test.mjs")));
   }
@@ -187,9 +186,9 @@ async function testCompileerrors() {
   console.log("Any package (or at least with ES files) includes the poyfill as dep (prod)");
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
   }
@@ -197,9 +196,9 @@ async function testCompileerrors() {
   console.log("scss files dependencies");
   {
     const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/regressions.scss"), false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/regressions.scss")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/deeper/deeper.scss")));
 
@@ -213,9 +212,9 @@ async function testCompileerrors() {
   console.log("rpc.json files pull in system/js/wh/rpc.ts as dependency (prod)");
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.rpc.json", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.rpc.json")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
     test.assert(filedeps.includes(backendConfig.module.webhare_testsuite.root + "lib/webservicetest.whlib"));
@@ -224,9 +223,9 @@ async function testCompileerrors() {
   console.log("lang.json files pull in extra dependencies");
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.lang.json", true);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/js/gettid.ts")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/default.xml")));
@@ -237,9 +236,9 @@ async function testCompileerrors() {
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/combine-deps.es", true);
     console.log(result);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
 
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
@@ -252,16 +251,16 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/nl.xml")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 
-    const missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    const missingdeps = mapDepPaths(result.missingDependencies);
     test.assert(missingdeps.length === 0);
   }
 
   console.log("test other tricky dependencies");
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/regressions.es", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
 
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/dompack/browserfix/reset.css")));
 
@@ -274,7 +273,7 @@ async function testCompileerrors() {
   console.log("esbuild value collapse fix");
   {
     const result = await compileAdhocTestBundle(path.join(__dirname, "optimizations/regressions.es"), false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
     // Older versions of esbuild collapsed global values, i.e.
     //    margin-bottom: 0;
@@ -306,24 +305,24 @@ async function testCompileerrors() {
   console.log("TypeScript is working");
   {
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript.ts", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
 
     result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
-    test.assert(result.haserrors === true);
+    test.assert(result.errors.length > 0);
   }
 
   console.log("TypeScript with jsx is working");
   {
     const result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript-jsx/test-typescript.tsx", false);
-    test.assert(result.haserrors === false);
+    test.assert(result.errors.length === 0);
 
-    const filedeps = Array.from(result.info.dependencies.fileDependencies);
+    const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript.tsx")), 'test-typescript.tsx');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript-2.tsx")), 'test-typescript-2.tsx'); // loaded by test-typescript.tsx
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/folder/index.tsx")), 'typescript/index.tsx'); // loaded by test-typescript.tsx

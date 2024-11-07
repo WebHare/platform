@@ -2,8 +2,8 @@ import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/inte
 import { GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
-import { AssetPackControlClient } from '@mod-publisher/scripts/internal/assetpackcontrol';
+import { backendConfig, lockMutex, logDebug, scheduleTimedTask } from "@webhare/services";
+import { connectAssetPackControl } from '../assetpacks/api';
 
 type SubsystemData = {
   title: string;
@@ -51,7 +51,7 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
     await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: false, dryRun: false, generateContext });
 
     if (todo.includes('assetpacks')) {
-      const assetpackcontroller = await openBackendService<AssetPackControlClient>("publisher:assetpackcontrol");
+      const assetpackcontroller = await connectAssetPackControl("apply assetpacks");
       await assetpackcontroller.reload();
     }
 

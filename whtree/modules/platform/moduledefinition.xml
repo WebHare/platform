@@ -81,6 +81,7 @@
     <debugflag name="async" description="Activate various async tools (enforce awaits, track openWork calls)" />
     <debugflag name="jsprofile" description="Generate some profiling data for JavaScript ran by node" />
     <debugflag name="retainers" description="Add stacktraces to common retaining JS objects (Timeout, Promise)" />
+    <debugflag name="assetpacks" description="Log assetpack actions" />
   </development>
 
   <wrdschemas>

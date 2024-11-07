@@ -52,7 +52,7 @@ rm -rf "$WEBHARE_COMPILECACHE/harescript/" # Mostly useful on dev machines so th
     fi
 
     logWithTime "Precompiling module $MODULE"
-    if ! wh compile -q "$MODULE" ; then
+    if ! wh compile --quiet --onlyerrors "$MODULE" ; then
       if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
         # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
         echo "Ignoring failed compile of $MODULE"
@@ -82,12 +82,9 @@ logWithTime "Compress country flags" #TODO brotli them! easiest to do this using
 gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
 
 
-# We need to specify dev/production so publisher:compile doesn't go to the database. Use dev in source builds, prod in container production builds
-BUILDMODE="--development"
-[ "$WEBHARE_IN_DOCKER" ] && BUILDMODE="--production"
-logWithTime "Build plaform:* assetpacks ($BUILDMODE)"
+logWithTime "Build plaform:* assetpacks"
 rm -rf "$WEBHARE_DIR/modules/platform/generated/assetpacks"
-wh publisher:compile $BUILDMODE "platform:*"
+wh publisher:compile "platform:*"
 
 logWithTime "Final checks"
 if ls "$WEBHARE_COMPILECACHE/harescript"/direct* >/dev/null 2>&1 ; then

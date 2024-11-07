@@ -72,7 +72,7 @@ IF(urlbase LIKE "*/!/*")
         RECORD compileresult := CallJS("@mod-publisher/js/internal/esbuild/compiletask.ts#recompileAdhoc",affectedtest.testscript.scriptpath, affectedtest.compatibility ?? whconstant_default_compatibility);
 
         RECORD headers;
-        IF (compileresult.haserrors)
+        IF (compileresult.toperror != "")
         {
           testwitty->RunComponent("compilefailure", CELL[
               bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
@@ -83,8 +83,7 @@ IF(urlbase LIKE "*/!/*")
         }
 
         //FIXME we need to get info.dependencies.FILEDEPENDENCIES (and .MISSINGDEPENDENCIES) to the top level devtools websocket to listen for
-        //abort(compileresult,'tree');
-        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundle))
+        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.lastcompilesettings.bundle.outputtag))
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"

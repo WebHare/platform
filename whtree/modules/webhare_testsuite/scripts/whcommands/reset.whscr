@@ -22,7 +22,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -33,10 +32,6 @@ IF(GetPrimaryWebhareInterfaceURL() = "")
 OBJECT trans := OpenPrimary();
 
 UpdateSocialiteEmbeddableScripts("GTM", ourgtmtestcontainer, TRUE);
-
-LogDebug("webhare_testsuite:reset", "Waiting for assetpack webhare_testsuite:basetest to be compiled");
-WaitForCompiledAssetpack("webhare_testsuite:basetest");
-LogDebug("webhare_testsuite:reset", "Assetpack webhare_testsuite:basetest has been recompiled");
 
 trans->BeginWork();
 

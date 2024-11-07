@@ -51,7 +51,6 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/memory.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -1486,14 +1485,6 @@ STATIC OBJECTTYPE TestFramework
     RETURN newsite;
   }
 
-  PUBLIC RECORD FUNCTION EnsureCompiledAssetpack(STRING assetpackname)
-  {
-    RECORD res := WaitForCompiledAssetpack(assetpackname);
-    IF(res.haserrors)
-      DumpValue(res,'tree:3');
-    TestEq(FALSE, res.haserrors, `Compile of assetpack '${assetpackname}' should have succeeded`);
-    RETURN CELL[ res.lastcompile ];
-  }
   PUBLIC OBJECT FUNCTION CreateEventExpectation(STRING ARRAY masks)
   {
     OBJECT bc_event := NEW EventListener(masks);

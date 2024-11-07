@@ -10,7 +10,6 @@ managedServices:
     script: js/nodeservices/nodeservices.ts
     run: always
 
-
 backendServices:
   openapiservice:
     clientFactory: "mod::system/js/internal/openapi/openapiservice.ts#getServiceInstance"
@@ -20,6 +19,8 @@ backendServices:
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   jsonapicaller:
     clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
+  assetpacks:
+    controllerFactory: js/assetpacks/control.ts#createAssetPackManager
   configuration:
     controllerFactory: js/configure/configservice.ts#createConfigManager
     coreService: true

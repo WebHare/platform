@@ -14,7 +14,6 @@ LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 OBJECT trans;
 trans := OpenPrimary();
@@ -101,14 +100,6 @@ MACRO CheckPublicDrafts()
   trans->CommitWork();
 }
 
-//Remove obsolete bundled assets from the database
-MACRO RemoveObsoleteBundledAssets()
-{
-  trans->BeginWork();
-  DELETE FROM system_internal.assetpacks WHERE outputtag NOT LIKE "*:*";
-  trans->CommitWork();
-}
-
 MACRO RemoveObsoleteDrafts()
 {
   trans->BeginWork();
@@ -141,8 +132,6 @@ RECORD ARRAY FUNCTION GetRemovableTargets(RECORD ARRAY intargets)
 
 CheckScheduledTasks();
 CheckPublicDrafts();
-RemoveObsoleteBundledAssets();
-RemoveObsoleteCacheFolders();
 RemoveObsoleteDrafts();
 CleanupObsoleteFavorites("publisher:app", PTR GetRemovableTargets);
 

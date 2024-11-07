@@ -1222,24 +1222,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
 
     <d:obsoletetable name="adhocdump_resultvalues" />
 
-    <d:table name="assetpacks" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:datetime name="created" nullable="false">
-        <d:documentation>Creation date of the asset pack</d:documentation>
-      </d:datetime>
-      <d:varchar name="entrypoint" maxlength="256" nullable="false">
-        <d:documentation>Requested entry point</d:documentation>
-      </d:varchar>
-      <d:varchar name="bundleconfig" maxlength="4096">
-        <d:documentation>Bundle configuration, HSON encoded</d:documentation>
-      </d:varchar>
-      <d:varchar name="settings" maxlength="4096">
-        <d:documentation>HSON encoded user settings (eg 'dev')</d:documentation>
-      </d:varchar>
-      <d:varchar name="outputtag" maxlength="128" nullable="false" unique="true">
-        <d:documentation>Output tag (uuid or export name) for this module/sitedesign/entrypoint combination</d:documentation>
-      </d:varchar>
-    </d:table>
+    <d:obsoletetable name="assetpacks" />
 
     <d:table name="precalccache" primarykey="id">
       <d:integer name="id" autonumberstart="1" />

@@ -4,7 +4,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -37,11 +36,11 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   context->basefolder := basepath;
 
   RECORD compileresult := CallJS("@mod-publisher/js/internal/esbuild/compiletask.ts#recompileAdhoc", jsfile, whconstant_default_compatibility);
-  IF (compileresult.haserrors) //TODO reuse "compilefailure" component in test pages? but I think I'd rather merge all ad hoc test pages into one of the webhare_testsuite:* bundles...
+  IF (compileresult.toperror != "") //TODO reuse "compilefailure" component in test pages? but I think I'd rather merge all ad hoc test pages into one of the webhare_testsuite:* bundles...
     ABORT(compileresult,'tree');
 
   LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(
-     CELL[ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundle))
+     CELL[ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundleTag))
          , body := PTR pagebody(context)
          , options.isolatestorage
          , hasdevmodule := IsModuleInstalled("dev")

@@ -13,6 +13,8 @@ import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
 import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
+import { parseTyped, stringify } from '@webhare/std';
+import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from '@mod-platform/js/assetpacks/support';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -20,6 +22,26 @@ const compressBrotli = promisify(zlib.brotliCompress);
 /* TODO likewise addd Brotli, but WH can't serve it yet anyway
 const compressBr = promisify(zlib.brotliCompress);
 */
+
+export interface AssetPackState {
+  bundleTag: string;
+  fileDependencies: string[];
+  missingDependencies: string[];
+  start: Date;
+
+  //TODO get rid of topError, its appears to be filled inconsistently
+  topError: string;
+  errors: Array<{
+    message: string;
+    resource: string;
+    line: number;
+    col: number;
+    length: number;
+  }>;
+
+  //we include this to help debug unexpected recompiles
+  lastCompileSettings: RecompileSettings;
+}
 
 export class CaptureLoadPlugin {
   loadcache = new Set<string>;
@@ -196,14 +218,13 @@ function getPossibleNodeModulePaths(startingpoint: string) {
   return paths;
 }
 
-interface CompileResult {
+export interface CompileResult {
   bundle: string;
   haserrors: boolean;
   errors: string;
-  compiletoken: string;
   info: {
     dependencies: {
-      start: number;
+      start: Date;
       fileDependencies: string[];
       missingDependencies: string[];
     };
@@ -217,14 +238,7 @@ interface CompileResult {
   };
 }
 
-function getBundleOutputPath(outputtag: string): string {
-  if (outputtag.startsWith("platform:"))
-    return services.toFSPath("mod::platform/generated/ap/" + outputtag.replaceAll(":", ".")) + "/";
-
-  return `${services.backendConfig.dataroot}generated/platform/ap/${outputtag.replaceAll(":", ".")}/`;
-}
-
-export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: boolean): RecompileSettings {
+export function buildRecompileSettings(assetpacksettings: AssetPack, settings: BundleSettings): RecompileSettings {
   const bundle: Bundle = {
     bundleconfig: {
       compatibility: assetpacksettings.compatibility,
@@ -235,7 +249,7 @@ export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: bool
       whpolyfills: assetpacksettings.whPolyfills,
       basecompiletoken: assetpacksettings.baseCompileToken
     },
-    isdev,
+    isdev: settings.dev,
     outputpath: getBundleOutputPath(assetpacksettings.name),
     outputtag: assetpacksettings.name,
     entrypoint: assetpacksettings.entryPoint,
@@ -244,12 +258,15 @@ export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: bool
   return { bundle };
 }
 
-export async function recompile(data: RecompileSettings): Promise<CompileResult> {
+export async function recompile(data: RecompileSettings): Promise<AssetPackState> {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
   if (!bundle.bundleconfig.basecompiletoken)
     throw new Error(`Missing basecompiletoken for bundle`);
+
+  const statspath = getBundleMetadataPath(bundle.outputtag);
+  await fs.mkdir(statspath, { recursive: true });
 
   // https://esbuild.github.io/api/#simple-options
   const captureplugin = new CaptureLoadPlugin;
@@ -329,7 +346,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
-  const start = Date.now();
+  const start = new Date;
   try {
     if (bundle.bundleconfig.esbuildsettings)
       esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
@@ -355,7 +372,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   const info = {
     dependencies: {
-      start: start,
+      start,
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
       missingDependencies: new Array<string>
     },
@@ -398,18 +415,20 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
 
-  const compiletoken = `${bundle.bundleconfig.basecompiletoken},${bundle.isdev ? 1 : 0}`;
-  const result: CompileResult = {
-    bundle: bundle.outputtag,
-    errors: buildresult.errors.map(_ => _.text).join("\n"),
-    haserrors: haserrors,
-    info: info,
-    compiletoken: compiletoken
+  const assetPackState: AssetPackState = {
+    fileDependencies: info.dependencies.fileDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),
+    missingDependencies: info.dependencies.missingDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),
+    start,
+    lastCompileSettings: data,
+    topError: buildresult.errors.map(_ => _.text).join("\n"),
+    errors: info.errors,
+    bundleTag: bundle.outputtag
   };
 
-  if (haserrors)
-    return result;
+  await storeDiskFile(statspath + "state.json", stringify(assetPackState, { space: 2, stable: true, typed: true }), { overwrite: true });
 
+  if (haserrors)
+    return assetPackState;
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
@@ -499,15 +518,11 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     }
   }
 
-  const statspath = services.toFSPath("storage::platform/assetpacks/" + bundle.outputtag.replaceAll(":", "/"));
-  await fs.mkdir(statspath, { recursive: true });
-  await storeDiskFile(statspath + "/info.json", JSON.stringify(info, null, 2), { overwrite: true });
-  await storeDiskFile(statspath + "/metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
-
-  return result;
+  await storeDiskFile(statspath + "metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
+  return assetPackState;
 }
 
-export async function recompileAdhoc(entrypoint: string, compatibility: string) {
+export async function recompileAdhoc(entrypoint: string, compatibility: string): Promise<AssetPackState> {
   const hash = crypto
     .createHash("md5")
     .update(JSON.stringify({ entrypoint, compatibility })) //ensures its absolute
@@ -535,4 +550,14 @@ export async function recompileAdhoc(entrypoint: string, compatibility: string) 
 
   const recompileres = await recompile(settings);
   return recompileres;
+}
+
+export async function getState(bundle: string): Promise<AssetPackState | null> {
+  const statspath = getBundleMetadataPath(bundle);
+  try {
+    const data = await fs.readFile(statspath + "state.json", { encoding: 'utf8' });
+    return parseTyped(data);
+  } catch {
+    return null;
+  }
 }

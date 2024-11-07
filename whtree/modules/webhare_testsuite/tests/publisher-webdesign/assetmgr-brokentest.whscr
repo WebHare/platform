@@ -59,7 +59,7 @@ STRING FUNCTION GetFilePathFromDeps(RECORD status, STRING postfix)
 {
   RETURN
     SELECT AS STRING path
-      FROM ToRecordArray(status.dependencies.filedependencies, "PATH")
+      FROM ToRecordArray(status.filedependencies, "PATH")
      WHERE path LIKE "*" || postfix;
 }
 
@@ -67,7 +67,7 @@ MACRO CheckTestUsedFilePaths(RECORD status, INTEGER version)
 {
   STRING testfile_path :=
     SELECT AS STRING path
-      FROM ToRecordArray(status.dependencies.filedependencies, "PATH")
+      FROM ToRecordArray(status.filedependencies, "PATH")
      WHERE path LIKE "*/webdesigns/testdesign/resolvetest/test.es";
 
   TestEq(`mod::${mytempmodulename}/webdesigns/testdesign/resolvetest/test.es`, GetFilePathFromDeps(status, "test.es"), "Path to test.es points to an old module (or no reference found to the file)");
@@ -89,7 +89,7 @@ ASYNC MACRO EnsureValidTestModuleWebDesignWebsiteBundle()
 
           but if the assetpack is not *yet* compiling I can imagine getting an old  result here */
 
-  OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  OBJECT service := WaitForPromise(OpenWebHareService("platform:assetpacks"));
   TRY
   {
     RECORD res := AWAIT service->WaitForCompile(`${mytempmodulename}:testdesign`, FALSE);
@@ -122,7 +122,7 @@ MACRO TestCrashJson()
 
   TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->objecturl || "dynfolder/"), testfw->browser->href);
 
-  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks"));
   extracted := ExtractBundleOutputTag(testfw->browser->document);
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
   RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
@@ -140,7 +140,7 @@ MACRO TestCrashJson()
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
 
   status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
-  TestEqLike("Package.json*not valid JSON", status.errors, "Wrong errors for bundle " || extracted.outputtag);
+  TestEqLike("Unexpected*in JSON", status.toperror, "Wrong errors for bundle " || extracted.outputtag);
 }
 
 MACRO TestRecompileAfterModuleReplace()
@@ -151,7 +151,7 @@ MACRO TestRecompileAfterModuleReplace()
   RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
   ApplyWebHareConfiguration([ subsystems := ["assetpacks"], source := "TestRecompileAfterModuleReplace" ]);
 
-  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks"));
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
   RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));

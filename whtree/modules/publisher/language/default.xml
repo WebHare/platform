@@ -1582,8 +1582,7 @@
           <text tid="lastcompile">Last compile</text>
           <text tid="message">Message</text>
           <text tid="outputtag">Outputtag</text>
-          <text tid="rebuildall">Rebuild all from scratch</text>
-          <text tid="rebuildbundles">Rebuild from scratch</text>
+          <text tid="rebuildall">Recompile all</text>
           <text tid="recompilebundles">Recompile</text>
           <text tid="status">State</text>
           <text tid="surerebuildall">Are you sure you want to recompile all bundles from scratch?</text>
