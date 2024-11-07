@@ -122,12 +122,12 @@ RUN --mount=type=bind,source=whtree,target=/whtree/ \
 RUN --mount=type=bind,from=builder,target=/builder \
    cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/fonts /builder/opt/wh/whtree/etc /opt/wh/whtree/
 
-# Finalize WebHare (eg generate files in /opt/wh/) and shrinkwrap it (precompile/pregenerate files)
+# Finalize WebHare (eg generate files in /opt/wh/)
 RUN --mount=type=tmpfs,target=/tmp/ \
     --mount=type=tmpfs,target=/root/ \
     --mount=type=tmpfs,target=/opt/whdata \
     --mount=type=cache,id=npmcache,target=/tmp/npmcache \
-   npm_config_cache=/tmp/npmcache /opt/wh/whtree/bin/wh finalize-webhare --shrinkwrap
+   npm_config_cache=/tmp/npmcache /opt/wh/whtree/bin/wh finalize-webhare
 
 # Set the run command and an entrypoint that ensures a proper environment even if we go straight to /bin/bash
 # Last step so we can enter intermediate containers and debug
