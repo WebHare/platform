@@ -8,28 +8,33 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as zlib from "node:zlib";
 
-import { loadlib } from "@webhare/harescript";
-import { AssetPackManifest, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { AssetPackManifest, recompile, type RecompileSettings } from '@mod-publisher/js/internal/esbuild/compiletask';
 import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
 import { backendConfig, toResourcePath } from '@webhare/services';
 
 async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal API, not documenting. we probably need to work closer with assetpackcnotrol anyway and avoid designfilesapi2
-  const bundle = await loadlib('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib').GetBundle("webhare_testsuite:basetest") as any;
+  const outputtag = `webhare_testsuite:test_compileerrors`;
 
-  //TODO nicer way to init a bundle
-  bundle.outputtag = "webhare_testsuite:compileerrors";
-  bundle.entrypoint = toResourcePath(entrypoint);
-  bundle.outputpath = "/tmp/compileerrors-build-test/";
-  bundle.isdev = isdev;
-  test.eq(whconstant_default_compatibility, bundle.bundleconfig.compatibility);
+  const settings: RecompileSettings = {
+    bundle: {
+      bundleconfig: {
+        basecompiletoken: "dummy",
+        compatibility: whconstant_default_compatibility,
+        environment: "window",
+        esbuildsettings: "",
+        extrarequires: [],
+        languages: ["en", "nl"],
+        whpolyfills: true,
+      },
+      entrypoint: toResourcePath(entrypoint),
+      isdev: isdev,
+      outputpath: "/tmp/compileerrors-build-test/",
+      outputtag: outputtag
+    }
+  };
 
-  if (fs.existsSync(bundle.outputpath))
-    fs.rmSync(bundle.outputpath, { recursive: true });
-  fs.mkdirSync(bundle.outputpath);
+  const result = await recompile(settings);
 
-  const data = { directcompile: true, bundle, compiletoken: "adhoctest" };
-  const result = await recompile(data);
   JSON.stringify(result); //detect cycles etc;
   if (!result.haserrors) {
     //verify the manifest
