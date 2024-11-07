@@ -5,7 +5,7 @@ require('./editorbase');
 import { debugFlags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
-import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
+import formservice from "@webhare/forms/src/formservice";
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
 import * as lists from './structured/lists';
