@@ -8,13 +8,18 @@ import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
 import { reportException, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
-import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
 import { isError } from '@webhare/std';
 import type { TestError } from '@webhare/test/src/checks';
+import { createClient } from '@webhare/jsonrpc-client';
+
+export interface TestService {
+  invoke(libfunc: string, params: unknown[]): Promise<unknown>;
+}
 
 const sourceCache = {};
 const testframetabname = 'testframe' + Math.random();
+const jstestsrpc = createClient<TestService>("system:jstests");
 
 if (window.Error && window.Error.stackTraceLimit)
   Error.stackTraceLimit = 50;
@@ -254,7 +259,7 @@ class TestFramework {
   }
 
   async sendDevtoolsRequest(request: unknown) {
-    return await testservice.syncDevToolsRequest(this.reportid, request);
+    return await jstestsrpc.syncDevToolsRequest(this.reportid, request);
   }
 
   /// Sends a report with the current progress
@@ -286,7 +291,7 @@ class TestFramework {
     } else
       console.log(`Submitting ${finished ? "final" : "partial"} report`);
 
-    await testservice.submitReport(this.reportid, result);
+    await jstestsrpc.submitReport(this.reportid, result);
     if (finished && window.location.href.match(/autotests=close/)) {
       // Close the current window (from http://productforums.google.com/forum/#!topic/chrome/GjsCrvPYGlA)
       window.open('', '_self', '');
@@ -1087,7 +1092,7 @@ class TestFramework {
   _sendSeleniumLogs() {
     this.scheduledlogscb = null;
     if (this.scheduledlogs.length) {
-      testservice.JSTestLog([this.testfw.reportid, this.scheduledlogs]);
+      jstestsrpc.JSTestLog([this.testfw.reportid, this.scheduledlogs]);
       this.scheduledlogs = [];
     }
   }
