@@ -40,6 +40,20 @@ DATETIME FUNCTION ParseDT(STRING str)
   RETURN retval;
 }
 
+PUBLIC MACRO TestInvoke_LockUser(STRING email)
+{
+  OpenPrimary();
+
+  OBJECT wrdschema := OpenTestsuiteWRDSchema();
+  INTEGER id := wrdschema->^wrd_person->Search("wrd_contact_email", email);
+  IF (id = 0)
+    THROW NEW Exception(`Could not find e-mail ${EncodeJSON(email)}`);
+
+  GetPrimary()->BeginWork();
+  wrdschema->^wrd_person->UpdateEntity(id, [ whuser_disable_type := "manual" ]);
+  GetPrimary()->CommitWork();
+}
+
 PUBLIC RECORD FUNCTION TestInvoke_GrantSomeRights(STRING email)
 {
   OpenPrimary();
