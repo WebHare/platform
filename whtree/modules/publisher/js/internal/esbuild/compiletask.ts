@@ -11,7 +11,7 @@ import { promisify } from 'util';
 import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
-import { getExtractedConfig } from '@mod-system/js/internal/configuration';
+import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -223,11 +223,7 @@ function getBundleOutputPath(outputtag: string): string {
   return services.toFSPath("storage::generated/platform/ap/" + outputtag.replaceAll(":", ".")) + "/";
 }
 
-export async function buildRecompileSettings(bundlename: string, isdev: boolean): Promise<RecompileSettings> {
-  const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === bundlename);
-  if (!assetpacksettings)
-    throw new Error(`Settings for assetpack '${bundlename}' not found`);
-
+export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: boolean): RecompileSettings {
   const bundle: Bundle = {
     bundleconfig: {
       compatibility: assetpacksettings.compatibility,
@@ -239,8 +235,8 @@ export async function buildRecompileSettings(bundlename: string, isdev: boolean)
       basecompiletoken: assetpacksettings.baseCompileToken
     },
     isdev,
-    outputpath: getBundleOutputPath(bundlename),
-    outputtag: bundlename,
+    outputpath: getBundleOutputPath(assetpacksettings.name),
+    outputtag: assetpacksettings.name,
     entrypoint: assetpacksettings.entryPoint,
   };
 
