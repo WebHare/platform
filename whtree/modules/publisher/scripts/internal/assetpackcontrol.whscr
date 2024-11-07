@@ -215,9 +215,6 @@ STATIC OBJECTTYPE AssetPackController
   */
   RECORD ARRAY watchcounts;
 
-  /// Dev assetpacks that are opting out of full sourcemaps
-  STRING ARRAY nofullsourcemapsassetpacks;
-
   /// Suspend autocompile of production packages?
   BOOLEAN suspendautocompile;
 
@@ -635,20 +632,6 @@ STATIC OBJECTTYPE AssetPackController
 
         this->ProcessCompileResult(taskresult);
       }
-      CATCH (OBJECT< ServiceDisconnectException > e)
-      {
-        IF (debug)
-          PRINT("Schedule compile task for " || bundle.outputtag || " lost connection to the cluster service\n");
-
-        UPDATE this->bundles
-           SET task :=            DEFAULT OBJECT
-             , retries :=         retries < 3 AND NOT requirecompile ? retries + 1 : retries
-             , requirecompile :=  retries < 3 AND NOT requirecompile ? TRUE : requirecompile
-         WHERE outputtag = recompilehash;
-
-        // task failed, what now?
-        this->ProcessUncompilable(bundle, DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, e->what, start);
-      }
       CATCH (OBJECT e)
       {
         IF (debug)
@@ -924,19 +907,6 @@ STATIC OBJECTTYPE AssetPackController
     RETURN deps;
   }
 
-  RECORD ARRAY FUNCTION ListAssetsOnDisk(RECORD bundle)
-  {
-    RECORD ARRAY assets;
-
-    FOREVERY(STRING dir FROM ["","st/"])
-    {
-      RECORD ARRAY assetlist := ReadDiskDirectory(MergePath(bundle.outputpath,dir),'*');
-      DELETE FROM assetlist WHERE type != 0 OR name IN ["assetpackstate.hson"];
-      assets := assets CONCAT SELECT subpath := dir || name FROM assetlist;
-    }
-    RETURN assets;
-  }
-
   /** Mark a bundle as uncompileable (because pre-compile checks failed)
   */
   MACRO ProcessUncompilable(RECORD bundle, STRING ARRAY depfiles, STRING ARRAY missing, STRING error, DATETIME startofcompile)
@@ -1115,9 +1085,6 @@ STATIC OBJECTTYPE AssetPackController
     FOREVERY(RECORD bundle FROM bundles)
     {
       bundle := PreFixupBundleconfig(bundle);
-
-      IF(bundle.outputtag NOT IN this->nofullsourcemapsassetpacks)
-        bundle.bundleconfig.fullsourcemap := TRUE;
 
       // Ensure the bundle exists in our list
       RECORD lb := RecordLowerBound(this->bundles, [ outputtag := bundle.outputtag ], [ "outputtag" ]);
@@ -1382,20 +1349,6 @@ STATIC OBJECTTYPE AssetPackController
 
     BroadcastEvent("publisher:assetpackcontrol.watch." || outputtag, DEFAULT RECORD);
   }
-
-  PUBLIC MACRO UpdateSourceMapType(STRING outputtag, BOOLEAN fullsourcemap)
-  {
-    RECORD pos := LowerBound(this->nofullsourcemapsassetpacks, outputtag);
-    IF (pos.found != fullsourcemap)
-      RETURN;
-
-    IF (fullsourcemap)
-      DELETE FROM this->nofullsourcemapsassetpacks AT pos.position;
-    ELSE
-      INSERT outputtag INTO this->nofullsourcemapsassetpacks AT pos.position;
-
-    this->LoadBundles();
-  }
 >;
 
 OBJECTTYPE AssetPackControl
@@ -1547,12 +1500,6 @@ OBJECTTYPE AssetPackControl
     ELSE
       DELETE FROM this->watched_bundles AT pos.position;
     controller->UpdateWatchCount(outputtag, watched ? +1 : -1);
-  }
-
-  PUBLIC MACRO SetFullSourceMap(STRING outputtag, BOOLEAN fullsourcemap)
-  {
-    controller->UpdateSourceMapType(outputtag, fullsourcemap);
-    controller->RecompileBundleByoutputtag(outputtag, FALSE);
   }
 
   PUBLIC MACRO Reload()

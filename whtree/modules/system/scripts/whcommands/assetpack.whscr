@@ -327,7 +327,6 @@ SWITCH (args.command)
       PRINT("Config:\n");
       PRINT(" Output UUID: " || data.outputtag || "\n");
       PRINT(" Output path: " || data.outputpath || "\n");
-      PRINT(" Sourcemap type: " || (data.bundleconfig.fullsourcemap ? "full" : "cheap") || "\n");
       PRINT("Status:\n");
       PRINT(" Status: " || GetBundleStatusString(data) || "\n");
       PRINT(" Compiler: " || (data.iscompiling ? AnsiCmd("bold,yellow") || "compiling" || AnsiCmd("reset") : data.requirecompile ? "scheduled" : "idle") || "\n");

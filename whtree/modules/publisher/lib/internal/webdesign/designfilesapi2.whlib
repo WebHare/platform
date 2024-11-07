@@ -234,9 +234,6 @@ PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
     DELETE CELL extrarequires FROM bundle;
   }
 
-  BOOLEAN fullsourcemap := NOT bundle.isdev;
-  INSERT CELL fullsourcemap := fullsourcemap INTO bundle.bundleconfig;
-
   RETURN bundle;
 }
 
