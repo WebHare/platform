@@ -477,7 +477,7 @@ class LoginApp {
 
   }
 
-  async executePasswordLogin(data, callback) {
+  async executePasswordLogin(data, callback: () => void) {
     const loginname = this.topscreen.getComponent('loginname').getSubmitValue().value;
     const password = this.topscreen.getComponent('password').getSubmitValue().value;
     const savelogin = this.topscreen.getComponent('savelogin').getSubmitValue().value;
@@ -531,18 +531,22 @@ class LoginApp {
         return;
       }
 
-      const text = result.code === "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
-        : result.code === "DISABLED" ? getTid("tollium:shell.login.disabledlogin")
-          : getTid("tollium:shell.login.invalidlogin");
-      const errorscreen = runSimpleScreen(this.app, { text: text, buttons: [{ name: 'ok', title: getTid("~ok") }] });
-      callback();
-      callback = null;
-      return await errorscreen;
+      return await this.handleGenericLoginError(result.code, callback);
     } catch (error) {
       if (callback)
         callback();
       this.app.showExceptionDialog(error);
     }
+  }
+
+  async handleGenericLoginError(code: string, callback: () => void) {
+    const text = code === "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
+      : code === "DISABLED" ? getTid("tollium:shell.login.disabledlogin")
+        : getTid("tollium:shell.login.invalidlogin");
+    const errorscreen = runSimpleScreen(this.app, { text: text, buttons: [{ name: 'ok', title: getTid("~ok") }] });
+    callback();
+    await errorscreen;
+    location.reload();
   }
 
   async executeForgot(data, callback) {
@@ -653,6 +657,10 @@ class LoginApp {
           await errorscreen;
           this.secondfactordata = result.secondfactordata;
         } break;
+
+      default:
+        await this.handleGenericLoginError(result.code, callback);
+        return;
     }
 
     this._updateSecondFactorText();

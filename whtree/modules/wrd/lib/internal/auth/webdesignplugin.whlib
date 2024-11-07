@@ -1003,7 +1003,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , browsertriplet := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
-    this->CheckNotFailed();
+    this->GetSupportObject(); // CheckNotFailed, initialize loginfilter
     IF(NOT IsDatabaseWritable())
       RETURN [ success := FALSE, code := "LOGINCLOSED" ];
 
