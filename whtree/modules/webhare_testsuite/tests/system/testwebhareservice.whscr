@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";

@@ -1,36 +1,29 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
+import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
 
 const webroot = test.getTestSiteRoot();
-let setupdata = null;
+let setupdata: TestSetupData | null = null;
 let pietje_resetlink;
 let totpsecret;
 let totpdata;
-let totpbackupcodes;
-
-function getAppInStartMenuByName(name) {
-  return Array.from(test.qSA('.dashboard__apps li li')).filter(node => node.textContent === name)[0];
-}
 
 
 test.registerTests(
   [
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
+      setupdata = await invokeSetupForTestSetup({ createsysop: true });
     },
 
     "create Pietje",
     async function () {
-      await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
+      test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
       await test.wait('ui');
 
-      test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("webhare_testsuite.unit"))[0]);
+      test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
       await test.wait('ui');
 
       // Create user pietje@allow2fa.test.webhare.net
@@ -65,13 +58,13 @@ test.registerTests(
       await test.wait('ui');
 
       // password reset window should open immediately
-      test.eq("Reset password", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.eq("Reset password", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
       test.setTodd('password', "secret");
       test.setTodd('passwordrepeat', "secret");
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eq(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
+      test.eq(/password has been updated/, test.qR(".appcanvas--visible .t-screen.active").textContent);
       test.clickToddButton('OK');
 
       // wait for screen to close, the busy lock is released somwehere in between the closing process
@@ -84,7 +77,7 @@ test.registerTests(
       await test.wait('ui');
 
       // logout
-      test.click(test.qS("#dashboard-logout"));
+      test.click("#dashboard-logout");
       await test.wait('ui');
       test.clickToddButton('Yes');
       await test.wait('load');
@@ -109,21 +102,21 @@ test.registerTests(
       await test.wait('ui');
 
       // expect reset password window
-      test.eq("Reset password", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.eq("Reset password", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
       test.setTodd('password', "secret");
       test.setTodd('passwordrepeat', "secret");
       test.clickToddButton('OK');
       await test.wait('ui');
 
       // expect enter 2FA code window
-      test.eq("Authenticate", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.eq("Authenticate", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: "OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK", offset: 0 });
       test.setTodd('totpcode', totpdata.code);
       test.clickToddButton('OK');
       await test.wait('ui');
 
       // message window 'Your password has been updated'
-      test.eq(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
+      test.eq(/password has been updated/, test.qR(".appcanvas--visible .t-screen.active").textContent);
       test.clickToddButton('OK');
 
       // should go back to login window, login with new password
@@ -139,7 +132,7 @@ test.registerTests(
       await test.wait('ui');
 
       // should be logged in, so logout should work
-      test.click(test.qS("#dashboard-logout"));
+      test.click("#dashboard-logout");
       await test.wait('ui');
       test.clickToddButton('Yes');
       await test.wait('load');
@@ -165,14 +158,14 @@ test.registerTests(
         });
 
       // test password
-      await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
+      test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
       await test.wait('ui');
 
-      test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("webhare_testsuite.unit"))[0]);
+      test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
       await test.wait('ui');
 
       await test.selectListRow('unitcontents!userandrolelist', 'pietje');
@@ -193,7 +186,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: no reuse for 2 days
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -203,7 +196,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: no reuse for 2 days
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -212,13 +205,13 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eq(/has been updated/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/has been updated/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
       await test.wait('load');
       await test.wait('ui');
 
       // Show the login window
-      test.eq("Login", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.eq("Login", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
     },
 
     "force 2fa",
@@ -248,7 +241,7 @@ test.registerTests(
       await test.wait('ui');
 
       // should open 2FA management dialog
-      test.eq("Two-factor authentication", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.eq("Two-factor authentication", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
 
       // close dialog without configuring it
       test.clickToddButton('Close');
@@ -264,7 +257,7 @@ test.registerTests(
       await test.wait('ui');
 
       // need to authenticate first
-      test.eq("Authenticate", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.eq("Authenticate", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
       test.setTodd('password', "secret");
       test.clickToddButton('OK');
       await test.wait('ui');
@@ -279,7 +272,7 @@ test.registerTests(
       test.setTodd('entercode', totpdata.code);
 
       // complete the configuration, ignore the backup codes (for now!)
-      test.click(test.qSA("button").filter(e => e.textContent.startsWith("Next"))[0]);
+      test.click(test.qSA("button").filter(e => e.textContent?.startsWith("Next"))[0]);
       await test.wait('ui');
       test.clickToddButton('Finish');
       await test.wait('ui');
@@ -290,7 +283,7 @@ test.registerTests(
       await test.wait('ui');
 
       // backend app close can't be waited on with ui wait, wait for login window to become the top window afain
-      await test.wait(f => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent === "Login").length === 1);
+      await test.wait(() => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent === "Login").length === 1);
       test.setTodd('password', "secret");
 
       // login again, now with TOTP code

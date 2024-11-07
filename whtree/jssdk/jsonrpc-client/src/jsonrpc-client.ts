@@ -333,5 +333,3 @@ export function createClient<T = any>(servicename: string, options?: RPCCallOpti
   const rpcclient = new RPCClient(servicename, options);
   return new Proxy({}, new ServiceProxy<T>(rpcclient)) as ConvertToRPCInterface<T> & ServiceBase<ConvertToRPCInterface<T>>;
 }
-
-export default createClient; //TODO this breaks @webhare/ lib convention and should start to go away as soon as all are on 5.3+

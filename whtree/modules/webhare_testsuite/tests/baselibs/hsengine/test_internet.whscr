@@ -3,7 +3,6 @@
 
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testdata.whlib";
 LOADLIB "wh::datetime.whlib";

@@ -1,8 +1,8 @@
 ﻿<?wh
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";

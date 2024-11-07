@@ -5,7 +5,6 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";

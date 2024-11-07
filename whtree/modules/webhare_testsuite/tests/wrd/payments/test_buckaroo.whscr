@@ -10,7 +10,6 @@ LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";

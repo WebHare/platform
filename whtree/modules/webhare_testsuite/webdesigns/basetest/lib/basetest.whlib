@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "wh::witty.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 

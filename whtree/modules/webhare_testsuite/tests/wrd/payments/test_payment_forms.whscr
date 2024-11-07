@@ -2,7 +2,6 @@
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/publisher/formtests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";

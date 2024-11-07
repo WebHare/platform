@@ -11,6 +11,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/objectapi.whlib";
 
+
 //https://webview.webservices.nl/documentation/files/interfaces/more/services-txt.html
 //  __webbrowser_debugall := TRUE;
 
@@ -32,7 +33,7 @@ MACRO TestWebservicesAPI()
 
 MACRO TestLegacyAPI()
 {
-  OBJECT legacywrdschema := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  OBJECT legacywrdschema := OpenWRDSchemaByName(testfw->GetWRDSchema()->tag);
 
   RECORD res := legacywrdschema->CheckAddress([ street := "Hengelosestraat", nr_detail := "296", city := "Enschede", country := "NL" ]);
   TestEq('incomplete',res.status);

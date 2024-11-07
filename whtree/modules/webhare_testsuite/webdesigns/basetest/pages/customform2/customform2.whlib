@@ -17,7 +17,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
 
 
 PUBLIC OBJECTTYPE Props EXTEND FormSettingsExtensionBase

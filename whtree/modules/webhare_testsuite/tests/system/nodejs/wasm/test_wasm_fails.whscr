@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "wh::internal/wasm.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 // this test is x-failed, should fail under WASM only

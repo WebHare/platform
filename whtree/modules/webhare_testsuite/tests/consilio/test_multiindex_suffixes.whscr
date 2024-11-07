@@ -1,18 +1,9 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
-
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
-LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
-LOADLIB "mod::consilio/lib/internal/support.whlib";
-LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD testindex1, testindex2;
 //Views straight to the two separate catalogs..

@@ -19,7 +19,6 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 
-LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";

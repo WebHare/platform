@@ -1,12 +1,8 @@
 ﻿<?wh
 
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::xml/dom.whlib";
-
 LOADLIB "mod::tollium/lib/rtd/doc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";

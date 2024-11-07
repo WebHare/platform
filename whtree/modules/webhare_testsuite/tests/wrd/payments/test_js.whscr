@@ -12,7 +12,6 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/urls.whlib";
 

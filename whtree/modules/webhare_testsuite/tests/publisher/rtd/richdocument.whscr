@@ -3,7 +3,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "wh::float.whlib";
-LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -12,12 +11,10 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";

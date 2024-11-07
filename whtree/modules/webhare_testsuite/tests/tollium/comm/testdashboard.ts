@@ -1,16 +1,13 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
+import { invokeSetupForTestSetup, type TestSetupData } from "@mod-webhare_testsuite/js/wts-testhelpers";
 
-let setupdata;
+let setupdata: TestSetupData | null = null;
 
 test.registerTests(
   [
     "Prepare",
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
-        , { createsysop: true });
+      setupdata = await invokeSetupForTestSetup({ createsysop: true });
       await test.load(setupdata.testportalurl);
       await test.wait('ui');
 
@@ -24,7 +21,7 @@ test.registerTests(
     "Test dashboard menu",
     async function () {
       //test dashboard now at the end
-      test.eq("TEST GROUP", test.qS(".dashboard__menuitem:last-of-type .dashboard__menusectiontitle").textContent);
-      test.eq("Dashboard", test.qS(".dashboard__menuitem:last-of-type .dashboard__app:last-of-type .dashboard__apptitle").textContent);
+      test.eq("TEST GROUP", test.qR(".dashboard__menuitem:last-of-type .dashboard__menusectiontitle").textContent);
+      test.eq("Dashboard", test.qR(".dashboard__menuitem:last-of-type .dashboard__app:last-of-type .dashboard__apptitle").textContent);
     }
   ]);

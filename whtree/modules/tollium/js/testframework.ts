@@ -7,7 +7,7 @@ import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import type { } from "@mod-tollium/js/internal/debuginterface";
 import type ObjList from '@mod-tollium/webdesigns/webinterface/components/list/list';
 
-function isStringOrRegexpMatch(intext, pattern) {
+function isStringOrRegexpMatch(intext: string, pattern: string | RegExp) {
   if (typeof pattern === 'string')
     return intext === pattern;
   if (pattern instanceof RegExp)
@@ -101,7 +101,7 @@ class ScreenProxy {
 
     return curitem;
   }
-  getText(compname) {
+  getText(compname: string) {
     const el = this.getToddElement(compname);
     if (!el)
       throw new Error("No such component '" + compname + "'");
@@ -109,7 +109,7 @@ class ScreenProxy {
     //ADDME support more node types than just <text>
     return el.textContent;
   }
-  getValue(compname) {
+  getValue(compname: string) {
     const el = this.getToddElement(compname);
     if (!el)
       throw new Error("No such component '" + compname + "'");
@@ -123,7 +123,7 @@ class ScreenProxy {
       return el.querySelector('textarea').value;
     throw new Error("component not yet supported by getInputValue (classes: " + el.className + ")");
   }
-  getListRow(listname, pattern) { //simply reget it for every test, as list may rerender at unspecifide times
+  getListRow(listname: string, pattern: string | RegExp) { //simply reget it for every test, as list may rerender at unspecifide times
     const list = this.getToddElement(listname);
     if (!list)
       throw new Error("No such list '" + listname + "'");
@@ -252,48 +252,46 @@ function testClickTolliumButton(toddbuttontitle, options, _deprecated_waits?) {
 
   return {
     name: options.name || "Click button: " + toddbuttontitle,
-    test: function (doc, win) {
+    test: function () {
       clickTolliumButton(toddbuttontitle);
     },
     waits: (options.waits || ["ui"])
   };
 }
-function getTolliumLabel(toddlabel) {
-  return test.qSA('t-text').filter(text => text.textContent.includes(toddlabel))[0];
+function getTolliumLabel(toddlabel: string) {
+  return test.qSA('t-text').filter(text => text.textContent?.includes(toddlabel))[0];
 }
-function clickTolliumLabel(toddlabel) {
+function clickTolliumLabel(toddlabel: string) {
   const label = getTolliumLabel(toddlabel);
   if (!label)
     throw new Error("No label titled '" + toddlabel + "'");
   test.click(label);
 }
-function testClickTolliumLabel(toddlabel, options, _deprecated_waits) {
+function testClickTolliumLabel(toddlabel: string, options?: { name?: string }) {
   options = typeof options === "string" ? { name: options } : { ...options };
-  if (_deprecated_waits)
-    options.waits = _deprecated_waits;
 
   return {
-    name: options.name || "Click label: " + toddlabel,
-    test: function (doc, win) {
+    name: options.name || ("Click label: " + toddlabel),
+    test: function () {
       clickTolliumLabel(toddlabel);
     },
-    waits: (options.waits || ["ui"])
+    waits: ["ui"]
   };
 }
 
-function testClickTolliumToolbarButton(toddlabel, submenulabel, options = {}) {
-  const name = options.name || "Click toolbar button: " + toddlabel + (submenulabel ? ", submenu: " + submenulabel : "");
+export function testClickTolliumToolbarButton(toddlabel: string, submenulabel: string, options?: { name?: string; waits?: string[] }) {
+  const name = options?.name || ("Click toolbar button: " + toddlabel + (submenulabel ? ", submenu: " + submenulabel : ""));
 
   return {
     name: name,
-    test: function (doc, win) {
+    test: function () {
       clickToddToolbarButton(toddlabel, submenulabel);
     },
-    waits: (options.waits || ["ui"])
+    waits: (options?.waits || ["ui"])
   };
 }
 
-async function selectListRow(listname, textinrow, options = {}) {
+async function selectListRow(listname: string, textinrow: string, options: { rightclick?: boolean; doubleclick?: boolean; waits?: string[] } = {}) {
   const el = await waitForResult(() => {
     let selector = 'div.wh-ui-listview';
     if (listname)
@@ -324,9 +322,9 @@ async function selectListRow(listname, textinrow, options = {}) {
   }
 }
 
-function testSelectListRow(listname, textinrow, options = {}) {
+export function testSelectListRow(listname: string, textinrow: string, options?: { name?: string; rightclick?: boolean; doubleclick?: boolean; waits?: string[] }) {
   return {
-    name: options.name || `Click list row from ${listname} with text '${textinrow}'`,
+    name: options?.name || `Click list row from ${listname} with text '${textinrow}'`,
     test: () => selectListRow(listname, textinrow, options)
   };
 }
@@ -416,15 +414,6 @@ window.ToddTest =
   toolbarButton: function (name, toddlabel, submenulabel) {
     return testClickTolliumToolbarButton(toddlabel, submenulabel, { name });
   },
-  plainButton: function (name, buttonlabel) {
-    return {
-      name: name,
-      test: function (doc, win) {
-        clickToddButton(buttonlabel);
-      },
-      waits: ['ui']
-    };
-  },
   selectListRow: function (name, listname, textinrow, options) {
     options = { name, ...options };
     return testSelectListRow(listname, textinrow, options);
@@ -494,8 +483,6 @@ export { getTolliumHost };
 export { setTodd };
 export { testClickTolliumButton };
 export { testClickTolliumLabel };
-export { testClickTolliumToolbarButton };
-export { testSelectListRow };
 export { $screen };
 export function getGridVsize() { return 28; }
 export { getOpenSelectList };
@@ -505,11 +492,12 @@ export { clickTolliumButton };
 export { selectListRow };
 export { getTolliumLabel };
 export { clickTolliumLabel };
-export async function expectWindowOpen(code) {
-  test.getWin()._testfw_oldopen = test.getWin().open;
+export async function expectWindowOpen(code: () => void | Promise<void>) {
+  const _testfw_oldopen = test.getWin().open;
   try {
-    const promise = new Promise((resolve, reject) => {
-      test.getWin().open = (url, target) => {
+    const promise = new Promise<{ url: string; target?: string }>((resolve, reject) => {
+      //@ts-ignore -- FIXME cleanup this hack!!
+      test.getWin().open = (url: string, target?: string) => {
         console.log("window.open request, returning fake WindowProxy", { url, target });
         resolve({ url, target });
         return { __expectWindowOpen: "Returned by testframework expectWindowOpen" };
@@ -523,6 +511,6 @@ export async function expectWindowOpen(code) {
       result = { ...result, ...await test.invoke("mod::tollium/lib/testframework.whlib#GetFileTransferData", result.url) };
     return result;
   } finally {
-    test.getWin().open = test.getWin()._testfw_oldopen;
+    test.getWin().open = _testfw_oldopen;
   }
 }

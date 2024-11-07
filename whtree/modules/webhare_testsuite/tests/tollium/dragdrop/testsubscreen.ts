@@ -19,8 +19,8 @@ test.registerTests(
         test.eq('', toplog.querySelector('textarea')?.value);
         test.eq('', bottomlog.querySelector('textarea')?.value);
 
-        const srow = test.getCurrentScreen().getListRow(topsource.dataset.name, "Row 1: type1");
-        const trow = test.getCurrentScreen().getListRow(bottomtarget.dataset.name, "Row 1: Can add");
+        const srow = test.getCurrentScreen().getListRow(topsource.dataset.name!, "Row 1: type1");
+        const trow = test.getCurrentScreen().getListRow(bottomtarget.dataset.name!, "Row 1: Can add");
         test.sendMouseGesture([
           { el: srow, x: 10, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }

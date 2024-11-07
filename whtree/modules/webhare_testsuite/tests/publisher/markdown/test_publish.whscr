@@ -3,8 +3,6 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::tollium/lib/testframework.whlib";
-
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO PublishFiles()

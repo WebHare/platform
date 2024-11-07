@@ -2,7 +2,6 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
