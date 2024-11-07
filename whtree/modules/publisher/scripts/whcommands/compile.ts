@@ -35,7 +35,9 @@ async function main() {
   //if globalIsDev is undefined, we'll look at the actual pacakge config (and crash if no database is online)
 
   /* TODO this will no longer support directly compiling adhoc packages - we should probably build a system where TS generates the bundleconfig for adhoc
-          packges and let you specify a direct path to compile.ts. but this will require moving adhoc bundle and header generation from HS to TS */
+          packges and let you specify a direct path to compile.ts. but this will require moving adhoc bundle and header generation from HS to TS
+
+          PS: directly compiling adhoc bundles is now what recompileAdhoc is for, so it's easy to re-expose at one point */
   const bundleMask = new RegExp(`^${wildcardsToRegExp(bundlename)}$`);
   const bundles = getExtractedConfig("assetpacks").filter(assetpack => assetpack.name.match(bundleMask));
   if (bundles.length === 0)

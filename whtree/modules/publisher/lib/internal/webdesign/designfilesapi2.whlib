@@ -53,28 +53,6 @@ PUBLIC RECORD FUNCTION WaitForCompiledAssetpack(STRING outputtag)
   RETURN res;
 }
 
-PUBLIC RECORD FUNCTION MakeEmptyBundle()
-{
-  RETURN [ assetpack := ""
-         , basedependency := ""
-         , bundleconfig := basebundleconfig
-         , adhoc := FALSE
-         ];
-}
-
-PUBLIC STRING FUNCTION GetHashForBundle(RECORD requesteddesign)
-{
-  RECORD hashbase := [ basedependency := requesteddesign.basedependency
-                     , extrarequires := (SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(requesteddesign.bundleconfig.extrarequires,"req") ORDER BY req)
-                     , languages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(requesteddesign.bundleconfig.languages,"lang") ORDER BY lang)
-                     , environment := requesteddesign.bundleconfig.environment
-                     , aftercompiletask := requesteddesign.bundleconfig.aftercompiletask //making this part of the hash so we refire the task if it changes
-                     , esbuildsettings := requesteddesign.bundleconfig.esbuildsettings
-                     ];
-  STRING designhash := ToLowercase(EncodeUFS(GetMD5Hash(EncodeHSON(hashbase))));
-  RETURN designhash;
-}
-
 PUBLIC MACRO RemoveObsoleteCacheFolders()
 {
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
@@ -94,118 +72,6 @@ PUBLIC MACRO RemoveObsoleteCacheFolders()
   }
 }
 
-PUBLIC RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
-{
-  TRY
-  {
-    OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-    RECORD bundle := WaitForPromise(service->GetBundle(requestedbundle, [ nowait := FALSE ]));
-    service->CloseService();
-    INSERT CELL stale := FALSE INTO bundle;
-    RETURN [ ttl := 15 * 60 * 1000
-           , value := bundle
-           , eventmasks := [ "publisher:assetpackcontrol.change.all"
-                           , "publisher:assetpackcontrol.change." || bundle.outputtag
-                           ]
-           ];
-  }
-  CATCH(OBJECT< ServiceUnavailableException > e)
-  {
-    //Do we have the bundle in the database ?
-    STRING hash := GetHashForBundle(requestedbundle);
-    RECORD bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
-    IF(NOT RecordExists(bundleinfo))
-      THROW NEW Exception("The assetpackmgr is unreachable and the bundle does not yet exist");
-
-    STRING bundleuuid := bundleinfo.outputtag;
-    RETURN [ ttl := 1 * 60 * 1000
-           , value := [ id := bundleinfo.id
-                      , outputtag := bundleuuid
-                      , stale := TRUE
-                      ]
-           , eventmasks := [ "publisher:assetpackcontrol.change.all"
-                           , "publisher:assetpackcontrol.change." || bundleuuid
-                           ]
-           ];
-  }
-}
-
-
-STATIC OBJECTTYPE Resolver
-<
-  RECORD packinginfo;
-  STRING ARRAY addedrequires;
-  RECORD requestedbundle;
-  STRING assetpack;
-
-  MACRO NEW(STRING assetpack, STRING basedependency, STRING ARRAY languages)
-  {
-    BOOLEAN adhoc := assetpack NOT LIKE "*:*"; //adhocs are just a 128bit id
-
-    this->assetpack := assetpack;
-    IF(assetpack = "" AND basedependency != "")
-    {
-      this->requestedbundle := MakeEmptyBundle();
-      this->requestedbundle.basedependency := basedependency;
-      this->requestedbundle.adhoc := adhoc;
-      this->requestedbundle.bundleconfig.languages := languages;
-    }
-  }
-
-  MACRO EnsurePackingInfo()
-  {
-    IF(RecordExists(this->packinginfo))
-      RETURN;
-
-    IF(this->assetpack = "" AND RecordExists(this->requestedbundle))
-    {
-      RECORD torequest := this->requestedbundle;
-      torequest.bundleconfig.extrarequires := SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(torequest.bundleconfig.extrarequires,'req') ORDER BY req;
-
-      STRING designhash := GetHashForBundle(this->requestedbundle);
-      FUNCTION PTR getter := PTR GetPackingInfo(this->requestedbundle);
-      IF(torequest.adhoc)
-        this->packinginfo := getter().value;
-      ELSE
-        this->packinginfo := GetAdhocCached([ designhash := designhash], getter);
-
-      INSERT CELL designhash := designhash INTO this->packinginfo;
-      this->assetpack := this->packinginfo.designhash;
-    }
-  }
-
-  PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "")
-  {
-    this->EnsurePackingInfo();
-    Print(GetAssetpackIntegrationCode(this->assetpack, CELL
-      [ designroot := usedesignroot
-      , cachebuster
-      ]));
-
-    IF(NOT ObjectExists(webdesign) OR webdesign->wittyencoding NOT LIKE "*-NI")
-      Print('\n');
-  }
->;
-
-PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigninfo)
-{
-  IF(webdesigninfo.designfolder="")
-    THROW NEW Exception("No module design folder specified");
-
-  OBJECT res := NEW Resolver(webdesigninfo.assetpack, "", webdesigninfo.supportedlanguages);
-  RETURN res;
-}
-
-PUBLIC OBJECT FUNCTION CreateDependencyResolverForJSFile(STRING jspath, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ supportedlanguages := STRING[]
-      ], options);
-
-  OBJECT res := NEW Resolver("", jspath, options.supportedlanguages);
-  RETURN res;
-}
-
 PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
 {
   //do not return bundles from uninstalled modules. scheduled compilations will fail and may race against (re)installation of modules
@@ -213,7 +79,6 @@ PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
      SELECT TEMPORARY parsedsettings :=       ParseAssetPackSettings(assetpacks.outputtag, assetpacks.settings)
           , *
           , bundleconfig :=   bundleconfig != "" ? DecodeHSON(bundleconfig) : DEFAULT RECORD
-          , adhoc :=          FALSE
           , savedstate :=     DEFAULT RECORD
           , origentrypoint := entrypoint
           , isdev :=          parsedsettings.dev

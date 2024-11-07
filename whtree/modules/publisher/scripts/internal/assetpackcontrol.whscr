@@ -173,17 +173,10 @@ STATIC OBJECTTYPE AssetPackController
       @cell errors Errors of last compilation
       @cell info Info about last compilation
       @cell(datetime) lastcompile Time of last compile
-      @cell(boolean) adhoc If true, this is an adhoc package (not watched)
       @cell(object) task Current recompile task
       @cell(boolean) requirecompile Whether recompilation is required
   */
   RECORD ARRAY bundles;
-
-  /* Registered adhoc bundles */
-  RECORD ARRAY adhocbundles;
-
-  // Last generated adhocbundle id
-  INTEGER lastadhocid;
 
   /** List of waits for first compilations
       @cell outputtag Unique id of the bundle
@@ -500,11 +493,8 @@ STATIC OBJECTTYPE AssetPackController
       IF (NOT RecordExists(bundle.bundleconfig))
         THROW NEW Exception("Bundle has no bundle config (old bundle), please delete the bundle");
 
-      IF(NOT bundle.adhoc)
-      {
-        STRING ARRAY bundletagtoks := Tokenize(bundle.outputtag, ':');
-        bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
-      }
+      STRING ARRAY bundletagtoks := Tokenize(bundle.outputtag, ':');
+      bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
     }
     CATCH (OBJECT e)
     {
@@ -545,7 +535,6 @@ STATIC OBJECTTYPE AssetPackController
         , entrypoint :=     bundle.entrypoint
         , origentrypoint := bundle.origentrypoint
         , diskpath :=       bundle.diskpath
-        , adhoc :=          bundle.adhoc
         , outputpath :=     bundle.outputpath
         , isdev :=          bundle.isdev
         , outputtag :=      bundle.outputtag
@@ -603,13 +592,9 @@ STATIC OBJECTTYPE AssetPackController
 
         RECORD bundledata := this->GetBundleData(bundle);
 
-        // Don't use persistent cache for adhoc bundles
         OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.ts#recompile",
             [[ bundle :=       bundledata
-            ]]);/*, FIXME what is/was this for? updateinteractive at least seems irrelevant given esbuild's speed?
-            [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
-            , priority :=             bundle.isdev ? "updateinteractive" : "update"
-            ]);*/
+            ]]);
 
         // Store task
         UPDATE this->bundles
@@ -1031,7 +1016,7 @@ STATIC OBJECTTYPE AssetPackController
   MACRO ProcessBundleState(STRING outputtag)
   {
     RECORD bundle := SELECT * FROM this->bundles WHERE COLUMN outputtag = VAR outputtag;
-    IF (NOT RecordExists(bundle) OR bundle.adhoc)
+    IF (NOT RecordExists(bundle))
       RETURN;
 
     this->CheckTimeStamps(bundle, DEFAULT OBJECT);
@@ -1073,13 +1058,7 @@ STATIC OBJECTTYPE AssetPackController
              , found := FALSE
           FROM this->bundles;
 
-    RECORD ARRAY bundles := GetPersistentBundles()
-       CONCAT
-       (SELECT *
-             , adhoc :=         TRUE
-             , savedstate :=    DEFAULT RECORD
-             , isdev :=         TRUE
-          FROM this->adhocbundles);
+    RECORD ARRAY bundles := GetPersistentBundles();
 
     FOREVERY(RECORD bundle FROM bundles)
     {
@@ -1262,43 +1241,6 @@ STATIC OBJECTTYPE AssetPackController
     RETURN this->CreateCompilePromise(bundle.outputtag);
   }
 
-  PUBLIC OBJECT ASYNC FUNCTION GetAdhocBundle(RECORD bundle)
-  {
-    STRING hash := GetHashForBundle(bundle);
-    RECORD match := SELECT * FROM this->adhocbundles WHERE adhocbundles.outputtag = VAR hash;
-
-    IF (NOT RecordExists(match))
-    {
-      this->lastadhocid := this->lastadhocid - 1;
-
-      INSERT [ id :=              this->lastadhocid
-             , created :=         RecordExists(match) ? match.created : GetCurrentDatetime()
-             , entrypoint :=      bundle.basedependency
-             , origentrypoint :=  bundle.basedependency
-             , bundleconfig :=    bundle.bundleconfig
-             , outputtag :=       hash
-             ] INTO this->adhocbundles AT END;
-    }
-
-    this->LoadBundles();
-
-    UPDATE this->bundles
-       SET forcecompile :=    TRUE
-     WHERE outputtag = hash
-       AND requirecompile;
-
-    IF (RecordExists(match))
-    {
-      OBJECT promise := this->WaitForCompile(hash, FALSE);
-      this->ScheduleCompilationTasks();
-      RETURN promise;
-    }
-
-    OBJECT promise := this->CreateCompilePromise(hash);
-    this->RecompileBundleByoutputtag(hash);
-    RETURN promise;
- }
-
   PUBLIC MACRO OnInterrupt()
   {
     CancelEventLoop();
@@ -1372,79 +1314,9 @@ OBJECTTYPE AssetPackControl
     this->id := data.id;
   }
 
-  /** Create/update a bundle
-      @param requestedbundle Bundle description
-      @return
-      @cell return.id
-      @cell return.outputtag
-  */
-  PUBLIC OBJECT ASYNC FUNCTION GetBundle(RECORD requestedbundle, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    IF(requestedbundle.adhoc)
-      RETURN this->GetAdhocBundle(requestedbundle);
-
-    BOOLEAN mustrefreshbundles;
-    STRING hash := GetHashForBundle(requestedbundle);
-    INTEGER bundleid;
-
-    RECORD bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
-    RECORD bundlesettings;
-
-    DATETIME now := GetRoundedDatetime(GetCurrentDatetime(), 60 * 60 * 1000);
-    IF(RecordExists(bundleinfo))
-    {
-      bundleid := bundleinfo.id;
-      bundlesettings := ParseAssetPackSettings(hash, bundleinfo.settings);
-    }
-    ELSE
-    {
-      GetPrimary()->BeginLockedWork("publisher:assetpackcontrol");
-      bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
-
-      IF(RecordExists(bundleinfo))
-      {
-        bundleid := bundleinfo.id;
-        bundlesettings := ParseAssetPackSettings(hash, bundleinfo.settings);
-      }
-      ELSE
-      {
-        mustrefreshbundles := TRUE;
-        bundleid := MakeAutonumber(system_internal.assetpacks, "ID");
-
-        INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
-               VALUES(bundleid, now, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
-
-        bundlesettings := ParseAssetPackSettings(hash, ""); //initials settings
-      }
-
-      GetPrimary()->CommitWork();
-    }
-
-    IF(mustrefreshbundles)
-    {
-      controller->LoadBundles();
-    }
-
-    STRING outputtag := hash;
-    DATETIME lastcompile;
-    IF (NOT CellExists(options, "NOWAIT") OR NOT options.nowait)
-    {
-      //FIXME (AWAIT controller->WaitForCompile(outputtag, TRUE)) resolved to DEFAULT RECORD on ut live. bundle deletion during compilation? timeout?
-      lastcompile := (AWAIT controller->WaitForCompile(outputtag, TRUE)).lastcompile;
-    }
-
-    RETURN [ id := bundleid, outputtag := outputtag, lastcompile := lastcompile ];
-  }
-
-
   PUBLIC OBJECT FUNCTION WaitForCompile(STRING outputtag, BOOLEAN acceptstale)
   {
     RETURN controller->WaitForCompile(outputtag, acceptstale);
-  }
-
-  OBJECT ASYNC FUNCTION GetAdhocBundle(RECORD bundle)
-  {
-    RETURN controller->GetAdhocBundle(bundle);
   }
 
   /** Returns the current status of the assetpack controller
