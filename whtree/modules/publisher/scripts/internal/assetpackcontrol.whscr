@@ -564,7 +564,7 @@ STATIC OBJECTTYPE AssetPackController
     DELETE CELL entrypoint FROM bundledata;
     DELETE CELL diskpath FROM bundledata;
 
-    RETURN EncodeBase64(GetSHA1Hash(EncodeHSON(CELL[bundledata, bundle.isdev])));
+    RETURN `${bundle.bundleconfig.basecompiletoken},${bundle.isdev?'1':'0'}`;
   }
 
   // FIXME: the part of an async function until the first await should be executed synchronously, but that doesn't happen
@@ -606,15 +606,10 @@ STATIC OBJECTTYPE AssetPackController
           PRINT("Schedule compile task for " || bundle.outputtag || "\n");
 
         RECORD bundledata := this->GetBundleData(bundle);
-        STRING envkey := compiletoken || "-" || bundle.cachebreaker;
 
         // Don't use persistent cache for adhoc bundles
         OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.ts#recompile",
-            [[
-             envkey :=       envkey
-            , compiletoken := compiletoken
-            , bundle :=       bundledata
-            , timestamps :=   this->GetTimeStamps(bundle, DEFAULT OBJECT)
+            [[ bundle :=       bundledata
             ]]);/*, FIXME what is/was this for? updateinteractive at least seems irrelevant given esbuild's speed?
             [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
             , priority :=             bundle.isdev ? "updateinteractive" : "update"
@@ -754,6 +749,7 @@ STATIC OBJECTTYPE AssetPackController
                                  , modulepack.assetbaseurl
                                  , modulepack.compatibility
                                  , modulepack.esbuildsettings
+                                 , modulepack.basecompiletoken
                                  ];
 
       STRING encodedconfig := EncodeHSON(bundleconfig);

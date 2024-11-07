@@ -20,6 +20,7 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , aftercompiletask := ""
                            , compatibility := whconstant_default_compatibility
                            , esbuildsettings := ""
+                           , basecompiletoken := "adhoc" //adhoc bundles have no real configuration, so don't bother with forced recompilation (well perhaps default_compatibility?)
                            ];
 
 PUBLIC STRING FUNCTION GetBundleOutputRootPath()

@@ -6,7 +6,7 @@
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import { Bundle, RecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { Bundle, buildRecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
 import { loadlib } from "@webhare/harescript";
 
 program.name('wh publisher:compile')
@@ -20,19 +20,23 @@ async function main() {
   const verbose = program.opts().verbose;
   const bundlename = program.args[0];
 
-  const bundle = await loadlib('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib').GetBundle(bundlename) as Bundle;
+  let isdev: boolean;
+
   if (program.opts().development)
-    bundle.isdev = true;
-  if (program.opts().production)
-    bundle.isdev = false;
+    if (program.opts().production)
+      throw new Error("Cannot specify both --development and --production");
+    else
+      isdev = true;
+  else if (program.opts().production)
+    isdev = false;
+  else {
+    const config = await loadlib('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib').GetBundle(bundlename) as Bundle;
+    isdev = config.isdev;
+  }
 
+  const data = await buildRecompileSettings(bundlename, isdev);
   if (verbose)
-    console.log(JSON.stringify(bundle, null, 2));
-
-  const data: RecompileSettings = {
-    bundle: bundle,
-    compiletoken: "compile.ts"
-  };
+    console.log(JSON.stringify(data, null, 2));
 
   try {
     if (verbose)

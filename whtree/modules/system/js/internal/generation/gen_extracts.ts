@@ -7,6 +7,8 @@ import { whconstant_default_compatibility } from "../webhareconstants";
 import { addModule } from "@webhare/services/src/naming";
 import { ModDefYML } from "@webhare/services/src/moduledefparser";
 import { generateWebDesigns } from "./webdesigns";
+import * as crypto from "node:crypto";
+import { stringify } from "@webhare/std";
 
 export interface AssetPack {
   name: string; //full name
@@ -20,6 +22,7 @@ export interface AssetPack {
   afterCompileTask: string;
   esBuildSettings: string;
   extraRequires: string[];
+  baseCompileToken: string;
 }
 
 export interface BackendServiceDescriptor {
@@ -44,6 +47,14 @@ export interface Services {
   backendServices: BackendServiceDescriptor[];
   openAPIServices: OpenAPIDescriptor[];
   openAPIClients: OpenAPIDescriptor[]; //no difference in types (yet)
+}
+
+function makeAssetPack(pack: Omit<AssetPack, "baseCompileToken">): AssetPack {
+  const contenthasher = crypto.createHash('md5');
+  contenthasher.update(stringify(pack, { stable: true }));
+  const baseCompileToken: string = contenthasher.digest("base64");
+
+  return { ...pack, baseCompileToken };
 }
 
 function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): AssetPack[] {
@@ -72,7 +83,7 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           continue;
         }
 
-        packs.push({
+        packs.push(makeAssetPack({
           name: assetpackname,
           entryPoint: resolveResource(resourceBase, getAttr(assetpacknode, "entrypoint")),
           supportedLanguages: [...new Set(getAttr(assetpacknode, "supportedlanguages", []))],
@@ -84,7 +95,7 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           afterCompileTask: addModule(mod, getAttr(assetpacknode, "aftercompiletask")),
           esBuildSettings: getAttr(assetpacknode, "esbuildsettings"), //FIXME deprecate this, we should just let users supply a JS function to apply to the esbuild config
           extraRequires: []
-        });
+        }));
       }
 
     /* TOOD to be a webdesign parser, we also need this:
@@ -115,7 +126,7 @@ function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML):
   const packs: AssetPack[] = [];
   if (modYml.assetPacks)
     for (const [name, assetpack] of Object.entries(modYml.assetPacks)) {
-      packs.push({
+      packs.push(makeAssetPack({
         name: addModule(mod, name),
         entryPoint: resolveResource(resourceBase, assetpack.entryPoint),
         supportedLanguages: [...new Set(assetpack.supportedLanguages)],
@@ -129,7 +140,7 @@ function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML):
         afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
         esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
         extraRequires: []
-      });
+      }));
     }
 
   return packs;
