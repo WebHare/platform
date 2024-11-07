@@ -32,6 +32,18 @@ assetPacks:
     entryPoint: webfeatures/pwaserviceworker/pwaserviceworker
     supportedLanguages: [en]
     whPolyfills: false
+  tollium:
+    entryPoint: mod::tollium/webdesigns/webinterface/webinterface
+    supportedLanguages: [en, nl]
+    whPolyfills: false #tollium shouldn't be recompiled by webserver list changes
+  authormode:
+    entryPoint: mod::publisher/webdesigns/authormode/authormode.tsx
+    supportedLanguages: [en, nl]
+    whPolyfills: false #we shouldn't polyfill with this assetpack, we're loaded side-by-side to an existing one
+  testsuite:
+    entryPoint: mod::system/web/systemroot/jstests/testsuite.tsx
+    supportedLanguages: [en]
+    whPolyfills: false #actually no platform assetpacks should every be recompiled by webservices list changes
 
 webFeatures:
   identityprovider:

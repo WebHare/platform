@@ -4,7 +4,7 @@ import { getLocal, loadCSS, loadScript } from "@webhare/dompack";
 export type { AuthorModeOptions };
 
 /** Load an asset pack
- * @param apname - The asset pack name (eg tollium:webinterface)
+ * @param apname - The asset pack name (eg platform:tollium)
  * @returns A promise resolving to an array containing the assetpack script and CSS nodes
 */
 export function loadAssetPack(apname: string) {
@@ -19,6 +19,6 @@ export function loadAssetPack(apname: string) {
 export function setupAuthorMode(options?: AuthorModeOptions) {
   if (typeof window !== "undefined" && window.top === window && getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) { //in a browser
     window.whAuthorModeOptions = options;
-    loadAssetPack("publisher.authormode");
+    loadAssetPack("platform:authormode");
   }
 }

@@ -9,6 +9,5 @@ export interface AssetPackControlClient {
   clearCaches(): Promise<void>;
   recompileBundle(outputtag: string, rebuild: boolean): Promise<unknown>;
   setWatched(outputtag: string, watched: boolean): Promise<void>;
-  setFullSourceMap(outputtag: string, fullsourcemap: boolean): Promise<void>;
   reload(): Promise<number>;
 }

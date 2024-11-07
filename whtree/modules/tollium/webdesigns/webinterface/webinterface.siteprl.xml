@@ -20,7 +20,7 @@
              supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport" />
 
     <!-- Setup default webdesign. Sync with tollium/data/siteprofile.xml. We need it here for 404 and /.publisher/debug pages -->
-    <webdesign assetpack="webinterface"
+    <webdesign assetpack="platform:tollium"
                designfolder="mod::tollium/webdesigns/webinterface"
                maxcontentwidth="960px"
                objectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#WebinterfaceDesign"

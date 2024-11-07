@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
@@ -272,16 +271,4 @@ PUBLIC RECORD FUNCTION RPC_RetrieveImages(RECORD ARRAY images, BOOLEAN nocache)
     DELETE CELL data FROM images[#img];
   }
   RETURN CELL[ images ];
-}
-
-STRING ARRAY FUNCTION GetNonlocalIps()
-{
-  RETURN
-      SELECT AS STRING ARRAY ip
-        FROM ToRecordArray(GetLocalIPs(), "IP")
-       WHERE ip NOT IN [ "127.0.0.1", "::1" ]
-         AND ip NOT LIKE "fc*:*" // IPv6 ULA
-         AND ip NOT LIKE "fd*:*" // IPv6 ULA
-         AND ip NOT LIKE "fd*:*"
-         AND ip NOT LIKE "fe*:*"; // IPv6 local addresses (should be fe80::/10)
 }

@@ -1,3 +1,5 @@
+import type { LinkWireMessage } from "./comm/linkendpoint";
+
 export type EnableOnRule = {
   source: string;
   requirevisible: boolean;
@@ -45,3 +47,22 @@ export type TolliumCondition = {
   //TODO optional non default matchtype
   value: boolean; //TODO | string | integer | ... ?
 };
+
+export interface TolliumToddService {
+  //mod::tollium/lib/todd/internal/service.whlib
+  runToddComm(req: {
+    links: LinkWireMessage[];
+    frontendids: string[];
+    unloading: boolean;
+  }): Promise<{
+    links: LinkWireMessage[];
+  }>;
+
+  retrieveImages(images: Array<{
+    data: {
+      imgnames: string[];
+    };
+  }>, nocache: boolean): Promise<{
+    images: unknown[];
+  }>;
+}

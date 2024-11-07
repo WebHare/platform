@@ -3,6 +3,7 @@
    can realistically work without @webhare/services being locally available (either directly or through a service)
 */
 
+import type { TestService } from "@mod-system/web/systemroot/jstests/testsuite";
 import { dispatchCustomEvent } from "@webhare/dompack";
 import { createClient } from "@webhare/jsonrpc-client";
 import { parseTyped, stringify } from "@webhare/std";
@@ -77,10 +78,6 @@ interface RawExtractedMailResult { //See HS ProcessExtractedMail
     data: string;
     mimetype: string;
   }>;
-}
-
-interface TestService {
-  invoke(libfunc: string, params: unknown[]): Promise<unknown>;
 }
 
 const jstestsrpc = createClient<TestService>("system:jstests");

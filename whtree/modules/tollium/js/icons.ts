@@ -1,8 +1,12 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+import type { TolliumToddService } from "@mod-tollium/web/ui/js/types";
+import { debugFlags } from "@webhare/env";
+import { createClient } from "@webhare/jsonrpc-client";
 import * as dompack from "dompack";
-import * as toddrpc from "./internal/todd.rpc.json";
+
+const toddrpc = createClient<TolliumToddService>("tollium:todd");
 
 // Canvas pixel ratio
 const canvasRatio = (function () {
@@ -56,7 +60,7 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
 
   // Check if this image src is already loaded
   if (cached && cached.result) {
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.log("Applying cached " + key);
     applyLoadedResultToImage(cached, imgnode);
     return imgnode;
@@ -70,13 +74,13 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
 
   if (!imagequeue.has(key)) {
     imagequeue.set(key, data);
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.log("Loading image " + key + ", image queue size: " + imagequeue.size);
   }
 
   // Try to coalesce multiple loadImages calls into one
   if (!loadimgtimeout) {
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.log("Setting image loading timeout");
     loadimglock = dompack.flagUIBusy();
     loadimgtimeout = window.setTimeout(loadImages, 1);
@@ -92,11 +96,11 @@ async function loadImages() {
 
   // Make a list of images to load
   const toload = [];
-  if (dompack.debugflags.ild)
+  if (debugFlags.ild)
     console.warn("Image queue size: " + imagequeue.size);
   for (const [key, data] of imagequeue) {
     const cached = imagecache.get(key);
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.log(key, cached);
     // If nobody is waiting for this image, or if it's already loaded, skip it
     if (!cached.imgs.length || cached.result) {
@@ -108,13 +112,13 @@ async function loadImages() {
   imagequeue.clear();
 
   // Load the images
-  if (dompack.debugflags.ild)
+  if (debugFlags.ild)
     console.info("Loading " + toload.length + " images");
 
   try {
-    const result = await toddrpc.retrieveImages(toload, Boolean(dompack.debugflags.ild));
+    const result = await toddrpc.retrieveImages(toload, Boolean(debugFlags.ild));
 
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.info("Received " + result.images.length + " images", result);
 
     // Store the loaded images
@@ -127,7 +131,7 @@ async function loadImages() {
     }));
 
     // loaded holds all resolved promise results
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.info("Applying images");
 
     loaded.forEach((loadedimg) => {
@@ -156,7 +160,7 @@ async function loadImages() {
 }
 
 function applyLoadedResult(cached) {
-  if (cached.imgs.length && dompack.debugflags.ild)
+  if (cached.imgs.length && debugFlags.ild)
     console.log("Applying " + cached.key + " to " + cached.imgs.length + " images");
 
   // Set the src attribute of the img nodes waiting for this image and clear the list
@@ -179,7 +183,7 @@ async function processImage(key, images, data) {
   }
   const baseimg = images[0];
   const basetype = baseimg.type;
-  if (dompack.debugflags.ild)
+  if (debugFlags.ild)
     console.log("Received image " + key + " of type " + basetype);
 
 
@@ -188,7 +192,7 @@ async function processImage(key, images, data) {
 
   // If the image is black and a white image is wanted, invert the image
   if (baseimg.invertable && basetype === "image/svg+xml" && baseimg.color === "b" && data.color === "w,b") {
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.log("Inverting image");
     basedata = invertImage(basedata);
   }
@@ -216,7 +220,7 @@ async function processImage(key, images, data) {
     let imgdata = idx ? overlayimg.data : basedata;
     // If this is a black overlay and a white image is wanted, invert the overlay
     if (idx && overlayimg.invertable && overlayimg.type === "image/svg+xml" && overlayimg.color === "b" && data.color === "w,b") {
-      if (dompack.debugflags.ild)
+      if (debugFlags.ild)
         console.log("Inverting overlay " + idx);
       imgdata = invertImage(imgdata);
     }
@@ -231,10 +235,10 @@ async function processImage(key, images, data) {
 
     // Load the images into drawable img nodes
     imgloads.push(new Promise((resolve, reject) => {
-      if (dompack.debugflags.ild)
+      if (debugFlags.ild)
         console.log("Reading image " + idx);
       imgnode.onload = function () {
-        if (dompack.debugflags.ild)
+        if (debugFlags.ild)
           console.log("Read image " + idx);
         resolve(idx);
       };
@@ -250,7 +254,7 @@ async function processImage(key, images, data) {
     // Wait for all images to be loaded
     await Promise.all(imgloads);
 
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.info("Combining layers");
 
     let canvas = document.createElement("canvas");
@@ -282,7 +286,7 @@ async function processImage(key, images, data) {
 
       if (idx && knockout) // Knockout overlay
       {
-        if (dompack.debugflags.ild)
+        if (debugFlags.ild)
           console.info("Knockout overlay " + idx);
 
         // Draw a knockout shape by drawing the overlay with a "destination-out" composite operation at positions 1
@@ -308,7 +312,7 @@ async function processImage(key, images, data) {
         layercanvas = null;
         layerctx = null;
       } else {
-        if (dompack.debugflags.ild)
+        if (debugFlags.ild)
           console.info("Adding stack layer for non-knockout layer " + idx);
 
         // Create a new canvas
@@ -323,7 +327,7 @@ async function processImage(key, images, data) {
     }
 
     // Get and return the image data url
-    if (dompack.debugflags.ild)
+    if (debugFlags.ild)
       console.log("Setting cached src " + key);
 
     // Combine the layers into a single image
@@ -347,10 +351,10 @@ function invertImage(svgdata) {
   //console.log(svgdata);
   // Switch '#4a4a4a' and '#f3f3f3', adding a space to prevent double substitution
   // And using doublespaces now, as the CSS rewriter for IE (RewriteImgStyles) will already add the first space
-  svgdata = svgdata.replace(/(stroke|fill)\: ?#4a4a4a;/gi, "$1\:  #f3f3f3;");
-  svgdata = svgdata.replace(/(stroke|fill)\: ?#f3f3f3;/gi, "$1\:  #4a4a4a;");
-  svgdata = svgdata.replace(/(stroke|fill)\: ?rgb\(74,74,74\);/gi, "$1\:  #f3f3f3;");
-  svgdata = svgdata.replace(/(stroke|fill)\: ?rgb\(243,243,243\);/gi, "$1\:  #4a4a4a;");
+  svgdata = svgdata.replace(/(stroke|fill): ?#4a4a4a;/gi, "$1:  #f3f3f3;");
+  svgdata = svgdata.replace(/(stroke|fill): ?#f3f3f3;/gi, "$1:  #4a4a4a;");
+  svgdata = svgdata.replace(/(stroke|fill): ?rgb\(74,74,74\);/gi, "$1:  #f3f3f3;");
+  svgdata = svgdata.replace(/(stroke|fill): ?rgb\(243,243,243\);/gi, "$1:  #4a4a4a;");
   svgdata = svgdata.replace(/(stroke|fill)="#4a4a4a/gi, "$1=\" #f3f3f3");
   svgdata = svgdata.replace(/(stroke|fill)="#f3f3f3/gi, "$1=\" #4a4a4a");
   svgdata = svgdata.replace(/(stroke|fill)="rgb\(74,74,74\)/gi, "$1=\" #f3f3f3");
@@ -360,7 +364,7 @@ function invertImage(svgdata) {
 }
 
 export function resetImageCache() {
-  if (dompack.debugflags.ild)
+  if (debugFlags.ild)
     console.warn("Clearing image cache");
 
   imagequeue.clear();

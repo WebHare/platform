@@ -23,8 +23,7 @@ LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 // These bundles should always recompile, even if dirty, as they aren't easily watched. TODO make it a setting in assetpacks yml
 PUBLIC CONSTANT STRING ARRAY always_recompile_bundles := [
-  "dev:devtools", //this one implements watching, so if it's broken there's noone to report it
-  "publisher:pwaserviceworker" //this package is never loaded on a page watched by dev:devtools
+  "dev:devtools" //this one implements watching, so if it's broken there's noone to report it
   ];
 
 // Timeout for first compilation requests
@@ -214,9 +213,6 @@ STATIC OBJECTTYPE AssetPackController
       @cell cnt
   */
   RECORD ARRAY watchcounts;
-
-  /// Dev assetpacks that are opting out of full sourcemaps
-  STRING ARRAY nofullsourcemapsassetpacks;
 
   /// Suspend autocompile of production packages?
   BOOLEAN suspendautocompile;
@@ -564,7 +560,7 @@ STATIC OBJECTTYPE AssetPackController
     DELETE CELL entrypoint FROM bundledata;
     DELETE CELL diskpath FROM bundledata;
 
-    RETURN EncodeBase64(GetSHA1Hash(EncodeHSON(CELL[bundledata, bundle.isdev])));
+    RETURN `${bundle.bundleconfig.basecompiletoken},${bundle.isdev?'1':'0'}`;
   }
 
   // FIXME: the part of an async function until the first await should be executed synchronously, but that doesn't happen
@@ -606,15 +602,10 @@ STATIC OBJECTTYPE AssetPackController
           PRINT("Schedule compile task for " || bundle.outputtag || "\n");
 
         RECORD bundledata := this->GetBundleData(bundle);
-        STRING envkey := compiletoken || "-" || bundle.cachebreaker;
 
         // Don't use persistent cache for adhoc bundles
         OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.ts#recompile",
-            [[
-             envkey :=       envkey
-            , compiletoken := compiletoken
-            , bundle :=       bundledata
-            , timestamps :=   this->GetTimeStamps(bundle, DEFAULT OBJECT)
+            [[ bundle :=       bundledata
             ]]);/*, FIXME what is/was this for? updateinteractive at least seems irrelevant given esbuild's speed?
             [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
             , priority :=             bundle.isdev ? "updateinteractive" : "update"
@@ -639,20 +630,6 @@ STATIC OBJECTTYPE AssetPackController
          WHERE outputtag = recompilehash;
 
         this->ProcessCompileResult(taskresult);
-      }
-      CATCH (OBJECT< ServiceDisconnectException > e)
-      {
-        IF (debug)
-          PRINT("Schedule compile task for " || bundle.outputtag || " lost connection to the cluster service\n");
-
-        UPDATE this->bundles
-           SET task :=            DEFAULT OBJECT
-             , retries :=         retries < 3 AND NOT requirecompile ? retries + 1 : retries
-             , requirecompile :=  retries < 3 AND NOT requirecompile ? TRUE : requirecompile
-         WHERE outputtag = recompilehash;
-
-        // task failed, what now?
-        this->ProcessUncompilable(bundle, DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, e->what, start);
       }
       CATCH (OBJECT e)
       {
@@ -754,6 +731,7 @@ STATIC OBJECTTYPE AssetPackController
                                  , modulepack.assetbaseurl
                                  , modulepack.compatibility
                                  , modulepack.esbuildsettings
+                                 , modulepack.basecompiletoken
                                  ];
 
       STRING encodedconfig := EncodeHSON(bundleconfig);
@@ -926,19 +904,6 @@ STATIC OBJECTTYPE AssetPackController
     }
 
     RETURN deps;
-  }
-
-  RECORD ARRAY FUNCTION ListAssetsOnDisk(RECORD bundle)
-  {
-    RECORD ARRAY assets;
-
-    FOREVERY(STRING dir FROM ["","st/"])
-    {
-      RECORD ARRAY assetlist := ReadDiskDirectory(MergePath(bundle.outputpath,dir),'*');
-      DELETE FROM assetlist WHERE type != 0 OR name IN ["assetpackstate.hson"];
-      assets := assets CONCAT SELECT subpath := dir || name FROM assetlist;
-    }
-    RETURN assets;
   }
 
   /** Mark a bundle as uncompileable (because pre-compile checks failed)
@@ -1119,9 +1084,6 @@ STATIC OBJECTTYPE AssetPackController
     FOREVERY(RECORD bundle FROM bundles)
     {
       bundle := PreFixupBundleconfig(bundle);
-
-      IF(bundle.outputtag NOT IN this->nofullsourcemapsassetpacks)
-        bundle.bundleconfig.fullsourcemap := TRUE;
 
       // Ensure the bundle exists in our list
       RECORD lb := RecordLowerBound(this->bundles, [ outputtag := bundle.outputtag ], [ "outputtag" ]);
@@ -1386,20 +1348,6 @@ STATIC OBJECTTYPE AssetPackController
 
     BroadcastEvent("publisher:assetpackcontrol.watch." || outputtag, DEFAULT RECORD);
   }
-
-  PUBLIC MACRO UpdateSourceMapType(STRING outputtag, BOOLEAN fullsourcemap)
-  {
-    RECORD pos := LowerBound(this->nofullsourcemapsassetpacks, outputtag);
-    IF (pos.found != fullsourcemap)
-      RETURN;
-
-    IF (fullsourcemap)
-      DELETE FROM this->nofullsourcemapsassetpacks AT pos.position;
-    ELSE
-      INSERT outputtag INTO this->nofullsourcemapsassetpacks AT pos.position;
-
-    this->LoadBundles();
-  }
 >;
 
 OBJECTTYPE AssetPackControl
@@ -1551,12 +1499,6 @@ OBJECTTYPE AssetPackControl
     ELSE
       DELETE FROM this->watched_bundles AT pos.position;
     controller->UpdateWatchCount(outputtag, watched ? +1 : -1);
-  }
-
-  PUBLIC MACRO SetFullSourceMap(STRING outputtag, BOOLEAN fullsourcemap)
-  {
-    controller->UpdateSourceMapType(outputtag, fullsourcemap);
-    controller->RecompileBundleByoutputtag(outputtag, FALSE);
   }
 
   PUBLIC MACRO Reload()

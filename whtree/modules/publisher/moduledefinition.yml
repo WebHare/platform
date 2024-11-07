@@ -1,12 +1,3 @@
-assetPacks:
-  authormode:
-    entryPoint: webdesigns/authormode/authormode.tsx
-    supportedLanguages:
-      - en
-      - nl
-    whPolyfills: false #we shouldn't polyfill with this assetpack, we're loaded side-by-side to an existing one
-    module: true
-
 webFeatures:
   savedurlhistory:
     siteProfile: webfeatures/savedurlhistory/savedurlhistory.siteprl.xml

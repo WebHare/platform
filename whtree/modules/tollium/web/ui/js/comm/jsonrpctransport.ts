@@ -1,9 +1,8 @@
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase, { type TransportBaseOptions } from "./transportbase";
-//@ts-ignore needs to be convertedd to new style JSON/RPC service
-import * as service from "./toddservice.rpc.json";
+import { createClient } from "@webhare/jsonrpc-client";
 import type { LinkWireMessage } from "./linkendpoint";
-
+import type { TolliumToddService } from "../types";
 
 /// JSONRPC support
 export default class JSONRPCTransport extends TransportBase {
@@ -71,13 +70,13 @@ export default class JSONRPCTransport extends TransportBase {
       this.request_keepalive = this.unloading;
 
       // use keepalive when unloading, so the request isn't aborted upon unload
-      result = await service.invoke(
-        {
-          timeout: this.unloading ? 5000 : 300000,
-          keepalive: this.unloading,
-          signal: abortcontroller.signal
-        }, "RunToddComm",
-        req);
+      const client = createClient<TolliumToddService>("tollium:todd", {
+        timeout: this.unloading ? 5000 : 300000,
+        keepalive: this.unloading,
+        signal: abortcontroller.signal
+      });
+
+      result = await client.runToddComm(req);
     } catch (e) {
       if (!abortcontroller.signal.aborted)
         this.gotFailure(e);

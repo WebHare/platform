@@ -20,6 +20,7 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , aftercompiletask := ""
                            , compatibility := whconstant_default_compatibility
                            , esbuildsettings := ""
+                           , basecompiletoken := "adhoc" //adhoc bundles have no real configuration, so don't bother with forced recompilation (well perhaps default_compatibility?)
                            ];
 
 PUBLIC STRING FUNCTION GetBundleOutputRootPath()
@@ -233,9 +234,6 @@ PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
     DELETE CELL extrarequires FROM bundle;
   }
 
-  BOOLEAN fullsourcemap := NOT bundle.isdev;
-  INSERT CELL fullsourcemap := fullsourcemap INTO bundle.bundleconfig;
-
   RETURN bundle;
 }
 
@@ -257,7 +255,7 @@ PUBLIC RECORD FUNCTION ParseAssetPackSettings(STRING outputtag, STRING insetting
   IF(insettings != "")
     settings := DecodeHSON(insettings);
 
-  RETURN EnforceStructure([ dev := GetDtapStage() = "development" AND outputtag NOT LIKE "tollium:*" ], settings);
+  RETURN EnforceStructure([ dev := GetDtapStage() = "development" AND outputtag NOT LIKE "platform:*" ], settings);
 }
 PUBLIC RECORD FUNCTION GetAssetPackSettings(INTEGER assetpackid)
 {

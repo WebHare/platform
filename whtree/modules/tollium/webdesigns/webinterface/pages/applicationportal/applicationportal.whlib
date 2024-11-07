@@ -276,7 +276,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     this->title := "WebHare Platform";
     this->frontendid := GenerateUFS128BitId();
 
-    this->jsversion := GetAssetPackBuildVersion("tollium:webinterface");
+    this->jsversion := GetAssetPackBuildVersion("platform:tollium");
   }
 
   RECORD FUNCTION GetRunData()

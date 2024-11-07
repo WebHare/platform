@@ -11,6 +11,7 @@ import { promisify } from 'util';
 import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
+import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -162,6 +163,7 @@ export interface BundleConfig {
   //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
   esbuildsettings: string;
   extrarequires: string[];
+  basecompiletoken: string;
 }
 
 export interface Bundle {
@@ -174,7 +176,6 @@ export interface Bundle {
 
 export interface RecompileSettings {
   logLevel?: esbuild.LogLevel;
-  compiletoken: string;
   bundle: Bundle;
 }
 
@@ -215,10 +216,39 @@ interface CompileResult {
   };
 }
 
+function getBundleOutputPath(outputtag: string): string {
+  if (outputtag.startsWith("platform:"))
+    return services.toFSPath("mod::platform/generated/ap/" + outputtag.replaceAll(":", ".")) + "/";
+
+  return services.toFSPath("storage::generated/platform/ap/" + outputtag.replaceAll(":", ".")) + "/";
+}
+
+export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: boolean): RecompileSettings {
+  const bundle: Bundle = {
+    bundleconfig: {
+      compatibility: assetpacksettings.compatibility,
+      environment: assetpacksettings.environment,
+      extrarequires: assetpacksettings.extraRequires,
+      esbuildsettings: assetpacksettings.esBuildSettings,
+      languages: assetpacksettings.supportedLanguages,
+      whpolyfills: assetpacksettings.whPolyfills,
+      basecompiletoken: assetpacksettings.baseCompileToken
+    },
+    isdev,
+    outputpath: getBundleOutputPath(assetpacksettings.name),
+    outputtag: assetpacksettings.name,
+    entrypoint: assetpacksettings.entryPoint,
+  };
+
+  return { bundle };
+}
+
 export async function recompile(data: RecompileSettings): Promise<CompileResult> {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
+  if (!bundle.bundleconfig.basecompiletoken)
+    throw new Error(`Missing basecompiletoken for bundle`);
 
   // https://esbuild.github.io/api/#simple-options
   const captureplugin = new CaptureLoadPlugin;
@@ -367,12 +397,13 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
 
+  const compiletoken = `${bundle.bundleconfig.basecompiletoken},${bundle.isdev ? 1 : 0}`;
   const result: CompileResult = {
     bundle: bundle.outputtag,
     errors: buildresult.errors.map(_ => _.text).join("\n"),
     haserrors: haserrors,
     info: info,
-    compiletoken: data.compiletoken
+    compiletoken: compiletoken
   };
 
   if (haserrors)
