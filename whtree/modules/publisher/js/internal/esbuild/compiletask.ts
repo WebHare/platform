@@ -4,6 +4,7 @@ import whSassPlugin from "./plugin-sass";
 import whSourceMapPathsPlugin from "./plugin-sourcemappaths";
 import whTolliumLangPlugin from "@mod-tollium/js/internal/lang";
 import * as path from 'path';
+import * as crypto from 'crypto';
 import * as services from "@webhare/services";
 
 import * as compileutils from './compileutils';
@@ -220,7 +221,7 @@ function getBundleOutputPath(outputtag: string): string {
   if (outputtag.startsWith("platform:"))
     return services.toFSPath("mod::platform/generated/ap/" + outputtag.replaceAll(":", ".")) + "/";
 
-  return services.toFSPath("storage::generated/platform/ap/" + outputtag.replaceAll(":", ".")) + "/";
+  return `${services.backendConfig.dataroot}generated/platform/ap/${outputtag.replaceAll(":", ".")}/`;
 }
 
 export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: boolean): RecompileSettings {
@@ -504,4 +505,34 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
   await storeDiskFile(statspath + "/metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
 
   return result;
+}
+
+export async function recompileAdhoc(entrypoint: string, compatibility: string) {
+  const hash = crypto
+    .createHash("md5")
+    .update(JSON.stringify({ entrypoint, compatibility })) //ensures its absolute
+    .digest("hex")
+    .toLowerCase();
+  const outputtag = `adhoc-${hash}`;
+
+  const settings: RecompileSettings = {
+    bundle: {
+      bundleconfig: {
+        basecompiletoken: "dummy",
+        compatibility: compatibility,
+        environment: "window",
+        esbuildsettings: "",
+        extrarequires: [],
+        languages: ["en"],
+        whpolyfills: true,
+      },
+      entrypoint: entrypoint,
+      isdev: true,
+      outputpath: getBundleOutputPath(outputtag),
+      outputtag: outputtag
+    }
+  };
+
+  const recompileres = await recompile(settings);
+  return recompileres;
 }
