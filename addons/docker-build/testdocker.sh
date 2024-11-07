@@ -643,8 +643,6 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   for SCRIPT in $(RunDocker exec "$CONTAINERID" find $DESTCOPYDIR -regex "${DESTCOPYDIR}[^/]+/scripts/hooks/ci-prestart.sh" -executable ); do
     RunDocker exec -i "$CONTAINERID" "$SCRIPT" "$version" "$TESTINGMODULENAME" || exit_failure_sh "ci-prestart failed"
   done
-
-  RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
 done
 
 # Tell our cleanup script it should now just 'stop' the containers
@@ -653,9 +651,20 @@ TESTENV_KILLCONTAINER2=""
 
 echo "$(date) Running fixmodules"
 for CONTAINERID in "${CONTAINERS[@]}"; do
-  if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --onlyinstalledmodules ; then
+  if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --nocompile --onlyinstalledmodules ; then
     testfail "wh fixmodules failed"
   fi
+done
+
+echo "$(date) Unblocking startup"
+for CONTAINERID in "${CONTAINERS[@]}"; do
+  RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
+done
+
+echo "$(date) Waiting for assetpack compilation"
+for CONTAINERID in "${CONTAINERS[@]}"; do
+  RunDocker exec "$CONTAINERID" wh assetpack wait "*"
+  RunDocker exec "$CONTAINERID" wh assetpack --quiet recompile --onlyfailed "*"
 done
 
 echo "$(date) Wait for poststartdone container1"
