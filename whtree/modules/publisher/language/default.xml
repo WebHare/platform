@@ -1600,6 +1600,7 @@
           <text tid="languages">Available languages</text>
           <text tid="metafile">Metafile</text>
           <text tid="missingdependencies">Missing dependencies</text>
+          <text tid="nometafile">No metadata available yet. Try recompiling this bundle</text>
           <text tid="outputtag">Outputtag</text>
           <text tid="path">Path</text>
           <text tid="stats">Statistics</text>

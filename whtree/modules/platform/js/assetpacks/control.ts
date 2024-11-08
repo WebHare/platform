@@ -7,13 +7,13 @@ import { ServiceControllerFactoryFunction } from "@webhare/services/src/backends
 import { BackendServiceConnection, BackendServiceController, broadcast, logDebug, scheduleTask, subscribe, toFSPath, type BackendEvent } from "@webhare/services";
 import { throwError, wrapSerialized } from "@webhare/std";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { buildRecompileSettings, getState, recompile } from "@mod-platform/js/assetpacks/compiletask";
+import { buildRecompileSettings, recompile } from "@mod-platform/js/assetpacks/compiletask";
 import type { AssetPack } from "@mod-system/js/internal/generation/gen_extracts";
 import { debugFlags } from "@webhare/env";
 import * as fs from "node:fs/promises";
 import { loadAssetPacksConfig, type AssetPacksConfig } from "./api";
 import { runInWork } from "@webhare/whdb";
-import { readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
+import { getAssetPackState, readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
 import type { AssetPackState } from "./types";
 
 class LoadedBundle {
@@ -241,7 +241,7 @@ class AssetPackController implements BackendServiceController {
       if (pack) {
         pack.updateConfig(config, settings);
       } else {
-        this.bundles.set(config.name, new LoadedBundle(this, config.name, config, settings, await getState(config.name)));
+        this.bundles.set(config.name, new LoadedBundle(this, config.name, config, settings, await getAssetPackState(config.name)));
       }
     }
   });

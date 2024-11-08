@@ -1599,6 +1599,7 @@
           <text tid="languages">Beschikbare talen</text>
           <text tid="metafile">Metafile</text>
           <text tid="missingdependencies">Missende afhankelijkheden</text>
+          <text tid="nometafile">Nog geen metadata beschikbaar. Probeer deze bundel opnieuw te compileren</text>
           <text tid="outputtag">Uitvoertag</text>
           <text tid="path">Pad</text>
           <text tid="stats">Statistieken</text>

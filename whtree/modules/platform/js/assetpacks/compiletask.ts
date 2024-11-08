@@ -13,7 +13,7 @@ import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
 import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
-import { parseTyped, stringify } from '@webhare/std';
+import { stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
 import { buildRPCLoaderPlugin } from './rpcloader';
@@ -474,14 +474,4 @@ export async function recompileAdhoc(entrypoint: string, compatibility: string):
 
   const recompileres = await recompile(settings);
   return recompileres;
-}
-
-export async function getState(bundle: string): Promise<AssetPackState | null> {
-  const statspath = getBundleMetadataPath(bundle);
-  try {
-    const data = await fs.readFile(statspath + "state.json", { encoding: 'utf8' });
-    return parseTyped(data);
-  } catch {
-    return null;
-  }
 }

@@ -109,3 +109,6 @@ IF(ObjectExists(feedbackschema))
 //5.7 Old generated folder, shrinkwrap is gone
 DeleteDiskDirectoryRecursive(MergePath(installationroot, "modules/system/js/internal/generated"));
 DeleteDiskFile(MergePath(dataroot, "system.last-shrinkwrap-var"));
+
+//5.7 Obsolete assetpack state
+DeleteDiskDirectoryRecursive(MergePath(dataroot, "storage/platform/assetpacks"));

@@ -1,9 +1,10 @@
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { dtapStage } from "@webhare/env";
 import { backendConfig, toFSPath } from "@webhare/services";
-import { stringify } from "@webhare/std";
+import { parseTyped, stringify } from "@webhare/std";
 import { storeDiskFile } from "@webhare/system-tools";
 import { readdir, rmdir, stat, readFile, mkdir } from "node:fs/promises";
+import type { AssetPackState } from "./types";
 
 export type BundleSettings = Awaited<ReturnType<typeof readBundleSettings>>;
 
@@ -77,4 +78,23 @@ export async function removeObsoleteCacheFolders() {
         await rmdir(fullpath, { recursive: true });
 
     }
+}
+
+export async function getAssetPackState(bundle: string): Promise<AssetPackState | null> {
+  const statspath = getBundleMetadataPath(bundle);
+  try {
+    const data = await readFile(statspath + "state.json", { encoding: 'utf8' });
+    return parseTyped(data);
+  } catch {
+    return null;
+  }
+}
+
+export async function getAssetPackMetaDataFile(bundle: string): Promise<string> {
+  const statspath = getBundleMetadataPath(bundle);
+  try {
+    return await readFile(statspath + "metafile.json", { encoding: 'utf8' });
+  } catch {
+    return '';
+  }
 }

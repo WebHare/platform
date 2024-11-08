@@ -1,11 +1,12 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -213,9 +214,11 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
 
   MACRO DoDownloadmetafile(OBJECT filereceiver)
   {
-    BLOB metafile := GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/metafile.json", [ allowmissing := TRUE ]);
+    STRING metafile := CallJS("@mod-platform/js/assetpacks/support.ts#getAssetPackMetaDataFile", this->uuid);
     IF(Length(metafile) > 0)
-      filereceiver->SendFile(metafile, "application/json", "metafile-" || Substitute(this->uuid, ":", "-") || ".json");
+      filereceiver->SendFile(StringToBlob(metafile), "application/json", "metafile-" || Substitute(this->uuid, ":", "-") || ".json");
+    ELSE
+      this->RunSimpleScreen("error", this->GetTid(".nometafile"));
   }
 
   MACRO GotEvents(RECORD ARRAY events)
