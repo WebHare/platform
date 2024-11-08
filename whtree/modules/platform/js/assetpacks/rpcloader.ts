@@ -5,7 +5,7 @@
 import * as fs from "fs";
 import { loadlib } from '@webhare/harescript';
 import type * as esbuild from 'esbuild';
-import type { CaptureLoadPlugin } from "./esbuild/compiletask";
+import type { CaptureLoadPlugin } from "./compiletask";
 
 async function generateRPCWrappers(resourcePath: string, rpcdata: string) {
   const rpcfile = JSON.parse(rpcdata);
@@ -62,23 +62,23 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
   };
 }
 
-module.exports = {};
+export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
+  return {
+    name: "jsonrpc",
+    setup: function (build: esbuild.PluginBuild) {
+      build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) => {
+        const source = await fs.promises.readFile(args.path);
+        const result = await generateRPCWrappers(args.path, source.toString());
 
-module.exports.getESBuildPlugin = (captureplugin: CaptureLoadPlugin) => ({
-  name: "jsonrpc",
-  setup: function (build: esbuild.PluginBuild) {
-    build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) => {
-      const source = await fs.promises.readFile(args.path);
-      const result = await generateRPCWrappers(args.path, source.toString());
+        result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
 
-      result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
-
-      return {
-        contents: result.output,
-        warnings: result.warnings.map(_ => ({ text: _ })),
-        watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
-      };
-      // console.log(require.resolve(args.path, ))
-    });
-  },
-});
+        return {
+          contents: result.output,
+          warnings: result.warnings.map(_ => ({ text: _ })),
+          watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
+        };
+        // console.log(require.resolve(args.path, ))
+      });
+    }
+  };
+}

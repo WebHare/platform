@@ -69,7 +69,7 @@ IF(urlbase LIKE "*/!/*")
         AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE);
 
         //we implicitly rely on CallJS in native HS running in a subprocess and us not having to pay the price of a full esbuild start
-        RECORD compileresult := CallJS("@mod-publisher/js/internal/esbuild/compiletask.ts#recompileAdhoc",affectedtest.testscript.scriptpath, affectedtest.compatibility ?? whconstant_default_compatibility);
+        RECORD compileresult := CallJS("@mod-platform/js/assetpacks/compiletask.ts#recompileAdhoc",affectedtest.testscript.scriptpath, affectedtest.compatibility ?? whconstant_default_compatibility);
 
         RECORD headers;
         IF (compileresult.toperror != "")

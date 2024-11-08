@@ -1,7 +1,7 @@
 import * as test from '@webhare/test';
 
 import * as path from "node:path";
-import * as langparser from "@mod-tollium/js/internal/lang";
+import * as langparser from '@mod-platform/js/assetpacks/lang';
 
 // Test the lang.json parser
 async function testLangJsonParser() {

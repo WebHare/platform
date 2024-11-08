@@ -35,7 +35,7 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   OBJECT context := NEW TestContext;
   context->basefolder := basepath;
 
-  RECORD compileresult := CallJS("@mod-publisher/js/internal/esbuild/compiletask.ts#recompileAdhoc", jsfile, whconstant_default_compatibility);
+  RECORD compileresult := CallJS("@mod-platform/js/assetpacks/compiletask.ts#recompileAdhoc", jsfile, whconstant_default_compatibility);
   IF (compileresult.toperror != "") //TODO reuse "compilefailure" component in test pages? but I think I'd rather merge all ad hoc test pages into one of the webhare_testsuite:* bundles...
     ABORT(compileresult,'tree');
 

@@ -8,7 +8,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as zlib from "node:zlib";
 
-import { AssetPackManifest, recompile, type RecompileSettings } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { recompile } from '@mod-platform/js/assetpacks/compiletask';
+import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
 import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
 import { backendConfig, toFSPath, toResourcePath } from '@webhare/services';
 

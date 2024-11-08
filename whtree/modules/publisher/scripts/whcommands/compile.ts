@@ -6,7 +6,7 @@
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import { buildRecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { wildcardsToRegExp } from '@webhare/std';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';

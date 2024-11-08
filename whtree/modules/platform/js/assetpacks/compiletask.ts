@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 import { existsSync, promises as fs } from "fs";
 import whSassPlugin from "./plugin-sass";
 import whSourceMapPathsPlugin from "./plugin-sourcemappaths";
-import whTolliumLangPlugin from "@mod-tollium/js/internal/lang";
+import { buildLangLoaderPlugin } from "./lang";
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as services from "@webhare/services";
@@ -14,8 +14,9 @@ import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
 import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 import { parseTyped, stringify } from '@webhare/std';
-import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from '@mod-platform/js/assetpacks/support';
-import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from '../../../../platform/js/assetpacks/types';
+import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
+import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
+import { buildRPCLoaderPlugin } from './rpcloader';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -232,8 +233,8 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       captureplugin.getPlugin(),
       createWhResolverPlugin(bundle, captureplugin),
       // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
-      require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin),
-      whTolliumLangPlugin(bundle.bundleconfig.languages, captureplugin),
+      buildRPCLoaderPlugin(captureplugin),
+      buildLangLoaderPlugin(bundle.bundleconfig.languages, captureplugin),
 
       // , sassPlugin({ importer: sassImporter
       // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)

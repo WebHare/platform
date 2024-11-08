@@ -7,7 +7,7 @@ import { ServiceControllerFactoryFunction } from "@webhare/services/src/backends
 import { BackendServiceConnection, BackendServiceController, broadcast, logDebug, scheduleTask, subscribe, toFSPath, type BackendEvent } from "@webhare/services";
 import { throwError, wrapSerialized } from "@webhare/std";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { buildRecompileSettings, getState, recompile } from "@mod-publisher/js/internal/esbuild/compiletask";
+import { buildRecompileSettings, getState, recompile } from "@mod-platform/js/assetpacks/compiletask";
 import type { AssetPack } from "@mod-system/js/internal/generation/gen_extracts";
 import { debugFlags } from "@webhare/env";
 import * as fs from "node:fs/promises";
