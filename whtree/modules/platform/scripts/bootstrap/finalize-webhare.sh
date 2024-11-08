@@ -82,8 +82,8 @@ logWithTime "Compress country flags" #TODO brotli them! easiest to do this using
 gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
 
 
-logWithTime "Build plaform:* assetpacks"
-rm -rf "$WEBHARE_DIR/modules/platform/generated/assetpacks"
+logWithTime "Rebuild plaform:* assetpacks"
+rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platform/generated/ap.metadata"
 wh publisher:compile "platform:*"
 
 logWithTime "Final checks"
