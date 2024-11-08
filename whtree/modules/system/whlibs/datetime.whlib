@@ -905,11 +905,8 @@ PUBLIC INTEGER FUNCTION GetUnixTimestamp(DATETIME whattime)
   IF(whattime = DEFAULT DATETIME)
     RETURN 0;
 
-  DATETIME base := MakeDate(1970,1, 1);
-
-  RECORD diff := GetDatetimeDifference(base, whattime);
-
-  RETURN diff.days * 86400 + diff.msecs / 1000;
+  INTEGER64 msecs := GetDayCount(whattime) * 86400000i64 + GetMsecondCount(whattime);
+  RETURN INTEGER((msecs - 62135683200000i64)/ 1000);
 }
 
 /** @short   Get the UNIX timestamp in msecs
@@ -921,9 +918,8 @@ PUBLIC INTEGER64 FUNCTION GetUnixTimestampMsecs(DATETIME whattime)
   IF(whattime = DEFAULT DATETIME)
     RETURN 0;
 
-  DATETIME base := MakeDate(1970, 1, 1);
-  RECORD diff := GetDatetimeDifference(base, whattime);
-  RETURN INTEGER64(diff.days) * 86400 * 1000 + INTEGER64(diff.msecs);
+  INTEGER64 msecs := GetDayCount(whattime) * 86400000i64 + GetMsecondCount(whattime);
+  RETURN (msecs - 62135683200000i64);
 }
 
 /** @short Convert a UNIX timestamp to a datetime
