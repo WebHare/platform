@@ -7,6 +7,10 @@
     </validation>
   </meta>
 
+  <servicemanager>
+    <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.ts" tag="executemaintenance" />
+  </servicemanager>
+
   <backend>
     <!--
     All WebHare assets that usually do not require authentication (ie they are well-known, only content-addressable or do their own authentication)
