@@ -522,10 +522,13 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   return assetPackState;
 }
 
+/** Generate a bundle without it being managed by assetpack control. Used by tests */
 export async function recompileAdhoc(entrypoint: string, compatibility: string): Promise<AssetPackState> {
+  /* map to a unqiue foldername for this configuration (entrypoint + compatibility). we won't actually track
+     it in assetpackcontrol but rely on executeMaintenance to eventually delete it */
   const hash = crypto
     .createHash("md5")
-    .update(JSON.stringify({ entrypoint, compatibility })) //ensures its absolute
+    .update(entrypoint + "\t" + compatibility)
     .digest("hex")
     .toLowerCase();
   const outputtag = `adhoc-${hash}`;
