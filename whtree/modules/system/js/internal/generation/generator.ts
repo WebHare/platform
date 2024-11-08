@@ -38,9 +38,8 @@ import { ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefpar
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
   const builtinBaseDir = backendConfig.installationroot + "modules/platform/generated/";
-  const platformGeneratedDir = toFSPath("mod::platform/generated/");
 
-  return { installedBaseDir, builtinBaseDir, platformGeneratedDir };
+  return { installedBaseDir, builtinBaseDir };
 }
 
 export function getGeneratedFilePath(module: string, type: string, path: string) {
@@ -160,7 +159,7 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   if (targets.includes('extract') || targets.includes('all'))
     await generateFiles(extracts, context, options);
 
-  const { installedBaseDir, builtinBaseDir, platformGeneratedDir } = getPaths();
+  const { installedBaseDir, builtinBaseDir } = getPaths();
   const keepfiles = new Set<string>([
     join(installedBaseDir, "config/config.json"),
     ...schemas.map(file => file.path),
@@ -176,9 +175,9 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
 
   //Remove old files - but only if we have a full view of which files there should be
   if (targets.includes('all')) {
-    await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-    await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-    await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+    for (const root of [installedBaseDir, builtinBaseDir])
+      for (const subdir of ["schema", "whdb", "wrd", "openapi"])
+        await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   }
   return;
 }
