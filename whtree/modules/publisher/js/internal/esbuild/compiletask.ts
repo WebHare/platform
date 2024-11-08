@@ -15,33 +15,10 @@ import { storeDiskFile } from '@webhare/system-tools';
 import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 import { parseTyped, stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from '@mod-platform/js/assetpacks/support';
+import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from '../../../../platform/js/assetpacks/types';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
-
-/* TODO likewise addd Brotli, but WH can't serve it yet anyway
-const compressBr = promisify(zlib.brotliCompress);
-*/
-
-export interface AssetPackState {
-  bundleTag: string;
-  fileDependencies: string[];
-  missingDependencies: string[];
-  start: Date;
-
-  //TODO get rid of topError, its appears to be filled inconsistently
-  topError: string;
-  errors: Array<{
-    message: string;
-    resource: string;
-    line: number;
-    col: number;
-    length: number;
-  }>;
-
-  //we include this to help debug unexpected recompiles
-  lastCompileSettings: RecompileSettings;
-}
 
 export class CaptureLoadPlugin {
   loadcache = new Set<string>;
@@ -169,39 +146,6 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
   };
 }
 
-export interface AssetPackManifest {
-  version: number;
-  assets: Array<{
-    subpath: string;
-    compressed: boolean;
-    sourcemap: boolean;
-  }>;
-}
-
-export interface BundleConfig {
-  languages: string[];
-  whpolyfills: boolean;
-  compatibility: string;
-  environment: string;
-  //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
-  esbuildsettings: string;
-  extrarequires: string[];
-  basecompiletoken: string;
-}
-
-export interface Bundle {
-  bundleconfig: BundleConfig;
-  entrypoint: string;
-  outputpath: string;
-  isdev: boolean;
-  outputtag: string;
-}
-
-export interface RecompileSettings {
-  logLevel?: esbuild.LogLevel;
-  bundle: Bundle;
-}
-
 function getPossibleNodeModulePaths(startingpoint: string) {
   const paths = [];
   const pathinfo = services.parseResourcePath(startingpoint);
@@ -216,26 +160,6 @@ function getPossibleNodeModulePaths(startingpoint: string) {
 
   paths.push(services.backendConfig.dataroot + "node_modules");
   return paths;
-}
-
-export interface CompileResult {
-  bundle: string;
-  haserrors: boolean;
-  errors: string;
-  info: {
-    dependencies: {
-      start: Date;
-      fileDependencies: string[];
-      missingDependencies: string[];
-    };
-    errors: Array<{
-      message: string;
-      resource: string;
-      line: number;
-      col: number;
-      length: number;
-    }>;
-  };
 }
 
 export function buildRecompileSettings(assetpacksettings: AssetPack, settings: BundleSettings): RecompileSettings {
@@ -433,11 +357,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
     version: 1,
-    assets: new Array<{
-      subpath: string;
-      compressed: boolean;
-      sourcemap: boolean;
-    }>
+    assets: []
   };
 
   if (!buildresult.outputFiles)
