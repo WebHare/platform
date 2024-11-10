@@ -17,9 +17,30 @@ import { stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
 import { buildRPCLoaderPlugin } from './rpcloader';
+import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhareconstants';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
+
+function getMissingDeps(type: "js" | "scss", missingPath: string, relativeTo: string): string[] {
+  // look for no extension, package reference, .<ext>, /index.<ext>
+  const suffixes = type === "js" ? ["", "/package.json", ...whconstant_javascript_extensions, ...whconstant_javascript_extensions.map(_ => `/index${_}`)] : ["", ".css", ".scss", ".sass"];
+  if (missingPath.startsWith(".")) { //relative file ref
+    const finalBasePath = path.resolve(path.dirname(relativeTo), missingPath);
+    return suffixes.map(_ => finalBasePath + _);
+  } else { //module ref
+    /* We're not yet getting useful missingDependencies out of esbuild, and perhaps we'll never get that until we manually resolve.
+      As a workaround we'll just register node_modules as missingpath in case someone installs a module to fix this error.
+      won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
+      may be sufficient to resolve some CI issues
+
+      ie if the entrypoint looks like /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.ts
+      we look for /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.[all extensions]
+              and /whdata/installedmodules/example.1234/[all extensions] */
+    const possibleNodeModulePaths = getPossibleNodeModulePaths(relativeTo);
+    return possibleNodeModulePaths.flatMap(_ => suffixes.map(suffix => path.join(_, missingPath) + suffix));
+  }
+}
 
 export class CaptureLoadPlugin {
   loadcache = new Set<string>;
@@ -63,7 +84,7 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplu
   build.onResolve({ filter: /^~/ }, async args => { // we need to drop all ~s, they're an alternative module reference
     const filepath = args.path.substring(1).split('?')[0].split('#')[0];
     const tryextensions = (args.kind === 'url-token' || args.kind === 'import-rule') ? ['', '.scss', '.sass', '.css'] : [];
-    for (const modulepath of getPossibleNodeModulePaths(services.toResourcePath(args.importer)))
+    for (const modulepath of getPossibleNodeModulePaths(args.importer))
       for (const ext of tryextensions) {
         let trypath = path.join(modulepath, filepath) + ext;
 
@@ -126,14 +147,11 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
        '  /Users/arnold/projects/webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.scss 1:13  root stylesheet'
    }
   */
-  let file = error.detail?.file ?? error.location?.file ?? "";
-  if (!file.startsWith('/'))
-    file = path.resolve(file);
 
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
   return { //FIXME should base on ResourceLocation or ResourceMessage (requires resourcename, not 'resource')
     message: error.detail?.formatted as string ?? error.text,
-    resource: file,
+    resource: error.location ? '/' + error.location?.file : "'",
     line: error.detail?.line ?? error.location?.line ?? 0,
     col: error.detail?.column ?? error.location?.column ?? 0,
     length: error.detail?.line ? 0 //detail has no length, and it seems unsafe to take the one from location the
@@ -142,8 +160,12 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
 }
 
 function getPossibleNodeModulePaths(startingpoint: string) {
+  const respath = services.toResourcePath(startingpoint, { allowUnmatched: true });
+  if (!respath)
+    return [];
+
   const paths = [];
-  const pathinfo = services.parseResourcePath(startingpoint);
+  const pathinfo = services.parseResourcePath(respath);
   if (pathinfo?.module)
     for (; ;) {
       paths.push(services.toFSPath(`mod::${pathinfo.module}/${pathinfo.subpath}/node_modules`));
@@ -212,6 +234,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       resolveDir: "/"
     },
     publicPath: '',
+    absWorkingDir: '/',
     bundle: true,
     minify: !bundle.isdev,
     sourcemap: true,
@@ -263,6 +286,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   let buildresult;
   const start = new Date;
+
   try {
     if (bundle.bundleconfig.esbuildsettings)
       esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
@@ -296,41 +320,26 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     errors: buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
   };
 
-  const haserrors = buildresult.errors.length > 0;
-  let missingpath, missingextensions: string[] = [];
-  let resolveerror = buildresult.errors.find(error => error.text.match(/Could not resolve/));
-  if (resolveerror) {
-    ///@ts-ignore TS bug already present, see satisfies FIXME above
-    missingpath = resolveerror.text.match(/Could not resolve "(.*)"/)[1];
-    if (missingpath)
-      missingextensions = ["", ".js", ".es", "/index.js", "/index.es", "/package.json"];
-  } else {
-    resolveerror = buildresult.errors.find(error => error.text.match(/Can't find stylesheet to/));
-    if (resolveerror) { //attempt to extract the path
-      missingpath = resolveerror.text.match(/@import *"(.*)"/)?.[1]
-        || resolveerror.text.match(/@import *'(.*)'/)?.[1];
+  for (const error of buildresult.errors) {
+    const isJsResolveError = error.text.match(/Could not resolve "(.*)"/);
+    if (isJsResolveError) {
+      if ("location" in error && error.location) {
+        info.dependencies.missingDependencies.push(...getMissingDeps("js", isJsResolveError[1], '/' + error.location.file));
+      }
+      continue;
+    }
 
+    const isCssResolveError = error.text.match(/Can't find stylesheet to/);
+    if (isCssResolveError && "location" in error && error.location) {
+      let missingpath = error.text.match(/@import *"(.*)"/)?.[1] || error.text.match(/@import *'(.*)'/)?.[1];
       if (missingpath && missingpath[0] === '~') //Modules are prefixed with ~ in webpack style
-        missingpath = missingpath.substr(1);
+        missingpath = missingpath.substring(1);
       if (missingpath)
-        missingextensions = ["", ".scss", ".sass"];
+        info.dependencies.missingDependencies.push(...getMissingDeps("scss", missingpath, '/' + error.location.file));
+
     }
   }
-
-  if (missingpath && !missingpath.startsWith('.')) { //not a relative path..
-    /* We're not yet getting useful missingDependencies out of esbuild, and perhaps we'll never get that until we manually resolve.
-       As a workaround we'll just register node_modules as missingpath in case someone installs a module to fix this error.
-       won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
-       may be sufficient to resolve some CI issues
-
-      ie if the entrypoint looks like /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.ts
-      we look for /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.[all extensions]
-              and /whdata/installedmodules/example.1234/[all extensions] */
-    for (const subpath of getPossibleNodeModulePaths(bundle.entrypoint))
-      for (const ext of missingextensions)
-        info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
-  }
-
+  const haserrors = buildresult.errors.length > 0;
   const assetPackState: AssetPackState = {
     fileDependencies: info.dependencies.fileDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),
     missingDependencies: info.dependencies.missingDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),

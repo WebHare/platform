@@ -3,7 +3,7 @@
 
 "use strict";
 
-import type * as esbuild from 'esbuild';
+import * as esbuild from 'esbuild';
 import { readFile } from "node:fs/promises";
 import * as sass from "sass";
 import * as compileutils from './compileutils';
@@ -64,10 +64,25 @@ export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } 
   name: "sass",
   setup: (build: esbuild.PluginBuild) => {
     build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args: esbuild.OnLoadArgs): Promise<esbuild.OnLoadResult> => {
-      const result = await sass.compileAsync(args.path, {
-        importers: [SassImporter],
-        alertColor: false
-      });
+      const errors = new Array<esbuild.PartialMessage>();
+
+      let result;
+      try {
+        result = await sass.compileAsync(args.path, {
+          importers: [SassImporter],
+          alertColor: false
+        });
+      } catch (e) {
+        if (e instanceof sass.Exception) {
+          const splitstack = e.sassStack.split("\n")[0].match(/^(.*?) (\d+):(\d+)/);
+          if (splitstack) {
+            errors.push({ text: e.message, location: { file: splitstack[1], line: parseInt(splitstack[2]), column: parseInt(splitstack[3]) } });
+            return { errors };
+          }
+        }
+        throw e;
+      }
+
       //SASS plugin creates duplicate slashes, not sure why
       const watchFiles = result.loadedUrls.map(_ => _.pathname).map(pathname => pathname.startsWith("//") ? pathname.substring(1) : pathname);
       watchFiles.forEach(file => captureplugin.loadcache.add(file));
