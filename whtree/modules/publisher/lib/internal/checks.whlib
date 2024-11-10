@@ -26,14 +26,11 @@ PUBLIC OBJECTTYPE AssetpackCheck EXTEND CustomCheckBase
     {
       TRY
       {
-        assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+        assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks"));
         RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
         errors := SELECT AS STRING ARRAY `Assetpack ${outputtag} is reporting errors`
                     FROM status.bundles
-                   WHERE haserrors
-                         AND NOT iscompiling
-                         AND outputtag NOT LIKE "*.dev" //don't warn about dev modules
-                         AND GetModuleInstallationRoot(Tokenize(outputtag,':')[0]) != ""; //don't warn about uninstalled modules
+                   WHERE haserrors;
       }
       CATCH(OBJECT e)
       {

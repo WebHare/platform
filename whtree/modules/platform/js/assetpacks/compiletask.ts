@@ -2,8 +2,9 @@ import * as esbuild from 'esbuild';
 import { existsSync, promises as fs } from "fs";
 import whSassPlugin from "./plugin-sass";
 import whSourceMapPathsPlugin from "./plugin-sourcemappaths";
-import whTolliumLangPlugin from "@mod-tollium/js/internal/lang";
+import { buildLangLoaderPlugin } from "./lang";
 import * as path from 'path';
+import * as crypto from 'crypto';
 import * as services from "@webhare/services";
 
 import * as compileutils from './compileutils';
@@ -12,13 +13,13 @@ import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
 import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
+import { stringify } from '@webhare/std';
+import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
+import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
+import { buildRPCLoaderPlugin } from './rpcloader';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
-
-/* TODO likewise addd Brotli, but WH can't serve it yet anyway
-const compressBr = promisify(zlib.brotliCompress);
-*/
 
 export class CaptureLoadPlugin {
   loadcache = new Set<string>;
@@ -146,39 +147,6 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
   };
 }
 
-export interface AssetPackManifest {
-  version: number;
-  assets: Array<{
-    subpath: string;
-    compressed: boolean;
-    sourcemap: boolean;
-  }>;
-}
-
-export interface BundleConfig {
-  languages: string[];
-  whpolyfills: boolean;
-  compatibility: string;
-  environment: string;
-  //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
-  esbuildsettings: string;
-  extrarequires: string[];
-  basecompiletoken: string;
-}
-
-export interface Bundle {
-  bundleconfig: BundleConfig;
-  entrypoint: string;
-  outputpath: string;
-  isdev: boolean;
-  outputtag: string;
-}
-
-export interface RecompileSettings {
-  logLevel?: esbuild.LogLevel;
-  bundle: Bundle;
-}
-
 function getPossibleNodeModulePaths(startingpoint: string) {
   const paths = [];
   const pathinfo = services.parseResourcePath(startingpoint);
@@ -195,35 +163,7 @@ function getPossibleNodeModulePaths(startingpoint: string) {
   return paths;
 }
 
-interface CompileResult {
-  bundle: string;
-  haserrors: boolean;
-  errors: string;
-  compiletoken: string;
-  info: {
-    dependencies: {
-      start: number;
-      fileDependencies: string[];
-      missingDependencies: string[];
-    };
-    errors: Array<{
-      message: string;
-      resource: string;
-      line: number;
-      col: number;
-      length: number;
-    }>;
-  };
-}
-
-function getBundleOutputPath(outputtag: string): string {
-  if (outputtag.startsWith("platform:"))
-    return services.toFSPath("mod::platform/generated/ap/" + outputtag.replaceAll(":", ".")) + "/";
-
-  return services.toFSPath("storage::generated/platform/ap/" + outputtag.replaceAll(":", ".")) + "/";
-}
-
-export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: boolean): RecompileSettings {
+export function buildRecompileSettings(assetpacksettings: AssetPack, settings: BundleSettings): RecompileSettings {
   const bundle: Bundle = {
     bundleconfig: {
       compatibility: assetpacksettings.compatibility,
@@ -234,7 +174,7 @@ export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: bool
       whpolyfills: assetpacksettings.whPolyfills,
       basecompiletoken: assetpacksettings.baseCompileToken
     },
-    isdev,
+    isdev: settings.dev,
     outputpath: getBundleOutputPath(assetpacksettings.name),
     outputtag: assetpacksettings.name,
     entrypoint: assetpacksettings.entryPoint,
@@ -243,12 +183,15 @@ export function buildRecompileSettings(assetpacksettings: AssetPack, isdev: bool
   return { bundle };
 }
 
-export async function recompile(data: RecompileSettings): Promise<CompileResult> {
+export async function recompile(data: RecompileSettings): Promise<AssetPackState> {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
   if (!bundle.bundleconfig.basecompiletoken)
     throw new Error(`Missing basecompiletoken for bundle`);
+
+  const statspath = getBundleMetadataPath(bundle.outputtag);
+  await fs.mkdir(statspath, { recursive: true });
 
   // https://esbuild.github.io/api/#simple-options
   const captureplugin = new CaptureLoadPlugin;
@@ -290,8 +233,8 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
       captureplugin.getPlugin(),
       createWhResolverPlugin(bundle, captureplugin),
       // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
-      require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin),
-      whTolliumLangPlugin(bundle.bundleconfig.languages, captureplugin),
+      buildRPCLoaderPlugin(captureplugin),
+      buildLangLoaderPlugin(bundle.bundleconfig.languages, captureplugin),
 
       // , sassPlugin({ importer: sassImporter
       // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
@@ -328,7 +271,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
-  const start = Date.now();
+  const start = new Date;
   try {
     if (bundle.bundleconfig.esbuildsettings)
       esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
@@ -354,7 +297,7 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
 
   const info = {
     dependencies: {
-      start: start,
+      start,
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
       missingDependencies: new Array<string>
     },
@@ -397,27 +340,25 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
 
-  const compiletoken = `${bundle.bundleconfig.basecompiletoken},${bundle.isdev ? 1 : 0}`;
-  const result: CompileResult = {
-    bundle: bundle.outputtag,
-    errors: buildresult.errors.map(_ => _.text).join("\n"),
-    haserrors: haserrors,
-    info: info,
-    compiletoken: compiletoken
+  const assetPackState: AssetPackState = {
+    fileDependencies: info.dependencies.fileDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),
+    missingDependencies: info.dependencies.missingDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),
+    start,
+    lastCompileSettings: data,
+    topError: buildresult.errors.map(_ => _.text).join("\n"),
+    errors: info.errors,
+    bundleTag: bundle.outputtag
   };
 
-  if (haserrors)
-    return result;
+  await storeDiskFile(statspath + "state.json", stringify(assetPackState, { space: 2, stable: true, typed: true }), { overwrite: true });
 
+  if (haserrors)
+    return assetPackState;
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
     version: 1,
-    assets: new Array<{
-      subpath: string;
-      compressed: boolean;
-      sourcemap: boolean;
-    }>
+    assets: []
   };
 
   if (!buildresult.outputFiles)
@@ -498,10 +439,39 @@ export async function recompile(data: RecompileSettings): Promise<CompileResult>
     }
   }
 
-  const statspath = services.toFSPath("storage::platform/assetpacks/" + bundle.outputtag.replaceAll(":", "/"));
-  await fs.mkdir(statspath, { recursive: true });
-  await storeDiskFile(statspath + "/info.json", JSON.stringify(info, null, 2), { overwrite: true });
-  await storeDiskFile(statspath + "/metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
+  await storeDiskFile(statspath + "metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
+  return assetPackState;
+}
 
-  return result;
+/** Generate a bundle without it being managed by assetpack control. Used by tests */
+export async function recompileAdhoc(entrypoint: string, compatibility: string): Promise<AssetPackState> {
+  /* map to a unqiue foldername for this configuration (entrypoint + compatibility). we won't actually track
+     it in assetpackcontrol but rely on executeMaintenance to eventually delete it */
+  const hash = crypto
+    .createHash("md5")
+    .update(entrypoint + "\t" + compatibility)
+    .digest("hex")
+    .toLowerCase();
+  const outputtag = `adhoc-${hash}`;
+
+  const settings: RecompileSettings = {
+    bundle: {
+      bundleconfig: {
+        basecompiletoken: "dummy",
+        compatibility: compatibility,
+        environment: "window",
+        esbuildsettings: "",
+        extrarequires: [],
+        languages: ["en"],
+        whpolyfills: true,
+      },
+      entrypoint: entrypoint,
+      isdev: true,
+      outputpath: getBundleOutputPath(outputtag),
+      outputtag: outputtag
+    }
+  };
+
+  const recompileres = await recompile(settings);
+  return recompileres;
 }

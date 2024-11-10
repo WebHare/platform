@@ -7,6 +7,10 @@
     </validation>
   </meta>
 
+  <servicemanager>
+    <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.ts" tag="executemaintenance" />
+  </servicemanager>
+
   <backend>
     <!--
     All WebHare assets that usually do not require authentication (ie they are well-known, only content-addressable or do their own authentication)
@@ -34,6 +38,7 @@
     <!-- Assetpack caching.. cache everything (with hashed names) for 24 hours *except* ap.css/mjs etc... those should only be cached for 15 minutes as their names cannot change -->
     <webrule path="allroots:/.wh/ea/ap/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
       <addheader header="Access-Control-Allow-Origin" value="*" />  <!-- TODO should we permit only locally known hosts? -->
+      <tryfolder path="mod::platform/generated/ap/" />
       <tryfolder path="whdata::generated/platform/ap/" />
     </webrule>
     <webrule path="allroots:/.wh/ea/ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after">
@@ -76,6 +81,7 @@
     <debugflag name="async" description="Activate various async tools (enforce awaits, track openWork calls)" />
     <debugflag name="jsprofile" description="Generate some profiling data for JavaScript ran by node" />
     <debugflag name="retainers" description="Add stacktraces to common retaining JS objects (Timeout, Promise)" />
+    <debugflag name="assetpacks" description="Log assetpack actions" />
   </development>
 
   <wrdschemas>

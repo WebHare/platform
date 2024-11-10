@@ -1,17 +1,14 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::util/algorithms.whlib";
-
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -32,28 +29,11 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
     IF(NOT ObjectExists(this->assetpackcontrolpromise))
       this->ResetConnection();
 
-    RECORD ARRAY db_bundles := SELECT id
-                                    , outputtag
-                                    , settings
-                                 FROM system_internal.assetpacks;
-    RECORD ARRAY bundlestates;
+    RECORD ARRAY bundles;
     IF(RecordExists(this->laststatus))
-      bundlestates := SELECT *, havestatus := TRUE FROM this->laststatus.bundles;
+      bundles := EnforceStructure([[ lastcompile := DEFAULT DATETIME ]], this->laststatus.bundles);
 
-    RECORD ARRAY bundles := JoinArrays(db_bundles, "outputtag", bundlestates,
-        [ haserrors := FALSE
-        , iscompiling := FALSE
-        , requirecompile := FALSE
-        , lastcompile := DEFAULT DATETIME
-        , watchcount := 0
-        , havestatus := FALSE
-        , compatibility := ""
-        ], [ rightouterjoin := TRUE
-           , leftouterjoin := [ id := 0, settings := "" ]
-           ]);
-
-    ^bundles->rows := SELECT TEMPORARY settings := ParseAssetPackSettings(outputtag, bundles.settings)
-                           , TEMPORARY status := havestatus
+    ^bundles->rows := SELECT TEMPORARY status := hasstatus
                                                   ? haserrors
                                                         ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
                                                         : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
@@ -65,7 +45,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                            , outputtag
                            , lastcompile
                            , watchcount
-                           , dev := (outputtag NOT LIKE "*:*" OR settings.dev) ? 1 : 0
+                           , dev := isdev ? 1 : 0
                            , dummy := ""
                            , compatibility := compatibility ?? whconstant_default_compatibility
                        FROM bundles;
@@ -108,7 +88,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
       this->assetpackcontrol->CloseService();
 
     this->assetpackcontrol := DEFAULT OBJECT;
-    this->assetpackcontrolpromise := OpenWebHareService("publisher:assetpackcontrol");
+    this->assetpackcontrolpromise := OpenWebHareService("platform:assetpacks", [ arguments := VARIANT["dashboard"]]);
     this->assetpackcontrolpromise->Then(PTR this->GotAssetPackControl)->OnError(PTR this->GotAssetPackError);
   }
 
@@ -182,8 +162,8 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
       RETURN; //stale response
 
     RECORD ARRAY errors;
-    IF(RecordExists(status) AND RecordExists(status.info))
-      errors := RECORD ARRAY(status.info.errors);
+    IF(RecordExists(status))
+      errors := RECORD ARRAY(status.errors);
 
     ^messages->rows := SELECT rowkey := 1 + #errors
                             , message :=   TypeID(message) = TypeID(STRING) ? message : AnyToString(message, "tree")
@@ -212,82 +192,33 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
       this->ResetConnection();
     }
   }
-
-  MACRO DoRebuildBundles()
-  {
-    IF(NOT ObjectExists(this->assetpackcontrol))
-      WaitForPromise(this->assetpackcontrolpromise);
-    IF(NOT ObjectExists(this->assetpackcontrol))
-      RETURN;
-
-    RECORD status;
-    TRY
-    {
-      FOREVERY (RECORD rec FROM ^bundles->selection)
-        WaitForPromise(this->assetpackcontrol->RecompileBundle(rec.outputtag, TRUE));
-    }
-    CATCH (OBJECT e)
-    {
-      this->ResetConnection();
-    }
-  }
-
-  MACRO DoRebuildAll()
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".surerebuildall")) != "yes")
-      RETURN;
-
-    IF(NOT ObjectExists(this->assetpackcontrol))
-      WaitForPromise(this->assetpackcontrolpromise);
-    IF(NOT ObjectExists(this->assetpackcontrol))
-      RETURN;
-
-    RECORD status;
-    TRY
-    {
-      WaitForPromise(this->assetpackcontrol->RecompileBundle("*", TRUE));
-    }
-    CATCH (OBJECT e)
-    {
-      this->ResetConnection();
-    }
-  }
-
 >;
 
 PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
 <
   OBJECT assetpackcontrol;
   STRING uuid;
-  INTEGER id;
-  RECORD info;
 
   MACRO Init(RECORD data)
   {
     this->assetpackcontrol := data.assetpackcontrol;
     this->uuid := data.uuid;
-    this->id := data.id;
-    this->info := DecodeJSONBlob(GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/info.json", [ allowmissing := TRUE ]));
     ^listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
     ^aboutmetafile->htmlvalue := this->GetHTMLTid(".aboutmetafile");
 
-    IF(this->id != 0)
-    {
-      RECORD settings := GetAssetPackSettings(this->id);
-      ^dev->value := settings.dev;
-    }
-    ELSE
-    {
-      ^dev->visible := FALSE;
-    }
+    RECORD settings := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->uuid));
+    ^dev->value := settings.isdev;
+
     this->Reload();
   }
 
   MACRO DoDownloadmetafile(OBJECT filereceiver)
   {
-    BLOB metafile := GetWebhareResource("storage::platform/assetpacks/" || Substitute(this->uuid, ":", "/") || "/metafile.json", [ allowmissing := TRUE ]);
+    STRING metafile := CallJS("@mod-platform/js/assetpacks/support.ts#getAssetPackMetaDataFile", this->uuid);
     IF(Length(metafile) > 0)
-      filereceiver->SendFile(metafile, "application/json", "metafile-" || Substitute(this->uuid, ":", "-") || ".json");
+      filereceiver->SendFile(StringToBlob(metafile), "application/json", "metafile-" || Substitute(this->uuid, ":", "-") || ".json");
+    ELSE
+      this->RunSimpleScreen("error", this->GetTid(".nometafile"));
   }
 
   MACRO GotEvents(RECORD ARRAY events)
@@ -307,35 +238,32 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
       RETURN;
     }
 
-    STRING errors := status.errors;
-    //TODO not sure how stable and well tested the status structure is..
-    IF (CellExists(status.info, "ERRORS") AND LENGTH(status.info.errors) > 0)
+    STRING errors := status.toperror;
+    IF (LENGTH(status.errors) > 0)
     {
       errors := "";
       FOREVERY(RECORD error FROM EnforceStructure([[ col := 0, line := 0, message := "", resource := "" ]], status.info.errors))
         errors := errors || `${error.resource}:${error.line}:${error.col}: ${error.message}\n`;
     }
 
-    ^filedependencies->rows := ToRecordArray(status.dependencies.filedependencies, "path");
-    ^missingdependencies->rows := ToRecordArray(status.dependencies.missingdependencies,"path");
-    ^outputtag->value := status.outputtag;
+    ^filedependencies->rows := ToRecordArray(status.filedependencies, "path");
+    ^missingdependencies->rows := ToRecordArray(status.missingdependencies,"path");
+    ^outputtag->value := this->uuid;
     ^errors->value := errors;
     ^entrypoint->value := status.entrypoint;
     IF (RecordExists(status.bundleconfig))
     {
-      ^extrarequires->value := Detokenize(status.bundleconfig.extrarequires,'\n');
-      ^languages->value := Detokenize(status.bundleconfig.languages,', ');
+      ^extrarequires->value := Detokenize(STRING ARRAY(status.bundleconfig.extrarequires),'\n');
+      ^languages->value := Detokenize(STRING ARRAY(status.bundleconfig.languages),', ');
       ^environment->value := status.bundleconfig.environment;
     }
   }
 
   BOOLEAN FUNCTION Submit()
   {
-    IF(this->id = 0)
-      RETURN TRUE;
-
-    OBJECT work := this->BeginWork();
-    UpdateAssetPackSettings(this->id, CELL[ dev := ^dev->value ]);
+    OBJECT work := this->BeginFeedback();
+    IF(NOT work->HasFailed())
+      WaitForPromise(this->assetpackcontrol->UpdateBundleSettings(this->uuid, CELL[ dev := ^dev->value ]));
     RETURN work->Finish();
   }
 >;

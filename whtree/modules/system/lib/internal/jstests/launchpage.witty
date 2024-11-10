@@ -44,7 +44,6 @@
   <head>
     <script type="application/json" id="wh-config">[whconfig:json]</script>
     [printheaders]
-    [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
   </head>
   <body>
   </body>

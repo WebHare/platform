@@ -7,18 +7,6 @@
 
 set -eo pipefail
 
-RUNSHRINKWRAP=""
-
-while [[ $1 =~ ^-.* ]]; do
-  if [ "$1" == "--shrinkwrap" ]; then
-    shift
-    RUNSHRINKWRAP="1"
-  else
-    echo "Illegal option $1"
-    exit 1
-  fi
-done
-
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
 source "lib/wh-functions.sh"
 
@@ -27,13 +15,8 @@ source "lib/wh-functions.sh"
 getwebhareversion
 getwhparameters
 
-# Install all packages
-NPMCANDIDATES=$(ls -d . modules/* modules/*/webdesigns/* | grep -v webhare_testsuite)
-for CANDIDATE in $NPMCANDIDATES ; do
-  if [ -f "$CANDIDATE/package.json" ]; then
-    npm install --no-save --ignore-scripts --omit=dev --omit=peer --prefix $CANDIDATE || die "NPM install failure for $CANDIDATE"
-  fi
-done
+logWithTime "Install all packages"
+npm install --no-save --ignore-scripts --omit=dev --omit=peer || die "NPM install failure for $CANDIDATE"
 
 # run scripts we trust and need explicitly.
 ## download the esbuild for this platform
@@ -60,44 +43,50 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
-echo "Precompiling HareScript"
 rm -rf "$WEBHARE_COMPILECACHE/harescript/" # Mostly useful on dev machines so the direct__ check later doesn't fail you
 (
   cd "$WEBHARE_DIR/modules" ;
-  for P in *; do
-    if [ "$P" != "webhare_testsuite" ]; then
-      if ! wh compile -q "$P" ; then
-        if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
-          # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
-          echo "Ignoring failed compile of $P"
-        else
-          echo "Compile of $P failed"
-          exit 1
-        fi
+  for MODULE in system platform wrd publisher tollium consilio socialite; do
+    if [ "$MODULE" == "webhare_testsuite" ]; then
+      continue
+    fi
+
+    logWithTime "Precompiling module $MODULE"
+    if ! wh compile --quiet --onlyerrors "$MODULE" ; then
+      if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
+        # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
+        echo "Ignoring failed compile of $MODULE"
+      else
+        echo "Compile of $MODULE failed"
+        exit 1
       fi
     fi
+
+    logWithTime "Creating history for module $MODULE" #TODO used for hotfix detection but can't we just go for a manifest based on modtimes and leave it at that ?
+    mkdir -p "$MODULE/history"
+    TZ=UTC zip --quiet --exclude "$MODULE/history/*" --exclude "platform/generated/*"  --recurse-paths "$MODULE/history/source.zip" "$MODULE"
   done
 )
 
-# Ensure @mod- paths work
+logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be discarded but it's needed to bootstrap TS/HS code
 wh prepare-whdata
 
-# Render platform/generated
+logWithTime "Update generated files"
 wh update-generated-files --nodb
 
-echo "Precompiling TypeScript"
+logWithTime "Precompiling TypeScript"
 rm -rf "$WEBHARE_COMPILECACHE/typescript/"
 wh run "$WEBHARE_DIR/jssdk/tsrun/src/precompile.ts" "$WEBHARE_COMPILECACHE/typescript" "$WEBHARE_DIR"
 
-echo "Compress country flags" #TODO brotli them! easiest to do this using node, as that one ships with brotli
+logWithTime "Compress country flags" #TODO brotli them! easiest to do this using node, as that one ships with brotli
 gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
 
-if [ -n "$RUNSHRINKWRAP" ]; then
-  #TODO Merge with us?
-  logWithTime "Shrinkwrap: create_shrinkwrap"
-  modules/system/scripts/internal/create_shrinkwrap.sh || die "Unable to start create_shrinkwrap.sh"
-fi
 
+logWithTime "Rebuild plaform:* assetpacks"
+rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platform/generated/ap.metadata"
+wh publisher:compile "platform:*"
+
+logWithTime "Final checks"
 if ls "$WEBHARE_COMPILECACHE/harescript"/direct* >/dev/null 2>&1 ; then
   echo "Found direct files in the compile cache."
   ls "$WEBHARE_COMPILECACHE/harescript"/direct*

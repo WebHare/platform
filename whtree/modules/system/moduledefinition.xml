@@ -18,7 +18,7 @@
     <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20240219" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2024_11_05" when="poststart" />
+    <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2024_11_08" when="poststart" />
 
     <!-- migrate whuser_disabled to whuser_disable_type -->
     <runonce script="scripts/runonce/fix_whuser_disabled.ts" tag="fix_whuser_disabled" when="poststart" />
@@ -28,7 +28,6 @@
 
     <task runat="*/5 * * * *" script="scripts/tasks/intervalchecks.whscr" tag="intervalchecks" description="Periodic status checks" runatstartup="true" />
     <task runat="13  0 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="system_maintenance_task" />
-    <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.ts" tag="system_maintenance_task_ts" />
     <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/poststartchecks.ts" tag="system_poststartchecks" runatstartup="true" />
     <task runat=" 9  1 * * *" runtz="maintenance" script="scripts/tasks/archivemodules.whscr" tag="archivemodules" />
     <task runat="19  2 * * *" runtz="maintenance" script="scripts/tasks/updategeoip.whscr" tag="updategeoip" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP" />
@@ -1223,24 +1222,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
 
     <d:obsoletetable name="adhocdump_resultvalues" />
 
-    <d:table name="assetpacks" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:datetime name="created" nullable="false">
-        <d:documentation>Creation date of the asset pack</d:documentation>
-      </d:datetime>
-      <d:varchar name="entrypoint" maxlength="256" nullable="false">
-        <d:documentation>Requested entry point</d:documentation>
-      </d:varchar>
-      <d:varchar name="bundleconfig" maxlength="4096">
-        <d:documentation>Bundle configuration, HSON encoded</d:documentation>
-      </d:varchar>
-      <d:varchar name="settings" maxlength="4096">
-        <d:documentation>HSON encoded user settings (eg 'dev')</d:documentation>
-      </d:varchar>
-      <d:varchar name="outputtag" maxlength="128" nullable="false" unique="true">
-        <d:documentation>Output tag (uuid or export name) for this module/sitedesign/entrypoint combination</d:documentation>
-      </d:varchar>
-    </d:table>
+    <d:obsoletetable name="assetpacks" />
 
     <d:table name="precalccache" primarykey="id">
       <d:integer name="id" autonumberstart="1" />

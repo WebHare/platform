@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -11,38 +12,8 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
-LOADLIB "mod::system/lib/internal/services.whlib";
-
-
-RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint, STRING setcompatibility)
-{
-  RECORD requestedbundle := MakeEmptyBundle();
-  requestedbundle.basedependency := entrypoint;
-  requestedbundle.adhoc := TRUE;
-  requestedbundle.bundleconfig.languages := STRING[];
-  IF(setcompatibility != "")
-    requestedbundle.bundleconfig.compatibility := setcompatibility;
-
-  STRING designhash := GetHashForBundle(requestedbundle);
-  RECORD packinginfo := GetPackingInfo(requestedbundle).value;
-
-  STRING headers := GetAssetpackIntegrationCode(designhash);
-  STRING errors;
-  RECORD status;
-
-  IF (packinginfo.haserrors)
-  {
-    OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-    status := WaitForPromise(assetpackcontrol->recompileBundle(designhash));
-    IF (RecordExists(status))
-      errors := status.errors;
-    assetpackcontrol->CloseService();
-  }
-
-  RETURN CELL[ headers, packinginfo.haserrors, errors, status ];
-}
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 OBJECT trans := OpenPrimary();
@@ -97,21 +68,22 @@ IF(urlbase LIKE "*/!/*")
         //allow testscripts to do/load whatever they want
         AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE);
 
-        RECORD headers := GetHeadersForAdhocBundle(affectedtest.testscript.scriptpath, affectedtest.compatibility);
-        IF (headers.haserrors)
+        //we implicitly rely on CallJS in native HS running in a subprocess and us not having to pay the price of a full esbuild start
+        RECORD compileresult := CallJS("@mod-platform/js/assetpacks/compiletask.ts#recompileAdhoc",affectedtest.testscript.scriptpath, affectedtest.compatibility ?? whconstant_default_compatibility);
+
+        RECORD headers;
+        IF (compileresult.toperror != "")
         {
           testwitty->RunComponent("compilefailure", CELL[
-              hasdevmodule := IsModuleInstalled("dev"),
               bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
-                                  , headers.errors
-                                  , headers.status
+                                  , compileresult.errors
                                   ]
             ]);
           RETURN;
         }
 
-        RECORD data := [ printheaders := PTR Print(headers.headers)
-                       , hasdevmodule := IsModuleInstalled("dev")
+        //FIXME we need to get info.dependencies.FILEDEPENDENCIES (and .MISSINGDEPENDENCIES) to the top level devtools websocket to listen for
+        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.lastcompilesettings.bundle.outputtag))
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"

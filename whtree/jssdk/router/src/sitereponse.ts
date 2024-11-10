@@ -120,7 +120,6 @@ export class SiteResponse<T extends object = object> {
 
     page += `<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script" })}</script>`;
 
-    //FIXME adhoc bundle support
     /* TODO cachebuster /! support
       IF(cachebuster !== "")
         bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;

@@ -1,13 +1,11 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
@@ -63,50 +61,6 @@ IF(RecordExists(GetDiskFileProperties(old_webharebackend_dir)))
 {
   DeleteDiskDirectoryRecursive(GetWebHareBackendServerFolder()); //delete any data in place. this may happen on dev servers if they updated WebHare without restarting
   MoveDiskPath(old_webharebackend_dir, GetWebHareBackendServerFolder());
-}
-
-/* Unpack important stuff that shipped with us */
-RECORD shrinkwrapfile := RetrieveWebhareResource("mod::system/data/shrinkwrap-var.tgz", [ allowmissing := TRUE ]);
-IF(RecordExists(shrinkwrapfile))
-{
-  STRING basepath := GetWebhareConfiguration().varroot;
-  STRING guardpath := basepath || "system.last-shrinkwrap-var";
-  RECORD shrinkwrapguard := GetDiskFileProperties(guardpath);
-  STRING ARRAY seendirs;
-  BOOLEAN anyerror;
-
-  IF(NOT RecordExists(shrinkwrapguard) OR shrinkwrapguard.modified != shrinkwrapfile.modified)
-  {
-    IF(showinfo)
-      Print("Extracting the shrinkwrap file (last modified " || FormatISO8601Datetime(shrinkwrapfile.modified) || ")\n");
-    FOREVERY(RECORD entry FROM UnpackArchive(shrinkwrapfile.data))
-    {
-      STRING dir := basepath || entry.path;
-
-      IF(dir NOT IN seendirs)
-      {
-        IF (NOT CreateDiskDirectoryRecursive(dir, TRUE) AND NOT RecordExists(GetDiskFileProperties(dir)))
-        {
-          anyerror := TRUE;
-          Print("Unable to create folder " || dir || "\n");
-        }
-
-        INSERT dir INTO seendirs AT END;
-      }
-
-      IF(entry.name != "") //A file
-      {
-        STRING fullpath := dir || "/" || entry.name;
-        DATETIME modtime;
-        StoreDiskFile(fullpath, entry.data, [ overwrite := TRUE]);
-      }
-    }
-    IF(NOT anyerror)
-    {
-      StoreDiskFile(guardpath, DEFAULT BLOB, [ overwrite := TRUE ]);
-      SetFileModificationDate(guardpath, shrinkwrapfile.modified);
-    }
-  }
 }
 
 __disable_compilable_lockmgr := TRUE;

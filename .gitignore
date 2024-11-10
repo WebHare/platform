@@ -15,6 +15,7 @@
 !/whtree/bin/*.sh
 !/whtree/lib/*.sh
 
+/whtree/modules/*/history
 /whtree/modules/platform/generated/
 
 /vendor/.*.lock

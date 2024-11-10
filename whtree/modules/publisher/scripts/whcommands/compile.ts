@@ -6,10 +6,10 @@
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import { Bundle, buildRecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
-import { loadlib } from "@webhare/harescript";
+import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { wildcardsToRegExp } from '@webhare/std';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
+import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 
 program.name('wh publisher:compile')
   .option('-v, --verbose', 'verbose log level')
@@ -35,15 +35,17 @@ async function main() {
   //if globalIsDev is undefined, we'll look at the actual pacakge config (and crash if no database is online)
 
   /* TODO this will no longer support directly compiling adhoc packages - we should probably build a system where TS generates the bundleconfig for adhoc
-          packges and let you specify a direct path to compile.ts. but this will require moving adhoc bundle and header generation from HS to TS */
+          packges and let you specify a direct path to compile.ts. but this will require moving adhoc bundle and header generation from HS to TS
+
+          PS: directly compiling adhoc bundles is now what recompileAdhoc is for, so it's easy to re-expose at one point */
   const bundleMask = new RegExp(`^${wildcardsToRegExp(bundlename)}$`);
   const bundles = getExtractedConfig("assetpacks").filter(assetpack => assetpack.name.match(bundleMask));
   if (bundles.length === 0)
     throw new Error(`No bundle matches '${bundlename}'`);
 
   await Promise.all(bundles.map(async (bundle) => {
-    const isdev = globalIsDev ?? (await loadlib('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib').GetBundle(bundlename) as Bundle).isdev;
-    const data = buildRecompileSettings(bundle, isdev);
+    const isdev = globalIsDev ?? (await readBundleSettings(bundle.name)).dev;
+    const data = buildRecompileSettings(bundle, { dev: isdev });
     if (verbose)
       console.log(JSON.stringify(data, null, 2));
 
@@ -55,8 +57,8 @@ async function main() {
       if (verbose)
         console.log(JSON.stringify(result, null, 2));
 
-      if (result.haserrors) {
-        console.error("There were errors", result.errors);
+      if (result.topError) {
+        console.error("There were errors", result.topError);
         process.exitCode = 1;
       }
     } catch (e) {

@@ -5,6 +5,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/langspecific.whlib";
@@ -33,7 +34,6 @@ LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib" EXPORT WebPageBase;
 LOADLIB "mod::publisher/lib/internal/webdesign/wittytracing.whlib";
 
@@ -100,8 +100,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   BOOLEAN pvt_renderwidgetpreview;
   //Macro ptr to render the widget preview
   PUBLIC MACRO PTR __renderwidgetpreview;
-  //The dependency resolver v2
-  OBJECT pvt_dependencyresolverv2;
   //preparing for page? (ie can't change contentnavstops)
   BOOLEAN __preparingforpage;
   //is pageobject a new style page object?
@@ -290,8 +288,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     IF(this->__config.designfolder != "" AND this->__config.designfolder NOT LIKE "mod::*")
       THROW NEW Exception("Support for v1 designfiles has been removed");
-
-    this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config);
 
     this->designrooturl := GetModuleResourceURL(this->__config.designfolder || 'web/');
     IF(this->designrooturl = "")
@@ -1053,8 +1049,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
       designroot := data.designcdnroot;
 
-    this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster);
-
+    Print(GetAssetpackIntegrationCode(this->__config.assetpack, CELL[ designroot, cachebuster := this->assetcachebuster ]));
     this->DoInserts("dependencies-bottom");
 
     IF(this->pageerrorcode = 0 AND Length(this->structuredbreadcrumb) > 0)
@@ -1785,5 +1780,13 @@ PUBLIC OBJECTTYPE SimpleWebPage EXTEND WebPageBase
             built yet it will return an empty string */
 PUBLIC STRING FUNCTION GetAssetPackBuildVersion(STRING bundletag)
 {
-  RETURN FormatISO8601Datetime(GetBundleLastModDate(bundletag), "", "", "", FALSE);
+  STRING path;
+  IF(bundletag LIKE "platform:*")
+    path := `${GetModuleInstallationRoot("platform")}/generated/ap/${Substitute(bundletag,':','.')}/ap.mjs`;
+  ELSE
+    path := `${GetEnvironmentVariable("WEBHARE_DATAROOT")}/generated/platform/ap/${Substitute(bundletag,':','.')}/ap.mjs`;
+
+  RECORD diskres := GetDiskFileProperties(path);
+  RETURN RecordExists(diskres) ? FormatISO8601Datetime(diskres.modified, "", "", "", FALSE) : "";
+
 }

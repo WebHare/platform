@@ -3,6 +3,7 @@
 .git
 node_modules
 /whtree/modules/webhare_testsuite
+/whtree/modules/*/history
 
 /vendor/emsdk/node
 /vendor/emsdk/python

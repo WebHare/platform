@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -24,34 +25,41 @@ MACRO Syntax(STRING errormsg DEFAULTSTO "")
   IF (errormsg != "")
     PRINT(errormsg || "\n");
   Print("Syntax: wh assetpack [--quiet] <instruction>\n");
-  Print("  --quiet                Don't report anything that's not an error\n");
-  Print("  list                   List all asset packs\n");
-  Print("  check [assetpack]      Check if assetpacks are okay. List any errors. Omit or use '*' to check all\n");
-  Print("  recompile <assetpack>  Recompile an asset pack. Use '*' to compile all\n");
-  Print("  rebuild <assetpack>    Completely rebuild an asset pack. Use '*' to rebuild all\n");
-  Print("  info <assetpack>       Detailed info about an assetpack\n");
-  Print("  wait [assetpack]       Wait for the assetpacks to be compiled. Omit or use '*' to wait for all\n");
-  Print("  autocompile            Configure autocompilation of production packages\n");
+  Print("  --quiet                    Don't report anything that's not an error\n");
+  Print("  list [assetpacks...]       List asset packs\n");
+  Print("  check [assetpacks...]      Check if assetpacks are okay. List any errors. Omit or use '*' to check all\n");
+  Print("  recompile <assetpacks...>  Recompile an asset pack. Use '*' to compile all\n");
+  Print("  info <assetpack>           Detailed info about an assetpack\n");
+  Print("  wait [assetpacks...]       Wait for the assetpacks to be compiled. Omit or use '*' to wait for all\n");
+  Print("  autocompile                Configure autocompilation of production packages\n");
 
   TerminateScriptWithError("Invalid syntax");
 }
 
-MACRO PrintBundleErrors(INTEGER output, STRING tag)
+RECORD ARRAY FUNCTION GetBundles(STRING ARRAY masks)
+{
+  RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
+  RECORD ARRAY bundles := SELECT * FROM status.bundles WHERE Length(masks) = 0 OR __MatchesAnyMask(outputtag, masks) ORDER BY ToUppercase(outputtag);
+  IF(Length(bundles) = 0)
+    TerminateScriptWithError(`No assetpacks match masks: ${Detokenize(masks, ", ")}`);
+
+  RETURN bundles;
+}
+
+MACRO PrintBundleErrors(STRING tag)
 {
   RECORD data := WaitForPromise(assetpackcontrol->GetBundleStatus(tag));
-  PrintTo(output, "\nBundle " || tag || " has the following errors:\n\n");
-
-  IF (data.errors != "")
-    PrintTo(output, "Errors: " || data.errors || "\n");
-
-  IF (CellExists(data.info, "ERRORS") AND LENGTH(data.info.errors) != 0)
+  IF(data.toperror != "")
   {
-    PrintTo(output, "Structured errors:\n");
-    PrintTo(output, AnyToString(data.info.errors, "tree"));
+    Print("Bundle " || tag || " has the following errors:\n\n");
+    IF (data.toperror != "")
+      Print("Errors: " || data.toperror || "\n");
+
+    DumpValue(data.errors, "tree");
   }
 }
 
-BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
+BOOLEAN FUNCTION WaitForCompilation(STRING ARRAY masks, BOOLEAN verbose)
 {
   STRING ARRAY lastcompiling;
 
@@ -60,12 +68,8 @@ BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
 
   WHILE (TRUE)
   {
-    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-
-    STRING ARRAY compiling :=
-        SELECT AS STRING ARRAY outputtag
-          FROM status.bundles
-         WHERE iscompiling AND outputtag LIKE mask;
+    RECORD ARRAY bundles := GetBundles(masks);
+    STRING ARRAY compiling := SELECT AS STRING ARRAY outputtag FROM bundles WHERE iscompiling;
 
     STRING ARRAY newcompiling := ArrayDelete(compiling, lastcompiling);
     IF (verbose AND LENGTH(newcompiling) != 0)
@@ -78,10 +82,7 @@ BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
     lastcompiling := compiling;
     IF (LENGTH(lastcompiling) = 0)
     {
-      STRING ARRAY failedassetpacks := SELECT AS STRING ARRAY outputtag
-                                         FROM status.bundles
-                                        WHERE haserrors AND outputtag LIKE (mask ?? "*");
-
+      STRING ARRAY failedassetpacks := SELECT AS STRING ARRAY outputtag FROM bundles WHERE haserrors;
       IF(verbose AND Length(failedassetpacks) > 0)
         PRINT(`FAILED: ${Detokenize(failedassetpacks, ", ")}\n`);
       RETURN Length(failedassetpacks) = 0;
@@ -98,9 +99,10 @@ IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "recompile", "rebuil
 IF (args.color OR IsConsoleATerminal())
   SetAnsiCmdMode("enabled");
 
+VARIANT ARRAY arguments := VARIANT[`wh assetpack ${Detokenize(GetConsoleArguments(),' ')}}`];
 TRY
 {
-  assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol", [ timeout := 3000]));
+  assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks", CELL[ timeout := 3000, arguments ]));
 }
 CATCH
 {
@@ -108,7 +110,7 @@ CATCH
   {
     //Tell user what we're doing so we can tolerably wait a lot more (eg CI starts wh fixmodules pretty fast nowadays and WebHare may not even be running yet)
     Print("Waiting for assetpack control to be available...\n");
-    assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol", [ timeout := 300000 ]));
+    assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks", CELL[ timeout := 3000, arguments ]));
   }
   CATCH
   {
@@ -130,27 +132,14 @@ STRING FUNCTION GetBundleStatusString(RECORD bundle)
   RETURN (bundle.hasstatus ? bundle.haserrors ? AnsiCmd("bold,red") || "errors" : "ok" : AnsiCmd("reset") || "n/a") || AnsiCmd("reset");
 }
 
-MACRO ListBundles(RECORD status, STRING ARRAY masks, BOOLEAN withwatchcounts)
+MACRO ListBundles(STRING ARRAY masks, BOOLEAN withwatchcounts)
 {
-  RECORD ARRAY matches;
-  INTEGER blen := 26;
-  FOREVERY (RECORD bundle FROM status.bundles)
-  {
-    BOOLEAN any_match;
-    IF(args.quiet AND NOT bundle.haserrors)
-      CONTINUE;
+  RECORD ARRAY bundles := GetBundles(masks);
+  IF(args.quiet)
+    DELETE FROM bundles WHERE NOT haserrors;
 
-    FOREVERY (STRING mask FROM masks)
-      IF (bundle.outputtag LIKE mask)
-        any_match := TRUE;
-    IF (NOT any_match)
-      CONTINUE;
-    INSERT bundle INTO matches AT END;
-    IF (LENGTH(bundle.outputtag) > blen)
-      blen := LENGTH(bundle.outputtag);
-  }
-
-  FOREVERY (RECORD bundle FROM matches)
+  INTEGER blen := SELECT AS INTEGER MAX(LENGTH(outputtag)) FROM bundles;
+  FOREVERY (RECORD bundle FROM bundles)
   {
     STRING bundlestatus := GetBundleStatusString(bundle);
     STRING compiling := bundle.iscompiling ? AnsiCmd("bold,magenta") || "build" || AnsiCmd("reset") : bundle.requirecompile ? "dirty" : "-";
@@ -166,47 +155,42 @@ MACRO SetSignalledUponEvent(OBJECT cv, STRING event, RECORD data)
   cv->signalled := TRUE;
 }
 
-MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild, BOOLEAN onlyfailed)
+MACRO DoRecompile(STRING ARRAY masks, BOOLEAN onlyfailed)
 {
-  RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-
-  STRING ARRAY matches := SELECT AS STRING ARRAY outputtag
-                            FROM status.bundles
-                           WHERE ToUppercase(outputtag) LIKE ToUppercase(mask)
-                                 AND (onlyfailed ? haserrors : TRUE);
+  RECORD ARRAY bundles := GetBundles(masks);
+  IF(onlyfailed)
+    DELETE FROM bundles WHERE NOT haserrors;
 
   OBJECT condition := NEW ManualCondition;
   RegisterEventCallback("publisher:assetpackcontrol.change.*", PTR SetSignalledUponEvent(condition, #1, #2));
 
-  FOREVERY (STRING match FROM matches)
-  {
-    WaitForPromise(assetpackcontrol->SetWatched(match, TRUE));
-    WaitForPromise(assetpackcontrol->RecompileBundle(match, rebuild));
-  }
+  FOREVERY (RECORD match FROM bundles)
+    WaitForPromise(assetpackcontrol->RecompileBundle(match.outputtag));
 
   IF(NOT args.quiet)
-    PrintTo(output, (rebuild?"Rebuild":"Recompile") || " scheduled, waiting to finish\n");
+    Print("Recompile scheduled, waiting to finish\n");
 
   STRING ARRAY compiling;
   STRING ARRAY done;
 
   WHILE (TRUE)
   {
-    status := WaitForPromise(assetpackcontrol->GetStatus());
+    bundles := GetBundles(masks);
+    IF(onlyfailed)
+      DELETE FROM bundles WHERE NOT haserrors;
 
     BOOLEAN any_not_done;
 
     // For display ordering, first print 'done' messages
-    FOREVERY (RECORD bundle FROM status.bundles)
+    FOREVERY (RECORD bundle FROM bundles)
     {
-      IF (bundle.outputtag NOT IN matches OR bundle.iscompiling)
+      IF (bundle.iscompiling)
         CONTINUE;
       IF (NOT bundle.requirecompile)
       {
         IF (bundle.outputtag NOT IN done)
         {
-          IF (LENGTH(matches) > 1)
-            PrintTo(output, "Bundle " || bundle.outputtag || " now done, status: " || GetBundleStatusString(bundle) || "\n");
+          Print("Bundle " || bundle.outputtag || " now done, status: " || GetBundleStatusString(bundle) || "\n");
           INSERT bundle.outputtag INTO done AT END;
         }
       }
@@ -215,13 +199,13 @@ MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild, BOOLEAN onlyfail
     }
 
     // And then 'compiling' messages
-    FOREVERY (RECORD bundle FROM status.bundles)
+    FOREVERY (RECORD bundle FROM bundles)
     {
-      IF (bundle.outputtag NOT IN matches OR NOT bundle.iscompiling)
+      IF (NOT bundle.iscompiling)
         CONTINUE;
       IF (bundle.outputtag NOT IN compiling)
       {
-        PrintTo(output, "Bundle " || bundle.outputtag || " now compiling\n");
+        Print("Bundle " || bundle.outputtag || " now compiling\n");
         INSERT bundle.outputtag INTO compiling AT END;
       }
       any_not_done := TRUE;
@@ -235,18 +219,13 @@ MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild, BOOLEAN onlyfail
   }
 
   IF(NOT args.quiet)
-    PrintTo(output, "\nStatus of recompiled bundles:\n");
-  ListBundles(status, matches, FALSE);
+    Print("\nStatus of recompiled bundles:\n");
+  ListBundles(masks, FALSE);
 
-  IF (LENGTH(matches) = 1)
-  {
-    RECORD bundle := SELECT * FROM status.bundles WHERE outputtag IN matches;
-    IF (bundle.haserrors)
-      PrintBundleErrors(output, bundle.outputtag);
+  IF (LENGTH(bundles) = 1 AND bundles[0].haserrors)
+      PrintBundleErrors(bundles[0].outputtag);
 
-  }
-
-  IF(RecordExists(SELECT FROM status.bundles WHERE outputtag IN matches AND haserrors))
+  IF(RecordExists(SELECT FROM bundles WHERE haserrors))
     SetConsoleExitCode(1);
 }
 
@@ -257,14 +236,14 @@ SWITCH (args.command)
     RECORD subargs := ParseArguments(args.params,
                                   [ [ name := "withwatchcounts", type := "switch" ]
                                   , [ name := "watch", type := "switch" ]
+                                  , [ name := "masks", type := "paramlist" ]
                                   ]);
     IF (NOT RecordExists(subargs))
       Syntax();
 
     IF (NOT subargs.watch)
     {
-      RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-      ListBundles(status, [ "*" ], subargs.withwatchcounts);
+      ListBundles(subargs.masks, subargs.withwatchcounts);
     }
     ELSE
     {
@@ -276,10 +255,8 @@ SWITCH (args.command)
 
       WHILE (TRUE)
       {
-        RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-
         PRINT(AnsiCmd("erasedisplay,pos:0:0") || "Watching assetpacks, last update: " || FormatISO8601DateTime(GetCurrentDateTime()) || "\n\n");
-        ListBundles(status, [ "*" ], subargs.withwatchcounts);
+        ListBundles(subargs.masks, subargs.withwatchcounts);
 
         WaitForPromise(condition->WaitSignalled());
         condition->signalled := FALSE;
@@ -290,80 +267,51 @@ SWITCH (args.command)
   {
     RECORD subargs := ParseArguments(args.params,
                                   [ [ name := "onlyfailed", type := "switch" ]
-                                  , [ name := "mask", type := "param", required := TRUE ]
+                                  , [ name := "masks", type := "paramlist", required := TRUE ]
                                   ]);
     IF (NOT RecordExists(subargs))
       Syntax();
 
-    DoRecompile(0, subargs.mask, FALSE, subargs.onlyfailed);
-  }
-  CASE "rebuild"
-  {
-    RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "onlyfailed", type := "switch" ]
-                                  , [ name := "mask", type := "param", required := TRUE ]
-                                  ]);
-    IF (NOT RecordExists(subargs))
-      Syntax();
-
-    DoRecompile(0, subargs.mask, TRUE, subargs.onlyfailed);
+    DoRecompile(subargs.masks, subargs.onlyfailed);
   }
   CASE "info"
   {
     RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  [ [ name := "masks", type := "paramlist", required := TRUE ]
                                   ]);
     IF (NOT RecordExists(subargs))
       Syntax();
 
-    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-
-    STRING ARRAY matches := MatchUUIDs(status.bundles, subargs.mask);
-    FOREVERY (STRING match FROM matches)
+    FOREVERY (RECORD bundle FROM GetBundles(subargs.masks))
     {
-      RECORD bundle := SELECT * FROM status.bundles WHERE outputtag = match;
       RECORD data := WaitForPromise(assetpackcontrol->GetBundleStatus(bundle.outputtag));
 
-      PRINT("Config:\n");
-      PRINT(" Output UUID: " || data.outputtag || "\n");
-      PRINT(" Output path: " || data.outputpath || "\n");
-      PRINT("Status:\n");
-      PRINT(" Status: " || GetBundleStatusString(data) || "\n");
-      PRINT(" Compiler: " || (data.iscompiling ? AnsiCmd("bold,yellow") || "compiling" || AnsiCmd("reset") : data.requirecompile ? "scheduled" : "idle") || "\n");
-      PRINT(" Last compile: " || FormatISO8601DateTime(data.lastcompile) || "\n");
-      PRINT(" Compile duration: " || (data.lastcompile < data.compilestart
-            ? GetDateTimeDifference(data.compilestart, GetCurrentDateTime()).msecs / 1000 || " seconds (still busy)"
-            : data.compilestart = DEFAULT DATETIME
-                  ? "n/a"
-                  : GetDateTimeDifference(data.compilestart, data.lastcompile).msecs / 1000 || " seconds") || "\n");
-      IF (data.errors != "")
-        PRINT(" Errors: " || data.errors || "\n");
+      PRINT(bundle.outputtag || "\n");
+      PRINT(" Status: " || GetBundleStatusString(bundle) || "\n");
+      PRINT(" Compiler: " || (bundle.iscompiling ? AnsiCmd("bold,yellow") || "compiling" || AnsiCmd("reset") : bundle.requirecompile ? "scheduled" : "idle") || "\n");
+      IF(TYPEID(bundle.lastcompile) = TYPEID(DATETIME))
+        PRINT(" Last compile: " || FormatISO8601DateTime(bundle.lastcompile) || "\n");
 
-      IF (CellExists(data.info, "ERRORS") AND LENGTH(data.info.errors) != 0)
-      {
-        PRINT(" Structured errors:\n");
-        DumpValue(data.info.errors, "tree");
-      }
+      PrintBundleErrors(bundle.outputtag);
+      Print("\n");
     }
   }
   CASE "check", "wait"
   {
     RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "mask", type := "param" ]
+                                  [ [ name := "masks", type := "paramlist" ]
                                   ]);
 
     IF (NOT RecordExists(subargs))
       Syntax();
 
     BOOLEAN iswait := args.command = "wait";
-    STRING mask := subargs.mask ?? "*";
-    BOOLEAN success := WaitForCompilation(mask, iswait OR IsConsoleATerminal());
+    BOOLEAN success := WaitForCompilation(subargs.masks, iswait OR IsConsoleATerminal());
 
     IF(NOT iswait)
     {
-      RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-      FOREVERY(RECORD uncompiled FROM SELECT * FROM status.bundles WHERE outputtag LIKE mask AND (iscompiling OR haserrors))
-        PrintBundleErrors(2,uncompiled.outputtag);
+      FOREVERY(RECORD uncompiled FROM SELECT * FROM GetBundles(subargs.masks) WHERE iscompiling OR haserrors)
+        PrintBundleErrors(uncompiled.outputtag);
     }
 
     IF(NOT success)
@@ -393,6 +341,7 @@ SWITCH (args.command)
       trans->BeginWork();
       WriteRegistryKey("publisher.bundledassets.suspendautocompile", newsuspend);
       trans->CommitWork();
+      WaitForPromise(assetpackcontrol->Reload());
     }
   }
 }

@@ -300,16 +300,6 @@ PUBLIC SCHEMA
     > "webservers_usage"
 
   , TABLE
-    < INTEGER 'id' NULL := 0
-    , DATETIME 'created'
-    , STRING 'entrypoint'
-    , STRING 'bundleconfig'
-    , STRING 'outputtag'
-    , STRING 'settings'
-    ; KEY id
-    > assetpacks
-
-  , TABLE
     < INTEGER "id" NULL := 0
     , STRING "hash"
     , STRING "func"

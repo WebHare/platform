@@ -10,10 +10,6 @@
       <action name="recompilebundles">
         <enableon source="bundles" min="1" onexecute="dorecompilebundles" />
       </action>
-      <action name="rebuildbundles">
-        <enableon source="bundles" min="1" onexecute="dorebuildbundles" />
-      </action>
-      <action name="rebuildall" onexecute="dorebuildall" />
     </actions>
 
     <menus>
@@ -42,6 +38,7 @@
                     onselect="onbundleselect"
                     openaction="bundleproperties"
                     selectcontextmenu="bundlecontextmenu"
+                    rowkeytype="string"
                     selectmode="multiple"
                     sortcolumn="outputtag">
                 <column name="status" type="text" width="12x" sortkeyname="status_sort" />
@@ -56,8 +53,6 @@
             <cell layout="left" spacers="top left right">
               <button width="1pr" action="bundleproperties" />
               <button width="1pr" action="recompilebundles" />
-              <button width="1pr" action="rebuildbundles" />
-              <button width="1pr" action="rebuildall" />
               <spacer height="1gr" />
               <checkbox name="suspendautocompile" labeltid=".suspendautocompile" onchange="onautocompilechange" title="" />
             </cell>

@@ -1,17 +1,17 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 
 STRING prodbundlecache := "public, max-age=900";
@@ -19,23 +19,27 @@ STRING prodassetcache := "public, max-age=31536000, immutable";
 STRING devbundlecache := "public, max-age=0, must-revalidate";
 STRING devassetcache := "public, max-age=0, must-revalidate";
 STRING notfoundcache := "no-cache";
-INTEGER testbundleid;
+
+OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks", [ arguments := VARIANT[ GetCurrentGroupID() ]]));
+
+RECORD FUNCTION EnsureCompiledAssetpack(STRING assetpackname)
+{
+  RECORD res := WaitForPromise(assetpackcontrol->WaitForCompile(assetpackname));
+  IF(res.haserrors)
+    DumpValue(res,'tree:3');
+  TestEq(FALSE, res.haserrors, `Compile of assetpack '${assetpackname}' should have succeeded`);
+  RETURN CELL[ res.lastcompile ];
+}
 
 MACRO PrepTest()
 {
-  testbundleid := SELECT AS INTEGER id FROM system_internal.assetpacks WHERE outputtag = "webhare_testsuite:basetest";
-  TestEq(TRUE, testbundleid > 0);
-
-  IF(GetAssetPackSettings(testbundleid).dev)
+  IF(WaitForPromise(assetpackcontrol->GetBundleStatus("webhare_testsuite:basetest")).isdev)
   {
-    DATETIME lastcompile := testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
-
-    testfw->BeginWork();
-    UpdateAssetPackSettings(testbundleid, [ dev := FALSE ]);
-    testfw->CommitWork();
+    DATETIME lastcompile := EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
+    WaitForPromise(assetpackcontrol->UpdateBundleSettings("webhare_testsuite:basetest", [ dev := FALSE ]));
 
     Print("Disabling webhare_testsuite:basetest dev mode\n");
-    WHILE(testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile = lastcompile)
+    WHILE(EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile = lastcompile)
       Sleep(100);
     Print("Disabled webhare_testsuite:basetest dev mode\n");
   }
@@ -73,7 +77,7 @@ MACRO TestBasics()
   TestEq(1, Length(links)); //one style.css from the bundler
 
   // Ensure the assetpack is compiled at least once
-  testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest");
+  EnsureCompiledAssetpack("webhare_testsuite:basetest");
 
   STRING csslink := links[0]->GetAttribute("href");
   IF(testfw->debug)
@@ -97,14 +101,12 @@ MACRO TestBasics()
   //test that dev:false is set (minified)
   BLOB minified := testfw->browser->content;
 
-  DATETIME lastcompile := testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
+  DATETIME lastcompile := EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
 
-  testfw->BeginWork();
-  UpdateAssetPackSettings(testbundleid, [ dev := TRUE ]);
-  testfw->CommitWork();
+  WaitForPromise(assetpackcontrol->UpdateBundleSettings("webhare_testsuite:basetest", [ dev := TRUE ]));
 
   Print("Enabling webhare_testsuite:basetest dev mode\n");
-  WHILE(testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile = lastcompile)
+  WHILE(EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile = lastcompile)
     Sleep(100);
   Print("Enabled webhare_testsuite:basetest dev mode\n");
 

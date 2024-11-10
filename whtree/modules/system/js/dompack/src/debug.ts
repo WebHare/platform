@@ -1,5 +1,8 @@
 import { debugFlags } from "@webhare/env";
-export { debugFlags as debugflags } from "@webhare/env";
+
+/** @deprecated  Use debugFlags from \@webhare/env */
+const debugflags = debugFlags;
+export { debugflags };
 
 //Add all flags as a dompack-debug-- class
 if (typeof document !== 'undefined')
