@@ -242,7 +242,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
     IF (LENGTH(status.errors) > 0)
     {
       errors := "";
-      FOREVERY(RECORD error FROM EnforceStructure([[ col := 0, line := 0, message := "", resource := "" ]], status.info.errors))
+      FOREVERY(RECORD error FROM EnforceStructure([[ col := 0, line := 0, message := "", resource := "" ]], status.errors))
         errors := errors || `${error.resource}:${error.line}:${error.col}: ${error.message}\n`;
     }
 
