@@ -41,23 +41,17 @@ export class CaptureLoadPlugin {
   }
 }
 
+/** generate entrypoint.js. */
+function generateEntryPoint(paths: string[]): string {
+  let prologue = "";
+  prologue += `import "@webhare/frontend/src/init";`; //it's side effects will initialize @webhare/env dtapstage
+
+  //TODO escape quotes and backslashes..
+  const imports = paths.map(_ => `import "${_}";`);
+  return prologue + imports.join("\n");
+}
+
 function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplugin: CaptureLoadPlugin) { //setup function
-  build.onResolve({ filter: /^\/\/:entrypoint\.js/ }, args => {
-    return { path: args.path };
-  });
-  build.onLoad({ filter: /^\/\/:entrypoint\.js/ }, args => {
-    //generate entrypoint.js.
-    let prologue = "";
-    prologue += `import "@webhare/frontend/src/init";`; //it's side effects will initialize @webhare/env dtapstage
-
-    const paths = JSON.parse(decodeURIComponent(args.path.split('?')[1])) as string[];
-    //TODO escape quotes and backslashes..
-    const imports = paths.map(_ => `import "${_}";`);
-    return {
-      contents: prologue + imports.join("\n")
-    };
-  });
-
   build.onResolve({ filter: /^\// }, args => { // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
     if (args.kind === 'url-token' || args.kind === 'import-rule') {
       if (debugFlags["assetpack"])
@@ -211,10 +205,13 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   const outdir = path.join(bundle.outputpath, "build");
 
   let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
-    entryPoints: ["//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles))],
+    stdin: {
+      contents: generateEntryPoint(rootfiles),
+      loader: 'js',
+      sourcefile: "/entrypoint.js",
+      resolveDir: "/"
+    },
     publicPath: '',
-    // This is a workaround for broken stacktrace resolving caused by esbuild generating ../../../../ paths but running out of path components when building relative URLs in stack-mapper in stacktrace-gps
-    sourceRoot: "@mod-humpty/dumpty/had/a/great/fall/humpty/dumpty/fell/of/the/wall.js",
     bundle: true,
     minify: !bundle.isdev,
     sourcemap: true,
@@ -232,14 +229,8 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     plugins: [
       captureplugin.getPlugin(),
       createWhResolverPlugin(bundle, captureplugin),
-      // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
       buildRPCLoaderPlugin(captureplugin),
       buildLangLoaderPlugin(bundle.bundleconfig.languages, captureplugin),
-
-      // , sassPlugin({ importer: sassImporter
-      // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
-      // })
-
       whSassPlugin(captureplugin),
       whSourceMapPathsPlugin(outdir)
     ],
