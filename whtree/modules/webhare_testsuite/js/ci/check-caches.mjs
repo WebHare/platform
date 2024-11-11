@@ -81,6 +81,8 @@ async function main() {
           continue; //ignore `wh sql` temporaries
         if (entry.name.match(/^direct__opt_whdata_ephemeral_system\.dbcode_.*clib$/) || entry.name.match(/^direct__opt_whdata_output_.*clib$/))
           continue; //ignore files that represent SHTML/WHLIBS from whfs serialized to disk (although that should go away completely for safety - unsigned generated code close to the webserver output is dangerous)
+        if (entry.fullPath.startsWith(process.env.WEBHARE_DIR + "/currentinstall/pg/"))
+          continue; //ignore socket files
       }
 
       // If it's a compiled typescript file, figure out the source file through the sourcemap

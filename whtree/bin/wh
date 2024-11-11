@@ -134,11 +134,8 @@ fi
 export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}/postgresql"
 
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  export PGHOST="/opt/wh/whtree/currentinstall/pg/"
-else
-  export PGHOST="$WEBHARE_DATAROOT/postgresql/"
-fi
+export PGHOST="$WEBHARE_DIR/currentinstall/pg/"
+export PGPORT=$((WEBHARE_BASEPORT + 8))
 
 # Oracle's instantclient requires additional libraries we can't ship with WebHare or through npm so we offer an option
 # to place additional libraries in $WEBHARE_DATAROOT/lib/

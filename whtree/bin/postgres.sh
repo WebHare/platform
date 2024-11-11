@@ -1,5 +1,7 @@
 #!/bin/bash
+set -eo pipefail
 
+# shellcheck source=../lib/wh-functions.sh
 source "$WEBHARE_DIR/lib/wh-functions.sh"
 load_postgres_settings
 
@@ -12,12 +14,13 @@ if [ -z "$WEBHARE_PGCONFIGFILE" ]; then
   fi
 fi
 
-mkdir -p "$PSROOT"
+[ -z "$PGHOST" ] && die "PGHOST is not set"
+[ -z "$PGPORT" ] && die "PGPORT is not set"
+[ -z "$PGUSER" ] && die "PGUSER is not set"
 
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  mkdir -p /opt/wh/whtree/currentinstall/pg/
-  chown postgres:root /opt/wh/whtree/currentinstall/pg/
-fi
+# note: we expect PGHOST to be the socket dir!
+mkdir -p "$PGHOST" "$PSROOT"
+[ -n "$WEBHARE_IN_DOCKER" ] && chown postgres:root "$PGHOST"
 
 function generateConfigFile()
 {
@@ -84,4 +87,4 @@ fi
 
 
 echo "Starting $PSNAME"
-exec $RUNAS "$WEBHARE_PGBIN/postgres" -D "$PSROOT/db" 2>&1
+exec $RUNAS "$WEBHARE_PGBIN/postgres" -D "$PSROOT/db" -c "unix_socket_directories=$PGHOST" -c "port=$PGPORT" 2>&1
