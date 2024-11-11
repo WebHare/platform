@@ -15,6 +15,9 @@
 !/whtree/bin/*.sh
 !/whtree/lib/*.sh
 
+# compile caches
+/whtree/currentinstall
+
 /whtree/modules/*/history
 /whtree/modules/platform/generated/
 

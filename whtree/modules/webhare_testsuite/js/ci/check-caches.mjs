@@ -8,8 +8,6 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 
 async function main() {
-  if (!process.env.WEBHARE_COMPILECACHE)
-    throw new Error("WEBHARE_COMPILECACHE not set");
   if (!process.env.WEBHARE_DIR)
     throw new Error("WEBHARE_DIR not set");
   if (!process.env.WEBHARE_DATAROOT)
@@ -28,7 +26,7 @@ async function main() {
   const previousData = isVerify ? JSON.parse(fs.readFileSync(stateFilePath, 'utf8')) : {};
 
   const scandirs = [
-    process.env.WEBHARE_COMPILECACHE,
+    process.env.WEBHARE_DIR + "/currentinstall/",
     process.env.WEBHARE_DIR + "/modules/platform/generated/"
   ];
 

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eo pipefail
 
+REQUIRENPMVERSION="7.13.0"
+
 WEBHARE_CHECKEDOUT_TO="$(cd "${BASH_SOURCE%/*}/.."; pwd)"
 source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
 estimate_buildj

@@ -183,9 +183,9 @@ std::string Connection::GetEphemeralRoot() const
 }
 std::string Connection::GetCompileCache() const
 {
-        std::string compilecache = AppendSlashWhenMissing(Blex::GetEnvironVariable("WEBHARE_COMPILECACHE"));
+        std::string compilecache = AppendSlashWhenMissing(Blex::GetEnvironVariable("WEBHARE_HSBUILDCACHE"));
         if(compilecache.empty())
-                compilecache = basedatadir + "ephemeral/compilecache/";
+                throw new std::runtime_error("WEBHARE_HSBUILDCACHE is not set!");
 
         return compilecache;
 }

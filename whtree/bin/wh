@@ -1,7 +1,38 @@
 #!/bin/bash
-source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
+export WEBHARE_DIR="${BASH_SOURCE%/*/*}"
+# shellcheck source=../lib/wh-functions.sh
+source "${WEBHARE_DIR}/lib/wh-functions.sh"
 
-REQUIRENPMVERSION="7.13.0"
+# Ensure 'wh' runs this wh so we don't accidentally rely on external PATHs/functions/aliasses - lock it to WEBHARE_DIR
+# shellcheck disable=SC2317
+wh() { "${WEBHARE_DIR}/bin/wh" "$@"; }
+export -f wh
+
+# --- Functions ---
+check_webhare_running()
+{
+  if [ "$WEBHARE_IGNORE_RUNNING" == "1" ]; then
+    return
+  fi
+
+  if ! is_webhare_running ; then
+    die "WebHare does not seem to be running"
+  fi
+}
+
+check_webhare_not_running()
+{
+  if [ "$WEBHARE_IGNORE_RUNNING" == "1" ]; then
+    return
+  fi
+
+  if is_webhare_running ; then
+    die "WebHare is already running"
+  fi
+}
+
+
+## Main code
 DEBUGSTARTUP=""
 
 if [ "$WEBHARE_PLATFORM" == "darwin" ]; then #macoS
@@ -36,14 +67,58 @@ OPTIONS=("$@")
 
 [ "$WH_VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
 
-# Ensure 'wh' runs this wh so we don't accidentally rely on external PATHs/functions/aliasses - lock it to WEBHARE_DIR
-wh() { "${BASH_SOURCE%/*}/../bin/wh" "$@"; }
-export -f wh
+# Setup important paths/vars
+[ -n "$WEBHARE_BASEPORT" ] || WEBHARE_BASEPORT=13679
+export WEBHARE_HSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.harescript/${WEBHARE_BASEPORT}/"
+export WEBHARE_TSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.typescript/"
+
+mkdir -p "$WEBHARE_HSBUILDCACHE" "$WEBHARE_TSBUILDCACHE"
+
+# Deal with commands that don't require a set up WebHare
+case $INSTR in
+  "builddocker")
+    setup_builddir
+    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/builddocker.sh" "$@"
+    ;;
+
+  "testdocker")
+    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh" "$@"
+    ;;
+
+  "deploydocker")
+    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/deploydocker.sh" "$@"
+    ;;
+
+  "testmodule")
+    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh" -m "$@"
+    ;;
+
+  "make")
+    if [[ "${OPTIONS[*]}" =~ install ]]; then
+      check_webhare_not_running
+    fi
+
+    exec "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" "${OPTIONS[@]}"
+    ;;
+
+  "finalize-webhare")
+    check_webhare_not_running
+    exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/finalize-webhare.sh" "${OPTIONS[@]}"
+    ;;
+
+esac
 
 # If we haven't found WEBHARE_DATAROOT that way, discover it
 if [ -z "$WEBHARE_DATAROOT" ] ; then
-  WEBHARE_DATAROOT="$WEBHARE_DIR/whdata"
-  INFERRED_DATAROOT=1
+  echo "WEBHARE_DATAROOT must be set. If you're running a source installation, set up WebHare runkit"
+  exit 1
+elif [[ $WEBHARE_DATAROOT == $WEBHARE_DIR* ]]; then # Test if WEBHARE_DATAROOT is inside WEBHARE_DIR
+  echo "WEBHARE_DATAROOT ($WEBHARE_DATAROOT) must not be inside the WebHare installation directory ($WEBHARE_DIR)" >&2
+  if [ -n "$WHRUNKIT_TARGETSERVER" ]; then #we're started through runkit..
+    # Do not recommend rm -r .. rm will safely delete a symlink but not a directory
+    echo "Suggested fix: mv $WEBHARE_DATAROOT $WHRUNKIT_DATADIR/$WHRUNKIT_TARGETSERVER/whdata && rm $WHRUNKIT_DATADIR/$WHRUNKIT_TARGETSERVER/dataroot"
+  fi
+  exit 1
 elif [ "${WEBHARE_DATAROOT:0:1}" != "/" ]; then
   echo "WEBHARE_DATAROOT must be an absolute path" >&2
   exit 1
@@ -56,6 +131,8 @@ if [ -f "${WEBHARE_DATAROOT}dbase/translog.whdb" ]; then
   exit 1
 fi
 
+export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}/postgresql"
+
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   export PGHOST="/opt/wh/whtree/currentinstall/pg/"
@@ -65,25 +142,18 @@ fi
 
 # Oracle's instantclient requires additional libraries we can't ship with WebHare or through npm so we offer an option
 # to place additional libraries in $WEBHARE_DATAROOT/lib/
-if [ -z "$INFERRED_DATAROOT" ]; then
-  if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-    if ! [[ $DYLD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
-      # Note that SIP on Darwin may interfere with this setting (see eg https://developer.apple.com/forums/thread/703757)
-      export DYLD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$DYLD_LIBRARY_PATH"
-    fi
-  else
-    if ! [[ $LD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
-      export LD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$LD_LIBRARY_PATH"
-     fi
+if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
+  if ! [[ $DYLD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
+    # Note that SIP on Darwin may interfere with this setting (see eg https://developer.apple.com/forums/thread/703757)
+    export DYLD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$DYLD_LIBRARY_PATH"
   fi
+else
+  if ! [[ $LD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
+    export LD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$LD_LIBRARY_PATH"
+    fi
 fi
 
 export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
-
-# If you haven't set WEBHARE_BASEPORT, assume it to be 13679
-if [ -z "$WEBHARE_BASEPORT" ]; then
-  WEBHARE_BASEPORT=13679
-fi
 
 # If you haven't set WEBHARE_TEMP, assume it to be $WEBHARE_DATAROOT/tmp
 if [ -z "$WEBHARE_TEMP" ]; then
@@ -111,15 +181,6 @@ if [ ! -d "$WEBHARE_DIR" ]; then
   die "Cannot find WebHare installation"
 fi
 
-deprecation_sleep()
-{
-  for P in 1 2 3 4 5 ; do
-    echo -n "."
-    sleep 1
-  done
-  echo ""
-}
-
 exec_whcompile()
 {
   getwhparameters
@@ -134,28 +195,6 @@ wh()
 exec_wh()
 {
   $WEBHARE_DIR/bin/wh "$@"
-}
-
-check_webhare_running()
-{
-  if [ "$WEBHARE_IGNORE_RUNNING" == "1" ]; then
-    return
-  fi
-
-  if ! is_webhare_running ; then
-    die "WebHare does not seem to be running"
-  fi
-}
-
-check_webhare_not_running()
-{
-  if [ "$WEBHARE_IGNORE_RUNNING" == "1" ]; then
-    return
-  fi
-
-  if is_webhare_running ; then
-    die "WebHare is already running"
-  fi
 }
 
 setup_webhare_envsettings()
@@ -234,12 +273,6 @@ move_dir() { # oldlocation newparentlocation newsublocation
 #setup_for_console is invoked when we're starting a major subprocess (console or exec)
 setup_for_console()
 {
-  if [ -n "$INFERRED_DATAROOT" ]; then
-    echo "WEBHARE_DATAROOT is not set and inferring WEBHARE_DATAROOT has been removed" 2>&1
-    echo "Make sure WEBHARE_DATAROOT is set and exported or use 'runkit' to manage your WebHare intallation(s)" 2>&1
-    exit 1
-  fi
-
   # Ensure @mod- symlinks are in place.
   "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --force || die "Unable to ensure symlinks/scripts are in place"
   export __WEBHARE_WHDATA_PREPARED=1
@@ -536,19 +569,6 @@ HERE
     exit 0
     ;;
 
-  "make")
-    if [[ "${OPTIONS[@]}" =~ install ]]; then
-      check_webhare_not_running
-    fi
-
-    exec "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" "${OPTIONS[@]}"
-    ;;
-
-  "finalize-webhare")
-    check_webhare_not_running
-    exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/finalize-webhare.sh" "${OPTIONS[@]}"
-    ;;
-
   "prepare-whdata")
     check_webhare_not_running
     exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --verbose "${OPTIONS[@]}"
@@ -565,24 +585,6 @@ HERE
       "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" $P
     done
     exit
-    ;;
-
-  "builddocker")
-    source $WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh
-    setup_builddir
-    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/builddocker.sh "$@"
-    ;;
-
-  "testdocker")
-    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh "$@"
-    ;;
-
-  "deploydocker")
-    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/deploydocker.sh "$@"
-    ;;
-
-  "testmodule")
-    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh -m "$@"
     ;;
 
   "isrunning")
