@@ -166,6 +166,7 @@ class LoadedBundle {
 
       this.dirtyReason = '';
       this.forceCompile = false;
+      this.broadcastUpdated();
       this.recompiling = recompile(buildRecompileSettings(this.config, this.settings));
     } catch (e) {
       console.error('FAIL', e);
