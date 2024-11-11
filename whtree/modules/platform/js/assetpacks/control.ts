@@ -95,10 +95,9 @@ class LoadedBundle {
     this.broadcastUpdated();
   }
 
-  /** Rescan the dependencies */
-  private async checkDeps() {
+  private async checkDepList(deps: Set<string>, recompileIfMissing: boolean) {
     const lastCompileStart = this.state!.start.getTime();
-    for (let file of this.fileDeps.values()) {
+    for (let file of deps) {
       if (this.dirtyReason)
         return;
 
@@ -109,17 +108,23 @@ class LoadedBundle {
         if (mtime >= lastCompileStart)
           this.markDirty("dependency file changed: " + file);
       } catch (e) {
-        this.markDirty("dependency file missing: " + file);
+        if (recompileIfMissing)
+          this.markDirty("dependency file missing: " + file);
       }
 
     }
+  }
+  /** Rescan the dependencies */
+  private async checkDeps() {
+    await this.checkDepList(this.fileDeps, true);
+    await this.checkDepList(this.missingDeps, false);
   }
 
   informResourceChange(path: string) {
     if (this.dirtyReason)
       return; //already dirty
 
-    if (this.fileDeps.has(path)) {
+    if (this.fileDeps.has(path) || this.missingDeps.has(path)) {
       this.markDirty("dependency file changed: " + path);
     }
   }
@@ -224,6 +229,10 @@ class AssetPackController implements BackendServiceController {
       let res = event.data?.resourcename as string | undefined;
       if (!res)
         continue;
+
+      //TODO pre-filtering eg generated/ urls might be nice to reduce invalidation traffic?
+      if (!res.includes("generated/"))
+        console.log("Resource change", res);
 
       if (res.startsWith("direct::")) //updates to resources outside mod:: aret transmitted as direct:: paths, but assetpack state stores simply the fullpath, so translate!
         res = res.substring(8);

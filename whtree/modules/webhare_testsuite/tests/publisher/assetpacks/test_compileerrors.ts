@@ -95,6 +95,19 @@ async function testCompileerrors() {
     test.assert(missingdeps.length === 0);
   }
 
+  console.log("should properly report relative broken imports");
+  {
+    const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/simple-import-fail.es"), true);
+    test.assert(result.errors.length >= 1);
+    test.assert(result.errors[0].message);
+    test.assert(result.missingDependencies.includes("mod::webhare_testsuite/tests/publisher/assetpacks/dependencies/deeper/missing-here.ts"));
+    test.assert(result.missingDependencies.includes("mod::webhare_testsuite/tests/publisher/assetpacks/dependencies/deeper/missing-here/index.tsx"));
+    test.assert(result.missingDependencies.includes("mod::webhare_testsuite/tests/publisher/assetpacks/dependencies/deeper/missing-here/package.json"));
+    test.assert(!result.missingDependencies.includes("mod::webhare_testsuite/tests/publisher/assetpacks/dependencies/missing-here.ts"));
+
+    test.assert(result.missingDependencies.includes("mod::webhare_testsuite/tests/publisher/higher/higher-missing.tsx"));
+  }
+
   console.log("should properly report broken location");
   {
     const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/include-import-fail.es"), true);
