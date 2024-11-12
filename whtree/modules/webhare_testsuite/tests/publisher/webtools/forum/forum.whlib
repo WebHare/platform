@@ -11,7 +11,6 @@ PUBLIC MACRO ResetTestForums()
     IF(ObjectExists(forumcommentsfile))
     {
       GetPrimary()->BeginWork();
-      DELETE FROM publisher.forumtopics WHERE linkedfileid = forumcommentsfile->id;
       DELETE FROM publisher.forums WHERE id = forumcommentsfile->id;
       GetPrimary()->CommitWork();
     }

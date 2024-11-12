@@ -13,6 +13,7 @@
   </meta>
 
   <servicemanager>
+    <runonce script="scripts/runonce/migrate-postings.whscr" tag="migrate_postings" when="poststart" />
     <task runat="53  3 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="maintenance_task" description="Publisher maintenance task" />
     <task runat="33  3 * * *" runtz="maintenance" script="scripts/tasks/cleanupwebtoolresults.whscr" tag="cleanup_webtool_results" description="Cleanup outdated Webtools form results" />
     <task runat="17  2 * * *" runtz="maintenance" script="scripts/tasks/archiveoutput.whscr" tag="archiveoutput" description="Move folders not associated with a site to the archive" />
@@ -388,14 +389,18 @@
       <d:documentation>A table containing all the forums. Typicially every FS forum object that
         was activated at least once, has an associated forum object</d:documentation>
       <d:integer name="id" nullable="0" ondelete="cascade" references="system.fs_objects" unique="true" />
-      <d:varchar name="uuid" maxlength="64">
+<!--      <d:varchar name="uuid" maxlength="64">
         <d:documentation>Deprecated</d:documentation>
-      </d:varchar>
-      <d:integer name="postertype" ondelete="set default" references="wrd.types">
+      </d:varchar>  -->
+      <!-- <d:integer name="postertype" ondelete="set default" references="wrd.types">
         <d:documentation>WRD type with which posters are associated.</d:documentation>
-      </d:integer>
+      </d:integer> -->
+      <d:datetime name="closedate">
+        <d:documentation>Date and time at which to close this topic for further topics</d:documentation>
+      </d:datetime>
     </d:table>
 
+    <!-- TODO Not obsoleting yet to prevent cascade until remainig forum users are migrated
     <d:table name="subforums" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:integer name="forum" nullable="0" ondelete="cascade" references=".forums" />
@@ -417,7 +422,7 @@
       </d:integer>
       <d:varchar name="topic" maxlength="4096" />
       <d:integer name="firstposting" ondelete="cascade" references=".forumpostings">
-        <!-- ADDME did't want to set ondelete, but WHDB is unable to cascade deleted forums properly and gets stuck on this criterium -->
+        <!- - ADDME did't want to set ondelete, but WHDB is unable to cascade deleted forums properly and gets stuck on this criterium - ->
       </d:integer>
       <d:integer name="lastposting" ondelete="cascade" references=".forumpostings" />
       <d:integer name="ordering" />
@@ -430,19 +435,22 @@
         <d:documentation>Date and time at which to close this topic for further topics</d:documentation>
       </d:datetime>
     </d:table>
+    -->
 
     <d:table name="forumpostings" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="topic" nullable="0" ondelete="cascade" references=".forumtopics" />
+      <d:integer name="forum" ondelete="cascade" references=".forums" /> <!-- FIXME nullable=0 as soon as forum migration is complete -->
+      <!-- FIXME drop these obsolete columns, including topic -->
+      <d:integer name="topic" />
       <d:integer name="inreplyto" ondelete="set default" references=".forumpostings" />
-      <d:varchar name="subject" maxlength="256">
+      <!-- <d:varchar name="subject" maxlength="256">
         <d:documentation>Post's subject, for forums that allow subjects on individual posts</d:documentation>
-      </d:varchar>
+      </d:varchar> -->
       <d:datetime name="creationdate" nullable="0" />
       <d:datetime name="modificationdate" nullable="0" />
-      <d:integer name="postingtype" />
+      <!-- <d:integer name="postingtype" /> -->
       <d:varchar name="content" maxlength="4096" />
-      <d:boolean name="attachments" />
+      <!-- <d:boolean name="attachments" /> -->
       <d:varchar name="postersource" maxlength="128" />
       <d:varchar name="postername" maxlength="128" />
       <d:varchar name="posteremail" maxlength="128" />
@@ -454,26 +462,7 @@
       </d:boolean>
     </d:table>
 
-    <d:table name="forumattachments" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="posting" nullable="0" ondelete="cascade" references=".forumpostings" />
-      <d:blob name="data" />
-      <d:blob name="displayversion">
-        <d:documentation>Displayable version oft he image</d:documentation>
-      </d:blob>
-      <d:varchar name="mimetype" maxlength="128" />
-      <d:varchar name="displaymimetype" maxlength="128">
-        <d:documentation>Mimetype of displayable version</d:documentation>
-      </d:varchar>
-      <d:varchar name="filename" maxlength="128" />
-      <d:varchar name="description" maxlength="256" />
-      <d:integer name="ordering">
-        <d:documentation>Relative order of this attachment</d:documentation>
-      </d:integer>
-      <d:integer name="type" nullable="0">
-        <d:documentation>Type of this attachment: 1=posting text, 2=image, 3=file</d:documentation>
-      </d:integer>
-    </d:table>
+    <d:obsoletetable name="forumattachments" />
 
     <d:table name="worklists" primarykey="id">
       <d:documentation>A work list containing work list items</d:documentation>

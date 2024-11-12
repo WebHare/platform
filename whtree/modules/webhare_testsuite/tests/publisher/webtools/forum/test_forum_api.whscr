@@ -30,10 +30,10 @@ MACRO TestForumApiBase()
   TestThrowsLike("No forum plugin registered*", PTR OpenForum(randomforumfile->id));
 
   //test implicit closing date
-  TestEq(DEFAULT DATETIME, OpenForum(tempcommentsfile->id)->GetInitialTopicCloseDate(tempcommentsfile->id));
+  TestEq(DEFAULT DATETIME, OpenForum(tempcommentsfile->id)->closedate);
 
   DATETIME autoclose := GetRoundedDatetime(AddDaysToDate(1,tempclosedatefile->creationdate), 86400 * 1000);
-  TestEq(autoclose, OpenForum(tempclosedatefile->id)->GetInitialTopicCloseDate(tempclosedatefile->id));
+  TestEq(autoclose, OpenForum(tempclosedatefile->id)->closedate);
   save_seen_closedate := autoclose; //needed later
 }
 
@@ -44,22 +44,10 @@ MACRO TestCommentsForumApi()
   BLOB picture := CreateEmptyCanvas(500,500,0xFFFF0000)->ExportAsPNG(FALSE);
 
   RECORD postdata := [ name := "Arnold", email := "arnold@example.net", message := "hoihoi", messagetype := "text/plain", source := "127.0.0.1:12345", sourceurl := "http://www.example.nl/"
-                     , images := [ WrapBlob(picture,"picture.jpg") ], subject := "test"
                      ];
 
   OBJECT forumapi := OpenForum(forumcommentsfile->id);
   TestEq(TRUE, ObjectExists(forumapi));
-  TestEq(FALSE, forumapi->MayHaveSubforums());
-  TestEq(FALSE, forumapi->MayHaveTopics(), "Topics should be disabled - this test failing may also point towards a corrupt siteprofile");
-
-  RECORD subforum := forumapi->SelectOnlySubforum();
-  TestEq(TRUE, RecordExists(subforum));
-
-  TestThrowsLike("*requires a selected*", PTR forumapi->SelectOnlyTopic(0)); //not specifying a file id is bad too for a comments forum
-  TestThrowsLike("No topic *", PTR forumapi->AddPost(postdata)); //must fail, no forum selected
-
-  RECORD topic := forumapi->SelectOnlyTopic(forumcommentsfile->id);
-  TestEq(FALSE, RecordExists(topic)); //topics cannot be pre-created, but rest assured, its selected
 
   TestEq(0, forumapi->GetNumMessagePages()); //0 pages in this topic
   TestEq(0, Length(forumapi->GetMessagesByPage(0,""))); //and 0 messages on page 0
@@ -102,26 +90,8 @@ MACRO TestCommentsForumApi()
   TestEq(TRUE, msgs[0].creationdate <= GetCurrentDatetime());
   TestEq(TRUE, msgs[0].creationdate >= testfw->starttime);
   TestEq("hoihoi msg #0", msgs[1].content);
-  TestEq("test", msgs[0].subject);
-  TestEq("test", msgs[1].subject);
-  TestEq(0,Length(msgs[1].images));
-  TestEq(1,Length(msgs[0].images));
-  TestEq(TRUE, msgs[0].images[0].fullversionlink != "");
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), msgs[0].images[0].fullversionlink)), testfw->browser->href);
-  TestEq(picture, testfw->browser->content);
-  TestEq("image/png", testfw->browser->contenttype);
-  TestEq(TRUE,msgs[0].images[0].displayversionlink != "");
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), msgs[0].images[0].displayversionlink)));
-  TestEq("image/jpeg", testfw->browser->contenttype);
-  RECORD info := ScanBlob(testfw->browser->content,'');
-  TestEq("image/jpeg", info.mimetype);
-  TestEq(240, info.width);
-  TestEq(240, info.height);
-
-  topic := forumapi->SelectOnlyTopic(forumcommentsfile->id);
-  TestEq(21, topic.numentries);
+  TestEq(21, forumapi->GetNumEntries());
 }
 
 MACRO TestCloseDate()
@@ -129,18 +99,14 @@ MACRO TestCloseDate()
   OBJECT forumcommentsfile := OpenTestsuiteSite()->OpenByPath("webtools/forumcomments-closedate");
 
   OBJECT forumapi := OpenForum(forumcommentsfile->id);
-  RECORD subforum := forumapi->SelectOnlySubforum();
-
-  TestEq(FALSE, RecordExists(forumapi->SelectOnlyTopic(forumcommentsfile->id)));
 
   testfw->BeginWork();
   forumapi->SetCloseDate(MakeDate(2009,1,1));
   testfw->CommitWork();
 
-  RECORD topicinfo := forumapi->SelectOnlyTopic(forumcommentsfile->id);
-  TestEq(MakeDate(2009,1,1), topicinfo.closedate);
-  TestEq(0, topicinfo.numentries);
-  TestEq(DEFAULT DATETIME, topicinfo.creationdate);
+  TestEq(MakeDate(2009,1,1), forumapi->closedate);
+  TestEq(MakeDate(2009,1,1), OpenForum(forumcommentsfile->id)->closedate);
+  TestEq(0, forumapi->GetNumEntries());
 
   DATETIME before := GetCurrentDatetime();
   Sleep(1); //ensure time drift
@@ -151,13 +117,6 @@ MACRO TestCloseDate()
   //FIXME should actually be in forum's timezone (eg CET midnight), no UTC
   forumapi->SetCloseDate(AddTimeToDate(60*1000, GetCurrentDatetime()));
   forumapi->AddPost(postdata);
-
-  topicinfo :=   forumapi->SelectOnlyTopic(forumcommentsfile->id);
-  TestEq(1, topicinfo.numentries);
-  TestEq(TRUE, topicinfo.creationdate != DEFAULT DATETIME);
-  TestEq(TRUE, topicinfo.creationdate > before);
-  TestEq(TRUE, topicinfo.firstposting != 0);
-  TestEq(TRUE, topicinfo.firstposting = topicinfo.lastposting);
 }
 
 ASYNC MACRO TestCommentsBackend()

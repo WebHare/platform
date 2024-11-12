@@ -22,37 +22,22 @@ PUBLIC RECORD FUNCTION RPC_GetCommentsState(STRING forumtoken, STRING urlpath)
 {
   OpenPrimary();
   OBJECT forumobj := OpenForumByToken(forumtoken);
-  RECORD selectedforum := forumobj->SelectOnlySubforum();
-  RECORD selectedtopic := forumobj->SelectOnlyTopic(forumobj->id);
   STRING languagecode := GetSiteLanguage(forumobj->id);
 
   INTEGER numentries := 0;
   RECORD ARRAY entries;
   DATETIME closedate;
 
-  IF(RecordExists(selectedtopic))
-  {
-    numentries := selectedtopic.numentries;
-    IF(TRUE) //getentries
-    {
-      //FIXME configurable datetime format, timezone
-      //and immediate get the requested entries
-      entries := forumobj->GetMessagesByPage(0, "");
-      entries := SELECT name := postername
-                      , postdate := FormatDatetime("%d %B %Y %H:%M", UTCToLocal(creationdate, "CET"), languagecode)
-                      , postisodate := FormatISO8601Datetime(creationdate)
-                      , message := EncodeHTML(content) //FIXME should probably follow contenttype
-                   FROM entries;
-    }
-    closedate := selectedtopic.closedate;
-  }
-  ELSE
-  {
-    //We don't even have a topic yet. figure out if this topic is even open (Some topics never form because of autoclose)
-    closedate := forumobj->GetInitialTopicCloseDate(forumobj->id);
-  }
+  //FIXME configurable datetime format, timezone
+  //and immediate get the requested entries
+  entries := forumobj->GetMessagesByPage(0, "");
+  entries := SELECT name := postername
+                  , postdate := FormatDatetime("%d %B %Y %H:%M", UTCToLocal(creationdate, "CET"), languagecode)
+                  , postisodate := FormatISO8601Datetime(creationdate)
+                  , message := EncodeHTML(content) //FIXME should probably follow contenttype
+                FROM entries;
 
-  BOOLEAN isopen := closedate = DEFAULT DATETIME OR GetCurrentDatetime() < closedate;
+  BOOLEAN isopen := forumobj->closedate = DEFAULT DATETIME OR GetCurrentDatetime() < forumobj->closedate;
   STRING recaptchakey;
 
   RETURN [ success := TRUE
@@ -85,12 +70,8 @@ PUBLIC RECORD FUNCTION RPC_PostComment(STRING forumtoken, STRING urlpath, RECORD
     }
   }
 
-  RECORD selectedforum := forumobj->SelectOnlySubforum();
-  RECORD selectedtopic := forumobj->SelectOnlyTopic(forumobj->id);
-
   forumobj->AddPost([ name := comment.name
                     , email := comment.email
-                    , subject := ""
                     , message := comment.message
                     , messagetype := "text/plain"
                     , source := GetClientRemoteIp() || ":" || GetClientRemotePort()
