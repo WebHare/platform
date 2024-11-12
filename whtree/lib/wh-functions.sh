@@ -97,10 +97,6 @@ getwhparameters()
     exit 1
   fi
 
-  [ -n "$WEBHARE_COMPILECACHE" ] || export WEBHARE_COMPILECACHE="${WEBHARE_DATAROOT}/ephemeral/compilecache/"
-  export WEBHARE_TSBUILDCACHE="${WEBHARE_COMPILECACHE}/typescript"
-  export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}/postgresql"
-
   if [ -f "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
     WEBHARE_ISRESTORED="$(cat "$WEBHARE_DATAROOT/webhare.restoremode")"
     [ -n "$WEBHARE_ISRESTORED" ] || WEBHARE_ISRESTORED="1" #'1' marks us as restored without further info
@@ -540,7 +536,7 @@ load_postgres_settings()
 
   if [ -z "$WEBHARE_PGBIN" ]; then
     # Read the version of the PostgreSQL database, fall back to version 16 (as specified in webhare-deps.rb) for new databases
-    PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
+    PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null || true)
     if [ -z "${PGVERSION}" ]; then
       if [ -n "$WEBHARE_IN_DOCKER" ]; then
         PGVERSION=11 # FIXME - production should default to 11 until we have a working upgrade path to 16

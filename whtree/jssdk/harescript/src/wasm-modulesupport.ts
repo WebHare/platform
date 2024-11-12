@@ -164,12 +164,12 @@ export class WASMModule extends WASMModuleBase {
   }
 
   getCompileCache() {
-    let cache = process.env.WEBHARE_COMPILECACHE;
-    if (cache && !cache.endsWith("/"))
+    let cache = process.env.WEBHARE_HSBUILDCACHE;
+    if (!cache)
+      throw new Error("WEBHARE_HSBUILDCACHE not set");
+    if (!cache.endsWith("/"))
       cache += "/";
-    else if (!cache) {
-      cache = backendConfig.dataroot + "ephemeral/compilecache/";
-    }
+
     return cache;
   }
 

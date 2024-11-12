@@ -53,7 +53,7 @@ if [ ! -f "$CONFIGJSON" ]; then #Bootstrap an empty file to prevent complaints f
   echo {} > "$CONFIGJSON"
 fi
 
-mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp "$WEBHARE_COMPILECACHE"/harescript "$WEBHARE_COMPILECACHE"/typescript >/dev/null 2>&1
+mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
 
 # Make sure node_modules and links point to the right place. A restore or move might have misplaced them and will break bootstrapping various other scripts
 # node might not actually be functional yet at this point so fix the basic links in the shell

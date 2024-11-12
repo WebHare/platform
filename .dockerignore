@@ -16,6 +16,7 @@ node_modules
 
 # Ignore artficats from source tree builds
 /whtree/bin/*
+/whtree/currentinstall
 /whtree/lib/*
 /whtree/libexec
 /whtree/node_modules

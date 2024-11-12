@@ -11,9 +11,15 @@ cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
 source "lib/wh-functions.sh"
 
 [ -f package.json ] || die "Failed to navigate to whtree directory"
+[ -n "$WEBHARE_HSBUILDCACHE" ] || die "WEBHARE_HSBUILDCACHE not set"
+[ -n "$WEBHARE_TSBUILDCACHE" ] || die "WEBHARE_TSBUILDCACHE not set"
+
+# Set up a dummy dataroot, some subcommands check it (eg 'wh run')
+WEBHARE_DATAROOT="$(mktemp -d)"
+mkdir -p "$WEBHARE_DATAROOT"
+export WEBHARE_DATAROOT
 
 getwebhareversion
-getwhparameters
 
 logWithTime "Install all packages"
 npm install --no-save --ignore-scripts --omit=dev --omit=peer || die "NPM install failure for $CANDIDATE"
@@ -43,7 +49,7 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
-rm -rf "$WEBHARE_COMPILECACHE/harescript/" # Mostly useful on dev machines so the direct__ check later doesn't fail you
+rm -rf "$WEBHARE_HSBUILDCACHE" # Mostly useful on dev machines so the direct__ check later doesn't fail you
 (
   cd "$WEBHARE_DIR/modules" ;
   for MODULE in system platform wrd publisher tollium consilio socialite; do
@@ -75,8 +81,8 @@ logWithTime "Update generated files"
 wh update-generated-files --nodb
 
 logWithTime "Precompiling TypeScript"
-rm -rf "$WEBHARE_COMPILECACHE/typescript/"
-wh run "$WEBHARE_DIR/jssdk/tsrun/src/precompile.ts" "$WEBHARE_COMPILECACHE/typescript" "$WEBHARE_DIR"
+rm -rf "$WEBHARE_TSBUILDCACHE"
+wh run "$WEBHARE_DIR/jssdk/tsrun/src/precompile.ts" "$WEBHARE_TSBUILDCACHE" "$WEBHARE_DIR"
 
 logWithTime "Compress country flags" #TODO brotli them! easiest to do this using node, as that one ships with brotli
 gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
@@ -87,9 +93,9 @@ rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platfo
 wh publisher:compile "platform:*"
 
 logWithTime "Final checks"
-if ls "$WEBHARE_COMPILECACHE/harescript"/direct* >/dev/null 2>&1 ; then
+if ls "$WEBHARE_HSBUILDCACHE"/*direct* >/dev/null 2>&1 ; then
   echo "Found direct files in the compile cache."
-  ls "$WEBHARE_COMPILECACHE/harescript"/direct*
+  ls "$WEBHARE_HSBUILDCACHE"/*direct*
   exit 1
 fi
 
