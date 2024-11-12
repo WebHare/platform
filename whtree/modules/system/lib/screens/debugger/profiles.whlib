@@ -328,7 +328,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     UPDATE this->pvt_profiles SET exists := FALSE;
 
     RECORD ARRAY files;
-    IF (this->profiledir NOT LIKE "*.tar.gz")
+    IF (this->profiledir NOT LIKE "*.zip")
       files := ReadDiskDirectory(this->profiledir, "*.prof");
     ELSE
     {

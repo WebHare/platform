@@ -382,30 +382,6 @@ MACRO ArchiveTest()
   OpenTest("TestFiles: ArchiveTest");
 
   {
-    INTEGER newarchive := CreateArchive();
-    TestEq(FALSE, newarchive = 0);
-    AddFileToArchive(newarchive, "file1", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
-    AddFolderToArchive(newarchive, "folder1", MakeDate(2003,4,5));
-    AddFileToArchive(newarchive, "folder1/file2", StringToBlob("File nummer 2"), MakeDate(2002,2,3));
-    AddFolderToArchive(newarchive, "folder2", MakeDate(2004,5,6));
-    AddFolderToArchive(newarchive, "folder2/folder3", MakeDate(2005,6,7));
-    AddFileToArchive(newarchive, "tio_base/webdesigns/tio_corporate/bower_components/designfiles/frameworks.iframeresizer.contentwindow/file.js", DEFAULT BLOB, MakeDate(2002,1,1));
-
-    BLOB archive := MakeBlobFromArchive(newarchive);
-
-    RECORD ARRAY results := UnpackArchive(archive);
-    results := SELECT * FROM results ORDER BY path, name;
-
-    TestEq( [ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
-            , [ path := "folder1", name := "", modtime := DEFAULT DATETIME, data := DEFAULT BLOB ]
-            , [ path := "folder1", name := "file2", modtime := MakeDate(2002,2,3), data := StringToBlob("File nummer 2") ]
-            , [ path := "folder2", name := "", modtime := DEFAULT DATETIME, data := DEFAULT BLOB ]
-            , [ path := "folder2/folder3", name := "", modtime := DEFAULT DATETIME, data := DEFAULT BLOB ]
-            , [ path := "tio_base/webdesigns/tio_corporate/bower_components/designfiles/frameworks.iframeresizer.contentwindow", name := "file.js", modtime := MakeDate(2002,1,1), data := DEFAULT BLOB ]
-            ], results);
-  }
-
-  {
     DATETIME start := GetCurrentDatetime();
     OBJECT newarchive := CreateNewArchive("zip");
     newarchive->AddFile("file1", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
@@ -432,10 +408,6 @@ MACRO ArchiveTest()
            ], results);
   }
 
-
-  //This crashed once (incorrect destruction ordering in HSVM Context)
-  RECORD result := TestCompileAndRun('<?wh LOADLIB "wh::filetypes/archiving.whlib"; CreateArchive(); ');
-  TestCleanResult(8,result.errors);
 
   // Test of rewrite of UnpackArchive via new Archive object
   BLOB ziparchiveblob := OpenTestFile("ziptest.zip");
@@ -514,27 +486,6 @@ MACRO ArchiveTest()
 //    TestEq("testcommentaar", ziparchive->archivecomment);
 
     ziparchive->Close();
-  }
-
-  {
-    OBJECT targzarchive := OpenExistingArchive(targzarchiveblob);
-
-    RECORD ARRAY targzentries :=
-        SELECT *
-             , data := type = 0 ? BlobToString(targzarchive->GetFile(fullpath), -1) : ""
-          FROM targzarchive->entries
-      ORDER BY fullpath;
-
-    TestEqual(30,
-        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 26), size := 12, size64 := 12i64, data := "dit is file1" ]
-        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  size64 := 0i64,  data := "" ]
-        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 40), size := 12, size64 := 12i64, data := "dit is file2" ]
-        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  size64 := 0i64,  data := "" ]
-        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  size64 := 0i64,  data := "" ]
-        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 34), size := 12, size64 := 12i64, data := "dit is file3" ]
-        ], targzentries);
-
-    targzarchive->Close();
   }
 
   /* An archive consisting of

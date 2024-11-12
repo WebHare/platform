@@ -325,11 +325,6 @@ OBJECTTYPE Archive
   STRING pvt_archivecomment;
 
 
-  /** Mimetype of the archive
-  */
-  STRING pvt_contenttype;
-
-
   /** @type(object #ZIPArchivereader) For zipfiles, ZIP archive reader
   */
   OBJECT pvt_zipfile;
@@ -385,58 +380,24 @@ OBJECTTYPE Archive
     IF(contenttype="")
       contenttype := ScanBlob(data, "").mimetype;
 
-    // Store the contenttype
-    this->pvt_contenttype := contenttype;
+    IF(contenttype = "application/x-gzip")
+      THROW NEW Exception(`.tar.gz generation is no longer supported`);
 
     IF(NOT isnew)
     {
-      IF(contenttype = "application/x-gzip")
-      {
-        INTEGER str := OpenBlobAsDecompressingStream(data, "GZIP");
-        TRY
-        {
-          RECORD ARRAY raw_entries := ReadTarFileFromStream(str);
-
-          this->pvt_entries :=
-              SELECT *
-                   , DELETE data
-                   , size := LENGTH(COLUMN data)
-                   , size64 := LENGTH64(COLUMN data)
-                FROM raw_entries
-            ORDER BY fullpath;
-
-          this->pvt_cachedfiles :=
-              SELECT fullpath
-                   , COLUMN data
-                FROM raw_entries
-            ORDER BY fullpath;
-        }
-        FINALLY
-        {
-          CloseZlibDecompressor(str);
-        }
-      }
-      ELSE
-      {
-        //try zip
-        this->pvt_zipfile := NEW ZIPArchiveReader(data);
-        this->pvt_entries :=
-            SELECT fullpath
-                 , type
-                 , path
-                 , name
-                 , modtime
-                 , size :=      size > 2147483647i64 ? 2147483647 : INTEGER(size)
-                 , size64 :=    size
-              FROM this->pvt_zipfile->entries
-          ORDER BY fullpath;
-        this->pvt_archivecomment := this->pvt_zipfile->comment;
-        this->pvt_contenttype := "application/zip";
-      }
+      this->pvt_zipfile := NEW ZIPArchiveReader(data);
+      this->pvt_entries :=
+          SELECT fullpath
+                , type
+                , path
+                , name
+                , modtime
+                , size :=      size > 2147483647i64 ? 2147483647 : INTEGER(size)
+                , size64 :=    size
+            FROM this->pvt_zipfile->entries
+        ORDER BY fullpath;
+      this->pvt_archivecomment := this->pvt_zipfile->comment;
     }
-
-    IF(isnew AND NOT this->CanWriteArchive())
-       THROW NEW Exception("Cannot create new archives of type '"||this->pvt_contenttype||"'");
   }
 
   // ---------------------------------------------------------------------------
@@ -478,7 +439,7 @@ OBJECTTYPE Archive
   */
   PUBLIC BOOLEAN FUNCTION CanWriteArchive()
   {
-    RETURN this->pvt_contenttype IN [ "application/zip", "application/x-gzip" ];
+    RETURN TRUE;
   }
 
   /** Returns a decompressed file from the archive
@@ -635,34 +596,17 @@ OBJECTTYPE Archive
     this->pvt_entries := SELECT * FROM new_entries ORDER BY fullpath;
   }
 
-  /** Sort the entries to optimize for compression size (only needed for targz archives)
-  */
-  PUBLIC MACRO OptimizeArchiveSorting()
-  {
-    //folders first and group files by related extensions, will generally improve intra-file compression for targz
-    this->pvt_entries := SELECT *
-                           FROM this->pvt_entries AS entry
-                       ORDER BY entry.type = 1 DESC //all folders first
-                              , entry.type = 0 ? ToUppercase(GetExtensionFromPath(entry.fullpath)) : "";
-  }
-
   /** Create a blob with the current archive entries
       @return Archive data
   */
   PUBLIC BLOB FUNCTION MakeBlob()
   {
-    IF(NOT this->CanWriteArchive())
-       THROW NEW Exception("Cannot write archives of type '"||this->pvt_contenttype||"'");
-
-    BOOLEAN is_targz := this->pvt_contenttype != "application/zip";
-    INTEGER archiveid := __CreateArchive(is_targz, this->compressionlevel);
+    INTEGER archiveid := __CreateArchive(this->compressionlevel);
 
     MONEY totallen := (SELECT AS MONEY Sum(MONEY(size)) FROM this->entries);
     MONEY donelen := 0;
 
-    // Tar-gz doesn't support archive comments
-    IF (NOT is_targz)
-      SetArchiveComment(archiveid, this->pvt_archivecomment);
+    SetArchiveComment(archiveid, this->pvt_archivecomment);
 
     FOREVERY (RECORD entry FROM this->entries)
     {
@@ -709,44 +653,24 @@ OBJECTTYPE Archive
 RECORD ARRAY archives;
 INTEGER counter;
 
-INTEGER FUNCTION __CreateArchive(BOOLEAN targz, INTEGER compressionlevel)
+INTEGER FUNCTION __CreateArchive(INTEGER compressionlevel)
 {
   counter := counter + 1;
 
   INTEGER id := counter;
   RECORD rec;
-  IF (targz)
-  {
-    id := -id; // negative, to separate from ZIP archives which have positive id's
-    INTEGER outstream := CreateStream();
-    rec := CELL
-        [ id
-        , outstream
-        , compressor :=   CreateZlibCompressor(outstream, "GZIP", compressionlevel)
-        ];
-  }
-  ELSE
-  {
-    rec := CELL
-        [ id
-        , archive :=    NEW ZIPArchiveWriter(CELL[ compressionlevel ])
-        ];
-  }
+
+  rec := CELL
+      [ id
+      , archive :=    NEW ZIPArchiveWriter(CELL[ compressionlevel ])
+      ];
   INSERT rec INTO archives AT RecordUpperBound(archives, rec, [ "ID" ]);
   RETURN id;
 }
 
-/** @private deprecated
-    @return New archive id
-*/
-PUBLIC INTEGER FUNCTION CreateArchive()
-{
-  RETURN __CreateArchive(TRUE, 9);
-}
-
 /** @short Create a new archive file object
     @long This function creates an empty new archive file object
-    @param type Type of archive. Possible options: 'zip', 'tar.gz'/'targz'/'tgz'.
+    @param type Type of archive. Possible options: 'zip'
     @cell options.compressionlevel Compression level for new files, 1-9. Defaults to 6.
     @return Archive object
     @see  Archive
