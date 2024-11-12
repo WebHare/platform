@@ -130,49 +130,16 @@ PUBLIC SCHEMA
 
   , TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "postertype" NULL := 0
-    , STRING "uuid"
+    , DATETIME "closedate"
     ; KEY id
     > forums
   , TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "forum" NULL := 0
-    , INTEGER "parent" NULL := 0
-    , STRING "title"
-    , STRING "description"
-    , INTEGER "numtopics"
-    , STRING "tag"
-    , DATETIME "creationdate"
-    , INTEGER "ordering"
-    , BOOLEAN "newtopics"
-    ; KEY id
-    > subforums
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , DATETIME "creationdate"
-    , INTEGER "subforum" NULL := 0
-    , STRING "topic"
-    , INTEGER "firstposting" NULL := 0
-    , INTEGER "lastposting" NULL := 0
-    , INTEGER "ordering"
-    , INTEGER "numentries"
-    , BOOLEAN "sticky"
-    , STRING "tag"
-    , BOOLEAN "locked"
-    , INTEGER "linkedfileid" NULL := 0
-    , DATETIME "closedate"
-    ; KEY id
-    > forumtopics
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "topic" NULL := 0
     , INTEGER "inreplyto" NULL := 0
+    , INTEGER "forum" NULL := 0
     , DATETIME "creationdate"
     , DATETIME "modificationdate"
-    , INTEGER "postingtype"
     , STRING "content"
-    , STRING subject
-    , BOOLEAN "attachments"
     , STRING "postersource"
     , STRING "postername"
     , STRING "posteremail"
@@ -180,20 +147,6 @@ PUBLIC SCHEMA
     , BOOLEAN "deleted"
     ; KEY id
     > forumpostings
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "posting" NULL := 0
-    , BLOB "data"
-    , BLOB "displayversion"
-    , STRING "mimetype"
-    , STRING "displaymimetype"
-    , STRING "filename"
-    , STRING "description"
-    , INTEGER "ordering"
-    , INTEGER "type"
-    ; KEY id
-    > forumattachments
-
 
     ///////////////////////////////////////////////////////////////
     //
