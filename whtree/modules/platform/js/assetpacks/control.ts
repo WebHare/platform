@@ -231,10 +231,7 @@ class AssetPackController implements BackendServiceController {
       if (!res)
         continue;
 
-      //TODO pre-filtering eg generated/ urls might be nice to reduce invalidation traffic?
-      if (!res.includes("generated/"))
-        console.log("Resource change", res);
-
+      //TODO pre-filtering eg generated/ urls in the watcher might be nice to reduce invalidation traffic?
       if (res.startsWith("direct::")) //updates to resources outside mod:: aret transmitted as direct:: paths, but assetpack state stores simply the fullpath, so translate!
         res = res.substring(8);
 
