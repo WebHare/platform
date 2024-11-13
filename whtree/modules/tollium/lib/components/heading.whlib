@@ -16,6 +16,9 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
   PUBLIC PROPERTY enablecomponents(GetEnableComponents, SetEnableComponents);
   PUBLIC PROPERTY doclink(__doclink, SetDocLink);
   UPDATE PUBLIC PROPERTY title(GetSubTitle, SetSubTitle);
+  UPDATE PUBLIC PROPERTY width(pvt_width, SetWidth);
+
+  PUBLIC PROPERTY wordwrap(this->headingtitle->wordwrap, this->headingtitle->wordwrap);
 
   MACRO NEW()
   {
@@ -34,6 +37,7 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
     this->title := def.title;
     this->headingtitle->isheading := TRUE;
     this->doclink := def.doclink;
+    this->wordwrap := def.wordwrap;
   }
 
   UPDATE MACRO PreInitComponent()
@@ -128,5 +132,11 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
   MACRO SetSubTitle(STRING newtitle)
   {
     this->headingtitle->value := newtitle;
+  }
+
+  MACRO SetWidth(STRING width)
+  {
+    this->pvt_width := width;
+    this->headingtitle->width := width;
   }
 >;

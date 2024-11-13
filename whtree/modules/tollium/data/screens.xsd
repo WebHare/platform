@@ -3603,6 +3603,11 @@ To change a <xs:attribute /> for adding descriptions
         <xs:documentation>Link to documentation. If relative, will be ignored if no base url for documentation is set</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="wordwrap" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Wrap long lines. Defaults to false</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:element name="virtualcell">

@@ -263,7 +263,7 @@ function executeCompiledTidText(text: string | LanguagePart[], params: string[],
       if (rich && render)
         parts.push(render(tok.tag as keyof HTMLElementTagNameMap, { children: sub }));
       else
-        parts.push(rich ? `<${tok.tag}>${sub}</${tok.tag}>` : sub);
+        parts.push(...(rich ? [`<${tok.tag}>`, ...sub, `</${tok.tag}>`] : sub));
     } else if (tok.t === "ifparam") {
       const get_param = params[tok.p - 1] || "";
       parts.push(...executeCompiledTidText(get_param.toUpperCase() === tok.value.toUpperCase() ? tok.subs : tok.subselse, params, rich, render));
@@ -275,12 +275,15 @@ function executeCompiledTidText(text: string | LanguagePart[], params: string[],
           link = params[tok.linkparam - 1] || link;
         }
         if (link) {
-          parts.push(render ? render("a", { href: link, children: sub }) : `<a href="${encodeString(link, "attribute")}">${sub}</a>`);
+          if (render)
+            parts.push(render("a", { href: link, children: sub }));
+          else
+            parts.push(`<a href="${encodeString(link, "attribute")}">`, ...sub, `</a>`);
         } else {
           parts.push(...sub);
         }
       } else {
-        parts.push(sub);
+        parts.push(...sub);
       }
     }
   }
