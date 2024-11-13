@@ -155,7 +155,10 @@ test.registerTests([
     const html_texts: RecursiveLanguageTexts = {
       "tags": [{ t: "tag", tag: "b", subs: ["Vet!"] }],
       "encoding": `Codeer <tag> en &lt;`,
-      "params": [{ t: "a", link: "http://b-lex.nl/?quot=&quot;&amp;aap=&lt;noot&gt;", subs: [1], linkparam: 0, target: "_blank" }]
+      "params": [{ t: "a", link: "http://b-lex.nl/?quot=&quot;&amp;aap=&lt;noot&gt;", subs: [1], linkparam: 0, target: "_blank" }],
+      "regression": {
+        "tag_param_string": [{ t: "tag", tag: "b", subs: [1, " suffix"] }]
+      }
     };
 
     registerTexts("html", "nl", html_texts);
@@ -175,6 +178,10 @@ test.registerTests([
 
     test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, (<div>{getTid("html:params", ["<hr/>\n"], { render: jsxcreate })}</div>).innerHTML);
     test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, (<div>{getTid("html:params", ["<hr/>\n"], { render: "fragment" })}</div>).innerHTML);
+
+    // Regression: A comma would get placed between param and string within a tag
+    test.eq("param suffix", getTid("html:regression.tag_param_string", "param"));
+    test.eq("<b>param suffix</b>", getTid.html("html:regression.tag_param_string", "param"));
   },
 
   "Generated tids",
