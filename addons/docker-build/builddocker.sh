@@ -87,7 +87,7 @@ echo ""
 echo "Packaging source tree for the WebHare runner"
 
 # Prune empty directories
-find "$WEBHARE_CHECKEDOUT_TO/whtree" -type d -empty -delete
+find "$WEBHARE_CHECKEDOUT_TO" -type d -empty -delete
 
 # Enable noisier progress info, otherwise we can't actually see what the long-taking steps are ding
 DOCKERBUILDARGS+=(--progress)

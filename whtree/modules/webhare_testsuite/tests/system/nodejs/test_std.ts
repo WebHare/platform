@@ -73,6 +73,8 @@ function testMoney() {
   test.eq('"-2.30001"', JSON.stringify(Money.fromNumber(-2.300005000000000)));
   test.eq('"-2.30001"', JSON.stringify(Money.fromNumber(-2.300009999999999)));
   test.eq(new Money("2.3"), Money.fromNumber(2.3000000000000003));
+  test.eq(2.25, Money.fromNumber(2.25).toNumber());
+  test.eq(2.99999, new Money("2.99999").toNumber());
 
   // testPresentation
   test.eq("0.00", new Money("0").format());
