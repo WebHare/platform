@@ -62,6 +62,9 @@ PUBLIC SCHEMA
 OBJECT trans := OpenPrimary();
 legacy_publisher := BindTransactionToSchema(trans->id,"publisher");
 
+IF(NOT trans->ColumnExists("publisher","subforums","id"))
+  RETURN; //new WH5.6/7 server, no need to migrate
+
 RECORD ARRAY subforums := SELECT * FROM legacy_publisher.subforums;
 IF(Length(subforums) > 0)
 {
