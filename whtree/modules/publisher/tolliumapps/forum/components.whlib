@@ -6,8 +6,6 @@ LOADLIB "mod::publisher/lib/webtools/forum.whlib";
 PUBLIC OBJECTTYPE Postings EXTEND TolliumFragmentBase
 <
   OBJECT forum;
-  RECORD currentsubforum;
-  RECORD currenttopic;
   RECORD ARRAY originalcolumns;
   INTEGER fsobjectid;
 
@@ -59,18 +57,14 @@ PUBLIC OBJECTTYPE Postings EXTEND TolliumFragmentBase
 
   MACRO RefreshList()
   {
-    RECORD ARRAY postings;
-    IF(RecordExists(this->currenttopic))
-    {
-      postings := SELECT rowkey := id
+    RECORD ARRAY postings := SELECT rowkey := id
                        , posttime := creationdate
                        , postername
-                       , subject
                        , canreply := FALSE
                     FROM publisher.forumpostings
-                   WHERE topic = this->currenttopic.id
+                   WHERE forum = this->fsobjectid
                          AND NOT deleted;
-    }
+
     this->postinglist->rows := postings;
     this->OnPostingLIstSelect();
   }
@@ -86,14 +80,7 @@ PUBLIC OBJECTTYPE Postings EXTEND TolliumFragmentBase
       this->fsobjectid := fsobjectid;
 
       RECORD ARRAY usecolumns := this->originalcolumns;
-      IF(NOT this->forum->config.subjects)
-        DELETE FROM usecolumns WHERE name="subject";
-
       this->postinglist->columns := usecolumns;
-
-      this->currentsubforum := this->forum->SelectOnlySubforum();
-      this->currenttopic := this->forum->SelectOnlyTopic(fsobjectid);
-
       this->RefreshList();
     }
     CATCH(OBJECT e)
@@ -106,7 +93,7 @@ PUBLIC OBJECTTYPE Postings EXTEND TolliumFragmentBase
 
   PUBLIC DATETIME FUNCTION GetCurrentCloseDate()
   {
-    RETURN RecordExists(this->currenttopic) ? this->currenttopic.closedate : this->forum->GetInitialTopicCloseDate(this->fsobjectid);
+    RETURN this->forum->closedate;
   }
 
   PUBLIC MACRO HandleSubmission(OBJECT work)

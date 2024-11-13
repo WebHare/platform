@@ -46,7 +46,6 @@
                           > -->
                   <column name="posttime" type="datetime" />
                   <column name="postername" type="text" />
-                  <column name="subject" type="text" />
                 </list>
               </cell>
               <cell>

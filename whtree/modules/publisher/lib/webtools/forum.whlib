@@ -13,30 +13,18 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 STRING nsforumsettings := "http://www.webhare.net/xmlns/publisher/siteprofile";
 
-RECORD FUNCTION GetOnlyTopic(INTEGER subforumid, INTEGER storedfileid)
-{
-  RETURN SELECT *
-          FROM publisher.forumtopics
-         WHERE forumtopics.subforum = VAR subforumid
-               AND (storedfileid = 0 OR forumtopics.linkedfileid = storedfileid)
-       ORDER BY creationdate;
-}
 
 STATIC OBJECTTYPE ForumObject
 <
   INTEGER forumid;
   RECORD pvt_config;
-  RECORD foruminfo;
-  RECORD selectedforum;
-  RECORD selectedtopic;
-
-  INTEGER selectedtopicid;
-  INTEGER selectedstoredfileid;
   OBJECT forumplugin;
   OBJECT webcontext;
+  DATETIME __closedate;
 
   PUBLIC PROPERTY config(this->forumplugin->config, -);
   PUBLIC PROPERTY id(forumid, -);
+  PUBLIC PROPERTY closedate(__closedate, -);
 
   MACRO NEW(INTEGER forumid)
   {
@@ -46,8 +34,6 @@ STATIC OBJECTTYPE ForumObject
     IF(NOT ObjectExists(this->forumplugin))
       THROW NEW Exception("No forum plugin registered for #" || forumid);
 
-    IF(this->config.type NOT IN ["forum","singletopic","comments"])
-      THROW NEW Exception(`Invalid forum type '${this->config.type}'`);
     IF(this->config.postsperpage <= 0)
       THROW NEW Exception(`Invalid maximum posts per page: ${this->config.postsperpage}`);
 
@@ -57,102 +43,11 @@ STATIC OBJECTTYPE ForumObject
   MACRO LoadForumFromDB()
   {
     OBJECT trans := GetPrimary();
-    this->foruminfo := SELECT * FROM publisher.forums WHERE id=this->forumid;
-
-    IF(NOT RecordExists(this->foruminfo))
-    {
-      OBJECT createmutex := OpenLockManager()->LockMutex("publisher:setupforum");
-      this->foruminfo := SELECT * FROM publisher.forums WHERE id=this->forumid;
-      IF(NOT RecordExists(this->foruminfo))
-      {
-        trans->BeginWork();
-        INSERT INTO publisher.forums(id)
-               VALUES(this->forumid);
-        this->foruminfo := SELECT * FROM publisher.forums WHERE id=this->forumid;
-        trans->CommitWork();
-      }
-      createmutex->Close();
-    }
-
-  }
-
-  INTEGER FUNCTION CreatePost(INTEGER topicid, RECORD post, DATETIME now)
-  {
-    IF(post.messagetype != "text/plain")
-      THROW NEW Exception("only supporting text/plain now");
-    IF(Length(post.message)>=4096)
-      THROW NEW Exception("only supporting posting up to 4k now"); //FIXME make sure formapi enforces this length
-
-    BOOLEAN hasattachments;
-    INTEGER postid := MakeAutonumber(publisher.forumpostings,"id");
-    IF(CellExists(post,'images') AND Length(post.images)>0)
-    {
-      hasattachments := TRUE;
-
-      FOREVERY(RECORD img FROM post.images)
-      {
-        BLOB displayversion;
-        STRING displaytype;
-
-        IF(RecordExists(this->config.imagedisplaymethod))
-        {
-          RECORD result := GfxResizeImageBlobWithMethod(img.data, this->config.imagedisplaymethod);
-          IF(RecordExists(result))
-          {
-            displayversion := result.data;
-            displaytype := result.mimetype;
-          }
-        }
-
-        INSERT INTO publisher.forumattachments(posting, data, mimetype, filename, ordering, type, displayversion, displaymimetype)
-               VALUES(postid, img.data, img.mimetype, img.filename, #img+1, 2, displayversion, displaytype);
-      }
-    }
-    INSERT INTO publisher.forumpostings(id, topic, creationdate, modificationdate, content, subject
-                                      ,postersource, postername, posteremail, posteruid, attachments)
-           VALUES(postid, topicid, now, now, post.message, CellExists(post,'subject') ? post.subject : ""
-                 ,post.source, post.name, post.email, CellExists(post,'posteruid') ? post.posteruid : '' , hasattachments);
-    RETURN postid;
-  }
-
-  PUBLIC BOOLEAN FUNCTION MayHaveSubforums()
-  {
-    RETURN this->config.type NOT IN ["forum","comments","singletopic"];
-  }
-  PUBLIC BOOLEAN FUNCTION MayHaveTopics()
-  {
-    RETURN this->config.type NOT IN ["comments","singletopic"];
-  }
-  PUBLIC BOOLEAN FUNCTION IsCommentsForum()
-  {
-    RETURN this->config.type = "comments";
-  }
-
-  PUBLIC RECORD FUNCTION SelectOnlySubforum()
-  {
-    IF(this->MayHaveSubforums())
-      THROW NEW Exception("Cannot invoke SelectOnlySubforum() on a forum supporting multiple subforums");
-
-    IF(NOT RecordExists(this->selectedforum))
-      this->selectedforum := SELECT * FROM publisher.subforums WHERE forum=this->forumid AND parent = 0 ORDER BY creationdate;
-    IF(RecordExists(this->selectedforum))
-      RETURN this->selectedforum;
-
-    OBJECT trans := GetPrimary();
-    trans->BeginWork();
-
-    OBJECT createmutex := OpenLockManager()->LockMutex("publisher:setupforum");
-    this->selectedforum := SELECT * FROM publisher.subforums WHERE forum=this->forumid AND parent=0 ORDER BY creationdate;
-    IF(NOT RecordExists(this->selectedforum))
-    {
-      INTEGER topicid := MakeAutonumber(publisher.subforums,"id");
-      INSERT INTO publisher.subforums(id, forum, creationdate, newtopics)
-             VALUES(topicid, this->forumid, GetCurrentDatetime(), TRUE);
-      this->selectedforum := SELECT * FROM publisher.subforums WHERE id = topicid;
-    }
-    trans->CommitWork();
-    createmutex->Close();
-    RETURN this->selectedforum;
+    RECORD foruminfo := SELECT * FROM publisher.forums WHERE id = this->forumid;
+    IF(RecordExists(foruminfo))
+      this->__closedate := foruminfo.closedate;
+    ELSE
+      this->__closedate := this->GetInitialTopicCloseDate();
   }
 
   DATETIME FUNCTION CalculateInitialCloseDate(DATETIME startdate)
@@ -160,38 +55,13 @@ STATIC OBJECTTYPE ForumObject
     RETURN GetRoundedDatetime(AddDaysToDate(this->config.autoclose, startdate), 86400 * 1000); //FIXME keep forum's timezone
   }
 
-  PUBLIC RECORD FUNCTION SelectOnlyTopic(INTEGER storedfileid)
+  DATETIME FUNCTION GetInitialTopicCloseDate()
   {
-    IF(this->MayHaveTopics())
-      THROW NEW Exception("Cannot invoke SelectOnlyTopic() on a forum supporting multiple subforums");
-    IF(this->config.type = "comments" AND storedfileid=0)
-      THROW NEW Exception("A comments forum requires a selected file id when selecting a topic");
-    IF(this->config.type != "comments")
-    {
-      IF(storedfileid != 0 AND storedfileid != this->forumid)
-        THROW NEW Exception("Only a comments forum expects a selected file id when selecting a topic");
-      storedfileid := 0;
-    }
-
-    IF(NOT RecordExists(this->selectedforum))
-      this->selectedforum := this->SelectOnlySubforum();
-
-    this->selectedtopic := GetOnlyTopic(this->selectedforum.id, storedfileid);
-    this->selectedtopicid := RecordExists(this->selectedtopic) ? this->selectedtopic.id : -1;
-    this->selectedstoredfileid := storedfileid;
-    RETURN this->selectedtopic;
-  }
-
-  PUBLIC DATETIME FUNCTION GetInitialTopicCloseDate(INTEGER storedfileid)
-  {
-    IF(this->config.type != "comments")
-      THROW NEW Exception("Only a comments forum expects a selected file id when selecting a topic");
-
     IF(this->config.autoclose = 0)
       RETURN DEFAULT DATETIME;
 
     //The topic never started, so get the objects creationdate
-    DATETIME topicstart := SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id=storedfileid;
+    DATETIME topicstart := SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = this->id;
     IF(topicstart = DEFAULT DATETIME)
       RETURN DEFAULT DATETIME;
     RETURN this->CalculateInitialCloseDate(topicstart);
@@ -199,77 +69,54 @@ STATIC OBJECTTYPE ForumObject
 
   PUBLIC MACRO SetCloseDate(DATETIME newclosedate)
   {
+    IF(newclosedate = this->__closedate)
+      RETURN;
+
     //ADDME how to guard against dupe thread creation
     GetPrimary()->PushWork();
-    IF(RecordExists(this->selectedtopic))
-      UPDATE publisher.forumtopics SET closedate := newclosedate WHERE id = this->selectedtopic.id;
+    IF(RecordExists(SELECT FROM publisher.forums WHERE id = this->id))
+      UPDATE publisher.forums SET closedate := newclosedate WHERE id = this->id;
     ELSE
-      INSERT INTO publisher.forumtopics(subforum, linkedfileid, closedate)
-             VALUES(this->selectedforum.id, this->id, newclosedate);
-    GetPrimary()->PopWork();
+      INSERT INTO publisher.forums(id,closedate) VALUES(this->id, newclosedate);
 
-    this->selectedtopic := this->SelectOnlyTopic(this->id);
+    this->__closedate := newclosedate;
+    GetPrimary()->PopWork();
   }
 
   /** @short Add a post
       @long Add post to currenly selected topic */
   PUBLIC INTEGER FUNCTION AddPost(RECORD postdata)
   {
-    IF(NOT RecordExists(this->selectedforum))
-      THROW NEW Exception("No subforum selected");
+    postdata := ValidateOptions(CELL[ messagetype := "", message := "", source := "", name := "", email := "", posteruid := "", sourceurl := "" ],
+                                postdata,
+                                [ title := "comment post", required := ["message"]]);
+    IF(postdata.messagetype != "text/plain")
+      THROW NEW Exception("only supporting text/plain now");
+    IF(Length(postdata.message) >= 4096)
+      THROW NEW Exception("only supporting posting up to 4k now"); //FIXME make sure formapi enforces this length
+    IF(this->closedate != DEFAULT DATETIME AND this->closedate < GetCurrentDatetime())
+      THROW NEW Exception("This topic is already closed");
 
-    INTEGER postid;
+    //Either way, we have a selectedtopic now, and must add our post to it
+    OBJECT trans := GetPrimary();
+    DATETIME now := GetCurrentDatetime();
+    trans->BeginLockedWork("publisher:forumposting-" || this->id);
 
-    IF(NOT RecordExists(this->selectedtopic))
+    IF(NOT RecordExists(SELECT FROM publisher.forums WHERE id = this->id))
     {
-      IF(this->selectedtopicid = -1)
-      {
-        //the special case of 'only topic' which has been selected but not yet created
-        RECORD createresult := this->CreateTopicWithPost(this->selectedstoredfileid, postdata);
-        this->selectedtopic := createresult.topic;
-        this->selectedtopicid := createresult.topic.id;
-
-        IF(NOT createresult.conflict)
-          postid := createresult.postid;
-      }
-      ELSE
-      {
-        THROW NEW Exception("No topic for the new post selected");
-      }
-    }
-    ELSE
-    {
-      IF(this->selectedtopic.closedate != DEFAULT DATETIME AND this->selectedtopic.closedate < GetCurrentDatetime())
-        THROW NEW Exception("This topic is already closed");
+      INSERT INTO publisher.forums(id, closedate)
+             VALUES(this->id, this->GetInitialTopicCloseDate());
     }
 
-    IF(postid = 0) //not yet
-    {
-      //Either way, we have a selectedtopic now, and must add our post to it
-      OBJECT trans := GetPrimary();
-      DATETIME now := GetCurrentDatetime();
-      trans->BeginWork();
+    INTEGER postid := MakeAutonumber(publisher.forumpostings,"id");
+    INSERT INTO publisher.forumpostings(id, forum, creationdate, modificationdate, content
+                                      ,postersource, postername, posteremail, posteruid)
+           VALUES(postid, this->id, now, now, postdata.message
+                 ,postdata.source, postdata.name, postdata.email, postdata.posteruid);
 
-      postid := this->CreatePost(this->selectedtopicid, postdata, now);
-      UPDATE publisher.forumtopics
-             SET lastposting := postid
-               , numentries := numentries + 1
-             WHERE id = this->selectedtopicid;
+    this->HandlePostAfterEffects(postdata);
 
-      //Is numentries 0 (even on the updated record, resolving any stale read in the case of parallel add attempt?)
-      IF(this->selectedtopic.numentries = 0 AND (SELECT AS INTEGER numentries FROM publisher.forumtopics WHERE id=this->selectedtopicid)=1)
-      {
-        UPDATE publisher.forumtopics
-               SET firstposting := postid
-                 , creationdate := now
-               WHERE id = this->selectedtopicid;
-      }
-      this->HandlePostAfterEffects(postdata);
-
-      trans->CommitWork();
-      this->selectedtopic.numentries := this->selectedtopic.numentries + 1;
-      this->selectedtopic.lastposting := postid;
-    }
+    trans->CommitWork();
     RETURN postid;
   }
 
@@ -285,7 +132,7 @@ STATIC OBJECTTYPE ForumObject
                              , sourcetitle := ""
                              ];
 
-      OBJECT targetfile := OpenWHFSObject(this->selectedstoredfileid);
+      OBJECT targetfile := OpenWHFSObject(this->id);
       IF(ObjectExists(targetfile))
       {
         mailinfo.sourceresource := targetfile->GetResourceName();
@@ -297,9 +144,9 @@ STATIC OBJECTTYPE ForumObject
       TRY
       {
         SetTidLanguage(this->webcontext->languagecode);
-        OBJECT applytester := GetApplyTesterForObject(this->selectedstoredfileid);
+        OBJECT applytester := GetApplyTesterForObject(this->id);
         STRING mailtemplate := applytester->GetDefaultMailTemplate();
-        OBJECT webcontext := __GetWebContextForApplyTester(applytester, this->selectedstoredfileid);
+        OBJECT webcontext := __GetWebContextForApplyTester(applytester, this->id);
         OBJECT mail := PrepareMailWitty(`mod::publisher/witty/forumposting.html.witty:forumpostingmail`, CELL[ mailtemplate, webcontext ]);
         mail->mailto := TokenizeEmailAddresses(this->config.mailpostingsto);
         mail->mergerecord := mailinfo;
@@ -312,59 +159,15 @@ STATIC OBJECTTYPE ForumObject
     }
   }
 
-  RECORD FUNCTION CreateTopicWithPost(INTEGER storedfileid, RECORD firstpost)
+
+  PUBLIC INTEGER FUNCTION GetNumEntries()
   {
-    OBJECT trans := GetPrimary();
-    OBJECT createmutex := OpenLockManager()->LockMutex("publisher:setupforum");
-    trans->BeginWork();
-
-    RECORD topic := GetOnlyTopic(this->selectedforum.id, storedfileid);
-    IF(RecordExists(topic))
-    {
-      trans->RollbackWork();
-      createmutex->Close();
-      RETURN [ conflict := TRUE, topic := topic ];
-    }
-
-    //We are able to create the topic, so go for it
-    DATETIME now := GetCurrentDatetime();
-    INTEGER topicid := MakeAutonumber(publisher.forumtopics,"id");
-    INTEGER firstpostid := this->CreatePost(topicid, firstpost, now);
-    DATETIME closedate;
-    IF(this->config.autoclose != 0)
-      closedate := this->CalculateInitialCloseDate(GetCurrentDatetime());
-
-    INSERT INTO publisher.forumtopics(id, subforum, creationdate, linkedfileid, firstposting, lastposting, numentries, closedate)
-           VALUES(topicid, this->selectedforum.id, now, storedfileid, firstpostid, firstpostid, 1, closedate);
-    topic := SELECT * FROM publisher.forumtopics WHERE id = topicid;
-
-    this->HandlePostAfterEffects(firstpost);
-    trans->CommitWork();
-    createmutex->Close();
-
-    RETURN [ conflict := FALSE
-           , topic := topic
-           , postid := firstpostid
-           ];
+    RETURN LENGTH(SELECT FROM publisher.forumpostings WHERE forum = this->id AND NOT deleted);
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetForumCommentCounters()
-  {
-    RETURN SELECT linkedfileid, numentries
-             FROM publisher.forumtopics, publisher.subforums
-            WHERE linkedfileid != 0
-                  AND forumtopics.subforum = subforums.id
-                  AND subforums.forum = this->forumid;
-  }
   PUBLIC INTEGER FUNCTION GetNumMessagePages()
   {
-    IF(NOT RecordExists(this->selectedtopic))
-    {
-      IF(this->selectedtopicid = -1)
-        RETURN 0; //selected 'only topic'
-      THROW NEW Exception("No topic selected");
-    }
-    RETURN (this->selectedtopic.numentries + this->config.postsperpage - 1) / this->config.postsperpage;
+    RETURN (this->GetNumEntries() + this->config.postsperpage - 1) / this->config.postsperpage;
   }
 
   RECORD ARRAY FUNCTION GetMessages(INTEGER ARRAY postids, STRING userguid)
@@ -373,41 +176,14 @@ STATIC OBJECTTYPE ForumObject
     RECORD ARRAY posts := SELECT id
                                , creationdate
                                , modificationdate
-                               , postingtype
                                , content
                                , postername
                                , posteremail
-                               , images := DEFAULT RECORD ARRAY
-                               , attachments
-                               , subject
                                , candelete := userguid != "" AND userguid = posteruid
                             FROM publisher.forumpostings
                            WHERE id IN postids
                         ORDER BY SearchElement(postids,id);
-    INTEGER ARRAY posts_with_attachments := SELECT AS INTEGER ARRAY id FROM posts WHERE attachments;
-    IF(Length(posts_with_attachments) >0 )
-    {
-      RECORD ARRAY attachments := SELECT id, posting, mimetype, filename, description, type
-                                    FROM publisher.forumattachments
-                                   WHERE posting IN posts_with_attachments
-                                ORDER BY ordering, id;
 
-      FOREVERY(RECORD post FROM posts)
-        IF(post.attachments)
-        {
-          FOREVERY(RECORD attachment FROM SELECT * FROM attachments WHERE posting=post.id)
-          {
-            IF(attachment.type=2)
-            {
-              STRING baselink := "/.publisher/common/forum/download.shtml?attachment=" || EncryptForThisServer("publisher:forumattachment", CELL[id := attachment.id, cd := post.creationdate]);
-              INSERT INTO post.images(id, filename, description, fullversionlink, displayversionlink)
-                     VALUES(attachment.id, attachment.filename, attachment.description, baselink || "&v=full", baselink)
-                     AT END;
-            }
-          }
-          posts[#post]:=post;
-        }
-    }
     RETURN posts;
   }
 
@@ -419,17 +195,11 @@ STATIC OBJECTTYPE ForumObject
     OBJECT trans := GetPrimary();
     trans->BeginWork();
 
-    RECORD msg := SELECT topic
-                    FROM publisher.forumpostings
-                   WHERE deleted = FALSE
-                         AND id = msgid
-                         AND posteruid = userguid;
+    UPDATE publisher.forumpostings SET deleted := TRUE
+                                 WHERE deleted = FALSE
+                                       AND id = msgid
+                                       AND posteruid = userguid;
 
-    IF(RecordExists(msg))
-    {
-      UPDATE publisher.forumpostings SET deleted := TRUE WHERE id=msgid;
-      UPDATE publisher.forumtopics SET numentries := numentries - 1 WHERE id = msg.topic;
-    }
     trans->CommitWork();
   }
 
@@ -447,10 +217,11 @@ STATIC OBJECTTYPE ForumObject
     //Grab all message ids in the topic, sorted properly
     INTEGER ARRAY postids := SELECT AS INTEGER ARRAY id
                                FROM publisher.forumpostings
-                              WHERE topic = this->selectedtopicid
+                              WHERE forum = this->id
                                     AND NOT deleted
-                           ORDER BY this->config.newestfirst ? creationdate : DEFAULT DATETIME DESC
+                           ORDER BY (this->config.newestfirst ? creationdate : DEFAULT DATETIME) DESC
                                   , creationdate;
+
     //Slice the page
     postids := ArraySlice(postids, pagenum * this->config.postsperpage, this->config.postsperpage);
     RETURN this->GetMessages(postids, userguid);
