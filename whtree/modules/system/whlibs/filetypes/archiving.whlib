@@ -839,9 +839,18 @@ PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data)
   IF (IsDefaultValue(data))
     THROW NEW Exception(`Cannot unpack an empty file`);
 
+  STRING contenttype := ScanBlob(data, "").mimetype;
+  IF(contenttype = "application/x-gzip")
+  {
+    INTEGER stream := OpenBlobAsDecompressingStream(data,"GZIP");
+    RECORD ARRAY files := ReadTarFileFromStream(stream);
+    CloseZlibDecompressor(stream);
+    RETURN SELECT path,name,modtime,COLUMN data FROM files;
+  }
+
   TRY
   {
-    arch := NEW Archive(data, "", -1);
+    arch := NEW Archive(data, contenttype, -1);
     FOREVERY (RECORD rec FROM arch->entries)
     {
       INSERT

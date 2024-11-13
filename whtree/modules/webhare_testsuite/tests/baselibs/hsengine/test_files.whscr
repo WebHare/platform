@@ -422,14 +422,14 @@ MACRO ArchiveTest()
       ], results);
 
   BLOB targzarchiveblob := OpenTestFile("ziptest.tar.gz");
-  results := SELECT * FROM UnpackArchive(ziparchiveblob) ORDER BY path, name;
+  results := SELECT * FROM UnpackArchive(targzarchiveblob) ORDER BY path, name;
   TestEqual(11,
-      [ [ path := "",                   name := "file1.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 26), data := StringToBlob("dit is file1") ]
-      , [ path := "folder1",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), data := DEFAULT BLOB ]
-      , [ path := "folder1",            name := "file2.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 40), data := StringToBlob("dit is file2") ]
-      , [ path := "folder2",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), data := DEFAULT BLOB ]
-      , [ path := "folder2/folder3",    name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 58, 46), data := DEFAULT BLOB ]
-      , [ path := "folder2/folder3",    name := "file3.txt",modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), data := StringToBlob("dit is file3") ]
+      [ [ path := "",                   name := "file1.txt",modtime := MakeDateTime(2009, 3, 12, 13, 58, 26), data := StringToBlob("dit is file1") ]
+      , [ path := "folder1",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), data := DEFAULT BLOB ]
+      , [ path := "folder1",            name := "file2.txt",modtime := MakeDateTime(2009, 3, 12, 13, 58, 40), data := StringToBlob("dit is file2") ]
+      , [ path := "folder2",            name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), data := DEFAULT BLOB ]
+      , [ path := "folder2/folder3",    name := "",         modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), data := DEFAULT BLOB ]
+      , [ path := "folder2/folder3",    name := "file3.txt",modtime := MakeDateTime(2009, 3, 12, 13, 58, 34), data := StringToBlob("dit is file3") ]
       ], results);
 
   // New unpacking API
