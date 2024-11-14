@@ -310,7 +310,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
   /// Additional form classes
   PUBLIC STRING ARRAY formclasses;
 
-  /// Form JS handler. Defaults to publisher:rpc, unless it's a legacy form (no <page>s) which require JS registration
+  /// Form JS handler. Defaults to publisher:rpc
   PUBLIC STRING formjshandler;
 
   /// Custom data attributes

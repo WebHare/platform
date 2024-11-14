@@ -386,6 +386,7 @@ PUBLIC STATIC OBJECTTYPE ArchiveImporter EXTEND BulkReceiveOperation
     }
     CATCH (OBJECT e)
     {
+      LogHarescriptException(e);
       RETURN [ success := FALSE ];
     }
   }

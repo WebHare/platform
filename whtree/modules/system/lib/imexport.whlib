@@ -434,7 +434,7 @@ MACRO WriteXMLTableEnd(INTEGER outputid)
 BLOB FUNCTION CreateXMLDatabaseArchiveInternal(BLOB xmlfile, RECORD ARRAY outoflinerecs, RECORD ARRAY outoflineblobs)
 {
   DATETIME now := GetCurrentDatetime();
-  OBJECT archive := CreateNewArchive("tar.gz");
+  OBJECT archive := CreateNewArchive("zip");
   archive->AddFolder("hsxml", now);
   archive->AddFile("hsxml/database.xml", xmlfile, now);
 
