@@ -266,4 +266,8 @@ export class Money {
   toString(): string {
     return finmath.formatPrice(this.value, ".", 0);
   }
+
+  toNumber(): number {
+    return parseFloat(this.value);
+  }
 }
