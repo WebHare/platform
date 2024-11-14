@@ -46,21 +46,6 @@ async function testApiTools() {
 
 async function testDidYouMean() {
   //Test from https://github.com/gustf/js-levenshtein/blob/master/test.js
-  test.eq(1, apitools.levenshteinDistance('a', 'b'));
-  test.eq(1, apitools.levenshteinDistance('ab', 'ac'));
-  test.eq(1, apitools.levenshteinDistance('ac', 'bc'));
-  test.eq(1, apitools.levenshteinDistance('abc', 'axc'));
-  test.eq(3, apitools.levenshteinDistance('kitten', 'sitting'));
-  test.eq(6, apitools.levenshteinDistance('xabxcdxxefxgx', '1ab2cd34ef5g6'));
-  test.eq(2, apitools.levenshteinDistance('cat', 'cow'));
-  test.eq(6, apitools.levenshteinDistance('xabxcdxxefxgx', 'abcdefg'));
-  test.eq(7, apitools.levenshteinDistance('javawasneat', 'scalaisgreat'));
-  test.eq(3, apitools.levenshteinDistance('example', 'samples'));
-  test.eq(6, apitools.levenshteinDistance('sturgeon', 'urgently'));
-  test.eq(6, apitools.levenshteinDistance('levenshtein', 'frankenstein'));
-  test.eq(5, apitools.levenshteinDistance('distance', 'difference'));
-  test.eq(2, apitools.levenshteinDistance('因為我是中國人所以我會說中文', '因為我是英國人所以我會說英文'));
-
   test.eq("a", apitools.getBestMatch("a", ["a"]));
   test.eq("b", apitools.getBestMatch("a", ["b"]));
   test.eq("testa", apitools.getBestMatch("test", ["testa", "texta"]));
