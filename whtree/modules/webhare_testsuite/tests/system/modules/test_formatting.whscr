@@ -8,7 +8,9 @@ LOADLIB "mod::system/lib/internal/validation/javascript.whlib";
 
 ASYNC MACRO TestTypeScriptFormatting()
 {
-
+  /* We need to reference an existing file, otherwise the typescript-eslint parsing
+     services will give an error it is not included in the tsconfig project.
+  */
   TestEQ(
 "function test(): void {\n" ||
 "  /*\n" ||
@@ -16,7 +18,7 @@ ASYNC MACRO TestTypeScriptFormatting()
 "\n" ||
 "  allemaal\n" ||
 "  */\n" ||
-"}\n", BlobToString((AWAIT FormatJavascriptFile("mod::system/test.ts", StringToBlob(
+"}\n", BlobToString((AWAIT FormatJavascriptFile("mod::webhare_testsuite/js/testhelpers.ts", StringToBlob(
 `function test(): void {
 /*
 uitgecomment
@@ -24,7 +26,6 @@ uitgecomment
 allemaal
 */
 }`), [ autofix := TRUE ])).output));
-
 }
 
 RunTestframework([ PTR TestTypeScriptFormatting

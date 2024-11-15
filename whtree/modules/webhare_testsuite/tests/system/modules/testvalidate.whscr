@@ -1044,15 +1044,27 @@ MACRO TestESLint()
 
   // js is parsed as ecmascript 2018, so 'using a = ...' is not supported
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("using a = 10;")]);
-  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 7, message := "Parsing error: Unexpected token a (eslint)", source := "eslint", metadata := DEFAULT RECORD ]], res.errors);
+  TestEqMembers(
+      [ hints := RECORD[]
+      , warnings := RECORD[]
+      , errors := [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 7, message := "Parsing error: Unexpected token a (eslint)", source := "eslint", metadata := DEFAULT RECORD ]]
+      ], res, "*");
 
-  //we used to consider this as a warning, but eslintrc.json has marked it an error so why wouldn't we...
+  //we used to consider this as a warning, but eslint.config.mjs has marked it an error so why wouldn't we...
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log('test')")]);
-  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @typescript-eslint/semi)", source := "eslint", metadata := DEFAULT RECORD ]], res.errors);
+  TestEqMembers(
+      [ hints := RECORD[]
+      , warnings := RECORD[]
+      , errors := [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @stylistic/semi)", source := "eslint", metadata := DEFAULT RECORD ]]
+      ], res, "*");
 
   // eqeqeq rule - a warning for installed modules (and testsuite should be considered installed, not builtin)
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("const a = 1; const b = 2; if (a == b) console.log(`a != b`);")]);
-  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 33, message := "Expected \'===\' and instead saw \'==\'. (eslint rule: eqeqeq)", source := "eslint", metadata := DEFAULT RECORD ]], res.warnings);
+  TestEqMembers(
+      [ hints := RECORD[]
+      , warnings := RECORD[]
+      , errors := [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 33, message := "Expected \'===\' and instead saw \'==\'. (eslint rule: eqeqeq)", source := "eslint", metadata := DEFAULT RECORD ]]
+      ], res, "*");
 }
 
 ASYNC MACRO TestLoadScreen()

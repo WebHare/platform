@@ -1,18 +1,20 @@
 # WebHare eslint settings
-Use this package if you want to match or base yourself on WebHare Platform's linting settings. Refer to this package in your .eslintrc.json `extends` setting
+Use this package if you want to match or base yourself on WebHare Platform's linting settings. Prepend the array of flat configs exported by this package in your own eslint.config.mjs.
 
-When using this package you will also need to add `@typescript-eslint/eslint-plugin`, `eslint-plugin-tsdoc` and `eslint-plugin-react` as a dependency as eslint will look up these
-plugins relative to your .eslintrc.json. (https://eslint.org/docs/latest/use/configure/plugins#configure-plugins)
+Example:
+```typescript
+import defaultSettings from "@webhare/eslint-config";
 
-So to fully install this module:
-```bash
-npm install --save-dev @webhare/eslint-config @typescript-eslint/eslint-plugin@latest eslint-plugin-react@latest eslint-plugin-tsdoc@latest
+export default = [
+    ...defaultSettings, {
+        rules: {
+            ...
+        }
+    }
+];
 ```
 
-and make sure your `.eslintrc.json` contains at leadt:
-
-```
-{
-    "extends": "@webhare/eslint-config"
-}
-```
+The following exports are provided:
+- webHareConfig: the configuration used for WebHare itself
+- moduleConfig: the configuration used for modules (relaxes some rules)
+- default: the configuration used for modules

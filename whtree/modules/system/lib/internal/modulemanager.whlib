@@ -794,19 +794,6 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
         , type :=     "softlink"
         , target :=   MergePath(installationroot, "node_modules/typescript")
         ]
-        // ESLint plugins from mod::system/data/validate/eslint-config-defaultconfig/.eslintrc.json
-      , [ name :=     "@typescript-eslint"
-        , type :=     "softlink"
-        , target :=   MergePath(installationroot, "node_modules/@typescript-eslint")
-        ]
-      , [ name :=     "eslint-plugin-react"
-        , type :=     "softlink"
-        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-react")
-        ]
-      , [ name :=     "eslint-plugin-tsdoc"
-        , type :=     "softlink"
-        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-tsdoc")
-        ]
       ];
   }
 
@@ -862,10 +849,9 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
   STRING whdatamods := MergePath(whdataroot, "node_modules/");
   CreateDiskDirectoryRecursive(whdatamods, TRUE);
 
-  EnsureFileContents(MergePath(whdataroot, ".eslintrc.json"),
-  `{
-    "extends": "@webhare/eslint-config"
-  }
+  EnsureFileContents(MergePath(whdataroot, "eslint.config.mjs"),
+  `import { moduleConfig } from "@webhare/eslint-config";
+export default moduleConfig;
 `);
 
   /* When runnning `npm install` in the dataroot or a subdirectory (without its own package.json),
