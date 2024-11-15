@@ -446,19 +446,33 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
 
     IF(rerequest)
     {
-      DATETIME requeststart := GetCurrentDatetime();
-      this->token := DEFAULT RECORD; //reset bearer token to prevent confusion on the API's side
-      RECORD result := this->RequestClientCredentials(options);
-      IF(result.access_token = "")
-        RETURN [ success := FALSE ];
+      // Use a mutex to prevent two processes from refreshing the access token using the same refresh token
+      OBJECT lock := OpenLockManager()->LockMutex(`system:oauth2.refreshtoken.${keyname}`);
+      TRY
+      {
+        // Another process might have updated the token, read it again
+        this->token := ReadRegistryKey(keyname);
+        IF (this->IsAccessTokenExpired())
+        {
+          DATETIME requeststart := GetCurrentDatetime();
+          this->token := DEFAULT RECORD; //reset bearer token to prevent confusion on the API's side
+          RECORD result := this->RequestClientCredentials(options);
+          IF(result.access_token = "")
+            RETURN [ success := FALSE ];
 
-      this->token := CELL[ ...result
-                         , __meta := [ requeststart := requeststart
-                                     , requestedscopes := options.scopes
-                                     ] ];
-      GetPrimary()->BeginWork();
-      WriteRegistryKey(keyname, this->token);
-      GetPrimary()->CommitWork();
+          this->token := CELL[ ...result
+                             , __meta := [ requeststart := requeststart
+                                         , requestedscopes := options.scopes
+                                         ] ];
+          GetPrimary()->BeginWork();
+          WriteRegistryKey(keyname, this->token);
+          GetPrimary()->CommitWork();
+        }
+      }
+      FINALLY
+      {
+        lock->Release();
+      }
     }
     RETURN [ success := TRUE ];
   }
@@ -473,14 +487,29 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
 
     IF(this->IsAccessTokenExpired())
     {
-      RECORD refreshres := this->RefreshAccessToken();
-      IF(refreshres.success)
+      // Use a mutex to prevent two processes from refreshing the access token using the same refresh token
+      OBJECT lock := OpenLockManager()->LockMutex(`system:oauth2.refreshtoken.${keyname}`);
+      TRY
       {
-        GetPrimary()->BeginWork();
-        WriteRegistryKey(keyname, this->token);
-        GetPrimary()->CommitWork();
+        // Another process might have updated the token, read it again
+        this->token := ReadRegistryKey(keyname);
+
+        IF(this->IsAccessTokenExpired())
+        {
+          RECORD refreshres := this->RefreshAccessToken();
+          IF(refreshres.success)
+          {
+            GetPrimary()->BeginWork();
+            WriteRegistryKey(keyname, this->token);
+            GetPrimary()->CommitWork();
+          }
+          RETURN refreshres;
+        }
       }
-      RETURN refreshres;
+      FINALLY
+      {
+        lock->Release();
+      }
     }
     RETURN [ success := TRUE ];
   }
