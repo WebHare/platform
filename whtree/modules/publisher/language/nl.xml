@@ -1443,11 +1443,15 @@
         <text tid="max">De waarde mag niet groter zijn dan <param p="1"/>.</text>
         <text tid="maxarray">U kunt maximaal <ifparam p="1" value="1">1 onderdeel<else/><param p="1"/> onderdelen</ifparam> toevoegen.</text>
         <text tid="maxcheck">Kies maximaal <ifparam p="1" value="1">1 item<else/><param p="1"/> items</ifparam>.</text>
+        <text tid="maxheight">De afbeelding is te groot. Deze mag maximaal <param p="2"/> pixels hoog zijn.</text>
         <text tid="maxlength">De waarde is te lang. Deze mag maximaal <ifparam p="1" value="1">1 karakter<else/><param p="1"/> karakters</ifparam> lang zijn.</text>
+        <text tid="maxwidth">De afbeelding is te groot. Deze mag maximaal <param p="2"/> pixels breed zijn.</text>
         <text tid="min">De waarde mag niet lager zijn dan <param p="1"/>.</text>
         <text tid="minarray">U moet minimaal <ifparam p="1" value="1">1 onderdeel<else/><param p="1"/> onderdelen</ifparam> toevoegen.</text>
         <text tid="mincheck">Kies minimaal <ifparam p="1" value="1">1 item<else/><param p="1"/> items</ifparam>.</text>
+        <text tid="minheight">De afbeelding is te klein. Deze moet minimaal <param p="2"/> pixels hoog zijn.</text>
         <text tid="minlength">De tekst is te kort. Deze moet uit minimaal <ifparam p="1" value="1">1 karakter<else/><param p="1"/> karakters</ifparam> bestaan.</text>
+        <text tid="minwidth">De afbeelding is te klein. Deze moet minimaal <param p="2"/> pixels breed zijn.</text>
         <text tid="notblank">De waarde mag niet leeg zijn.</text>
         <text tid="number">De waarde moet een nummer zijn.</text>
         <text tid="pattern">De waarde is onjuist.</text>

@@ -135,7 +135,7 @@
       <checkbox name="enablefields" label="EnableFields" title="" value="true" />
       <checkbox name="requirefields" label="RequireFields" title="" value="false" />
       <rtdedit name="rtd" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" title="RTD" />
-      <imgedit name="img" title="Image" />
+      <imgedit name="img" minwidth="100" title="Image" />
       <upload name="file" title="File" />
       <checkbox name="showfile2" title="Show file #2" />
       <upload name="file2" required="true" title="File #2" />

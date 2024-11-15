@@ -805,6 +805,17 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(` max-files="${fielddescription.maxfiles}"`);
         IF(fielddescription.accept != "")
           Print(` accept="${EncodeValue(fielddescription.accept)}"`);
+        IF (fielddescription.type = "imgedit")
+        {
+          IF (fielddescription.minwidth > 0)
+            Print(` min-width="${fielddescription.minwidth}"`);
+          IF (fielddescription.maxwidth > 0)
+            Print(` max-width="${fielddescription.maxwidth}"`);
+          IF (fielddescription.minheight > 0)
+            Print(` min-height="${fielddescription.minheight}"`);
+          IF (fielddescription.maxheight > 0)
+            Print(` max-height="${fielddescription.maxheight}"`);
+        }
         IF(RecordExists(fielddescription.value))
           Print(` value="${EncodeValue(EncodeJSON((SELECT filename, link FROM fielddescription.value),cell["fileName"]))}"`);
         Print(`${datasetstr}></${el}>`);
