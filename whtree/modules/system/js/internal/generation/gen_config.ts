@@ -58,7 +58,7 @@ export function generateNoDBConfig(): NoDBConfig {
   const buildinfo_keys = (["comitttag", "version", "branch", "origin"]) satisfies Array<keyof typeof buildinfo>;
 
   try {
-    const buildinfo_lines = fs.readFileSync(installationroot + "modules/system/whres/buildinfo").toString().split("\n");
+    const buildinfo_lines = fs.readFileSync(installationroot + "modules/platform/generated/buildinfo").toString().split("\n");
     for (const line of buildinfo_lines) {
       const eqpos = line.indexOf("=");
       if (eqpos !== -1) {

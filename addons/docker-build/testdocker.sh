@@ -142,7 +142,10 @@ create_container()
     # Get version info from first container
     # this initializes the'version' variable
     BUILDINFOFILE="$(mktemp)"
-    RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
+    if ! RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/platform/generated/buildinfo "$BUILDINFOFILE"; then
+      RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
+    fi
+
     source "$BUILDINFOFILE"
     echo "WebHare version info:
       committag=$committag
@@ -811,7 +814,11 @@ mkdir -p $ARTIFACTS/whdata
 RunDocker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
 RunDocker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
 RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml auditmodule.json | tar -x -C $ARTIFACTS/
-RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
+if is_atleast_version 5.7.0 ; then
+  RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo $ARTIFACTS/buildinfo
+else
+  RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
+fi
 
 if [ -n "$TESTFW_EXPORTMODULE" ]; then
   "${CONTAINERENGINE[@]}" exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule

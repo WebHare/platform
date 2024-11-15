@@ -29,8 +29,13 @@ generatebuildinfo()
   [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
   [ -n "$WEBHARE_VERSION" ] || die WEBHARE_VERSION not set
 
+  BUILDINFO_DIR="${WEBHARE_CHECKEDOUT_TO%/}/whtree/modules/platform/generated/"
+  BUILDINFO_FILE="${BUILDINFO_DIR}buildinfo"
+
+  mkdir -p "$BUILDINFO_DIR"
+
   # GitLab CI checks out the commit as a detached head, so we'll have to rely on the CI_ variables to find the branch name
-  cat > "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo.tmp" << HERE
+  cat > "${BUILDINFO_FILE}.tmp" << HERE
 committag="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
 version="${WEBHARE_VERSION}"
 branch="${CI_COMMIT_BRANCH:$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)}"
@@ -39,7 +44,7 @@ builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 builddate="$(date +'%Y-%m-%d')"
 buildtime="$(date +'%H:%M:%S')"
 HERE
-  mv "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo.tmp" "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo"
+  mv "${BUILDINFO_FILE}.tmp" "${BUILDINFO_FILE}"
 }
 
 die()

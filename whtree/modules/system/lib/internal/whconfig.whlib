@@ -31,7 +31,7 @@ PUBLIC RECORD FUNCTION GetWebhareBuildInfo()
     buildinfo := CELL[];
     TRY
     {
-      BLOB buildinfofile := GetDiskResource(GetModuleInstallationRoot("system") || "whres/buildinfo");
+      BLOB buildinfofile := GetDiskResource(GetModuleInstallationRoot("platform") || "generated/buildinfo");
       IF(Length(buildinfofile) > 0)
       {
         FOREVERY(STRING line FROM Tokenize(BlobToString(buildinfofile),'\n'))
