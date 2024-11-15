@@ -113,7 +113,7 @@ class SimulatedDataTransferItem implements DataTransferItem {
   getAsString(callback: (data: string) => void) {
     if (!this.valid || this._item.kind !== "Plain Unicode string")
       return;
-    new Promise(resolve => resolve(this._item.data)).then(callback);
+    void new Promise(resolve => resolve(this._item.data)).then(callback);
   }
   getAsFile() {
     if (!this.valid || this._item.kind !== "File")
@@ -761,8 +761,7 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop) {
   event.dataTransfer = dataTransfer;
   result = checkedDispatchEvent(el, event);
 
-  if (eventtype === "dragover" && !result) // dragover event is cancelled
-  {
+  if (eventtype === "dragover" && !result) { // dragover event is cancelled
     if (dataTransfer.dropEffect === "copy" && ["uninitialized", "copy", "copyLink", "copyMove", "all"].includes(dragop.effectAllowed))
       dragop.currentDragOperation = "copy";
     else if (dataTransfer.dropEffect === "link" && ["uninitialized", "link", "copyLink", "linkMove", "all"].includes(dragop.effectAllowed))
@@ -966,8 +965,7 @@ function processGestureQueue() {
     //console.log("mouse now at " + mousestate.cx + "," + mousestate.cy);
     setMouseCursor(mousestate.cx, mousestate.cy);
 
-    if (part.at > now) //in the future
-    {
+    if (part.at > now) { //in the future
       mousestate.gesturetimeout = setTimeout(processGestureQueue, 1000 / mousestate.samplefreq);
       return;
     }
@@ -992,16 +990,14 @@ function processGestureQueue() {
 
           if (tofocus !== lastfocus) {
 
-            if (!currentdoc.hasFocus() && lastfocus) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
-            {
+            if (!currentdoc.hasFocus() && lastfocus) { //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
               domevents.dispatchDomEvent(lastfocus, 'blur', { bubbles: false, cancelable: false, relatedTarget: tofocus || undefined });
               domevents.dispatchDomEvent(lastfocus, 'focusout', { bubbles: true, cancelable: false, relatedTarget: tofocus || undefined });
             }
 
             if (tofocus) {
               tofocus.focus();
-              if (!currentdoc.hasFocus()) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
-              {
+              if (!currentdoc.hasFocus()) { //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
                 domevents.dispatchDomEvent(tofocus, 'focus', { bubbles: false, cancelable: false, relatedTarget: lastfocus });
                 domevents.dispatchDomEvent(tofocus, 'focusin', { bubbles: true, cancelable: false, relatedTarget: lastfocus });
               }
@@ -1010,13 +1006,11 @@ function processGestureQueue() {
             }
           }
 
-          if (part.down === 2) //RMB
-          {
+          if (part.down === 2) { //RMB
             fireMouseEvent("contextmenu", target.cx, target.cy, target.el, part.down, null, part);
           }
 
-          if (part.down === 0) // DND
-          {
+          if (part.down === 0) { // DND
             const draggable = getDraggableElement(target.el); // FIXME text selections?
             if (draggable)
               mousestate.dndcandidate =
@@ -1267,11 +1261,8 @@ export function focus(target: ValidElementTarget) { //focus could have gone into
 
 export function canClick(element: ValidElementTarget, options?: ElementTargetOptions) {
   let x: string | number = "50%", y: string | number = "50%";
-  // eslint-disable-next-line prefer-rest-params
   if (typeof arguments[1] === 'number') { // receiving old style x,y coordinates
-    // eslint-disable-next-line prefer-rest-params
     x = arguments[1];
-    // eslint-disable-next-line prefer-rest-params
     y = arguments[2] || "50%";
     console.warn("Deprecated canClick syntax, use {x,y} as option parameters in WH5.5+");
   } else {

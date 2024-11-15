@@ -37,7 +37,7 @@ async function main() {
     console.log(`Opening rescue interface on http://${config.ports[0].ip}:${config.ports[0].port}/`);
   }
 
-  webserver.launch(config);
+  await webserver.launch(config);
 }
 
-main();
+void main();

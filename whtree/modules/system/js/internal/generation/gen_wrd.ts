@@ -220,7 +220,6 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
   const typeDeclNames = new Set<string>;
   const typeDeclImports = new Map<string, Map<string, string>>;
 
-  // eslint-disable-next-line no-inner-declarations
   function addTypeDeclImport(decl: string) {
     if (!decl)
       return "object";

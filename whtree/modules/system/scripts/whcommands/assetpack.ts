@@ -104,8 +104,8 @@ program.parse(process.argv);
 
 function waitForEvent(eventmask: string) {
   const defer = Promise.withResolvers<void>();
-  const sub = subscribe(eventmask, async () => {
-    (await sub).setMasks([]); //unsubscribe
+  const sub = subscribe(eventmask, () => {
+    void sub.then(resolvedSub => resolvedSub.setMasks([])); //unsubscribe
     defer.resolve();
   });
   return defer.promise;
@@ -172,7 +172,7 @@ async function waitForCompilation(masks: string[], verbose: boolean): Promise<bo
   let lastcompiling: string[] = [];
   const aborter = new AbortController;
   const timeout = sleep(15 * 60 * 1000, { signal: aborter.signal }); //ensure we abort at some point... but this also keeps us alive during delayUntilEvet!
-  timeout.then(() => {
+  void timeout.then(() => {
     console.error("Timeout");
     process.exit(2);
   });

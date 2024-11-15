@@ -257,7 +257,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
         throw new Error((e as Error).message);
       }
     }
-    Promise.resolve(true).then(() => this.emitQueue());
+    void Promise.resolve(true).then(() => this.emitQueue());
   }
 
   emitQueue() {
@@ -476,7 +476,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   async activate() {
     try {
       await this.defer.promise;
-      Promise.resolve(true).then(() => this.emitQueue());
+      void Promise.resolve(true).then(() => this.emitQueue());
     } catch (e) {
       // re-throw the error so the stack trace points to the invocation of activate()
       throw new Error((e as Error).message);

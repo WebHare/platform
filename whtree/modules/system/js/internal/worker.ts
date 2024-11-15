@@ -156,7 +156,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   }
 
   close() {
-    this.worker.terminate();
+    void this.worker.terminate(); // async terminate
     this.closed = true;
     this.error ??= new Error(`Worker has been closed`);
     for (const req of Object.values(this.requests))

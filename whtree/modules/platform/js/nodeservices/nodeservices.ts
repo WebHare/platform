@@ -34,7 +34,7 @@ async function launchService(service: BackendServiceDescriptor): Promise<WebHare
     throw new Error(`Don't know how to start service ${service.name}`);
   } catch (e) {
     console.error("Error starting service " + service.name, e);
-    setTimeout(() => launchService(service), 3000);
+    setTimeout(() => void launchService(service), 3000);
     return null;
   }
 }
@@ -53,7 +53,11 @@ class Client extends BackendServiceConnection {
     activeServices[service].close();
   }
 
-  async onClose() {
+  onClose() {
+    void this.#reenableSuppressedServices();
+  }
+
+  async #reenableSuppressedServices() {
     const backendservices = getExtractedConfig("services").backendServices;
     for (const service of this.suppressing) {
       const srvinfo = backendservices.find((s) => s.name === service);
@@ -82,10 +86,10 @@ async function main() {
     //Suppress the service in nodeservices
     const nodeservices = await openBackendService(servicename);
     await nodeservices.suppress(service.name);
-    launchService(service);
+    void launchService(service);
   } else {
     const servicename = program.opts().core ? "platform:coreservices" : "platform:nodeservices";
-    runBackendService(servicename, client => new Client, { dropListenerReference: true });
+    void runBackendService(servicename, client => new Client, { dropListenerReference: true });
 
     for (const service of backendservices) {
       if (service.coreService === Boolean(program.opts().core)) {
@@ -98,4 +102,4 @@ async function main() {
 }
 
 activateHMR();
-main();
+void main();

@@ -1,4 +1,4 @@
-import bridge, { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { IPCLinkType, type IPCMessagePacket } from "@mod-system/js/internal/whmanager/bridge";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 import { activateHMR } from "@webhare/services/src/services";
 
@@ -27,7 +27,7 @@ function connectIPC(name: string) {
     const link = bridge.connect<CallRunnerLinkType>(name, { global: true });
     const pending = new Set<bigint>();
 
-    link.on("message", async (msg) => {
+    async function handleMessage(msg: IPCMessagePacket<InvokeTask>) {
       switch (msg.message.cmd) {
         case "invoke": {
           try {
@@ -46,7 +46,9 @@ function connectIPC(name: string) {
           }
         }
       }
-    });
+    }
+
+    link.on("message", (msg) => void handleMessage(msg));
     link.on("close", () => process.exit()); //FIXME are we sure this is fired? it's not tested yet at least!
     process.on("unhandledRejection", (reason: unknown) => {
       if (pending.size > 0) { //try to reject all pending messages, at least that should give the caller a somewhat usable trace
@@ -57,7 +59,7 @@ function connectIPC(name: string) {
         link.sendException(reason as Error, 0n);
       }
     });
-    link.activate();
+    void link.activate();
   } catch (e) {
     console.error(`got error: ${e}`);
   }

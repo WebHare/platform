@@ -49,7 +49,7 @@ enum OID {
   INT2 = 21,
   INT4 = 23,
   REGPROC = 24,
-  OID = 26,
+  OID = 26, // eslint-disable-line @typescript-eslint/no-shadow
   TID = 27,
   XID = 28,
   CID = 29,

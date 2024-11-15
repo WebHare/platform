@@ -120,7 +120,7 @@ export class LocalServiceHandlerBase {
     this._options = options;
   }
 
-  async [localServiceHandlerAddPort](link: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>) {
+  [localServiceHandlerAddPort](link: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>) {
     try {
       const state = new LinkState(null, link, this._options.dropListenerReference ?? false);
       link.on("close", () => this._onClose(state));

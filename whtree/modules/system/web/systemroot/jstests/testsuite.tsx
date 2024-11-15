@@ -1157,8 +1157,8 @@ class TestFramework {
     };
   }
 
-  log(text) {
-    const nodes = [document.createTextNode(text), document.createElement("br")];
+  log(...text: unknown[]) {
+    const nodes = [document.createTextNode(text.map(e => typeof e === string ? e : JSON.stringify(e)).join(' ')), document.createElement("br")];
     this.lastlognodes.push(nodes[0]);
     this.lastlognodes.push(nodes[1]);
 

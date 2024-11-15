@@ -32,4 +32,4 @@ async function gotEvent({ name, data }: { name: string; data: unknown }) {
   }
 }
 
-whbridge.on("event", evt => gotEvent(evt));
+whbridge.on("event", evt => void gotEvent(evt));

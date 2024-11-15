@@ -41,11 +41,11 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     });
     this.socket.on("end", () => this.gotConnectionEnd());
     this.socket.on("close", () => this.gotConnectionClose());
-    this.socket.on("error", () => this.gotConnectionError());
+    this.socket.on("error", () => void this.gotConnectionError());
     this.refs = new RefTracker(this.socket, { initialref: false });
     this.refs.on("ref", () => this.emit("ref", void (0)));
     this.refs.on("unref", () => this.emit("unref", void (0)));
-    this.connect();
+    void this.connect(); // no need to await on connection here
   }
 
   get online(): boolean {
@@ -98,7 +98,7 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
       this.emit("offline", void (false));
     }
     if (!this.connecting)
-      this.connect();
+      void this.connect();
   }
 
   async gotConnectionError() {
@@ -108,7 +108,7 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
       console.log(`whmconn: connection error`);
     // wait for backoff, but don't keep node process running for it
     if (!this.connecting)
-      this.connect();
+      void this.connect();
   }
 
   private isComplete(): boolean {

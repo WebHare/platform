@@ -10,7 +10,7 @@ function onTestExit(exitCode: number) {
   }
 }
 
-export async function run(tests: TestList, options?: object) {
+async function asyncRun(tests: TestList, options?: object) {
   //TODO register once in case we're loaded as a module ?
   process.on("exit", onTestExit);
   let idx = 0;
@@ -41,4 +41,8 @@ export async function run(tests: TestList, options?: object) {
     triggerGarbageCollection();
     scheduleLingeringProcessCheck();
   }
+}
+
+export function run(tests: TestList, options?: object): void {
+  void asyncRun(tests, options);
 }

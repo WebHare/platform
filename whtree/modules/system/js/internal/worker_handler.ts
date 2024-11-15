@@ -17,7 +17,7 @@ export class WorkerHandler {
   constructor(port: TypedMessagePort<WorkerControlLinkResponse, WorkerControlLinkRequest>) {
     this.port = port;
     registerTransferredPort(port, "async worker port");
-    this.port.on("message", (message) => this.gotMessage(message));
+    this.port.on("message", (message) => void this.gotMessage(message));
   }
 
   async gotMessage(message: WorkerControlLinkRequest) {
@@ -80,12 +80,12 @@ class ServicePortHandler {
     this.port = port;
     registerTransferredPort(port, "worker servicehandler port");
     this.serviceclass = serviceclass;
-    this.port.on("message", (message) => this.gotMessage(message));
+    this.port.on("message", (message) => void this.gotMessage(message));
   }
 
   async gotMessage(message: WorkerServiceLinkRequest) {
     try {
-      // eslint-disable-next-line @typescript-eslint/ban-types
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       let result = await ((this.serviceclass as Record<string, Function>)[message.func])(...message.params);
       let transferList = new Array<TransferListItem>;
       if (result && typeof result === "object" && result instanceof ReturnValueWithTransferList) {

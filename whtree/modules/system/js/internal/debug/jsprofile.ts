@@ -18,7 +18,7 @@ async function finishProfile() {
 process.exit = function (code?: number): never {
   if (code !== undefined)
     process.exitCode = code;
-  finishProfile().then(() => process_exit_backup());
+  void finishProfile().then(() => process_exit_backup());
   throw new Error('Process has exited'); //process.exit is not supposed to return, so we'll throw until JS adds a longjmp to get back to profilerMain
 };
 
@@ -29,11 +29,12 @@ async function profilerMain() {
   await session!.post('Profiler.enable');
   await session!.post('Profiler.start');
 
-  process.on("beforeExit", finishProfile);
+  process.on("beforeExit", () => void finishProfile());
 
   // Invoke business logic under measurement here...
   process.argv.splice(1, 1); //remove us from the argument list
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require(process.argv[1]);
 }
 
-profilerMain();
+void profilerMain();
