@@ -14,7 +14,7 @@ node_modules
 /vendor/libxml2/result
 /vendor/libxml2/test
 
-# Ignore artficats from source tree builds
+# Ignore artifacts from source tree builds
 /whtree/bin/*
 /whtree/currentinstall
 /whtree/lib/*
