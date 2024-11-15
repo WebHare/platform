@@ -10,6 +10,7 @@ import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/c
 import { wildcardsToRegExp } from '@webhare/std';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
+import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/validation';
 
 program.name('wh publisher:compile')
   .option('-v, --verbose', 'verbose log level')
@@ -57,10 +58,10 @@ async function main() {
       if (verbose)
         console.log(JSON.stringify(result, null, 2));
 
-      if (result.topError) {
-        console.error("There were errors", result.topError);
+      logValidationMessagesToConsole(result.messages);
+      if (result.messages.some(msg => msg.type === "error"))
         process.exitCode = 1;
-      }
+
     } catch (e) {
       console.error(e);
       process.exitCode = 1;

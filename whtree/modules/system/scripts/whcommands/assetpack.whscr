@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
 
 OBJECT assetpackcontrol;
 
@@ -46,17 +47,15 @@ RECORD ARRAY FUNCTION GetBundles(STRING ARRAY masks)
   RETURN bundles;
 }
 
-MACRO PrintBundleErrors(STRING tag)
+MACRO PrintBundleMessages(STRING tag)
 {
   RECORD data := WaitForPromise(assetpackcontrol->GetBundleStatus(tag));
-  IF(data.toperror != "")
-  {
-    Print("Bundle " || tag || " has the following errors:\n\n");
-    IF (data.toperror != "")
-      Print("Errors: " || data.toperror || "\n");
+  IF(RecordExists(SELECT FROM data.messages WHERE type="error"))
+    Print("Bundle " || tag || " has the following errors:\n");
+  ELSE IF(Length(data.messages) > 0)
+    Print("Bundle " || tag || " has the following messages:\n");
 
-    DumpValue(data.errors, "tree");
-  }
+  PrintValidationMessagesToConsoleWithType(data.messages);
 }
 
 BOOLEAN FUNCTION WaitForCompilation(STRING ARRAY masks, BOOLEAN verbose)
@@ -222,8 +221,8 @@ MACRO DoRecompile(STRING ARRAY masks, BOOLEAN onlyfailed)
     Print("\nStatus of recompiled bundles:\n");
   ListBundles(masks, FALSE);
 
-  IF (LENGTH(bundles) = 1 AND bundles[0].haserrors)
-      PrintBundleErrors(bundles[0].outputtag);
+  IF (LENGTH(bundles) = 1)
+    PrintBundleMessages(bundles[0].outputtag);
 
   IF(RecordExists(SELECT FROM bundles WHERE haserrors))
     SetConsoleExitCode(1);
@@ -292,7 +291,7 @@ SWITCH (args.command)
       IF(TYPEID(bundle.lastcompile) = TYPEID(DATETIME))
         PRINT(" Last compile: " || FormatISO8601DateTime(bundle.lastcompile) || "\n");
 
-      PrintBundleErrors(bundle.outputtag);
+      PrintBundleMessages(bundle.outputtag);
       Print("\n");
     }
   }
@@ -311,7 +310,7 @@ SWITCH (args.command)
     IF(NOT iswait)
     {
       FOREVERY(RECORD uncompiled FROM SELECT * FROM GetBundles(subargs.masks) WHERE iscompiling OR haserrors)
-        PrintBundleErrors(uncompiled.outputtag);
+        PrintBundleMessages(uncompiled.outputtag);
     }
 
     IF(NOT success)

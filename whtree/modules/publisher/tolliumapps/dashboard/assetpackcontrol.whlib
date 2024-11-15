@@ -10,6 +10,8 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -161,13 +163,13 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
     IF(Length(bundleids) != 1 OR bundleids[0] != bundleid)
       RETURN; //stale response
 
-    RECORD ARRAY errors;
+    RECORD ARRAY messages;
     IF(RecordExists(status))
-      errors := RECORD ARRAY(status.errors);
+      messages := RECORD ARRAY(status.messages);
 
-    ^messages->rows := SELECT rowkey := 1 + #errors
-                            , message :=   TypeID(message) = TypeID(STRING) ? message : AnyToString(message, "tree")
-                         FROM errors;
+    ^messages->rows := SELECT rowkey := 1 + #messages
+                            , message := FormatValidationMessageWithType(status.messages)
+                         FROM messages;
   }
   MACRO OnSelectMessage()
   {
@@ -238,18 +240,14 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
       RETURN;
     }
 
-    STRING errors := status.toperror;
-    IF (LENGTH(status.errors) > 0)
-    {
-      errors := "";
-      FOREVERY(RECORD error FROM EnforceStructure([[ col := 0, line := 0, message := "", resource := "" ]], status.errors))
-        errors := errors || `${error.resource}:${error.line}:${error.col}: ${error.message}\n`;
-    }
+    STRING messages;
+    FOREVERY(RECORD msg FROM status.messages)
+      messages := messages || FormatValidationMessageWithType(msg);
 
     ^filedependencies->rows := ToRecordArray(status.filedependencies, "path");
     ^missingdependencies->rows := ToRecordArray(status.missingdependencies,"path");
     ^outputtag->value := this->uuid;
-    ^errors->value := errors;
+    ^errors->value := messages;
     ^entrypoint->value := status.entrypoint;
     IF (RecordExists(status.bundleconfig))
     {

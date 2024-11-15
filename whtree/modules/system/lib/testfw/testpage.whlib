@@ -36,7 +36,7 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   context->basefolder := basepath;
 
   RECORD compileresult := CallJS("@mod-platform/js/assetpacks/compiletask.ts#recompileAdhoc", jsfile, whconstant_default_compatibility);
-  IF (compileresult.toperror != "") //TODO reuse "compilefailure" component in test pages? but I think I'd rather merge all ad hoc test pages into one of the webhare_testsuite:* bundles...
+  IF (RecordExists(SELECT FROM compileresult.messages WHERE type = "error")) //TODO reuse "compilefailure" component in test pages? but I think I'd rather merge all ad hoc test pages into one of the webhare_testsuite:* bundles...
     ABORT(compileresult,'tree');
 
   LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(

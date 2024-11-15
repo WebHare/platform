@@ -18,6 +18,7 @@ import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from 
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
 import { buildRPCLoaderPlugin } from './rpcloader';
 import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhareconstants';
+import type { ValidationMessageWithType } from '../devsupport/validation';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -124,38 +125,17 @@ function createWhResolverPlugin(bundle: Bundle, captureplugin: CaptureLoadPlugin
   };
 }
 
-function mapESBuildError(entrypoint: string, error: esbuild.Message) {
-  /* potential structure of buildresult.errors
-
-     detail: undefined,
-     location: {
-       column: 7,
-       file: '../../../../../webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.es',
-       length: 20,
-       line: 1,
-       lineText: 'import "./broken-scss.scss";',
-       namespace: '',
-       suggestion: ''
-     },
-     notes: [],
-     pluginName: 'sass-plugin',
-     text: 'expected "{".\n' +
-       '  ╷\n' +
-       '1 │ syntax-error;\n' +
-       '  │             ^\n' +
-       '  ╵\n' +
-       '  /Users/arnold/projects/webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.scss 1:13  root stylesheet'
-   }
-  */
-
+function mapESBuildError(msg: esbuild.PartialMessage, type: "warning" | "error"): ValidationMessageWithType {
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
-  return { //FIXME should base on ResourceLocation or ResourceMessage (requires resourcename, not 'resource')
-    message: error.detail?.formatted as string ?? error.text,
-    resource: error.location ? '/' + error.location?.file : "'",
-    line: error.detail?.line ?? error.location?.line ?? 0,
-    col: error.detail?.column ?? error.location?.column ?? 0,
-    length: error.detail?.line ? 0 //detail has no length, and it seems unsafe to take the one from location the
-      : error.location?.length ?? 0
+  const diskpath = msg.location?.file ? '/' + msg.location?.file : '';
+  return {
+    type,
+    message: msg.text || `Unkown ${type}`,
+    resourcename: diskpath ? services.toResourcePath(diskpath, { allowUnmatched: true }) ?? diskpath : "",
+    source: "platform:compile" + (msg.pluginName ? `:${msg.pluginName}` : ""),
+    line: msg.location?.line ?? 0,
+    col: msg.location?.column ?? 0,
+    length: msg.location?.length ?? 0
   };
 }
 
@@ -292,19 +272,18 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
     buildresult = await esbuild.build(esbuild_configuration);
   } catch (e) {
-    if ((e as esbuild.BuildFailure)?.warnings) { //FIXME does this actually happen?  who throws errors that way?
+    if ((e as esbuild.BuildFailure)?.warnings) { //Looks like we got the proper esbuild.BuildFailure that esbuild.build should throw
       buildresult = {
         warnings: (e as esbuild.BuildFailure).warnings,
         errors: (e as esbuild.BuildFailure).errors
       };
-    } else {
+    } else { //we got an unexpected exception, esbuild didn't start
       buildresult = {
         warnings: [],
         errors: [
           {
-            text: String(e)
-            //@ts-ignore FIXME it does *not* satisfy but apparently this sort of worked. not fixing it during a TS Fix round
-          } satisfies esbuild.BuildFailure["errors"][0]
+            text: `Could not start esbuild: ${e}`
+          }
         ]
       };
     }
@@ -316,8 +295,10 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
       missingDependencies: new Array<string>
     },
-    ///@ts-ignore TS bug already present, see satisfies FIXME above
-    errors: buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
+    messages: [
+      ...buildresult.errors.map(_ => mapESBuildError(_, "error")),
+      ...buildresult.warnings.map(_ => mapESBuildError(_, "warning"))
+    ]
   };
 
   for (const error of buildresult.errors) {
@@ -345,8 +326,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     missingDependencies: info.dependencies.missingDependencies.map(p => services.toResourcePath(p, { allowUnmatched: true }) ?? p).toSorted(),
     start,
     lastCompileSettings: data,
-    topError: buildresult.errors.map(_ => _.text).join("\n"),
-    errors: info.errors,
+    messages: info.messages,
     bundleTag: bundle.outputtag
   };
 

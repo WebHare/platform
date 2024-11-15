@@ -16,6 +16,8 @@ export interface ResourceLocation {
   line: number;
   /** Column number, 1-based. 0 if unknown or file missing */
   col: number;
+  /** Length of the text relevant to the error. 0 or missing if unknown */
+  length?: number;
 }
 
 /** Basic message (erorr, warning) structure used by various validators */
@@ -89,4 +91,16 @@ export async function runJSBasedValidator(content: WebHareBlob, resource: string
     result.hints.push({ resourcename: resource, line: 0, col: 0, message: `No validator available for '${resource}'`, source: "validation", metadata: {} });
   }
   return result.finalize();
+}
+
+export function formatValidationMessage(msg: ValidationMessageWithType): string {
+  return `${msg.resourcename}:${msg.line}:${msg.col}: ${msg.type[0].toUpperCase()}${msg.type.substring(1)}: ${msg.message}`;
+}
+
+export function logValidationMessagesToConsole(messages: ValidationMessageWithType[]): void {
+  const msgs = messages.toSorted((lhs, rhs) => lhs.resourcename.localeCompare(rhs.resourcename) || lhs.line - rhs.line || lhs.col - rhs.col);
+  for (const msg of msgs) {
+    //TODO ANSI Color?
+    console.log(formatValidationMessage(msg));
+  }
 }
