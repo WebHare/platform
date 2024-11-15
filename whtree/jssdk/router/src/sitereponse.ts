@@ -5,6 +5,8 @@ import * as services from "@webhare/services";
 import { encodeString, stringify } from "@webhare/std";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
 import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
+import { checkModuleScopedName } from "@webhare/services/src/naming";
+import type { FrontendDataTypes } from "@webhare/frontend";
 
 export class SiteResponseSettings {
   assetpack: string = '';
@@ -89,11 +91,9 @@ export class SiteResponse<T extends object = object> {
   }
 
   /** Set data associated with a plugin */
-  setPluginConfig(pluginname: string, data: object | null) { //HareScript: WebDesignBase::SetJSPluginConfig
-    if (data)
-      this.frontendConfig[pluginname] = data;
-    else
-      delete this.frontendConfig[pluginname];
+  setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
+    checkModuleScopedName(dataObject);
+    this.frontendConfig[dataObject] = data;
   }
 
   private async generatePage(head: string, body: string, urlpointers: { designroot: string; designcdnroot: string; imgroot: string; siteroot: string }) {

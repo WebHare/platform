@@ -10,8 +10,7 @@ import { verifyHareScriptAddress } from "@webhare/forms/src/address";
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
 import * as whintegration from "@mod-system/js/wh/integration";
-import { debugFlags, isLive, dtapStage } from "@webhare/env";
-import { frontendConfig } from "@webhare/frontend";
+
 
 import '@mod-publisher/js/richcontent/all';
 import './components';
@@ -45,17 +44,11 @@ declare global {
     whintegration_config: typeof whintegration.config;
     formrpc_submitForm: typeof formrpc.submitForm;
     formrpc_validateAddress: typeof verifyHareScriptAddress;
-    baseTestConfig: {
-      env: { debugFlags: Partial<Record<string, boolean>>; isLive: boolean; dtapStage: string };
-      frontendConfig: typeof frontendConfig;
-    };
-    getTidTest: () => Record<string, string>;
     getIconTest: () => Record<string, string>;
     revokeConsent: () => void;
 
   }
 }
-
 
 window.basetestErrorList = [];
 window.addEventListener("error", (e: ErrorEvent) => window.basetestErrorList.push(e));
@@ -67,7 +60,6 @@ dompack.register('.wh-gallery', node => setupGallery(node));
 
 /////////////////////////////////////////////////////////
 // Forms
-import { getTid, getHTMLTid } from "@mod-tollium/js/gettid";
 
 forms.setup({ validate: true });
 dompack.register('.wh-poll', node => new PollWebtool(node));
@@ -84,17 +76,6 @@ document.addEventListener("wh:wrdauth-loginfailed", e => {
 });
 
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
-
-window.getTidTest = function () {
-  return { //this never used, but we want this for the tid scanner
-    consolelog: getTid("webhare_testsuite:webdesigns.basetest.consolelog"),
-    unicode2028: getTid("webhare_testsuite:test.unicode_2028"),
-    richtext: getHTMLTid("webhare_testsuite:test.richtext"),
-    richtext_params: getTid.html("webhare_testsuite:test.richtext_params"),
-    maxextras_1: getTid("webhare_testsuite:test.maxextras", 1),
-    maxextras_2: getTid("webhare_testsuite:test.maxextras", 2)
-  };
-};
 
 window.getIconTest = function () {
   return { //this never used, but we want this for the icon scanner
@@ -170,8 +151,3 @@ window.geoip_getIPInfo = geoip.getIPInfo;
 window.whintegration_config = whintegration.config;
 window.formrpc_submitForm = formrpc.submitForm;
 window.formrpc_validateAddress = verifyHareScriptAddress;
-
-window.baseTestConfig = {
-  env: { debugFlags, isLive, dtapStage },
-  frontendConfig
-};

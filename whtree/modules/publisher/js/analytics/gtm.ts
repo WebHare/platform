@@ -6,7 +6,7 @@ import { loadScript } from '@webhare/dompack';
 import { onConsentChange, ConsentSettings } from "./consenthandler";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
-import { frontendConfig } from '@webhare/frontend/src/init';
+import { getFrontendData } from '@webhare/frontend/src/init';
 
 //TODO Is there an official description of what GTM datalayer accepts?
 type DataLayerVars = Record<string, unknown>;
@@ -19,7 +19,7 @@ declare global {
 }
 
 let seen = 0;
-const gtmsettings = frontendConfig["socialite:gtm"] as { a: string; h?: boolean; m?: boolean; s?: string } | undefined;
+const gtmsettings = getFrontendData("socialite:gtm", { allowMissing: true });
 let didinit: undefined | true;
 let eventname: undefined | string; //event name used for form submission
 

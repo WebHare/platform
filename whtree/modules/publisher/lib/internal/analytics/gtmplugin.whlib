@@ -80,7 +80,7 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
       IF(this->pvt_script != "")
         INSERT CELL s := this->pvt_script INTO settings;
     }
-    this->webdesign->SetJSPluginConfig("socialite:gtm", settings);
+    this->webdesign->SetFrontendData("socialite:gtm", settings);
   }
   MACRO SetAccount(STRING newaccount)
   {
