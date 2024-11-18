@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 /* import * as clientinfo from '@mod-publisher/js/analytics/clientinfo';

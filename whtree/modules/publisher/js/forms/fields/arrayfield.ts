@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 import { getTid } from "@webhare/gettid";
 import "./arrayfield.css";
 import { throwError } from "@webhare/std";

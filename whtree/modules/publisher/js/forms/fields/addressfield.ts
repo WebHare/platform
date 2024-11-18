@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 import * as dompack from "@webhare/dompack";
 import FormBase from "../formbase";
 import { debugFlags } from "@webhare/env";

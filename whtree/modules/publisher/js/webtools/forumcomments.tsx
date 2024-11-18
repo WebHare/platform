@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 import './internal/baseforumstyle.css';
 import * as dompack from "dompack";
 // @ts-ignore -- .rpc.json imports cannot be checked by TypeScript
@@ -27,11 +29,13 @@ class ForumCommentsForm extends FormBase {
         this.commentstool._initComments();
         this.reset();
       } else if (response.error === "CAPTCHA") {
-        setTimeout(async () => {
+        const timeoutHandler = async () => {
           const captcharesponse = await getCaptchaResponse(response.apikey);
           if (captcharesponse) //retry with the response
             return this.submit({ captcharesponse });
-        });
+        };
+
+        setTimeout(() => void timeoutHandler());
       }
     } finally {
       lock.release();

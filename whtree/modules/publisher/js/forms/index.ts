@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- needs API rework */
+
 import * as dompack from '@webhare/dompack';
 import './internal/requiredstyles.css';
 import * as merge from './internal/merge';

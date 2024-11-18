@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises -- FIXME: needs API rework  */
+
 import * as dompack from '@webhare/dompack';
 import * as dialogapi from 'dompack/api/dialog';
 import { type RTDFormElement } from './index';

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 import * as dompack from 'dompack';
 import { SingleFileUploader, requestFile } from "@webhare/upload";
 
@@ -72,6 +74,11 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
     return this.currentFiles;
   }
 
+  set value(value: FormFileValue[]) {
+    this.#setValue(value);
+    this.refresh();
+  }
+
   #setValue(value: Array<Partial<FormFileValue>>) { //taking a partial so we can do a better job at fixing missing fields from incorrect callers
     //updates the value but does not fire events/refresh()
     const toset: FormFileValue[] = [];
@@ -91,11 +98,6 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
         break;
     }
     this.currentFiles = toset;
-  }
-
-  set value(value: FormFileValue[]) {
-    this.#setValue(value);
-    this.refresh();
   }
 
   _isAcceptableType(mimetype: string) {
@@ -155,7 +157,7 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
   }
 
   protected setupUploadButton(button: HTMLElement) {
-    button.addEventListener("click", evt => this.uploadFile(evt));
+    button.addEventListener("click", evt => void this.uploadFile(evt));
   }
 
   protected setupDeleteButton(button: HTMLElement, idx: number) {

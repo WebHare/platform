@@ -55,7 +55,7 @@ export async function runRecaptchaDialog(sitekey: string, settings: CaptchaSetti
     lock.release();
   }
 
-  return diag?.runModal() || null;
+  return (await diag?.runModal()) || null;
 }
 
 const captchaDefer = Symbol("captchaDefer");
