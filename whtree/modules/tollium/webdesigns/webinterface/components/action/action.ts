@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises -- Needs thorough review */
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
 import DownloadManager from '@mod-system/js/compat/download';
@@ -9,7 +10,10 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { EnableOnRule } from '@mod-tollium/web/ui/js/types';
 import { omit } from '@webhare/std/collections';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require("@mod-tollium/web/ui/common.lang.json");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
 
 type EditImage = {
@@ -124,7 +128,7 @@ export default class ObjAction extends ActionForwardBase {
     }
 
     if (this.isEventUnmasked('upload'))
-      this.executeUploadAction({ rule: hitrule });
+      void this.executeUploadAction({ rule: hitrule });
     else if (this.isEventUnmasked('download'))
       this.executeDownloadAction({ rule: hitrule });
     else if (this.isEventUnmasked('windowopen'))

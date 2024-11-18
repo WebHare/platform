@@ -266,7 +266,7 @@ class TowlNotifications {
   checkNativeNotificationPermission() {
     if (this._native_notifications && Notification.permission === "default") {
       console.log("Requesting permission to show web notifications");
-      Notification.requestPermission();
+      void Notification.requestPermission(); // no need to await
     }
   }
 

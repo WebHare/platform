@@ -33,11 +33,13 @@ export default class TolliumFeedbackAPI {
         {createImage("tollium:objects/bug", 24, 24, "b")}
       </span>;
 
-    this.trigger.addEventListener("click", async event => {
+    const handleClick = async (event: MouseEvent) => {
       this.trigger.classList.add("wh-tollium__feedback--active");
       await this.run(event);
       this.trigger.classList.remove("wh-tollium__feedback--active");
-    });
+    };
+
+    this.trigger.addEventListener("click", evt => void handleClick(evt));
     document.body.append(this.trigger);
 
   }

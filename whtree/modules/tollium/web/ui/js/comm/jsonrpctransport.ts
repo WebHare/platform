@@ -18,7 +18,7 @@ export default class JSONRPCTransport extends TransportBase {
 
     $todd.DebugTypedLog("rpc", '** create JSONRPC transport');
 
-    setTimeout(() => this.startRequest(), 1);
+    setTimeout(() => void this.startRequest(), 1);
     this.scheduled = true;
   }
 
@@ -30,7 +30,7 @@ export default class JSONRPCTransport extends TransportBase {
   setSignalled() {
     if (!this.scheduled && !this.unloading) {
       $todd.DebugTypedLog("rpc", '** JSONRPC scheduling request');
-      setTimeout(() => this.startRequest(), 1);
+      setTimeout(() => void this.startRequest(), 1);
     }
     this.scheduled = true;
   }
@@ -111,12 +111,12 @@ export default class JSONRPCTransport extends TransportBase {
       this.signalOffline();
 
     if (++this.fails < 10)
-      setTimeout(() => this.startRequest(), 300 * this.fails * this.fails); //exp backoff. first retry will be after 300msec, last attempt (#9) after 30 sec
+      setTimeout(() => void this.startRequest(), 300 * this.fails * this.fails); //exp backoff. first retry will be after 300msec, last attempt (#9) after 30 sec
   }
 
   runUnloadHandler() {
     // If scheduled start request immediately, don't want to wait for any delayed stuff
     if (this.scheduled)
-      this.startRequest();
+      void this.startRequest();
   }
 }
