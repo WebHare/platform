@@ -10,6 +10,29 @@ import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconsta
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, toResourcePath } from "@webhare/services";
 import { pick } from "@webhare/std";
+import type { ValidationMessageWithType } from "./validation";
+
+export type AssetPackBundleStatus = {
+  messages: ValidationMessageWithType[];
+  filedependencies: string[];
+  missingdependencies: string[];
+  entrypoint: string;
+  bundleconfig: {
+    extrarequires: string[];
+    languages: string[];
+    environment: string;
+  };
+  id: number;
+  hasstatus: boolean;
+  iscompiling: boolean;
+  requirecompile: boolean;
+  haserrors: boolean | undefined;
+  outputtag: string;
+  lastcompile: Date | null;
+  isdev: boolean;
+  watchcount: number;
+  compatibility: string;
+};
 
 function stripJSTSExtension(importPath: string) {
   if (importPath.endsWith(".js") || importPath.endsWith(".ts"))

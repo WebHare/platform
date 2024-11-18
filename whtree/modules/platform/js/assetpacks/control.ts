@@ -15,6 +15,8 @@ import { loadAssetPacksConfig, type AssetPacksConfig } from "./api";
 import { runInWork } from "@webhare/whdb";
 import { getAssetPackState, readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
 import type { AssetPackState } from "./types";
+import type { AssetPackBundleStatus } from "../devsupport/devbridge";
+
 
 class LoadedBundle {
   dirtyReason = '';
@@ -49,7 +51,7 @@ class LoadedBundle {
     };
   }
 
-  getBundleStatus() {
+  getBundleStatus(): AssetPackBundleStatus {
     return {
       ...this.getStatus(),
       errors: this.state?.errors || [],
