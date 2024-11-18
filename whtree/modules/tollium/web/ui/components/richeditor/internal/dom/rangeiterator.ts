@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 export default class RangeIterator2 {
