@@ -29,10 +29,11 @@ generatebuildinfo()
   [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
   [ -n "$WEBHARE_VERSION" ] || die WEBHARE_VERSION not set
 
-    cat > "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo.tmp" << HERE
+  # GitLab CI checks out the commit as a detached head, so we'll have to rely on the CI_ variables to find the branch name
+  cat > "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/whres/buildinfo.tmp" << HERE
 committag="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
 version="${WEBHARE_VERSION}"
-branch="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)"
+branch="${CI_COMMIT_BRANCH:$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)}"
 origin=$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url)
 builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 builddate="$(date +'%Y-%m-%d')"
