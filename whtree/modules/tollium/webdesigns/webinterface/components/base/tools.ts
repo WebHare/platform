@@ -29,7 +29,7 @@ export function getSpacerHeight(spacers: Spacers): number {
   return (spacers && spacers.top ? $todd.settings.spacer_top : 0) + (spacers && spacers.bottom ? $todd.settings.spacer_bottom : 0);
 }
 
-export function copyValueToClipboard(node: HTMLInputElement) {
+export function copyValueToClipboard(node: HTMLInputElement | HTMLTextAreaElement) {
   const alreadyfocused = node === domfocus.getCurrentlyFocusedElement();
   node.select();
   if (!alreadyfocused)

@@ -1,6 +1,3 @@
-/* xeslint-disable */
-/// x@ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
