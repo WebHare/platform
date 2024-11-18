@@ -74,6 +74,9 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
     //We're building the platform
     projectRoot = backendConfig.installationroot;
     rootpaths.push(backendConfig.installationroot + "jssdk", ...whconstant_builtinmodules.map(mod => backendConfig.installationroot + "modules/" + mod));
+  } else if (modulename === "jssdk") {
+    projectRoot = backendConfig.installationroot;
+    rootpaths.push(backendConfig.installationroot + "jssdk");
   } else {
     projectRoot = backendConfig.module[modulename].root;
     rootpaths.push(projectRoot);
@@ -89,7 +92,7 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
   if (!rootnames.length)
     return []; //don't bother launching TSC, no TypeScript here
 
-  if (modulename !== "platform") { //apply decentral tsconfig.json
+  if (modulename !== "platform" && modulename !== "jssdk") { //apply decentral tsconfig.json
     //Update if needed. But we could just calculate it directly and make actual on-disk storage wh fixupmodule or dev's problem...
     await loadlib("mod::system/lib/internal/modulemanager.whlib").BuildTSConfigFile(projectRoot);
 
