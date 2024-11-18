@@ -184,6 +184,7 @@ class LoadedBundle {
 
       this.startCompile(); //recompile of dirty again
     }).catch(e => {
+      this.recompiling = null;
       console.log("Recompile Failed", this.name, e);
     });
   }
