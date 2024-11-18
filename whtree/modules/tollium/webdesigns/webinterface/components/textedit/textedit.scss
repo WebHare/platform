@@ -1,107 +1,110 @@
 @import "~@mod-tollium/web/ui/css/settings.scss";
 @import "~@mod-tollium/web/ui/skins/default/mixins.scss";
 
-//Prefix and suffix
-$prefix_suffix_margin: 5px;  //Sync with textedit.es
+/* Textedit structure:
+     t-textedit (inline-fleX)
+       .t-textedit__prefix?
+       .t-textedit__field      (grows to fit, inline-flex)
+         input                 (grows to fit)
+         counter?
+         button*
+       .t-textedit__suffix?
+*/
 
-.t-textedit__prefix, .t-textedit__suffix
-{
+//Prefix and suffix
+$prefix_suffix_margin: 5px; //Sync with textedit.es
+
+t-textedit {
+  display: inline-flex !important; //we need to defeat panel.scss which applies inline-block way too specific
+  height: calc(var(--grid-height) - 1px);
+
+  .t-textedit__counter {
+    display: none;
+    margin-top: 2.5px;
+    transition: opacity 0.15s;
+    @include tollium-character-counter;
+  }
+
+  &:focus-within .t-textedit__counter {
+    opacity: 0.45;
+    display: block;
+  }
+
+  .t-textedit__field {
+    background: $control-background-color;
+    border: 1px solid var(--border-color);
+    color: #000000;
+    border-radius: var(--border-radius);
+    display: inline-flex;
+    flex: 1 0 0;
+
+    button {
+      flex: 0 0 16px;
+      height: auto; //button.scss sets height:23px, we need to undo that
+      margin: 3px 0 0 4px;
+
+      &:last-child {
+        margin-right: 4px;
+      }
+    }
+
+    input {
+      flex: 1 0 0;
+      height: 100%;
+      position: relative;
+      vertical-align: top;
+      background: transparent;
+      appearance: none;
+
+      padding: 0 5px;
+      color: inherit;
+      font-size: 12px;
+      line-height: 16px;
+
+      &:focus {
+        @include tollium-input-focused;
+      }
+
+      &[readonly]:not(:focus) {
+        text-overflow: ellipsis;
+      }
+    }
+
+    &:has(input[required]) {
+      @include tollium-input-required;
+    }
+
+    &:has(input[readonly]) {
+      @include tollium-input-disabled;
+    }
+  }
+  &:not(.textedit--hiderequiredifdisabled) .t-textedit__field:has(input[required][readonly]) {
+    @include tollium-input-required-and-disabled;
+  }
+}
+
+.t-textedit__prefix,
+.t-textedit__suffix {
   margin-top: 5px;
   white-space: nowrap;
 }
 
-.t-textedit__prefix
-{
+.t-textedit__prefix {
   display: inline-block;
-  vertical-align:top;
+  vertical-align: top;
   margin-right: $prefix_suffix_margin;
 }
-.t-textedit__suffix
-{
+
+.t-textedit__suffix {
   display: inline-block;
-  vertical-align:top;
+  vertical-align: top;
   margin-left: $prefix_suffix_margin;
 }
 
-//Buttons
-t-textedit button
-{
-  height: 100%;
-  padding: 4px;
-  border-left: 1px solid transparent;
+t-textedit input~button.icon:not(.todd--disabled):hover {
+  background: rgba(0, 0, 0, 0.1);
 }
 
-t-textedit button.todd--disabled
-{
-  border: none;
-}
-
-t-textedit > input
-{
-  min-width: 20px;
-  min-height: 23px;
-  height: $control-height;
-  position: relative;
-  vertical-align: top;
-  -webkit-appearance:none;
-
-  border: 1px solid #b3b3b3;
-  border-radius: 2px;
-  padding: 0 5px;
-  color: #000000;
-  font-size: 12px;
-  line-height: 16px;
-  /*font-family: 'Roboto', sans-serif, Arial;*/
-  background: $control-background-color;
-
-  &:focus
-  {
-    @include tollium-input-focused;
-  }
-
-  &[required]
-  {
-    @include tollium-input-required;
-  }
-
-  &[readonly]
-  {
-    @include tollium-input-disabled;
-  }
-
-  &[readonly]:not(:focus)
-  {
-    text-overflow: ellipsis;
-  }
-}
-
-t-textedit:not(.textedit--hiderequiredifdisabled) input[required][readonly]
-{
-  @include tollium-input-required-and-disabled;
-}
-
-t-textedit > input ~ button.icon
-{
-  position: absolute;
-  right: 0;
-  top: calc(50% - 8px);
-  width: 16px;
-  height: 16px;
-
-  background: rgba(0,0,0,0);
-  transition: background 0.1s;
-}
-t-textedit > input ~ button.icon:not(.todd--disabled):hover
-{
-  background: rgba(0,0,0,0.1);
-}
-t-textedit > input ~ button.icon.button--active
-{
-  background: rgba(0,0,0,.2);
-}
-t-textedit > input ~ button.icon .button__img
-{
-  top: 0;
-  left: 0;
+t-textedit input~button.icon .button__img {
   margin: 0;
 }

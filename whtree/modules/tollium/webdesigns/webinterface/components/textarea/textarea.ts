@@ -148,7 +148,8 @@ export default class ObjTextArea extends ComponentBase {
       this.node.classList.add("textarea--hiderequiredifdisabled");
 
     if (this.showcounter) {
-      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure': this.lengthmeasure, required: this.required });
+      this.counter = new InputTextLengthCounter(this.inputnode, { 'lengthmeasure': this.lengthmeasure, required: this.required });
+      this.node.append(this.counter.getNode());
     }
   }
 

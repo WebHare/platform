@@ -221,18 +221,11 @@ ul.wh-menulist li.hassubmenu:before
   .wh-counter
 , .wh-imageeditor-scale
 {
+  @include tollium-character-counter;
+
   position: absolute;
   right: 4px;
   bottom: 5px;
-  line-height: 15px;
-  height: 16px;
-  font-size: 11px;
-  color: #fff;
-  background-color: #000000;
-  padding: 1px 6px;
-  border-radius: 8px;
-  text-align: center;
-  min-width: 30px;
   pointer-events: none;
 }
 .wh-imageeditor-scale

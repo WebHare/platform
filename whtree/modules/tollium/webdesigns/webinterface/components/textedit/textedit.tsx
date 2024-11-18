@@ -1,4 +1,4 @@
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import AutoSuggest from "dompack/components/autosuggest";
 import './textedit.scss';
@@ -130,16 +130,6 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
           this.buttons.push(comp as ObjButton);
       });
 
-    // Build our DOM
-    this.node = dompack.create("t-textedit", { dataset: { name: this.name } });
-    this.node.propTodd = this;
-
-    if (this.hint)
-      this.node.title = this.hint;
-
-    if (this.prefix)
-      this.node.appendChild(<span class="t-textedit__prefix">{this.prefix}</span>);
-
     this.inputnode = dompack.create("input", {
       value: this.getValue(),
       type: this.type,
@@ -155,11 +145,6 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     else if (this.autocomplete.includes("current-password"))
       this.inputnode.name = "password";
 
-    if (this.hiderequiredifdisabled)
-      this.node.classList.add("textedit--hiderequiredifdisabled");
-
-    this.node.appendChild(this.inputnode);
-
     // minlength must not be greater then maxlength (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#htmlattrdefminlength)
     if (this.maxlength > 0) {
       this.inputnode.maxLength = this.maxlength;
@@ -170,22 +155,32 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
     if (this.showcounter) {
       const style = this.buttons.length ? `right: ${(4 + this.buttons.length * (16 + intra_button_padding))}px;` : null;
-      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure': this.lengthmeasure, style, required: this.required });
+      this.counter = new InputTextLengthCounter(this.inputnode, { 'lengthmeasure': this.lengthmeasure, style, required: this.required, baseClass: "t-textedit__counter" });
     }
-
-    for (const button of this.buttons)
-      this.node.appendChild(button.getNode());
-
-    if (this.suffix)
-      this.node.appendChild(<span class="t-textedit__suffix">{this.suffix}</span>);
 
     this.inputnode.addEventListener("blur", () => this._gotBlur());
     this.inputnode.addEventListener("input", () => this.onAnyChange());
     this.inputnode.addEventListener("select", () => this.onAnyChange());
 
+    this._autosuggester = this.setupAutosuggest(this.inputnode);
+
+    this.node =
+      <t-textedit title={this.hint} data-name={this.name}>
+        {this.prefix ? <span class="t-textedit__prefix">{this.prefix}</span> : null}
+        <div class="t-textedit__field">
+          {this.inputnode}
+          {this.counter?._counter.node}
+          {this.buttons.map(button => button.getNode())}
+        </div>
+        {this.suffix ? <span class="t-textedit__suffix">{this.suffix}</span> : null}
+      </t-textedit>;
+    this.node.propTodd = this;
+
+    if (this.hiderequiredifdisabled)
+      this.node.classList.add("textedit--hiderequiredifdisabled");
+
     this.setRequired(data.required);
     this.setEnabled(data.enabled);
-    this._autosuggester = this.setupAutosuggest(this.inputnode);
   }
 
   // ---------------------------------------------------------------------------
@@ -329,7 +324,6 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       ? $todd.desktop.x_width * (this.maxlength + 1) + this.prefixsuffixsize + othercontent + leftrightmargins
       : maxcalcwidth;
 
-
     this.width.calc = Math.max(this.width.min, Math.min(calcwidth, maxcalcwidth));
   }
 
@@ -355,17 +349,17 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    let padding = intra_button_padding;
+    // let padding = intra_button_padding;
 
-    for (let idx = this.buttons.length - 1; idx >= 0; --idx) {
-      const button = this.buttons[idx];
-      this.buttons[idx].node.style.right = padding + "px";
-      padding += intra_button_padding + button.width.set;
-      button.relayout();
-    }
+    // for (let idx = this.buttons.length - 1; idx >= 0; --idx) {
+    //   const button = this.buttons[idx];
+    //   this.buttons[idx].node.style.right = padding + "px";
+    //   padding += intra_button_padding + button.width.set;
+    //   button.relayout();
+    // }
 
-    this.inputnode.style.width = (this.width.set - this.prefixsuffixsize) + 'px';
-    this.inputnode.style.paddingRight = padding + 'px';
+    this.node.style.width = this.width.set + 'px';
+    // this.node.style.paddingRight = padding + 'px';
   }
 
 

@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import { getUTF8Length, limitUTF8Length } from "@mod-system/js/internal/utf8";
 import "./counter.css";
-import { throwError } from "@webhare/std";
+import { pick, throwError } from "@webhare/std";
 
 interface CounterOptions {
   lengthmeasure: "characters" | "bytes";
@@ -13,6 +13,8 @@ interface CounterOptions {
   limit: number;
   minvalue: number;
   separator: string;
+
+  baseClass: string;
 }
 
 interface InputTextLengthCounterOptions {
@@ -21,6 +23,7 @@ interface InputTextLengthCounterOptions {
   //FIXME avoid raw styling
   style: string | null;
   required: boolean;
+  baseClass: string;
 }
 
 export class Counter {
@@ -41,14 +44,14 @@ export class Counter {
        focusnode Node containing the node we're listeining to and to whose focus events we should watch (simulating css focus-in)
   */
   constructor(options: Partial<CounterOptions> & Pick<CounterOptions, "focusnode">) {
-    this._options = { minvalue: -1, limit: -1, required: false, separator: '/', lengthmeasure: "characters", style: null, count: 0, ...options };
+    this._options = { minvalue: -1, limit: -1, required: false, separator: '/', lengthmeasure: "characters", style: null, count: 0, baseClass: "wh-counter", ...options };
 
     this.node = dompack.create("div", {
-      className: "wh-counter", childNodes:
+      className: this._options.baseClass, childNodes:
         [
-          this._countnode = dompack.create("span", { className: "wh-counter__count" }),
-          this._separatornode = dompack.create("span", { className: "wh-counter__separator" }),
-          this._limitnode = dompack.create("span", { className: "wh-counter__limit" })
+          this._countnode = dompack.create("span", { className: this._options.baseClass + "__count" }),
+          this._separatornode = dompack.create("span", { className: this._options.baseClass + "__separator" }),
+          this._limitnode = dompack.create("span", { className: this._options.baseClass + "__limit" })
         ]
     });
 
@@ -64,15 +67,15 @@ export class Counter {
     if (this.focusnode.contains(event.target) && this.focusnode.contains(event.relatedTarget))
       return; //intra-focus event, ignore;
 
-    this.node.classList.toggle("wh-counter--hasfocus", isfocusin);
+    this.node.classList.toggle(this._options.baseClass + "--hasfocus", isfocusin);
   }
 
   _updateState() {
-    this.node.classList.toggle("wh-counter--havelimit", this._options.limit >= 0);
-    this.node.classList.toggle("wh-counter--haveminvalue", this._options.minvalue >= 0);
-    this.node.classList.toggle("wh-counter--limitreached", this._options.limit >= 0 && this._options.count >= this._options.limit);
-    this.node.classList.toggle("wh-counter--underflow", Boolean((this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue));
-    this.node.classList.toggle("wh-counter--overflow", this._options.limit >= 0 && this._options.count > this._options.limit);
+    this.node.classList.toggle(this._options.baseClass + "--havelimit", this._options.limit >= 0);
+    this.node.classList.toggle(this._options.baseClass + "--haveminvalue", this._options.minvalue >= 0);
+    this.node.classList.toggle(this._options.baseClass + "--limitreached", this._options.limit >= 0 && this._options.count >= this._options.limit);
+    this.node.classList.toggle(this._options.baseClass + "--underflow", Boolean((this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue));
+    this.node.classList.toggle(this._options.baseClass + "--overflow", this._options.limit >= 0 && this._options.count > this._options.limit);
 
     this._countnode.textContent = String(this._options.count || 0);
     if (this._options.minvalue >= 0 || this._options.limit >= 0) {
@@ -104,14 +107,12 @@ export class Counter {
 }
 
 export class InputTextLengthCounter {
-  node;
   _options;
-  _input: HTMLInputElement | HTMLTextAreaElement;
   _counter;
   _minlength;
   _limit;
 
-  constructor(node: HTMLElement, options?: Partial<InputTextLengthCounterOptions>) {
+  constructor(private _input: HTMLInputElement | HTMLTextAreaElement, options?: Partial<InputTextLengthCounterOptions>) {
     this._options = {
       showcounter: true,
       forcelimit: true,          //concat text to given max length
@@ -124,10 +125,6 @@ export class InputTextLengthCounter {
       ...options || {}
     };
 
-    this.node = node;
-
-    this._input = this._options.input || dompack.qR(node, "input,textarea");
-
     this._minlength = Number(this._input.minLength);
     this._limit = Number(this._input.maxLength);
 
@@ -139,10 +136,9 @@ export class InputTextLengthCounter {
         limit: this._limit,
         separator: this._options.separator,
         focusnode: this._input,
-        style: this._options.style
+        style: this._options.style,
+        ...pick(this._options, ["baseClass"])
       });
-
-    this.node?.appendChild(this._counter.node);
 
     //use keyup event because of behavour of IE
     this._input.addEventListener("keydown", () => this.update());

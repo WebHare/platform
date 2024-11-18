@@ -353,7 +353,7 @@ function getTolliumDebugVariables() {
 function setTodd(name, value) {
   const toddel = getCurrentScreen().getToddElement(name);
   if (!toddel)
-    throw new Error(`Can't find toddElement '${toddel}'`);
+    throw new Error(`Can't find toddElement '${name}'`);
 
   const textedit = toddel.matches('input') ? toddel : toddel.querySelector('input,textarea');
   if (textedit) {
