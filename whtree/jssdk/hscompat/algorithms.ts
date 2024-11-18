@@ -8,7 +8,7 @@ export type ComparableType = number | null | bigint | string | Date | Money | bo
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type UnknownNonNullish = {};
 
 /* Explanation for the signature of the recordLowerBound family:

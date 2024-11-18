@@ -63,7 +63,7 @@ class SiteRequest {
     for (const plugin of publicationsettings.plugins) //apply plugins
       if (plugin.composerhook) {
         const plugindata = buildPluginData(plugin.datas);
-        (await resourcetools.loadJSFunction<ComposerHookFunction>(plugin.composerhook))(plugindata, composer);
+        await (await resourcetools.loadJSFunction<ComposerHookFunction>(plugin.composerhook))(plugindata, composer);
       }
 
     return composer;

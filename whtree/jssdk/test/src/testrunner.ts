@@ -38,7 +38,7 @@ async function asyncRun(tests: TestList, options?: object) {
 
   } finally {
     // Dump all resources keeping the script alive after 5 seconds after finishing the tests
-    triggerGarbageCollection();
+    await triggerGarbageCollection();
     scheduleLingeringProcessCheck();
   }
 }

@@ -118,7 +118,7 @@ function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null)
 }
 
 //Given a flat array of members and the toplevel members we want, only return those members and their children
-function getMemberIds(members: WHFSTypeMember[], topLevelMembers: Readonly<string[]>): number[] {
+function getMemberIds(members: WHFSTypeMember[], topLevelMembers: readonly string[]): number[] {
   function getIds(member: WHFSTypeMember): number[] {
     return [member.id, ...(member.children?.length ? member.children.map(getIds) : []).flat()];
   }
@@ -322,7 +322,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
-  private async getCurrentSettings(instanceIds: Readonly<number[]>, descr: WHFSTypeBaseInfo, keysToSet?: Readonly<string[]>) {
+  private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBaseInfo, keysToSet?: readonly string[]) {
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()

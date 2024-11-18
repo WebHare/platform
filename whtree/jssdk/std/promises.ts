@@ -41,8 +41,8 @@ export function wrapInTimeout<T>(promise: Promise<T>, timeout: WaitPeriod, rejec
       reject(typeof error === "object" ? error : new Error(error));
     }, until.getTime() - Date.now());
 
-    //ensure timer cancellation
-    promise.finally(() => clearTimeout(timer));
+    //ensure timer cancellation. No need to wait on this promise
+    void promise.finally(() => clearTimeout(timer));
   });
 
   return Promise.race([promise, timeoutpromise]);
@@ -73,7 +73,7 @@ class Coalescer<RetVal> {
     this.call = () => this.fn(...args); //TODO just queueing the parameters might do?
 
     if (!this.queue.length) //schedule a flush of the queue
-      setTimeout(() => this.flush(), 0);
+      setTimeout(() => void this.flush(), 0);
 
     this.queue.push(Promise.withResolvers<RetVal>());
     return this.queue[this.queue.length - 1].promise;

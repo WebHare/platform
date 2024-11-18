@@ -695,7 +695,7 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
     .execute();
 }
 
-export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
+export function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORDS:::RRA", cbInsertRecords);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);

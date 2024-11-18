@@ -77,15 +77,18 @@ export function isLoggedIn(): boolean {
 export function setupWRDAuth() {
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
     // node.whplugin_processed = true;
-    node.addEventListener("submit", submitLoginForm);
+    node.addEventListener("submit", evt => submitLoginForm);
   });
   dompack.register('.wh-wrdauth__logout', node => {
     // node.whplugin_processed = true;
-    node.addEventListener("click", async event => {
+
+    async function handleLogoutClick(event: Event) {
       dompack.stop(event);
       await logout();
       location.reload(); //TODO put this behind a 'login state change' event
-    });
+    };
+
+    node.addEventListener("click", event => void handleLogoutClick(event));
   });
 
   dompack.onDomReady(() => {
@@ -95,7 +98,7 @@ export function setupWRDAuth() {
   });
 }
 
-async function failLogin(message: string, response: { code: string; data: string }, form: HTMLFormElement | null) {
+function failLogin(message: string, response: { code: string; data: string }, form: HTMLFormElement | null) {
   const evtdetail = {
     message: message,
     code: response.code,

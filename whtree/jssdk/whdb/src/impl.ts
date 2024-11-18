@@ -306,7 +306,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   }
 
   /// Releases the PostgresPoolClient
-  async release() {
+  release() {
     //
   }
 

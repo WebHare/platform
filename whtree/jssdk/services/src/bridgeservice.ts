@@ -10,7 +10,7 @@ export interface BridgeService {
 }
 
 let bridgeservice: BridgeService;
-let thepromise: Promise<BridgeService>;
+let thepromise: Promise<BridgeService> | undefined;
 
 export async function getBridgeService() {
   if (!thepromise)

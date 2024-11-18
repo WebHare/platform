@@ -7,18 +7,18 @@ export type { AuthorModeOptions };
  * @param apname - The asset pack name (eg platform:tollium)
  * @returns A promise resolving to an array containing the assetpack script and CSS nodes
 */
-export function loadAssetPack(apname: string) {
+export async function loadAssetPack(apname: string): Promise<void> {
   const basepath = `${getAssetPackBase(apname)}ap.`;
   if (document.querySelector(`script[src$="${CSS.escape(basepath + "mjs")}"`))
     return; //we have it already
 
-  return Promise.all([loadScript(basepath + "mjs", { module: true }), loadCSS(basepath + 'css')]);
+  await Promise.all([loadScript(basepath + "mjs", { module: true }), loadCSS(basepath + 'css')]);
 }
 
 /** Setup author mode extensions */
-export function setupAuthorMode(options?: AuthorModeOptions) {
+export function setupAuthorMode(options?: AuthorModeOptions): void {
   if (typeof window !== "undefined" && window.top === window && getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) { //in a browser
     window.whAuthorModeOptions = options;
-    loadAssetPack("platform:authormode");
+    void loadAssetPack("platform:authormode"); // load of assetpack is schedule, no need to wait for it
   }
 }

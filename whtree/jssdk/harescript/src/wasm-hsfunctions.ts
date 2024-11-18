@@ -29,7 +29,6 @@ import { isatty } from "node:tty";
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
 /** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function contextGetterFactory<T extends new () => { close?: () => void }>(name: string, obj: T): (vm: HareScriptVM) => InstanceType<T> {
   const symbol = Symbol(`hsvm context: ${name}`);
   return (vm: HareScriptVM): InstanceType<T> => {
@@ -224,7 +223,7 @@ class HSJob extends OutputObjectBase {
   async setAuthenticationRecord(authrec: unknown) {
     if (this.closed)
       throw new Error(`The job has already been closed`);
-    this.jobobj.setAuthenticationRecord(authrec);
+    await this.jobobj.setAuthenticationRecord(authrec);
   }
   async getExternalSessionData() {
     if (this.closed)
@@ -234,7 +233,7 @@ class HSJob extends OutputObjectBase {
   async setExternalSessionData(newdata: string) {
     if (this.closed)
       throw new Error(`The job has already been closed`);
-    this.jobobj.setExternalSessionData(newdata);
+    await this.jobobj.setExternalSessionData(newdata);
   }
   async getEnvironment() {
     if (this.closed)
@@ -244,7 +243,7 @@ class HSJob extends OutputObjectBase {
   async setEnvironment(newdata: Array<{ name: string; value: string }>) {
     if (this.closed)
       throw new Error(`The job has already been closed`);
-    this.jobobj.setEnvironment(newdata);
+    await this.jobobj.setEnvironment(newdata);
   }
   async terminate() {
     if (this.closed)
@@ -301,7 +300,7 @@ class HSJobOutput extends OutputObjectBase {
     this.endpoint = endpoint;
     this.endpoint.on("message", (packet) => this.gotMessage(packet));
     this.endpoint.on("close", () => this.gotClose());
-    this.endpoint.activate();
+    void this.endpoint.activate(); // no need to wait on activation
   }
 
   gotMessage(packet: IPCMessagePacket<IPCMarshallableRecord>) {
@@ -891,7 +890,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       throw new Error(`Link to job has already been retrieved`);
 
     const hslink = new HSIPCLink(vm, job.linkinparent);
-    hslink.activate();
+    void hslink.activate(); // no need to wait on activation
     ipcContext(vm).links.set(hslink.id, hslink);
     id_set.setInteger(hslink.id);
     job.linkinparent = undefined;
@@ -919,7 +918,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (endpoint) {
       ipcContext(vm).linktoparent = undefined;
       const hslink = new HSIPCLink(vm, endpoint);
-      hslink.activate();
+      void hslink.activate(); // no need to wait on activation
       ipcContext(vm).links.set(hslink.id, hslink);
       id_set.setInteger(hslink.id);
     } else
@@ -1001,7 +1000,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     const links = createIPCEndPointPair();
     job.output = new HSJobOutput(vm, links[0]);
-    job.captureOutput(links[1]);
+    await job.captureOutput(links[1]);
     id_set.setInteger(job.output.id);
   });
 
