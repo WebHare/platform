@@ -4,7 +4,7 @@ declare module "@webhare/js-api-tools" {
 
 export { checkPromiseErrorsHandled } from "./async";
 export { parseTrace, getStackTrace, prependStackTrace } from "./stacktracing";
-export { levenshteinDistance, getBestMatch, addBestMatch } from "./levenshtein";
+export { getBestMatch, addBestMatch } from "./levenshtein";
 export type { StackTrace, StackTraceItem } from "./stacktracing";
 export type { RecursiveReadonly, PromisifyFunctionReturnType, RecursivePartial } from "./utility-types";
 
