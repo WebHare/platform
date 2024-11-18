@@ -465,6 +465,23 @@ async function testStrings() {
   test.eq("tÉst0-9_()a", std.toCLocaleLowercase("TÉSt0-9_()A"));
 }
 
+function testLevenstein() {
+  test.eq(1, std.levenshteinDistance('a', 'b'));
+  test.eq(1, std.levenshteinDistance('ab', 'ac'));
+  test.eq(1, std.levenshteinDistance('ac', 'bc'));
+  test.eq(1, std.levenshteinDistance('abc', 'axc'));
+  test.eq(3, std.levenshteinDistance('kitten', 'sitting'));
+  test.eq(6, std.levenshteinDistance('xabxcdxxefxgx', '1ab2cd34ef5g6'));
+  test.eq(2, std.levenshteinDistance('cat', 'cow'));
+  test.eq(6, std.levenshteinDistance('xabxcdxxefxgx', 'abcdefg'));
+  test.eq(7, std.levenshteinDistance('javawasneat', 'scalaisgreat'));
+  test.eq(3, std.levenshteinDistance('example', 'samples'));
+  test.eq(6, std.levenshteinDistance('sturgeon', 'urgently'));
+  test.eq(6, std.levenshteinDistance('levenshtein', 'frankenstein'));
+  test.eq(5, std.levenshteinDistance('distance', 'difference'));
+  test.eq(2, std.levenshteinDistance('因為我是中國人所以我會說中文', '因為我是英國人所以我會說英文'));
+}
+
 function testEmails() {
   const invalidEmails = [
     '"\u00E9" <rob@example.nl>',
@@ -705,6 +722,7 @@ test.run([
   testDateTime,
   "Crypto and strings",
   testStrings,
+  testLevenstein,
   testEmails,
   testUrls,
   "Collections",
