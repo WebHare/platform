@@ -71,7 +71,7 @@ type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attribut
 // TODO not actually a CoVM anymore but this still points to some loadlibs we need to cleanup for WRD efficiency
 type CoVMSchemaCache = {
   schemaobj: Promise<HSVMObject>;
-  types: Record<string, Promise<HSVMObject>>;
+  types: Record<string, Promise<HSVMObject> | undefined>;
 };
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
@@ -413,13 +413,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   /** @deprecated use query() in WebHare 5.4.1+ */
-  // eslint-disable-next-line @typescript-eslint/ban-types
   selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.getType(type);
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
 
-  // eslint-disable-next-line @typescript-eslint/ban-types
   query<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.getType(type);
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
@@ -803,7 +801,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       };
 
     const typeobj = await this._getType();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await typeobj.GetAttribute(tagToHS(tag)) as WRDAttributeConfiguration_HS;
     if (!result)
       return null;

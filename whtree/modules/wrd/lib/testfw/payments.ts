@@ -23,17 +23,22 @@ export async function pushWRDTestPaymentButton(payurl: string, approvetype: stri
     throw new Error(`Cant find '${approvetype}' button`);
 
   await page.setRequestInterception(true);
-  const getPaymentInfo = new Promise<unknown>(resolve =>
-    page.on('request', async (interceptedRequest: Puppeteer.HTTPRequest) => {
+
+
+  const getPaymentInfo = new Promise<unknown>(resolve => {
+    const handleRequest = async (interceptedRequest: Puppeteer.HTTPRequest) => {
       if (interceptedRequest.isNavigationRequest() && interceptedRequest.url().includes("paymentinfo.shtml")) {
         //this is the JSON payment status, return it directly
         const resp = await fetch(interceptedRequest.url());
         resolve(await resp.json());
-        interceptedRequest.abort();
+        await interceptedRequest.abort();
         return;
       }
-      interceptedRequest.continue();
-    }));
+      await interceptedRequest.continue();
+    };
+
+    page.on('request', (interceptedRequest: Puppeteer.HTTPRequest) => void handleRequest(interceptedRequest));
+  });
 
   await button.click();
   await page.waitForNavigation({ waitUntil: "domcontentloaded" });
