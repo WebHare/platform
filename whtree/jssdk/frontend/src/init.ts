@@ -4,6 +4,8 @@
 import { DTAPStage } from "@webhare/env/src/concepts";
 import { debugFlags, initEnv } from "@webhare/env/src/envbackend";
 import { getBrowserDebugFlags } from "@webhare/env/src/init-browser";
+import type { FrontendDataTypes } from "@webhare/frontend";
+
 
 /** The format of the <script id="wh-config"> object  */
 export interface WHConfigScriptData {
@@ -43,14 +45,15 @@ export interface WHConfigScriptData_LegacyFields {
   siteroot: string;
 }
 
-
-let config, siteroot;
+type Configured = Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
+let config: Configured | undefined;
+let siteroot;
 let dtapStage = DTAPStage.Production;
 
 //if document is undefined, we're serverside or in a worker
 const whconfigel = typeof document !== "undefined" ? document.querySelector('script#wh-config') : null;
 if (whconfigel?.textContent) {
-  config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
+  config = JSON.parse(whconfigel.textContent) as Configured;
 
   //Fallbacks for pages last published with WH5.3 *and* pages published from HareScript which still emit lowercase props
   siteroot = config.siteRoot ?? config.siteroot;
@@ -62,6 +65,8 @@ initEnv(dtapStage, '/');
 for (const flag of getBrowserDebugFlags('wh-debug'))
   debugFlags[flag] = true;
 
+
+/** @deprecated frontendConfig has been deprecated. Switch to the getFrontendData system */
 // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
 export const frontendConfig = {
   server: 0,
@@ -74,3 +79,37 @@ export const frontendConfig = {
   islive: ([DTAPStage.Production, DTAPStage.Acceptance]).includes(dtapStage!),
   siteroot
 } as WHConfigScriptData & WHConfigScriptData_LegacyFields; //in a future version we can either obsolete or even drop '& WHConfigScriptData_LegacyFields' and validation will fail without breaking existing JS code
+
+
+//NOTE: These APIs need to live in init.ts so eg gtm.ts can access us without triggering a CSS reset through frontend.ts. When frontend.ts stops auto-resetting we might move it back
+
+export function getFrontendData<Type extends keyof FrontendDataTypes>(type: Type, options: { allowMissing: true }): FrontendDataTypes[Type] | null;
+export function getFrontendData<Type extends keyof FrontendDataTypes>(type: Type, options?: { allowMissing: boolean }): FrontendDataTypes[Type];
+
+/** Get data exported by the response
+ * @typeParam Type - The type of data to get
+ * @param dataObject - The data object of data to get
+ * @param allowMissing - If true, return null if the data object is missing. Otherwise throw an error
+ * @example
+```
+  declare module "@webhare/frontend" {
+    interface FrontendDataTypes {
+      "mymodule:type": {
+        test: number;
+      };
+    }
+  }
+
+  const data = getFrontendData("mymodule:type");
+```
+*/
+export function getFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, { allowMissing = false } = {}): FrontendDataTypes[Type] | null {
+  const retval = config?.[dataObject] as FrontendDataTypes[Type];
+  if (!retval)
+    if (allowMissing)
+      return null;
+    else
+      throw new Error(`Missing frontend data object: ${dataObject}`);
+
+  return retval;
+}

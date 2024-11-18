@@ -888,6 +888,15 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       this->__jsconfig := CellInsert(this->__jsconfig, pluginname, data);
   }
 
+  PUBLIC MACRO SetFrontendData(STRING dataobject, RECORD data)
+  {
+    IF(dataobject NOT LIKE "?*:?*") //unfortunately we don't seem to have a checkModuleScopedName ready in HS.
+      THROW NEW Exception(`Frontend data object types should be proper 'module:name' references`);
+    this->__jsconfig := CellDelete(this->__jsconfig, dataobject);
+    IF(RecordExists(data))
+      this->__jsconfig := CellInsert(this->__jsconfig, dataobject, data);
+  }
+
   PUBLIC STRING FUNCTION GetRelURL(STRING inurl)
   {
     RETURN MakeRelativeLinkFromURL(this->baseurl, inurl, this->relativelinksscope);

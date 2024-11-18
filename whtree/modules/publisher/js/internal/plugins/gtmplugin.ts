@@ -1,10 +1,28 @@
 import { SiteResponse } from "@webhare/router/src/sitereponse";
 import { ComposerHookFunction } from "@webhare/router/src/siterequest";
 
+declare module "@webhare/frontend" {
+  interface FrontendDataTypes {
+    "socialite:gtm": {
+      /** Account ID, usually GTM-XXXXXX */
+      a: string;
+      /** True if integration is selfhosted */
+      h: boolean;
+      /** True if GTM is manually activated */
+      m: boolean;
+      /** Override script URL, WH5.5/5.6 - FIXME only implemented in HareScript, not yet in TypeScript */
+      s?: string;
+    };
+  }
+}
+
 interface GTMPluginData {
   account: string;
   integration: "script" | "assetpack" | "selfhosted";
   launch: "pagerender" | "manual";
+  //optional for WH5.5/5.6: in case we *just* upgraded and still need to recompile CSP
+  script?: string;
+  pixel?: string;
 }
 
 export function hookComposer(hookdata: GTMPluginData, composer: SiteResponse) {
@@ -23,7 +41,7 @@ export function hookComposer(hookdata: GTMPluginData, composer: SiteResponse) {
     composer.insertAt("dependencies-top",
       `<script>(function (w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${hookdata.account}');</script>`);
   } else {
-    composer.setPluginConfig("socialite:gtm", { a: hookdata.account, h: hookdata.integration === 'selfhosted', m: hookdata.launch === 'manual' });
+    composer.setFrontendData("socialite:gtm", { a: hookdata.account, h: hookdata.integration === 'selfhosted', m: hookdata.launch === 'manual' });
   }
 
   if (hookdata.launch === 'pagerender') {

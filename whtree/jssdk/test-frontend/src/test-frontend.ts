@@ -57,7 +57,19 @@ export function prepareUpload(list: Array<File | string>) {
 }
 
 
-/** Expose an API for use by tests through importExposed */
+/** Expose an API for use by frontend tests in a type-safe way
+ * @typeParam T - Type of the API to expose
+ * @param name - Name of the API
+ * @param api - API object
+   @example In your frontend code:
+```
+import { expose } from "@webhare/test-frontend";
+const authApi = expose("authApi", { isLoggedIn, login });
+export type AuthApi = typeof authApi;
+```
+@see {@link importExposed} to access the exposed API
+
+*/
 export function expose<T>(name: string, api: T): T {
   try {
     if (window.top?.__testframework)
@@ -68,7 +80,16 @@ export function expose<T>(name: string, api: T): T {
   return api;
 }
 
-/** Retrieve an exposed API */
+/** Retrieve an exposed API
+ * @typeParam T - Type of the expoed API
+ * @param name - Name of the API
+   @example In your test code you would use:
+```
+import { type AuthApi } from "@mod-my/frontend";
+const authApi = test.importExposed<authApi>("authApi");
+```
+@see {@link expose} to expose an API
+*/
 export function importExposed<T>(name: string): T {
   let testfw;
   try {

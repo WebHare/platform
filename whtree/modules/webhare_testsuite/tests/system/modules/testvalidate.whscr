@@ -717,15 +717,18 @@ GetTid("missing.module"); GetTid("system:has.module");`);
                 SELECT * FROM res.tids WHERE tid="~username", "*");
 
   //Test JS
-  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts");
+  STRING jstidres := "mod::webhare_testsuite/webdesigns/basetestjs/frontend/frontend.ts";
+  res := ValidateSingleFile(jstidres);
   //dumpvalue(res.tids);
-  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:webdesigns.basetest.consolelog" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.unicode_2028" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.richtext" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.richtext_params" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.maxextras" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.maxextras" ]
+  TestEqMembers([[ resourcename := jstidres, tid := "webhare_testsuite:webdesigns.basetest.consolelog" ]
+                ,[ resourcename := jstidres, tid := "webhare_testsuite:test.unicode_2028" ]
+                ,[ resourcename := jstidres, tid := "webhare_testsuite:test.richtext" ]
+                ,[ resourcename := jstidres, tid := "webhare_testsuite:test.richtext_params" ]
+                ,[ resourcename := jstidres, tid := "webhare_testsuite:test.maxextras" ]
+                ,[ resourcename := jstidres, tid := "webhare_testsuite:test.maxextras" ]
                 ], res.tids, "*");
+
+  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts");
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", icon := "tollium:status/not_available" ]
                 ], res.icons, "*");
 

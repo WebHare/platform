@@ -14,7 +14,9 @@
   <test script="test-nodesign.whscr"/>
   <jstest file="test-common-widgets-online.ts"/>
   <test script="test_outputanalyzer.whscr"/>
-  <jstest file="testwebdesign.ts" />
+  <group site="webhare_testsuite.testsitejs">
+    <jstest file="testwebdesign.ts" />
+  </group>
   <test script="test_structureddata.whscr"/>
   <jstest file="test_gallery.ts" />
 </group>

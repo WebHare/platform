@@ -4,13 +4,15 @@ declare module "@webhare/frontend" {
 
 import { onDomReady } from "@webhare/dompack";
 import "../styling/reset.css"; // Reset CSS - this will be dropped somewhere post WH5.6!
-export { frontendConfig } from "./init";
+export { frontendConfig, getFrontendData } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
-import { navigateTo as envNavigateTo } from "@webhare/env";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 
-/** @deprecated Use navigateTo from \@webhare/env */
-export const navigateTo = envNavigateTo; //only the WH5.4+ webshop used this, so it should be safe to remove
+// we shouldn't deprecate navigateTo exported from frontend. in fact it makes more sense to export it from frontend than env as it's browser-only
+export { navigateTo } from "@webhare/env";
+
+export interface FrontendDataTypes {
+}
 
 function postRenderChecks() {
   const log = document.getElementById("wh-console-log");

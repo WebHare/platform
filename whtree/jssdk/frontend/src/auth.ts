@@ -1,14 +1,23 @@
 import { createClient } from "@webhare/jsonrpc-client";
 import { NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
-import { frontendConfig } from "./init";
 import type { FrontendLoginResult, FrontendLogoutResult } from "@mod-platform/js/auth/openid";
 import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
 
-const authsettings = frontendConfig["wrd:auth"] as { cookiename: string } | undefined;
+//NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
+import { getFrontendData } from '@webhare/frontend/src/init';
 
 interface AuthLocalData {
   expires: Date;
+}
+
+declare module "@webhare/frontend" {
+  interface FrontendDataTypes {
+    "wrd:auth": {
+      /** WRDAuth cookiename (used to verify configuration settings) */
+      cookiename: string;
+    };
+  }
 }
 
 export interface LoginOptions extends LoginRemoteOptions {
@@ -24,10 +33,15 @@ export type LoginResult = {
   error: string;
 };
 
+function getCookieName() {
+  const settings = getFrontendData("wrd:auth", { allowMissing: true });
+  if (!settings?.cookiename)
+    throw new Error("No authsettings.cookiename set, wrd:auth not available");
+  return settings.cookiename;
+}
+
 function getStorageKeyName() {
-  if (!authsettings?.cookiename)
-    throw new Error("No authsettings.cookiename set, storage not available");
-  return "wh:wrdauth-" + authsettings.cookiename;
+  return "wh:wrdauth-" + getCookieName();
 }
 
 async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
@@ -102,7 +116,7 @@ async function failLogin(message: string, response: { code: string; data: string
 
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
-  const data = { username, password, cookieName: authsettings?.cookiename, options };
+  const data = { username, password, cookieName: getCookieName(), options };
   const result = await (await fetch(`/.wh/openid/frontendservice?type=login&pathname=${encodeURIComponent(location.pathname)}`, {
     method: "post",
     headers: {
@@ -120,7 +134,7 @@ export async function login(username: string, password: string, options: LoginOp
 }
 
 export async function logout() {
-  const data = { cookieName: authsettings?.cookiename };
+  const data = { cookieName: getCookieName() };
   const result = await (await fetch(`/.wh/openid/frontendservice?type=logout&pathname=${encodeURIComponent(location.pathname)}`, {
     method: "post",
     headers: {

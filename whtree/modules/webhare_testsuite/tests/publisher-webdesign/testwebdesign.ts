@@ -1,23 +1,33 @@
-import * as test from '@mod-system/js/wh/testframework';
+import * as test from '@webhare/test-frontend';
+import { type BaseTestApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/frontend/frontend";
 
-test.registerTests(
+
+test.run(
   [
     async function () {
       await test.load(test.getTestSiteRoot());
-      //@ts-ignore -- not bothering to define test APIs
-      test.eq('\u2028unicode line separator,\u2029another separator', test.getWin().getTidTest().unicode2028);
+      const baseTestApi = test.importExposed<BaseTestApi>("baseTestApi");
+
+      const tids = baseTestApi.getTidTest();
+      test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
+      test.eq("(cannot find text: webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
+      test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
+      test.eq('Dit is <b>bold</b><br>volgende<br>regel', tids.richtext);
+      test.eq('Please note: max 1 person', tids.maxextras_1);
+      test.eq('Please note: max 2 persons', tids.maxextras_2);
+
       test.assert(global.URL); //ensure the global object exists (at least for window environments)
 
-      ///@ts-ignore -- using any for convenience
-      const baseTestConfig = test.getWin().baseTestConfig as any;
-      test.assert(baseTestConfig.env.debugFlags);
-      test.eq("development", baseTestConfig.env.dtapStage);
-      test.eq(false, baseTestConfig.env.isLive);
-      test.eq(test.getTestSiteRoot(), baseTestConfig.frontendConfig.siteRoot);
+      test.assert(baseTestApi.env.debugFlags);
+      test.eq("development", baseTestApi.env.dtapStage);
+      test.eq(false, baseTestApi.env.isLive);
+      test.eq(test.getTestSiteRoot(), baseTestApi.frontendConfig.siteRoot);
 
       //vertify deprecated fields will work for now - but with WH5.4 we expect users to prefer @webhare/env
-      test.eq(false, baseTestConfig.frontendConfig.islive);
-      test.eq("development", baseTestConfig.frontendConfig.dtapstage);
-      test.eq(baseTestConfig.frontendConfig.siteRoot, baseTestConfig.frontendConfig.siteroot);
+      test.eq(false, baseTestApi.frontendConfig.islive);
+      test.eq("development", baseTestApi.frontendConfig.dtapstage);
+      test.eq(baseTestApi.frontendConfig.siteRoot, baseTestApi.frontendConfig.siteroot);
+
+      test.eq({ notOurAlarmCode: 424242 }, baseTestApi.getMyFrontendData());
     }
   ]);
