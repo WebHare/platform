@@ -1,12 +1,10 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
