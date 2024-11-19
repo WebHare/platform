@@ -1,71 +1,90 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
 import { getUTF8Length, limitUTF8Length } from "@mod-system/js/internal/utf8";
 import "./counter.css";
+import { pick, throwError } from "@webhare/std";
 
+interface CounterOptions {
+  lengthmeasure: "characters" | "bytes";
+  required: boolean;
+  //FIXME avoid raw styling
+  style: string | null;
+  focusnode: HTMLElement;
+  count: number;
+  limit: number;
+  minvalue: number;
+  separator: string;
+
+  baseClass: string;
+}
+
+interface InputTextLengthCounterOptions {
+  inputnode: HTMLInputElement | HTMLTextAreaElement;
+  lengthmeasure: "characters" | "bytes";
+  //FIXME avoid raw styling
+  style: string | null;
+  required: boolean;
+  baseClass: string;
+}
 
 export class Counter {
   node;
+  focusnode: HTMLElement;
+  _countnode;
+  _separatornode;
+  _limitnode;
+  _options: CounterOptions;
 
-  /** @param options
-      @cell options.count
-      @cell options.required
-      @cell options.minvalue
-      @cell options.limit
-      @cell options.separator
-      @cell options.cssclass Extra css class to add to the root node
-      @cell options.focusnode Node containing the node we're listeining to and to whose focus events we should watch (simulating css focus-in)
+  /** @param options -
+       count
+       required
+       minvalue
+       limit
+       separator
+       cssclass Extra css class to add to the root node
+       focusnode Node containing the node we're listeining to and to whose focus events we should watch (simulating css focus-in)
   */
-  constructor(options) {
-    this._options = { minvalue: -1, limit: -1, required: false, ...options };
+  constructor(options: Partial<CounterOptions> & Pick<CounterOptions, "focusnode">) {
+    this._options = { minvalue: -1, limit: -1, required: false, separator: '/', lengthmeasure: "characters", style: null, count: 0, baseClass: "wh-counter", ...options };
 
     this.node = dompack.create("div", {
-      className: "wh-counter", childNodes:
+      className: this._options.baseClass, childNodes:
         [
-          this._countnode = dompack.create("span", { className: "wh-counter__count" }),
-          this._separatornode = dompack.create("span", { className: "wh-counter__separator" }),
-          this._limitnode = dompack.create("span", { className: "wh-counter__limit" })
+          this._countnode = dompack.create("span", { className: this._options.baseClass + "__count" }),
+          this._separatornode = dompack.create("span", { className: this._options.baseClass + "__separator" }),
+          this._limitnode = dompack.create("span", { className: this._options.baseClass + "__limit" })
         ]
     });
 
     this._updateState();
-    this.focusnode = options.focusnode;
+    this.focusnode = options.focusnode || throwError("No focusnode provided");
 
-    options.focusnode.addEventListener("focusin", evt => this._onFocusInOut(true, evt));
-    options.focusnode.addEventListener("focusout", evt => this._onFocusInOut(false, evt));
+    //FIXME can't we replace this with focus-within stuff ?
+    dompack.addDocEventListener(this.focusnode, "focusin", evt => this._onFocusInOut(true, evt));
+    dompack.addDocEventListener(this.focusnode, "focusout", evt => this._onFocusInOut(false, evt));
   }
 
-  _onFocusInOut(isfocusin, event) {
+  _onFocusInOut(isfocusin: boolean, event: dompack.DocEvent<FocusEvent>) {
     if (this.focusnode.contains(event.target) && this.focusnode.contains(event.relatedTarget))
       return; //intra-focus event, ignore;
 
-    this.node.classList.toggle("wh-counter--hasfocus", isfocusin);
+    this.node.classList.toggle(this._options.baseClass + "--hasfocus", isfocusin);
   }
 
   _updateState() {
-    const classes =
-    {
-      "wh-counter--havelimit": this._options.limit >= 0,
-      "wh-counter--haveminvalue": this._options.minvalue >= 0,
-      "wh-counter--limitreached": this._options.limit >= 0 && this._options.count >= this._options.limit,
-      "wh-counter--underflow": (this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue,
-      "wh-counter--overflow": this._options.limit >= 0 && this._options.count > this._options.limit
-    };
+    this.node.classList.toggle(this._options.baseClass + "--havelimit", this._options.limit >= 0);
+    this.node.classList.toggle(this._options.baseClass + "--haveminvalue", this._options.minvalue >= 0);
+    this.node.classList.toggle(this._options.baseClass + "--limitreached", this._options.limit >= 0 && this._options.count >= this._options.limit);
+    this.node.classList.toggle(this._options.baseClass + "--underflow", Boolean((this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue));
+    this.node.classList.toggle(this._options.baseClass + "--overflow", this._options.limit >= 0 && this._options.count > this._options.limit);
 
-    if (this._options.cssclass)
-      classes[this._options.cssclass] = true;
-
-    dompack.toggleClasses(this.node, classes);
-    this._countnode.textContent = this._options.count || 0;
+    this._countnode.textContent = String(this._options.count || 0);
     if (this._options.minvalue >= 0 || this._options.limit >= 0) {
-      this._separatornode.textContent = this.separator || "/";
-      this._limitnode.textContent = this._options.minvalue >= 0
+      this._separatornode.textContent = this._options.separator;
+      this._limitnode.textContent = String(this._options.minvalue >= 0
         ? this._options.limit >= 0
           ? `${this._options.minvalue} - ${this._options.limit}`
           : `${this._options.minvalue}+`
-        : this._options.limit;
+        : this._options.limit);
       this._separatornode.style.display = "";
       this._limitnode.style.display = "";
     } else {
@@ -73,67 +92,60 @@ export class Counter {
       this._limitnode.style.display = "none";
     }
 
+    //@ts-expect-error FIXME directly assigning style is dangerous and actually readonly?. keeping this for now as it was already htere...
     this.node.style = this._options.style || "";
   }
 
-  /** @param updates
-      @cell(integer) updates.count
-      @cell(integer) updates.limit
+  /** @param update - update options
+           updates.count
+           updates.limit
   */
-  update(updates) {
+  update(updates: Partial<CounterOptions>) {
     Object.assign(this._options, updates);
     this._updateState();
   }
 }
 
 export class InputTextLengthCounter {
-  // node
-  // _options
-  // _input
-  // _counter
-  // _minlength
-  // _limit
+  _options;
+  _counter;
+  _minlength;
+  _limit;
 
-  constructor(node, options) {
+  constructor(private _input: HTMLInputElement | HTMLTextAreaElement, options?: Partial<InputTextLengthCounterOptions>) {
     this._options = {
-      showcounter: true,
       forcelimit: true,          //concat text to given max length
       input: null,          //input to count
       separator: "/",
       cssclass: "",            //additional css class
       lengthmeasure: "characters", // characters or bytes
       style: "",
-      required: false, ...options || {}
+      required: false,
+      ...options || {}
     };
-
-    this.node = node;
-
-    this._input = this._options.input || node.querySelector("input,textarea");
-    if (!this._input)
-      throw new Error("Could not locate input node to count");
 
     this._minlength = Number(this._input.minLength);
     this._limit = Number(this._input.maxLength);
 
-    if (this._options.showcounter) {
-      this._counter = new Counter(
-        {
-          count: this._getTextlength(),
-          required: this._input.required || this._options.required,
-          minvalue: this._minlength,
-          limit: this._limit,
-          separator: this._options.separator,
-          cssclass: this._options.cssclass,
-          focusnode: this._input,
-          style: this._options.style
-        });
-
-      this.node.appendChild(this._counter.node);
-    }
+    this._counter = new Counter(
+      {
+        count: this._getTextlength(),
+        required: this._input.required || this._options.required,
+        minvalue: this._minlength,
+        limit: this._limit,
+        separator: this._options.separator,
+        focusnode: this._input,
+        style: this._options.style,
+        ...pick(this._options, ["baseClass"])
+      });
 
     //use keyup event because of behavour of IE
     this._input.addEventListener("keydown", () => this.update());
     this._input.addEventListener("input", () => this.update());
+  }
+
+  getNode() {
+    return this._counter.node;
   }
 
   _getTextlength() {

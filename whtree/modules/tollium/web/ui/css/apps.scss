@@ -341,15 +341,14 @@ div.tabs-space select
   color:inherit; /* a lighter color is used inside tab-space */
 }
 
-  div.tabs-space button
-, t-textedit button
+div.tabs-space > t-buttongroup > button
 {
   margin: 0;
   height: calc(100% - 1px);
   border-radius: 0;
 }
 
-div.tabs-space button .button__img
+div.tabs-space > t-buttongroup > button .button__img
 {
   position:absolute;
   margin:0;

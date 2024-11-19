@@ -34,3 +34,16 @@
     background-color: #95cdfe;
   }
 }
+
+@mixin theme-counter
+{
+  line-height: 15px;
+  height: 16px;
+  font-size: 11px;
+  color: #fff;
+  background-color: #000000;
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 30px;
+}

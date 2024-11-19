@@ -57,14 +57,8 @@ button .button__img
 {
   margin-top: 3px;
   margin-left: 4px;
-  float: left; /* to have titles with ellipsis working without having to calculate the size of the text container */
   pointer-events: none;
 }
-t-toolbar-buttongroup button .button__img
-{
-  float: none;
-}
-
 button.button--active .button__img
 {
   left: 1px;

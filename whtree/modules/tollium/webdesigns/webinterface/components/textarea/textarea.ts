@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
@@ -9,6 +6,20 @@ import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontr
 import Keyboard from 'dompack/extra/keyboard';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import './textarea.scss';
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+
+interface TextAreaAttributes extends ComponentStandardAttributes {
+  value: string;
+  placeholder?: string;
+  showcounter?: boolean;
+  wordwrap?: boolean;
+  lengthmeasure?: "characters" | "bytes";
+  maxlength: number;
+  password?: boolean;
+  minlength: number;
+  required: boolean;
+  hiderequiredifdisabled?: boolean;
+}
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -21,9 +32,25 @@ export default class ObjTextArea extends ComponentBase {
   * Initialization
   */
 
-  constructor(parentcomp, data) {
+  componenttype = "textarea";
+  placeholder = '';
+  showcounter = false;
+  wordwrap;
+  minlength;
+  maxlength;
+  lengthmeasure;
+  hiderequiredifdisabled;
+  inputnode!: HTMLTextAreaElement;
+  required = false;
+
+  reportchange_cb: NodeJS.Timeout | null = null;
+  counter: InputTextLengthCounter | null = null;
+
+  declare node: HTMLElement;
+  value: string = '';
+
+  constructor(parentcomp: ToddCompBase, data: TextAreaAttributes) {
     super(parentcomp, data);
-    this.componenttype = "textarea";
     this.setValue(data.value);
     this.placeholder = data.placeholder || "";
     this.showcounter = data.showcounter === true;
@@ -60,7 +87,7 @@ export default class ObjTextArea extends ComponentBase {
     return this.inputnode ? this.inputnode.value : this.value;
   }
 
-  setValue(value) {
+  setValue(value: string) {
     if (value !== this.value) {
       this.value = value;
       if (this.inputnode)
@@ -68,7 +95,7 @@ export default class ObjTextArea extends ComponentBase {
     }
   }
 
-  setRequired(value) {
+  setRequired(value: boolean) {
     if (value !== this.required) {
       this.required = value;
       this.node.classList.toggle("required", this.required);
@@ -78,7 +105,7 @@ export default class ObjTextArea extends ComponentBase {
     }
   }
 
-  setEnabled(value) {
+  setEnabled(value: boolean) {
     if (value !== this.enabled) {
       this.enabled = value;
       this.node.classList.toggle("disabled", !this.enabled);
@@ -121,7 +148,8 @@ export default class ObjTextArea extends ComponentBase {
       this.node.classList.add("textarea--hiderequiredifdisabled");
 
     if (this.showcounter) {
-      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure': this.lengthmeasure, required: this.required });
+      this.counter = new InputTextLengthCounter(this.inputnode, { 'lengthmeasure': this.lengthmeasure, required: this.required });
+      this.node.append(this.counter.getNode());
     }
   }
 

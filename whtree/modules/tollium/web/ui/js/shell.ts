@@ -43,6 +43,7 @@ import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/login";
 import "./apps/oauth";
+import "../css/vars.scss";
 require('../css/shell.css');
 require('../css/apps.scss');
 require('../skins/default/skin.scss');

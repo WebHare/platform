@@ -1,6 +1,3 @@
-/* xeslint-disable */
-/// x@ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import JSONRPCTransport from "./jsonrpctransport";
 import type LinkEndpoint from "./linkendpoint";
 import type TransportBase from "./transportbase";
