@@ -181,6 +181,7 @@ ASYNC MACRO TestEditDeleteRole()
   //Copying a user with a deleted role crashed earlier (because existence wasn't verified). See that it properly works now
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="user1@beta.webhare.net";
   AWAIT ExpectScreenChange(+1, PTR TTClick("copypermissions"));
+  topscreen->frame->focused := TT("selectuserrole->unitcontents->userandrolelist");
   TT("selectuserrole->unitcontents->userandrolelist")->selection := SELECT * FROM TT("selectuserrole->unitcontents->userandrolelist")->rows WHERE name="user3@beta.webhare.net";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
