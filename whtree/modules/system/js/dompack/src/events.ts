@@ -4,7 +4,7 @@ export const CustomEvent = globalThis.CustomEvent;
 /** Wrap an event to ensure it's target is a HTMLElement
  * @typeParam EventType - The expected event type
  * @typeParam CurrentTargetType - The type of the elemnt you're binding the event to. Optional, defaults to HTMLElement
- * @typeParam CurrentTargetType - The type of the elemnt you're binding the event to. Optional, defaults to HTMLElement
+ * @typeParam RelatedTargetType - The type of the elemnt you're binding the event to. Optional, defaults to HTMLElement
 */
 export type DocEvent<EventType extends Event, CurrentTargetType extends HTMLElement = HTMLElement, RelatedTargetType extends HTMLElement = HTMLElement> = EventType & {
   target: HTMLElement;
