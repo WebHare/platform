@@ -28,6 +28,9 @@ MACRO Setup()
   lisaresolveroot := testroot->EnsureFolder([name := "lisa" ]);
 
   api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
+  FOREVERY(RECORD worklist FROM SELECT * FROM api_sysop->GetAllWorkLists() WHERE name LIKE "TESTFW - *")
+    api_sysop->DeleteWorkList(worklist.id);
+
   api_lisa := NEW WorkListAPI(testfw->GetUserObject("lisa"));
 
   testfw->SetTestUser("sysop");
