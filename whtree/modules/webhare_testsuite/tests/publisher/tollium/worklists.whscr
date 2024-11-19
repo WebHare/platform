@@ -200,6 +200,7 @@ ASYNC MACRO TestAsSysop()
   // Add 'Marge' through role powerplantmanagers
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
   TT("selectuserrole->unittree->unitlist")->value := testfw->testunit;
+  topscreen->frame->focused := TT("selectuserrole->unitcontents->userandrolelist");
   TT("selectuserrole->unitcontents->userandrolelist")->value := INTEGER[ testfw->GetRoleObject("powerplantmanagers")->entityid ];
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 

@@ -65,7 +65,7 @@ PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD optio
     RETURN RECORD[];
 
   RECORD ARRAY selection;
-  OBJECT ARRAY value := options.selectmultiple ? screen->value : OBJECT[ screen->value ];
+  OBJECT ARRAY value := options.selectmultiple ? screen->value : ObjectExists(screen->value) ? OBJECT[ screen->value ] : OBJECT[];
   FOREVERY(OBJECT obj FROM value)
     IF(obj->type IN [1,3])
       INSERT [ type := obj->type = 1 ? "user" : "role", entityid := obj->entityid, authobjectid := obj->authobjectid ] INTO selection AT END;
