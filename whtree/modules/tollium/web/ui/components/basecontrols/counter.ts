@@ -114,7 +114,6 @@ export class InputTextLengthCounter {
 
   constructor(private _input: HTMLInputElement | HTMLTextAreaElement, options?: Partial<InputTextLengthCounterOptions>) {
     this._options = {
-      showcounter: true,
       forcelimit: true,          //concat text to given max length
       input: null,          //input to count
       separator: "/",
