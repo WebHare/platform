@@ -41,7 +41,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   const result = await recompile(settings);
 
   JSON.stringify(result); //detect cycles etc;
-  if (!result.errors.length) {
+  if (!result.messages.some(_ => _.type === "error")) {
     //verify the manifest
     const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
@@ -66,7 +66,11 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
       throw new Error(`Incorrectly claiming filedep ${dep} (missing extension?)`);
   }
 
-  return result;
+  return {
+    ...result,
+    errors: result.messages.filter(_ => _.type === "error"),
+    warnings: result.messages.filter(_ => _.type === "warning")
+  };
 }
 
 async function testCompileerrors() {
@@ -76,15 +80,7 @@ async function testCompileerrors() {
     test.assert(result.errors.length >= 1);
     test.assert(result.errors[0].message);
 
-    //TODO preferably esbuild would also point to the SCSS, we'll re-investigate that once dart-sass improves its error output
-    const acceptablenames = [
-      backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.scss", // <-- webpack
-      backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.es"   // <-- esbuild
-    ];
-    console.log("Acceptable locations:", acceptablenames);
-    console.log("Reported location:", result.errors[0].resource);
-    console.log(result);
-    test.assert(acceptablenames.includes(result.errors[0].resource));
+    test.eq(`mod::webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.scss`, result.errors[0].resourcename);
 
     const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.scss")));
@@ -114,12 +110,7 @@ async function testCompileerrors() {
     test.assert(result.errors.length >= 1);
     test.assert(result.errors[0].message);
 
-
-    const acceptablenames = [backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es"]; // <-- esbuild
-
-    console.log("Acceptable locations:", acceptablenames);
-    console.log("Reported location:", result.errors[0].resource);
-    test.assert(acceptablenames.includes(result.errors[0].resource));
+    test.eq(`mod::webhare_testsuite/tests/publisher/assetpacks/dependencies/deeper/import-fail.es`, result.errors[0].resourcename);
 
     const filedeps = mapDepPaths(result.fileDependencies);
 

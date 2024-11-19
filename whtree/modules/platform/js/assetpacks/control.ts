@@ -15,6 +15,8 @@ import { loadAssetPacksConfig, type AssetPacksConfig } from "./api";
 import { runInWork } from "@webhare/whdb";
 import { getAssetPackState, readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
 import type { AssetPackState } from "./types";
+import type { AssetPackBundleStatus } from "../devsupport/devbridge";
+
 
 class LoadedBundle {
   dirtyReason = '';
@@ -40,7 +42,7 @@ class LoadedBundle {
       hasstatus: Boolean(this.state),
       iscompiling: Boolean(this.recompiling),
       requirecompile: Boolean(this.dirtyReason),
-      haserrors: Boolean(this.state?.topError || this.state?.errors?.length),
+      haserrors: this.state?.messages.some(_ => _.type === "error"),
       outputtag: this.name,
       lastcompile: this.state?.start || null,
       isdev: this.settings.dev,
@@ -49,11 +51,10 @@ class LoadedBundle {
     };
   }
 
-  getBundleStatus() {
+  getBundleStatus(): AssetPackBundleStatus {
     return {
       ...this.getStatus(),
-      errors: this.state?.errors || [],
-      toperror: this.state?.topError || "",
+      messages: this.state?.messages || [],
       filedependencies: [...this.fileDeps],
       missingdependencies: [...this.missingDeps],
       entrypoint: this.config.entryPoint,
@@ -89,6 +90,8 @@ class LoadedBundle {
 
   private updateState(state: AssetPackState) {
     this.state = state;
+    if (!this.state.messages) //if messages are missing, we've loaded 5.7-dev incomplete final state. fixup
+      this.state.messages = [{ type: "error", resourcename: "", line: 0, col: 0, message: "Recompile needed", source: "platform:assetpackcontrol" }];
     this.fileDeps = new Set(state.fileDependencies);
     this.missingDeps = new Set(state.missingDependencies);
     this.checkDeps();
@@ -184,6 +187,7 @@ class LoadedBundle {
 
       this.startCompile(); //recompile of dirty again
     }).catch(e => {
+      this.recompiling = null;
       console.log("Recompile Failed", this.name, e);
     });
   }

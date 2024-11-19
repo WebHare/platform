@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -72,11 +73,11 @@ IF(urlbase LIKE "*/!/*")
         RECORD compileresult := CallJS("@mod-platform/js/assetpacks/compiletask.ts#recompileAdhoc",affectedtest.testscript.scriptpath, affectedtest.compatibility ?? whconstant_default_compatibility);
 
         RECORD headers;
-        IF (compileresult.toperror != "")
+        IF (RecordExists(SELECT FROM compileresult.messages WHERE type = "error"))
         {
           testwitty->RunComponent("compilefailure", CELL[
               bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
-                                  , compileresult.errors
+                                  , errors := (SELECT *, formatted := FormatValidationMessageWithType(messages) FROM compileresult.messages WHERE type = "error")
                                   ]
             ]);
           RETURN;

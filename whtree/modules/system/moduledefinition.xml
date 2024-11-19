@@ -51,8 +51,8 @@
     <!-- Do weekly GDPR scans on development servers -->
     <task runat="0 8 * * 1" runtz="Europe/Amsterdam" script="scripts/tasks/autogdprscan.whscr" tag="autogdprscan" description="Scan for WRD schemas possibly containing PII" maxservertype="development" />
     <task runat="*/30 * * * *" script="scripts/tasks/checkwebservers.whscr" tag="checkwebservers" allowifrestore="true" description="Make sure all webservers still properly resolve" />
-    <task runat="54 */4 * * *" script="scripts/tasks/check_hotfixes.whscr" tag="check_hotfixes" runatstartup="true" />
-    <task runat="35 0,3,6 * * *" script="scripts/tasks/cleanpostgresqlblobs.whscr" tag="cleanpgsqlblobs" ifenvironset="WEBHARE_DBASENAME" />
+    <task runat="54 */4 * * *" script="scripts/tasks/check_hotfixes.whscr" tag="check_hotfixes" runatstartup="true" ifenvironset="WEBHARE_IN_DOCKER" />
+    <task runat="35 0,3,6 * * *" script="scripts/tasks/cleanpostgresqlblobs.whscr" tag="cleanpgsqlblobs" />
 
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />

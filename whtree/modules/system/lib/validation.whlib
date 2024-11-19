@@ -490,6 +490,20 @@ PUBLIC STRING FUNCTION FormatValidationWarning(RECORD msg)
       : `${msg.resourcename}:${msg.line}: Warning: ${msg.message}`;
 }
 
+PUBLIC STRING FUNCTION FormatValidationMessageWithType(RECORD msg)
+{
+  //Formats ValidationMessageWithType from mod::platform/js/devsupport/validation.ts and matches formatValidationMessage from there
+  RETURN `${msg.resourcename}:${msg.line}:${msg.col}: ${ToUppercase(Left(msg.type,1))}${Substring(msg.type, 1)}: ${msg.message}`;
+}
+
+PUBLIC MACRO PrintValidationMessagesToConsoleWithType(RECORD ARRAY messages)
+{
+  //matches logValidationMessagesToConsole
+  messages := SELECT * FROM messages ORDER BY resourcename, line, col;
+  FOREVERY(RECORD msg FROM messages)
+    Print(FormatValidationMessageWithType(msg) || "\n");
+}
+
 /** Prints (colored) validation errors and warnings to the console
     @param file Warnings and errors
     @cell(record array) file.errors List of errors

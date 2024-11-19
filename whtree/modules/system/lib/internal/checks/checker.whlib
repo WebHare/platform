@@ -442,7 +442,8 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
 
   messages := messages CONCAT RunWebserverChecks();
   messages := messages CONCAT RunConsilioChecks();
-  messages := messages CONCAT GetHotFixCheckResult();
+  IF(GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "") //check for hotfixes when running as container (as there they're easily lost)
+    messages := messages CONCAT GetHotFixCheckResult();
   messages := messages CONCAT GetCustomCheckResults();
   messages := messages CONCAT SELECT msg := ":" || msg
                                    , messagetag := CELL[ type := "system:validation", resourcename, line ]

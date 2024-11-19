@@ -140,7 +140,7 @@ MACRO TestCrashJson()
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
 
   status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
-  TestEqLike("Unexpected*in JSON", status.toperror, "Wrong errors for bundle " || extracted.outputtag);
+  TestEqLike("Unexpected*in JSON", status.messages[0].message, "Wrong errors for bundle " || extracted.outputtag);
 }
 
 MACRO TestRecompileAfterModuleReplace()
