@@ -3,6 +3,7 @@ import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebH
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
 import { setLink } from "./symbols";
+import { parseTyped, stringify } from "@webhare/std";
 
 export type ServiceControllerFactoryFunction = () => Promise<BackendServiceController> | BackendServiceController;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
@@ -181,9 +182,9 @@ export class ServiceHandlerBase {
 
     try {
       const message = msg.message as ServiceCallMessage;
-      const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
+      const args = message.jsargs ? parseTyped(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
       const result = await (state.handler as BackendServiceConnection & ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
-      state.link.send({ result: message.jsargs ? JSON.stringify(result) : result }, msg.msgid);
+      state.link.send({ result: message.jsargs ? stringify(result, { typed: true }) : result }, msg.msgid);
     } catch (e) {
       state.link.sendException(e as Error, msg.msgid);
     }

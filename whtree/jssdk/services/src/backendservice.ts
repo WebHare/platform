@@ -2,6 +2,7 @@ import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHa
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import { ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 import type { PromisifyFunctionReturnType } from "@webhare/js-api-tools";
+import { parseTyped, stringify } from "@webhare/std";
 
 /** Interface for the client object we present to the connecting user
 */
@@ -71,13 +72,13 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
   async remotingFunc(method: { name: string }, args: unknown[]) {
     const calldata: ServiceCallMessage = { call: method.name };
     if (this.isjs)
-      calldata.jsargs = JSON.stringify(args);
+      calldata.jsargs = stringify(args, { typed: true });
     else
       calldata.args = args as IPCMarshallableData[];
 
     const response = await this.link.doRequest(calldata) as ServiceCallResult;
     if (this.isjs)
-      return response.result ? JSON.parse(response.result as string) : undefined;
+      return response.result ? parseTyped(response.result as string) : undefined;
     else
       return response.result;
   }
