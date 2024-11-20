@@ -71,7 +71,7 @@ export async function runShortLivedContext(sleepMs: number) {
       await sleep(sleepMs);
     }
   });
-  context.close();
+  await context.close();
 }
 
 export async function testQueryInNewContext() {
@@ -83,7 +83,7 @@ export async function testQueryInNewContext() {
       // exit - this will kill the db connection
     });
   } finally {
-    context.close();
+    await context.close();
   }
 }
 

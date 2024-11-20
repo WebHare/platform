@@ -11,19 +11,17 @@ test.registerTests(
     {
       test: async function () {
         test.eq('0', test.compByName('onchangeoverlayscount').textContent);
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: test.compByName("thecomponent"), x: 50, y: 50, down: 0 },
           { el: test.compByName("thecomponent"), x: 70, y: 90, up: 0, delay: 50 }
         ]);
-        await test.wait('pointer');
         test.click(test.compByName('oncreateoverlay')); //enable new overlays
         await test.wait('ui');
         test.eq('0', test.compByName('onchangeoverlayscount').textContent, 'should still have no changes');
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: test.compByName("thecomponent"), x: 70, y: 70, down: 0 },
           { relx: 50, rely: 60, up: 0, delay: 50 }
         ]);
-        await test.wait('pointer');
         await test.wait('ui');
         test.eq('1', test.compByName('onchangeoverlayscount').textContent, 'first overlay appeared');
 
@@ -38,12 +36,11 @@ test.registerTests(
         test.eq(122, overlays[0].area.height); //scale 1:2, and apparently height is inclusive?
 
         //oncreate should reject overlays less than 10 pixels high
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: test.compByName("thecomponent"), x: 270, y: 70, down: 0 },
           { relx: 50, rely: 4, up: 0, delay: 50 }
         ]);
 
-        await test.wait('pointer');
         await test.wait('ui');
         test.click(test.compByName('buttonreadoverlays'));
         await test.wait('ui');
@@ -70,11 +67,10 @@ test.registerTests(
       test: async function () {
         test.click(test.compByName('oncreateoverlay')); //enable new overlays
         await test.wait('ui');
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: test.compByName("thecomponent"), x: 90, y: 50, down: 0 },
           { el: test.compByName("thecomponent"), x: 110, y: 90, up: 0, delay: 1500 }
         ]);
-        await test.wait('pointer');
         await test.wait('ui');
 
         test.click(test.compByName('buttonreadoverlays'));
@@ -91,7 +87,7 @@ test.registerTests(
       //FIXME why aren't server side changes triggering onSelect? looks like an oversight?
       test.eq("1", test.compByName("onchangeoverlayscount").textContent);
 
-      test.sendMouseGesture([
+      await test.sendMouseGesture([
         { el: test.compByName("thecomponent")!.querySelectorAll(".t-image__overlay .t-image__overlay__dragger--se")[3], down: 0 },
         { relx: +15, rely: +15, up: 0, delay: 300 }
       ]);

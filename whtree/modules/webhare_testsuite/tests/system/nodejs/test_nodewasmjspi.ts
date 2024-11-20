@@ -61,4 +61,4 @@ async function test() {
   console.log(await v1);
 }
 
-test();
+void test();

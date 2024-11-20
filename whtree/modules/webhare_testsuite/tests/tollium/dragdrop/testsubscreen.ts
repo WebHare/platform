@@ -10,7 +10,7 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_prepare',
-      test: function () {
+      test: async function () {
         const toplog = test.qSA('t-textarea')[0];
         const bottomlog = test.qSA('t-textarea')[1];
         const topsource = test.qSA('.wh-ui-listview[data-name$=source]')[0];
@@ -21,12 +21,12 @@ test.registerTests(
 
         const srow = test.getCurrentScreen().getListRow(topsource.dataset.name!, "Row 1: type1");
         const trow = test.getCurrentScreen().getListRow(bottomtarget.dataset.name!, "Row 1: Can add");
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {

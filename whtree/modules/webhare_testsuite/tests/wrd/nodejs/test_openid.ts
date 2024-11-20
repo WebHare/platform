@@ -36,12 +36,12 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
     page.on('request', req => {
       if (req.isNavigationRequest() && req.frame() === page.mainFrame() && req.url().startsWith(callbackUrl)) {
         resolve(req.url());
-        req.respond(req.redirectChain().length
+        void req.respond(req.redirectChain().length
           ? { body: '' } // prevent 301/302 redirect
           : { status: 204 } // prevent navigation by js
         );
       } else {
-        req.continue();
+        void req.continue();
       }
     });
   });
@@ -244,5 +244,5 @@ test.run([
   verifyRoutes,
   verifyOpenIDClient,
   verifyAsOpenIDSP,
-  () => { puppeteer?.close(); }
+  async () => { await puppeteer?.close(); }
 ]);

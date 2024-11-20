@@ -93,7 +93,7 @@ async function testRPCs() {
     await new Promise(resolve => conn2.on("online", resolve));
 
     conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, processcode: 0, pid: process.pid, type: WHMProcessType.TypeScript, name: (require.main?.filename ?? "unknown") + " bouncer test", parameters: { a: "a" } });
-    test.wait(() => gotdata, "Expected some data to arrive at conn2");
+    await test.wait(() => gotdata, "Expected some data to arrive at conn2");
 
     conn.send({
       opcode: WHMRequestOpcode.SendEvent,

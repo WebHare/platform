@@ -364,8 +364,8 @@ async function testUnique() {
 
   //test email normalization
   await whdb.beginWork();
-  test.throws(/Invalid email address/, wrdschema.insert("testUniques", { testEmail: "trans@beta" }));
-  test.throws(/Unique constraint violated/, wrdschema.insert("testUniques", { testEmail: "TRANS@beta.webhare.net" }));
+  await test.throws(/Invalid email address/, wrdschema.insert("testUniques", { testEmail: "trans@beta" }));
+  await test.throws(/Unique constraint violated/, wrdschema.insert("testUniques", { testEmail: "TRANS@beta.webhare.net" }));
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "trans@beta.webhare.net"));
   test.eq(person1, await wrdschema.search("testUniques", "testEmail", "TRANS@beta.webhare.net"));
   await wrdschema.update("testUniques", person1, { testEmail: "TRANS@beta.webhare.net" });

@@ -53,6 +53,7 @@ const baseTestApi = expose("baseTestApi", {
   getMyFrontendData: () => getFrontendData("webhare_testsuite:basetestjs"),
   getTidTest
 });
+void baseTestApi;
 export type BaseTestApi = typeof baseTestApi;
 
 //verify that the frontendConfig is properly initialized
