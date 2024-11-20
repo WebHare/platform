@@ -19,13 +19,25 @@
           width="100x"
           height="16gr"
           allowresize="true"
-          footerbuttons="ok cancel"
           gid=".selectuserrole"
           savestate="size"
           title="">
+    <actions>
+      <action name="dosubmit" onexecute="submit" tid="~ok">
+        <enableon source="selectuserrole->unitcontents->userandrolelist" min="1" requirefocus="true"/>
+      </action>
+    </actions>
+
     <body>
       <includefragment name="selectuserrole" fragment="userrights/parts/selectuserrole.selectuserrole" />
     </body>
+
+    <footer>
+      <line layout="right">
+        <button action="dosubmit" />
+        <button tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
   </screen>
 
 </screens>
