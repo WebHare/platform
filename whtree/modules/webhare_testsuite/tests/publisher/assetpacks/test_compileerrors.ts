@@ -12,6 +12,8 @@ import { recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
 import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
 import { backendConfig, toFSPath, toResourcePath } from '@webhare/services';
+import { getYMLAssetPacks } from '@mod-system/js/internal/generation/gen_extracts';
+import { parseModuleDefYMLText } from '@webhare/services/src/moduledefparser';
 
 function mapDepPaths(deps: string[]) {
   return deps.map(dep => toFSPath(dep, { allowUnmatched: true }) ?? dep);
@@ -71,6 +73,21 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     errors: result.messages.filter(_ => _.type === "error"),
     warnings: result.messages.filter(_ => _.type === "warning")
   };
+}
+
+async function testConfigParser() {
+  const packs = getYMLAssetPacks('example', parseModuleDefYMLText('example', `
+assetPacks:
+  dummy:
+    entryPoint: webfeatures/dummy/dummy
+`));
+  test.eqPartial([
+    {
+      entryPoint: "mod::example/webfeatures/dummy/dummy",
+      supportedLanguages: [],
+      whPolyfills: true,
+    }
+  ], packs);
 }
 
 async function testCompileerrors() {
@@ -335,4 +352,7 @@ async function testCompileerrors() {
   }
 }
 
-test.run([testCompileerrors]);
+test.run([
+  testConfigParser,
+  testCompileerrors
+]);
