@@ -1,5 +1,5 @@
 import whbridge, { BridgeEvent, BridgeEventData } from "@mod-system/js/internal/whmanager/bridge";
-import { wildcardsToRegExp } from "@webhare/std/strings";
+import { regExpFromWildcards } from "@webhare/std/strings";
 import { isValidBackendEventName } from "./naming";
 
 export type BackendEvent = BridgeEvent;
@@ -33,7 +33,7 @@ class EventSubscription {
       this.listenerid = whbridge.on("event", evt => this.onEvent(evt));
     }
 
-    this.mask = new RegExp(masklist.map(wildcardsToRegExp).join('|'));
+    this.mask = masklist.length ? regExpFromWildcards(masklist) : null;
   }
 
   private onEvent(evt: BackendEvent) {

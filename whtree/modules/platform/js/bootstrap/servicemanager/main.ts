@@ -17,7 +17,7 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, logError } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
-import { generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
+import { generateRandomId, regExpFromWildcards, sleep } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { BackendServiceConnection, runBackendService } from "@webhare/services/src/backendservicerunner";
@@ -405,8 +405,8 @@ class ServiceManagerClient extends BackendServiceConnection {
 }
 
 async function loadServiceList(source: string) {
-  const include = program.opts().include ? new RegExp(wildcardsToRegExp(program.opts().include)) : null;
-  const exclude = program.opts().exclude ? new RegExp(wildcardsToRegExp(program.opts().exclude)) : null;
+  const include = program.opts().include ? regExpFromWildcards(program.opts().include) : null;
+  const exclude = program.opts().exclude ? regExpFromWildcards(program.opts().exclude) : null;
   const allservices = Object.entries(await getAllServices());
   const removeServices = new Set(expectedServices.keys());
   const addedServices = new Set<string>();

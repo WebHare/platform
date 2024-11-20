@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/cli",
+  "version": "",
+  "description": "",
+  "main": "src/cli.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/cli.ts"
+    ]
+  },
+  "private": true,
+  "dependencies": {}
+}

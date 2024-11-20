@@ -1,7 +1,7 @@
 import { ModDefYML } from "@webhare/services/src/moduledefparser";
 import { backendConfig, getVersionInteger } from "../configuration";
-import { wildcardsToRegExp } from "@webhare/std/strings";
 import { getAttr } from "./xmlhelpers";
+import { regExpFromWildcards } from "@webhare/std";
 
 const systemservertypes = ["production", "acceptance", "test", "development"];
 
@@ -104,15 +104,14 @@ export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, re
       return `Forbidden environment variable '${split[1]}' set to '${actualvalue}'`;
   }
 
-  if (restrictions.restrictservers.length > 0
-    && !restrictions.restrictservers.some(servermask => new RegExp(wildcardsToRegExp(servermask.toUpperCase())).test(webhareversioninfo.servername)))
+  if (restrictions.restrictservers.length > 0 && !regExpFromWildcards(restrictions.restrictservers, { caseInsensitive: true }).test(webhareversioninfo.servername))
     return `Restricted to servers: ${restrictions.restrictservers.join(", ")}, current: ${webhareversioninfo.servername}`;
 
   return null;
 }
 
 
-function readApplicableToWebHareNode(xmlnode: Element, prefix: string): ApplicabilityRestrictions {
+export function readApplicableToWebHareNode(xmlnode: Element, prefix: string): ApplicabilityRestrictions {
   return {
     webhareversion: getAttr(xmlnode, prefix + "webhareversion"),
     minservertype: getAttr(xmlnode, prefix + "minservertype"),

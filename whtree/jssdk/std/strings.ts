@@ -1,23 +1,34 @@
 import { isDate } from "./quacks";
 import { Money } from "./money";
 
+export type WildcardTypes = "?*";
+
 /** Encode string for use in a regexp
  * @param text - Text to encode
+ * @param wildcards - Type of wildcards to encode (defaults to none)
  * @returns Encoded for safe use in a RegExp
 */
-export function escapeRegExp(text: string) {
-  return text.replaceAll(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
+export function escapeRegExp(text: string, options?: { wildcards?: WildcardTypes }): string {
+  let mask = text.replaceAll(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
+  if (options?.wildcards === "?*") {
+    mask = mask.replaceAll("\\*", ".*");
+    mask = mask.replaceAll("\\?", ".");
+  }
+  return mask;
 }
 
-/** Create a regular expression from a string with DOS-like wildcards (? and *)
- * @param mask - Mask with '?' and/or '*' wildcards
- * @returns Regular expression string which can be passed to new RegExp
+/** Create a regular expression from one or more wildcard masks
+ * @param masks - One or more masks with '?' and/or '*' wildcards
+ * @returns Regular expression string
 */
-export function wildcardsToRegExp(mask: string): string {
-  mask = escapeRegExp(mask);
-  mask = mask.replaceAll("\\*", ".*");
-  mask = mask.replaceAll("\\?", ".");
-  return mask;
+export function regExpFromWildcards(masks: string | string[], options?: { wildcards?: WildcardTypes; caseInsensitive?: boolean }): RegExp {
+  if (Array.isArray(masks) && masks.length === 0)
+    throw new Error("Empty mask list");
+
+  const code = Array.isArray(masks)
+    ? `^(${masks.map(mask => escapeRegExp(mask, { wildcards: options?.wildcards || "?*" })).join('|')})$`
+    : `^${escapeRegExp(masks, { wildcards: options?.wildcards || "?*" })}$`;
+  return new RegExp(code, options?.caseInsensitive ? "i" : undefined);
 }
 
 function isHTMLUnrepresentableChar(curch: number) {

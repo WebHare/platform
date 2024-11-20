@@ -263,8 +263,8 @@ async function runBackendServiceTest_JS() {
 
   await test.throws(/Async crash/, promise2);
 
-  test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ping(41, 43));
-  test.eq({ arg1: 41, arg2: 43 }, await serverinstance.asyncPing(41, 43));
+  test.eq({ arg1: 41, arg2: new Date("2024-01-01") }, await serverinstance.ping(41, new Date("2024-01-01")));
+  test.eq({ arg1: 41, arg2: new Date("2024-01-01") }, await serverinstance.asyncPing(41, new Date("2024-01-01")));
 
   test.eq({ arg1: 45, arg2: { contact: { contactNo: "C1" } } }, await serverinstance.ping(45, { contact: { contactNo: "C1" } }));
 

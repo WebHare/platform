@@ -7,10 +7,10 @@
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
-import { wildcardsToRegExp } from '@webhare/std';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/validation';
+import { regExpFromWildcards } from '@webhare/std';
 
 program.name('wh publisher:compile')
   .option('-v, --verbose', 'verbose log level')
@@ -39,7 +39,7 @@ async function main() {
           packges and let you specify a direct path to compile.ts. but this will require moving adhoc bundle and header generation from HS to TS
 
           PS: directly compiling adhoc bundles is now what recompileAdhoc is for, so it's easy to re-expose at one point */
-  const bundleMask = new RegExp(`^${wildcardsToRegExp(bundlename)}$`);
+  const bundleMask = regExpFromWildcards(bundlename);
   const bundles = getExtractedConfig("assetpacks").filter(assetpack => assetpack.name.match(bundleMask));
   if (bundles.length === 0)
     throw new Error(`No bundle matches '${bundlename}'`);
