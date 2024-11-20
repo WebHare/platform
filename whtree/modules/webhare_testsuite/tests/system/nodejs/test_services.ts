@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { GenericLogLine } from "@webhare/services/src/logging";

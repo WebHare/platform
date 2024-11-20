@@ -269,7 +269,6 @@ function testOpenAPITypes() {
 
   const b = false;
   if (b) { // unreachable code for type-error tests
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- no need to mock request object for compile-only code
     const any_value: any = null;
     const path_get: OpenApiTypedRestRequest<number, paths, object, "get /path"> = any_value;
     test.typeAssert<test.Equals<number, typeof path_get.authorization>>();
