@@ -15,7 +15,7 @@ import { loadAssetPacksConfig, type AssetPacksConfig } from "./api";
 import { runInWork } from "@webhare/whdb";
 import { getAssetPackState, readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
 import type { AssetPackState } from "./types";
-import type { AssetPackBundleStatus } from "../devsupport/devbridge";
+import type { AssetPackBundleStatus, AssetPackMiniStatus } from "../devsupport/devbridge";
 
 
 class LoadedBundle {
@@ -36,7 +36,7 @@ class LoadedBundle {
     broadcast("publisher:assetpackcontrol.change." + this.name);
   }
 
-  getStatus() {
+  getStatus(): AssetPackMiniStatus {
     return {
       id: 0,
       hasstatus: Boolean(this.state),
