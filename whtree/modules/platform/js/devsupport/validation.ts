@@ -9,6 +9,7 @@ import { pick } from "@webhare/std";
 import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
+import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 
 /** Basic location pointer used by various validators */
 export interface ResourceLocation {
@@ -85,6 +86,13 @@ export class ValidationState {
   }
 }
 
+/** Custom content validator function
+ * @param resourceName - Resource name being validated
+ * @param content - Content to validate, already parsed
+ * @param context - Validation context to add messages to
+ */
+export type ContentValidationFunction<YamlType> = (resourceName: string, content: YamlType, context: ValidationState) => Promise<void>;
+
 ///Simply decode YAML data, throw on failure.
 export function decodeYAML<T>(text: string): T {
   const result = YAML.parse(text, { strict: true, version: "1.2" });
@@ -95,6 +103,7 @@ export function decodeYAML<T>(text: string): T {
 async function getValidators(): Promise<Array<{
   resourceMask: RegExp;
   schema: string;
+  contentValidator: string;
 
   compiledSchemaValidator?: AjvValidateFunction;
 }>> {
@@ -104,7 +113,8 @@ async function getValidators(): Promise<Array<{
     for (const validator of mod.moduleFileTypes || []) {
       const resourceMask = new RegExp(validator.resourceMask, 'i');
       const schema = resolveResource(mod.baseResourcePath, validator.schema);
-      retval.push({ resourceMask, schema });
+      const contentValidator = resolveResource(mod.baseResourcePath, validator.contentValidator || '');
+      retval.push({ resourceMask, schema, contentValidator });
     }
   }
 
@@ -188,6 +198,11 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
           metadata: {}
         });
       }
+    }
+
+    if (validator.contentValidator) {
+      const contentValidator = await loadJSFunction<ContentValidationFunction<unknown>>(validator.contentValidator);
+      await contentValidator(resource, yamldata, result);
     }
     return;
   }

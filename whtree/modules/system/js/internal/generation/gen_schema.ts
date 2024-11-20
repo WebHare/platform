@@ -26,7 +26,7 @@ export async function listAllSchemas(context: GenerateContext): Promise<FileToUp
       if (tsType) {
         const resoucepath = resolveResource(mod.resourceBase, type.schema);
         schemas.push({
-          path: `schema/${tsType.toLowerCase()}.ts`, // //TODO bail if tsType is not unique, err in moduledef validation
+          path: `schema/${mod.name === 'platform' ? '' : `${mod.name}/`}${tsType.toLowerCase()}.ts`, // //TODO bail if tsType is not unique, err in moduledef validation
           module: mod.name,
           type: "schema" as const,
           generator: () => buildSchema(resoucepath, tsType)

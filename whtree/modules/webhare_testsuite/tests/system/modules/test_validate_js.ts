@@ -54,6 +54,24 @@ backendServices:
       }
     ], res.errors);
   }
+
+  { //verify validation against custom parsers
+    const res = await runJSBasedValidator(WebHareBlob.from(`
+answer: 43
+`), "mod::webhare_testsuite/dummyfile.test.yml");
+
+    test.eqPartial([
+      {
+        //The location and error are not ideal, I'd rather see the property name mentioned. but AN error is better than NONE
+        resourcename: 'mod::webhare_testsuite/dummyfile.test.yml',
+        line: 0,
+        col: 0,
+        message: /Answer should be 42, not 43/,
+        source: 'validation'
+      }
+    ], res.errors);
+  }
+
 }
 
 test.run([testYAMLVAlidations]);

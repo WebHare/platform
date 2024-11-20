@@ -230,6 +230,9 @@ definitions:
         schema:
           description: Path to schema.org schema to validate against. Allows both YAML and JSON schemas
           type: string
+        contentValidator:
+          description: Path to function to execute for further validation checks. Must satisfy ContentValidationFunction
+          type: string
         tsType:
           type: string
           description: "If set, compile the JSON schema to a TypeScript definition with this name."

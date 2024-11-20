@@ -77,3 +77,9 @@ webFeatures:
     title: "WH testsuite: never used feature"
     siteProfile: webfeatures/neverused_feature.siteprl.xml
     hidden: true
+
+moduleFileTypes:
+  - resourceMask: ^mod::webhare_testsuite/.*\.test\.yml$
+    schema: data/schemas/test.schema.yml
+    contentValidator: tests/system/modules/data/validator.ts#validateTestFile
+    tsType: TestSchemaType
