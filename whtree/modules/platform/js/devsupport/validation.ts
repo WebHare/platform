@@ -4,10 +4,11 @@
    wh runwasm mod::system/scripts/whcommands/validate.whscr --tids mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml
 */
 
-import { parseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
-import { WebHareBlob } from "@webhare/services";
+import { resolveResource, ResourceDescriptor, WebHareBlob } from "@webhare/services";
 import { pick } from "@webhare/std";
-import YAML from "yaml";
+import YAML, { LineCounter, type YAMLParseError } from "yaml";
+import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
+import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 
 /** Basic location pointer used by various validators */
 export interface ResourceLocation {
@@ -65,12 +66,15 @@ export interface ValidationTid extends ResourceLocation {
   attrname?: string;
 }
 
-class ValidationState {
+export class ValidationState {
   warnings = new Array<ValidationMessage>;
   errors = new Array<ValidationMessage>;
   hints = new Array<ValidationMessage>;
   icons: unknown[] = [];
   tids = new Array<ValidationTid>;
+
+  constructor(public readonly options: ValidationOptions) {
+  }
 
   onTid = (resourcename: string, tid: string) => {
     this.tids.push({ resourcename, tid, line: 0, col: 0 });
@@ -87,15 +91,109 @@ export function decodeYAML<T>(text: string): T {
   return result;
 }
 
-export async function runJSBasedValidator(content: WebHareBlob, resource: string, options: ValidationOptions): Promise<ValidationResult> {
-  const result = new ValidationState;
-  const data = await content.text();
-  if (resource.endsWith(".siteprl.yml") || resource.endsWith("siteprl.yaml")) {
-    await parseSiteProfile(resource, { content: data, onTid: result.onTid });
+//TODO cache and invalidate validator list as needed
+async function getValidators(): Promise<Array<{
+  resourceMask: RegExp;
+  schema: string;
+
+  compiledSchemaValidator?: AjvValidateFunction;
+}>> {
+  const retval = [];
+
+  for (const mod of await getAllModuleYAMLs()) {
+    for (const validator of mod.moduleFileTypes || []) {
+      const resourceMask = new RegExp(validator.resourceMask, 'i');
+      const schema = resolveResource(mod.baseResourcePath, validator.schema);
+      retval.push({ resourceMask, schema });
+    }
+  }
+
+  return retval;
+}
+
+export async function runJSBasedValidator(content: WebHareBlob, resource: string, options?: ValidationOptions): Promise<ValidationResult> {
+  const result = new ValidationState({ ...options });
+
+  if (resource.endsWith(".yml") || resource.endsWith(".yaml")) {
+    await runYAMLBasedValidator(result, content, resource, options);
   } else {
     result.hints.push({ resourcename: resource, line: 0, col: 0, message: `No validator available for '${resource}'`, source: "validation", metadata: {} });
   }
   return result.finalize();
+}
+
+/** Convert /apply/0 path to ['apply','0'] */
+function pointerToYamlPath(ptr: string): string[] {
+  //doesn't YAML have an API to do this?
+  return ptr.substring(1).split('/');
+}
+
+export async function runYAMLBasedValidator(result: ValidationState, content: WebHareBlob, resource: string, options?: ValidationOptions): Promise<void> {
+  const data = await content.text();
+  const counters = new LineCounter;
+  const sourcedoc = YAML.parseDocument(data, { strict: true, version: "1.2", prettyErrors: false, lineCounter: counters });
+
+  if (sourcedoc.errors.length) {
+    result.errors.push(...sourcedoc.errors.map(e => {
+      const pos = (e as YAMLParseError).pos?.length === 2 ? counters.linePos((e as YAMLParseError).pos[0]) : null;
+      return {
+        resourcename: resource,
+        line: pos?.line || 0,
+        col: pos?.col || 0,
+        message: (e as Error)?.message ?? "Unknown error",
+        source: "validation"
+      };
+    }));
+    return;
+  }
+
+  const yamldata = sourcedoc.toJS();
+  const validators = await getValidators();
+
+  if (resource.endsWith(".schema.yml")) {
+    const ajv = await getAjvForSchema(yamldata as JSONSchemaObject);
+
+    // ajv.validateSchema didn't report typo 'desription' vs 'description'? but compile does..
+    try {
+      ajv.compile(yamldata as JSONSchemaObject);
+    } catch (e) {
+      //but we won't get errorinfo this way. well at least we get *some* indication the schema is broken
+      result.errors.push({ resourcename: resource, line: 0, col: 0, message: (e as Error)?.message || "Unknown error", source: "validation", metadata: {} });
+    }
+    return;
+  }
+
+  for (const validator of validators) {
+    if (!resource.match(validator.resourceMask))
+      continue;
+
+    if (!validator.compiledSchemaValidator) {
+      //TODO readResource?
+      const schema = decodeYAML<JSONSchemaObject>(await (await ResourceDescriptor.fromResource(validator.schema)).resource.text());
+
+      const ajv = await getAjvForSchema(schema);
+      validator.compiledSchemaValidator = ajv.compile(schema);
+    }
+
+    if (!validator.compiledSchemaValidator(yamldata)) {
+      for (const error of validator.compiledSchemaValidator.errors || []) {
+        const pointsto = sourcedoc.getIn(pointerToYamlPath(error.instancePath)) as { range?: [number] } | undefined;
+        const pos = pointsto?.range?.[0] ? counters.linePos(pointsto.range[0]) : null;
+        result.errors.push({
+          resourcename: resource,
+          line: pos?.line || 0,
+          col: pos?.col || 0,
+          message: error.message || "Unknown error",
+          source: "validation",
+          metadata: {}
+        });
+      }
+    }
+    return;
+  }
+
+  result.hints.push({ resourcename: resource, line: 0, col: 0, message: `No YAML validator available for '${resource}'`, source: "validation", metadata: {} });
+  return;
 }
 
 export function formatValidationMessage(msg: ValidationMessageWithType): string {

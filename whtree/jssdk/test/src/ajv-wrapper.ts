@@ -10,6 +10,13 @@ let ajv2020: (Ajv2020 | null) = null;
 export type { SchemaObject as JSONSchemaObject, ValidateFunction as AjvValidateFunction };
 export type AnyAjv = Ajv | Ajv2019 | Ajv2020;
 
+function addKeywords(ajv: AnyAjv) {
+  ajv.addKeyword({
+    keyword: "tsType",
+    schemaType: "string",
+  });
+}
+
 export async function getAjvForSchema(schema: SchemaObject) {
   const addFormats = (await import("ajv-formats")).default;
 
@@ -22,6 +29,7 @@ export async function getAjvForSchema(schema: SchemaObject) {
       const AjvLib = await import("ajv");
       ajvDraft = new AjvLib.default({ allErrors: true, allowMatchingProperties: true, strict: true });
       addFormats(ajvDraft);
+      addKeywords(ajvDraft);
     }
     return ajvDraft;
   }
@@ -31,6 +39,7 @@ export async function getAjvForSchema(schema: SchemaObject) {
       const Ajv2019Lib = await import("ajv/dist/2019.js");
       ajv2019 = new Ajv2019Lib.default({ allErrors: true, allowMatchingProperties: true, strict: true });
       addFormats(ajv2019);
+      addKeywords(ajv2019);
     }
     return ajv2019;
   }
@@ -39,6 +48,7 @@ export async function getAjvForSchema(schema: SchemaObject) {
     const Ajv2020Lib = await import("ajv/dist/2020.js");
     ajv2020 = new Ajv2020Lib.default({ allErrors: true, allowMatchingProperties: true, strict: true });
     addFormats(ajv2020);
+    addKeywords(ajv2020);
   }
 
   return ajv2020;

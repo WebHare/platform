@@ -53,5 +53,7 @@ webFeatures:
 moduleFileTypes:
   - tsType: ModuleDefinition
     schema: data/schemas/moduledefinition.schema.yml
+    resourceMask: ^mod::[^/]+/moduledefinition\.yml$
   - tsType: SiteProfile
     schema: data/schemas/siteprofile.schema.yml
+    resourceMask: siteprl\.yml$
