@@ -49,3 +49,9 @@ assetPacks:
 webFeatures:
   identityprovider:
     siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml
+
+moduleFileTypes:
+  - tsType: ModuleDefinition
+    schema: data/schemas/moduledefinition.schema.yml
+  - tsType: SiteProfile
+    schema: data/schemas/siteprofile.schema.yml

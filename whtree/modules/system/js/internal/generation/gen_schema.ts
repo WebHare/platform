@@ -1,13 +1,14 @@
 import { toFSPath } from "@webhare/services";
-import { FileToUpdate } from "./shared";
-import { readFile, readdir } from "fs/promises";
+import { readFile } from "fs/promises";
+import { resolveResource } from "@webhare/services";
+import { FileToUpdate, type GenerateContext } from "./shared";
 import YAML from "yaml";
 import { compile } from 'json-schema-to-typescript';
 
-async function buildSchema(schema: string) {
-  const sourceres = `mod::platform/data/schemas/${schema}.schema.yml`;
+async function buildSchema(sourceres: string, tsType: string) {
   const source = YAML.parse(await readFile(toFSPath(sourceres), 'utf8'));
-  return await compile(source, schema, {
+  source.title = tsType; //this determines the name of the exported root type
+  return await compile(source, "", {
     bannerComment:
       `/* eslint-disable */
 /* This schema was generated from ${sourceres}
@@ -17,15 +18,21 @@ To update: wh update-generated-files --only schema
   });
 }
 
-export async function listAllSchemas(): Promise<FileToUpdate[]> {
-  const schemas = await readdir(toFSPath("mod::platform/data/schemas"));
-  return schemas
-    .filter(_ => _.endsWith(".schema.yml"))
-    .map(_ => _.substring(0, _.length - 11)) //strip .schema.yml
-    .map(schema => ({
-      path: `schema/${schema}.ts`,
-      module: "platform",
-      type: "schema",
-      generator: () => buildSchema(schema)
-    }));
+export async function listAllSchemas(context: GenerateContext): Promise<FileToUpdate[]> {
+  const schemas = [];
+  for (const mod of context.moduledefs) {
+    for (const type of mod.modYml?.moduleFileTypes ?? []) {
+      const tsType = type.tsType;
+      if (tsType) {
+        const resoucepath = resolveResource(mod.resourceBase, type.schema);
+        schemas.push({
+          path: `schema/${tsType.toLowerCase()}.ts`, // //TODO bail if tsType is not unique, err in moduledef validation
+          module: mod.name,
+          type: "schema" as const,
+          generator: () => buildSchema(resoucepath, tsType)
+        });
+      }
+    }
+  }
+  return schemas;
 }

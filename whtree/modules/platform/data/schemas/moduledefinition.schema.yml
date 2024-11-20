@@ -27,6 +27,9 @@ properties:
   selfChecks:
     description: Adds automatic selfchecks
     $ref: "#/definitions/SelfChecks"
+  moduleFileTypes:
+    description: Register file types used to build modules
+    $ref: "#/definitions/ModuleFileTypes"
 patternProperties:
   "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties after x- (but no x-- and no funny chars)
     type: object
@@ -213,6 +216,22 @@ definitions:
           type: string
       required:
         - checker
+
+  ModuleFileTypes:
+    description: Register YAML filetypes and their schema definitions
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        schema:
+          description: Path to schema.org schema to validate against. Allows both YAML and JSON schemas
+          type: string
+        tsType:
+          type: string
+          description: "If set, compile the JSON schema to a TypeScript definition with this name."
+      required:
+        - schema
 
   WebFeatures:
     type: object
