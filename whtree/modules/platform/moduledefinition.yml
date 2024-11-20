@@ -57,3 +57,4 @@ moduleFileTypes:
   - tsType: SiteProfile
     schema: data/schemas/siteprofile.schema.yml
     resourceMask: siteprl\.yml$
+    contentValidator: mod::publisher/lib/internal/siteprofiles/parser.ts#validateSiteProfile

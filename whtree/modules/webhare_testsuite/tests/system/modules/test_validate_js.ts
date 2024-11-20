@@ -72,6 +72,41 @@ answer: 43
     ], res.errors);
   }
 
+  { //verify TID parsing
+    const res = await runJSBasedValidator(WebHareBlob.from(`
+typeGroup: baseTest
+gid: webdesigns.basetestjs
+types:
+  baseTestProps:
+    gid: .basetest
+    namespace: http://www.webhare.net/xmlns/webhare_testsuite/basetestprops
+    members:
+      multiField:
+        type: array
+        members:
+          hasNum2:
+            type: integer
+`), "mod::webhare_testsuite/dummyfile.siteprl.yml");
+
+    test.eqPartial([
+      {
+        resourcename: 'mod::webhare_testsuite/dummyfile.siteprl.yml',
+        tid: 'webhare_testsuite:webdesigns.basetestjs.basetest.has_num2',
+        line: 0,
+        col: 0
+      },
+      {
+        tid: 'webhare_testsuite:webdesigns.basetestjs.basetest.multi_field',
+        line: 0,
+        col: 0
+      },
+      {
+        tid: 'webhare_testsuite:webdesigns.basetestjs.basetest.base_test_props',
+        line: 0,
+        col: 0
+      }
+    ], res.tids);
+  }
 }
 
 test.run([testYAMLVAlidations]);
