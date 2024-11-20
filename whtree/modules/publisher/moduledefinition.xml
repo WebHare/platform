@@ -770,7 +770,6 @@
     <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
 
     <check objectname="lib/internal/checks.whlib#SiteprofileCheck" />
-    <check objectname="lib/internal/checks.whlib#AssetpackCheck" />
   </services>
 
   <hooking>

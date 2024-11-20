@@ -79,7 +79,7 @@ class LoadedBundle {
     try {
       if (!this.state)
         this.markDirty("has never been compiled before");
-      else if (this.config.baseCompileToken !== this.state.lastCompileSettings.bundle.bundleconfig.basecompiletoken)
+      else if (this.config.baseCompileToken !== this.state.lastCompileSettings.bundle.config.baseCompileToken)
         this.markDirty("compiletoken (configuration) hash changed");
       else if (this.settings.dev !== this.state.lastCompileSettings.bundle.isdev)
         this.markDirty("settings (dev/prod) changed");
