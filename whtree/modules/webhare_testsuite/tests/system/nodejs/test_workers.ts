@@ -108,7 +108,7 @@ async function workerPoolTest() {
     return worker.callRemote(`${__filename}#myTestFunc`, 11, 7);
   }));
   // Uncaught error should be caught and rethrown
-  test.throws(/Worker exited with code 1/, async () => await pool.runInWorker(async worker => {
+  await test.throws(/Worker exited with code 1/, async () => await pool.runInWorker(async worker => {
     return worker.callRemote(`${__filename}#throwUncaughtError`);
   }));
   test.eq(18, await pool.runInWorker(async worker => {

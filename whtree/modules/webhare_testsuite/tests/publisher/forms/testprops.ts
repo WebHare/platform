@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 /* test props like disabled */
 
 import * as test from '@mod-system/js/wh/testframework';
@@ -17,7 +14,7 @@ test.registerTests(
     {
       name: 'Study page fields',
       test: function () {
-        test.assert(test.qS("#dynamictest-myradio-15").disabled);
+        test.assert(test.qR("#dynamictest-myradio-15").disabled);
       }
     }
   ]);

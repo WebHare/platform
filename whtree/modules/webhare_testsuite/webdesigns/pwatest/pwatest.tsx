@@ -33,24 +33,24 @@ function onOfflineFailed(e: Error) {
   dompack.qR("#pwa-log").append(<li id="pwa-failed">OFFLINE INSTALLATION FAILED</li>);
 }
 
-dompack.register("#checkforupdate", node => node.addEventListener("click", async () => {
+const handleCheckForUpdate = async () => {
   dompack.qR("#pwa-update-status").textContent = "Checking...";
   const updatestatus = await pwalib.checkForUpdate() as { needsupdate: boolean }; //TODO type as part of sendSWRequestTo protocol
   dompack.qR("#pwa-update-status").textContent = updatestatus.needsupdate ? "UPDATE AVAILABLE" : "we are uptodate";
-}));
+};
+dompack.register("#checkforupdate", node => node.addEventListener("click", () => void handleCheckForUpdate()));
 
-dompack.register("#downloadupdate", node => node.addEventListener("click", async () => {
+const handleDownloadUpdate = async () => {
   dompack.qR("#pwa-update-status").textContent = "Downloading...";
   await pwalib.downloadUpdate();
   dompack.qR("#pwa-update-status").textContent = "DOWNLOAD COMPLETE";
   dompack.qR("#updatenow").style.display = "";
-}));
+};
+dompack.register("#downloadupdate", node => node.addEventListener("click", () => void handleDownloadUpdate()));
 
-dompack.register("#updatenow", node => node.addEventListener("click", async () => {
-  await pwalib.updateApplication();
-}));
+dompack.register("#updatenow", node => node.addEventListener("click", () => void pwalib.updateApplication()));
 
-pwalib.onReady(appEntryPoint, {
+void pwalib.onReady(() => void appEntryPoint(), {
   reportusage: true,
   onAvailableOffline: onAvailableOffline,
   onOfflineFailed: onOfflineFailed

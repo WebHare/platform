@@ -12,6 +12,7 @@ async function validateLoggedinUser() {
 }
 
 const frontendAuthApi = test.expose("frontendAuthApi", { isLoggedIn, login, logout, validateLoggedinUser });
+void frontendAuthApi;
 export type FrontendAuthApi = typeof frontendAuthApi;
 
 dompack.register(".wrdauthtest", container => {

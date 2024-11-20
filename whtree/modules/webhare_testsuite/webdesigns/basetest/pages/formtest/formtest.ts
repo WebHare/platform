@@ -15,12 +15,13 @@ import * as embedvideo from '@mod-publisher/js/forms/fields/rtd/embedvideo';
 //in development: date & time parts
 import { DateField, TimeField } from '@mod-publisher/js/forms/fields/datetime';
 import { fetchAsFile } from '@webhare/test-frontend';
+import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
 
 class CoreForm extends RPCFormBase {
   constructor(node: HTMLFormElement) {
     super(node);
-    qR('#coreform .prefillbutton').addEventListener('click', () => this.doPrefill());
-    qR('#coreform .validatebutton').addEventListener('click', () => this.validate());
+    qR('#coreform .prefillbutton').addEventListener('click', () => void this.doPrefill());
+    qR('#coreform .validatebutton').addEventListener('click', () => void this.validate());
 
     if (new URL(location.href).searchParams.get("sethiddenfield") === "javascript")
       this.setFieldValue(this.getElementByName("hidden")! as HTMLElement, "value-javascript");
@@ -54,7 +55,7 @@ class AnyFormHandler extends RPCFormBase {
 class DynamicForm extends AnyFormHandler {
   constructor(node: HTMLFormElement) {
     super(node);
-    qR(this.node, '[name=day]').addEventListener('change', () => this.onDayChange());
+    qR(this.node, '[name=day]').addEventListener('change', () => void this.onDayChange());
   }
   async onDayChange() {
     await this.invokeRPC('ondaychange', parseInt(qR<HTMLInputElement>(this.node, '[name=day]').value));
@@ -75,14 +76,14 @@ class RTDForm extends RPCFormBase {
     super(node);
 
     this.filename = new URL(location.href).searchParams.get("store");
-    qR('#rtdform .prefillbutton').addEventListener('click', () => this.doPrefill());
-    qR('#rtdform .validatebutton').addEventListener('click', () => this.validate());
+    qR('#rtdform .prefillbutton').addEventListener('click', () => void this.doPrefill());
+    qR('#rtdform .validatebutton').addEventListener('click', () => void this.validate());
     qR('#rtdform #clearimage').addEventListener('click', () => {
       this.getField("img").setValue(null);
     });
-    qR('#rtdform #setimage').addEventListener('click', async () => {
+    qR('#rtdform #setimage').addEventListener('click', floatAsyncHandler(async () => {
       this.getField("img").setValue(await fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg'));
-    });
+    }));
   }
   async doPrefill() {
     qR('#rtdformresponse').textContent = JSON.stringify(await this.invokeRPC('prefill', this.filename));
@@ -134,7 +135,7 @@ function initForms() {
   registerHandler('anyformhandler', node => new AnyFormHandler(node));
 
   register(".wh-form__rtd", node => new RTDField(node, {
-    onInsertVideo: location.href.includes('video=1') ? embedvideo.insertVideo : undefined
+    onInsertVideo: location.href.includes('video=1') ? floatAsyncHandler(embedvideo.insertVideo) : undefined
   }));
   register(".wh-form__imgedit", node => new ImgEditField(node));
 

@@ -61,7 +61,7 @@ class ClusterTestLink extends ClusterTestLinkBase {
     try {
       throw new Error("Async crash()");
     } catch (e) {
-      return Promise.reject(e);
+      return Promise.reject(e as Error);
     }
   }
   async _invisible() {

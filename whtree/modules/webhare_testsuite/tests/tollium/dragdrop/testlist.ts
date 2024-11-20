@@ -38,18 +38,18 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row1_prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
         // Should not drop
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -64,17 +64,17 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row1_copy_prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -89,17 +89,17 @@ test.registerTests(
 
     {
       name: 'source.row3->target.row1_copy_prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 3/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -114,17 +114,17 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row2_copy_prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 2/);
 
-        test.sendMouseGesture([
+        await await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -139,17 +139,17 @@ test.registerTests(
 
     {
       name: 'source.row2->target.none_copy_prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -175,16 +175,16 @@ test.registerTests(
 
     {
       name: 'source.row2(sel:row1)->target.none_copy_prepare',
-      test: function () {
+      test: async function () {
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -219,16 +219,16 @@ test.registerTests(
 
     {
       name: 'source.row2(sel:row1)->target.none_copy_prepare',
-      test: function () {
+      test: async function () {
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -254,16 +254,16 @@ test.registerTests(
 
     {
       name: 'source.row4->target.none_copy_prepare',
-      test: function () {
+      test: async function () {
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -289,16 +289,16 @@ test.registerTests(
 
     {
       name: 'source.row4->target.row1.copy_prepare',
-      test: function () {
+      test: async function () {
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -350,16 +350,16 @@ test.registerTests(
 
     {
       name: 'source.void->target.row1.copy_prepare',
-      test: function () {
+      test: async function () {
         const srow = test.compByName('source').querySelector('.listbodyholder');
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, y: 140, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -375,18 +375,18 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { relx: 30, delay: gesture_time }, // move 30px to right
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -402,17 +402,17 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui-nocheck"]
+      waits: ["ui-nocheck"]
     },
 
     {
@@ -428,17 +428,17 @@ test.registerTests(
 
     {
       name: 'tree.r1.1.to.r1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -454,18 +454,18 @@ test.registerTests(
 
     {
       name: 'tree.r3.to.r3-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R3/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R3/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { relx: 30, delay: gesture_time }, // move a little
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -481,18 +481,18 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 1, x: 10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -508,18 +508,18 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 1, x: -10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -535,18 +535,18 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 1, x: 20, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -562,18 +562,18 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 23, x: -10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -589,17 +589,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: -10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -615,17 +615,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 12, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -641,17 +641,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 22, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -667,17 +667,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 38, up: 0, delay: Number(gesture_time) }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -693,17 +693,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 40, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -719,17 +719,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.4-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R4/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 1, x: -10, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -745,12 +745,12 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.4-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R4/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 1, x: 50, up: 0, delay: gesture_time }
         ]);
@@ -771,17 +771,17 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r2.1-prepare',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R2.1/).querySelector('span.text');
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 19, x: 50, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {
@@ -807,19 +807,19 @@ test.registerTests(
 
     {
       name: 'drop-on-scrolled-list',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /S18/).querySelector('span.text');
 
         console.log(srow, trow);
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, x: 50, up: 0, delay: gesture_time }
         ]);
       },
-      waits: ["pointer", "ui"]
+      waits: ["ui"]
     },
 
     {

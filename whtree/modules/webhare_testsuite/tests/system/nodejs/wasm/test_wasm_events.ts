@@ -1,6 +1,7 @@
 import bridge, { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import * as test from "@webhare/test";
 import { createVM } from "@webhare/harescript/src/machinewrapper";
+import { floatAsyncHandler } from "@mod-webhare_testsuite/js/testhelpers";
 
 
 let output = "";
@@ -22,8 +23,8 @@ async function testWasmEventIntegration() {
   const port = bridge.createPort<Link>("local:registration", { global: false });
   const registered = new Array<string>;
   const allRegistered = Promise.withResolvers<void>();
-  port.on("accept", async link => {
-    link.on("message", async packet => {
+  port.on("accept", floatAsyncHandler(async link => {
+    link.on("message", floatAsyncHandler(async packet => {
       if (packet.message.type === "register") {
         registered.push(packet.message.id);
         if (registered.length === vms)
@@ -33,11 +34,11 @@ async function testWasmEventIntegration() {
         link.close();
       } else
         console.log(`unknown message`, packet);
-    });
+    }));
     await link.activate();
-  });
+  }));
   await port.activate();
-  allRegistered.promise.then(() => port.close());
+  void allRegistered.promise.then(() => port.close());
 
   const promises = new Array<Promise<void>>;
   for (let v = 0; v < vms; ++v)
