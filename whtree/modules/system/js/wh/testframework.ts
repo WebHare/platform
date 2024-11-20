@@ -485,7 +485,7 @@ export async function waitForEmails(addressmask: string, options?: RetrieveEmail
   });
 }
 
-export async function subtest(name) {
+export function subtest(name) {
   callbacks.subtest(name);
 }
 
