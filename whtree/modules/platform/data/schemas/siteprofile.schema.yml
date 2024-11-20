@@ -17,7 +17,7 @@ properties:
     patternProperties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase. TODO allow URIs too
         $ref: "#/definitions/Type"
-        additionalProperties: false
+        type: object
   apply:
     type: array
     items:
@@ -45,9 +45,9 @@ definitions:
     additionalProperties: false
     patternProperties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
-                             # TODO we could consider mapping underscores to double-underscores when snake-casing and then even allow them in camelcaps names?
+        # TODO we could consider mapping underscores to double-underscores when snake-casing and then even allow them in camelcaps names?
         $ref: "#/definitions/TypeMember"
-        additionalProperties: false
+        type: object
 
   TypeMember:
     type: object
@@ -103,8 +103,8 @@ definitions:
     type: string
     description: "Force fields to be presented as a block or separate section"
     enum:
-    - section
-    - block
+      - section
+      - block
 
   ValueConstraints: # TODO we need to share this with Tollium components
     type: object
@@ -142,7 +142,7 @@ definitions:
       validation:
         description: Validation checks to apply on the input
         type: array
-        itemType:
+        items:
           type: string
           enum:
             - "email"
@@ -200,7 +200,7 @@ definitions:
     oneOf:
       - type: object
         additionalProperties: false
-        required: ['and']
+        required: ["and"]
         properties:
           and:
             type: array
@@ -208,7 +208,7 @@ definitions:
               $ref: "#/definitions/ApplyTo"
       - type: object
         additionalProperties: false
-        required: ['or']
+        required: ["or"]
         properties:
           or:
             type: array
@@ -216,7 +216,7 @@ definitions:
               $ref: "#/definitions/ApplyTo"
       - type: object
         additionalProperties: false
-        required: ['not']
+        required: ["not"]
         properties:
           not:
             $ref: "#/definitions/ApplyTo"
@@ -247,12 +247,12 @@ definitions:
   ApplyToTestSetting:
     type: object
     additionalProperties: false
-    required: [target,type,member,value]
+    required: [target, type, member, value]
     properties:
       target:
         type: string
         enum:
-        - "self"
+          - "self"
       type:
         type: string
       member:
@@ -312,22 +312,25 @@ definitions:
   ApplyUserData:
     type: object
     additionalProperties:
-      type: string  # TODO A future version of YAML may open up this type (eg allow all JS primitves) but for HS compatibility we'll limit this to strings for now
+      type: string # TODO A future version of YAML may open up this type (eg allow all JS primitves) but for HS compatibility we'll limit this to strings for now
 
   Component:
     type: object
     not: # forbid 'line' or 'lines' as a component
       required:
         - line
+      properties:
+        line:
+          $ref: "#/definitions/ComponentLine"
 
   ComponentLine:
     type: array
-    item:
+    items:
       $ref: "#/definitions/Component" # TODO We should also permit line: but
 
   ComponentLines:
     type: array
-    item:
+    items:
       oneOf:
         - type: object
           required: [line]
