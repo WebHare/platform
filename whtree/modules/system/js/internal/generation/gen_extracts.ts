@@ -14,8 +14,6 @@ export interface AssetPack {
   name: string; //full name
   entryPoint: string;
   supportedLanguages: string[];
-  designRoot: string;
-  assetBaseUrl: string;
   compatibility: string;
   whPolyfills: boolean;
   environment: string;
@@ -87,8 +85,6 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           name: assetpackname,
           entryPoint: resolveResource(resourceBase, getAttr(assetpacknode, "entrypoint")),
           supportedLanguages: [...new Set(getAttr(assetpacknode, "supportedlanguages", []))],
-          designRoot: designroot, //FIXME does an assetpack need this? why?
-          assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
           compatibility: getAttr(assetpacknode, "compatibility", whconstant_default_compatibility),
           whPolyfills: getAttr(assetpacknode, "webharepolyfills", true),
           environment: getAttr(assetpacknode, "environment", "window"),
@@ -130,10 +126,6 @@ function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML):
         name: addModule(mod, name),
         entryPoint: resolveResource(resourceBase, assetpack.entryPoint),
         supportedLanguages: [...new Set(assetpack.supportedLanguages)],
-        designRoot: "",
-        assetBaseUrl: "",
-        // designRoot: designroot, //FIXME does an assetpack need this? why?
-        // assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
         compatibility: assetpack.compatibility || whconstant_default_compatibility,
         whPolyfills: assetpack.whPolyfills ?? true,
         environment: "window", //TODO can we remove this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
