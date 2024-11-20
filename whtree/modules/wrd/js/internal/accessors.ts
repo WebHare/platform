@@ -387,7 +387,7 @@ class WRDDBEmailValue extends WRDDBStringValue {
 class WRDDBUrlValue extends WRDDBStringValue {
   validateInput(value: string, checker: ValueQueryChecker, attrPath: string): void {
     super.validateInput(value, checker, attrPath);
-    if (!isValidUrl(value) && !checker.importMode)
+    if (value && !isValidUrl(value) && !checker.importMode)
       throw new Error(`Invalid URL ${JSON.stringify(value)} for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 }
