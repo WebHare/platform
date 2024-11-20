@@ -1,16 +1,12 @@
 //I guess we're extending the theme of the 'validation' folder to 'validation and parsing'
 
 import { toSnakeCase } from "@webhare/hscompat";
-import YAML from "yaml";
+import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
-///Simply decode YAML data, throw on failure.
-export function decodeYAML<T>(text: string): T {
-  const result = YAML.parse(text, { strict: true, version: "1.2" });
-  return result;
-}
+export { decodeYAML };
 
 export function __decodeForHareScript(text: string, mode: "json" | "snakecase") {
-  const result = YAML.parse(text, { strict: true, version: "1.2" });
+  const result = decodeYAML(text);
   if (mode === "json")
     return JSON.stringify(result);
   else if (mode === "snakecase")
