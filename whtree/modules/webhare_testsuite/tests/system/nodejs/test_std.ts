@@ -463,6 +463,16 @@ async function testStrings() {
 
   test.eq("TéST0-9_()A", std.toCLocaleUppercase("tésT0-9_()a"));
   test.eq("tÉst0-9_()a", std.toCLocaleLowercase("TÉSt0-9_()A"));
+
+  test.eq("\\*", std.escapeRegExp("*"));
+  test.eq(".*", std.escapeRegExp("*", { wildcards: "?*" }));
+
+  test.eq("^mask\\..*$", std.regExpFromWildcards("mask.*").source);
+  test.eq("^(mask\\..*|optie.)$", std.regExpFromWildcards(["mask.*", "optie?"]).source);
+  test.eq("", std.regExpFromWildcards(["mask.*", "optie?"]).flags);
+  test.eq("i", std.regExpFromWildcards(["mask.*", "optie?"], { caseInsensitive: true }).flags);
+
+  test.throws(/Empty mask list/, () => std.regExpFromWildcards([]), "We still need to determine what an empty mask list should return, so throw for now and let the caller deal with it");
 }
 
 function testLevenstein() {

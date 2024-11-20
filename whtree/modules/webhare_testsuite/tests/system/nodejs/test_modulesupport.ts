@@ -1,4 +1,4 @@
-import { ApplicabilityRestrictions, getApplicabilityError, getMyApplicabilityInfo } from "@mod-system/js/internal/generation/shared";
+import { ApplicabilityRestrictions, getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode } from "@mod-system/js/internal/generation/shared";
 import * as test from "@webhare/test";
 
 function isApplicable(restr: ApplicabilityRestrictions) {
@@ -9,15 +9,12 @@ function testApplicability() {
   const platform = process.env.WEBHARE_PLATFORM;
   test.assert(platform, `Cannot run this test if WEBHARE_PLATFORM is unset`);
 
-  const basesettings: ApplicabilityRestrictions = {
-    webhareversion: "",
-    minservertype: "",
-    maxservertype: "",
-    restrictservers: [""],
-    ifenvironset: [],
-    unlessenvironset: [],
-    ifmodules: ""
-  };
+  //an ugly but safe way to reproduce reading an XML node without any attributes set
+  const basesettings: ApplicabilityRestrictions = readApplicableToWebHareNode(
+    {
+      getAttribute: () => null,
+      hasAttribute: () => false
+    } as unknown as Element, "");
 
   test.assert(isApplicable(basesettings), `Empty settings should always be applicable`);
 

@@ -2,7 +2,7 @@ import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import type { CSPContentType } from "@webhare/whfs/src/siteprofiles";
-import { wildcardsToRegExp } from "@webhare/std";
+import { regExpFromWildcards } from "@webhare/std";
 
 interface ListedFSContentType {
   id: number;
@@ -63,6 +63,6 @@ export async function listFSContentTypes(mask: string): Promise<ListedFSContentT
   if (!mask)
     return result;
 
-  const regexp = new RegExp(wildcardsToRegExp(mask), 'i');
+  const regexp = regExpFromWildcards(mask, { caseInsensitive: true });
   return result.filter(_ => `${_.namespace} ${_.codesource}`.match(regexp));
 }

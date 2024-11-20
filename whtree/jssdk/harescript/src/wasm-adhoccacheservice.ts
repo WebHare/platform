@@ -3,7 +3,7 @@ import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/loc
 import { emplace } from "@webhare/std/collections";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { wildcardsToRegExp } from "@webhare/std/strings";
+import { regExpFromWildcards } from "@webhare/std/strings";
 import { debugFlags } from "@webhare/env/src/envbackend";
 
 /* The adhoc cache service is hosted by a local service together with the mainbridge of a
@@ -25,7 +25,7 @@ type Item = {
   value: unknown;
   expires: Date | null;
   eventMasks: string[];
-  eventMaskRegExps: RegExp[];
+  eventMaskRegExp: RegExp | null;
 };
 
 class LibraryData {
@@ -46,7 +46,7 @@ class AdhocCacheData {
   gotEvent(data: BridgeEvent) {
     for (const [libraryUri, libraryData] of this.libraries.entries()) {
       for (const [hash, item] of libraryData.items.entries()) {
-        if (item.eventMaskRegExps.some(r => r.exec(data.name))) {
+        if (item.eventMaskRegExp?.exec(data.name)) {
           libraryData.items.delete(hash);
           if (item.expires) {
             const pos = recordLowerBound(this.expiries, { expires: item.expires, libraryUri, hash }, ["expires", "libraryUri", "hash"]);
@@ -89,7 +89,7 @@ class AdhocCacheData {
       value,
       expires,
       eventMasks,
-      eventMaskRegExps: eventMasks.map(mask => new RegExp(wildcardsToRegExp(mask))),
+      eventMaskRegExp: eventMasks.length === 0 ? null : regExpFromWildcards(eventMasks),
     };
     const items = emplace(this.libraries, libraryUri, { insert: () => new LibraryData }).items;
     const emplaced = emplace(items, hash, {
