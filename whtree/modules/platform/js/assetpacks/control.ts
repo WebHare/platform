@@ -94,7 +94,7 @@ class LoadedBundle {
       this.state.messages = [{ type: "error", resourcename: "", line: 0, col: 0, message: "Recompile needed", source: "platform:assetpackcontrol" }];
     this.fileDeps = new Set(state.fileDependencies);
     this.missingDeps = new Set(state.missingDependencies);
-    this.checkDeps();
+    void this.checkDeps(); // no need to await the update
     this.broadcastUpdated();
   }
 
@@ -214,7 +214,7 @@ class LoadedBundle {
     }
 
     if (this.recompiling) //wait for compilation to compile or throw:
-      await new Promise<void>(resolve => this.recompiling!.then(() => resolve(), () => resolve()));
+      await this.recompiling.then(() => void undefined, () => void undefined);
     return this.getStatus();
   }
 }
@@ -224,8 +224,8 @@ class AssetPackController implements BackendServiceController {
   clients = new Set<AssetPackControlClient>();
 
   constructor(public config: AssetPacksConfig) {
-    subscribe("system:modulefolder.*", this.onChangedFile);
-    subscribe("system:npmlinkroot.filechange.*", this.onChangedFile);
+    void subscribe("system:modulefolder.*", this.onChangedFile);
+    void subscribe("system:npmlinkroot.filechange.*", this.onChangedFile);
 
     this.loadAssetPacks().catch(e => console.error(e));
   }
@@ -295,7 +295,7 @@ class AssetPackControlClient extends BackendServiceConnection {
     this.watchlist.add(name);
     this.controller.bundles.get(name)?.startCompile();
   }
-  async onClose() {
+  onClose() {
     this.controller.disconnectedClient(this);
   }
 

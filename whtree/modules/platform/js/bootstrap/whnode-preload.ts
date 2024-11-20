@@ -16,5 +16,5 @@ for (const flag of [...(env.WEBHARE_DEBUG?.split(',') ?? []), ...(env.__WEBHARE_
   if (flag)
     debugFlags[flag] = true;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 setGetTidHooksFactory(() => require("@mod-tollium/js/internal/gettid_nodehooks.ts").getGetTidNodeHooks());

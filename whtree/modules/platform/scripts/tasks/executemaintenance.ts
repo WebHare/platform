@@ -64,4 +64,4 @@ async function runMaintenance() {
   await rotateLogs();
 }
 
-runMaintenance();
+void runMaintenance();

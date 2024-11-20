@@ -209,7 +209,7 @@ class ProcessManager {
     const exitreason = signal ?? exitCode ?? "unknown";
     if (!this.toldToStop && this.service.ciriticalForStartup && currentstage < Stage.Active) {
       this.log(`Exit is considered fatal, shutting down service manager`);
-      shutdown();
+      void shutdown(); // no need to await
     }
 
     this.stopDefer.resolve(exitreason);
@@ -375,12 +375,12 @@ class ServiceManagerClient extends BackendServiceConnection {
     new ProcessManager(service, serviceinfo);
     return { ok: true };
   }
-  stopService(service: string) {
+  async stopService(service: string) {
     const process = processes.get(service);
     if (!process)
       return { errorMessage: `Service '${service}' is not running` };
 
-    process.stop();
+    await process.stop();
     return { ok: true };
   }
 
@@ -400,7 +400,7 @@ class ServiceManagerClient extends BackendServiceConnection {
 
   async reload() {
     await loadServiceList("ServiceMangerClient.reload"); //we block this so the service will be visible in the next getWebhareState from this client
-    updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
+    void updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
   }
 }
 
@@ -476,14 +476,14 @@ async function main() {
   //remove old servicestate files
   if (!isSecondaryManager) {
     unlinkServicestateFiles();
-    storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
+    await storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
   }
 
   await startStage(Stage.Bootup);
   if (!isSecondaryManager)
     await waitForCompileServer();
 
-  startBackendService();
+  void startBackendService(); // async start the backend service
 
   if (!shuttingdown)
     await startStage(Stage.StartupScript);
@@ -493,12 +493,12 @@ async function main() {
   return 0;
 }
 
-async function shutdownSignal(signal: NodeJS.Signals) {
+function shutdownSignal(signal: NodeJS.Signals) {
   smLog(`Received signal '${signal}'${shuttingdown ? ' but already shutting down' : ', shutting down'}`, { signal, wasShuttingDown: shuttingdown });
-  shutdown();
+  void shutdown(); // no need to await the shutdown
 }
 
-async function stopContinueSignal(signal: NodeJS.Signals) {
+function stopContinueSignal(signal: NodeJS.Signals) {
   smLog(`Received signal '${signal}'`, { signal });
 
   //forward STOP and CONT to subprocesses
@@ -536,7 +536,7 @@ process.on("SIGTSTP", stopContinueSignal);
 process.on("SIGCONT", stopContinueSignal);
 process.on("uncaughtException", (err, origin) => {
   console.error("Uncaught exception", err, origin);
-  shutdown();
+  void shutdown(); // no need to await the shutdown
   smLog(`Uncaught exception`, { error: String(err), origin: String(origin) });
 });
 
