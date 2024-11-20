@@ -1,4 +1,4 @@
-import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
+import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 import { readFile } from "fs/promises";
 
 interface Axioms {

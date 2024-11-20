@@ -7,6 +7,7 @@
 import { parseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import { WebHareBlob } from "@webhare/services";
 import { pick } from "@webhare/std";
+import YAML from "yaml";
 
 /** Basic location pointer used by various validators */
 export interface ResourceLocation {
@@ -80,9 +81,13 @@ class ValidationState {
   }
 }
 
-export async function runJSBasedValidator(content: WebHareBlob, resource: string, options: ValidationOptions): Promise<ValidationResult> {
-  // console.error({ content, resource, options });
+///Simply decode YAML data, throw on failure.
+export function decodeYAML<T>(text: string): T {
+  const result = YAML.parse(text, { strict: true, version: "1.2" });
+  return result;
+}
 
+export async function runJSBasedValidator(content: WebHareBlob, resource: string, options: ValidationOptions): Promise<ValidationResult> {
   const result = new ValidationState;
   const data = await content.text();
   if (resource.endsWith(".siteprl.yml") || resource.endsWith("siteprl.yaml")) {

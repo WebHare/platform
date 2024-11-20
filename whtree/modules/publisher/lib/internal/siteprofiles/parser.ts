@@ -1,5 +1,5 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
-import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
+import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
 import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPContentType, type CSPMember, type CSPMemberOverride, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
