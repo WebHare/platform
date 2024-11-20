@@ -779,7 +779,7 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   static async from(str: string | Buffer | WebHareBlob, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
     const blob = WebHareBlob.isWebHareBlob(str) ? str : WebHareBlob.from(str);
-    const res = await buildDescriptorFromResource(blob, options);
+    const res = buildDescriptorFromResource(blob, options);
     if (options)
       await res.applyScanOptions(options);
     return res;
@@ -787,7 +787,7 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   static async fromDisk(path: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
     const blob = await WebHareBlob.fromDisk(path);
-    const res = await buildDescriptorFromResource(blob, { fileName: basename(path), ...options });
+    const res = buildDescriptorFromResource(blob, { fileName: basename(path), ...options });
     if (options)
       await res.applyScanOptions(options);
     return res;
