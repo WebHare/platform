@@ -16,14 +16,14 @@ properties:
     additionalProperties: false
     patternProperties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase. TODO allow URIs too
-        $ref: "#/definitions/Type"
+        $ref: "#/$defs/Type"
         type: object
   apply:
     type: array
     items:
-      $ref: "#/definitions/Apply"
+      $ref: "#/$defs/Apply"
 
-definitions:
+$defs:
   Type:
     type: object
     additionalProperties: false
@@ -38,7 +38,7 @@ definitions:
       tid:
         type: string
       members:
-        $ref: "#/definitions/TypeMembers"
+        $ref: "#/$defs/TypeMembers"
 
   TypeMembers:
     type: object
@@ -46,7 +46,7 @@ definitions:
     patternProperties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
         # TODO we could consider mapping underscores to double-underscores when snake-casing and then even allow them in camelcaps names?
-        $ref: "#/definitions/TypeMember"
+        $ref: "#/$defs/TypeMember"
         type: object
 
   TypeMember:
@@ -87,17 +87,17 @@ definitions:
         type: string
         description: "A developer's comment on this type. Not shown to non-prviileged WebHare users."
       members: # TODO limit to arrays only
-        $ref: "#/definitions/TypeMembers"
+        $ref: "#/$defs/TypeMembers"
       constraints:
-        $ref: "#/definitions/ValueConstraints"
+        $ref: "#/$defs/ValueConstraints"
       component:
-        $ref: "#/definitions/Component"
+        $ref: "#/$defs/Component"
       line:
-        $ref: "#/definitions/ComponentLine"
+        $ref: "#/$defs/ComponentLine"
       lines:
-        $ref: "#/definitions/ComponentLines"
+        $ref: "#/$defs/ComponentLines"
       layout:
-        $ref: "#/definitions/FieldLayout"
+        $ref: "#/$defs/FieldLayout"
 
   FieldLayout:
     type: string
@@ -188,13 +188,13 @@ definitions:
       - to
     properties:
       to:
-        $ref: "#/definitions/ApplyTo"
+        $ref: "#/$defs/ApplyTo"
       baseProps:
-        $ref: "#/definitions/ApplyBaseProps"
+        $ref: "#/$defs/ApplyBaseProps"
       editProps:
-        $ref: "#/definitions/ApplyEditProps"
+        $ref: "#/$defs/ApplyEditProps"
       userData:
-        $ref: "#/definitions/ApplyUserData"
+        $ref: "#/$defs/ApplyUserData"
 
   ApplyTo:
     oneOf:
@@ -205,7 +205,7 @@ definitions:
           and:
             type: array
             items:
-              $ref: "#/definitions/ApplyTo"
+              $ref: "#/$defs/ApplyTo"
       - type: object
         additionalProperties: false
         required: ["or"]
@@ -213,13 +213,13 @@ definitions:
           or:
             type: array
             items:
-              $ref: "#/definitions/ApplyTo"
+              $ref: "#/$defs/ApplyTo"
       - type: object
         additionalProperties: false
         required: ["not"]
         properties:
           not:
-            $ref: "#/definitions/ApplyTo"
+            $ref: "#/$defs/ApplyTo"
       - type: object
         additionalProperties: false
         properties:
@@ -236,7 +236,7 @@ definitions:
           parentType:
             type: string
           testSetting:
-            $ref: "#/definitions/ApplyToTestSetting"
+            $ref: "#/$defs/ApplyToTestSetting"
       - type: string
         enum:
           - "all"
@@ -288,26 +288,26 @@ definitions:
         override:
           type: object
           additionalProperties:
-            $ref: "#/definitions/ApplyEditMember"
+            $ref: "#/$defs/ApplyEditMember"
 
   ApplyEditMember:
     type: object
     additionalProperties: false
     properties:
       component:
-        $ref: "#/definitions/Component"
+        $ref: "#/$defs/Component"
       line:
-        $ref: "#/definitions/ComponentLine"
+        $ref: "#/$defs/ComponentLine"
       lines:
-        $ref: "#/definitions/ComponentLines"
+        $ref: "#/$defs/ComponentLines"
       title:
         type: string
       constraints:
-        $ref: "#/definitions/ValueConstraints"
+        $ref: "#/$defs/ValueConstraints"
       props:
         type: object
       layout:
-        $ref: "#/definitions/FieldLayout"
+        $ref: "#/$defs/FieldLayout"
 
   ApplyUserData:
     type: object
@@ -321,12 +321,12 @@ definitions:
         - line
       properties:
         line:
-          $ref: "#/definitions/ComponentLine"
+          $ref: "#/$defs/ComponentLine"
 
   ComponentLine:
     type: array
     items:
-      $ref: "#/definitions/Component" # TODO We should also permit line: but
+      $ref: "#/$defs/Component" # TODO We should also permit line: but
 
   ComponentLines:
     type: array
@@ -336,5 +336,5 @@ definitions:
           required: [line]
           properties:
             line:
-              $ref: "#/definitions/ComponentLine"
-        - $ref: "#/definitions/Component"
+              $ref: "#/$defs/ComponentLine"
+        - $ref: "#/$defs/Component"

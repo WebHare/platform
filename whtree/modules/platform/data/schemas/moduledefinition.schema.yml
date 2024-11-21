@@ -8,34 +8,34 @@ type: object
 additionalProperties: false
 properties:
   backendHooks:
-    $ref: "#/definitions/BackendHooks"
+    $ref: "#/$defs/BackendHooks"
   connect:
     description: "Extends WRD Schemas for Connect"
-    $ref: "#/definitions/Connect"
+    $ref: "#/$defs/Connect"
   managedServices:
     description: Additional services
-    $ref: "#/definitions/ManagedServices"
+    $ref: "#/$defs/ManagedServices"
   backendServices:
     description: Additional services
-    $ref: "#/definitions/BackendServices"
+    $ref: "#/$defs/BackendServices"
   assetPacks:
     description: JavaScript/asset bundles
-    $ref: "#/definitions/AssetPacks"
+    $ref: "#/$defs/AssetPacks"
   webFeatures:
     description: "Web features (apply additional siteprofiles)"
-    $ref: "#/definitions/WebFeatures"
+    $ref: "#/$defs/WebFeatures"
   selfChecks:
     description: Adds automatic selfchecks
-    $ref: "#/definitions/SelfChecks"
+    $ref: "#/$defs/SelfChecks"
   moduleFileTypes:
     description: Register file types used to build modules
-    $ref: "#/definitions/ModuleFileTypes"
+    $ref: "#/$defs/ModuleFileTypes"
 patternProperties:
   "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties after x- (but no x-- and no funny chars)
     type: object
     tsType: unknown
 
-definitions:
+$defs:
   # managedServices are additional services to have the servicemanager start
   ManagedServices:
     type: object
@@ -85,7 +85,7 @@ definitions:
           screen:
             type: string
           when:
-            $ref: "#/definitions/ContextFilter"
+            $ref: "#/$defs/ContextFilter"
           tabsExtension:
             type: string
           addActions:
