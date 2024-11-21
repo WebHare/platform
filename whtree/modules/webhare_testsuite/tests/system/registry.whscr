@@ -45,6 +45,8 @@ MACRO DoKeyTests(STRING basename, STRING nodebasename)
 
 MACRO TestRegistry()
 {
+  TestEq(['system:registry.webhare_testsuite.x3', 'system:registry.webhare_testsuite.y1'], GetRegistryKeyEventMasks(["webhare_testsuite.y1.testkey","webhare_testsuite.y1.testkey2","webhare_testsuite.x3.testkey"]));
+
   testfw->BeginWork();
 
   //cleanup. we'll use a special name so we can safely destroy it from the registry unseen

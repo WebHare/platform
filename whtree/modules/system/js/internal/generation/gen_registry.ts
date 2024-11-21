@@ -75,6 +75,10 @@ function listRegistryKeys(context: GenerateContext, mods: string[]): RegistryKey
   return keys;
 }
 
+function convertToModuleKey(regkey: string) {
+  const firstcolon = regkey.indexOf(".");
+  return firstcolon === -1 ? regkey : regkey.substring(0, firstcolon) + ":" + regkey.substring(firstcolon + 1);
+}
 
 export function generateRegistryDefs(context: GenerateContext, platform: boolean, mods: string[]): string {
   const keys = listRegistryKeys(context, mods);
@@ -100,7 +104,7 @@ ${keys.map(key => {
       case "record": tsType = "unknown"; break;
       default: return "";
     }
-    return `    ${JSON.stringify(key.name)}: ${tsType};`;
+    return `    ${JSON.stringify(convertToModuleKey(key.name))}: ${tsType};`;
   }).filter(line => line).join('\n')}
   }
 }

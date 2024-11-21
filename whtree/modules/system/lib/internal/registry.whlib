@@ -7,20 +7,44 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 RECORD ARRAY anonymousregistry;
 INTEGER nextanonymousid;
 RECORD ARRAY mockedregistry;
+OBJECT regkeyregex;
 
 BOOLEAN FUNCTION IsAnonymousConfKey(STRING confkey)
 {
   RETURN confkey="<anonymous>" OR confkey LIKE "<anonymous>.*";
 }
 
+INTEGER FUNCTION FindModuleColon(STRING confkey)
+{
+  INTEGER firstdot := SearchSubstring(confkey, '.');
+  INTEGER firstcolon := SearchSubstring(confkey, ':', confkey LIKE "<wrd:*" ? 5 : 0);
+  RETURN firstcolon >= 0 AND (firstcolon < firstdot OR firstdot = -1) ? firstcolon : -1;
+}
+
 PUBLIC STRING FUNCTION FixupRegKey(STRING confkey)
 {
+  INTEGER usescolon := FindModuleColon(confkey);
+  IF(usescolon >= 0)
+  { /* This will be the recommended module-style format but also a chance to become stricter...
+       We want '(<userprefix>.)module:key.name
+       ([a-z0-9][-a-z0-9_]*[a-z0-9]) is the module name regex (we have to permit things like '4tu')
+       TODO also prevent double dots in the regex, incorrect trailing dots etc
+       */
+    IF(NOT ObjectExists(regkeyregex))
+      regkeyregex := NEW JSRegEx("^(<overrideuser>\\.|<wrd:[a-f0-9]{32}>\\.)?[a-z0-9][-a-z0-9_]*[a-z0-9]:[a-z0-9_\\.]+$");
+    IF(NOT regkeyregex->Test(confkey))
+      THROW NEW Exception(`Invalid registry key name '${confkey}' - you should use the format '(<userprefix>.)module:key.name'`);
+
+    confkey := Left(confkey, usescolon) || '.' || Substring(confkey, usescolon+1); //in the database we'll keep it as a '.'
+  }
+
   confkey := ToLowercase(confkey);
   IF(confkey NOT LIKE "system.modules.*" AND confkey NOT LIKE "modules.*")
     RETURN confkey;
@@ -181,18 +205,27 @@ PUBLIC VARIANT FUNCTION ReadRegistryKey(STRING confkey, RECORD options DEFAULTST
     @cell(variant) node.value Registry key value */
 PUBLIC RECORD ARRAY FUNCTION ReadRegistryKeysByMask(STRING keymask)
 {
+  INTEGER usescolon := FindModuleColon(keymask);
+  IF(usescolon >= 0)
+    keymask := left(keymask,usescolon) || '.' || Substring(keymask,usescolon+1);
+
+  RECORD ARRAY result;
   IF(IsAnonymousConfKey(keymask)) //we simulate the <anonymous> registry
   {
-    RETURN SELECT name, value := ReadAnyFromDatabase(data, blobdata)
-             FROM anonymousregistry
-            WHERE ToUppercase(name) LIKE ToUppercase(keymask);
+    result := SELECT name, value := ReadAnyFromDatabase(data, blobdata)
+                FROM anonymousregistry
+               WHERE ToUppercase(name) LIKE ToUppercase(keymask);
   }
   ELSE
   {
-    RETURN SELECT name, value := ReadAnyFromDatabase(data, blobdata)
-             FROM system.flatregistry
-            WHERE ToUppercase(name) LIKE ToUppercase(keymask);
+    result := SELECT name, value := ReadAnyFromDatabase(data, blobdata)
+                FROM system.flatregistry
+               WHERE ToUppercase(name) LIKE ToUppercase(keymask);
   }
+
+  IF(usescolon >= 0)
+    UPDATE result SET name := Left(name,usescolon) || ':' || Substring(name,usescolon+1);
+  RETURN result;
 }
 
 /** @short Deletes a registry key. Module registry keys can be read using the key "modulename.registrykey...".
@@ -265,12 +298,15 @@ PUBLIC MACRO __RegistryFastInsert(RECORD ARRAY registry)
 */
 PUBLIC RECORD ARRAY FUNCTION ReadRegistryNode(STRING confkey)
 {
+  INTEGER usescolon := FindModuleColon(confkey);
   confkey := FixupRegKey(confkey);
   STRING gethash := GetSHA1Hash(confkey);
 
+  RECORD ARRAY result;
   IF(IsAnonymousConfKey(confkey))
   {
-    RETURN SELECT fullname := name
+    result :=
+           SELECT fullname := name
                 , subkey := Substring(name, Length(confkey)+1)
                 , data := data != "" ? DecodeHSON(data) : DecodeHSONBlob(blobdata)
              FROM anonymousregistry
@@ -278,12 +314,17 @@ PUBLIC RECORD ARRAY FUNCTION ReadRegistryNode(STRING confkey)
   }
   ELSE
   {
-    RETURN SELECT fullname := name
+    result :=
+           SELECT fullname := name
                 , subkey := Substring(name, Length(confkey)+1)
                 , data := data != "" ? DecodeHSON(data) : DecodeHSONBlob(blobdata)
              FROM system.flatregistry
             WHERE nodehash = gethash;
   }
+
+  IF(usescolon >= 0)
+    UPDATE result SET fullname := Left(fullname,usescolon) || ':' || Substring(fullname,usescolon+1);
+  RETURN result;
 }
 
 /** @short Set a registry key if it exists. Module registry keys can be written using the key "modulename.registrykey...".
