@@ -19,6 +19,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/import.whlib";
@@ -59,13 +60,13 @@ RECORD ARRAY FUNCTION GetAllRows(INTEGER fsobjectid, STRING formname, BOOLEAN sh
               , __languagecode := languagecode
               , __resultrow := ReadAnyFromDatabase(results, blobresults)
               , __expired := expiration <= now
-              , __pending := status = 5
+              , __pending := status = VAR whconstant_formstatus_pendingconfirmation
           FROM publisher.formresults
          WHERE form_fsobject = VAR fsobjectid
                AND form_name = VAR formname
                AND (Length(limitresultids) > 0 ? id IN limitresultids : TRUE)
                AND (showexpiredresults OR expiration > now)
-               AND (status = 1 OR (showpendingresults AND status = 5))
+               AND (status = VAR whconstant_formstatus_final OR (showpendingresults AND status = VAR whconstant_formstatus_pendingconfirmation))
          ORDER BY when;
 }
 
@@ -85,7 +86,7 @@ PUBLIC INTEGER FUNCTION GetFinalResultId(INTEGER objectid, STRING formname, STRI
                                  AND form_name = VAR formname
                                  AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
 
-  WHILE (RecordExists(storedresults) AND storedresults.status = 4) //chase 4=replacedby - note that replaceby is deprecated!
+  WHILE (RecordExists(storedresults) AND storedresults.status = whconstant_formstatus_nolongervalid) //chase 4=replacedby - note that replaceby is deprecated!
   {
     storedresults := SELECT id, status
                        FROM publisher.formresults
@@ -93,11 +94,11 @@ PUBLIC INTEGER FUNCTION GetFinalResultId(INTEGER objectid, STRING formname, STRI
                             AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
   }
 
-  INTEGER ARRAY validstatus := [ 1 ];
+  INTEGER ARRAY validstatus := [ VAR whconstant_formstatus_final ];
   IF(options.allowcancelled)
-    INSERT 3 INTO validstatus AT END;
+    INSERT whconstant_formstatus_cancelled INTO validstatus AT END;
   IF(options.allowpending)
-    INSERT 5 INTO validstatus AT END;
+    INSERT whconstant_formstatus_pendingconfirmation INTO validstatus AT END;
 
   IF(RecordExists(storedresults) AND storedresults.status IN validstatus)
     RETURN storedresults.id;
@@ -328,7 +329,7 @@ STATIC OBJECTTYPE WHFSForm
          WHERE formresults.form_fsobject = this->whfsobject->id
                AND formresults.form_name = this->formname
                AND (options.showexpiredresults OR expiration > GetCurrentDatetime())
-               AND (status = 1 OR (options.showpendingresults AND status = 5));
+               AND (status = VAR whconstant_formstatus_final OR (options.showpendingresults AND status = VAR whconstant_formstatus_pendingconfirmation));
   }
 
   PUBLIC RECORD FUNCTION GetSingleResultById(INTEGER resultid, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -343,7 +344,7 @@ STATIC OBJECTTYPE WHFSForm
           FROM publisher.formresults
          WHERE id = resultid
                AND (options.showexpiredresults OR expiration > GetCurrentDatetime())
-               AND (status = 1 OR (options.showpendingresults AND status = 5));
+               AND (status = VAR whconstant_formstatus_final OR (options.showpendingresults AND status = VAR whconstant_formstatus_pendingconfirmation));
     IF(NOT RecordExists(storedresult))
       RETURN DEFAULT RECORD;
 
@@ -439,7 +440,7 @@ STATIC OBJECTTYPE WHFSForm
 
     //return the fields in a subrecord to ease namespace conerns
     STRING submittype := storedresults.confirmed > storedresults.modified ? "confirm" : storedresults.modified != DEFAULT DATETIME ? "change" : "new";
-    IF (storedresults.status = 3)
+    IF (storedresults.status = whconstant_formstatus_cancelled)
       submittype := "cancel";
     ELSE
     {
@@ -455,7 +456,9 @@ STATIC OBJECTTYPE WHFSForm
                , pagedata := CellExists(simpleresults.__formmeta,'pagedata') ? simpleresults.__formmeta.pagedata //'safer' storage location since WH 5
                              : CellExists(simpleresults,'pagedata') ? simpleresults.pagedata
                              : DEFAULT RECORD
-               , status := storedresults.status = 1 ? "final" : storedresults.status = 3 ? "cancelled" : storedresults.status = 5 ? "pending" : ""
+               , status := storedresults.status = VAR whconstant_formstatus_final ? "final"
+                            : storedresults.status = VAR whconstant_formstatus_cancelled ? "cancelled"
+                            : storedresults.status = VAR whconstant_formstatus_pendingconfirmation ? "pending" : ""
                , storedresults.url
                , storedresults.when
                , storedresults.modified
@@ -493,7 +496,7 @@ STATIC OBJECTTYPE WHFSForm
     RECORD storeresults := PrepareAnyForDatabase(match.results);
 
     UPDATE publisher.formresults
-       SET status := 3
+       SET status := VAR whconstant_formstatus_cancelled
          , modified := GetCurrentDatetime()
          , results := storeresults.stringpart
          , blobresults := storeresults.blobpart
