@@ -120,7 +120,7 @@ export function isAbsoluteResource(resourcepath: string): boolean {
 /** Resolves a (relative) resource path relative to a base path
     @param base - Base resource path
     @param relativepath - Resource path to resolve
-    @returns Resolved resource path
+    @returns Resolved resource path. If relativepath is empty or already absolute, it is returned as-is
     @throws If the subpath is invalid
 */
 export function resolveResource(base: string, relativepath: string): string {

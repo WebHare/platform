@@ -1414,7 +1414,7 @@ OBJECT parametersingleton;
 PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF(filename LIKE "*.yml" OR filename LIKE "*.yaml")
-    RETURN [ value := WaitForPromise(ImportJS("./parser.ts")->ParseSiteProfile(filename)) //CallJS is not availble during bootup
+    RETURN [ value := WaitForPromise(ImportJS("./parser.ts")->readAndParseSiteProfile(filename)) //CallJS is not availble during bootup
            , ttl := 60*60*1000
            , eventmasks := GetResourceEventMasks([filename])
            ];

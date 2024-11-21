@@ -150,7 +150,7 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   const context = options.generateContext || await buildGeneratorContext(null, options?.verbose || false);
 
   //TODO we might need to be above buildGenerateContext in the future to provide moduledefinition schemas for runtime validation?
-  const schemas = fixFilePaths(await listAllSchemas());
+  const schemas = fixFilePaths(await listAllSchemas(context));
   if (targets.includes('schema') || targets.includes('all'))
     await generateFiles(schemas, context, options);
 

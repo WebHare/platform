@@ -1,13 +1,14 @@
 import { toFSPath } from "@webhare/services";
-import { FileToUpdate } from "./shared";
-import { readFile, readdir } from "fs/promises";
-import YAML from "yaml";
-import { compile } from 'json-schema-to-typescript';
+import { readFile } from "fs/promises";
+import { resolveResource } from "@webhare/services";
+import { FileToUpdate, type GenerateContext } from "./shared";
+import { compile, type JSONSchema } from 'json-schema-to-typescript';
+import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
-async function buildSchema(schema: string) {
-  const sourceres = `mod::platform/data/schemas/${schema}.schema.yml`;
-  const source = YAML.parse(await readFile(toFSPath(sourceres), 'utf8'));
-  return await compile(source, schema, {
+async function buildSchema(sourceres: string, tsType: string) {
+  const source = decodeYAML<JSONSchema>(await readFile(toFSPath(sourceres), 'utf8'));
+  source.title = tsType; //this determines the name of the exported root type
+  return await compile(source, "", {
     bannerComment:
       `/* eslint-disable */
 /* This schema was generated from ${sourceres}
@@ -17,15 +18,21 @@ To update: wh update-generated-files --only schema
   });
 }
 
-export async function listAllSchemas(): Promise<FileToUpdate[]> {
-  const schemas = await readdir(toFSPath("mod::platform/data/schemas"));
-  return schemas
-    .filter(_ => _.endsWith(".schema.yml"))
-    .map(_ => _.substring(0, _.length - 11)) //strip .schema.yml
-    .map(schema => ({
-      path: `schema/${schema}.ts`,
-      module: "platform",
-      type: "schema",
-      generator: () => buildSchema(schema)
-    }));
+export async function listAllSchemas(context: GenerateContext): Promise<FileToUpdate[]> {
+  const schemas = [];
+  for (const mod of context.moduledefs) {
+    for (const type of mod.modYml?.moduleFileTypes ?? []) {
+      const tsType = type.tsType;
+      if (tsType) {
+        const resoucepath = resolveResource(mod.resourceBase, type.schema);
+        schemas.push({
+          path: `schema/${mod.name === 'platform' ? '' : `${mod.name}/`}${tsType.toLowerCase()}.ts`, // //TODO bail if tsType is not unique, err in moduledef validation
+          module: mod.name,
+          type: "schema" as const,
+          generator: () => buildSchema(resoucepath, tsType)
+        });
+      }
+    }
+  }
+  return schemas;
 }

@@ -769,6 +769,10 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
         , type :=     "softlink"
         , target :=   MergePath(whdataroot, "storage/system/generated/openapi")
         ]
+      , [ name :=     "wh:schema"
+        , type :=     "softlink"
+        , target :=   MergePath(whdataroot, "storage/system/generated/schema")
+        ]
       , [ name :=     "wh:wrd"
         , type :=     "softlink"
         , target :=   MergePath(whdataroot, "storage/system/generated/wrd")

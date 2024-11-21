@@ -10,7 +10,7 @@ import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
 import { OpenAPIDescriptor } from "./gen_extracts";
 import { promises as fs } from "node:fs";
-import YAML from "yaml";
+import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
 
 
@@ -229,7 +229,7 @@ export async function createOpenAPITypeDocuments(openapifilepath: string | OpenA
   const bundled = await SwaggerParser.bundle(openapifilepath) as OpenAPIV3.Document;
 
   if (merge) {
-    const mergeData = typeof merge === "string" ? YAML.parse(await fs.readFile(merge, "utf8")) : merge;
+    const mergeData = typeof merge === "string" ? decodeYAML(await fs.readFile(merge, "utf8")) : merge;
     mergeIntoBundled(bundled, mergeData, "");
   }
 

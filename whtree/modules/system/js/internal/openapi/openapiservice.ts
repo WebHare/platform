@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import YAML from "yaml";
 import * as env from "@webhare/env";
 import * as services from "@webhare/services";
 import { WebHareBlob, loadWittyResource, log, toFSPath } from "@webhare/services";
@@ -12,6 +11,7 @@ import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
 import { pick } from "@webhare/std";
 import { handleCrossOriginResourceSharing } from "../webserver/cors";
+import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
 // A REST service supporting an OpenAPI definition
 export class RestService extends services.BackendServiceConnection {
@@ -167,8 +167,8 @@ export async function getServiceInstance(servicename: string) {
     registerLoadedResource(module, apimerge_fs);
 
   // Read and parse the OpenAPI Yaml definition
-  const def = YAML.parse(await fs.promises.readFile(apispec_fs, "utf8"));
-  const merge = apimerge_fs ? YAML.parse(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
+  const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));
+  const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
   // Create and initialize the API handler
   const restapi = new RestAPI();
   await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["inputValidation", "outputValidation", "crossdomainOrigins"]) });

@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 import { nameToSnakeCase, toSnakeCase } from "@webhare/std/types";
-import type { ValidationMessage } from "@mod-platform/js/devsupport/validation";
+import type { ContentValidationFunction, ValidationMessage, ValidationState } from "@mod-platform/js/devsupport/validation";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedApplyRule = CSPApplyRule & { ruletype: "apply" };
@@ -432,7 +432,7 @@ class ResourceParserContext {
   }
 }
 
-export async function parseSiteProfile(resource: string, options?: { content?: string; onTid?: TidCallback }) {
+export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?: { onTid: TidCallback }) {
   const result: ParsedSiteProfile = {
     applysiteprofiles: [],
     contenttypes: [],
@@ -449,8 +449,6 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
   if (!module)
     throw new Error(`parseSiteProfile only supports siteprofiles inside a module`);
 
-  const content = options?.content ?? readFileSync(toFSPath(resource), 'utf8');
-  const sp = decodeYAML<Sp.SiteProfile>(content);
   const rootParser = ResourceParserContext.forResource(resource, options?.onTid, sp);
   result.gid = rootParser.gid;
 
@@ -499,3 +497,19 @@ export async function parseSiteProfile(resource: string, options?: { content?: s
 
   return result;
 }
+
+export async function readAndParseSiteProfile(resource: string) { //used by HareScript
+  return await parseSiteProfile(resource, decodeYAML<Sp.SiteProfile>(await readFileSync(toFSPath(resource), 'utf8')));
+}
+
+export async function validateSiteProfile(resourceName: string, content: Sp.SiteProfile, result: ValidationState): Promise<void> {
+  const res = await parseSiteProfile(resourceName, content, { onTid: result.onTid });
+  for (const error of res.errors)
+    result.errors.push({ resourcename: resourceName, line: error.line, col: error.col, message: error.message, source: "validation" });
+  for (const warning of res.warnings)
+    result.warnings.push({ resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
+  for (const hint of res.hints)
+    result.hints.push({ resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
+}
+
+validateSiteProfile satisfies ContentValidationFunction<Sp.SiteProfile>;

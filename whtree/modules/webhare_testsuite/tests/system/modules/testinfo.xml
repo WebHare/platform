@@ -9,4 +9,5 @@
   <test script="test_nodechecks.whscr" />
   <test script="test_formatting.whscr" />
   <test script="test_checks.ts" />
+  <test script="test_validate_js.ts" />
 </group>

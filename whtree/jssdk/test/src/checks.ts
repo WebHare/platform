@@ -1,11 +1,8 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
-import Ajv from "ajv";
-import Ajv2019 from "ajv/dist/2019";
-import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
-import addFormats from "ajv-formats";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { Money, isDate, isError, isPromise, sleep } from "@webhare/std";
+import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 
 export type { LoadTSTypeOptions } from "./testsupport";
 
@@ -503,8 +500,8 @@ export interface TestTypeValidator {
 }
 
 class JSONSchemaValidator implements TestTypeValidator {
-  validate: ValidateFunction;
-  constructor(validatefunction: ValidateFunction) {
+  validate: AjvValidateFunction;
+  constructor(validatefunction: AjvValidateFunction) {
     this.validate = validatefunction;
   }
   validateStructure(data: unknown, annotation?: Annotation) {
@@ -522,51 +519,18 @@ class JSONSchemaValidator implements TestTypeValidator {
   }
 }
 
-let ajv: (Ajv | null) = null;
-let ajv2019: (Ajv2019 | null) = null;
-let ajv2020: (Ajv2020 | null) = null;
-
-function getCompiledJSONSchema(schema: SchemaObject) {
-  if ([
-    "http://json-schema.org/draft-04/schema#",
-    "http://json-schema.org/draft-06/schema#",
-    "http://json-schema.org/draft-07/schema#",
-  ].includes(schema.$schema ?? "")) {
-    if (!ajv) {
-      ajv = new Ajv({ allowMatchingProperties: true });
-      addFormats(ajv);
-    }
-    return ajv.compile(schema);
-  }
-
-  if (schema.$schema === "https://json-schema.org/draft/2019-09/schema") {
-    if (!ajv2019) {
-      ajv2019 = new Ajv2019({ allowMatchingProperties: true });
-      addFormats(ajv2019);
-    }
-    return ajv2019.compile(schema);
-  }
-
-  if (!ajv2020) {
-    ajv2020 = new Ajv2020({ allowMatchingProperties: true });
-    addFormats(ajv2020);
-  }
-
-  return ajv2020.compile(schema);
-}
-
 export async function loadTSType(typeref: string, options: testsupport.LoadTSTypeOptions = {}): Promise<TestTypeValidator> {
   const schema = await testsupport.getJSONSchemaFromTSType(typeref, options);
-  return new JSONSchemaValidator(getCompiledJSONSchema(schema));
+  return new JSONSchemaValidator(await getCompiledJSONSchema(schema));
 }
 
-export async function loadJSONSchema(schema: string | SchemaObject): Promise<TestTypeValidator> {
+export async function loadJSONSchema(schema: string | JSONSchemaObject): Promise<JSONSchemaValidator> {
   let tocompile;
   if (typeof schema === "string") {
     tocompile = await testsupport.getJSONSchemaFromFile(schema);
   } else
     tocompile = schema;
-  return new JSONSchemaValidator(getCompiledJSONSchema(tocompile));
+  return new JSONSchemaValidator(await getCompiledJSONSchema(tocompile));
 }
 
 //We want to make clear ('assert') that wait will not return falsy values

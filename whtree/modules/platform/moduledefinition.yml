@@ -49,3 +49,12 @@ assetPacks:
 webFeatures:
   identityprovider:
     siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml
+
+moduleFileTypes:
+  - tsType: ModuleDefinition
+    schema: data/schemas/moduledefinition.schema.yml
+    resourceMask: ^mod::[^/]+/moduledefinition\.yml$
+  - tsType: SiteProfile
+    schema: data/schemas/siteprofile.schema.yml
+    resourceMask: siteprl\.yml$
+    contentValidator: mod::publisher/lib/internal/siteprofiles/parser.ts#validateSiteProfile
