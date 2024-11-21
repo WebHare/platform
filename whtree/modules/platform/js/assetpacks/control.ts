@@ -15,7 +15,7 @@ import { loadAssetPacksConfig, type AssetPacksConfig } from "./api";
 import { runInWork } from "@webhare/whdb";
 import { getAssetPackState, readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
 import type { AssetPackState } from "./types";
-import type { AssetPackBundleStatus } from "../devsupport/devbridge";
+import type { AssetPackBundleStatus, AssetPackMiniStatus } from "../devsupport/devbridge";
 
 
 class LoadedBundle {
@@ -36,7 +36,7 @@ class LoadedBundle {
     broadcast("publisher:assetpackcontrol.change." + this.name);
   }
 
-  getStatus() {
+  getStatus(): AssetPackMiniStatus {
     return {
       id: 0,
       hasstatus: Boolean(this.state),
@@ -79,7 +79,7 @@ class LoadedBundle {
     try {
       if (!this.state)
         this.markDirty("has never been compiled before");
-      else if (this.config.baseCompileToken !== this.state.lastCompileSettings.bundle.bundleconfig.basecompiletoken)
+      else if (this.config.baseCompileToken !== this.state.lastCompileSettings.bundle.config.baseCompileToken)
         this.markDirty("compiletoken (configuration) hash changed");
       else if (this.settings.dev !== this.state.lastCompileSettings.bundle.isdev)
         this.markDirty("settings (dev/prod) changed");

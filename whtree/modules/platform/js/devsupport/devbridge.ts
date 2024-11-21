@@ -1,5 +1,5 @@
 /* This is an import specifically for APIs needed by the 'dev' module, allowing us to manage version differences a bit
-
+   Any definitions here still shouldn't be considered a public or stable API
 */
 
 import type { ParsedSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
@@ -10,29 +10,9 @@ import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconsta
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, toResourcePath } from "@webhare/services";
 import { pick } from "@webhare/std";
-import type { ValidationMessageWithType } from "./validation";
 
-export type AssetPackBundleStatus = {
-  messages: ValidationMessageWithType[];
-  filedependencies: string[];
-  missingdependencies: string[];
-  entrypoint: string;
-  bundleconfig: {
-    extrarequires: string[];
-    languages: string[];
-    environment: string;
-  };
-  id: number;
-  hasstatus: boolean;
-  iscompiling: boolean;
-  requirecompile: boolean;
-  haserrors: boolean | undefined;
-  outputtag: string;
-  lastcompile: Date | null;
-  isdev: boolean;
-  watchcount: number;
-  compatibility: string;
-};
+export type { ValidationMessageWithType } from "./validation";
+export type { AssetPackMiniStatus, AssetPackBundleStatus } from "@mod-platform/js/assetpacks/api.ts";
 
 function stripJSTSExtension(importPath: string) {
   if (importPath.endsWith(".js") || importPath.endsWith(".ts"))

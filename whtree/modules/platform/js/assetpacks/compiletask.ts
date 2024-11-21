@@ -12,7 +12,7 @@ import { promisify } from 'util';
 import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { storeDiskFile } from '@webhare/system-tools';
-import type { AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
+import { makeAssetPack, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 import { stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
@@ -161,19 +161,9 @@ function getPossibleNodeModulePaths(startingpoint: string) {
 
 export function buildRecompileSettings(assetpacksettings: AssetPack, settings: BundleSettings): RecompileSettings {
   const bundle: Bundle = {
-    bundleconfig: {
-      compatibility: assetpacksettings.compatibility,
-      environment: assetpacksettings.environment,
-      extrarequires: assetpacksettings.extraRequires,
-      esbuildsettings: assetpacksettings.esBuildSettings,
-      languages: assetpacksettings.supportedLanguages,
-      whpolyfills: assetpacksettings.whPolyfills,
-      basecompiletoken: assetpacksettings.baseCompileToken
-    },
+    config: assetpacksettings,
     isdev: settings.dev,
-    outputpath: getBundleOutputPath(assetpacksettings.name),
-    outputtag: assetpacksettings.name,
-    entrypoint: assetpacksettings.entryPoint,
+    outputpath: getBundleOutputPath(assetpacksettings.name)
   };
 
   return { bundle };
@@ -183,10 +173,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
-  if (!bundle.bundleconfig.basecompiletoken)
-    throw new Error(`Missing basecompiletoken for bundle`);
-
-  const statspath = getBundleMetadataPath(bundle.outputtag);
+  const statspath = getBundleMetadataPath(bundle.config.name);
   await fs.mkdir(statspath, { recursive: true });
 
   // https://esbuild.github.io/api/#simple-options
@@ -199,9 +186,9 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
   const rootfiles = [
-    ...(bundle.bundleconfig.whpolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
-    services.toFSPath(bundle.entrypoint),
-    ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node)).map(_ => services.toFSPath(_))
+    ...(bundle.config.whPolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
+    services.toFSPath(bundle.config.entryPoint),
+    ...bundle.config.extraRequires.filter(node => Boolean(node)).map(_ => services.toFSPath(_))
   ];
 
   const outdir = path.join(bundle.outputpath, "build");
@@ -226,14 +213,14 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     jsxFactory: 'dompack.jsxcreate',
     jsxFragment: 'dompack.jsxfragment',
     write: false,
-    target: bundle.bundleconfig.compatibility.split(','),
+    target: bundle.config.compatibility.split(','),
     //FIXME ASSETPACK_ENVIRONMENT is only used by libliveapi for a crypto shim, should be removable!
-    define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` },
+    define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.config.environment}"` },
     plugins: [
       captureplugin.getPlugin(),
       createWhResolverPlugin(bundle, captureplugin),
       buildRPCLoaderPlugin(captureplugin),
-      buildLangLoaderPlugin(bundle.bundleconfig.languages, captureplugin),
+      buildLangLoaderPlugin(bundle.config.supportedLanguages, captureplugin),
       whSassPlugin(captureplugin),
       whSourceMapPathsPlugin(outdir)
     ],
@@ -261,15 +248,15 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     logLevel: data.logLevel || 'silent'
   };
 
-  if (bundle.bundleconfig.environment === 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
+  if (bundle.config.environment === 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
     esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
   const start = new Date;
 
   try {
-    if (bundle.bundleconfig.esbuildsettings)
-      esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
+    if (bundle.config.esBuildSettings)
+      esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.config.esBuildSettings) };
     buildresult = await esbuild.build(esbuild_configuration);
   } catch (e) {
     if ((e as esbuild.BuildFailure)?.warnings) { //Looks like we got the proper esbuild.BuildFailure that esbuild.build should throw
@@ -327,7 +314,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     start,
     lastCompileSettings: data,
     messages: info.messages,
-    bundleTag: bundle.outputtag
+    bundleTag: bundle.config.name
   };
 
   await storeDiskFile(statspath + "state.json", stringify(assetPackState, { space: 2, stable: true, typed: true }), { overwrite: true });
@@ -436,19 +423,19 @@ export async function recompileAdhoc(entrypoint: string, compatibility: string):
 
   const settings: RecompileSettings = {
     bundle: {
-      bundleconfig: {
-        basecompiletoken: "dummy",
+      config: makeAssetPack({
         compatibility: compatibility,
         environment: "window",
-        esbuildsettings: "",
-        extrarequires: [],
-        languages: ["en"],
-        whpolyfills: true,
-      },
-      entrypoint: entrypoint,
+        esBuildSettings: "",
+        extraRequires: [],
+        supportedLanguages: ["en"],
+        whPolyfills: true,
+        name: outputtag,
+        entryPoint: entrypoint,
+        afterCompileTask: ""
+      }),
       isdev: true,
       outputpath: getBundleOutputPath(outputtag),
-      outputtag: outputtag
     }
   };
 

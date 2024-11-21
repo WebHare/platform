@@ -27,6 +27,7 @@ backendServices:
 
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices
+  - checker: js/assetpacks/checks.ts#checkAssetPacks
 
 assetPacks:
   pwaserviceworker:

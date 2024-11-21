@@ -1939,7 +1939,6 @@
               <xs:documentation>Custom esbuild configuration</xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="assetbaseurl"/> <!-- workaround for CDN usage where the default path isn't good. FIXME experimental, may go away in the future if we manage to give all assets a proper relative url -->
         </xs:complexType>
       </xs:element>
     </xs:sequence>

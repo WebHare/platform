@@ -13,7 +13,12 @@ export type ModDefYML = ModuleDefinition & {
 
 export async function parseModuleDefYML(module: string): Promise<ModDefYML> {
   const moduledefresource = `mod::${module}/moduledefinition.yml`;
-  const parsed = YAML.parse(await readFile(toFSPath(moduledefresource), 'utf8'), { strict: true, version: "1.2" }) as ModuleDefinition;
+  return parseModuleDefYMLText(module, await readFile(toFSPath(moduledefresource), 'utf8'));
+}
+
+export function parseModuleDefYMLText(module: string, text: string): ModDefYML {
+  const moduledefresource = `mod::${module}/moduledefinition.yml`;
+  const parsed = YAML.parse(text, { strict: true, version: "1.2" }) as ModuleDefinition;
   return {
     ...parsed,
     module,

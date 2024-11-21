@@ -11,32 +11,3 @@ PUBLIC OBJECTTYPE SiteProfileCheck EXTEND CustomCheckBase
     RETURN SELECT AS STRING ARRAY resourcename || "(" || line || "): " || message FROM csp.errors;
   }
 >;
-
-PUBLIC OBJECTTYPE AssetpackCheck EXTEND CustomCheckBase
-<
-  UPDATE PUBLIC STRING ARRAY FUNCTION GetIssues()
-  {
-    STRING ARRAY errors;
-    OBJECT assetpackcontrol;
-    IF(ReadRegistryKey("publisher.bundledassets.suspendautocompile"))
-    {
-      INSERT "Automatic compilation of out-of-date production assets has been disabled" INTO errors AT END;
-    }
-    ELSE
-    {
-      TRY
-      {
-        assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks"));
-        RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-        errors := SELECT AS STRING ARRAY `Assetpack ${outputtag} is reporting errors`
-                    FROM status.bundles
-                   WHERE haserrors;
-      }
-      CATCH(OBJECT e)
-      {
-        INSERT `Could not connect to the assetpackcontrol: ${e->what}` INTO errors AT END;
-      }
-    }
-    RETURN errors;
-  }
->;

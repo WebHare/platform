@@ -84,7 +84,7 @@ IF(urlbase LIKE "*/!/*")
         }
 
         //FIXME we need to get info.dependencies.FILEDEPENDENCIES (and .MISSINGDEPENDENCIES) to the top level devtools websocket to listen for
-        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.lastcompilesettings.bundle.outputtag))
+        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.lastcompilesettings.bundle.config.name))
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"

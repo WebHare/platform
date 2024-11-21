@@ -14,8 +14,6 @@ export interface AssetPack {
   name: string; //full name
   entryPoint: string;
   supportedLanguages: string[];
-  designRoot: string;
-  assetBaseUrl: string;
   compatibility: string;
   whPolyfills: boolean;
   environment: string;
@@ -49,7 +47,7 @@ export interface Services {
   openAPIClients: OpenAPIDescriptor[]; //no difference in types (yet)
 }
 
-function makeAssetPack(pack: Omit<AssetPack, "baseCompileToken">): AssetPack {
+export function makeAssetPack(pack: Omit<AssetPack, "baseCompileToken">): AssetPack {
   const contenthasher = crypto.createHash('md5');
   contenthasher.update(stringify(pack, { stable: true }));
   const baseCompileToken: string = contenthasher.digest("base64");
@@ -87,8 +85,6 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           name: assetpackname,
           entryPoint: resolveResource(resourceBase, getAttr(assetpacknode, "entrypoint")),
           supportedLanguages: [...new Set(getAttr(assetpacknode, "supportedlanguages", []))],
-          designRoot: designroot, //FIXME does an assetpack need this? why?
-          assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
           compatibility: getAttr(assetpacknode, "compatibility", whconstant_default_compatibility),
           whPolyfills: getAttr(assetpacknode, "webharepolyfills", true),
           environment: getAttr(assetpacknode, "environment", "window"),
@@ -122,18 +118,14 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
   return packs;
 }
 
-function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML): AssetPack[] {
+export function getYMLAssetPacks(mod: string, modYml: ModDefYML): AssetPack[] {
   const packs: AssetPack[] = [];
   if (modYml.assetPacks)
     for (const [name, assetpack] of Object.entries(modYml.assetPacks)) {
       packs.push(makeAssetPack({
         name: addModule(mod, name),
-        entryPoint: resolveResource(resourceBase, assetpack.entryPoint),
+        entryPoint: resolveResource(modYml.baseResourcePath, assetpack.entryPoint),
         supportedLanguages: [...new Set(assetpack.supportedLanguages)],
-        designRoot: "",
-        assetBaseUrl: "",
-        // designRoot: designroot, //FIXME does an assetpack need this? why?
-        // assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
         compatibility: assetpack.compatibility || whconstant_default_compatibility,
         whPolyfills: assetpack.whPolyfills ?? true,
         environment: "window", //TODO can we remove this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
@@ -174,7 +166,7 @@ export function generateAssetPacks(context: GenerateContext): string {
       addto.push(...getXMLAddToPacks(mod.name, mod.resourceBase, mod.modXml));
     }
     if (mod.modYml) {
-      assetpacks.push(...getYMLAssetPacks(mod.name, mod.resourceBase, mod.modYml));
+      assetpacks.push(...getYMLAssetPacks(mod.name, mod.modYml));
     }
   }
 
