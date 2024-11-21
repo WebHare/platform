@@ -446,7 +446,7 @@ STATIC OBJECTTYPE WHFSForm
     {
       RECORD prevresult := SELECT status FROM publisher.formresults WHERE formresults.replacedby = storedresults.id;
       IF (RecordExists(prevresult))
-        submittype := prevresult.status = 6 ? "confirm" : "change";
+        submittype := "change";
     }
 
     RETURN CELL[ storedresults.guid
