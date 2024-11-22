@@ -49,7 +49,7 @@ async function asyncRun(tests: TestList, options?: object) {
  */
 export function run(tests: TestList, options?: { onDone?: () => void }): void {
   /* We've set up an onDone instead of a promise because 99% of the test scripts don't actually want to await test.run
-     and the 1% which did want that is working around blingering resource bugs */
+     and the 1% which did want that is working around lingering resource bugs */
   void asyncRun(tests, options).finally(() => {
     options?.onDone?.();
   });
