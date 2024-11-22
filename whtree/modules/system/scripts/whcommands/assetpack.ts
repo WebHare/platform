@@ -89,7 +89,7 @@ program.command("autocompile")
   .action(async (state) => {
     if (!state) {
       const config = await loadAssetPacksConfig();
-      console.log(`Assetpack autocompilation is ${config.suspendAutoCompile} ? "off" : "on"}`);
+      console.log(`Assetpack autocompilation is ${config.suspendAutoCompile ? "off" : "on"}`);
       return;
     }
 

@@ -142,7 +142,8 @@ class LoadedBundle {
     this.forceCompile ||= forceCompile;
     this.startCompile();
   }
-  /** recompile? */
+
+  /** Check if the bundle should recompile? */
   shouldRecompile() {
     if (!this.dirtyReason)
       return false;
@@ -157,8 +158,8 @@ class LoadedBundle {
     return true;
   }
 
+  /** Start compile if needed */
   startCompile() {
-    //FIXME registry is allowed to disable recompilation
     if (this.recompiling || !this.shouldRecompile())
       return;
 
@@ -172,7 +173,7 @@ class LoadedBundle {
       this.broadcastUpdated();
       this.recompiling = recompile(buildRecompileSettings(this.config, this.settings));
     } catch (e) {
-      console.error('FAIL', e);
+      console.error('Recompile exception', e); //TODO what to do to prevent a stuck assetpack? what kind of exceptions can happen?
       return;
     }
     this.recompiling.then(async result => {
@@ -251,6 +252,7 @@ class AssetPackController implements BackendServiceController {
       const pack = this.bundles.get(config.name);
       if (pack) {
         pack.updateConfig(config, settings);
+        pack.startCompile(); //recheck whether it needs to compile (needed when autocompile is re-enabled)
       } else {
         this.bundles.set(config.name, new LoadedBundle(this, config.name, config, settings, await getAssetPackState(config.name)));
       }

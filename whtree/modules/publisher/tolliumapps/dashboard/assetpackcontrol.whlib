@@ -68,6 +68,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
       GetPrimary()->BeginWork();
       WriteRegistryKey("publisher.bundledassets.suspendautocompile", ^suspendautocompile->value);
       GetPrimary()->CommitWork();
+      WaitForPromise(this->assetpackcontrol->Reload());
     }
   }
 
