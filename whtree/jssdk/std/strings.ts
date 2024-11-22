@@ -1,4 +1,4 @@
-import { isDate } from "./quacks";
+import { stdTypeOf } from "./quacks";
 import { Money } from "./money";
 
 export type WildcardTypes = "?*";
@@ -152,14 +152,24 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
   const usereplacer: JSONReplacerArgument = options?.stable || options?.typed ? (function (this: unknown, key: string, value: unknown) {
     if (options.typed) {
       const origvalue = (this as Record<string, unknown>)[key]; //We can't use 'value' as .toJSON() will already have been invoked
-      if (Money.isMoney(origvalue))
-        value = { "$stdType": "Money", money: origvalue.value };
-      else if (isDate(origvalue))
-        value = { "$stdType": "Date", date: origvalue.toISOString() };
-      else if (typeof origvalue === "object" && (origvalue as { "$stdType": string })?.["$stdType"])
-        throw new Error(`Cannot encode objects with already embedded '$stdType's`);
-      else if (typeof origvalue === "bigint")
-        value = { "$stdType": "BigInt", bigint: origvalue.toString() };
+      const type = stdTypeOf(origvalue);
+      switch (type) {
+        case "function":
+          throw new Error(`Cannot stringify property '${key}' of type "${type}'`);
+        case "Date":
+          value = { "$stdType": "Date", date: (origvalue as Date).toISOString() };
+          break;
+        case "Money":
+          value = { "$stdType": type, money: (origvalue as Money).toString() };
+          break;
+        case "bigint":
+          value = { "$stdType": type, bigint: (origvalue as bigint).toString() };
+          break;
+        case "object":
+          if ("$stdType" in (origvalue as { "$stdType": string }))
+            throw new Error(`Cannot encode objects with already embedded '$stdType's`);
+        //fallthrough
+      }
     }
     if (options.stable && value && typeof value === "object" && !Array.isArray(value))
       value = Object.fromEntries(Object.entries(value).sort((lhs, rhs) => lhs < rhs ? -1 : lhs === rhs ? 0 : 1));
@@ -185,7 +195,8 @@ export function parseTyped(input: string) {
         return new Money(value.money);
       case "Date":
         return new Date(value.date);
-      case "BigInt":
+      case "bigint":
+      case "BigInt": //pre wh5.7 spelling
         return BigInt(value.bigint as string);
       case undefined:
         return value;
