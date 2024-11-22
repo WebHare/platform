@@ -439,4 +439,4 @@ test.run([
   testRequired,
   testUnique,
   testReferences,
-], { wrdauth: false });
+]);

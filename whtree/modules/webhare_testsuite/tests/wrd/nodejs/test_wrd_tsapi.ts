@@ -1268,4 +1268,4 @@ test.run([
   testEventMasks,
   testSettingReuse,
   testImportMode,
-], { wrdauth: true });
+]);
