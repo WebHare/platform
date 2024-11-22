@@ -2,10 +2,10 @@
        ignoremasks="hmrlibs invoke_hsmarshalling.ts test_std_tests.ts"
        tags="nodejs">
   <test script="test_algorithms.ts" />
-  <jstest name="test_polyfills_frontend" compatibility="es2020" file="test_polyfills.ts" />
   <test name="test_polyfills_backend" script="test_polyfills.ts" />
-  <jstest name="test_std_frontend" compatibility="es2020" file="test_std.ts" />
+  <jstest name="test_polyfills_frontend" compatibility="es2020" file="test_polyfills.ts" />
   <test name="test_std_backend" script="test_std.ts" />
+  <jstest name="test_std_frontend" compatibility="es2020" file="test_std.ts" />
   <test script="test_apitools.ts" />  <!-- TODO run in frontend too -->
   <test script="test_systemtools.ts" />
   <test script="test_hscompat.ts" />

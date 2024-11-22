@@ -29,6 +29,21 @@ if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$WHBUILD_ALLOW" ]; then
   die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
 fi
 
+reportVersions() {
+  set +e # do not fail during version reporting
+  COMMIT="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
+  BRANCH="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)"
+  if [ -n "$BRANCH" ] && [ "$COMMIT" != "$BRANCH" ]; then
+    COMMIT="$BRANCH@$COMMIT"
+  fi
+  MAKEVERSION="$($MAKE --version 2>/dev/null | head -n 1 | sed -e 's/^[^0-9]*//')"
+  WHNODEVERSION="$(${WEBHARE_NODE_BINARY} -v 2>/dev/null)"
+  OSNODEVERSION="$(node -v 2>/dev/null)"
+  echo "Versions: procs=$WHBUILD_NUMPROC wh=$WEBHARE_VERSION commit=${COMMIT:unknown} make=${MAKEVERSION} npm=${NPMVERSION} arch=$(uname -m)/$(uname -o)/$(uname -r) whnode=$WHNODEVERSION systemnode=$OSNODEVERSION"
+  "${EMCC:-emcc}" -v
+  set -e # restore fail on error
+}
+
 generateFormula()
 {
   cat << HERE
@@ -148,7 +163,8 @@ elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep 
   fi
 fi
 
-vercomp "`npm -v`" "$REQUIRENPMVERSION" ||:
+NPMVERSION="$(npm -v)"
+vercomp "$NPMVERSION" "$REQUIRENPMVERSION" ||:
 if [ "$?" == "2" ]; then
   echo "You have npm $(npm -v), we desire $REQUIRENPMVERSION or higher"
   echo "You may need to update nodejs or manually install npm (eg npm install -g npm)"
@@ -238,6 +254,8 @@ retval=0
 if [ "$retval" != "0" ]; then
   echo ""
   echo "Make failed with errorcode $retval"
+  echo ""
+  reportVersions
   echo ""
 
   [ -z "$WEBHARE_IN_DOCKER" ] && cat "$WEBHARE_CHECKEDOUT_TO/builder/support/failhare.txt"
