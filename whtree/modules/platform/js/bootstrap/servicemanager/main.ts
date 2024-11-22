@@ -466,8 +466,7 @@ async function main() {
     }
   });
 
-  const showversion = process.env.WEBHARE_DISPLAYBUILDINFO ?? backendConfig.buildinfo.version ?? "unknown";
-  smLog(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { version: showversion });
+  smLog(`Starting WebHare ${backendConfig.buildinfo.version} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
 
   // Update configuration, clear debug settings
   if (!isSecondaryManager) {

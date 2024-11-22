@@ -197,17 +197,10 @@ exec_wh()
 setup_webhare_envsettings()
 {
   getwebhareversion
-  WEBHARE_DISPLAYBUILDINFO="$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "branch $branch, commit ${committag:0:10}")"
-
-  ORIGIN=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$origin" )
-  if [ -n "$ORIGIN" ]; then
-    WEBHARE_DISPLAYBUILDINFO="$WEBHARE_DISPLAYBUILDINFO, source build, origin $ORIGIN"
-  fi
-  export WEBHARE_DISPLAYBUILDINFO
 
   # Export all WEBHARE_ vars to .webhare-envsettings.sh for scripts that need to restablish the whole `wh console` environment
   # But don't export WEBHARE_DEBUG= ... as WebHare will cross-process communicate that anyway
-  set | grep -E '^WEBHARE_' | grep -v '^WEBHARE_DEBUG=' | sed -e 's/^/export /' > $WEBHARE_DATAROOT/.webhare-envsettings.sh
+  set | grep -E '^WEBHARE_' | grep -v '^WEBHARE_DEBUG=' | sed -e 's/^/export /' > "$WEBHARE_DATAROOT/.webhare-envsettings.sh"
 }
 
 list_commands()
