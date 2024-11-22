@@ -954,7 +954,7 @@ postuninstall:
 
 postinstall: success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js
 
-success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js &: \
+success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platform/generated/buildinfo &: \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
 			$(PREFIX)/tsconfig.yml \
