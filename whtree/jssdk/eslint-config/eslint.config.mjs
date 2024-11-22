@@ -328,8 +328,9 @@ export const moduleConfig = [
   ...baseConfig, {
     name: "@webhare/eslint-config module specific configuration",
     rules: {
-      // just warning for floating promises, don't want everything to fall over immediately
+      // just warning for common promise issues, don't want everything to fall over immediately
       "@typescript-eslint/no-floating-promises": "warn",
+      "@typescript-eslint/no-misused-promises": "warn"
     },
     files: [
       "**/*.ts",
