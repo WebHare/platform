@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- a lot of violations  */
 import * as dompack from 'dompack';
 import * as dialog from 'dompack/components/dialog';
 import * as dialogapi from 'dompack/api/dialog';
@@ -91,6 +92,7 @@ setupGoogleRecaptcha();
 import * as ga4 from '@mod-publisher/js/analytics/ga4';
 import * as gtm from '@mod-publisher/js/analytics/gtm';
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
+import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
 
 window.revokeConsent = function () { consenthandler.setConsent([]); };
 
@@ -128,13 +130,13 @@ if (urlparams.get("consent") === "1" || location.href.includes("testpages/consen
 
 if (urlparams.get("consent") === "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent")) {
   if (urlparams.has("defaultconsent")) {
-    consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent")!.split(",") });
+    consenthandler.setup("webhare-testsuite-consent", floatAsyncHandler(startCookieRequest), { defaultconsent: urlparams.get("defaultconsent")!.split(",") });
   } else
-    consenthandler.setup("webhare-testsuite-consent", startCookieRequest);
+    consenthandler.setup("webhare-testsuite-consent", floatAsyncHandler(startCookieRequest));
 
   consenthandler.onConsent('analytics', () => window.got_consent_analytics = true);
   consenthandler.onConsent('remarketing', () => window.got_consent_remarketing = true);
-  dompack.register(".wh-requireconsent__overlay", overlay => overlay.addEventListener("click", startCookieRequest));
+  dompack.register(".wh-requireconsent__overlay", overlay => overlay.addEventListener("click", floatAsyncHandler(startCookieRequest)));
   window.hasConsent = consenthandler.hasConsent;
 }
 

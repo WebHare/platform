@@ -16,6 +16,8 @@ import type { PreloadedCSS } from '@mod-tollium/web/ui/components/richeditor/int
 import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEContextMenuEvent, RTEWidget } from '@mod-tollium/web/ui/components/richeditor/internal/types';
 import type StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TODO use our own language section.
 
 interface ValueMessage {

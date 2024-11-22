@@ -77,7 +77,7 @@ class ScreenProxy {
       for (let i = 0; curitem && i < levels.length; ++i) {
         if (curitem.nodeName === 'LI') {
           // Move to the item first, maybe we're in auto-select mode
-          test.sendMouseGesture([{ el: curitem }]);
+          void test.sendMouseGesture([{ el: curitem }]);
 
           // If not selected yet, click the menu item to open it
           if (!curitem.classList.contains('selected'))
@@ -310,9 +310,9 @@ async function selectListRow(listname: string, textinrow: string, options: { rig
 
   const button = options && options.rightclick ? 2 : 0;
   if (options && options.doubleclick)
-    test.sendMouseGesture([{ el: el, down: button }, { up: button }, { el: el, down: button }, { up: button }]);
+    await test.sendMouseGesture([{ el: el, down: button }, { up: button }, { el: el, down: button }, { up: button }]);
   else
-    test.sendMouseGesture([{ el: el, down: button }, { up: button }]);
+    await test.sendMouseGesture([{ el: el, down: button }, { up: button }]);
 
   if (options && options.waits) {
     for (const waitstep of options.waits)

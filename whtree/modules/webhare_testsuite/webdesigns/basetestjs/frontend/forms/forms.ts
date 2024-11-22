@@ -12,6 +12,7 @@ import * as embedvideo from '@mod-publisher/js/forms/fields/rtd/embedvideo';
 import '@mod-publisher/js/forms/themes/neutral';
 
 import './forms.scss';
+import { floatAsyncHandler } from "@mod-webhare_testsuite/js/testhelpers";
 
 //Enable forms and our builtin validation (starting with WebHare 4.23, validate:true will be the default)
 forms.setup({ validate: true });
@@ -28,7 +29,7 @@ dompack.register(".wh-form__time", node => new SplitTimeField(node));
 //Enable the imgedit and/or rtd fields:
 dompack.register(".wh-form__imgedit", node => new ImgEditField(node));
 dompack.register(".wh-form__rtd", node => new RTDField(node, {
-  onInsertVideo: location.href.includes('video=1') ? embedvideo.insertVideo : undefined
+  onInsertVideo: location.href.includes('video=1') ? floatAsyncHandler(embedvideo.insertVideo) : undefined
 }));
 
 //enable the line below AND the googleRecaptcha import if you want to use this recaptcha. you'll also need to enable it in the site profile

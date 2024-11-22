@@ -1,7 +1,8 @@
 import * as test from "@webhare/test";
 
 import { WebHareBlob } from "@webhare/services";
-import bridge from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { type IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/bridge";
+import type { IPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 
 class FIFO<T> {
   queue: T[] = [];
@@ -51,13 +52,14 @@ async function testBridge() {
     const clink = bridge.connect("a");
     clink.send({ a: 1 });
 
-    port.on("accept", async (alink) => {
+    const newLocal = async (alink: IPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>): Promise<void> => {
       alink.on("message", (evt) => {
         alink.send({ b: 1 }, evt.msgid);
         alink.close();
       });
       await alink.activate();
-    });
+    };
+    port.on("accept", (alink) => void newLocal(alink));
     await port.activate();
     const defer = Promise.withResolvers<void>();
     clink.on("message", (evt) => {
@@ -101,8 +103,8 @@ async function testBridge() {
 
   // STORY: connect to nonexisting port
   {
-    test.throws(/Could not connect to local port "a"/, bridge.connect("a").activate());
-    test.throws(/Could not connect to global port "a:a"/, bridge.connect("a:a", { global: true }).activate());
+    await test.throws(/Could not connect to local port "a"/, bridge.connect("a").activate());
+    await test.throws(/Could not connect to global port "a:a"/, bridge.connect("a:a", { global: true }).activate());
   }
 
   bridge.log("system:debug", { text: "js bridge final message" });

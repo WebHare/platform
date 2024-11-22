@@ -178,7 +178,7 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   });
 
   // Wait for the module to appear in the configuration
-  test.wait(() => Boolean(backendConfig.module.webhare_testsuite_generatedfilestest));
+  await test.wait(() => Boolean(backendConfig.module.webhare_testsuite_generatedfilestest));
 
   const file_whdb = require.resolve("wh:db/webhare_testsuite_generatedfilestest");
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");

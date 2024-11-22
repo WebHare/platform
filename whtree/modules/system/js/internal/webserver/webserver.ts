@@ -25,7 +25,7 @@ class WebServerPort {
       serveroptions.cert = port.certificatechain;
     }
 
-    const callback = (req: http.IncomingMessage, res: http.ServerResponse) => this.onRequest(req, res);
+    const callback = (req: http.IncomingMessage, res: http.ServerResponse) => void this.onRequest(req, res);
     this.server = port.privatekey ? https.createServer(serveroptions, callback)
       : http.createServer(serveroptions, callback);
     this.server.on('error', e => console.log("Server error", e)); //TODO deal with EADDRINUSE for listen falures
@@ -96,7 +96,7 @@ class WebServerPort {
     }
   }
 
-  async forwardUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buffer) {
+  forwardUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buffer) {
     const webreq = this.buildWebRequest(req);
     //forward it unconditionally (TODO integrate with router ?)
     const { targeturl, fetchmethod, headers } = getHSWebserverTarget(webreq);

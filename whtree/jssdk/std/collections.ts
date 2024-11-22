@@ -140,7 +140,6 @@ export function shuffle<T>(array: T[]): T[] {
  * const myarray: Array&lt;number | null&gt; = [0, null];
  * const filtered: number[] = myarray.filter(isTruthy);
  **/
-// eslint-disable-next-line @typescript-eslint/ban-types
 export function isTruthy<T>(a: T): a is (T & {}) {
   return Boolean(a);
 }

@@ -49,7 +49,7 @@ enum OID {
   INT2 = 21,
   INT4 = 23,
   REGPROC = 24,
-  OID = 26,
+  OID = 26, // eslint-disable-line @typescript-eslint/no-shadow
   TID = 27,
   XID = 28,
   CID = 29,
@@ -695,7 +695,7 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
     .execute();
 }
 
-export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
+export function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORDS:::RRA", cbInsertRecords);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);

@@ -20,7 +20,7 @@ export async function installTestModule(name: string, files: Record<string, stri
   };
 
   // Wait for the module to show up in the local configuration
-  test.wait(() => Boolean(backendConfig.module[name]));
+  await test.wait(() => Boolean(backendConfig.module[name]));
 
   console.log(`installed ${name} to ${(res as { path: string }).path}`);
   return res;

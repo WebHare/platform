@@ -95,4 +95,4 @@ async function main() {
     console.log(JSON.stringify(retval, null, 2));
 }
 
-main();
+void main();

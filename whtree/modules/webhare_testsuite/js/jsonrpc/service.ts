@@ -19,7 +19,7 @@ export class TestNoAuthJS implements MyService {
     emailaddress: string): Promise<boolean> {
     return Boolean(emailaddress.match(/webhare.dev$/));
   }
-  async serverCrash() {
+  serverCrash() {
     throw new Error("this is a server crash");
   }
   async describeMyRequest() {

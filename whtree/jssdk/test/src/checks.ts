@@ -351,6 +351,7 @@ function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: 
  * @param func_or_promise - A function to call, or a promise to await
  * @param annotation - Optional annotation to log if the test fails
  * @returns The Error object thrown */
+export function throws(expect: RegExp, func_or_promise: () => never, annotation?: Annotation): Error; // only picks up always-throwing functions
 export function throws(expect: RegExp, func_or_promise: Promise<unknown>, annotation?: Annotation): Promise<Error>;
 export function throws(expect: RegExp, func_or_promise: () => Promise<unknown>, annotation?: Annotation): Promise<Error>;
 export function throws(expect: RegExp, func_or_promise: () => unknown, annotation?: Annotation): Error;

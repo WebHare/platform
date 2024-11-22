@@ -52,25 +52,25 @@ const TestImageEditor =
         test.assert(cropbox);
 
         const coords = cropbox.getBoundingClientRect();
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
-      waits: ["pointer", "animationframe"]
+      waits: ["animationframe"]
     },
 
     {
-      test: function () {
+      test: async function () {
         // Resize the cropbox some more
         const cropbox = test.qR("t-custom[data-name='imageeditor'] .wh-cropbox");
         const coords = cropbox.getBoundingClientRect();
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
-      waits: ["pointer", "animationframe"]
+      waits: ["animationframe"]
     },
 
 
@@ -92,7 +92,7 @@ const TestImageEditor =
 
     {
       name: "activate image cropping again",
-      test: function () {
+      test: async function () {
         const toolbar = test.qR("t-custom[data-name='imageeditor'] .wh-toolbar");
         const cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent?.includes('Crop'))[0];
         test.click(cropbutton);
@@ -102,25 +102,25 @@ const TestImageEditor =
         test.assert(cropbox);
 
         const coords = cropbox.getBoundingClientRect();
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
-      waits: ["pointer", "animationframe"]
+      waits: ["animationframe"]
     },
 
     {
-      test: function () {
+      test: async function () {
         // Resize the cropbox some more
         const cropbox = test.qR("t-custom[data-name='imageeditor'] .wh-cropbox");
         const coords = cropbox.getBoundingClientRect();
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
       },
-      waits: ["pointer", "animationframe"]
+      waits: ["animationframe"]
     },
 
 

@@ -99,7 +99,6 @@ export function describePublicInterface(inobj: object): WebHareServiceDescriptio
   return { isjs: true, methods };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- never[] doesn't work here, it confuses the actual calls to runBackendService
 export type ConnectionFactory = (...args: unknown[]) => Promise<BackendServiceConnection> | BackendServiceConnection;
 
 interface ServiceConnection {
@@ -130,7 +129,7 @@ export class ServiceHandlerBase {
     try {
       const state = new LinkState(null, link);
       link.on("close", () => this._onClose(state));
-      link.on("message", _ => this._onMessage(state, _));
+      link.on("message", _ => void this._onMessage(state, _));
       link.on("exception", () => false);
       if (this._options.dropListenerReference)
         link.dropReference();
@@ -207,7 +206,7 @@ class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
   constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionFactory, options: WebHareServiceOptions) {
     super(servicename, constructor, options);
     this._port = port;
-    this._port.on("accept", link => this.addLink(link));
+    this._port.on("accept", link => void this.addLink(link));
   }
 
   close() {

@@ -83,6 +83,7 @@ async function getCanvasWithScreenshot(feedbackOptions?: FeedbackOptions): Promi
     x: -rect.x,
     y: -rect.y,
     ignoreElements: element => !filterElements(element, feedbackOptions),
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- the actual call to onclose waits for promises, so we can use async functions here
     onclone: async (_document, element) => await onclone(element, feedbackOptions)
   };
 

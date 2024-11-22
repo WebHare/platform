@@ -24,7 +24,7 @@ async function testFileEdits() {
   const path_static = require.resolve("./hmrlibs/static.ts");
   const path_resource = require.resolve("./hmrlibs/resource.txt");
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
   const { dynimport } = require(path_root);
 
   await dynimport(path_dyn1);

@@ -8,7 +8,8 @@ async function testInitialState() {
   //it("is not signalled according to waitSignalled", function (callback)
   {
     let fulfilled = false;
-    fifo.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void fifo.waitSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(!fulfilled, "Initial state is immediately signalled according to waitSignalled");
   }
@@ -16,7 +17,8 @@ async function testInitialState() {
   //it("is not signalled according to waitNotSignalled", function (callback)
   {
     let fulfilled = false;
-    fifo.waitNotSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void fifo.waitNotSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(fulfilled, "Initial state is immediately signalled according to waitNotSignalled");
   }
@@ -47,7 +49,8 @@ async function testGoingFromNotSignalledToSignalledWhenAnElementIsPushed() {
   //it("fulfills the wait promise", function (callback)
   {
     let fulfilled = false;
-    fifo.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void fifo.waitSignalled().then(() => fulfilled = true);
     fifo.push(1);
     await test.sleep(20);
     test.assert(fulfilled, "Previous wait promise isn't resolved on push");
@@ -56,7 +59,8 @@ async function testGoingFromNotSignalledToSignalledWhenAnElementIsPushed() {
   //it("stays signalled after that", function (callback)
   {
     let fulfilled = false;
-    fifo.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void fifo.waitSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(fulfilled, "Wait promise is not immediately resolved when not empty");
   }
@@ -69,7 +73,8 @@ async function testGoingFromSignalledToNotSignalled() {
   //it("fulfills the wait promise", function (callback)
   {
     let fulfilled = false;
-    fifo.waitNotSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void fifo.waitNotSignalled().then(() => fulfilled = true);
     test.eq(1, fifo.shift());
 
     await test.sleep(20);
@@ -79,7 +84,8 @@ async function testGoingFromSignalledToNotSignalled() {
   //it("stays unsignalled after that", function (callback)
   {
     let fulfilled = false;
-    fifo.waitNotSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void fifo.waitNotSignalled().then(() => fulfilled = true);
 
     await test.sleep(20);
     test.assert(fulfilled, "Non-signalled wait promise is resolved when the fifo is empty");

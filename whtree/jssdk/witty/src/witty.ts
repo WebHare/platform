@@ -137,7 +137,7 @@ const WittyMessages = {
   [WittyErrorCode.MissingComponentName]: "Missing component name in embedcomponent request for '%0'"
 };
 
-class WittyErrorRec {
+class WittyErrorRec extends Error {
   readonly resource: string;
   readonly line: number;
   readonly column: number;
@@ -147,7 +147,9 @@ class WittyErrorRec {
   readonly arg2?: string;
 
   constructor(resource: string, lineNum: number, columnNum: number, errorCode: WittyErrorCode, arg?: string, arg2?: string) {
-    this.text = WittyMessages[errorCode].replaceAll("%0", () => arg || "").replaceAll("%1", () => arg2 || "");
+    const text = WittyMessages[errorCode].replaceAll("%0", () => arg || "").replaceAll("%1", () => arg2 || "");
+    super(`Witty error at ${resource}:${lineNum}:${columnNum}: ${text}`);
+    this.text = text;
     this.resource = resource;
     this.line = lineNum;
     this.column = columnNum;
@@ -758,7 +760,6 @@ export class WittyTemplate {
               throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndRawcomponentOutsideRawcomponent);
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TypeScript doesn't infer that cmd can only be "/component" or "/rawcomponent" and lastBlock will always be set
           lastBlock!.cmdLimit = this.parts.length;
           this.parts.push(new ParsedPart(lineNum, columnNum, ParsedPartType.Content));
           this.blockstack.pop();

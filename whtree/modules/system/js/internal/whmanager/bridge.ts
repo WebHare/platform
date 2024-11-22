@@ -404,7 +404,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   postMainBridgeMessage(message: ToMainBridgeMessage, transferList?: ReadonlyArray<TransferListItem | AnyTypedMessagePort> | undefined): void {
     if (mainbridge)
-      mainbridge.gotDirectMessage(this.workerid, message);
+      void mainbridge.gotDirectMessage(this.workerid, message);
     else if (this.port)
       this.port.postMessage(message, transferList);
     else
@@ -1239,7 +1239,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       } break;
       case ToMainBridgeMessageType.ConnectToLocalService: {
         // need to do place the local services instantiator in a delay-loaded import because of circular import problems
-        // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
         const caller = require(module.path + "/localservices.ts");
         const error = await caller.openLocalServiceForBridge(message.factory, message.port);
         this.postLocalBridgeMessage(localBridge, {
@@ -1255,7 +1255,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   private registerLocalBridge(data: LocalBridgeData) {
     if (data.port) {
-      data.port.on("message", (msg) => this.gotLocalBridgeMessage(data, msg));
+      data.port.on("message", (msg) => void this.gotLocalBridgeMessage(data, msg));
       data.port.on("close", () => this.gotLocalBridgeClose(data));
       // Do not want this port to keep the event loop running.
       data.port.unref();
@@ -1455,12 +1455,11 @@ process.on('uncaughtExceptionMonitor', (error, origin) => {
   bridge.logError(error, { errortype: origin === "unhandledRejection" ? origin : "exception" });
 });
 
-process.on('uncaughtException', async (error) => {
+async function callProcessExit() {
   await bridge.ensureDataSent();
   process_exit_backup.call(process, 1);
-});
+}
 
-process.on('unhandleRejection', async (reason, promise) => {
-  await bridge.ensureDataSent();
-  process_exit_backup.call(process, 1);
-});
+process.on('uncaughtException', (error) => void callProcessExit());
+
+process.on('unhandleRejection', (reason, promise) => void callProcessExit());

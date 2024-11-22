@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-this-alias */
-/* eslint-disable prefer-const */
-/* eslint-disable @typescript-eslint/semi */
-/* eslint-disable no-var */
 /// @ts-nocheck -- TODO ... TestFramework is a LOT to port ... for now we're just providing types
 
 import * as dompack from 'dompack';
@@ -95,7 +91,8 @@ export function registerTests(steps) {
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
 
-  let lasttestname, finalsteps = [];
+  let lasttestname;
+  const finalsteps = [];
   for (let step of steps) {
     if (!step)
       continue;  //strip empty items. allows you to be careless with commas when commenting out tests
@@ -485,7 +482,7 @@ export async function waitForEmails(addressmask: string, options?: RetrieveEmail
   });
 }
 
-export async function subtest(name) {
+export function subtest(name) {
   callbacks.subtest(name);
 }
 

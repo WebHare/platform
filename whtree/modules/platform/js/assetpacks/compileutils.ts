@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 //import * as Module from 'module'; //FIXME this breaks resetResolveCache
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Module = require('module');
 import * as services from "@webhare/services";
 

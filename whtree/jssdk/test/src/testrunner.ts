@@ -10,7 +10,7 @@ function onTestExit(exitCode: number) {
   }
 }
 
-export async function run(tests: TestList, options?: object) {
+async function asyncRun(tests: TestList, options?: object) {
   //TODO register once in case we're loaded as a module ?
   process.on("exit", onTestExit);
   let idx = 0;
@@ -38,7 +38,11 @@ export async function run(tests: TestList, options?: object) {
 
   } finally {
     // Dump all resources keeping the script alive after 5 seconds after finishing the tests
-    triggerGarbageCollection();
+    await triggerGarbageCollection();
     scheduleLingeringProcessCheck();
   }
+}
+
+export function run(tests: TestList, options?: object): void {
+  void asyncRun(tests, options);
 }

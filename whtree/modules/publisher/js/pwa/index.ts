@@ -126,7 +126,7 @@ export async function onReady(initfunction: () => void, options?: {
       });
     }
 
-    navigator.serviceWorker.ready.then(() => offlinedeferred.resolve());
+    offlinedeferred.resolve(navigator.serviceWorker.ready.then(() => void undefined));
   } catch (e) {
     console.log("PWA Registration failed", (e as Error).message);
     offlinedeferred.reject(e);
@@ -141,12 +141,11 @@ async function precheckExistingWorkers() {
   const registrations = await (navigator.serviceWorker.getRegistrations());
   for (const sw of registrations)
     if (sw.active && sw.scope === appbase)
-      sendSWRequestTo(sw.active, 'loading',
-        {
-          pwasettings: whintegration.config.obj.pwasettings,
-          pwauid: document.documentElement.dataset.whPwaUid,
-          pwafileid: document.documentElement.dataset.whPwaFileid
-        });
+      await sendSWRequestTo(sw.active, 'loading', {
+        pwasettings: whintegration.config.obj.pwasettings,
+        pwauid: document.documentElement.dataset.whPwaUid,
+        pwafileid: document.documentElement.dataset.whPwaFileid
+      });
 }
 
 function onServiceWorkerMessage(event: MessageEvent) {
@@ -162,4 +161,4 @@ function onServiceWorkerMessage(event: MessageEvent) {
   console.error("onServiceWorkerMessage", event.data);
 }
 navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);
-precheckExistingWorkers();
+void precheckExistingWorkers();

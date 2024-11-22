@@ -6,12 +6,13 @@ import { RPCFormBase, registerHandler, setupValidator } from '@mod-publisher/js/
 import { fetchAsFile } from '@webhare/test-frontend';
 import "./simplefield";
 import { MySimpleField } from './simplefield';
+import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
 
 class CoreForm extends RPCFormBase {
   constructor(node: HTMLFormElement) {
     super(node);
-    qR('#coreform .prefillbutton').addEventListener('click', () => this.doPrefill());
-    qR('#coreform .validatebutton').addEventListener('click', () => this.validate());
+    qR('#coreform .prefillbutton').addEventListener('click', () => void this.doPrefill());
+    qR('#coreform .validatebutton').addEventListener('click', () => void this.validate());
 
     if (new URL(location.href).searchParams.get("sethiddenfield") === "javascript")
       this.setFieldValue(this.getElementByName("hidden")! as HTMLElement, "value-javascript");
@@ -45,7 +46,7 @@ class AnyFormHandler extends RPCFormBase {
 class DynamicForm extends AnyFormHandler {
   constructor(node: HTMLFormElement) {
     super(node);
-    qR(this.node, '[name=day]').addEventListener('change', () => this.onDayChange());
+    qR(this.node, '[name=day]').addEventListener('change', () => void this.onDayChange());
   }
   async onDayChange() {
     await this.invokeRPC('ondaychange', parseInt(qR<HTMLInputElement>(this.node, '[name=day]').value));
@@ -66,14 +67,14 @@ class RTDForm extends RPCFormBase {
     super(node);
 
     this.filename = new URL(location.href).searchParams.get("store");
-    qR('#rtdform .prefillbutton').addEventListener('click', () => this.doPrefill());
-    qR('#rtdform .validatebutton').addEventListener('click', () => this.validate());
+    qR('#rtdform .prefillbutton').addEventListener('click', () => void this.doPrefill());
+    qR('#rtdform .validatebutton').addEventListener('click', () => void this.validate());
     qR('#rtdform #clearimage').addEventListener('click', () => {
       this.getField("img").setValue(null);
     });
-    qR('#rtdform #setimage').addEventListener('click', async () => {
+    qR('#rtdform #setimage').addEventListener('click', floatAsyncHandler(async () => {
       this.getField("img").setValue(await fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg'));
-    });
+    }));
   }
   async doPrefill() {
     qR('#rtdformresponse').textContent = JSON.stringify(await this.invokeRPC('prefill', this.filename));

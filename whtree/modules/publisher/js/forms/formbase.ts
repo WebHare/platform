@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 import * as dompack from '@webhare/dompack';
 import { DocEvent, FormControlElement, TakeFocusEvent, addDocEventListener, isFormControl } from '@webhare/dompack';
 import * as domfocus from 'dompack/browserfix/focus';
@@ -260,7 +262,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     addDocEventListener(this.node, "dompack:takefocus", evt => this._onTakeFocus(evt));
     addDocEventListener(this.node, "input", evt => this._onInputChange(), { capture: true });
     addDocEventListener(this.node, "change", evt => this._onInputChange(), { capture: true });
-    addDocEventListener(this.node, 'submit', evt => this._submit(evt, null));
+    addDocEventListener(this.node, 'submit', evt => void this._submit(evt, null));
     addDocEventListener(this.node, 'wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
     addDocEventListener(this.node, "wh:form-setfielderror", evt => this._doSetFieldError(evt));
     addDocEventListener(this.node, "mousedown", doDelayValidation);
@@ -978,6 +980,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     this.fixupMergeFields(mergeNodes);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- FIXME: needs API rework
   __scheduleUpdateConditions = wrapSerialized(() => this._updateConditions(false), { coalesce: true });
 
   async fixupMergeFields(nodes: HTMLElement[]) {
@@ -1360,7 +1363,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
         this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
 
-      Promise.all(fieldpromises).then(() => resolve(outdata)).catch(e => reject(e));
+      Promise.all(fieldpromises).then(() => resolve(outdata)).catch(e => reject(e as Error));
     });
   }
 
@@ -1398,7 +1401,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
             outdata[fieldname] = result;
 
           resolve();
-        }).catch(e => reject(e));
+        }).catch(e => reject(e as Error));
       }));
     } else {
       outdata[fieldname] = receivedvalue;

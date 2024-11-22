@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 /** Generic support for .wh-form .wh-rtd--forminput */
 import * as dompack from 'dompack';
 
@@ -91,7 +93,7 @@ export class RTDFormElement extends JSFormElement<string> {
     //@ts-ignore -- we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
     this.node.rte = this.rte;
     //@ts-expect-error -- remove as soon as wh:richeditor-action is defined
-    this.node.addEventListener('wh:richeditor-action', evt => this.executeAction(evt));
+    this.node.addEventListener('wh:richeditor-action', evt => void this.executeAction(evt));
     this.node.addEventListener('wh:richeditor-dirty', evt => dompack.dispatchCustomEvent(this.node, 'input', { bubbles: true, cancelable: false }));
   }
 

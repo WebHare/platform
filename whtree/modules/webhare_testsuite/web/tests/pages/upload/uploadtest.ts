@@ -67,7 +67,7 @@ function abortCurrentUpload() {
     console.error("No upload in progress");
 }
 
-dompack.register("#upload", _ => _.addEventListener("click", () => runUpload()));
-dompack.register("#uploadmultiple", _ => _.addEventListener("click", () => runUploadMultiple()));
-dompack.register("#uploadimages", _ => _.addEventListener("click", () => runUploadMultiple({ accept: ["image/*"] })));
+dompack.register("#upload", _ => _.addEventListener("click", () => void runUpload()));
+dompack.register("#uploadmultiple", _ => _.addEventListener("click", () => void runUploadMultiple()));
+dompack.register("#uploadimages", _ => _.addEventListener("click", () => void runUploadMultiple({ accept: ["image/*"] })));
 dompack.register("#abort", _ => _.addEventListener("click", () => abortCurrentUpload()));

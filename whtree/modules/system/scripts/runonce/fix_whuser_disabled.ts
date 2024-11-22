@@ -28,4 +28,4 @@ async function fixWHUserDisabled() {
   }
 }
 
-fixWHUserDisabled();
+void fixWHUserDisabled();

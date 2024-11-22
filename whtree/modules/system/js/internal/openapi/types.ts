@@ -76,8 +76,6 @@ export type IsMediaTypeJSON<MediaTypes extends object, K extends keyof MediaType
 /** Returns the content of the appliction/json mediatype, if it exists on the response object. Uses UnionToIntersection to combine schemas of a union of responses
  * @typeParam Response - Response object
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-//export type GetJSONContent<Response> = (Response extends { "content": infer M extends { "application/json": any } } ? [M] extends [never] ? { "application/json": unknown } : M : { "application/json": unknown })["application/json"];
 export type GetJSONContent<Response> = NeverFallback<Response extends { "content": { "application/json": infer C } } ? C : never, unknown>;
 
 /** Calculates the response types for a response

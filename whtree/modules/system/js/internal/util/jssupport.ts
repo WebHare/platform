@@ -8,6 +8,7 @@ export async function load(lib: string) {
   if (lib.startsWith('mod::'))
     lib = toFSPath(lib);
 
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const loaded = await require(lib);
   libmap.set(lib, loaded);
   return loaded;

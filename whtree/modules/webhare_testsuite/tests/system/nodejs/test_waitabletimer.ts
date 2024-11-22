@@ -8,7 +8,8 @@ async function testInitialState() {
   //it("is not signalled according to waitSignalled", function (callback)
   {
     let fulfilled = false;
-    timer.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void timer.waitSignalled().then(() => fulfilled = true);
     await test.sleep(10);
     test.assert(!fulfilled, "Initial state is immediately signalled according to waitSignalled");
   }
@@ -16,7 +17,7 @@ async function testInitialState() {
   //it("is not signalled according to waitNotSignalled", function (callback)
   {
     let fulfilled = false;
-    timer.waitNotSignalled().then(() => fulfilled = true);
+    void timer.waitNotSignalled().then(() => fulfilled = true);
     await test.sleep(10);
     test.assert(fulfilled, "Initial state is immediately signalled according to waitNotSignalled");
   }
@@ -29,7 +30,8 @@ async function testBasicManipulation() {
 
     let fulfilled = false;
     timer.reset(20);
-    timer.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void timer.waitSignalled().then(() => fulfilled = true);
     await test.sleep(10);
     test.assert(!fulfilled, "Is immediately fulfilled when a timer was set");
   }
@@ -40,7 +42,8 @@ async function testBasicManipulation() {
 
     let fulfilled = false;
     timer.reset(10);
-    timer.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void timer.waitSignalled().then(() => fulfilled = true);
 
     await test.sleep(20);
     test.assert(fulfilled, "Is not fulfulled after the timer expired");
@@ -54,7 +57,8 @@ async function testBasicManipulation() {
     timer.reset(10);
 
     await test.sleep(20);
-    timer.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void timer.waitSignalled().then(() => fulfilled = true);
 
     await test.sleep(5);
     test.assert(fulfilled, "Doesn't stay fulfilled after timer expire");
@@ -70,7 +74,8 @@ async function testBasicManipulation() {
     await test.sleep(10);
 
     timer.reset(10);
-    timer.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait on promise here
+    void timer.waitSignalled().then(() => fulfilled = true);
 
     await test.sleep(5);
     test.assert(!fulfilled, "Doesn't stay fulfilled after timer expire");

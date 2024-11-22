@@ -65,15 +65,14 @@ function createJSONRPCError(requestid: RequestID, status: HTTPErrorCode, errorCo
   return createJSONResponse(status, response);
 }
 
-export class JSONRPCError {
+export class JSONRPCError extends Error {
   status: HTTPErrorCode;
   errorCode: number;
-  message: string;
 
   constructor(status: HTTPErrorCode, errorCode: number, message: string) {
+    super(message);
     this.status = status;
     this.errorCode = errorCode;
-    this.message = message;
   }
 
   static readonly MethodNotFound = -32601;
@@ -119,7 +118,7 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
   const result = await context.run(() => runJSONAPICall(servicedef, req));
   const responseInfo = result.asWebResponseInfo();
   // FIXME: async delayed close of codecontext
-  setTimeout(() => context.close(), 1); //close the context after the response has been sent.
+  setTimeout(() => void context.close(), 1); //close the context after the response has been sent.
   return responseInfo;
 }
 
@@ -135,7 +134,7 @@ class JSONAPICaller extends services.BackendServiceConnection {
     const result = await context.run(() => runJSONAPICall(servicedef, req));
     const responseInfo = result.asWebResponseInfo();
     // FIXME: async delayed close of codecontext
-    setTimeout(() => context.close(), 1); //close the context after the response has been sent
+    setTimeout(() => void context.close(), 1); //close the context after the response has been sent
     return responseInfo;
   }
 }

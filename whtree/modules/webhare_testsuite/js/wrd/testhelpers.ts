@@ -108,7 +108,6 @@ export async function getExtendedWRDSchema() {
 }
 
 async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will need options in the future
   options = { withRichDoc: true, deleteClosedAfter: 0, keepHistoryDays: 0, ...options };
   const persontype = schemaobj.getType("wrdPerson");
 

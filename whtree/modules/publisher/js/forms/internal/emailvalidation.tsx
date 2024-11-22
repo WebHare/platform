@@ -47,7 +47,7 @@ export async function validateField(form: FormBase | RPCFormBase, field: HTMLInp
 
   //user is 'done' with email field apparently. remotely validate it
   const key = "e_" + field.name + "." + checkvalue; //e_ prefix protects against funny people using 'constructor' etc. TODO just switch to a Map<> or similar. TODO only include field.name if needed, and also bind to the form then
-  if (!cache[key]) {
+  if (cache[key] === undefined) {
     cache[key] = "getRPCFormIdentifier" in form ?
       //TODO rendering.whlib should add a data attribute if there are form+field-specific checks, perhaps we can even generalize that for all fields instead of just email whenever they need to do direct validation
       formservice.formValidateEmail({ ...form.getRPCFormIdentifier(), field: field.name }, checkvalue)

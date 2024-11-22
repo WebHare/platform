@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import { Locator, findParent, splitDataNode, PreservedLocatorList, testType, NodeType } from '../domlevel';

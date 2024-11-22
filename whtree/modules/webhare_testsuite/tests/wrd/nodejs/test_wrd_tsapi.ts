@@ -36,7 +36,7 @@ function cmp(a: unknown, condition: string, b: unknown) {
   return false;
 }
 
-function testSupportAPI() {
+async function testSupportAPI() {
   function testTag(hs: string, js: string) {
     test.eq(js, wrdsupport.tagToJS(hs));
     test.eq(hs, wrdsupport.tagToHS(js));
@@ -52,8 +52,8 @@ function testSupportAPI() {
   testFields({ WRD_TITLE: "Root unit", WRD_TAG: "TAG" }, { wrdTitle: "Root unit", wrdTag: "TAG" });
   test.eq({ fn: "WRD_FIRSTNAME" }, wrdsupport.outputmapToHS({ fn: "wrdFirstName" }));
   test.eq([{ wrdFirstName: "first", ln: "last" }], wrdsupport.repairResultSet([{ wrdfirstname: "first", ln: "last" }], { wrdFirstName: "wrdFirstName", ln: "wrdLastName" }));
-  test.throws(/may not start with an uppercase/, () => wrdsupport.tagToHS("Type"));
-  test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
+  await test.throws(/may not start with an uppercase/, () => wrdsupport.tagToHS("Type"));
+  await test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
 
   //exceptions for standard wrd fields
   testTag("WRD_CREATIONDATE", "wrdCreationDate");
@@ -217,7 +217,7 @@ async function testNewAPI() {
   test.eq(null, await schema.find("wrdPerson", { wrdGuid: secondPersonGuid }));
 
   // find should throw when finding multiple matches
-  test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
+  await test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
 
   await whdb.commitWork();
 
@@ -329,7 +329,7 @@ async function testNewAPI() {
       { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" },
       { historyMode: "all" }));
 
-  test.throws(/No such wrdPerson #999999999/, schema.getFields("wrdPerson", 999_999_999, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
+  await test.throws(/No such wrdPerson #999999999/, schema.getFields("wrdPerson", 999_999_999, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
   test.eq(null, await schema.getFields("wrdPerson", 999_999_999, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }, { allowMissing: true }));
   test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
@@ -362,11 +362,11 @@ async function testNewAPI() {
   // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment
   {
     test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
-    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
-    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
 
     test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
-    test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
     test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
   }
 
@@ -587,11 +587,11 @@ async function testNewAPI() {
     await schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "NL", state: "state" } });
     test.eq({ street: "street", city: "city", houseNumber: "14", zip: "zip", country: "NL", state: "state" }, await schema.getFields("wrdPerson", newperson, "testAddress"));
     // @ts-expect-error -- nr_detail is not allowed as key
-    test.throws(/nr_detail/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL" } }));
+    await test.throws(/nr_detail/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL" } }));
     // @ts-expect-error -- housenumber (lowercase) is not allowed as key
-    test.throws(/housenumber/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", housenumber: "14", zip: "zip", country: "NL" } }));
-    test.throws(/2/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "TOOLONG" } }));
-    test.throws(/uppercase/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "nl" } }));
+    await test.throws(/housenumber/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", housenumber: "14", zip: "zip", country: "NL" } }));
+    await test.throws(/2/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "TOOLONG" } }));
+    await test.throws(/uppercase/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "nl" } }));
 
     test.eq({ test_address: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL", locationdetail: "", state: "state" } }, await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDEntityFields(testSchemaTag, "WRD_PERSON", newperson, ["test_address"]));
     await await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
@@ -679,6 +679,7 @@ async function testTSTypes() {
         signingKeys: [{ availableSince: new Date, keyId: "key", privateKey: { wrong: true, x: 0 } }]
       });
       const signingKeys = await wrdTestschemaSchema.getFields("wrdSettings", settingid, "signingKeys");
+      void signingKeys;
       test.typeAssert<test.Equals<JsonWebKey, (typeof signingKeys & object)[0]["privateKey"]>>();
     }
   }
@@ -937,8 +938,8 @@ async function testComparisons() {
 
   test.eq({ email: "testWrdTsapi@beta.webhare.net" }, await schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: "active" }));
   test.eq({ email: "testWrdTsapi@beta.webhare.net" }, await schema.getFields("wrdPerson", newperson, { email: "testEmail" }));
-  test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'now' }));
-  test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'all' }));
+  await test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'now' }));
+  await test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'all' }));
 
   await schema.update("wrdPerson", newperson, {
     wrdCreationDate: null,

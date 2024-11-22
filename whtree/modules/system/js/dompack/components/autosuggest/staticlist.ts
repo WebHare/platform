@@ -1,14 +1,14 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import { normalizeSelectValues } from './index';
 
 export default class StaticSuggestionList {
-  constructor(list, options?) {
-    this._casesensitive = options && options.casesensitive;
+  _casesensitive: boolean;
+  _list: Array<{ value: string }>;
+
+  constructor(list: Array<string | { value: string }>, options?: { casesensitive?: boolean }) {
+    this._casesensitive = Boolean(options && options.casesensitive);
     this._list = normalizeSelectValues(list);
   }
-  async lookup(word) {
+  async lookup(word: string) {
     const outlist = [];
     if (!this._casesensitive)
       word = word.toLowerCase();

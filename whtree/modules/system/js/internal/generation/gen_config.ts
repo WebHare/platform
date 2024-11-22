@@ -287,7 +287,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
 
     if (!nodb) {
       //    (await import("@webhare/services")).broadcast("system:configupdate"); //TODO resolveplugin doesn't intercept moduleloader yet so can't await
-      // eslint-disable-next-line @typescript-eslint/no-var-requires -- we can't await import yet, see above
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- we can't await import yet, see above
       require("@webhare/services").broadcast("system:configupdate");
     }
   }

@@ -89,7 +89,7 @@ async function testVarMemory() {
   test.assert(isSameUploadedBlob(blob2, returnedblob2));
 
   const __wasmmodule = vm.wasmmodule;
-  vmwrapper.dispose(); //let next test reuse it
+  await vmwrapper.dispose(); //let next test reuse it
   await test.wait(() => isInFreePool(__wasmmodule));
 }
 
@@ -175,10 +175,12 @@ async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
   let mutex = await test.wait(() => lockMutex("test:mutex1", { timeout: 0 }), "VM isn't actually releasing the lock");
   mutex.release();
 
-  vm.dispose();
+  const disposer = vm.dispose();
 
   mutex = await test.wait(() => lockMutex("test:mutex2", { timeout: 0 }), "VM isn't properly shutting down, mutex is not being freed");
   mutex.release();
+
+  await disposer;
 
   //TODO ensure autorelease when the HSVM is abandoned and garbage collected
 }

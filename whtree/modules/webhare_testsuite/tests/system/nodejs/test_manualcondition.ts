@@ -8,7 +8,8 @@ async function testInitialState() {
   //it("is not signalled according to waitSignalled", function (callback)
   {
     let fulfilled = false;
-    mc.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait for the promise to resolve
+    void mc.waitSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(!fulfilled, "Initial state is immediately signalled according to waitSignalled");
   }
@@ -16,7 +17,8 @@ async function testInitialState() {
   //it("is not signalled according to waitNotSignalled", function (callback)
   {
     let fulfilled = false;
-    mc.waitNotSignalled().then(() => fulfilled = true);
+    // don't wanna wait for the promise to resolve
+    void mc.waitNotSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(fulfilled, "Initial state is immediately signalled according to waitNotSignalled");
   }
@@ -28,7 +30,8 @@ async function testGoingFromNotSignalledToSignalled() {
   //it("fulfills the wait promise", function (callback)
   {
     let fulfilled = false;
-    mc.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait for the promise to resolve
+    void mc.waitSignalled().then(() => fulfilled = true);
     mc.setSignalled(true);
     await test.sleep(20);
 
@@ -38,7 +41,8 @@ async function testGoingFromNotSignalledToSignalled() {
   //it("stays signalled after that", function (callback)
   {
     let fulfilled = false;
-    mc.waitSignalled().then(() => fulfilled = true);
+    // don't wanna wait for the promise to resolve
+    void mc.waitSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(fulfilled, "Wait promise isn't resolved immediately when the condition is signalled");
   }
@@ -51,7 +55,8 @@ async function testGoingFromSignalledToNotSignalled() {
   //it("fulfills the wait promise", function (callback)
   {
     let fulfilled = false;
-    mc.waitNotSignalled().then(() => fulfilled = true);
+    // don't wanna wait for the promise to resolve
+    void mc.waitNotSignalled().then(() => fulfilled = true);
     mc.setSignalled(false);
     await test.sleep(20);
     test.assert(fulfilled, "Previous non-signalled wait promise is resolved when the condition becomes unsignalled");
@@ -61,7 +66,8 @@ async function testGoingFromSignalledToNotSignalled() {
   //it("stays unsignalled after that", function (callback)
   {
     let fulfilled = false;
-    mc.waitNotSignalled().then(() => fulfilled = true);
+    // don't wanna wait for the promise to resolve
+    void mc.waitNotSignalled().then(() => fulfilled = true);
     await test.sleep(20);
     test.assert(fulfilled, "Non-signalled wait promise isn't immediately resolved when the condition is unsignalled");
   }

@@ -1,21 +1,20 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-/* globals $shell */
-
 import * as dompack from 'dompack';
 import "./docpanel.scss";
 import getTid from "@mod-tollium/js/gettid";
+import type { ApplicationBase } from '../application';
+import { getIndyShell } from '../shell';
 
 export default class DocPanel {
-  constructor(app) {
+  edittoken: string | undefined;
+
+  constructor(public app: ApplicationBase) {
     this.app = app;
   }
-  load(url, edittoken) {
+  load(url: unknown, edittoken: string) {
     this.edittoken = edittoken;
 
     const docpanel = this.app.appnodes.docpanel;
-    dompack.empty(docpanel);
+    docpanel.replaceChildren();
     docpanel.append(<div class={{
       "docpanel": true,
       "docpanel--canedit": edittoken !== ""
@@ -35,7 +34,7 @@ export default class DocPanel {
     if (!this.edittoken) //race?
       return;
 
-    $shell.sendApplicationMessage("tollium:editdocumentation", { edittoken: this.edittoken }, null, true);
+    getIndyShell().sendApplicationMessage("tollium:editdocumentation", { edittoken: this.edittoken }, null, "always");
   }
 
   close() {

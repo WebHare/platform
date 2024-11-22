@@ -20,4 +20,4 @@ if (process.argv.length < 2) {
   process.exit(1);
 }
 
-runWasmScript(process.argv[2], process.argv.slice(3));
+void runWasmScript(process.argv[2], process.argv.slice(3));

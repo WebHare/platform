@@ -26,7 +26,7 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
     super();
     this.debugport = bridge.createPort<DebugIPCLinkType>("ts:debugmgr_internal", { global: true });
     this.debugport.on("accept", (link) => this.gotLink(link));
-    this.debugport.activate();
+    void this.debugport.activate(); // no need to await on activation here
   }
 
   isResponseToForwardedMessage(message: DebugIPCLinkType["AcceptEndPointPacket"]["message"]): message is typeof message & { type: (typeof directforwards)[keyof typeof directforwards]["responsetype"] } {
@@ -43,7 +43,7 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
     };
     link.on("message", (packet) => this.gotLinkMessage(reg, packet));
     link.on("close", () => this.gotLinkClose(reg));
-    link.activate();
+    void link.activate(); // no need to wait on activation here
   }
 
   gotLinkMessage(reg: ProcessRegistration, packet: DebugIPCLinkType["AcceptEndPointPacket"]) {
@@ -102,7 +102,7 @@ async function start() {
 }
 
 const inspectorportbase = 15001;
-start();
+void start();
 
 class DebugMgrClient {
   handler: DebuggerHandler;
@@ -114,9 +114,9 @@ class DebugMgrClient {
 
   constructor(link: DebugMgrClientLink["AcceptEndPoint"]) {
     this.link = link;
-    link.on("message", (message) => this._gotMessage(message));
+    link.on("message", (message) => void this._gotMessage(message));
     link.on("close", () => this._gotClose());
-    link.activate();
+    void link.activate(); // no need to wait on activation here
     ++activeclients;
     if (!globalhandler) {
       globalhandler = new DebuggerHandler;

@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 
 PUBLIC OBJECTTYPE SiteProfileCheck EXTEND CustomCheckBase
 <

@@ -13,19 +13,19 @@ dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
-async function triggerGoogleRecaptcha(this: HTMLElement) {
-  const result = await googleRecaptcha.runRecaptchaDialog(this.dataset.recaptchakey!,
+async function triggerGoogleRecaptcha(elt: HTMLElement) {
+  const result = await googleRecaptcha.runRecaptchaDialog(elt.dataset.recaptchakey!,
     { injectInto: null, title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
   dompack.qR<HTMLInputElement>('#googlerecaptcha_result').value = result || '';
 }
 
-async function triggerCaptcha(this: HTMLElement) {
-  const result = await getCaptchaResponse(this.dataset.apikey!);
+async function triggerCaptcha(elt: HTMLElement) {
+  const result = await getCaptchaResponse(elt.dataset.apikey!);
   dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result || '';
 }
 
 function init() {
-  dompack.qR('#trigger_googlerecaptcha').addEventListener("click", triggerGoogleRecaptcha);
-  dompack.qR('#trigger_webcontextcaptcha').addEventListener("click", triggerCaptcha);
+  dompack.qR('#trigger_googlerecaptcha').addEventListener("click", (evt) => void triggerGoogleRecaptcha(evt.currentTarget as HTMLElement));
+  dompack.qR('#trigger_webcontextcaptcha').addEventListener("click", (evt) => void triggerCaptcha(evt.currentTarget as HTMLElement));
 }
 dompack.onDomReady(init);

@@ -94,7 +94,7 @@ export async function init() {
     }
   }
   const gtmsrc = (gtmsettings.s ?? "https://www.googletagmanager.com/gtm.js") + "?id=" + gtmsettings.a;
-  loadScript(gtmsrc);
+  await loadScript(gtmsrc);
 }
 
 export function initOnConsent() {
@@ -104,7 +104,7 @@ export function initOnConsent() {
   onConsentChange((consentsettings: ConsentSettings) => {
     const consentsetting = consentsettings.consent?.length ? consentsettings.consent.join(' ') : "denied";
     window.dataLayer.push({ "wh.consent": consentsetting, "event": "wh-consentchange" });
-    init();
+    void init();
   });
 }
 
@@ -214,6 +214,6 @@ watchDataLayer();
 dompack.register("wh-socialite-gtm", processGTMPluginInstruction);
 
 if (gtmsettings?.a && !gtmsettings?.m) //account is set, manual is not set
-  init();
+  void init();
 
 window.__gtmformsubmit = 1; //allow us to validate we're installed - ADDME compile only in dev mode

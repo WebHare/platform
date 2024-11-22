@@ -69,6 +69,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     this.worker.on("exit", (code) => {
       const error = new Error(`Worker exited with code ${code}`);
       rejectRequests(error);
+      asyncThis.deref()?.emit("error", error);
     });
     this.port.on("message", (message) => {
       requests[message.id]?.resolve(message);
@@ -155,7 +156,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   }
 
   close() {
-    this.worker.terminate();
+    void this.worker.terminate(); // async terminate
     this.closed = true;
     this.error ??= new Error(`Worker has been closed`);
     for (const req of Object.values(this.requests))

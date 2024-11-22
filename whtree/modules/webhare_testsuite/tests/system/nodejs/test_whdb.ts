@@ -315,8 +315,8 @@ async function testCodeContexts() {
   test.eq("committed", (await c2.next()).value);
   test.eqPartial([{ id: 40 }, { id: 41 }], (await c1.next()).value, "context1 sees both now");
   test.eqPartial([{ id: 40 }, { id: 41 }], (await c2.next()).value, "context2 sees both now");
-  context1.close();
-  context2.close();
+  await context1.close();
+  await context2.close();
 }
 
 /* TODO: how useful is this test really?  codecontexts very easily get bound and I think their whole
@@ -398,7 +398,7 @@ async function testFinishHandlers() {
   const handlerresult: string[] = [];
   const allevents: BackendEvent[] = [];
 
-  async function onEvents(events: BackendEvent[], subscription: BackendEventSubscription) {
+  function onEvents(events: BackendEvent[], subscription: BackendEventSubscription) {
     allevents.push(...events);
   }
 

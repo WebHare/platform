@@ -30,4 +30,4 @@ async function main() {
   await applyConfiguration(opts);
 }
 
-main();
+void main();

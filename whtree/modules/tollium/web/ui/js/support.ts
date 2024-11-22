@@ -5,6 +5,7 @@ import { debugFlags } from '@webhare/env';
 import type { FlagSet, SelectionMatch, TolliumMessage } from './types';
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require("../common.lang.json");
 
 /****************************************************************************************************************************

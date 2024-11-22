@@ -4,7 +4,7 @@
 */
 
 import { debugFlags } from "@webhare/env";
-// eslint-disable-next-line @typescript-eslint/no-var-requires -- not fully converted to TS yet
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- not fully converted to TS yet
 const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import * as browser from 'dompack/extra/browser';
 import StackTrace from "stacktrace-js";
@@ -45,10 +45,10 @@ function installHandlers() {
   saved_onerror = root.onerror;
   root.onerror = handleOnError;
 
-  root.addEventListener('unhandledrejection', async event => {
+  root.addEventListener('unhandledrejection', event => {
     console.log("unhandled rejection", event);
     if (debugFlags.pro && (event.promise as Promise<unknown> & { error: Error }).error)
-      reportException((event.promise as Promise<unknown> & { error: Error }).error);
+      void reportException((event.promise as Promise<unknown> & { error: Error }).error);
   });
 }
 
@@ -173,7 +173,7 @@ function handleOnError(errormsg: Event | string, url?: string, linenumber?: numb
       altstack += "\nat unknown_function (" + url + ":" + linenumber + ":" + (column || 1) + ")";
 
     if (errorobj)
-      reportException(errorobj, { altstack: altstack });
+      void reportException(errorobj, { altstack: altstack });
 
     if (!haveerror && root.addEventListener)
       root.addEventListener('click', resetMayReport, true);

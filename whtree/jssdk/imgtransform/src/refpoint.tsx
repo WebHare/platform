@@ -21,9 +21,8 @@ export type PhotoPointProps = {
   refPoint: Size | null;
 };
 
-type PhotoPointOptions = {
-  // no options yet
-};
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type PhotoPointOptions = object; // no options yet
 
 class PhotoPoint extends SurfaceTool {
   refPoint: RefPoint | null = null;

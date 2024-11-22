@@ -6,6 +6,7 @@ import type { CurrentDragData } from './dragdrop';
 import { isTruthy } from '@webhare/std/collections';
 import { flagUIBusy } from '@webhare/dompack';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require("../common.lang.json");
 
 
@@ -26,17 +27,17 @@ export async function uploadFiles(component: ToddCompBase, uploadedcallback: Tol
     return;
   }
 
-  runUpload(component, uploader, uploadedcallback);
+  void runUpload(component, uploader, uploadedcallback);
 }
 
 async function uploadBlobs(component: ToddCompBase, blobs: Blob[], uploadedcallback: TolliumUploadedCallback) {
   const uploader = new MultiFileUploader(blobs.map(blob => new File([blob], "blob", { type: blob.type })));
-  runUpload(component, uploader, uploadedcallback);
+  void runUpload(component, uploader, uploadedcallback);
 }
 
 async function uploadFilesWithPath(component: ToddCompBase, files: ItemWithFullpath[], uploadedcallback: TolliumUploadedCallback) {
   const uploader = new MultiFileUploader(files.map(item => item.file));
-  runUpload(component, uploader, uploadedcallback);
+  void runUpload(component, uploader, uploadedcallback);
 }
 
 async function runUpload(component: ToddCompBase, uploader: MultiFileUploader, uploadedcallback: TolliumUploadedCallback) {
@@ -109,7 +110,11 @@ export async function handleImageUpload(component: ToddCompBase, file: File | { 
   const done = await imageeditdialog.defer.promise;
   // Note: settings is null when the image wasn't edited after upload
   if (done.blob) {
-    uploadBlobs(component, [done.blob], async (files, uploadcallback) => {
+    const handleUploadedBlobs = async (files: Array<{
+      type: "file";
+      filename: string;
+      filetoken: string;
+    }>, uploadcallback: () => void) => {
       // Only called when a file is actually uploaded
       const extradata = {
         imageeditor: {
@@ -120,7 +125,9 @@ export async function handleImageUpload(component: ToddCompBase, file: File | { 
       await imgcallback({ name: file.name, token: files[0].filetoken, extradata });
       uploadcallback();
       done.editcallback();
-    });
+    };
+
+    void uploadBlobs(component, [done.blob], (files, uploadcallback) => void handleUploadedBlobs(files, uploadcallback));
   } else {
     // Nothing to upload, we're done
     done.editcallback();
@@ -155,9 +162,9 @@ export async function uploadFilesForDrop(component: ToddCompBase, dragdata: Curr
 
   // If this is a drop through an <acceptfile type="edit" > accept rule, open the image editor before uploading
   if (dragdata.acceptrule && dragdata.acceptrule.imageaction === "edit") {
-    handleImageUpload(component, firstFile, async (imgdata: ImageUploadCallbackData) => {
+    void handleImageUpload(component, firstFile, async (imgdata: ImageUploadCallbackData) => {
       msg.items.push({ type: 'file', ...imgdata, extradata: null });
-      return new Promise(resolve => callback(msg, resolve));
+      return new Promise<void>(resolve => callback(msg, resolve));
     },
       { mimetype: firstFile.type, imgsize: dragdata.acceptrule.imgsize, action: "" });
 
@@ -176,7 +183,7 @@ export async function uploadFilesForDrop(component: ToddCompBase, dragdata: Curr
   }
 
   // Start upload of the file
-  uploadFilesWithPath(component, files,
+  void uploadFilesWithPath(component, files,
     function (receivedFiles, closedialogcallback) {
       // got an error uploading the file?
       if (!receivedFiles.length)

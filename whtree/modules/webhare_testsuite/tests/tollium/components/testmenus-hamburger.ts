@@ -35,7 +35,7 @@ test.registerTests(
 
     {
       name: 'openburger',
-      test: function () {
+      test: async function () {
         const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.click(burgerbutton);
         test.assert(burgerbutton.classList.contains("button--active"), "button should remain highlighted with open menu");
@@ -46,13 +46,13 @@ test.registerTests(
         test.assert(!topmenu.querySelector('li[data-menuitem$=":x0b1"]'));
         test.assert(topmenu.querySelector('li[data-menuitem$=":x0b2"]'));
 
-        test.sendMouseGesture([{ el: test.qSA(topmenu, "li").filter(li => li.textContent?.includes("X01"))[0] }]);
+        await test.sendMouseGesture([{ el: test.qSA(topmenu, "li").filter(li => li.textContent?.includes("X01"))[0] }]);
         const x13item = test.qS('li[data-menuitem$=x13]');
         test.assert(x13item);
         test.assert(x13item.hasAttribute("data-menushortcut"));
         test.assert(x13item.closest('ul')?.classList.contains('showshortcuts'), 'shortcuts class missing in hamburger, needed to make data-shortcuts appear');
 
-        test.sendMouseGesture([{ el: test.qSA(topmenu, "li").filter(li => li.textContent?.includes("X03"))[0] }]);
+        await test.sendMouseGesture([{ el: test.qSA(topmenu, "li").filter(li => li.textContent?.includes("X03"))[0] }]);
 
         test.assert(burgerbutton.classList.contains("button--active"));
         test.assert(test.getOpenMenu());

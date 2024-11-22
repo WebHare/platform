@@ -41,7 +41,7 @@ export async function fetchAsFile(url: string, options?: { overrideContentType?:
  * @param list - List of files to prepare. If a string is passed, it will be fetched and turned into a File
 */
 export function prepareUpload(list: Array<File | string>) {
-  getWin().addEventListener("wh:requestfiles", async e => {
+  async function handleRequestFiles(e: WindowEventMap["wh:requestfiles"]) {
     e.preventDefault();
 
     const outlist: File[] = [];
@@ -53,7 +53,9 @@ export function prepareUpload(list: Array<File | string>) {
       }
     }
     e.detail.resolve(outlist);
-  }, { once: true });
+  }
+
+  getWin().addEventListener("wh:requestfiles", e => void handleRequestFiles(e), { once: true });
 }
 
 

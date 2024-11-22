@@ -127,7 +127,6 @@ export class MultiFileUploader implements UploaderBase {
         if (options?.signal?.aborted)
           throw new Error("Upload has been aborted");
 
-        // eslint-disable-next-line no-inner-declarations
         if (globalThis.XMLHttpRequest) { //let's hope by the time browsers drop XMLHttpRequest, fetch finally has proper progress
           const defer = Promise.withResolvers<void>();
           const xmlhttp = new globalThis.XMLHttpRequest;

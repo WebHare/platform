@@ -1,15 +1,12 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-system/js/wh/testframework";
 
 ///run forgot password sequence and navigate through the reset procedure
-export function testResetPassword(options) {
+export function testResetPassword(options: { email: string; newpassword: string }) {
   return [
     `Start password reset for ${options.email}`,
     async function () {
-      test.fill(test.qS('.wh-wrdauth-forgotpassword input[name="email"]'), options.email);
-      test.click(test.qS('.wh-wrdauth-forgotpassword__forgotbutton'));
+      test.fill(test.qR('.wh-wrdauth-forgotpassword input[name="email"]'), options.email);
+      test.click(test.qR('.wh-wrdauth-forgotpassword__forgotbutton'));
       await test.waitUI();
     },
     `Handle password reset mail for ${options.email}`,
@@ -24,13 +21,13 @@ export function testResetPassword(options) {
     },
     'Set my new password',
     async function () {
-      test.fill(test.qS('[name="passwordnew"]'), options.newpassword);
-      test.fill(test.qS('[name="passwordrepeat"]'), options.newpassword);
-      test.click(test.qS('.wh-wrdauth-resetpassword__resetbutton'));
+      test.fill(test.qR('[name="passwordnew"]'), options.newpassword);
+      test.fill(test.qR('[name="passwordrepeat"]'), options.newpassword);
+      test.click(test.qR('.wh-wrdauth-resetpassword__resetbutton'));
 
       await test.waitUI();
 
-      test.click(test.qS(".wh-wrdauth-resetpassword__continuebutton"));
+      test.click(test.qR(".wh-wrdauth-resetpassword__continuebutton"));
       await test.waitNavigation();
     }
   ];

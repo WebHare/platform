@@ -1,6 +1,3 @@
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";

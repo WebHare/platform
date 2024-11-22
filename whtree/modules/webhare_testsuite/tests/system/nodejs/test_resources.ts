@@ -171,7 +171,7 @@ async function testResourceDescriptors() {
       fileName: "x.png",
     }, clone4.getMetaData());
 
-    test.throws(/Cannot update the mediaType/, () => fish.clone({ mediaType: "image/png", getDominantColor: true }));
+    await test.throws(/Cannot update the mediaType/, () => fish.clone({ mediaType: "image/png", getDominantColor: true }));
   }
 
   {

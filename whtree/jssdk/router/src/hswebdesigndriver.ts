@@ -27,7 +27,7 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
     const stream = await fileswhlib.createStream();
     const oldoutput = await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(stream);
     for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"])
-      this.webDesign.InsertHTML(placeholder + "__" + insertpoint + "__", insertpoint);
+      await this.webDesign.InsertHTML(placeholder + "__" + insertpoint + "__", insertpoint);
 
     await this.webDesign.__RunPageWithPrintPlaceholder(printplaceholder);
     await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(oldoutput);

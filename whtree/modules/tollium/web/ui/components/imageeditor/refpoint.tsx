@@ -22,9 +22,7 @@ export type PhotoPointProps = {
   refPoint: Size | null;
 };
 
-type PhotoPointOptions = {
-  // no options yet
-};
+type PhotoPointOptions = object; // no options yet
 
 class PhotoPoint extends SurfaceTool {
   refPoint: RefPoint | null = null;

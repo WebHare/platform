@@ -7,4 +7,4 @@ async function main() {
   await whdb.commitWork();
 }
 
-main();
+void main();

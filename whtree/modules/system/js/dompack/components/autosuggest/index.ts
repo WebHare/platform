@@ -5,7 +5,7 @@ import * as dompack from "../../index";
 import SelectList from "../internal/selectlist";
 import KeyboardHandler from '../../extra/keyboard';
 
-export function normalizeSelectValues(values) {
+export function normalizeSelectValues(values: Array<string | { value: string }>): Array<{ value: string }> {
   const outvalues = [];
   for (let val of values) {
     if (typeof val === "string")

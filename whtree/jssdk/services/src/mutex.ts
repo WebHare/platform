@@ -65,7 +65,7 @@ async function connectMutexManager(): Promise<MutexManagerLink> {
   //it might be unreachable for a few seconds after a crash or during webhare startup
   const link = bridge.connect<MutexManagerLinkType>("system:mutexmanager", { global: true });
   // link.on("close", function () { // cleanup on disconnect - not after every lock..
-  link.activate();
+  await link.activate();
 
   const connectrequest = link.doRequest({ task: "init", clientname: "JS clientname", groupid: "JS group" });
   await std.wrapInTimeout(connectrequest, 60000, new Error("Unable to connect to the mutex manager"));

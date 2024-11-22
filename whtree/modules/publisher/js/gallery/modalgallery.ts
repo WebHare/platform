@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 /* import ModalGalleryBase from '@mod-publisher/js/gallery/fullscreencontroller'; */

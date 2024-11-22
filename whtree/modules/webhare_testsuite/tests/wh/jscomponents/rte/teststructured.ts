@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from "dompack";
@@ -371,7 +370,7 @@ test.registerTests(
         range = rte.getSelectionRange();
         await rtetest.testUndoRedo(rte, prestate);
 
-        rtetest.testEqHTMLEx(win, withtable.replace(/\<p class="normal"/g, '<h1 class="heading1"').replace(/\<\/p/g, '</h1'), rte.getBody(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, withtable.replace(/p class="normal"/g, '<h1 class="heading1"').replace(/<\/p/g, '</h1'), rte.getBody(), [range.start, range.end]);
       }
     },
 
@@ -514,14 +513,14 @@ test.registerTests(
       name: 'addcr',
       test: async function (doc, win) {
         const rte = win.rte.getEditor();
-        let body, prestate;
+        let body;
 
         rte.setContentsHTML('<h1 class="heading1">Kop</h1><p class="mystyle">in mijn stijl.</p>');
         body = rte.getBody();
         const h1 = body.getElementsByTagName("H1")[0];
         rte.setCursor(h1.firstChild, 3);
 
-        prestate = rtetest.getPreActionState(rte);
+        const prestate = rtetest.getPreActionState(rte);
         rte.executeHardEnter();
         await rtetest.testUndoRedo(rte, prestate);
 

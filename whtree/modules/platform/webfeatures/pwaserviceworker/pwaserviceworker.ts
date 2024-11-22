@@ -182,11 +182,11 @@ async function downloadApplication() {
   //add them to the cache, though we really need a putAll to do this atomically..
   await Promise.all(allassets.map((asset, idx) => cache.put(asset, allfetchresults[idx])));
 
-  setSwStoreValue('currentversion', versioninfo);
-  setSwStoreValue('forcerefresh', new Date(versioninfo.forcerefresh));
+  await setSwStoreValue('currentversion', versioninfo);
+  await setSwStoreValue('forcerefresh', new Date(versioninfo.forcerefresh));
 
-  setSwStoreValue('installscope', self.registration.scope);
-  setSwStoreValue('pwasettings', whconfig.obj.pwasettings);
+  await setSwStoreValue('installscope', self.registration.scope);
+  await setSwStoreValue('pwasettings', whconfig.obj.pwasettings);
 }
 
 async function doInitialAppInstallation() {
@@ -204,13 +204,13 @@ self.addEventListener('install', event => {
   console.log(`${logprefix}For app ${appname}`);
   console.log(`${logprefix}For scope ${self.registration.scope}`);
 
-  addToSwLog({ event: 'install' });
+  void addToSwLog({ event: 'install' });
   /* TODO are we sure we always want to do a full cache redownload on install? currently we probably cant avoid it as outside
           of dev the only way the serviceworker reinstalls is if we push the new module, which will recompile any pwa-dependent
           assets anyway */
   event.waitUntil(doInitialAppInstallation());
 
-  self.skipWaiting();
+  void self.skipWaiting();
 });
 
 async function logToAllClients(loglevel: "warn", message: string) {
@@ -226,7 +226,7 @@ async function startBackgroundVersionCheck(data: ClientVersionInfo) {
     pwafileid: data?.pwafileid || null
   });
   if (versioninfo.forcerefresh) {
-    addToSwLog({ event: 'forcedrefresh' });
+    void addToSwLog({ event: 'forcedrefresh' });
     await downloadApplication();
 
     const clients = await self.clients.matchAll();
@@ -234,12 +234,12 @@ async function startBackgroundVersionCheck(data: ClientVersionInfo) {
   }
 }
 
-self.addEventListener('activate', async function (event) {
+self.addEventListener('activate', function (event) {
   console.log(`${logprefix}Activated from`, location.href);
   console.log(`${logprefix}For scope`, self.registration.scope);
 
   //make sure we wrote activate to the log, at least for our tets...
-  addToSwLog({ event: 'activate' });
+  void addToSwLog({ event: 'activate' });
 
   //Tell all our clients we are active - shouldn't be needed, clients can check serviceworker.ready ?
   //let clients = await self.clients.matchAll();
@@ -251,7 +251,7 @@ self.addEventListener('activate', async function (event) {
 // Our cache/rewrite handling!
 //
 
-async function onFetch(event: FetchEvent) {
+function onFetch(event: FetchEvent) {
   // Let the browser do its default thing for non-GET requests.
   if (event.request.method !== 'GET')
     return;
@@ -292,8 +292,8 @@ async function ourFetch(event: FetchEvent) {
   }
 
   //FIXME should we log errors for things we HAD to download manually?
-  addToSwLog({ event: "miss", url: event.request.url });
-  logToAllClients("warn", "[Service Worker] Unexpected cache miss for " + event.request.url);
+  void addToSwLog({ event: "miss", url: event.request.url });
+  void logToAllClients("warn", "[Service Worker] Unexpected cache miss for " + event.request.url);
   const response = await fetch(event.request);
   //Do NOT put in cache.. make the error repeatable
   return response;
@@ -325,7 +325,7 @@ async function downloadUpdate() {
 }
 
 async function clientLoading(data: ClientVersionInfo) {
-  startBackgroundVersionCheck(data); //no need to wait on this
+  void startBackgroundVersionCheck(data); //no need to wait on this
 }
 
 async function onMessage(event: MessageEvent) {
@@ -405,7 +405,7 @@ async function sendIssueReport(body: object) {
 
 self.onerror = function (error) {
   console.error("Error", error);
-  sendIssueReport({
+  void sendIssueReport({
     type: "error",
     error: error.message
   });
@@ -413,11 +413,11 @@ self.onerror = function (error) {
 
 addEventListener("unhandledrejection", function (event) {
   console.error('Unhandled rejection (promise: ', event.promise, ', reason: ', event.reason, event);
-  sendIssueReport({
+  void sendIssueReport({
     type: "unhandledrejection",
     error: event.reason.message
   });
 });
 
 
-addEventListener("message", onMessage);
+addEventListener("message", (evt) => void onMessage(evt));

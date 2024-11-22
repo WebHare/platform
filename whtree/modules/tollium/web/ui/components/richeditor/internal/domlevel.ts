@@ -779,7 +779,6 @@ function _correctForNodeCombine(insertlocator: Locator, removednode: Node, remov
     } else if (tocorrect.element === removedlocator.element && tocorrect.offset > removedlocator.offset)
       --tocorrect.offset;
   } else {
-    // eslint-disable-next-line no-lonely-if
     if (tocorrect.compare(removedlocator) <= 0 && tocorrect.compare(insertlocator) >= 0)
       tocorrect.assign(corr_insertlocator);
     else if (tocorrect.element === insertlocator.element && tocorrect.offset >= insertlocator.offset) {
@@ -889,7 +888,6 @@ function _correctForNodeMove(startlocator: Locator, endlocator: Locator, insertl
       return;
     }
   } else {
-    // eslint-disable-next-line no-lonely-if
     if (startcompare <= 0 && tocorrect.compare(insertlocator) >= 0) {
       //console.log(' backward, between insertpoint and start');
       tocorrect.assign(corr_insertlocator);
@@ -1765,7 +1763,6 @@ export class Locator {
         ; // Node is empty.
     } else {
       // Node not empty
-      // eslint-disable-next-line no-lonely-if
       if (this.offset === 0) {
         if (towardend !== "really")
           towardend = false;

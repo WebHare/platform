@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
+
 import * as dompack from 'dompack';
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 import { DocEvent, addDocEventListener } from '@webhare/dompack';
@@ -11,7 +13,7 @@ export default class CaptchaField {
   constructor(node: HTMLElement) {
     this.node = node;
     addDocEventListener(this.node, 'wh:form-getvalue', evt => this._getValue(evt));
-    addDocEventListener(this.node, 'wh:form-setfielderror', evt => this._setFieldError(evt));
+    addDocEventListener(this.node, 'wh:form-setfielderror', evt => void this._setFieldError(evt));
   }
   _getValue(evt: DocEvent<CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>>) {
     dompack.stop(evt);

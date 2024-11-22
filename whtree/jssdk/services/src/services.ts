@@ -35,12 +35,10 @@ export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkap
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";
 
 /** Extend this interface to define the format of your own secret scopes */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface ServerEncryptionScopes {
 }
 
 /** Extend this interface to define the format of your own sessions  */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface SessionScopes {
   [key: string]: Record<string, unknown>;
 

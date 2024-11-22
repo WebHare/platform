@@ -76,7 +76,7 @@ test.registerTests(
       test.assert(!test.getWin().got_consent_remarketing);
 
       //@ts-expect-error TS also warns about not giving an argument to hasConsent
-      test.throws(/required a string/, test.getWin().hasConsent);
+      await test.throws(/required a string/, test.getWin().hasConsent);
 
       test.eq(undefined, test.getWin().hasConsent!("remarketing"));
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename); //already on the datalayer
@@ -89,7 +89,7 @@ test.registerTests(
       test.eq("analytics", test.getWin().gtm_consent);
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
       //@ts-expect-error TS also warns about not giving an argument to hasConsent
-      test.throws(/required a string/, test.getWin().hasConsent);
+      await test.throws(/required a string/, test.getWin().hasConsent);
       test.assert(!test.getWin().hasConsent!("remarketing"));
       test.assert(test.getWin().hasConsent!("analytics"));
       test.assert(test.getWin().got_consent_analytics);

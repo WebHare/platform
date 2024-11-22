@@ -26,7 +26,7 @@ function extractRealPathCache(): Map<string, string> {
 
   let cache: Map<string, string> | undefined;
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod_fs = require("fs");
   const saved_realpathSync = mod_fs.realpathSync;
   delete mod_fs.realpathSync;
@@ -40,6 +40,7 @@ function extractRealPathCache(): Map<string, string> {
     return saved_realpathSync(path, options);
   };
   // requiring this library triggers a call to realpathSync with the cache
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("./hmrinternal_requiretarget.ts");
   // restore realpathSync and check if we got the cache
   mod_fs.realpathSync = saved_realpathSync;
@@ -105,6 +106,9 @@ export function registerLoadedResourceWithCallback(mod: NodeModule, path: string
   if (!callbacks)
     lib.resourceCallbacks.set(path, callbacks = []);
   callbacks.push(callback);
+
+  if (debugFlags.hmr)
+    console.log(`[hmr] register resource ${path} by module ${mod.id} with callback`);
 }
 
 let deferred: Set<string> | null = new Set<string>;
@@ -195,6 +199,7 @@ function toRealPaths(paths: readonly string[]) {
     try {
       return fs.realpathSync(path);
     } catch (e) {
+      void e;
       return "";
     }
   }).filter(_ => _);
@@ -310,3 +315,6 @@ export function getState(): State {
     events,
   };
 }
+
+// Can never reload hmr itself
+registerAsNonReloadableLibrary(module);

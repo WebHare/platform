@@ -29,7 +29,7 @@ declare global {
 
 function reportIssue(event: MouseEvent, addElement: boolean) {
   dompack.stop(event);
-  runFeedbackReport(event, addElement);
+  void runFeedbackReport(event, addElement);
 }
 
 function focusFirstAction() {
@@ -74,7 +74,7 @@ function setupAuthorMode() {
   document.documentElement.classList.add("wh-authormode--active");
 
   if (location.hash === "#wh-authormode-metainspect") { //add #wh-authormode-metainspect to URL to open on refresh (during testing)
-    inspectMetadata(null);
+    void inspectMetadata(null);
   }
 }
 

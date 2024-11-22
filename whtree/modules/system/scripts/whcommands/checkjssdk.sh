@@ -15,7 +15,7 @@ fi
 
 cd "$WEBHARE_DIR" || exit 1
 
-if ! node_modules/.bin/eslint $ESLINTOPTIONS --config .eslintrc.json jssdk ; then
+if ! node_modules/.bin/eslint $ESLINTOPTIONS --config eslint.config.mjs jssdk ; then
   echo "ERR! FATAL: jssdk does not pass eslint"
   RETVAL=1
 fi

@@ -52,6 +52,7 @@ function testTypes() {
   test.throws(/Cannot combine selects, trying to combine a map with another single field/, () => combineRecordOutputMaps({ a: "a" }, "a"));
 
   const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] as const;
+  void stringselect;
 
   test.typeAssert<test.Equals<{
     wrd_id: number;
@@ -65,6 +66,7 @@ function testTypes() {
 
 
   const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] } as const;
+  void recordselect;
 
   test.typeAssert<test.Equals<{
     wrd_id: number;

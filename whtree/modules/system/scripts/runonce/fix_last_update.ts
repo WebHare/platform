@@ -32,4 +32,4 @@ async function fixLastUpdate() {
   }
 }
 
-fixLastUpdate();
+void fixLastUpdate();

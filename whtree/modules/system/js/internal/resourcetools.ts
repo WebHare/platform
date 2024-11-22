@@ -8,7 +8,7 @@ export async function loadJSExport<T = unknown>(name: string): Promise<T> {
     libraryuri = "@mod-" + libraryuri.substring(5);
 
   const symbolname = name.split("#")[1] ?? "default";
-  // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
   const library = require(libraryuri);
   if (!(symbolname in library))
     throw new Error(`Library ${libraryuri} does not export '${symbolname}'`);

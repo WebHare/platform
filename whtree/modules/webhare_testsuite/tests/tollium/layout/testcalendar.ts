@@ -9,7 +9,7 @@ test.registerTests(
 
     {
       name: 'verifylayout',
-      test: function () {
+      test: async function () {
         test.assert(test.compByName('calendarholder').offsetHeight < 768, 'calendarholder too big'); //should not be escaping the screen
 
         //find our overlay
@@ -43,7 +43,7 @@ test.registerTests(
 
         //click in the overlapped cell, the yellow overlay should be selected
         const overlappedcoords = overlappedcell.getBoundingClientRect();
-        test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
+        await test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
         test.assert(yellowoverlay.classList.contains('todd-table__overlay--selected'));
         test.assert(!greenoverlay.classList.contains('todd-table__overlay--selected'));
 
@@ -53,12 +53,12 @@ test.registerTests(
         test.assert(greenoverlay.classList.contains('todd-table__overlay--selected'));
 
         //click in the overlapped cell, the green overlay should still be selected as it should be positioned before the yellow overlay
-        test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
+        await test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
         test.assert(!yellowoverlay.classList.contains('todd-table__overlay--selected'));
         test.assert(greenoverlay.classList.contains('todd-table__overlay--selected'));
 
         //click again to open the appointment properties
-        test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
+        await test.sendMouseGesture([{ el: test.getDoc().body, down: 0, x: overlappedcoords.left + overlappedcoords.width / 2, y: overlappedcoords.top + overlappedcoords.height / 2 }, { up: 0 }]);
       }
     }
 

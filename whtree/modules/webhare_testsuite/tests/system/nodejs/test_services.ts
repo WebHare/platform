@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { GenericLogLine } from "@webhare/services/src/logging";
@@ -97,10 +95,11 @@ async function testServiceState() {
   await instance1closed;
   await test.wait(async () => JSON.stringify(["instance2", "instance3"]) === JSON.stringify(await instance2.getConnections()));
 
-  instance2.closeConnection("instance3");
+  const closer = instance2.closeConnection("instance3");
   await instance3closed;
 
   await test.wait(async () => JSON.stringify(["instance2"]) === JSON.stringify(await instance2.getConnections()));
+  await closer;
 
   instance2.close();
 }
@@ -136,13 +135,13 @@ async function testMutex() {
 async function testEvents() {
   const allevents: services.BackendEvent[] = [];
 
-  async function onEvents(events: services.BackendEvent[], subscription: services.BackendEventSubscription) {
+  function onEvents(events: services.BackendEvent[], subscription: services.BackendEventSubscription) {
     allevents.push(...events);
   }
 
-  test.throws(/Mask must be in the format module:eventname/, () => services.subscribe("testevent", onEvents));
-  test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe("webhare_testsuite:testevent.*.mask", onEvents));
-  test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe(["webhare_testsuite:testevent", "webhare_testsuite:testevent.*.mask"], onEvents));
+  await test.throws(/Mask must be in the format module:eventname/, () => services.subscribe("testevent", onEvents));
+  await test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe("webhare_testsuite:testevent.*.mask", onEvents));
+  await test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe(["webhare_testsuite:testevent", "webhare_testsuite:testevent.*.mask"], onEvents));
 
   const subscription = await services.subscribe("webhare_testsuite:testevent", onEvents);
   services.broadcast("webhare_testsuite:otherevent", { event: -1 });
@@ -180,7 +179,7 @@ async function testHareScriptVM() {
   const hsvm = await createVM();
 
   await runOpenPrimary(hsvm); //split off so GC can clean up 'primary'
-  test.triggerGarbageCollection();
+  await test.triggerGarbageCollection();
   await test.wait(async () => (await hsvm._getHSVM().__getNumRemoteUnmarshallables()) === 0);
 
   const siteapi = hsvm.loadlib("mod::publisher/lib/siteapi.whlib");
@@ -207,7 +206,7 @@ async function testHareScriptVMFptrs() {
   const hsvm = await createVM();
 
   await runPrintCallbackTest(hsvm);
-  test.triggerGarbageCollection();
+  await test.triggerGarbageCollection();
   await test.wait(async () => (await hsvm._getHSVM().__getNumRemoteUnmarshallables()) === 0);
 
   //test invoking MACROs on OBJECTs (A MACRO cannot be used as a FUNCTION, it has no return value)
@@ -241,7 +240,6 @@ async function runBackendServiceTest_JS() {
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:demoservice", ["abort"]));
   test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
   const serverinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
   test.eq(undefined, await serverinstance.voidReturn());
@@ -298,7 +296,7 @@ async function testDisconnects() {
 
 async function testServiceTimeout() {
   const customservicename = "webhare_testsuite:servicetimeouttest_" + Math.random();
-  test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100 }));
+  await test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100 }));
 
   const slowserviceconnection = services.openBackendService(customservicename, [], { timeout: 3000 });
   await sleep(100); //give the connection time to fail
@@ -319,7 +317,6 @@ async function runBackendServiceTest_HS() {
 
   test.eq(0, await getActiveMessagePortCount(), "Failed attempts above should not have kept a pending reference");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
   const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
   test.eq(1, await getActiveMessagePortCount(), "services.openBackendService should immediately keep a reference open");
   test.eq(42, await serverinstance.GETLUE());
