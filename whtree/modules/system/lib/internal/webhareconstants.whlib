@@ -280,3 +280,10 @@ PUBLIC CONSTANT STRING ARRAY whconstant_typescript_extensions := [".ts",".tsx"];
 
 // Extension list (compatible with GetExtensionFromPath) for code that needs ts-node or node to run, not runscript
 PUBLIC CONSTANT STRING ARRAY whconstant_javascript_extensions := STRING[ ...whconstant_typescript_extensions, ".js", ".es" ];
+
+// Form states
+PUBLIC CONSTANT INTEGER whconstant_formstatus_final :=               1; // final result
+PUBLIC CONSTANT INTEGER whconstant_formstatus_intermediary :=        2; // intermediary result
+PUBLIC CONSTANT INTEGER whconstant_formstatus_cancelled :=           3; // cancelled result (the user has deleted this entry)
+PUBLIC CONSTANT INTEGER whconstant_formstatus_nolongervalid :=       4; // no-longer-valid result. if edited, the 'replacedby' contains the id of the new result. if deleted, replacedby = 0. deprecated
+PUBLIC CONSTANT INTEGER whconstant_formstatus_pendingconfirmation := 5; // pending result, waiting on email confirmation

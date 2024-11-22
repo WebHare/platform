@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -122,7 +123,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                       WHERE formresults.form_fsobject = (ObjectExists(formobject) ? formobject->id : 0)
                             AND formresults.guid = options.guid
                             AND formresults.form_name = form->__form.name
-                            AND status = 1/*final result*/;
+                            AND status = VAR whconstant_formstatus_final;
 
     // Store the results
     INTEGER resultid := options.isedit ? oldresultid : MakeAutonumber(publisher.formresults, "id");
@@ -131,7 +132,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     RECORD days := GetFormResultsExpirationDays(form_fsobject);
     DATETIME when := GetCurrentDateTime();
 
-    RECORD formdata := [ status := options.ispending ? 5/*pending*/ : 1/*final result*/
+    RECORD formdata := [ status := options.ispending ? VAR whconstant_formstatus_pendingconfirmation : VAR whconstant_formstatus_final
                        , expiration    := AddDaysToDate(days.storeresults, when)
                        , deletion      := AddDaysToDate(days.processresults, when)
                        , results       := store.stringpart
