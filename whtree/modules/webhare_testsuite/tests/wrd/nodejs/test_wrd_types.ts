@@ -125,4 +125,4 @@ function testTypes() {
   }, Insertable<System_Usermgmt_WRDPerson>>>();
 }
 
-test.run([testTypes], { wrdauth: false });
+test.run([testTypes]);
