@@ -63,7 +63,10 @@ async function configureWHDBClient(pg: Connection): Promise<void> {
        Prefer the order in data-type-map.ts. Use wh psql and \d to figure out types on an existing table
 
        For the WHDB a NUMERIC is always a Number. this might not be that future proof..
-       */
+
+       FOOTGUN: for arrays, the driver only tests the first array item, and checks this registrations in reverse order.
+       So, make sure that the most generic type is registered last!!!
+    */
 
     whdbTypeMap.register([OidType, VectorOidType, ArrayOidType]);
     whdbTypeMap.register([BoolType, ArrayBoolType]);
@@ -77,8 +80,8 @@ async function configureWHDBClient(pg: Connection): Promise<void> {
     whdbTypeMap.register([Int2VectorType, ArrayInt2VectorType]);//needed to read PG catalogs
     whdbTypeMap.register({ ...VarcharType, name: "name", oid: DataTypeOIDs.name }); //needed to read PG catalogs
     whdbTypeMap.register({ ...VarcharType, name: "text", oid: DataTypeOIDs.text }); //I don't think we use 'text' columns in a WebHare DB, but we *do* cast to ::text on occassion
-    whdbTypeMap.register([VarcharType, ArrayVarcharType]);
     whdbTypeMap.register([CharType, ArrayCharType]); //needed to read PG catalogs
+    whdbTypeMap.register([VarcharType, ArrayVarcharType]);
 
     whdbTypeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
     whdbTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
