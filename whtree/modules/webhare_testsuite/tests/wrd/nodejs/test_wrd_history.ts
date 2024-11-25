@@ -710,4 +710,4 @@ async function testChanges() { //  tests
 test.run([
   async () => { await createWRDTestSchema({ keepHistoryDays }); }, //TODO ? forcereload := TRUE, withrichdoc := TRUE
   testChanges,
-], { wrdauth: false });
+]);

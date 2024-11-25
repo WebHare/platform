@@ -462,4 +462,4 @@ test.run(
     runBackendServiceTest_Events,
     testMutexVsHareScript,
     testLogs
-  ], { wrdauth: false });
+  ]);
