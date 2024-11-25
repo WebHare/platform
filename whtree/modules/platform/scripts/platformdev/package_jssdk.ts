@@ -138,11 +138,13 @@ async function main() {
       await writeFile(join(pkgroot, "tsconfig.json"), JSON.stringify({
         include: [src],
         compilerOptions: {
-          target: "es2022",
+          target: "es2024",
+          lib: ["es2024", "dom", "dom.iterable"],
           noEmit: false,
           declaration: true,
           module: "commonjs",
-          types: [join(backendConfig.installationroot, "node_modules/@types/node")]
+          types: [join(backendConfig.installationroot, "node_modules/@types/node")],
+          paths: { ["@webhare/" + pkgname]: ["."] }
         }
       }, null, 2), "utf8");
 

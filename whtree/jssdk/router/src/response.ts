@@ -65,7 +65,7 @@ export type WebResponseForTransfer = {
 };
 
 //TODO ideally we'll support the full Response interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Response instead of WebResponse
-export type SupportedResponseSubset = Omit<Response, "redirect" | "statusText" | "type" | "redirected" | "url" | "clone" | "body" | "bodyUsed" | "blob" | "formData">;
+export type SupportedResponseSubset = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
 
 class WebResponse implements SupportedResponseSubset {
   private _status: HTTPStatusCode;
@@ -125,7 +125,7 @@ class WebResponse implements SupportedResponseSubset {
     if (text instanceof ArrayBuffer)
       this._bodybuffer = text;
     else
-      this._bodybuffer = new TextEncoder().encode(text).buffer;
+      this._bodybuffer = new TextEncoder().encode(text).buffer as ArrayBuffer; //'as ArrayBuffer' is a TS 5.7 workaround, TODO can we undo this?
   }
 
   getHeader(header: string): string | null {

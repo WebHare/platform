@@ -46,7 +46,7 @@ export function createTypedMessageChannel<SendType extends object, ReceiveType e
 }
 
 export function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
-  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer; //'as ArrayBuffer' is a TS 5.7 workaround, TODO can we undo this?
 }
 
 export function dumpActiveIPCMessagePorts({ onlyreferenced = true } = {}) {

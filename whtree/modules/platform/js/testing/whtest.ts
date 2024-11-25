@@ -46,7 +46,7 @@ export interface ExtractedMail {
   attachments: Array<{
     // fileName: string;
     mediaType: string;
-    data: ArrayBuffer;
+    data: Uint8Array;
   }>;
 
   ///The envelope receiver (as actually queued)

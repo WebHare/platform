@@ -76,7 +76,7 @@ async function testHSWebserver() {
   result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml", {
     method: HTTPMethod.POST,
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-    body: new TextEncoder().encode("a=1&b=2").buffer
+    body: new TextEncoder().encode("a=1&b=2").buffer as ArrayBuffer //TS5.7 workaround
   }));
 
   test.eq(200, result.status);
