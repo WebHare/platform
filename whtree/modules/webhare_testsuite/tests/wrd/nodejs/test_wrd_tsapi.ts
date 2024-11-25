@@ -903,4 +903,4 @@ test.run([
   testComparisons,
   testGeneratedWebHareWRDAPI,
   testEventMasks,
-], { wrdauth: true });
+]);

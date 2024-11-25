@@ -86,4 +86,4 @@ test.run([
   testWorksOnAscii,
   testWorksOn2ByteChars,
   testWorksOn3ByteChars
-], { wrdauth: false });
+]);
