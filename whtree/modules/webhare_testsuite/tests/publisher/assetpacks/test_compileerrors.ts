@@ -341,7 +341,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
 
-    result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/typescript/test-typescript-in-js.ts" }, false); //verify we cannot load TypeScri }t in JS
+    result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/typescript/test-typescript-in-js.ts" }, false); //verify we cannot load TypeScript in JS
     test.assert(result.errors.length > 0);
   }
 
