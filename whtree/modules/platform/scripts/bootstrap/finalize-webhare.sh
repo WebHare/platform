@@ -90,7 +90,7 @@ gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
 
 logWithTime "Rebuild plaform:* assetpacks"
 rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platform/generated/ap.metadata"
-wh publisher:compile "platform:*"
+wh assetpack recompile --foreground "platform:*"
 
 logWithTime "Final checks"
 if ls "$WEBHARE_HSBUILDCACHE"/*direct* >/dev/null 2>&1 ; then

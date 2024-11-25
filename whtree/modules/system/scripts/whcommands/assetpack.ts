@@ -6,6 +6,9 @@ import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { ansiCmd } from '@webhare/cli';
+import { getExtractedConfig } from '@mod-system/js/internal/configuration';
+import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
+import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
 
 let client: Promise<AssetPackControlClientInterface> | null = null;
 
@@ -46,8 +49,20 @@ program.command("check")
 program.command("recompile")
   .description("Recompile an asset pack. Use '*' to compile all")
   .argument("<assetpacks...>", "Asset packs to recompile")
+  .option('-v, --verbose', 'verbose log level')
+  .option("--foreground", "Recompile in foreground, don't use any assetpack service")
+  .option('--production', 'force production compile')
+  .option('--development', 'force development compile')
   .option("--onlyfailed", "Only recompile failed asset packs")
   .action(async (assetpacks, options) => {
+    if ((options.development || options.production) && !options.froreground)
+      throw new Error("Cannot specify --development or --production without --foreground");
+
+    if (options.foreground) {
+      process.exitCode = await runForegroundCompile(assetpacks, options) ? 0 : 1;
+      return;
+    }
+
     const bundles = await getBundles(assetpacks, { onlyfailed: options.onlyfailed });
     if (!bundles.length) {
       if (!program.opts().quiet)
@@ -211,4 +226,53 @@ async function waitForCompilation(masks: string[], verbose: boolean): Promise<bo
 
   aborter.abort(); //stop the timeout
   return failedpacks.length === 0;
+}
+
+async function runForegroundCompile(masks: string[], options: { development?: boolean; production?: boolean; verbose: boolean }) {
+  const bundleMask = regExpFromWildcards(masks);
+  /* TODO this will no longer support directly compiling adhoc packages - we should probably build a system where TS generates the bundleconfig for adhoc
+          packges and let you specify a direct path to compile.ts. but this will require moving adhoc bundle and header generation from HS to TS
+
+          PS: directly compiling adhoc bundles is now what recompileAdhoc is for, so it's easy to re-expose at one point */
+  // TODO consider getting raw config instead of relying on extracts
+  const bundles = getExtractedConfig("assetpacks").filter(assetpack => assetpack.name.match(bundleMask));
+  if (bundles.length === 0)
+    throw new Error(`No assetpacks match masks: ${masks.join(",")}`);
+
+  let globalIsDev: boolean | undefined;
+
+  if (options.development)
+    if (options.production)
+      throw new Error("Cannot specify both --development and --production");
+    else
+      globalIsDev = true;
+  else if (options.production)
+    globalIsDev = false;
+
+  let anyError = false;
+  await Promise.all(bundles.map(async (bundle) => {
+    const isdev = globalIsDev ?? (await readBundleSettings(bundle.name)).dev;
+    const data = buildRecompileSettings(bundle, { dev: isdev });
+    if (options.verbose)
+      console.log(JSON.stringify(data, null, 2));
+
+    try {
+      if (options.verbose)
+        data.logLevel = "verbose";
+
+      const result = await recompile(data);
+      if (options.verbose)
+        console.log(JSON.stringify(result, null, 2));
+
+      logValidationMessagesToConsole(result.messages);
+      if (result.messages.some(msg => msg.type === "error"))
+        anyError = true;
+
+    } catch (e) {
+      console.error(e);
+      anyError = true;
+    }
+  }));
+
+  return !anyError;
 }
