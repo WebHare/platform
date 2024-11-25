@@ -2,7 +2,7 @@ import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, runInWork, runInSeparateWork } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, runInWork, runInSeparateWork, sql } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { createVM, loadlib } from "@webhare/harescript";
@@ -145,6 +145,17 @@ async function testTypes() {
   test.eq("2022-05-02 19:07:45", rawrows[0].adate);
 
   test.eq(undefined, getCodeContextHSVM(), "Ensure that the bare commitWorks above did not instiate a VM");
+
+  /* Type determination in postgresql-client for arrays only tests the first array element. This is dangerous for arrays
+     of multi-char strings when the 'char' type is tested first and the first element happens to be a single-char string.
+  */
+
+  await beginWork();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "a", adate: new Date("2022-05-02T19:07:45Z") }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "bb", adate: new Date("2022-05-02T19:07:45Z") }).execute();
+  await commitWork();
+
+  test.eq(["a", "bb"], (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").where("text", "=", sql`any(${["a", "bb"]})`).select("text").execute()).map((r) => r.text).sort());
 }
 
 async function testHSWorkSync() {
