@@ -138,7 +138,7 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
     const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
     const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
-    return Buffer.from(this.vm.wasmmodule.HEAP8.slice(begin, end));
+    return Buffer.from(this.vm.wasmmodule.HEAPU8.slice(begin, end));
   }
   setString(value: string | Buffer | ArrayBuffer) {
     if (typeof value === "string") {

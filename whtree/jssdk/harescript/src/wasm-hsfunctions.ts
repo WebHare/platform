@@ -1243,7 +1243,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       const libraryUri = vm.wasmmodule.UTF8ToString(vm.wasmmodule.HEAP32[returndata + 8 >> 2]);
       const libraryModDate = vm.wasmmodule.HEAP64[returndata >> 3];
       const hashpos = vm.wasmmodule.HEAP32[returndata + 12 >> 2];
-      const hash = Buffer.from(vm.wasmmodule.HEAP8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
+      const hash = Buffer.from(vm.wasmmodule.HEAPU8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
 
       const item = await service.getItem(libraryUri, libraryModDate, hash) as { value: SharedArrayBuffer } | undefined;
       if (!item) {
@@ -1293,7 +1293,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       libraryUri = vm.wasmmodule.UTF8ToString(vm.wasmmodule.HEAP32[returndata + 8 >> 2]);
       const libraryModDate = vm.wasmmodule.HEAP64[returndata >> 3];
       const hashpos = vm.wasmmodule.HEAP32[returndata + 12 >> 2];
-      const hash = Buffer.from(vm.wasmmodule.HEAP8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
+      const hash = Buffer.from(vm.wasmmodule.HEAPU8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
 
       try {
         const len = vm.wasmmodule._HSVM_MarshalCalculateLength(vm.hsvm, var_data.id);

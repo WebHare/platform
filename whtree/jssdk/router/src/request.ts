@@ -27,7 +27,7 @@ export type WebRequestTransferData = {
 };
 
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
-export type SupportedRequestSubset = Omit<Request, "cache" | "credentials" | "destination" | "integrity" | "keepalive" | "mode" | "redirect" | "referrer" | "referrerPolicy" | "signal" | "clone" | "body" | "bodyUsed" | "arrayBuffer" | "blob" | "formData">;
+export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text">;
 
 export interface WebRequest extends SupportedRequestSubset {
   ///HTTP Method, eg "get", "post"
