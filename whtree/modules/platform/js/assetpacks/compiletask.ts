@@ -19,6 +19,7 @@ import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } fro
 import { buildRPCLoaderPlugin } from './rpcloader';
 import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhareconstants';
 import type { ValidationMessageWithType } from '../devsupport/validation';
+import { loadJSFunction } from '@mod-system/js/internal/resourcetools';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -193,6 +194,12 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   const outdir = path.join(bundle.outputpath, "build");
 
+  const userPlugins: esbuild.Plugin[] = [];
+  for (const plugin of data.bundle.config.esBuildPlugins) {
+    const func = await loadJSFunction<((...args: unknown[]) => esbuild.Plugin | Promise<esbuild.Plugin>)>(plugin.plugin);
+    userPlugins.push(await func(...plugin.pluginOptions));
+  }
+
   let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
     stdin: {
       contents: generateEntryPoint(rootfiles),
@@ -217,11 +224,16 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     //FIXME ASSETPACK_ENVIRONMENT is only used by libliveapi for a crypto shim, should be removable!
     define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.config.environment}"` },
     plugins: [
+      //Anything that handles WebHare-sepcific path handling goes first:
       captureplugin.getPlugin(),
       createWhResolverPlugin(bundle, captureplugin),
+      //Most user plugins will target onLoad extensions, so put them before our more generic handlers
+      ...userPlugins,
+      //These loader plugins only focus on specific extensions, so user plugins can go above as they probably want to do something more specific
       buildRPCLoaderPlugin(captureplugin),
       buildLangLoaderPlugin(bundle.config.supportedLanguages, captureplugin),
       whSassPlugin(captureplugin),
+      //This is a final update of sourcemaps to rewrite paths, so always put it last
       whSourceMapPathsPlugin(outdir)
     ],
     loader: {
@@ -427,6 +439,7 @@ export async function recompileAdhoc(entrypoint: string, compatibility: string):
         compatibility: compatibility,
         environment: "window",
         esBuildSettings: "",
+        esBuildPlugins: [],
         extraRequires: [],
         supportedLanguages: ["en"],
         whPolyfills: true,

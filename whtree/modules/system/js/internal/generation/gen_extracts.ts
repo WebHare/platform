@@ -18,6 +18,10 @@ export interface AssetPack {
   whPolyfills: boolean;
   environment: string;
   afterCompileTask: string;
+  esBuildPlugins: Array<{
+    plugin: string;
+    pluginOptions: unknown[];
+  }>;
   esBuildSettings: string;
   extraRequires: string[];
   baseCompileToken: string;
@@ -90,6 +94,7 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
           environment: getAttr(assetpacknode, "environment", "window"),
           afterCompileTask: addModule(mod, getAttr(assetpacknode, "aftercompiletask")),
           esBuildSettings: getAttr(assetpacknode, "esbuildsettings"), //FIXME deprecate this, we should just let users supply a JS function to apply to the esbuild config
+          esBuildPlugins: [],
           extraRequires: []
         }));
       }
@@ -122,6 +127,13 @@ export function getYMLAssetPacks(mod: string, modYml: ModDefYML): AssetPack[] {
   const packs: AssetPack[] = [];
   if (modYml.assetPacks)
     for (const [name, assetpack] of Object.entries(modYml.assetPacks)) {
+      const esBuildPlugins = [];
+      for (const plugged of assetpack.esBuildPlugins || [])
+        esBuildPlugins.push({
+          plugin: resolveResource(modYml.baseResourcePath, plugged.plugin),
+          pluginOptions: plugged.pluginOptions || []
+        });
+
       packs.push(makeAssetPack({
         name: addModule(mod, name),
         entryPoint: resolveResource(modYml.baseResourcePath, assetpack.entryPoint),
@@ -131,6 +143,7 @@ export function getYMLAssetPacks(mod: string, modYml: ModDefYML): AssetPack[] {
         environment: "window", //TODO can we remove this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
         afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
         esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
+        esBuildPlugins,
         extraRequires: []
       }));
     }

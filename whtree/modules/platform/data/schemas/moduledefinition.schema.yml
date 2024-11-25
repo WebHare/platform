@@ -200,6 +200,20 @@ $defs:
           afterCompileTask:
             description: "Task to run after compiling the asset pack"
             type: string
+          esBuildPlugins:
+            description: "Custom plugins to add"
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              required: [plugin]
+              properties:
+                plugin:
+                  description: "Path to the plugin"
+                  type: string
+                pluginOptions:
+                  description: "Options to pass to the plugin function"
+                  type: array
 
         required:
           - entryPoint

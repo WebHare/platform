@@ -7,6 +7,7 @@ import * as test from '@webhare/test';
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as zlib from "node:zlib";
+import * as child_process from "node:child_process";
 
 import { recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
@@ -358,7 +359,50 @@ async function testCompileerrors() {
   }
 }
 
+async function testPlugins() {
+  const packs = await parseAssetPacks(`
+  assetPacks:
+    dummy:
+      entryPoint: webfeatures/dummy/dummy
+      esBuildPlugins:
+      - plugin: node_modules/testplugin
+      - plugin: node_modules/testplugin#default
+        pluginOptions:
+        - regEx: "\\\\.txt4$"
+        - "ThisIsAPrefix:"
+  `);
+
+  test.eqPartial([
+    {
+      entryPoint: "mod::webhare_testsuite/webfeatures/dummy/dummy",
+      supportedLanguages: [],
+      whPolyfills: true,
+    }
+  ], packs);
+
+  console.log("TypeScript with jsx is working");
+  {
+    const result = await compileAdhocTestBundle({ ...packs[0], entryPoint: __dirname + "/data/useplugin/useplugin.ts" }, true);
+    console.log(result.errors);
+    test.assert(result.errors.length === 0);
+
+    const filedeps = mapDepPaths(result.fileDependencies);
+    console.log(filedeps);
+    test.assert(filedeps.includes(path.join(__dirname, "data/useplugin/h1.txt1")));
+    test.assert(filedeps.includes(path.join(__dirname, "data/useplugin/h4.txt4")));
+
+    //Run the script to ensure it made sense
+    const spawnResult = child_process.spawnSync("node", ["/tmp/compileerrors-build-test/ap.mjs"], { stdio: "pipe" });
+    test.eq({
+      h1: 'Test,one,begins,now,,Steps,unfold,with,steady,grace,,Truth,in,numbers,speaks,',
+      h4: 'ThisIsAPrefix:Test,four,looms,ahead,,Quiet,minds,seek,hidden,truths,,Answers,soon,revealed.,'
+    }, JSON.parse(spawnResult.stdout.toString()));
+  }
+}
+
+
 test.run([
   testConfigParser,
-  testCompileerrors
+  testCompileerrors,
+  testPlugins,
 ]);
