@@ -62,8 +62,9 @@ if (whconfigel?.textContent) {
 
 initEnv(dtapStage, '/');
 
-for (const flag of getBrowserDebugFlags('wh-debug'))
-  debugFlags[flag] = true;
+if (typeof location !== "undefined")
+  for (const flag of getBrowserDebugFlags('wh-debug'))
+    debugFlags[flag] = true;
 
 
 /** @deprecated frontendConfig has been deprecated. Switch to the getFrontendData system */
