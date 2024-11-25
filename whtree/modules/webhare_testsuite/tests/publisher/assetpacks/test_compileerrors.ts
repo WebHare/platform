@@ -10,35 +10,26 @@ import * as zlib from "node:zlib";
 
 import { recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
-import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
-import { backendConfig, toFSPath, toResourcePath } from '@webhare/services';
-import { getYMLAssetPacks, makeAssetPack } from '@mod-system/js/internal/generation/gen_extracts';
+import { backendConfig, toFSPath, toResourcePath, WebHareBlob } from '@webhare/services';
+import { getYMLAssetPacks, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 import { parseModuleDefYMLText } from '@webhare/services/src/moduledefparser';
+import { runJSBasedValidator } from '@mod-platform/js/devsupport/validation';
 
 function mapDepPaths(deps: string[]) {
   return deps.map(dep => toFSPath(dep, { allowUnmatched: true }) ?? dep);
 }
 
-async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
-  const outputtag = `webhare_testsuite:test_compileerrors`;
-
+async function compileAdhocTestBundle(config: AssetPack, isdev: boolean) {
   const settings: RecompileSettings = {
     bundle: {
-      config: makeAssetPack({
-        compatibility: whconstant_default_compatibility,
-        environment: "window",
-        esBuildSettings: "",
-        extraRequires: [],
-        supportedLanguages: ["en", "nl"],
-        whPolyfills: true,
-        afterCompileTask: "",
-        entryPoint: toResourcePath(entrypoint),
-        name: outputtag,
-      }),
+      config: config,
       isdev: isdev,
       outputpath: "/tmp/compileerrors-build-test/",
     }
   };
+  if (settings.bundle.config.entryPoint.startsWith('/'))
+    settings.bundle.config.entryPoint = toResourcePath(settings.bundle.config.entryPoint);
+
 
   const result = await recompile(settings);
 
@@ -47,7 +38,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     //verify the manifest
     const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
-    if (!entrypoint.endsWith('.scss')) {
+    if (!config.entryPoint.endsWith('.scss')) {
       test.assert(manifest.assets.find(file => file.subpath === 'ap.mjs' && !file.compressed && !file.sourcemap));
       test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.gz' && file.compressed && !file.sourcemap));
       test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.br' && file.compressed && !file.sourcemap));
@@ -75,15 +66,23 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   };
 }
 
+async function parseAssetPacks(moduledef: string) {
+  const validationresult = await runJSBasedValidator(WebHareBlob.from(moduledef), "mod::webhare_testsuite/moduledefinition.yml");
+  test.eq([], validationresult.errors);
+  test.eq([], validationresult.warnings);
+  return getYMLAssetPacks('webhare_testsuite', parseModuleDefYMLText('webhare_testsuite', moduledef));
+}
+
 async function testConfigParser() {
-  const packs = getYMLAssetPacks('example', parseModuleDefYMLText('example', `
+  const packs = await parseAssetPacks(`
 assetPacks:
   dummy:
     entryPoint: webfeatures/dummy/dummy
-`));
+`);
+
   test.eqPartial([
     {
-      entryPoint: "mod::example/webfeatures/dummy/dummy",
+      entryPoint: "mod::webhare_testsuite/webfeatures/dummy/dummy",
       supportedLanguages: [],
       whPolyfills: true,
     }
@@ -91,9 +90,16 @@ assetPacks:
 }
 
 async function testCompileerrors() {
+  const baseconfig = (await parseAssetPacks(`
+    assetPacks:
+      adhoc:
+        entryPoint: webfeatures/dummy/dummy
+        supportedLanguages: [en, nl]
+    `))[0];
+
   console.log("should properly detect broken scss");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es", true);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/broken-scss/broken-scss.es" }, true);
     test.assert(result.errors.length >= 1);
     test.assert(result.errors[0].message);
 
@@ -110,7 +116,7 @@ async function testCompileerrors() {
 
   console.log("should properly report relative broken imports");
   {
-    const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/simple-import-fail.es"), true);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "dependencies/simple-import-fail.es") }, true);
     test.assert(result.errors.length >= 1);
     test.assert(result.errors[0].message);
     test.assert(result.missingDependencies.includes("mod::webhare_testsuite/tests/publisher/assetpacks/dependencies/deeper/missing-here.ts"));
@@ -123,7 +129,7 @@ async function testCompileerrors() {
 
   console.log("should properly report broken location");
   {
-    const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/include-import-fail.es"), true);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "dependencies/include-import-fail.es") }, true);
     test.assert(result.errors.length >= 1);
     test.assert(result.errors[0].message);
 
@@ -138,7 +144,7 @@ async function testCompileerrors() {
 
   console.log("looking for a nonexisting node_module should register missingDependencies on node_modules");
   {
-    let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-module.es"), true);
+    let result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "dependencies/find-vendornamespace-module.es") }, true);
 
     test.assert(result.errors.length > 0);
 
@@ -154,7 +160,7 @@ async function testCompileerrors() {
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/index.es")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/package.json")));
 
-    result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet.scss"), true);
+    result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "dependencies/find-vendornamespace-stylesheet.scss") }, true);
     test.assert(result.errors.length > 0);
 
     missingdeps = mapDepPaths(result.missingDependencies);
@@ -163,7 +169,7 @@ async function testCompileerrors() {
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.sass")));
 
-    result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet-singlequote.scss"), true);
+    result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "dependencies/find-vendornamespace-stylesheet-singlequote.scss") }, true);
     test.assert(result.errors.length > 0);
 
     missingdeps = mapDepPaths(result.missingDependencies);
@@ -174,7 +180,7 @@ async function testCompileerrors() {
 
   console.log("verify compression");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/chunks", false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/chunks" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -197,7 +203,7 @@ async function testCompileerrors() {
 
   console.log("browser override in package.json works");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/data/browser-override", false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/data/browser-override" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -207,7 +213,7 @@ async function testCompileerrors() {
 
   console.log("Any package (or at least with ES files) includes the poyfill as dep (prod)");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es", false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/base-for-deps.es" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -217,7 +223,7 @@ async function testCompileerrors() {
 
   console.log("scss files dependencies");
   {
-    const result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/regressions.scss"), false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "dependencies/regressions.scss") }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -233,7 +239,7 @@ async function testCompileerrors() {
 
   console.log("rpc.json files pull in system/js/wh/rpc.ts as dependency (prod)");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.rpc.json", false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/base-for-deps.rpc.json" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -244,7 +250,7 @@ async function testCompileerrors() {
 
   console.log("lang.json files pull in extra dependencies");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.lang.json", true);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/base-for-deps.lang.json" }, true);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -256,7 +262,7 @@ async function testCompileerrors() {
 
   console.log("combine-deps pulls all these in as dependencies");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/combine-deps.es", true);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/combine-deps.es" }, true);
     console.log(result);
     test.assert(result.errors.length === 0);
 
@@ -279,7 +285,7 @@ async function testCompileerrors() {
 
   console.log("test other tricky dependencies");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/regressions.es", false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/regressions.es" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -294,7 +300,7 @@ async function testCompileerrors() {
   // Test for esbuild issue https://github.com/evanw/esbuild/issues/1657
   console.log("esbuild value collapse fix");
   {
-    const result = await compileAdhocTestBundle(path.join(__dirname, "optimizations/regressions.es"), false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: path.join(__dirname, "optimizations/regressions.es") }, false);
     test.assert(result.errors.length === 0);
 
     // Older versions of esbuild collapsed global values, i.e.
@@ -326,7 +332,7 @@ async function testCompileerrors() {
 
   console.log("TypeScript is working");
   {
-    let result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript.ts", false);
+    let result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/typescript/test-typescript.ts" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);
@@ -335,13 +341,13 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
 
-    result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
+    result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/typescript/test-typescript-in-js.ts" }, false); //verify we cannot load TypeScript in JS
     test.assert(result.errors.length > 0);
   }
 
   console.log("TypeScript with jsx is working");
   {
-    const result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript-jsx/test-typescript.tsx", false);
+    const result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/typescript-jsx/test-typescript.tsx" }, false);
     test.assert(result.errors.length === 0);
 
     const filedeps = mapDepPaths(result.fileDependencies);

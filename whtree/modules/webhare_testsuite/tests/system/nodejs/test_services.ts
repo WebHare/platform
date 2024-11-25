@@ -50,6 +50,14 @@ async function testServices() {
   //@ts-expect-error Verify invoking LoadJSFunction without a type signature is a TS error
   await loadJSFunction("@webhare/services#log");
 
+  test.eq(53, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#testSync53"))());
+  test.eq(58, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#default"))());
+  test.eq(58, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts"))());
+  test.eq(63, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-js.js#default"))());
+  test.eq(63, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-js.js"))());
+  test.eq(67, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs#default"))());
+  test.eq(67, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs"))());
+
   const runoncekey = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
   test.eq("TS RUNONCE!", runoncekey);
 
