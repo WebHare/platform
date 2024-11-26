@@ -362,7 +362,6 @@ async function testPlugins() {
       - plugin: node_modules/testplugin#loader
         pluginOptions:
         - regEx: "loadme"
-        - "ThisIsAPrefix:"
       - plugin: node_modules/testplugin#default
         pluginOptions:
         - regEx: "\\\\.txt4$"
