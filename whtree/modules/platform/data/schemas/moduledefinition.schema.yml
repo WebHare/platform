@@ -30,10 +30,6 @@ properties:
   moduleFileTypes:
     description: Register file types used to build modules
     $ref: "#/$defs/ModuleFileTypes"
-patternProperties:
-  "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties after x- (but no x-- and no funny chars)
-    type: object
-    tsType: unknown
 
 $defs:
   # managedServices are additional services to have the servicemanager start
