@@ -119,6 +119,12 @@ class IndyShell extends TolliumShell {
   applicationbar: ApplicationBar | null = null;
 
   towl = new TowlNotifications(this);
+  transportmgr = new TransportManager(
+    {
+      ononline: () => this._gotOnline(),
+      onoffline: () => this._gotOffline()
+    });
+  placeholderapp?: ApplicationBase;
 
   constructor(setup) {
     super(setup);
@@ -299,12 +305,6 @@ class IndyShell extends TolliumShell {
     window.addEventListener("dragover", evt => dompack.stop(evt));
     window.addEventListener("drop", evt => dompack.stop(evt));
 
-    this.transportmgr = new TransportManager(
-      {
-        ononline: () => this._gotOnline(),
-        onoffline: () => this._gotOffline()
-      });
-
     const appbar = document.getElementById('t-apptabs');
     if (appbar)
       this.applicationbar = new ApplicationBar(this, appbar);
@@ -351,10 +351,9 @@ class IndyShell extends TolliumShell {
             isloginapp: true
           });
 
-      if (this.placeholderapp) //we can close it now
-      {
+      if (this.placeholderapp) { //we can close it now
         this.placeholderapp.terminateApplication();
-        this.placeholderapp = null;
+        this.placeholderapp = undefined;
       }
       this.startuplock.release();
       return;
@@ -365,10 +364,9 @@ class IndyShell extends TolliumShell {
 
     data.settings.initialinstructions.forEach(instr => this.executeInstruction(instr));
 
-    if (this.placeholderapp) //we can close it now
-    {
+    if (this.placeholderapp) { //we can close it now
       this.placeholderapp.terminateApplication();
-      this.placeholderapp = null;
+      this.placeholderapp = undefined;
     }
 
     if (this.checkWasJustUpdated()) {
