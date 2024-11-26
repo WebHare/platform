@@ -1,15 +1,30 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import "./text.scss";
+import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 
 const linetextTopMargin = 5; //keep in sync with t-text.scss
 
-//import Keyboard from 'dompack/extra/keyboard';
+interface TextAttributes extends ComponentStandardAttributes, TextStyles {
+  labelfor: string;
+  transparenttoclicks: boolean;
+  selectable: boolean;
+  action: string;
+  linkactions: Array<{ url: string; action: string }>;
+  isheading?: boolean;
+  value: string;
+  ishtml: boolean;
+}
 
+interface TextStyles {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  wordwrap: boolean;
+  ellipsis: boolean;
+}
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -18,23 +33,28 @@ const linetextTopMargin = 5; //keep in sync with t-text.scss
  ****************************************************************************************************************************/
 
 export default class ObjText extends ComponentBase {
-  /****************************************************************************************************************************
-  * Initialization
-  */
-  constructor(parentcomp, data) {
+  componenttype = "text";
+  labelfor = "";
+
+  styles: TextStyles = {
+    bold: false,
+    italic: false,
+    underline: false,
+    wordwrap: false,
+    ellipsis: false
+  };
+  transparenttoclicks = false;
+  sethtml = false;
+  recreatenode = false;
+  isheading = false;
+  ismouseselectable = false;
+  linkactions: TextAttributes["linkactions"] = [];
+  value = '';
+  nodesize!: $todd.Size;
+  declare node: HTMLElement;
+
+  constructor(parentcomp: ToddCompBase, data: TextAttributes) {
     super(parentcomp, data);
-
-    this.componenttype = "text";
-    this.labelfor = null;
-
-    this.styles = null;
-    this.transparenttoclicks = false;
-    this.sethtml = false;
-    this.recreatenode = false;
-    this.isheading = false;
-    this.ismouseselectable = false;
-    this.linkactions = [];
-
 
     this.transparenttoclicks = data.transparenttoclicks;
 
@@ -51,20 +71,10 @@ export default class ObjText extends ComponentBase {
     this.setValue(data.value, data.ishtml);
   }
 
-  setStyles(settings) {
-    if (!this.styles) {
-      this.styles = {
-        bold: false,
-        italic: false,
-        underline: false,
-        wordwrap: false,
-        ellipsis: false
-      };
-    }
-
-    Object.keys(this.styles).forEach(key => {
-      if (typeof (settings[key]) === typeof (this.styles[key]))
-        this.styles[key] = settings[key];
+  setStyles(settings: TextStyles) {
+    (Object.keys(this.styles) as Array<keyof TextStyles>).forEach(key => {
+      if (typeof (settings[key]) === typeof (this.styles![key]))
+        this.styles![key] = settings[key];
     });
   }
 
@@ -76,17 +86,17 @@ export default class ObjText extends ComponentBase {
     return this.labelfor;
   }
 
-  setLabelFor(value) {
+  setLabelFor(value: string) {
     if (this.node)
       this.node.dataset.labelfor = value;
     this.labelfor = value;
   }
 
-  setValue(value, ishtml) {
+  setValue(value: string, ishtml?: boolean) {
     this.value = value;
     this.sethtml = Boolean(ishtml);
     this.buildNode();
-    if (!this.styles.ellipsis)
+    if (!this.styles?.ellipsis)
       this.width.dirty = true;
   }
 
@@ -132,11 +142,12 @@ export default class ObjText extends ComponentBase {
     }
 
     if (!this.transparenttoclicks)
-      txtnode.addEventListener("click", this.onClick.bind(this));
+      dompack.addDocEventListener(txtnode, "click", this.onClick.bind(this));
 
     txtnode.propTodd = this;
 
     this.nodesize = $todd.CalculateSize(txtnode);
+    console.log("Text node", this.value, this.nodesize);
 
     if (this.styles.ellipsis) //don't set width if ellipsis is applied
       this.nodesize.x = 0;
@@ -170,7 +181,8 @@ export default class ObjText extends ComponentBase {
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    dompack.setStyles(this.node, { width: this.width.set, height: this.height.set - linetextTopMargin });
+    this.node.style.width = this.width.set + 'px';
+    this.node.style.height = (this.height.set - linetextTopMargin) + 'px';
 
     if (this.styles.ellipsis)
       this.node.classList.toggle('overflow', this.width.set < this.width.min || this.height.set < this.height.min);
@@ -181,7 +193,7 @@ export default class ObjText extends ComponentBase {
   * Events
   */
 
-  applyUpdate(data) {
+  applyUpdate(data: ComponentBaseUpdate | { type: "value"; value: string; ishtml: boolean }) {
     switch (data.type) {
       case "value":
         this.setValue(data.value, data.ishtml);
@@ -190,7 +202,7 @@ export default class ObjText extends ComponentBase {
     super.applyUpdate(data);
   }
 
-  onClick(event) {
+  onClick(event: dompack.DocEvent<MouseEvent>) {
     const anchor = event.target.closest('a');
     if (anchor) {
       const rec = this.linkactions.find(action => action.url === anchor.href);
@@ -216,13 +228,8 @@ export default class ObjText extends ComponentBase {
     const comp = this.owner.getComponent(this.labelfor);
     if (comp) {
       //ADDME might as well send a signal through JS to the tollium component instead of trying to click, because checkbox is now doing hacks to forward the click event
-      comp.node.focus();
-      comp.node.click();
+      comp.node!.focus();
+      comp.node!.click();
     }
-  }
-
-  onTooltip(node) {
-    if (!this.styles.wordwrap && !this.styles.ellipsis && this.width.set < this.width.calc)
-      return this.node.textContent;
   }
 }

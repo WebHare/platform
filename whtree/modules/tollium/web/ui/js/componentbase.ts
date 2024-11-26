@@ -724,16 +724,6 @@ export class ToddCompBase {
   // Called before the component is added to another component
   onBeforeReparent() { }
 
-  // Called to get the component's tooltip
-  // Return a string to show as tooltip, or nothing to not show the tooltip
-  onTooltip() {
-    if (this.hint) {
-      //??Fixme
-      return true;
-    }
-    return false;
-  }
-
   onActionUpdated() {
   }
 
