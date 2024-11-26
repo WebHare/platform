@@ -32,8 +32,4 @@
   <div id="todd-measurements">
   </div>
 
-  <div class="webinterface__fontpreloader">
-    <span class="webinterface__fontpreloader__regularfont">0A</span>
-    <span class="webinterface__fontpreloader__monofont">0A</span>
-  </div>
 [/component]
