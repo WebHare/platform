@@ -19,6 +19,7 @@ compilerOptions:
   module: commonjs # as internally we're still require() based
   # our configuration
   baseUrl: .
+  allowImportingTsExtensions: true # TS 5.7 is starting a move back towards extensions, also to support stripping types. Enabling this now may help us to switch in the future
   jsx: react
   jsxFactory: dompack.jsxcreate
   jsxFragmentFactory: dompack.jsxfragment
