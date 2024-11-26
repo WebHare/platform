@@ -52,22 +52,20 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 rm -rf "$WEBHARE_HSBUILDCACHE" # Mostly useful on dev machines so the direct__ check later doesn't fail you
 (
   cd "$WEBHARE_DIR/modules" ;
-  for MODULE in system platform wrd publisher tollium consilio socialite; do
-    if [ "$MODULE" == "webhare_testsuite" ]; then
-      continue
+  # shellcheck disable=SC2207,SC2010
+  COREMODULES=( $(ls | grep -v webhare_testsuite) )
+  logWithTime "Precompiling HareScript code"
+  if ! wh compile --quiet --onlyerrors "${COREMODULES[@]}" ; then
+    if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
+      # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
+      echo "Ignoring failed compilation as WebHare may have been running during compilation"
+    else
+      echo "HareScript compile failed"
+      exit 1
     fi
+  fi
 
-    logWithTime "Precompiling module $MODULE"
-    if ! wh compile --quiet --onlyerrors "$MODULE" ; then
-      if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
-        # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
-        echo "Ignoring failed compile of $MODULE"
-      else
-        echo "Compile of $MODULE failed"
-        exit 1
-      fi
-    fi
-
+  for MODULE in "${COREMODULES[@]}"; do
     logWithTime "Creating history for module $MODULE" #TODO used for hotfix detection but can't we just go for a manifest based on modtimes and leave it at that ?
     mkdir -p "$MODULE/history"
     TZ=UTC zip --quiet --exclude "$MODULE/history/*" --exclude "platform/generated/*"  --recurse-paths "$MODULE/history/source.zip" "$MODULE"
@@ -90,7 +88,7 @@ gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
 
 logWithTime "Rebuild plaform:* assetpacks"
 rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platform/generated/ap.metadata"
-wh publisher:compile "platform:*"
+wh assetpack recompile --foreground "platform:*"
 
 logWithTime "Final checks"
 if ls "$WEBHARE_HSBUILDCACHE"/*direct* >/dev/null 2>&1 ; then
