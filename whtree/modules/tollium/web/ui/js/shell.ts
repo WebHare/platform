@@ -216,7 +216,7 @@ class IndyShell extends TolliumShell {
     if (this.settings.personalsettings)
       this.executeInstruction(this.settings.personalsettings);
   }
-  getApplicationById(id) {
+  getApplicationById(id: string) {
     for (let i = 0; i < $todd.applications.length; ++i)
       if ($todd.applications[i].whsid === id)
         return $todd.applications[i];

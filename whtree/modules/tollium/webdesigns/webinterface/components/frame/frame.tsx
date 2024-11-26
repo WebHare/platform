@@ -1515,7 +1515,7 @@ export default class Frame extends ToddCompBase {
            it will remain in pending messages, and be picked up by a later addComponent
         */
         this.pendingmessages[msg.target] = [msg];
-        component.applyUpdatedComp(msg);
+        component.applyUpdatedComp(msg as unknown as ComponentStandardAttributes);
       } else {
         this.debugLog("messages", "Message for component " + msg.target, msg);
         if (component)

@@ -77,6 +77,9 @@ export class ApplicationBase {
   //Application title
   title = getTid("tollium:shell.loadingapp");
 
+  /// Application id
+  whsid = '';
+
   //Is the app closing?
   private appIsClosing = false;
 
@@ -481,7 +484,7 @@ export class ApplicationBase {
       if (this.appcomm)
         this.appcomm.close();
       this.appcomm = null;
-      this.whsid = null;
+      this.whsid = '';
     }
 
     this.__startAppClose();
@@ -686,10 +689,6 @@ export class BackendApplication extends ApplicationBase {
 
   constructor(shell, appname, apptarget, parentapp, options) {
     super(shell, appname, apptarget, parentapp, options);
-
-    /// Application id
-    this.whsid = '';
-
 
     /// Frontend id used for this application
     this.frontendid = '';
@@ -1024,7 +1023,7 @@ export class BackendApplication extends ApplicationBase {
     this.__startAppClose();
 
     // Won't be referred by our whsid anymore
-    this.whsid = null;
+    this.whsid = '';
 
     if (!metamessage || (metamessage.type === "error" && !metamessage.errors.length)) {
       //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!
