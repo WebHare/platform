@@ -24,7 +24,6 @@ module.exports.loader = function (opts) {
   return {
     name: `testplugin-${++pluginNum}`,
     setup(build) {
-      // Load ".txt" files and return an array of words
       build.onLoad({ filter: filterRegExp }, async (args) => {
         return {
           loader: "file",

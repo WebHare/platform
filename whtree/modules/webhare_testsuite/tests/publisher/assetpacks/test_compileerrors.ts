@@ -377,7 +377,6 @@ async function testPlugins() {
     }
   ], packs);
 
-  console.log("TypeScript with jsx is working");
   {
     const result = await compileAdhocTestBundle({ ...packs[0], entryPoint: __dirname + "/data/useplugin/useplugin.ts" }, true);
     console.log(result.errors);
