@@ -49,6 +49,12 @@ program.command("recompile")
   .option("--onlyfailed", "Only recompile failed asset packs")
   .action(async (assetpacks, options) => {
     const bundles = await getBundles(assetpacks, { onlyfailed: options.onlyfailed });
+    if (!bundles.length) {
+      if (!program.opts().quiet)
+        console.log("No assetpacks to recompile");
+      return;
+    }
+
     for (const match of bundles)
       await (await getControlClient()).recompileBundle(match.outputtag);
 
@@ -133,12 +139,12 @@ async function getBundles(masks: string[], { onlyfailed = false } = {}) {
   const status = await (await getControlClient()).getStatus();
   const maskRegExp = masks.length ? regExpFromWildcards(masks) : null;
   const bundles = status.bundles
-    .filter(bundle => !onlyfailed || bundle.haserrors)
     .filter(bundle => maskRegExp ? maskRegExp.test(bundle.outputtag) : true)
     .toSorted((lhs, rhs) => lhs.outputtag.localeCompare(rhs.outputtag));
   if (!bundles.length)
     throw new Error(`No assetpacks match masks: ${masks.join(",")}`);
-  return bundles;
+
+  return bundles.filter(bundle => !onlyfailed || bundle.haserrors);
 }
 
 async function listBundles(masks: string[], withwatchcounts: boolean) {
