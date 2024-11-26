@@ -60,6 +60,8 @@ t-textedit {
       color: inherit;
       font-size: 12px;
       line-height: 16px;
+      //this makes the input appear to be min-width:0 and grow using the flex
+      width: 0;
 
       &:focus {
         @include tollium-input-focused;
