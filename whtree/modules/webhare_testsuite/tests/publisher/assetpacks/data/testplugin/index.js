@@ -18,3 +18,19 @@ module.exports = function (opts, prefix) {
     }
   };
 };
+
+module.exports.loader = function (opts) {
+  const filterRegExp = opts && opts.regEx ? new RegExp(opts.regEx) : /\.load$/;
+  return {
+    name: `testplugin-${++pluginNum}`,
+    setup(build) {
+      // Load ".txt" files and return an array of words
+      build.onLoad({ filter: filterRegExp }, async (args) => {
+        return {
+          loader: "file",
+          contents: Uint8Array.from(await fs.promises.readFile(args.path)),
+        };
+      });
+    }
+  };
+};

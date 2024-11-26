@@ -9,7 +9,7 @@ import * as path from "node:path";
 import * as zlib from "node:zlib";
 import * as child_process from "node:child_process";
 
-import { recompile } from '@mod-platform/js/assetpacks/compiletask';
+import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
 import { backendConfig, toFSPath, toResourcePath, WebHareBlob } from '@webhare/services';
 import { getYMLAssetPacks, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
@@ -20,34 +20,26 @@ function mapDepPaths(deps: string[]) {
   return deps.map(dep => toFSPath(dep, { allowUnmatched: true }) ?? dep);
 }
 
-async function compileAdhocTestBundle(config: AssetPack, isdev: boolean) {
-  const settings: RecompileSettings = {
-    bundle: {
-      config: config,
-      isdev: isdev,
-      outputpath: "/tmp/compileerrors-build-test/",
-    }
-  };
+async function compileAdhocTestBundle(config: AssetPack, dev: boolean) {
+  const settings: RecompileSettings = buildRecompileSettings(config, { dev });
   if (settings.bundle.config.entryPoint.startsWith('/'))
     settings.bundle.config.entryPoint = toResourcePath(settings.bundle.config.entryPoint);
-
-
   const result = await recompile(settings);
 
   JSON.stringify(result); //detect cycles etc;
   if (!result.messages.some(_ => _.type === "error")) {
     //verify the manifest
-    const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
+    const manifest = JSON.parse(fs.readFileSync(settings.bundle.outputpath + '/apmanifest.json').toString()) as AssetPackManifest;
     test.eq(1, manifest.version);
     if (!config.entryPoint.endsWith('.scss')) {
       test.assert(manifest.assets.find(file => file.subpath === 'ap.mjs' && !file.compressed && !file.sourcemap));
-      test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.gz' && file.compressed && !file.sourcemap));
-      test.eq(!isdev, manifest.assets.some(file => file.subpath === 'ap.mjs.br' && file.compressed && !file.sourcemap));
+      test.eq(!dev, manifest.assets.some(file => file.subpath === 'ap.mjs.gz' && file.compressed && !file.sourcemap));
+      test.eq(!dev, manifest.assets.some(file => file.subpath === 'ap.mjs.br' && file.compressed && !file.sourcemap));
     }
 
     manifest.assets.forEach(file => {
       const subpath = file.subpath;
-      const fullpath = path.join("/tmp/compileerrors-build-test/", subpath.toLowerCase());
+      const fullpath = path.join(settings.bundle.outputpath, subpath.toLowerCase());
       if (!fs.existsSync(fullpath))
         throw new Error(`Missing file ${fullpath}`);
     });
@@ -63,7 +55,8 @@ async function compileAdhocTestBundle(config: AssetPack, isdev: boolean) {
   return {
     ...result,
     errors: result.messages.filter(_ => _.type === "error"),
-    warnings: result.messages.filter(_ => _.type === "warning")
+    warnings: result.messages.filter(_ => _.type === "warning"),
+    outputpath: settings.bundle.outputpath
   };
 }
 
@@ -190,15 +183,15 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/async.ts")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
 
-    const manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/apmanifest.json").toString()) as AssetPackManifest;
+    const manifest = JSON.parse(fs.readFileSync(result.outputpath + "/apmanifest.json").toString()) as AssetPackManifest;
     // console.log(manifest.assets);
     const chunks = manifest.assets.filter(file => file.subpath.match(/^async-.*mjs$/));
     test.eq(1, chunks.length, "Expecting only one additional chunk to be generated");
     const chunkAsBr = manifest.assets.find(file => file.subpath === chunks[0].subpath + ".br");
     test.assert(chunkAsBr);
 
-    const origsource = fs.readFileSync("/tmp/compileerrors-build-test/" + chunks[0].subpath.toLowerCase()).toString();
-    const decompressedsource = zlib.brotliDecompressSync(fs.readFileSync("/tmp/compileerrors-build-test/" + chunkAsBr.subpath.toLowerCase())).toString();
+    const origsource = fs.readFileSync(path.join(result.outputpath, chunks[0].subpath.toLowerCase())).toString();
+    const decompressedsource = zlib.brotliDecompressSync(fs.readFileSync(path.join(result.outputpath, chunkAsBr.subpath.toLowerCase()))).toString();
     test.eq(origsource, decompressedsource);
   }
 
@@ -231,7 +224,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/regressions.scss")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/deeper/deeper.scss")));
 
-    const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
+    const css = fs.readFileSync(result.outputpath + "/ap.css").toString();
     const urls = [...css.matchAll(/(url\(.*\))/g)].map(_ => _[1]);
     test.assert(urls.length === 1);
     test.assert(urls[0].startsWith("url("));
@@ -293,7 +286,7 @@ async function testCompileerrors() {
 
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/dompack/browserfix/reset.css")));
 
-    const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
+    const css = fs.readFileSync(result.outputpath + "/ap.css").toString();
     test.assert(css.match(/.test2{.*margin-left:1px.*}/));
     test.assert(css.match(/.test3{.*margin-left:2px.*}/));
   }
@@ -312,7 +305,7 @@ async function testCompileerrors() {
     //   became
     //    margin: 0 unset;
 
-    const css = fs.readFileSync("/tmp/compileerrors-build-test/ap.css").toString();
+    const css = fs.readFileSync(result.outputpath + "/ap.css").toString();
     test.assert(css.match(/.test1a{.*margin-left:unset.*}/));
     test.assert(css.match(/.test1a{.*padding-left:initial.*}/));
     // Check if numerical values are collapsed properly
@@ -366,6 +359,10 @@ async function testPlugins() {
       entryPoint: webfeatures/dummy/dummy
       esBuildPlugins:
       - plugin: node_modules/testplugin
+      - plugin: node_modules/testplugin#loader
+        pluginOptions:
+        - regEx: "loadme"
+        - "ThisIsAPrefix:"
       - plugin: node_modules/testplugin#default
         pluginOptions:
         - regEx: "\\\\.txt4$"
@@ -392,11 +389,15 @@ async function testPlugins() {
     test.assert(filedeps.includes(path.join(__dirname, "data/useplugin/h4.txt4")));
 
     //Run the script to ensure it made sense
-    const spawnResult = child_process.spawnSync("node", ["/tmp/compileerrors-build-test/ap.mjs"], { stdio: "pipe" });
-    test.eq({
+    const spawnResult = child_process.spawnSync("node", [result.outputpath + "/ap.mjs"], { stdio: "pipe" });
+    const parsedResult = JSON.parse(spawnResult.stdout.toString());
+    test.eqPartial({
       h1: 'Test,one,begins,now,,Steps,unfold,with,steady,grace,,Truth,in,numbers,speaks,',
       h4: 'ThisIsAPrefix:Test,four,looms,ahead,,Quiet,minds,seek,hidden,truths,,Answers,soon,revealed.,'
-    }, JSON.parse(spawnResult.stdout.toString()));
+    }, parsedResult);
+
+    const h7 = await (await fetch(backendConfig.backendURL + parsedResult.loadpath)).text();
+    test.eq('Load this using fetch!', h7.trim());
   }
 }
 

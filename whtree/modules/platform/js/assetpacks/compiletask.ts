@@ -20,6 +20,7 @@ import { buildRPCLoaderPlugin } from './rpcloader';
 import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhareconstants';
 import type { ValidationMessageWithType } from '../devsupport/validation';
 import { loadJSFunction } from '@mod-system/js/internal/resourcetools';
+import { getAssetPackBase } from '../concepts/frontend';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -207,7 +208,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       sourcefile: "/entrypoint.js",
       resolveDir: "/"
     },
-    publicPath: '',
+    publicPath: getAssetPackBase(bundle.config.name),
     absWorkingDir: '/',
     bundle: true,
     minify: !bundle.isdev,
