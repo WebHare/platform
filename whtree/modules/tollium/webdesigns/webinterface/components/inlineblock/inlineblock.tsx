@@ -122,7 +122,7 @@ export default class ObjInlineBlock extends ComponentBase {
   // Build the DOM node(s) for this component
   buildNode() {
     this.node =
-      <t-inlineblock data-name={this.name} onMousedown={e => this.mouseDownNoFocusSteal(e)} propTodd={this}>
+      <t-inlineblock data-name={this.name} propTodd={this}>
         {this.nodearea = <div class="panel-area" />}
       </t-inlineblock>;
 

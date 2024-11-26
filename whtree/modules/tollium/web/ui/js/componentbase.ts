@@ -440,21 +440,6 @@ export class ToddCompBase {
     return this.node.contains(document.activeElement);
   }
 
-  getToddElementForNode(node) {
-    for (; node; node = node.parentNode)
-      if (node.getAttribute && node.getAttribute('data-name'))
-        return node.getAttribute('data-name');
-    return null;
-  }
-  //prevent stealing focus, _if_ the click landed in a dom element owned by this element
-  mouseDownNoFocusSteal(event) {
-    if (this.getToddElementForNode(event.target) === this.name) {
-      console.log("*** mouseDownNoFocusSteal on '" + this.name + "' WOULD have tried to prevent this focus"); //FIXME remove this warning if nothing broke because of it
-      //console.warn("onmousedown on '" + this.name + "' preventing loss of focus"); //FIXME remove this warning if nothing broke because of it
-      //event.preventDefault();
-    }
-    return true;
-  }
   /****************************************************************************************************************************
   * Property getters & setters
   */
