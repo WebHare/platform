@@ -1,5 +1,5 @@
 // as we can't import Blob from libworker
-// we'll have to trigger it through reference to ensure TSC understands Blob here as the MDN Blob (compatible with frontend code) and not the NodeJS Blob (annoyingly using differnet ReadableStream types)
+// we'll have to trigger it through reference to ensure TSC understands Blob here as the MDN Blob (compatible with frontend code) and not the NodeJS Blob (annoyingly using different ReadableStream types)
 /// <reference lib="webworker"/>
 
 import { ReadableStream } from "node:stream/web";
