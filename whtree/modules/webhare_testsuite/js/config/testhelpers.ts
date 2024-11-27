@@ -1,5 +1,7 @@
+import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
 import { HSVMObject, loadlib } from "@webhare/harescript";
 import { WebHareBlob, backendConfig } from "@webhare/services";
+import { parseModuleDefYMLText, type ModDefYML } from "@webhare/services/src/moduledefparser";
 import * as test from "@webhare/test";
 
 export async function installTestModule(name: string, files: Record<string, string>) {
@@ -29,4 +31,11 @@ export async function installTestModule(name: string, files: Record<string, stri
 //TODO does this need to be a testapi? or something for a @webhare/config ?
 export async function deleteTestModule(name: string) {
   await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule(name);
+}
+
+export async function parseAndValidateModuleDefYMLText(yaml: string, { module = "webhare_testsuite" } = {}): Promise<ModDefYML> {
+  const validationresult = await runJSBasedValidator(WebHareBlob.from(yaml), `mod::${module}/moduledefinition.yml`);
+  test.eq([], validationresult.errors);
+  test.eq([], validationresult.warnings);
+  return parseModuleDefYMLText(module, yaml);
 }

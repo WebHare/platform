@@ -2,6 +2,7 @@ import { backendConfig, resolveResource, toFSPath } from "@webhare/services";
 import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { ServiceDefinition, Stage } from './smtypes';
 import { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
+import { matchesThisServer } from "@mod-system/js/internal/generation/shared";
 
 const earlywebserver = process.env.WEBHARE_WEBSERVER === "node";
 
@@ -94,21 +95,30 @@ function getServiceCommand(mod: ModDefYML, servicedef: ManagedServices[number]):
   return getRawCommand(resolveResource(mod.baseResourcePath, servicedef.script), servicedef.engine, servicedef.arguments || []);
 }
 
+export function gatherManagedServicesFromModDef(mod: ModDefYML): Record<string, ServiceDefinition> {
+  const services: Record<string, ServiceDefinition> = {};
+
+  if (mod.managedServices)
+    for (const [name, servicedef] of Object.entries(mod.managedServices)) {
+      if (servicedef?.ifWebHare && !matchesThisServer(servicedef?.ifWebHare))
+        continue;
+      if (servicedef?.script) {
+        services[`${mod.module}:${name}`] = {
+          cmd: getServiceCommand(mod, servicedef),
+          startIn: Stage.Active,
+          run: servicedef.run
+        };
+      }
+    }
+
+  return services;
+}
+
 export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
   const services: Record<string, ServiceDefinition> = {};
 
-  for (const mod of await getAllModuleYAMLs()) {
-    if (mod.managedServices)
-      for (const [name, servicedef] of Object.entries(mod.managedServices)) {
-        if (servicedef?.script) {
-          services[`${mod.module}:${name}`] = {
-            cmd: getServiceCommand(mod, servicedef),
-            startIn: Stage.Active,
-            run: servicedef.run
-          };
-        }
-      }
-  }
+  for (const mod of await getAllModuleYAMLs())
+    Object.assign(services, gatherManagedServicesFromModDef(mod));
 
   return services;
 }

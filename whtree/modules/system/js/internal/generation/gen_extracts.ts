@@ -123,7 +123,7 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
   return packs;
 }
 
-export function getYMLAssetPacks(mod: string, modYml: ModDefYML): AssetPack[] {
+export function getYMLAssetPacks(modYml: ModDefYML): AssetPack[] {
   const packs: AssetPack[] = [];
   if (modYml.assetPacks)
     for (const [name, assetpack] of Object.entries(modYml.assetPacks)) {
@@ -135,13 +135,13 @@ export function getYMLAssetPacks(mod: string, modYml: ModDefYML): AssetPack[] {
         });
 
       packs.push(makeAssetPack({
-        name: addModule(mod, name),
+        name: addModule(modYml.module, name),
         entryPoint: resolveResource(modYml.baseResourcePath, assetpack.entryPoint),
         supportedLanguages: [...new Set(assetpack.supportedLanguages)],
         compatibility: assetpack.compatibility || whconstant_default_compatibility,
         whPolyfills: assetpack.whPolyfills ?? true,
         environment: "window", //TODO can we remove this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
-        afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
+        afterCompileTask: addModule(modYml.module, assetpack.afterCompileTask || ""),
         esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
         esBuildPlugins,
         extraRequires: []
@@ -179,7 +179,7 @@ export function generateAssetPacks(context: GenerateContext): string {
       addto.push(...getXMLAddToPacks(mod.name, mod.resourceBase, mod.modXml));
     }
     if (mod.modYml) {
-      assetpacks.push(...getYMLAssetPacks(mod.name, mod.modYml));
+      assetpacks.push(...getYMLAssetPacks(mod.modYml));
     }
   }
 

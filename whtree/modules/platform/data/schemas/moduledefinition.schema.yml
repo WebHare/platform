@@ -36,6 +36,49 @@ patternProperties:
     tsType: unknown
 
 $defs:
+  # Server DTAP stages
+  DtapStage:
+    type: string
+    enum:
+      - development
+      - test
+      - acceptance
+      - production
+
+  # IfWebHare rules restrict configuration rules to specific installations or versions
+  IfWebHare:
+    type: object
+    additionalProperties: false
+    properties:
+      whVersion:
+        type: string
+        description: "WebHare version to apply the rule to"
+      dtapStages:
+        description: "DTAP stages to which the rule applies"
+        type: array
+        items:
+          $ref: "#/$defs/DtapStage"
+      serverNames:
+        description: "Restrict to specific servers (by server name)"
+        type: array
+        items:
+          type: string
+      envVars:
+        description: "Only apply if the environment variable is set"
+        type: array
+        items:
+          type: string
+      ifModules:
+        description: "Only apply if the specific modules are installed"
+        type: array
+        items:
+          type: string
+      not:
+        description: "Specifies as set of restrictions of which neither should be met"
+        type: array
+        items:
+          $ref: "#/$defs/IfWebHare"
+
   # managedServices are additional services to have the servicemanager start
   ManagedServices:
     type: object
@@ -65,6 +108,9 @@ $defs:
             enum:
               - native
               - wasm
+          ifWebHare:
+            description: "Restrict service to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
         required:
           - script
           - run

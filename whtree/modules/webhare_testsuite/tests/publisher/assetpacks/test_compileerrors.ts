@@ -11,10 +11,9 @@ import * as child_process from "node:child_process";
 
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
 import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
-import { backendConfig, toFSPath, toResourcePath, WebHareBlob } from '@webhare/services';
+import { backendConfig, toFSPath, toResourcePath } from '@webhare/services';
 import { getYMLAssetPacks, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
-import { parseModuleDefYMLText } from '@webhare/services/src/moduledefparser';
-import { runJSBasedValidator } from '@mod-platform/js/devsupport/validation';
+import { parseAndValidateModuleDefYMLText } from '@mod-webhare_testsuite/js/config/testhelpers';
 
 function mapDepPaths(deps: string[]) {
   return deps.map(dep => toFSPath(dep, { allowUnmatched: true }) ?? dep);
@@ -60,19 +59,12 @@ async function compileAdhocTestBundle(config: AssetPack, dev: boolean) {
   };
 }
 
-async function parseAssetPacks(moduledef: string) {
-  const validationresult = await runJSBasedValidator(WebHareBlob.from(moduledef), "mod::webhare_testsuite/moduledefinition.yml");
-  test.eq([], validationresult.errors);
-  test.eq([], validationresult.warnings);
-  return getYMLAssetPacks('webhare_testsuite', parseModuleDefYMLText('webhare_testsuite', moduledef));
-}
-
 async function testConfigParser() {
-  const packs = await parseAssetPacks(`
+  const packs = getYMLAssetPacks(await parseAndValidateModuleDefYMLText(`
 assetPacks:
   dummy:
     entryPoint: webfeatures/dummy/dummy
-`);
+`));
 
   test.eqPartial([
     {
@@ -84,7 +76,7 @@ assetPacks:
 }
 
 async function testCompileerrors() {
-  const baseconfig = (await parseAssetPacks(`
+  const baseconfig = getYMLAssetPacks(await parseAndValidateModuleDefYMLText(`
     assetPacks:
       adhoc:
         entryPoint: webfeatures/dummy/dummy
@@ -353,7 +345,7 @@ async function testCompileerrors() {
 }
 
 async function testPlugins() {
-  const packs = await parseAssetPacks(`
+  const packs = getYMLAssetPacks(await parseAndValidateModuleDefYMLText(`
   assetPacks:
     dummy:
       entryPoint: webfeatures/dummy/dummy
@@ -366,7 +358,7 @@ async function testPlugins() {
         pluginOptions:
         - regEx: "\\\\.txt4$"
         - "ThisIsAPrefix:"
-  `);
+  `));
 
   test.eqPartial([
     {
