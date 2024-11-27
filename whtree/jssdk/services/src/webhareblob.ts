@@ -1,3 +1,7 @@
+// as we can't import Blob from libworker
+// we'll have to trigger it through reference to ensure TSC understands Blob here as the MDN Blob (compatible with frontend code) and not the NodeJS Blob (annoyingly using different ReadableStream types)
+/// <reference lib="webworker"/>
+
 import { ReadableStream } from "node:stream/web";
 import { arrayBuffer, text } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
@@ -6,14 +10,15 @@ import { createReadStream, readFileSync } from "node:fs";
 import { Readable } from "node:stream";
 import { brandWebhareBlob } from "./symbols";
 
-
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
-export abstract class WebHareBlob {
+export abstract class WebHareBlob implements Blob {
   private readonly _size: number;
+  private readonly _type: string;
   private [brandWebhareBlob] = true;
 
-  constructor(size: number) {
+  constructor(size: number, type: string) {
     this._size = size;
+    this._type = type;
   }
 
   static isWebHareBlob(thingy: unknown): thingy is WebHareBlob {
@@ -54,15 +59,32 @@ export abstract class WebHareBlob {
     return this._size;
   }
 
+  ///Get the MIME type of this blob. empty if unknown
+  get type(): string {
+    return this._type;
+  }
+
   ///Get the blob contents as a utf8 encoded string
   async text(): Promise<string> {
-    return await text(await this.getStream());
+    return await text(this.stream());
+  }
+
+  ///Get the bytes in this blob
+  async bytes(): Promise<Uint8Array> {
+    const array = new Uint8Array(this.size);
+    //convert ReadableStream to uint8array
+    let offset = 0;
+    for await (const chunk of this.stream()) {
+      array.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return array;
   }
 
   /** Get the blob contents as an ArrayBuffer. You should be careful with this API on large blobs (especially 10MB and above) as
    * they will be fully loaded into the JavaScript heap and may cause memory pressure. */
   async arrayBuffer(): Promise<ArrayBuffer> {
-    return await arrayBuffer(await this.getStream());
+    return await arrayBuffer(this.stream());
   }
 
   ///Get the contents synchronously, This is needed for the blob to support setJSValue
@@ -75,19 +97,27 @@ export abstract class WebHareBlob {
     //Only overridden by HSVM
   }
 
-  //TODO should this be sync? ReadableStream has plenty of async support ?
-  abstract getStream(): Promise<ReadableStream<Uint8Array>>;
+  abstract stream(): ReadableStream<Uint8Array>;
+
+  /** @deprecated Use stream() instead */
+  async getStream(): Promise<ReadableStream<Uint8Array>> {
+    return this.stream();
+  }
+
+  slice(start?: number, end?: number, contentType?: string): Blob {
+    throw new Error("Method not implemented.");
+  }
 }
 
 export class WebHareMemoryBlob extends WebHareBlob {
   readonly data: Uint8Array;
 
-  constructor(data: Uint8Array) {
-    super(data.length);
+  constructor(data: Uint8Array, type = "") {
+    super(data.length, type);
     this.data = data;
   }
 
-  async getStream(): Promise<ReadableStream<Uint8Array>> {
+  stream(): ReadableStream<Uint8Array> {
     const data = this.data;
     return new ReadableStream({
       start(controller) {
@@ -105,12 +135,12 @@ export class WebHareMemoryBlob extends WebHareBlob {
 export class WebHareDiskBlob extends WebHareBlob {
   readonly path: string;
 
-  constructor(size: number, path: string) {
-    super(size);
+  constructor(size: number, path: string, type = '') {
+    super(size, type);
     this.path = path;
   }
 
-  async getStream(): Promise<ReadableStream<Uint8Array>> {
+  stream(): ReadableStream<Uint8Array> {
     return Readable.toWeb(createReadStream(this.path, { start: 0, end: this.size }));
   }
 
@@ -119,16 +149,18 @@ export class WebHareDiskBlob extends WebHareBlob {
   }
 }
 
-/** Wraps a JS Blob as a WebHareBlob */
+/** Wraps a JS Blob as a WebHareBlob
+ * @deprecated APIs you want to invoke with a WebHareNativeBlob should probably take a Blob instead
+*/
 export class WebHareNativeBlob extends WebHareBlob {
   readonly blob: Blob;
 
   constructor(blob: Blob) {
-    super(blob.size);
+    super(blob.size, blob.type);
     this.blob = blob;
   }
 
-  async getStream(): Promise<ReadableStream<Uint8Array>> {
+  stream(): ReadableStream<Uint8Array> {
     //@ts-ignore NodeJS is misunderstanding the types
     return this.blob.stream();
   }
