@@ -4,8 +4,17 @@ import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/conf
 import * as test from "@webhare/test";
 
 async function testApplicability() {
-  const baseApplicability = getMyApplicabilityInfo({ unsafeEnv: true });
+  const baseApplicability = getMyApplicabilityInfo();
+  baseApplicability.version = "5.6.1";
   test.eq(null, getApplicabilityError(baseApplicability, { ifModules: ["system"] }));
+  test.eq(null, getApplicabilityError(baseApplicability, { whVersion: ">= 5.6.0" }));
+  test.eq(/not a valid semver/, getApplicabilityError(baseApplicability, { whVersion: ">= .1" }));
+  test.eq(/.*5\.6\.1.*does not satisfy range: <5\.6\.0/, getApplicabilityError(baseApplicability, { whVersion: "<  5.6.0" }));
+
+  baseApplicability.version = "";
+  baseApplicability.versionnum = 40800;
+  test.eq(null, getApplicabilityError(baseApplicability, { whVersion: ">=4.8.0" }));
+  test.eq(/WebHare version '4\.8\.0' does not satisfy range: >=5\.6\.0/, getApplicabilityError(baseApplicability, { whVersion: ">= 5.6.0" }));
 
   const servicedefs = gatherManagedServicesFromModDef(await parseAndValidateModuleDefYMLText(`
 managedServices:
