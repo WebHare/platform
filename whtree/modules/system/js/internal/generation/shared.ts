@@ -131,7 +131,7 @@ export function readApplicableToWebHareNode(xmlnode: Element, prefix: string): I
 
   const unlessenvironset = getAttr(xmlnode, prefix + "unlessenvironset", []);
   if (unlessenvironset.length > 0) {
-    /* envVars (ifenvironset) requires *all* vars to match before it evaluates to treue
+    /* envVars (ifenvironset) requires *all* vars to match before it evaluates to true
        unlessenvironset should *fail* if *any* of the vars match. so we need to rewrite it to many 'not envSet' checks to get
        the same effect( otherwise it would only fail if *all* unlessEnvironSet vars are set */
     restrictions.not = unlessenvironset.map((envvar) => ({ envVars: [envvar] }));
