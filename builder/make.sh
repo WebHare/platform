@@ -64,6 +64,7 @@ class WebhareDeps < Formula
   depends_on "autoconf"
   depends_on "automake"
   depends_on "ccache"
+  depends_on "eslint"
   depends_on "freetype"
   depends_on "fswatch"
   depends_on "giflib"

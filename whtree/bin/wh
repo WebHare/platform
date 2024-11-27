@@ -35,10 +35,6 @@ check_webhare_not_running()
 ## Main code
 DEBUGSTARTUP=""
 
-if [ "$WEBHARE_PLATFORM" == "darwin" ]; then #macoS
-  export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
-fi
-
 if [[ $WEBHARE_DEBUG =~ ((^|[,])startup([,]|$))+ ]] ; then
   DEBUGSTARTUP=1
 fi
