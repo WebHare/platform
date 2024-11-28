@@ -21,8 +21,6 @@ PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD
   IF( fielddef.type = "pulldown")
     fielddef := CELL[...fielddef, placeholder := node->GetAttribute("placeholder")];
 
-    fielddef.placeholder := node->GetAttribute("placeholder");
-
   INSERT CELL wrdschema := node->GetAttribute("wrdschema")
             , has_wrdschema := node->HasAttribute("wrdschema")
             , providerfield := node->GetAttribute("providerfield")
