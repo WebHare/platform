@@ -46,15 +46,41 @@ MACRO ImportTask(STRING ARRAY params)
     TerminateScriptWithError("");
   }
 
-  RECORD task := DecodeHSONBlob(subargs.path = "-" ? GetSTDINAsBlob() : GetDiskResource(subargs.path));
+  BLOB input := subargs.path = "-" ? GetSTDINAsBlob() : GetDiskResource(subargs.path);
+  BOOLEAN ishson := BlobToString(input,5) = "hson:"; //Pre WH5.7 task format
+  RECORD task := ishson ? DecodeHSONBlob(input) : DecodeJSONBlob(input);
+
   task := EnforceStructure([__taskmeta := [ type := "" ]], task);
   IF(task.__taskmeta.type != "managedtask")
     THROW NEW Exception(`Unrecognized task type '${task.__taskmeta.type}`);
 
   //DumpValue(task);
-  //FIXME priority
   GetPrimary()->BeginWork();
-  INTEGER taskid := ScheduleManagedTask(task.tasktype, task.taskdata, [ auxdata := task.auxdata ]);
+  INTEGER taskid;
+  IF(ishson)
+  {
+    taskid := ScheduleManagedTask(task.tasktype, task.taskdata, [ auxdata := task.auxdata ]);
+  }
+  ELSE
+  {
+    //This is raw db data. Can't use ScheduleManagedTask as that would break JSON data
+    BLOB auxdata := StringToBlob(DecodeBase64(task.auxdata));
+    RECORD taskinfo := GetTaskTypeSettings(task.tasktype, FALSE);
+    taskid := MakeAutonumber(system_internal.managedtasks, "id");
+    INSERT [ id := taskid
+           , creationdate := GetCurrentDateTime()
+           , nextattempt := GetCurrentDateTime()
+           , tasktype := task.tasktype
+           , taskdata := task.taskdata
+           , auxdata := auxdata
+           , workertype := taskinfo.workertype
+           , priority := taskinfo.priority
+           , timeout := taskinfo.timeout
+           ] INTO system.managedtasks;
+
+    GetPrimary()->BroadcastOnCommit("system:managedtasks.any.new", DEFAULT RECORD);
+    GetPrimary()->BroadcastOnCommit("system:managedtasks." || task.tasktype || ".new", DEFAULT RECORD);
+  }
   GetPrimary()->CommitWork();
   Print(`Created task 'm${taskid}'\n`);
 }
@@ -81,10 +107,10 @@ MACRO ExportTask(STRING ARRAY params)
       THROW NEW Exception(`No such managed task #${gettaskid}`);
 
     taskdata := CELL[ task.tasktype
-                    , priority := "" //FIXME
-                    , taskdata := DecodeHSON(task.taskdata)
-                    , auxdata := DecodeHSONBlob(task.auxdata)
+                    , taskdata := task.taskdata
+                    , auxdata := EncodeBase64(BlobToString(task.auxdata))
                     , __taskmeta := [ type := "managedtask"
+                                    , encoded := FALSE
                                     , webhare := GetWebhareVersionNumber()
                                     , source := GetServerName()
                                     , exported := GetCurrentDatetime()
@@ -99,11 +125,11 @@ MACRO ExportTask(STRING ARRAY params)
 
   IF(subargs.path = "-")
   {
-    Print(EncodeHSON(taskdata) || "\n");
+    Print(EncodeJSON(taskdata) || "\n");
   }
   ELSE
   {
-    StoreDiskFile(subargs.path, EncodeHSONBlob(taskdata));
+    StoreDiskFile(subargs.path, EncodeJSONBlob(taskdata));
   }
 }
 
