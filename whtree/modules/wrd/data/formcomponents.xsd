@@ -28,6 +28,18 @@
       <xs:attribute name="wrdschema" type="xs:string" />
       <xs:attribute name="paymentfield" type="xs:string" />
       <xs:attribute name="providerfield" type="xs:string" />
+      <xs:attribute name="type" default="radio">
+        <xs:simpleType>
+          <xs:list>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="radio" />
+                <xs:enumeration value="pulldown" />
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:list>
+        </xs:simpleType>
+      </xs:attribute>
       <xs:attribute name="optiontypes">
         <xs:simpleType>
           <xs:list>
