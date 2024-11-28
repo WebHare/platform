@@ -16,6 +16,8 @@ LOADLIB "mod::wrd/lib/payments.whlib";
 
 PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD parsecontext)
 {
+  fielddef.type := node->GetAttribute("type");
+
   INSERT CELL wrdschema := node->GetAttribute("wrdschema")
             , has_wrdschema := node->HasAttribute("wrdschema")
             , providerfield := node->GetAttribute("providerfield")
@@ -62,7 +64,7 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 
     //Always create the payment method. If it's empty, we want to see that for easier figuring out what's going on! And it still needs to be able to enforce 'required' then. Plus our props refer to it.
     this->paymentmethodselect := this->CreateSubField("select", "paymentmethod");
-    this->paymentmethodselect->type := "radio";
+    this->paymentmethodselect->type := field.type ?? "radio";
     this->paymentmethodselect->htmltitle := this->htmltitle;
     this->paymentmethodselect->required := this->required;
     this->paymentmethodselect->requiredcondition := this->requiredcondition;
