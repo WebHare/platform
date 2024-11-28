@@ -3,6 +3,7 @@ import * as services from "@webhare/services";
 import { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
 import { Rotation } from "@webhare/services/src/descriptor";
+import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
 
 async function testResolve() {
   test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
@@ -124,6 +125,11 @@ async function testWebHareBlobs() {
   //test temporary? compatibility
   test.eq("Hello, World", Buffer.from(await helloblob.arrayBuffer()).toString('utf8'));
   test.eq("This is a testfile\n", Buffer.from(await diskblob.arrayBuffer()).toString('utf8'));
+
+  //test TSC Blob compatibility issues
+  const msgs = await checkUsingTSC("webhare_testsuite", { files: [__dirname + "/data/blob-types.ts"] });
+  console.log(msgs);
+  test.eq([], msgs);
 }
 
 async function testResourceDescriptors() {
