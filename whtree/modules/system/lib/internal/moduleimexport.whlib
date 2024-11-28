@@ -193,9 +193,10 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
 
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
 
-  GetPrimary()->BeginWork();
-  ScheduleTimedTask("system:uploadstatus"); //update any external module list watchers
-  GetPrimary()->CommitWork();
+  /* Switching over to separate primary so we don't crash if a RunTestFramework with ( [ usedatabase := FALSE ]) comes along
+     TODO: Ideally we'd "know" if webhare is up or down, and would only attempt to schedule the task if webhare is actually running
+  */
+  RunInSeparatePrimary(PTR ScheduleTimedTask("system:uploadstatus"), [ work := TRUE ]); //update any external module list watchers
 
   RETURN success;
 }
