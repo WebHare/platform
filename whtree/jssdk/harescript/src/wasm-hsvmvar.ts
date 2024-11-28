@@ -20,8 +20,8 @@ function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
 class HSVMBlob extends WebHareBlob {
   blob: HSVMHeapVar | null;
 
-  constructor(blob: HSVMHeapVar, size: number) {
-    super(size);
+  constructor(blob: HSVMHeapVar, size: number, type = '') {
+    super(size, type);
     this.blob = blob;
   }
 
@@ -45,7 +45,7 @@ class HSVMBlob extends WebHareBlob {
     }
   }
 
-  async getStream(): Promise<ReadableStream<Uint8Array>> {
+  stream(): ReadableStream<Uint8Array> {
     const data = this.__getAsSyncUInt8Array();
     return new ReadableStream<Uint8Array>({
       start(controller) {
