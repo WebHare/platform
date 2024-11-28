@@ -263,10 +263,18 @@ function testDateTime() {
   test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P1Yb"));
 
   test.eq(new Date("2022-04-03"), std.addDuration(new Date("2022-04-02"), { days: 1 }));
+  test.eq(new Date("2022-04-01"), std.addDuration(new Date("2022-04-02"), { sign: "-", days: 1 }));
   test.eq(new Date("1917-01-02T20:00:00Z"), std.addDuration(globalstamp, "PT55H25M4S"));
   test.eq(new Date("1918-01-02T20:00:00Z"), std.addDuration(globalstamp, "P365DT55H25M4S"));
   test.eq(new Date("1926-11-09T12:34:56Z"), std.addDuration(globalstamp, "P3600D"));
   test.eq(new Date("1916-12-31T12:34:56.789Z"), std.addDuration(globalstamp, "PT0.789S"));
+
+  test.eq(new Date("2022-04-01"), std.subtractDuration(new Date("2022-04-02"), { days: 1 }));
+  test.eq(new Date("2022-04-03"), std.subtractDuration(new Date("2022-04-02"), { sign: "-", days: 1 }));
+  test.eq(new Date("1916-12-31T00:00:00Z"), std.subtractDuration(globalstamp, "PT12H34M56S"));
+  test.eq(new Date("1915-12-31T00:00:00Z"), std.subtractDuration(globalstamp, "P366DT12H34M56S"));
+  test.eq(new Date("1907-02-22T12:34:56Z"), std.subtractDuration(globalstamp, "P3600D"));
+  test.eq(new Date("1916-12-31T12:34:55.211Z"), std.subtractDuration(globalstamp, "PT0.789S"));
 
   const testdate = std.addDuration(globalstamp, "PT0.123S");
   test.eq("1916-12-31T12:34:56.123Z", JSON.parse(std.stringify(testdate)));

@@ -320,6 +320,7 @@ case $INSTR in
   "execbuilt")
     setup_for_console
     getwhparameters
+    setup_builddir
 
     DBGARGS=();
     if [ "$1" == "--dbg" ]; then
