@@ -1,6 +1,5 @@
 // as we can't import Blob from libworker
 // we'll have to trigger it through reference to ensure TSC understands Blob here as the MDN Blob (compatible with frontend code) and not the NodeJS Blob (annoyingly using different ReadableStream types)
-/// <reference lib="webworker"/>
 
 import { ReadableStream } from "node:stream/web";
 import { arrayBuffer, text } from 'node:stream/consumers';
@@ -9,6 +8,7 @@ import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
 import { Readable } from "node:stream";
 import { brandWebhareBlob } from "./symbols";
+import "./blob.d.ts";
 
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
 export abstract class WebHareBlob implements Blob {

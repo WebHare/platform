@@ -62,7 +62,7 @@ async function getTSFilesRecursive(startpath: string): Promise<string[]> {
   return result;
 }
 
-export async function checkUsingTSC(modulename: string): Promise<ValidationMessageWithType[]> {
+export async function checkUsingTSC(modulename: string, options?: { files: string[] }): Promise<ValidationMessageWithType[]> {
   const baseconfigfile = backendConfig.installationroot + "tsconfig.json";
   const baseconfig = JSON.parse(await readFile(baseconfigfile, 'utf-8')); //ie: whtree/tsconfig.json
   const compileroptions = baseconfig.compilerOptions;
@@ -82,12 +82,16 @@ export async function checkUsingTSC(modulename: string): Promise<ValidationMessa
     rootpaths.push(projectRoot);
   }
 
-  /* Gather list of files to compile
-     TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
-     an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
-  const rootnames = [];
-  for (const root of rootpaths)
-    rootnames.push(...await getTSFilesRecursive(root));
+  const rootnames: string[] = [];
+  if (options?.files) {
+    rootnames.push(...options.files);
+  } else {
+    /* Gather list of files to compile
+      TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
+      an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
+    for (const root of rootpaths)
+      rootnames.push(...await getTSFilesRecursive(root));
+  }
 
   if (!rootnames.length)
     return []; //don't bother launching TSC, no TypeScript here
