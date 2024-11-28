@@ -119,6 +119,12 @@ class IndyShell extends TolliumShell {
   applicationbar: ApplicationBar | null = null;
 
   towl = new TowlNotifications(this);
+  transportmgr = new TransportManager(
+    {
+      ononline: () => this._gotOnline(),
+      onoffline: () => this._gotOffline()
+    });
+  placeholderapp?: ApplicationBase;
 
   constructor(setup) {
     super(setup);
@@ -128,7 +134,7 @@ class IndyShell extends TolliumShell {
     window.$shell = this; //FIXME shouldn't need this!
     indyshellinstance = this; //FIXME.. or this, but at least its slightly better than having to hack a global
     this.eventsconnection.on("data", event => this.onBroadcastData(event));
-    dompack.onDomReady(() => this.onDomReady());
+    dompack.onDomReady(() => void this.onDomReady());
     document.documentElement.addEventListener("tollium-shell:broadcast", evt => this.onBroadcast(evt));
     window.addEventListener("hashchange", evt => this._onHashChange(evt));
 
@@ -144,13 +150,6 @@ class IndyShell extends TolliumShell {
       $todd.applications[0].queueEvent("$appmessage", { message: { go: decodeURIComponent(location.hash.substr(4).split('&')[0]) }, onlynonbusy: false }, false);
 
     history.replaceState({}, null, location.href.split('#')[0]);
-  }
-
-  onDomReady() {
-    if (!document.body) //early termination of load, eg wrdauth of whconnect redirect
-      return;
-
-    this.continueLaunch();
   }
 
   /****************************************************************************************************************************
@@ -294,19 +293,17 @@ class IndyShell extends TolliumShell {
   /****************************************************************************************************************************
    * Internal functions: framework bootup
    */
-  continueLaunch() {
+  async onDomReady() {
+    if (!document.body) //early termination of load, eg wrdauth redirect
+      return;
+
+    await document.fonts.ready;
 
     // Initialize global event handlers
     window.addEventListener("unload", evt => this.onUnload());
 
     window.addEventListener("dragover", evt => dompack.stop(evt));
     window.addEventListener("drop", evt => dompack.stop(evt));
-
-    this.transportmgr = new TransportManager(
-      {
-        ononline: () => this._gotOnline(),
-        onoffline: () => this._gotOffline()
-      });
 
     const appbar = document.getElementById('t-apptabs');
     if (appbar)
@@ -317,9 +314,6 @@ class IndyShell extends TolliumShell {
     // Load the offline notification icon, so it can be shown when actually offline
     this.offlinenotificationicon = toddImages.createImage("tollium:messageboxes/warning", 24, 24, 'b');
 
-    this.executeShell();
-  }
-  executeShell() {
     //Launch a placeholder app, simply to get 'something' up and running fast, and display the loader (otherwise we'd have to hack a special loader for 'no-apps')
     this.startuplock = dompack.flagUIBusy();
     this.placeholderapp = this.startFrontendApplication('tollium:builtin.placeholder', null, { onappbar: false });
@@ -357,10 +351,9 @@ class IndyShell extends TolliumShell {
             isloginapp: true
           });
 
-      if (this.placeholderapp) //we can close it now
-      {
+      if (this.placeholderapp) { //we can close it now
         this.placeholderapp.terminateApplication();
-        this.placeholderapp = null;
+        this.placeholderapp = undefined;
       }
       this.startuplock.release();
       return;
@@ -371,10 +364,9 @@ class IndyShell extends TolliumShell {
 
     data.settings.initialinstructions.forEach(instr => this.executeInstruction(instr));
 
-    if (this.placeholderapp) //we can close it now
-    {
+    if (this.placeholderapp) { //we can close it now
       this.placeholderapp.terminateApplication();
-      this.placeholderapp = null;
+      this.placeholderapp = undefined;
     }
 
     if (this.checkWasJustUpdated()) {
