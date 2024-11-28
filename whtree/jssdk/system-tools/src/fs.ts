@@ -20,7 +20,7 @@ export interface StoreDiskFileOptions {
     @param path - Path to the file to create.
     @param data - Blob to write
 */
-export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array>, options?: StoreDiskFileOptions) {
+export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions) {
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
 
@@ -32,7 +32,7 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
   }
 
   try {
-    await writeFile(writepath ?? path, data, { flag: options?.overwrite ? "w" : "wx" });
+    await writeFile(writepath ?? path, (typeof data === "object" && "stream" in data) ? data.stream() : data, { flag: options?.overwrite ? "w" : "wx" });
     if (writepath) {
       await rename(writepath, path);
       writepath = null;
