@@ -72,6 +72,17 @@ export function addDuration(startingdate: Date, duration: Partial<Duration> | st
   return date;
 }
 
+/** Subtract a duration (time) from a date
+ * @param startingdate - Date to start from
+ * @param duration - Duration to subtract (as object or as ISO8601 duration string, eg "P1Y2M3DT4H5M6S")
+ */
+export function subtractDuration(startingdate: Date, duration: Partial<Duration> | string): Date {
+  if (typeof duration === "string")
+    duration = parseDuration(duration);
+
+  return addDuration(startingdate, { ...duration, sign: duration?.sign === "-" ? "+" : "-" });
+}
+
 /** Convert a WaitPeriod parameter to a Date
  * @param wait - Wait time as milliseconds or a Date
  * @param relativeTo - Date to use as a reference for relative waits
