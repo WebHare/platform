@@ -41,6 +41,9 @@ async function testFS() {
   await storeDiskFile(path.join(tempdir, "1.txt"), Readable.toWeb(Readable.from("test 10")), { overwrite: true });
   test.eq("test 10", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
 
+  await storeDiskFile(path.join(tempdir, "1.txt"), new Blob(["test 11"]), { overwrite: true });
+  test.eq("test 11", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
+
   mkdirSync(path.join(tempdir, "subdir"));
   mkdirSync(path.join(tempdir, "subdir", "deeper"));
   await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deepest.txt"), "Deepest file");
