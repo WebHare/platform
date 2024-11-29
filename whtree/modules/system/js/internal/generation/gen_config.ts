@@ -204,6 +204,11 @@ export function parseModuleFolderName(name: string) {
   return { creationdate: new Date(Date.parse("1970-01-01T00:00:00Z")), name };
 }
 
+/* The devkit module is part of Webhare but not activated inside a docker container (WEBHARE_IN_DOCKER) unless WEBHARE_CI_MODULERE_CI or WEBHARE_ENABLE_DEVKIT is set */
+export function enableDevKit() {
+  return Boolean(process.env.WEBHARE_ENABLE_DEVKIT || process.env.WEBHARE_CI_MODULE || !process.env.WEBHARE_IN_DOCKER);
+}
+
 function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {
   let entries: fs.Dirent[];
   try {
@@ -214,16 +219,19 @@ function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: 
   }
 
   for (const entry of entries) {
-    if ((!entry.isDirectory() && !entry.isSymbolicLink()) || entry.name === "deleted")
+    if (!entry.isDirectory() && !entry.isSymbolicLink())
+      continue;
+    if (entry.name === "devkit" && !enableDevKit())
       continue;
 
     const modpath = folder + entry.name + "/";
-    if (!fs.statSync(modpath + "moduledefinition.xml", { throwIfNoEntry: false })) {
+    const hasModXML = fs.statSync(modpath + "moduledefinition.xml", { throwIfNoEntry: false });
+    const hasModYML = fs.statSync(modpath + "moduledefinition.yml", { throwIfNoEntry: false });
+
+    if (!hasModXML && !hasModYML) {
       if (rootfolder)
         scanModuleFolder(modulemap, modpath, false, always_overwrites);
-      else {
-        // console.log(`skipping folder ${modpath}, it has no moduledefinition`);
-      }
+
       continue;
     }
 

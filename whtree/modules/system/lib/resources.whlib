@@ -113,7 +113,7 @@ PUBLIC OBJECT FUNCTION GetModuleDefinitionXML(STRING modulename)
      was a validation error. Which means that code calling us should be prepared to deal
      with RetrieveResourceException either way, so no need to return DEFAULT OBJECTs (which
      was broken due to earlier 4.32 commits anyway without known bad consequences) */
-  RETURN OpenXMLDoc(GetModuleDefinitionXMLResourceName(modulename), FALSE).doc;
+  RETURN OpenXMLDoc(GetModuleDefinitionXMLResourceName(modulename), FALSE, `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition" />`).doc;
 }
 /** Get a list of installed modules (includes builtin modules)
     @return List of module names */

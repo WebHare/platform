@@ -159,6 +159,9 @@ The `WEBHARE_CI` variable is set by testdocker/testmodule to indicate that the c
 ### WEBHARE_CI_MODULE
 The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by CI. (added in 5.02)
 
+### WEBHARE_ENABLE_DEVKIT
+Enable the devkit module - even if running in a Docker container
+
 # Tips and tricks
 
 ## Build-time variables

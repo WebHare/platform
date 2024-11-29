@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 PUBLIC RECORD FUNCTION OrderIntercepts(RECORD ARRAY intercepts)
@@ -344,7 +345,7 @@ RECORD FUNCTION GetCacheableAllModules()
 
     TRY
     {
-      OBJECT xmldoc := OpenXMLDoc(resname, FALSE).doc;
+      OBJECT xmldoc := GetModuleDefinitionXML(module);
       modinfo := ParseModuleDefinition(module, xmldoc);
     }
     CATCH(OBJECT e)
