@@ -1,6 +1,10 @@
 import * as test from "@webhare/test";
 import * as devbridge from "@mod-platform/js/devsupport/devbridge";
 import { backendConfig } from "@webhare/services";
+import { readFile } from "fs/promises";
+import { convertCompilerOptionsFromJson } from "typescript";
+import { basename, dirname, resolve } from "path";
+import { pick } from "@webhare/std";
 
 async function testDevBridge() {
   test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "storage/system/generated/wrd/example.ts"));
@@ -38,6 +42,49 @@ async function testDevBridge() {
 
   const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
   test.eq("publisher:siteprofile.shorturl", parseresult.gid);
-
 }
-test.run([testDevBridge]);
+
+async function readTSConfig(path: string) {
+  const config = JSON.parse(await readFile(path, 'utf8'));
+  return {
+    ...pick(config, ["extends"]),
+    compilerOptions: convertCompilerOptionsFromJson(config.compilerOptions, dirname(path), basename(path)).options
+  };
+}
+
+async function testTSConfig() {
+  const whdata_tsconfig = await readTSConfig(`${backendConfig.dataroot}tsconfig.json`);
+  const whtree_tsconfig = await readTSConfig(`${backendConfig.installationroot}tsconfig.json`);
+
+  // Test paths from whtree/tsconfig.json
+  const whdata_paths = whdata_tsconfig.compilerOptions.paths;
+  const baseurl = whdata_tsconfig.compilerOptions.baseUrl;
+
+  test.assert(whdata_paths);
+  test.assert(baseurl);
+
+  const expect_paths: Record<string, [string]> = {};
+  for (const [name, paths] of Object.entries(whdata_paths)) {
+    const abspath = resolve(baseurl, paths[0]);
+    if (!abspath.startsWith(backendConfig.installationroot))
+      continue;
+    if (abspath.startsWith(backendConfig.installationroot + "node_modules/"))
+      continue;
+    if (name === "@mod-webhare_testsuite" || name.startsWith("@mod-webhare_testsuite/"))
+      continue;
+
+    const relpath = abspath.replace(backendConfig.installationroot, "");
+    expect_paths[name] = [relpath];
+  }
+
+  const got_paths = whtree_tsconfig?.compilerOptions.paths;
+  test.eq(expect_paths, got_paths, "whtree/tsconfig.json should have all paths from whdata/tsconfig.json, minus whtree/node_modules/* and whdata/* paths");
+
+  // Test paths from whtree/tsconfig.json
+  test.eq(`${backendConfig.installationroot}tsconfig.json`, resolve(baseurl, whdata_tsconfig.extends), "whdata/tsconfig.json should extend whtree/tsconfig.json");
+}
+
+test.run([
+  testDevBridge,
+  testTSConfig
+]);

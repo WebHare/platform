@@ -29,7 +29,6 @@
   <test script="test_fifo.ts" />
   <test script="test_waitabletimer.ts" />
   <test script="test_utf8.ts" />
-  <test script="test_tsconfig.whscr" />
   <test script="test_finmath.ts" />
   <test script="test_hsmarshalling.whscr" />
   <test name="test_harescript_calls-native" script="test_harescript_calls.whscr" engine="native" />
