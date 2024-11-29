@@ -247,7 +247,7 @@ function testStringify(val: unknown): string {
         return `Date("${val.toISOString()}")`;
       if (Array.isArray(val))
         return `[${val.map(testStringify).join(", ")}]`;
-      return `{${Object.entries(val).sort((l, r) => l[0].localeCompare(l[1])).map(([k, v]) => `${k}: ${testStringify(v)}`).join(", ")}}`;
+      return `{${Object.entries(val).toSorted(([lhsKey], [rhsKey]) => lhsKey.localeCompare(rhsKey)).map(([k, v]) => `${k}: ${testStringify(v)}`).join(", ")}}`;
     default:
       return JSON.stringify(val);
   }
