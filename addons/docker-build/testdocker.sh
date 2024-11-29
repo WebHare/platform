@@ -27,7 +27,7 @@ DOCKERARGS=
 TERSE=--terse
 EXPLICITWEBHAREIMAGE=
 ENTERSHELL=
-RUNTESTARGS=
+RUNTESTARGS=()
 COVERAGE=
 ADDMODULES=
 ISMODULETEST=
@@ -81,7 +81,7 @@ RunDocker()
   echo "$(date)" "${CONTAINERENGINE[@]}" "$@" >&2
   "${CONTAINERENGINE[@]}" "$@" ; retval="$?"
   if [ "$retval" != "0" ]; then
-    echo "$(date)" "${CONTAINERENGINE[@]}" " returned errorcode $retval" >&2
+    echo "$(date)" "${CONTAINERENGINE[@]}" "returned errorcode $retval" >&2
   fi
   return $retval
 }
@@ -112,7 +112,7 @@ create_container()
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
   # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
-  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
+  set | grep -E '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> "${TEMPBUILDROOT}/env-file"
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
   CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
@@ -211,8 +211,8 @@ while true; do
   elif [ "$1" == "--sh" ]; then
     ENTERSHELL=1
     shift
-  elif [[ "$1" =~ ^--tag= ]] || [ "$1" == "--loop" ] || [ "$1" == "-d" ] || [ "$1" == "--breakonerror" ]; then
-    RUNTESTARGS="$RUNTESTARGS $1"
+  elif [[ "$1" =~ ^--tag= ]] || [ "$1" == "--loop" ] || [ "$1" == "-d" ] || [ "$1" == "--breakonerror" ]|| [ "$1" == "--untilfail" ]; then
+    RUNTESTARGS+=("$1")
     shift
   elif [ "$1" == "--privileged" ]; then
     DOCKERARGS="$DOCKERARGS --privileged"
@@ -362,7 +362,7 @@ fi
 
 if [[ "$WEBHAREIMAGE" = "webhare/webhare-core:4.18" ]]; then
   WEBHAREIMAGE=webhare/webhare-core:4.18-withts
-  RUNTESTARGS="$RUNTESTARGS --allownomatch"
+  RUNTESTARGS+=(--allownomatch)
 fi
 
 if [ -n "$USEPODMAN" ] && [[ $(type -t whhook_prepare_podman) == function ]]; then
@@ -773,7 +773,7 @@ if [ -z "$FATALERROR" ]; then
   else
     # When module testing, only run runtest if there actually appear to be any tests
     if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
-      if ! RunDocker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $DEBUG $RUNTESTARGS $TESTLIST; then
+      if ! RunDocker exec --env TESTFW_OUTDIR=/output "$TESTENV_CONTAINER1" wh runtest --outputdir /output --autotests $TERSE "${RUNTESTARGS[@]}" $TESTLIST; then
         testfail "One or more tests failed"
       fi
     fi
@@ -813,7 +813,8 @@ fi
 mkdir -p $ARTIFACTS/whdata
 RunDocker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
 RunDocker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
-RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json junit.xml auditmodule.json | tar -x -C $ARTIFACTS/
+# For consistency we should probably get everyone inside the container to dump any artifacts in $TESTFW_OUTPUT
+RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ . | tar -x -C "$ARTIFACTS/"
 if is_atleast_version 5.7.0 ; then
   RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo $ARTIFACTS/buildinfo
 else
