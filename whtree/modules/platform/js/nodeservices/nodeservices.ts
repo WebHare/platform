@@ -3,54 +3,58 @@
 
 */
 
-import { BackendServiceConnection, activateHMR, openBackendService, runBackendService } from '@webhare/services';
-import type { ServiceClientFactoryFunction, ServiceControllerFactoryFunction, WebHareService } from '@webhare/services/src/backendservicerunner';
-import * as resourcetools from '@mod-system/js/internal/resourcetools';
+import { BackendServiceConnection, activateHMR, runBackendService } from '@webhare/services';
+import type { WebHareService } from '@webhare/services/src/backendservicerunner';
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
 import { program } from 'commander';
+import { launchService } from './runner';
 
 const activeServices: Record<string, WebHareService> = {};
 
 program.name("nodeservices").
   option("--debug", "Enable debugging").
   option("--core", "Run core services").
-  argument("[service]", "Service to debug").
   parse(process.argv);
 
-async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
-  const client = await (await resourcetools.loadJSFunction<ServiceClientFactoryFunction>(service.clientFactory))(...args);
-  return client;
-}
+export class NodeServicesClient extends BackendServiceConnection {
+  #suppressing = new Set<string>;
 
-async function launchService(service: BackendServiceDescriptor): Promise<WebHareService | null> {
-  try {
-    if (service.controllerFactory) {
-      const servicecontroller = await (await resourcetools.loadJSFunction<ServiceControllerFactoryFunction>(service.controllerFactory))();
-      return runBackendService(service.name, (...args) => servicecontroller.createClient(...args));
-    } else if (service.clientFactory)
-      return runBackendService(service.name, (...args) => createServiceClient(service, args));
-
-    throw new Error(`Don't know how to start service ${service.name}`);
-  } catch (e) {
-    console.error("Error starting service " + service.name, e);
-    setTimeout(() => void launchService(service), 3000);
-    return null;
+  constructor(public manager: NodeServiceManager) {
+    super();
   }
-}
 
-class Client extends BackendServiceConnection {
-  suppressing: string[] = [];
+  async #startService(srvinfo: BackendServiceDescriptor) {
+    const srv = await launchService(srvinfo);
+    if (srv)
+      activeServices[srvinfo.name] = srv;
+    this.#suppressing.delete(srvinfo.name);
+  }
+  async #stopService(srvinfo: BackendServiceDescriptor) {
+    this.#suppressing.add(srvinfo.name);
+    activeServices[srvinfo.name].close();
+  }
 
-  async suppress(service: string) {
-    if (this.suppressing.includes(service))
-      throw new Error(`Already suppressing service ${service}`);
+  async restart(service: string) {
+    const srvinfo = this.manager.backendservices.find((s) => s.name === service);
+    if (!srvinfo)
+      throw new Error(`No such service ${service} defined`);
+
     if (!activeServices[service])
       throw new Error(`Not controlling ${service}`);
 
+    console.log(`Restarting ${service}`);
+    await this.#stopService(srvinfo);
+    await this.#startService(srvinfo);
+  }
+
+  async suppress(service: string) {
+    const srvinfo = this.manager.backendservices.find((s) => s.name === service);
+    if (!srvinfo)
+      throw new Error(`No such service ${service} defined`);
+
     console.log(`Stopping handling of ${service}`);
-    this.suppressing.push(service);
-    activeServices[service].close();
+    await this.#stopService(srvinfo);
   }
 
   onClose() {
@@ -58,40 +62,27 @@ class Client extends BackendServiceConnection {
   }
 
   async #reenableSuppressedServices() {
-    const backendservices = getExtractedConfig("services").backendServices;
-    for (const service of this.suppressing) {
-      const srvinfo = backendservices.find((s) => s.name === service);
-      if (!srvinfo)
-        continue;
-
-      console.log(`Restarting ${service}`);
-      const srv = await launchService(srvinfo);
-      if (srv)
-        activeServices[srvinfo.name] = srv;
+    for (const service of [...this.#suppressing]) {
+      const srvinfo = this.manager.backendservices.find((s) => s.name === service);
+      if (srvinfo) {
+        console.log(`Resuming ${service}`);
+        await this.#startService(srvinfo);
+      }
     }
   }
 }
 
-async function main() {
-  const backendservices = getExtractedConfig("services").backendServices;
+class NodeServiceManager {
+  backendservices;
 
-  if (program.args[0]) { //debug this specific service
-    const service = backendservices.find((s) => s.name === program.args[0]);
-    if (!service)
-      throw new Error(`Unknown service ${service}`);
+  constructor(public servicename: string) {
+    this.backendservices = getExtractedConfig("services").backendServices;
+  }
 
-    const servicename = service.coreService ? "platform:coreservices" : "platform:nodeservices";
+  async main() {
+    void runBackendService(this.servicename, () => new NodeServicesClient(this), { dropListenerReference: true });
 
-    //TODO make this optional?
-    //Suppress the service in nodeservices
-    const nodeservices = await openBackendService(servicename);
-    await nodeservices.suppress(service.name);
-    void launchService(service);
-  } else {
-    const servicename = program.opts().core ? "platform:coreservices" : "platform:nodeservices";
-    void runBackendService(servicename, client => new Client, { dropListenerReference: true });
-
-    for (const service of backendservices) {
+    for (const service of this.backendservices) {
       if (service.coreService === Boolean(program.opts().core)) {
         const srv = await launchService(service);
         if (srv)
@@ -102,4 +93,5 @@ async function main() {
 }
 
 activateHMR();
-void main();
+const mgr = new NodeServiceManager(program.opts().core ? "platform:coreservices" : "platform:nodeservices");
+void mgr.main();

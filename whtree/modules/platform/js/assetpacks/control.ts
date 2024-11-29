@@ -1,6 +1,6 @@
 /*
 To debug:
-WEBHARE_DEBUG=assetpacks wh run mod::platform/js/nodeservices/nodeservices.ts platform:assetpacks
+WEBHARE_DEBUG=assetpacks wh service debug platform:assetpacks
 */
 
 import { ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
@@ -257,6 +257,9 @@ class AssetPackController implements BackendServiceController {
         this.bundles.set(config.name, new LoadedBundle(this, config.name, config, settings, await getAssetPackState(config.name)));
       }
     }
+
+    if (debugFlags.assetpacks)
+      console.log(`Configuration loaded, ${this.bundles.size} bundles active`);
   });
 
   createClient(source: string) {
