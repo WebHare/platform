@@ -47,11 +47,11 @@ program.command("check")
     }
   });
 
-program.command("recompile")
-  .description("Recompile an asset pack. Use '*' to compile all")
+program.command("compile")
+  .description("Compile an asset pack. Use '*' to compile all")
   .argument("<assetpacks...>", "Asset packs to recompile")
   .option('-v, --verbose', 'verbose log level')
-  .option("--foreground", "Recompile in foreground, don't use any assetpack service")
+  .option("-f, --foreground", "Recompile in foreground, don't use any assetpack service")
   .option('--production', 'force production compile')
   .option('--development', 'force development compile')
   .option("--onlyfailed", "Only recompile failed asset packs")
@@ -133,8 +133,14 @@ program.command("restart")
       console.log("Assetpack service restarted");
   });
 
-
-program.parse(process.argv);
+program.parse(process.argv.map(arg => {
+  if (arg === "recompile") {
+    //TODO once live_api has switched to wh compile, we can drop this hidden alias
+    console.warn("You should switch to 'wh assetpack compile' in WH5.7+");
+    return "compile";
+  }
+  return arg;
+}));
 
 function waitForEvent(eventmask: string) {
   const defer = Promise.withResolvers<void>();

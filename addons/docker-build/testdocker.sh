@@ -667,7 +667,7 @@ done
 echo "$(date) Waiting for assetpack compilation"
 for CONTAINERID in "${CONTAINERS[@]}"; do
   RunDocker exec "$CONTAINERID" wh assetpack wait "*"
-  RunDocker exec "$CONTAINERID" wh assetpack --quiet recompile --onlyfailed "*"
+  RunDocker exec "$CONTAINERID" wh assetpack --quiet recompile --onlyfailed "*"  # Note 're'compile ie a hidden but still available API in 5.7
 done
 
 echo "$(date) Wait for poststartdone container1"

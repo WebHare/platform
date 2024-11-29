@@ -81,19 +81,19 @@ done
 # Now recompile all modules that we updated
 if [ -z "$NOCOMPILE" ]; then
   for MODULENAME in ${MODULESLIST[@]}; do
-    $DRYRUNPREFIX wh assetpack --quiet recompile "$MODULENAME:*"
+    $DRYRUNPREFIX wh assetpack --quiet compile "$MODULENAME:*"
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
-      echo "wh assetpack recompile for module '$MODULENAME' failed with errorcode $RETVAL"
+      echo "wh assetpack compile for module '$MODULENAME' failed with errorcode $RETVAL"
       FAILED=1
     fi
   done
 
   # And now, just in case a module wasn't broken modulewise but still had broken packages, recompile any broken modules
-  $DRYRUNPREFIX wh assetpack --quiet recompile --onlyfailed "*"
+  $DRYRUNPREFIX wh assetpack --quiet compile --onlyfailed "*"
   RETVAL=$?
   if [ "$RETVAL" != "0" ]; then
-    echo "wh assetpack recompile --onlyfailed failed with errorcode $RETVAL"
+    echo "wh assetpack compile --onlyfailed failed with errorcode $RETVAL"
     FAILED=1
   fi
 fi
