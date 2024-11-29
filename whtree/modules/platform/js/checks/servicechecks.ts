@@ -1,8 +1,7 @@
-import { CheckResult } from "@webhare/services";
-import { connectSM } from "../bootstrap/servicemanager/smclient";
+import { CheckResult, openBackendService } from "@webhare/services";
 
 export async function checkMissingServices(): Promise<CheckResult[]> {
-  const smservice = await connectSM();
+  const smservice = await openBackendService("platform:servicemanager");
   const state = await smservice.getWebHareState();
   const missing = state.availableServices.filter(service => !service.isRunning && service.run === "always");
 

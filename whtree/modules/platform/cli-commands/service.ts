@@ -1,17 +1,15 @@
 import { getAllServices, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
-import { connectSM } from '@mod-platform/js/bootstrap/servicemanager/smclient';
 import { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
-import type { NodeServicesClient } from '@mod-platform/js/nodeservices/nodeservices';
 import { launchService } from '@mod-platform/js/nodeservices/runner';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
-import { openBackendService } from '@webhare/services';
+import { openBackendService, type GetBackendServiceInterface } from '@webhare/services';
 import { spawn } from 'child_process';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 
 //short: Control the WebHare service manager
 
-type ServiceManagerClient = Awaited<ReturnType<typeof connectSM>>;
+type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 
 async function startService(smservice: ServiceManagerClient, service: string) {
   const result = await smservice.startService(service);
@@ -30,15 +28,15 @@ async function stopService(smservice: ServiceManagerClient, service: string) {
 }
 
 async function runBackendServiceInDebug(service: string, serviceinfo: BackendServiceDescriptor) {
-  const servicename = serviceinfo.coreService ? "platform:coreservices" : "platform:nodeservices";
-  const nodeservices = await openBackendService<NodeServicesClient>(servicename);
+  const servicename = serviceinfo.coreService ? "platform:coreservices" : "platform:nodeservices" as const;
+  const nodeservices = await openBackendService(servicename);
 
   await nodeservices.suppress(service);
   void launchService(serviceinfo);
 }
 
 async function runServiceInDebug(service: string, serviceinfo: ServiceDefinition) {
-  const smservice = await connectSM();
+  const smservice = await openBackendService("platform:servicemanager");
   const state = await smservice.getWebHareState();
   const wasrunning = state.availableServices.find(s => s.name === service)?.isRunning;
   if (wasrunning) {
@@ -81,7 +79,7 @@ program.name("service")
 program.command("list")
   .description("List all services")
   .action(async () => {
-    const smservice = await connectSM();
+    const smservice = await openBackendService("platform:servicemanager");
     const state = await smservice.getWebHareState();
     console.table(state.availableServices);
   });
@@ -89,7 +87,7 @@ program.command("list")
 program.command("reload")
   .description("Tell the servicemanager to reload the module list")
   .action(async () => {
-    const smservice = await connectSM();
+    const smservice = await openBackendService("platform:servicemanager");
     await smservice.reload();
   });
 
@@ -97,7 +95,7 @@ program.command("start")
   .description("Start a service")
   .argument("<service>", "Service name")
   .action(async (service: string) => {
-    const smservice = await connectSM();
+    const smservice = await openBackendService("platform:servicemanager");
     const result = await smservice.startService(service);
     if (result.errorMessage) {
       console.error(result.errorMessage);
@@ -110,7 +108,7 @@ program.command("stop")
   .description("Stop a service")
   .argument("<service>", "Service name")
   .action(async (service: string) => {
-    const smservice = await connectSM();
+    const smservice = await openBackendService("platform:servicemanager");
     const result = await smservice.stopService(service);
     if (result.errorMessage) {
       console.error(result.errorMessage);
@@ -143,7 +141,7 @@ program.command("restart")
   .description("Restart a service")
   .argument("<service>", "Service name")
   .action(async (service: string) => {
-    const smservice = await connectSM();
+    const smservice = await openBackendService("platform:servicemanager");
     const result = await smservice.restartService(service);
     if (result.errorMessage) {
       console.error(result.errorMessage);

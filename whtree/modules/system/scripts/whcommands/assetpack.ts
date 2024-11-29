@@ -1,7 +1,7 @@
-import { connectAssetPackControl, loadAssetPacksConfig, type AssetPackControlClientInterface } from '@mod-platform/js/assetpacks/api';
+import { loadAssetPacksConfig } from '@mod-platform/js/assetpacks/api';
 import type { AssetPackMiniStatus } from '@mod-platform/js/devsupport/devbridge';
 import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/validation';
-import { openBackendService, subscribe, writeRegistryKey } from '@webhare/services';
+import { openBackendService, subscribe, writeRegistryKey, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
@@ -9,9 +9,8 @@ import { ansiCmd } from '@webhare/cli';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
-import type { NodeServicesClient } from '@mod-platform/js/nodeservices/nodeservices';
 
-let client: Promise<AssetPackControlClientInterface> | null = null;
+let client: Promise<GetBackendServiceInterface<"platform:assetpacks">> | undefined;
 
 program
   .name('wh assetpack')
@@ -126,7 +125,7 @@ program.command("restart")
   .description("Restart assetpack control")
   .action(async () => {
     //TODO once we have a nice global service mgmt api that can find services inside other processes, switch to that
-    const nodeservices = await openBackendService<NodeServicesClient>("platform:nodeservices");
+    const nodeservices = await openBackendService("platform:nodeservices");
     await nodeservices.restart("platform:assetpacks");
 
     if (!program.opts().quiet)
@@ -155,11 +154,11 @@ function getBundleStatusString(bundle: AssetPackMiniStatus) {
   return bundle.hasstatus ? bundle.haserrors ? `${ansiCmd("bold", "red")}errors${ansiCmd("reset")}` : "ok" : "n/a";
 }
 
-async function getControlClient() {
+async function getControlClient(): Promise<GetBackendServiceInterface<"platform:assetpacks">> {
   if (!client) {
     const aborter = new AbortController;
     const source = `wh assetpack ${process.argv.slice(2).join(' ')}`;
-    client = connectAssetPackControl(source, { timeout: 30000, linger: false });
+    client = openBackendService("platform:assetpacks", [source], { timeout: 30000, linger: false });
     const warnDelay = sleep(3000, { signal: aborter.signal }).then(() => ({ slow: true }));
     if ("slow" in (await Promise.race([client, warnDelay])))
       console.log("Waiting for assetpack control to be available...");

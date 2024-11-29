@@ -1,14 +1,14 @@
 /* See servicemanager/main.ts on how to run a separate servicemanager process for faster testing (and as this test creates modules
    I'd also recommend a freshdbconsole or at least an install with a minimal amount of modules) */
 
-import { type ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 import * as test from "@webhare/test";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { openBackendService, backendConfig } from "@webhare/services";
 import { HSVMObject, loadlib } from "@webhare/harescript";
+import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 
 async function prepTests() {
-  const smservice = await openBackendService<ServiceManagerClient>("platform:servicemanager", [], { timeout: 5000 });
+  const smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000 });
   const state = await smservice.getWebHareState();
   test.eq("Online", state.stage, "By the time tests run, it should be Online");
 
@@ -20,7 +20,7 @@ async function prepTests() {
 
 async function testBasicAPI() {
   //TODO an 'official' API to manage services. perhaps in @webhare/config ? or do you expect this in @webhare/services as it deals with services?
-  const smservice = await openBackendService<ServiceManagerClient>("platform:servicemanager", [], { timeout: 5000 });
+  const smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000 });
   let state = await smservice.getWebHareState();
   test.eq(undefined, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:simpleservice"));
 
