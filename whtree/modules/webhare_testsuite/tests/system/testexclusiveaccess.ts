@@ -184,7 +184,7 @@ test.registerTests(
       test.click(`*[data-messagebox-result=cancel]`);
       await test.wait(() => test.qR("#status").textContent === "Failed getting the lock");
       await test.selectFrame("main");
-      await test.wait(() => !test.qR(".mydialog")); // wait for dialog to disappear
+      await test.wait(() => !test.qS(".mydialog")); // wait for dialog to disappear
       test.click("#releaselock");
       await test.wait(() => test.qR("#status").textContent === "Lock not taken");
       test.click("#startexclusiveaccesstest");
@@ -217,7 +217,7 @@ test.registerTests(
 
       await test.invoke("mod::webhare_testsuite/webdesigns/basetest/pages/exclusiveaccesstest/exclusiveaccesstest.whlib#Resume");
       await test.wait(() => test.qR("#status").textContent === "Got lock");
-      test.assert(!test.qR('html.dompack--busymodal'));
+      test.assert(!test.qS('html.dompack--busymodal'));
       test.click("#releaselock");
       test.assert(test.qR("#status").textContent !== "Lock not taken");
     }

@@ -370,7 +370,7 @@ test.registerTests(
         range = rte.getSelectionRange();
         await rtetest.testUndoRedo(rte, prestate);
 
-        rtetest.testEqHTMLEx(win, withtable.replace(/p class="normal"/g, '<h1 class="heading1"').replace(/<\/p/g, '</h1'), rte.getBody(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, withtable.replace(/<p class="normal"/g, '<h1 class="heading1"').replace(/<\/p/g, '</h1'), rte.getBody(), [range.start, range.end]);
       }
     },
 
