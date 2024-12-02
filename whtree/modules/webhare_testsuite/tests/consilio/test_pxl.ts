@@ -1,12 +1,25 @@
+import { sendPxl, PxlData, getPxlSessionId } from "@webhare/frontend";
 import * as test from "@webhare/test-frontend";
 import * as pxl from "@mod-consilio/js/pxl";
+
+declare module "@webhare/frontend" {
+  interface PxlDataTypes {
+    "webhare_testsuite:aa": {
+      s: string;
+      n?: number;
+      b?: boolean;
+    };
+    "webhare_testsuite:nobiggy": {
+      b: bigint;
+    };
+    "webhare_testsuite:event": object;
+  }
+}
 
 let pxlId, pxlEvent: string = '', startTime = new Date;
 
 async function getPxlLogLines() {
-  if (!pxlEvent)
-    throw new Error("No pxlEvent set");
-  return await test.invoke("mod::webhare_testsuite/tests/consilio/data/pxltest.whlib#GetPxlLogFiles", pxlEvent, startTime.toISOString()) as string[];
+  return await test.invoke("mod::webhare_testsuite/tests/consilio/data/pxltest.whlib#GetPxlLogFiles", getPxlSessionId(), startTime.toISOString()) as string[];
 }
 
 test.run([
@@ -174,7 +187,21 @@ test.run([
     // Send an event with data
     startTime = new Date();
     pxl.sendPxlEvent(pxlEvent, { ds_1: pxlId, dn_fun: eventId });
+
+    // Test typed PXL events
+    //@ts-expect-error -- unregistered event
+    sendPxl("webhare_testsuite:nosuchevent", { str: "a" });
+    //@ts-expect-error -- incorrect event
+    sendPxl("webhare_testsuite:aa", { invalid: "a" });
+    //@ts-expect-error -- incorrect types in event
+    test.throws(/'bigint'.*'b'/, () => sendPxl("webhare_testsuite:nobiggy", { b: 12n }));
+    sendPxl("webhare_testsuite:aa", { s: "string", n: 1, b: true });
+    sendPxl("webhare_testsuite:event", {}); //TODO would be nice to define a way to not send data at all with an event
+    //To get rid of any type checking
+    sendPxl<PxlData>("webhare_testsuite:unregistered", {});
+
     lines = await getPxlLogLines();
+
     test.assert(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
     url = new URL("https://example.org" + lines[0]);
     test.assert(url.searchParams.has("pe"));
@@ -184,6 +211,12 @@ test.run([
     test.eq(pxlId, url.searchParams.get("ds_1"));
     test.assert(url.searchParams.has("dn_fun"));
     test.eq(`${eventId}`, url.searchParams.get("dn_fun"));
+
+    const aaEvents = lines.filter((line) => line.includes("webhare_testsuite%3Aaa"));
+    test.eq("a", new URL(aaEvents[0], location.href).searchParams.get("ds_invalid"), "It's still transmitted, verify the rwapping");
+    test.eq("string", new URL(aaEvents[1], location.href).searchParams.get("ds_s"));
+    test.eq('1', new URL(aaEvents[1], location.href).searchParams.get("dn_n"));
+    test.eq('true', new URL(aaEvents[1], location.href).searchParams.get("db_b"));
   }
   /* TODO restore these tests when we have a way to overwrite islive/dtapstage. might be worth the trouble to add that to SiteResponse (overwriting the #wh-config)
    ,   "Test live mode never throwing",

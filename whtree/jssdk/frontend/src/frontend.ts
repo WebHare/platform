@@ -7,11 +7,17 @@ import "../styling/reset.css"; // Reset CSS - this will be dropped somewhere pos
 export { frontendConfig, getFrontendData } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
+export { setPxlOptions, sendPxl, getPxlUserId, getPxlSessionId, type PxlData } from "./pxl";
 
 // we shouldn't deprecate navigateTo exported from frontend. in fact it makes more sense to export it from frontend than env as it's browser-only
 export { navigateTo } from "@webhare/env";
 
+/** Registry for data we receive from the backend */
 export interface FrontendDataTypes {
+}
+
+/** Registry for expected PXL formats */
+export interface PxlDataTypes {
 }
 
 function postRenderChecks() {
