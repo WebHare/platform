@@ -198,7 +198,7 @@ test.run([
     sendPxl("webhare_testsuite:aa", { s: "string", n: 1, b: true });
     sendPxl("webhare_testsuite:event", {}); //TODO would be nice to define a way to not send data at all with an event
     //To get rid of any type checking
-    sendPxl<PxlData>("webhare_testsuite:unregistered", {});
+    void await new Promise<void>(resolve => sendPxl<PxlData>("webhare_testsuite:unregistered", {}, { onComplete: resolve }));
 
     lines = await getPxlLogLines();
 

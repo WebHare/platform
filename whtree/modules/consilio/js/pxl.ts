@@ -14,14 +14,14 @@ interface PxlEventDetails {
   event: string;
   data: PxlEventData;
   options: PxlOptions;
-  isaltsample: boolean;
+  isAlt: boolean;
 }
 
 export type PxlEvent = CustomEvent<PxlEventDetails>;
 
 declare global {
   interface GlobalEventHandlersEventMap {
-    "consilio:pxl": PxlEvent;
+    "consilio:pxl": PxlEvent & { target: HTMLElement }; //TODO switch/rename to wh:pxl and use the original event data, not ds_ etc fields?
   }
   interface Window {
     whPxlLog?: PxlEventDetails[];
@@ -36,24 +36,24 @@ export type PxlEventData = {
 
 export interface PxlOptions {
   /** Override pi (pxlId) to control or anonymize user ids*/
-  pi: string | undefined;
+  pi?: string | undefined;
   /**  Base url to which to send PXL events. Defaults to "/.px/". */
-  recordurl: string;
+  url: string;
   /**  Sample rate for the alternative record url as a fraction of the number of events, for example, setting it to 1/100 sends 1 in 100 events to the alternative record url. Defaults to 0 (no sampling). */
-  altsamplerate: number;
+  altSampleRate: number;
   /**  Alternative record url. Defaults to "/.px/alt/". */
-  altrecordurl: string;
+  altUrl: string;
   /** The number of days the user id is valid. Defaults to 30. */
-  sessionexpiration: number; //TODO if we ever camel this, also add 'Days' to the name
+  sessionExpiration: number; //TODO if we ever camel this, also add 'Days' to the name
   /** Set to true to omit some browser context fields ("bu", "bs" and "bp"). This option can
       be used to reduce the length of the pxl url. Defaults to false. */
-  nobrowserenvironment: boolean;
-  /** Enable debug messages */
-  debug: boolean;
+  noBrowser: boolean;
   /** Node responsible for generating this event (if not set, 'window' is assumed). Used for the event handlers */
   node?: HTMLElement;
   /** Send pixels as beacons */
   beacon: boolean;
+  /** Callback to execute once pixel is sent */
+  onComplete?: () => void;
 }
 
 //event names must match isValidModuleScopedName, but we won't do the module name checks here. also isValidModuleScopedName lives in @webhare/services so..
@@ -63,16 +63,7 @@ const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
 const max_data_length = 600; // The maximum number of bytes stored for the request*/
 const max_sessionid_age = 30;
 
-const globalOptions: PxlOptions = {
-  pi: undefined,
-  recordurl: "/.px/",
-  altsamplerate: 0,
-  altrecordurl: "/.px/alt/",
-  sessionexpiration: max_sessionid_age,
-  nobrowserenvironment: false,
-  debug: Boolean(debugFlags.pxl),
-  beacon: false
-};
+let globalOptions: Partial<PxlOptions> | undefined;
 
 let pagesession: string | undefined; //current page session id (used to track multiple events from single page)
 let useAltRecordURL = false; //send events for this page to the altrecordurl
@@ -80,16 +71,29 @@ let seqnr = 0;
 
 let pxlUserId: string | undefined, pxlSessionId: string | undefined;
 
+function buildOptions(options: Partial<PxlOptions> | undefined): PxlOptions {
+  return {
+    url: "/.px/",
+    altSampleRate: 0,
+    altUrl: "/.px/alt/",
+    sessionExpiration: max_sessionid_age,
+    noBrowser: false,
+    beacon: false,
+    ...globalOptions,
+    ...options
+  };
+}
+
 /** Set global pxl options
     @param options - Option updates
 */
 export function setPxlOptions(options: Partial<PxlOptions> | null) {
-  Object.assign(globalOptions, options);
+  globalOptions = { ...globalOptions, ...options };
 
-  if (globalOptions.altrecordurl && globalOptions.altsamplerate) {
-    useAltRecordURL = Math.random() < globalOptions.altsamplerate;
-    if (globalOptions.debug)
-      console.log(`[pxl] using altrecordurl for ${100 * globalOptions.altsamplerate}% of pageloads, this session is sent to the ${useAltRecordURL ? "alternative" : "normal"} url`);
+  if (globalOptions.altUrl && globalOptions.altSampleRate) {
+    useAltRecordURL = Math.random() < globalOptions.altSampleRate;
+    if (debugFlags.pxl)
+      console.log(`[pxl] using altrecordurl for ${100 * globalOptions.altSampleRate}% of pageloads, this session is sent to the ${useAltRecordURL ? "alternative" : "normal"} url`);
   } else
     useAltRecordURL = false;
 }
@@ -122,8 +126,8 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   url.searchParams.set("ps", getPxlSessionId());
   url.searchParams.set("pi", options?.pi ?? getPxlId());
 
-  if (options.altsamplerate)
-    url.searchParams.set("pr", String(options.altsamplerate));
+  if (options.altSampleRate)
+    url.searchParams.set("pr", String(options.altSampleRate));
 
   if (document.location)
     url.searchParams.set("bl", document.location.href);
@@ -132,8 +136,8 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   url.searchParams.set("bt", dompack.browser.triplet);
   if (dompack.browser.device)
     url.searchParams.set("bd", dompack.browser.device);
-  if (!options.nobrowserenvironment) {
-    url.searchParams.set("bu", window.navigator.userAgent);
+  if (!options.noBrowser) {
+    url.searchParams.set("bu", window.navigator.userAgent.substring(0, 300));
     if (window.screen.width && window.screen.height)
       url.searchParams.set("bs", `${window.screen.width}x${window.screen.height}`);
     if (window.devicePixelRatio)
@@ -176,7 +180,7 @@ export function getPxlId() {
       const timestampvar = localStorage.getItem("_wh.ti");
       if (timestampvar && new Date(timestampvar) > new Date) { //not expired yet
         pxlUserId = localStorage.getItem("_wh.pi") || undefined;
-        if (pxlUserId && globalOptions.debug)
+        if (pxlUserId && debugFlags.pxl)
           console.log(`[pxl] Using id ${pxlUserId} from localStorage`);
       }
     }
@@ -189,7 +193,7 @@ export function getPxlId() {
     }
 
     if (havestorage) { //store it. also bump expiration if necessary
-      const sessionExpireDays = (globalOptions?.sessionexpiration ?? max_sessionid_age);
+      const sessionExpireDays = (globalOptions?.sessionExpiration ?? max_sessionid_age);
       const expiration = new Date(Date.now() + sessionExpireDays * 24 * 60 * 60 * 1000);
       localStorage.setItem("_wh.ti", expiration.toISOString());
       dompack.setLocal<PxlData>("wh:pxl", { pi: pxlUserId, exp: expiration }); //approx 30 days after WH5.7 is rolled out everywhere, we can switch to reading wh:pxl instead of localStorage direcgly
@@ -217,28 +221,28 @@ export function getPxlSessionId() {
     @param data - Event data. A map whose keys must start with either ds_ (string), db_ (boolean) or dn_ (number)
 */
 export function sendPxlEvent(event: string, data?: PxlEventData | null, options?: Partial<PxlOptions>) {
-  const finaloptions: PxlOptions = { ...globalOptions, ...options };
-
-  if (!dompack.dispatchCustomEvent(finaloptions.node || window, "consilio:pxl", {
+  const finaloptions = buildOptions(options);
+  //we'll always fire at <html>, not window, so receiver get a nice EventTarget
+  if (!dompack.dispatchCustomEvent(finaloptions.node || document.documentElement, "consilio:pxl", {
     bubbles: true, cancelable: true, defaulthandler: pingPxlEvent, detail: {
       event,
       data: data || {},
       options: finaloptions,
-      isaltsample: useAltRecordURL
+      isAlt: useAltRecordURL
     }
   })) {
-    if (finaloptions.debug)
+    if (debugFlags.pxl)
       console.log(`[pxl] Event of type '${event}' cancelled by consilio:pxl event handler`);
   }
 }
 
 function pingPxlEvent(evt: PxlEvent) {
   // determine the recordurl for this page
-  const isaltsample = evt.detail.isaltsample;
+  const isaltsample = evt.detail.isAlt;
   const event = evt.detail.event;
   const data = evt.detail.data;
   const options = evt.detail.options;
-  const baseurl = isaltsample ? options.altrecordurl : options.recordurl;
+  const baseurl = isaltsample ? options.altUrl : options.url;
 
   // Add the pxl event to the url
   const url = makePxlURL(baseurl, event, data, options);
@@ -247,41 +251,26 @@ function pingPxlEvent(evt: PxlEvent) {
 
   if (!window.whPxlLog)
     window.whPxlLog = [];
-  window.whPxlLog.push({ event, data, options, isaltsample });
-  if (options.debug)
+  window.whPxlLog.push({ event, data, options, isAlt: isaltsample });
+  if (debugFlags.pxl)
     console.log(`[pxl] Event '${event}'`, data);
 
+  //@ts-ignore Older browsers might not have sendBeacon
   if (options.beacon) {
-    //@ts-ignore Older browsers might not have sendBeacon
-    if (window.navigator.sendBeacon) {
-      if (options.debug)
-        console.log(`[pxl] Beacon - pinging pxl '${url}'(sendBeacon)`);
-      navigator.sendBeacon(url);
-    } else {
-      if (options.debug)
-        console.log(`[pxl] Beacon - pinging pxl '${url}'(sync XHR)`);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("HEAD", url, false);
-      xhr.send();
-
-      if (options.debug)
-        console.log(`[pxl] Beacon - pinging pxl '${url}' - sync XHR done!`);
-    }
+    navigator.sendBeacon(url);
+    options.onComplete?.();
   } else {
     // Load the pxl file using fetch
     const promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
-    if (options.debug) {
+    if (debugFlags.pxl) {
       console.log(`[pxl] Pinging pxl '${url}'`);
-      promise.then(() => {
-        console.log(`[pxl] Pinged pxl`);
-      }).catch(error => {
-        console.error(`[pxl] Error while pinging pxl`, error);
-      });
-    } else {
-      promise.catch(function () { }); //we don't really care about failed fetches, but don't turn them into unhandled rejections
+      if (debugFlags.pxl)
+        promise.then(() => console.log(`[pxl] Pinged pxl`), error => console.error(`[pxl] Error while pinging pxl`, error));
+    }
+    if (options.onComplete) {
+      //discard text, just make sure all processing is complete before *we* onComplete
+      void promise.then(response => response.text()).finally(() => options.onComplete?.());
     }
   }
 }
-
 setPxlOptions(null);
