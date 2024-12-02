@@ -1,6 +1,11 @@
 import { getAllServices, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
 import { connectSM } from '@mod-platform/js/bootstrap/servicemanager/smclient';
 import { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
+import type { NodeServicesClient } from '@mod-platform/js/nodeservices/nodeservices';
+import { launchService } from '@mod-platform/js/nodeservices/runner';
+import { getExtractedConfig } from '@mod-system/js/internal/configuration';
+import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
+import { openBackendService } from '@webhare/services';
 import { spawn } from 'child_process';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 
@@ -22,6 +27,14 @@ async function stopService(smservice: ServiceManagerClient, service: string) {
     console.error(result.errorMessage);
     process.exit(1);
   }
+}
+
+async function runBackendServiceInDebug(service: string, serviceinfo: BackendServiceDescriptor) {
+  const servicename = serviceinfo.coreService ? "platform:coreservices" : "platform:nodeservices";
+  const nodeservices = await openBackendService<NodeServicesClient>(servicename);
+
+  await nodeservices.suppress(service);
+  void launchService(serviceinfo);
 }
 
 async function runServiceInDebug(service: string, serviceinfo: ServiceDefinition) {
@@ -111,12 +124,19 @@ program.command("debug")
   .argument("<service>", "Service name")
   .action(async (service: string) => {
     const serviceinfo = (await getAllServices())[service];
-    if (!serviceinfo) {
-      console.error(`No such service "${service}"`);
-      process.exit(1);
+    if (serviceinfo) {
+      await runServiceInDebug(service, serviceinfo);
+      return;
     }
 
-    await runServiceInDebug(service, serviceinfo);
+    const backendservice = getExtractedConfig("services").backendServices.find((s) => s.name === service);
+    if (backendservice) {
+      await runBackendServiceInDebug(service, backendservice);
+      return;
+    }
+
+    console.error(`No such service '${service}'`);
+    process.exit(1);
   });
 
 program.command("restart")
