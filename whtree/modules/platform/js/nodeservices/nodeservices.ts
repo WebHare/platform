@@ -17,7 +17,7 @@ program.name("nodeservices").
   option("--core", "Run core services").
   parse(process.argv);
 
-export class NodeServicesClient extends BackendServiceConnection {
+class NodeServicesClient extends BackendServiceConnection {
   #suppressing = new Set<string>;
 
   constructor(public manager: NodeServiceManager) {
@@ -91,6 +91,8 @@ class NodeServiceManager {
     }
   }
 }
+
+export type { NodeServicesClient };
 
 activateHMR();
 const mgr = new NodeServiceManager(program.opts().core ? "platform:coreservices" : "platform:nodeservices");

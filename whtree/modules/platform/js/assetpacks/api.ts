@@ -1,9 +1,5 @@
-import { openBackendService, readRegistryKey } from "@webhare/services";
-import type { AssetPackControlClient } from "./control";
-import type { BackendServiceOptions } from "@webhare/services/src/backendservice";
+import { readRegistryKey } from "@webhare/services";
 import type { ValidationMessageWithType } from "../devsupport/validation";
-
-export type AssetPackControlClientInterface = Awaited<ReturnType<typeof connectAssetPackControl>>;
 
 export type AssetPacksConfig = Awaited<ReturnType<typeof loadAssetPacksConfig>>;
 
@@ -43,8 +39,4 @@ export async function loadAssetPacksConfig() {
   }
 
   return { suspendAutoCompile };
-}
-
-export async function connectAssetPackControl(source: string, options?: BackendServiceOptions) {
-  return await openBackendService<AssetPackControlClient>("platform:assetpacks", [source], options);
 }

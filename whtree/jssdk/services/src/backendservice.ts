@@ -1,15 +1,14 @@
 import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
-import { ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 import type { PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 import { parseTyped, stringify } from "@webhare/std";
+import type { BackendServices } from "@webhare/services";
 
-/** Interface for the client object we present to the connecting user
+/** Get the client interface for a given backend service
+ *
+ * @example GetBackendServiceInterface\<"platform:servicemanager"\>
 */
-interface DefaultWebHareServiceClient {
-  /** Our methods */
-  [key: string]: (...args: unknown[]) => unknown;
-}
+export type GetBackendServiceInterface<T extends keyof BackendServices> = T extends keyof BackendServices ? ConvertToClientInterface<BackendServices[T]> : never;
 
 export class ServiceBase extends EventTarget {
   #link: WebHareServiceIPCLinkType["ConnectEndPoint"];
@@ -107,7 +106,7 @@ export interface BackendServiceOptions {
  * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise. Readds "close" as added by ServiceBase
  * @typeParam BackendHandlerType - Type definition of the service class that implements this service.
 */
-export type ConvertToClientInterface<BackendHandlerType extends object> = {
+type ConvertToClientInterface<BackendHandlerType extends object> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
   [K in Exclude<keyof BackendHandlerType, `_${string}` | "close" | "emit" | "onClose"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
 } & ServiceBase;
@@ -116,19 +115,23 @@ async function attemptAutoStart(name: string) {
   //TODO avoid a thundering herd, throttle repeated auto starts form our side
   //TODO check configuration (where will we persist the service list) whether this service can be started on demand
   //notOnDemand to prevent a loop if platform:servicemanager itself is unavailable
-  using smservice = await openBackendService<ServiceManagerClient>("platform:servicemanager", [], { timeout: 5000, notOnDemand: true });
+  using smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000, notOnDemand: true });
   await smservice.startService(name);
 }
 
+//If the backendservice was properly defined in the @webhare/services BackendServices interface, we can return that type
+export function openBackendService<ServiceName extends keyof BackendServices>(name1: ServiceName, args?: unknown[], options?: BackendServiceOptions): Promise<GetBackendServiceInterface<ServiceName>>;
+//Otherwise you'll have to give an explicit type
+export function openBackendService<Service extends object>(name: string, args?: unknown[], options?: BackendServiceOptions): Promise<ConvertToClientInterface<Service>>;
+
 /** Open a WebHare backend service
- *  @param name - Service name (a module:service pair)
+ *  @param name - Service name (a module:service pair). Add this name to the BackendServices interface for automatic service type discovery
  *  @param args - Arguments to pass to the constructor
  *  @param options - timeout: Maximum time to wait for the service to come online in msecs (default: 30sec)
  *                   linger: If true, service requires an explicit close() and will keep the process running
+ * @typeParam Service - Type definition of the service class that implements this service.
  */
-export async function openBackendService<T extends object = DefaultWebHareServiceClient>
-  (name: string, args?: unknown[], options?: BackendServiceOptions): Promise<ConvertToClientInterface<T> & ServiceBase> {
-
+export async function openBackendService<Service extends object>(name: string, args?: unknown[], options?: BackendServiceOptions): Promise<ConvertToClientInterface<Service>> {
   const startconnect = Date.now(); //only used for exception reporting
   const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref());
   let attemptedstart = false;
@@ -163,7 +166,7 @@ export async function openBackendService<T extends object = DefaultWebHareServic
         link.dropReference();
 
       const sb = new ServiceBase(link);
-      return new Proxy(sb, new ServiceProxy(sb, link, description)) as ConvertToClientInterface<T> & ServiceBase;
+      return new Proxy(sb, new ServiceProxy(sb, link, description)) as ConvertToClientInterface<Service>;
     } catch (e) {
       link.close();
       throw e; //not relooping if describing fails

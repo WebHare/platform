@@ -1,5 +1,5 @@
-import { CheckResult } from "@webhare/services";
-import { connectAssetPackControl, loadAssetPacksConfig } from "./api";
+import { CheckResult, openBackendService } from "@webhare/services";
+import { loadAssetPacksConfig } from "./api";
 
 export async function checkAssetPacks(): Promise<CheckResult[]> {
   const errors: CheckResult[] = [];
@@ -12,7 +12,7 @@ export async function checkAssetPacks(): Promise<CheckResult[]> {
       scopes: []
     });
   } else {
-    const control = await connectAssetPackControl("wh check");
+    const control = await openBackendService("platform:assetpacks", ["wh check"]);
     const status = await control.getStatus();
     for (const bundle of status.bundles) {
       if (bundle.haserrors) {

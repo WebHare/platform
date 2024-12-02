@@ -11,7 +11,7 @@ import type { UploadManifest } from "@webhare/upload";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
-export { openBackendService } from "./backendservice";
+export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
 export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
 export { backendConfig } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
@@ -36,6 +36,10 @@ export type { ContentValidationFunction, ValidationState, ValidationOptions } fr
 
 /** Extend this interface to define the format of your own secret scopes */
 export interface ServerEncryptionScopes {
+}
+
+/** Extend this interface to describe backend services */
+export interface BackendServices {
 }
 
 /** Extend this interface to define the format of your own sessions  */

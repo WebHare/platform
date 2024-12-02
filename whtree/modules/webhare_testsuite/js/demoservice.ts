@@ -2,6 +2,12 @@ import type { ServiceClientFactoryFunction } from '@webhare/services/src/backend
 import { BackendServiceConnection, BackendServiceController, broadcast } from "@webhare/services";
 import type { SimpleMarshallableRecord } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
+declare module "@webhare/services" {
+  interface BackendServices {
+    "webhare_testsuite:controlleddemoservice": ClusterTestLink;
+  }
+}
+
 class Controller implements BackendServiceController {
   dummy = "-1";
   connections = new Map<string, ClusterTestLink>;
@@ -116,7 +122,5 @@ export async function openDemoService(testdata: string) {
   await Promise.resolve(); //wait a tick
   return new ClusterTestLink(null, testdata);
 }
-
-export type { ClusterTestLink };
 
 openDemoService satisfies ServiceClientFactoryFunction;

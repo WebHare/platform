@@ -1,9 +1,7 @@
-import { ServiceManagerClient } from '@mod-platform/js/bootstrap/servicemanager/main';
 import { openBackendService } from '@webhare/services';
 
-const servicename = "platform:servicemanager";
-
+/** @deprecated Just use openBackendService("plaform:servicemanager") - it's almost just as internal/unstable as invoking this intenral API */
 export async function connectSM() {
-  const smservice = await openBackendService<ServiceManagerClient>(servicename, [], { timeout: 5000 });
+  const smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000 });
   return smservice;
 }

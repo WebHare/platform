@@ -1,7 +1,7 @@
 import { isWorkOpen, onFinishWork, FinishHandler } from "@webhare/whdb";
 import { openBackendService } from "./backendservice";
-import { ConfigClient } from "@mod-platform/js/configure/configservice";
 import { ApplyConfigurationOptions, ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
+import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 
 const finishHandlerSymbol = Symbol("ApplyConfig FinishHandler");
 
@@ -12,7 +12,7 @@ export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
   if (!toApply.source)
     throw new Error("applyConfiguration requires a source");
 
-  using service = await openBackendService<ConfigClient>("platform:configuration");
+  using service = await openBackendService("platform:configuration");
   return await service.applyConfiguration(toApply);
 }
 

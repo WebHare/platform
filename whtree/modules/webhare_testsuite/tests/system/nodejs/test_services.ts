@@ -3,7 +3,6 @@ import * as services from "@webhare/services";
 import { GenericLogLine } from "@webhare/services/src/logging";
 import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
-import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
 import { runBackendService } from "@webhare/services";
 import { createVM, HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
@@ -82,8 +81,8 @@ async function testServices() {
 
 async function testServiceState() {
   const instance1 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance1"], { linger: true });
-  const instance2 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
-  const instance3 = await services.openBackendService<ClusterTestLink>("webhare_testsuite:controlleddemoservice", ["instance3"], { linger: true });
+  const instance2 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
+  const instance3 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance3"], { linger: true });
 
   test.assert(!("emit" in instance1), "although close() is (re)defined, emit should never be visible");
 
@@ -158,7 +157,7 @@ async function testEvents() {
   test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }], allevents);
 
   //======= Test remote events
-  using serviceJS = await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice", ["x"]);
+  using serviceJS = await services.openBackendService<any>("webhare_testsuite:demoservice", ["x"]);
   await serviceJS.emitIPCEvent("webhare_testsuite:testevent", { event: 3 });
   await test.wait(() => allevents.length > 1);
   test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }, { name: "webhare_testsuite:testevent", data: { event: 3 } }], allevents);
@@ -241,14 +240,14 @@ async function runBackendServiceTest_JS() {
   await new Promise(r => setTimeout(r, 5));
   test.eq(0, await getActiveMessagePortCount());
 
-  test.assert(await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
   test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
   dumpActiveIPCMessagePorts();
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:demoservice", ["abort"]));
   test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
-  const serverinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
+  const serverinstance = await services.openBackendService<any>("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
   test.eq(undefined, await serverinstance.voidReturn());
 
@@ -285,8 +284,8 @@ async function runBackendServiceTest_JS() {
 }
 
 async function testDisconnects() {
-  const instance1 = await services.openBackendService("webhare_testsuite:demoservice", ["instance1"], { linger: true });
-  const instance2 = await services.openBackendService("webhare_testsuite:demoservice", ["instance2"], { linger: true });
+  const instance1 = await services.openBackendService<any>("webhare_testsuite:demoservice", ["instance1"], { linger: true });
+  const instance2 = await services.openBackendService<any>("webhare_testsuite:demoservice", ["instance2"], { linger: true });
 
   //Send a message to instance 1 and immediately disconnect it. then try instance 2 and see if the service got killed because we dropped the outgoing line
   const promise = instance1.getAsyncLUE(); //the demoservice should delay 50ms before responding, giving us time to kill the link..
@@ -306,7 +305,7 @@ async function testServiceTimeout() {
   const customservicename = "webhare_testsuite:servicetimeouttest_" + Math.random();
   await test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100 }));
 
-  const slowserviceconnection = services.openBackendService(customservicename, [], { timeout: 3000 });
+  const slowserviceconnection = services.openBackendService<any>(customservicename, [], { timeout: 3000 });
   await sleep(100); //give the connection time to fail
 
   //set it up
@@ -351,14 +350,14 @@ async function runBackendServiceTest_HS() {
 }
 
 async function runBackendServiceTest_Events() {
-  const serviceJS = await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice", ["x"], { linger: true });
+  const serviceJS = await services.openBackendService<any>("webhare_testsuite:demoservice", ["x"], { linger: true });
 
   const waiterJS = new Promise<number>(resolve => serviceJS.addEventListener("testevent", (evt: Event) => resolve((evt as CustomEvent<number>).detail), { once: true }));
   serviceJS.emitTestEvent({ start: 12, add: 13 }).catch(() => { }); //ignore exception usuaslly triggered by the close below (TODO is there any fix for that?)
   test.eq(25, await waiterJS);
   serviceJS.close();
 
-  const serviceHS = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
+  const serviceHS = await services.openBackendService<any>("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
 
   const waiterHS = new Promise<unknown>(resolve => serviceHS.addEventListener("testevent", (evt: Event) => resolve((evt as CustomEvent<number>).detail), { once: true }));
   serviceHS.emitTestEvent({ start: 12, add: 13 }).catch(() => { }); //ignore exception usuaslly triggered by the close below (TODO is there any fix for that?)
