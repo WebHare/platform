@@ -27,8 +27,8 @@ export type PxlEventData = {
 };
 
 export interface PxlOptions {
-  /**  Set to "0" or "1" to explicitly allow resp. refuse tracking, or set to "unspecified", which means the browser's Do Not Track setting is used. Defaults to "0". */
-  donottrack: "0" | "1" | "unspecified";
+  /** Override pi (pxlId) to control or anonymize user ids*/
+  pi: string | undefined;
   /**  Base url to which to send PXL events. Defaults to "/.px/". */
   recordurl: string;
   /**  Sample rate for the alternative record url as a fraction of the number of events, for example, setting it to 1/100 sends 1 in 100 events to the alternative record url. Defaults to 0 (no sampling). */
@@ -56,7 +56,7 @@ const max_data_length = 600; // The maximum number of bytes stored for the reque
 const max_sessionid_age = 30;
 
 const globalOptions: PxlOptions = {
-  donottrack: "0",
+  pi: undefined,
   recordurl: "/.px/",
   altsamplerate: 0,
   altrecordurl: "/.px/alt/",
@@ -109,15 +109,8 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   url.searchParams.set("pe", eventname);
   url.searchParams.set("pp", pagesession);
   url.searchParams.set("pc", String(++seqnr));
-
-  // See: https://developer.mozilla.org/en-US/docs/Web/API/navigator/doNotTrack
-  // The 'doNotTrack' option overrides the browser setting if not "unspecified"
-  const donottrack = options.donottrack === "1" || (options.donottrack === "unspecified" && (window.navigator.doNotTrack === "1" || window.navigator.doNotTrack === "yes"));
-  if (!donottrack) {
-    url.searchParams.set("pi", getPxlId());
-    url.searchParams.set("ps", getPxlSessionId());
-  } else if (options.debug)
-    console.log(`[pxl] Do Not Track is set, not adding pi and ps`);
+  url.searchParams.set("ps", getPxlSessionId());
+  url.searchParams.set("pi", options?.pi ?? getPxlId());
 
   if (options.altsamplerate)
     url.searchParams.set("pr", String(options.altsamplerate));

@@ -62,26 +62,25 @@ test.run([
     test.eq("false", vars.get("db_boel"));
 
     // Test identifier
-    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { donottrack: "1" })!;
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { pi: "anonymous" })!;
     vars = new URL(url).searchParams;
-    test.assert(!vars.has("pi"));
-    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { donottrack: "0" })!;
+    test.eq("anonymous", vars.get("pi"));
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null)!;
     vars = new URL(url).searchParams;
-    test.assert(vars.has("pi"));
+    test.eq(/^[-_0-9A-Za-z]{22}$/, vars.get("pi"));
     const id = vars.get("pi");
 
-    pxl.setPxlOptions({ donottrack: "1" });
+    pxl.setPxlOptions({ pi: "anonymous" });
     url = pxl.makePxlURL(baseurl, "webhare_testsuite:test")!;
     vars = new URL(url).searchParams;
-    test.assert(!vars.has("pi"));
+    test.eq("anonymous", vars.get("pi"));
 
-    pxl.setPxlOptions({ donottrack: "0" });
-    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { donottrack: "1" })!;
+    pxl.setPxlOptions({ pi: undefined });
+    url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null, { pi: "anonymous" })!;
     vars = new URL(url).searchParams;
-    test.assert(!vars.has("pi"));
+    test.eq("anonymous", vars.get("pi"));
     url = pxl.makePxlURL(baseurl, "webhare_testsuite:test")!;
     vars = new URL(url).searchParams;
-    test.assert(vars.has("pi"));
     test.eq(id, vars.get("pi"));
 
     // Test not overwriting existing url variables
@@ -150,8 +149,8 @@ test.run([
 
     // Send an event with explicit id
     startTime = new Date();
-    pxl.setPxlOptions({ donottrack: "1" });
-    pxl.sendPxlEvent(pxlEvent, null, { donottrack: "0" });
+    pxl.setPxlOptions({ pi: "anonymous" });
+    pxl.sendPxlEvent(pxlEvent, null, { pi: undefined });
     let lines = await getPxlLogLines();
     test.assert(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
     let url = new URL("https://example.org" + lines[0]);
@@ -170,7 +169,7 @@ test.run([
     url = new URL("https://example.org" + lines[0]);
     test.assert(url.searchParams.has("pe"));
     test.eq(pxlEvent, url.searchParams.get("pe"));
-    test.assert(!url.searchParams.has("pi"));
+    test.eq("anonymous", url.searchParams.get("pi"));
 
     // Send an event with data
     startTime = new Date();
@@ -180,7 +179,7 @@ test.run([
     url = new URL("https://example.org" + lines[0]);
     test.assert(url.searchParams.has("pe"));
     test.eq(pxlEvent, url.searchParams.get("pe"));
-    test.assert(!url.searchParams.has("pi"));
+    test.eq("anonymous", url.searchParams.get("pi"));
     test.assert(url.searchParams.has("ds_1"));
     test.eq(pxlId, url.searchParams.get("ds_1"));
     test.assert(url.searchParams.has("dn_fun"));

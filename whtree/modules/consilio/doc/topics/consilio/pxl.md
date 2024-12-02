@@ -33,7 +33,6 @@ pxl.setOptions(options);
 
 The following options can be set in the `options` object:
 
-* `donottrack`: Set to `"0"` or `"1"` to explicitly allow resp. refuse tracking, or set to `"unspecified"`, which means the browser's Do Not Track setting is used. Defaults to `"0"`.
 * `recordurl`: Base url to which to send PXL events. Defaults to `"/.px/"`.
 * `altsamplerate`: Sample rate for the alternative record url as a fraction of the number of events, for example, setting it to `1/100` (or `.01`) sends 1 in 100 events to the alternative record url. Defaults to `0` (no sampling).
 * `altrecordurl`: Alternative record url. Defaults to `"/.px/alt/"`.
