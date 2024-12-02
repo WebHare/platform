@@ -18,6 +18,9 @@ PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD
 {
   fielddef.type := node->GetAttribute("type");
 
+  IF( fielddef.type = "pulldown")
+    fielddef := CELL[...fielddef, placeholder := node->GetAttribute("placeholder")];
+
   INSERT CELL wrdschema := node->GetAttribute("wrdschema")
             , has_wrdschema := node->HasAttribute("wrdschema")
             , providerfield := node->GetAttribute("providerfield")
@@ -69,6 +72,9 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
     this->paymentmethodselect->required := this->required;
     this->paymentmethodselect->requiredcondition := this->requiredcondition;
     this->SetupComposition( [ this->paymentmethodselect ]);
+
+    IF( this->paymentmethodselect->type = "pulldown")
+      this->paymentmethodselect->placeholder := field.placeholder;
 
     RECORD formpaymentsplugin;
     IF(ObjectExists(this->form->formapplytester) AND NOT (field.has_wrdschema AND wrdschema="")) //do not use formpayments if the wrdschema is already set to empty
