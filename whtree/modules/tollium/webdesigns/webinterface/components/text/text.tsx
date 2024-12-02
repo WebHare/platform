@@ -147,7 +147,6 @@ export default class ObjText extends ComponentBase {
     txtnode.propTodd = this;
 
     this.nodesize = $todd.CalculateSize(txtnode);
-    console.log("Text node", this.value, this.nodesize);
 
     if (this.styles.ellipsis) //don't set width if ellipsis is applied
       this.nodesize.x = 0;
