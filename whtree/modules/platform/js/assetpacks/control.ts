@@ -118,7 +118,7 @@ class LoadedBundle {
     }
   }
   /** Rescan the dependencies */
-  private async checkDeps() {
+  async checkDeps() {
     await this.checkDepList(this.fileDeps, true);
     await this.checkDepList(this.missingDeps, false);
   }
@@ -226,6 +226,7 @@ class AssetPackController implements BackendServiceController {
   constructor(public config: AssetPacksConfig) {
     void subscribe("system:modulefolder.*", this.onChangedFile);
     void subscribe("system:npmlinkroot.filechange.*", this.onChangedFile);
+    void subscribe("system:modulesupdate", () => void this.reload());
 
     this.loadAssetPacks().catch(e => console.error(e));
   }
@@ -252,6 +253,7 @@ class AssetPackController implements BackendServiceController {
       const pack = this.bundles.get(config.name);
       if (pack) {
         pack.updateConfig(config, settings);
+        await pack.checkDeps(); //if we need to update already loaded packs, it's probably a module push (or reconfiguration) so just check the deps again
         pack.startCompile(); //recheck whether it needs to compile (needed when autocompile is re-enabled)
       } else {
         this.bundles.set(config.name, new LoadedBundle(this, config.name, config, settings, await getAssetPackState(config.name)));
