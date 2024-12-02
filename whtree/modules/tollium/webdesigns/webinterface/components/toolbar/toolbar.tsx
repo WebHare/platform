@@ -40,7 +40,6 @@ export default class ObjToolbar extends ComponentBase {
 
     this.node =
       <t-toolbar data-name={this.name}
-        onMousedown={evt => this.mouseDownNoFocusSteal(evt)}
         propTodd={this}>
         {this.leftbuttons = <t-toolbar-buttongroup class="t-toolbar-buttongroup__left" />}
         {this.rightbuttons = <t-toolbar-buttongroup class="t-toolbar-buttongroup__right" />}

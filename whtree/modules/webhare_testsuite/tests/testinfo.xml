@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="hsengine" site="webhare_testsuite.testsite">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" site="webhare_testsuite.testsite">
   <!-- TODO make hsengine work like other testframework tests, with testinfo.xml -->
 
   <!-- Some tests to test the tester -->

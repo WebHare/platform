@@ -4,7 +4,7 @@ import * as icons from '@mod-tollium/js/icons';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import './button.scss';
-import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type { ActionableAttributes, ComponentBaseUpdate, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { CustomMenuEvent } from '@mod-tollium/web/ui/components/basecontrols/menu';
 
@@ -16,7 +16,7 @@ import type { CustomMenuEvent } from '@mod-tollium/web/ui/components/basecontrol
 
 const toolbarbutton = { width: 24, height: 24 };
 
-interface ButtonAttributes extends ComponentStandardAttributes {
+interface ButtonAttributes extends ActionableAttributes {
   title: string;
   icon: string;
   ispressed: boolean;

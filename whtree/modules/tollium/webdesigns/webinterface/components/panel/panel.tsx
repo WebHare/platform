@@ -242,7 +242,7 @@ export default class ObjPanel extends ComponentBase {
   // Build the DOM node(s) for this component
   buildNode() {
     this.node =
-      <t-panel data-name={this.name} onMousedown={e => this.mouseDownNoFocusSteal(e)} propTodd={this}>
+      <t-panel data-name={this.name} propTodd={this}>
         {this.nodearea = <div class="panel-area" />}
       </t-panel>;
 

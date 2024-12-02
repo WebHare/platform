@@ -89,8 +89,13 @@ export function getActiveApplication() {
  * Layout
  */
 
+export interface Size {
+  x: number;
+  y: number;
+}
+
 export const textsize = {
-  cache: {} as Record<string, { x: number; y: number }>,
+  cache: {} as Record<string, Size>,
   styles: {
     "font-size": "",
     "font-style": "",
@@ -116,7 +121,9 @@ export function ResetCachedTextSizes() {
 }
 
 let calcsizenode: HTMLDivElement | undefined;
-export function CalculateSize(node: HTMLElement) {
+export function CalculateSize(node: HTMLElement): Size {
+  // if(@canvas)
+
   if (!calcsizenode) {
     calcsizenode = dompack.create("div", {
       style: {

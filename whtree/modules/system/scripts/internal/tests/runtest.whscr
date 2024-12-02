@@ -884,7 +884,7 @@ WHILE (TRUE)
   }
 
   IF (NOT seenanytest)
-    TerminateScriptWithError(`Error: No test matched: ${Detokenize(parsedargs.testlist,',')}'`);
+    TerminateScriptWithError(`Error: No test matched: '${Detokenize(parsedargs.testlist,',')}'`);
 
   MyPrint("\n\n+=====================================================================\n");
   IF(looptests)
