@@ -314,6 +314,10 @@ class IndyShell extends TolliumShell {
     // Load the offline notification icon, so it can be shown when actually offline
     this.offlinenotificationicon = toddImages.createImage("tollium:messageboxes/warning", 24, 24, 'b');
 
+    this.executeShell();
+  }
+
+  executeShell() { //this needs to be a separate entry point for the login app
     //Launch a placeholder app, simply to get 'something' up and running fast, and display the loader (otherwise we'd have to hack a special loader for 'no-apps')
     this.startuplock = dompack.flagUIBusy();
     this.placeholderapp = this.startFrontendApplication('tollium:builtin.placeholder', null, { onappbar: false });

@@ -376,8 +376,8 @@ class TestFramework {
     result = result.finally(function () { test.finished = true; });
 
     // If we're in report mode, swallow any errors from loading the iframe / test registration
-    if (this.reportid)
-      result = result.catch(function (e) { console.error('Swallowed exception', e); });
+    // if (this.reportid)
+    //   result = result.catch(function (e) { console.error('Swallowed exception', e); });
 
     return result;
   }
@@ -1158,7 +1158,7 @@ class TestFramework {
   }
 
   log(...text: unknown[]) {
-    const nodes = [document.createTextNode(text.map(e => typeof e === string ? e : JSON.stringify(e)).join(' ')), document.createElement("br")];
+    const nodes = [document.createTextNode(text.map(e => typeof e === "string" ? e : JSON.stringify(e)).join(' ')), document.createElement("br")];
     this.lastlognodes.push(nodes[0]);
     this.lastlognodes.push(nodes[1]);
 

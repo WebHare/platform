@@ -92,46 +92,6 @@ async function runTest(teststep) {
   const testresult = teststep.test();
   if (testresult && testresult.then) //we received a promise
     await testresult;
-
-
-  /*
-    if (stop)
-      return;
-
-    // Cleanup test state
-    this.currenttest = testnr;
-    this.currentstep = -1;
-    this.currentsteps = null;
-
-    // Get test, set expected args
-    var test = this.tests[this.currenttest];
-    this.args = test.args || [];
-
-    // Unmark finished, just in case
-    test.finished = false;
-
-    // Send off a report, just in case we crash.
-    this.sendReport(false);
-
-    // Reset the test, signal loading state
-    this.resetTest();
-    this.setStatus(test.name + " loading");
-
-    // Schedule test script load & test steps
-    var result = this.loadTestIframe()
-      .then(this.waitForTestSetup.bind(this))
-      .catch(this.handleTestStepException.bind(this, test, { name: 'Loading test script', _rethrow: true }))
-      .then(this.runAllTestSteps.bind(this));
-
-    // Mark test as finished.
-    result = result.finally(function () { test.finished = true; });
-
-    // If we're in report mode, swallow any errors from loading the iframe / test registration
-    if (this.reportid)
-      result = result.catch(function (e){ console.error('Swallowed exception', e); });
-
-    return result;
-    */
 }
 
 export function getWin() {

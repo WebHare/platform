@@ -44,13 +44,13 @@ function getStorageKeyName() {
   return "wh:wrdauth-" + getCookieName();
 }
 
-async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
+async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
   dompack.stop(event);
 
-  const username = (this.elements.namedItem("login") as HTMLInputElement)?.value;
-  const password = (this.elements.namedItem("password") as HTMLInputElement)?.value;
-  const site = (this.elements.namedItem("site") as HTMLInputElement)?.value || undefined;
-  const persistentlogin = (this.elements.namedItem("persistent") as HTMLInputElement)?.checked;
+  const username = (node.elements.namedItem("login") as HTMLInputElement)?.value;
+  const password = (node.elements.namedItem("password") as HTMLInputElement)?.value;
+  const site = (node.elements.namedItem("site") as HTMLInputElement)?.value || undefined;
+  const persistentlogin = (node.elements.namedItem("persistent") as HTMLInputElement)?.checked;
   if (!login || !password)
     throw new Error(`submitLoginForm: required elements login/password not set or missing`);
 
@@ -63,7 +63,7 @@ async function submitLoginForm(this: HTMLFormElement, event: SubmitEvent) {
     location.reload();
   } else {
     //FIXME restore the code & data members from old wrdauth
-    failLogin(loginresult.error, { code: "unknown", data: "" }, this);
+    failLogin(loginresult.error, { code: "unknown", data: "" }, node);
   }
 }
 
@@ -77,7 +77,7 @@ export function isLoggedIn(): boolean {
 export function setupWRDAuth() {
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
     // node.whplugin_processed = true;
-    node.addEventListener("submit", evt => submitLoginForm);
+    node.addEventListener("submit", evt => void submitLoginForm(node, evt));
   });
   dompack.register('.wh-wrdauth__logout', node => {
     // node.whplugin_processed = true;
