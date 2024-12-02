@@ -2,6 +2,14 @@ import * as dompack from "@webhare/dompack";
 import { generateRandomId } from "@webhare/std";
 import { debugFlags, isLive } from "@webhare/env";
 
+type PxlData = {
+  pi: string;
+  exp: Date;
+};
+type SessionPxlData = {
+  ps: string;
+};
+
 interface PxlEventDetails {
   event: string;
   data: PxlEventData;
@@ -69,6 +77,8 @@ const globalOptions: PxlOptions = {
 let pagesession: string | undefined; //current page session id (used to track multiple events from single page)
 let useAltRecordURL = false; //send events for this page to the altrecordurl
 let seqnr = 0;
+
+let pxlUserId: string | undefined, pxlSessionId: string | undefined;
 
 /** Set global pxl options
     @param options - Option updates
@@ -162,60 +172,48 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
 export function getPxlId(options?: Partial<PxlOptions>) {
   options = { ...globalOptions, ...options };
 
-  //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
-  const havelocalstorage = dompack.isStorageAvailable();
-
-  const sessionExpireDays = (options?.sessionexpiration ?? max_sessionid_age);
-
-  // Use localStorage if available, otherwise just use a cookie
-  if (havelocalstorage) {
-    let expiration = new Date();
-    let id = localStorage.getItem("_wh.pi");
-    if (id) {
+  const havestorage = dompack.isStorageAvailable(); //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
+  if (!pxlUserId) {
+    if (havestorage) { //get an id from storage if it exists
       const timestampvar = localStorage.getItem("_wh.ti");
-      if (timestampvar) {
-        const timestamp = new Date(timestampvar);
-        if (timestamp > expiration) {
-          if (options.debug)
-            console.log(`[pxl] Using id ${id} from localStorage`);
-          return id;
-        } else if (options.debug)
-          console.log(`[pxl] Id from localStorage has expired(${timestamp} <= ${expiration})`);
+      if (timestampvar && new Date(timestampvar) > new Date) { //not expired yet
+        pxlUserId = localStorage.getItem("_wh.pi") || undefined;
+        if (pxlUserId && options.debug)
+          console.log(`[pxl] Using id ${pxlUserId} from localStorage`);
       }
     }
-
-    id = generateRandomId();
-    expiration = new Date(expiration.getTime() + sessionExpireDays * 24 * 60 * 60 * 1000);
-    localStorage.setItem("_wh.pi", id);
-    localStorage.setItem("_wh.ti", expiration.toISOString());
-    if (options.debug)
-      console.log(`[pxl] Storing id ${id} in localStorage with expiration date ${expiration} `);
-    return id;
-  } else {
-    let id = dompack.getCookie("_wh.pi");
-    if (!id) {
-      id = generateRandomId();
-      dompack.setCookie("_wh.pi", id, { duration: sessionExpireDays });
-      if (options.debug)
-        console.log(`[pxl] Storing user id ${id} in cookie`);
-    } else if (options.debug)
-      console.log(`[pxl] Using user id ${id} from cookie`);
-    return id;
   }
+
+  if (!pxlUserId) { //generate a new id
+    pxlUserId = generateRandomId();
+    if (havestorage) { //store it. also bump expiration if necessary
+      localStorage.setItem("_wh.pi", pxlUserId);
+    }
+
+    if (havestorage) { //store it. also bump expiration if necessary
+      const sessionExpireDays = (options?.sessionexpiration ?? max_sessionid_age);
+      const expiration = new Date(Date.now() + sessionExpireDays * 24 * 60 * 60 * 1000);
+      localStorage.setItem("_wh.ti", expiration.toISOString());
+      dompack.setLocal<PxlData>("wh:pxl", { pi: pxlUserId, exp: expiration }); //approx 30 days after WH5.7 is rolled out everywhere, we can switch to reading wh:pxl instead of localStorage direcgly
+    }
+  }
+
+  return pxlUserId;
 }
 
 function getPxlSessionId(options?: Partial<PxlOptions>) {
   options = { ...globalOptions, ...options };
 
-  let id = dompack.getCookie("_wh.ps");
-  if (!id) {
-    id = generateRandomId();
-    dompack.setCookie("_wh.ps", id);
-    if (options.debug)
-      console.log(`[pxl] Storing session id ${id} in cookie`);
-  } else if (options.debug)
-    console.log(`[pxl] Using session id ${id} from cookie`);
-  return id;
+  if (!pxlSessionId) {
+    const havestorage = dompack.isStorageAvailable(); //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
+    if (!pxlSessionId && havestorage)
+      pxlSessionId = dompack.getSession<SessionPxlData>("wh:pxlSession")?.ps;
+
+    pxlSessionId ||= generateRandomId();
+    if (havestorage)
+      dompack.setSession<SessionPxlData>("wh:pxlSession", { ps: pxlSessionId });
+  }
+  return pxlSessionId;
 }
 
 /** Send a pxl event
