@@ -169,16 +169,14 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   return url;
 }
 
-export function getPxlId(options?: Partial<PxlOptions>) {
-  options = { ...globalOptions, ...options };
-
+export function getPxlId() {
   const havestorage = dompack.isStorageAvailable(); //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
   if (!pxlUserId) {
     if (havestorage) { //get an id from storage if it exists
       const timestampvar = localStorage.getItem("_wh.ti");
       if (timestampvar && new Date(timestampvar) > new Date) { //not expired yet
         pxlUserId = localStorage.getItem("_wh.pi") || undefined;
-        if (pxlUserId && options.debug)
+        if (pxlUserId && globalOptions.debug)
           console.log(`[pxl] Using id ${pxlUserId} from localStorage`);
       }
     }
@@ -191,7 +189,7 @@ export function getPxlId(options?: Partial<PxlOptions>) {
     }
 
     if (havestorage) { //store it. also bump expiration if necessary
-      const sessionExpireDays = (options?.sessionexpiration ?? max_sessionid_age);
+      const sessionExpireDays = (globalOptions?.sessionexpiration ?? max_sessionid_age);
       const expiration = new Date(Date.now() + sessionExpireDays * 24 * 60 * 60 * 1000);
       localStorage.setItem("_wh.ti", expiration.toISOString());
       dompack.setLocal<PxlData>("wh:pxl", { pi: pxlUserId, exp: expiration }); //approx 30 days after WH5.7 is rolled out everywhere, we can switch to reading wh:pxl instead of localStorage direcgly
@@ -201,9 +199,7 @@ export function getPxlId(options?: Partial<PxlOptions>) {
   return pxlUserId;
 }
 
-function getPxlSessionId(options?: Partial<PxlOptions>) {
-  options = { ...globalOptions, ...options };
-
+export function getPxlSessionId() {
   if (!pxlSessionId) {
     const havestorage = dompack.isStorageAvailable(); //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
     if (!pxlSessionId && havestorage)
