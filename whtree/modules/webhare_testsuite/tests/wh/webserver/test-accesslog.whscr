@@ -54,17 +54,15 @@ MACRO RunQueries()
   TestEQMembers(
       [ [ host :=       "127.0.0.1"
         , method :=     "GET"
-        , port :=       testport.portnumber
         , url :=        longurlpath
         , useragent :=  'HareScript/2 (HareScript HTTP library)'
         ]
       , [ host :=       "example.com"
         , method :=     "GET"
-        , port :=       testvport.portnumber
         , url :=        "/.__test/legalhost"
         , useragent :=  'HareScript/2 (HareScript HTTP library)'
         ]
-      , [ host :=       "example%32%34%32.com%32"
+      , [ host :=       "example \" .com "
         , url :=        "/.__test/illegalhost"
         ]
       , [ host :=       "example"
@@ -82,7 +80,6 @@ MACRO RunQueries()
   TestEQMembers(
       [ [ host :=       "example"
         , method :=     "GET"
-        , port :=       testvport.portnumber
         , url :=        "/.px/pixelhit?__test"
         , useragent :=  'HareScript/2 (HareScript HTTP library)'
         ]

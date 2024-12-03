@@ -13,7 +13,8 @@ MACRO TestAccessLogFileReader()
   STRING lines :=
     'remoteip - username [01/Aug/2011:15:06:13 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 7636\n' ||
     'remoteip - username [01/Aug/2011:15:06:14 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid 7636\n' ||
-    'remoteip - - [01/Aug/2011:15:06:15 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid "mimetype" 7636\n';
+    'remoteip - - [01/Aug/2011:15:06:15 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid "mimetype" 7636\n' ||
+    '{"@timestamp":"2024-12-03T12:59:48.297Z","ip":"10.55.55.55","method":"GET","url":"https://webhare.moe.sf.webhare.dev/testoutput/live_api/chatplane/sub?token=&visitorid=&visitordata=&visitorpermissions=&item=item%3A%7B%22channeltype%22%3A%22sub%22%2C%22id%22%3A%22BC-36z88N7c-LLks1NiAloVCw%22%7D%4030FBCB2E3752A148F7C500A4DE853B79C4AAF9BE","statusCode":200,"bodySent":129,"userAgent":"node","mimeType":"application/json","responseTime":0.002244}\n';
 
   RECORD ARRAY rows;
   BLOB logdata := StringToBlob(lines);
@@ -78,6 +79,24 @@ MACRO TestAccessLogFileReader()
         , trackingstamp :=  "trackerid"
         , mimetype :=       "mimetype"
         , pagetime :=       7636i64
+        , method :=         "GET"
+        , username :=       ""
+        ]
+      , [ stream :=         "hit"
+        , remoteip :=       "10.55.55.55"
+        , time :=           MakeDateTime(2024,12,3,12,59,48,297)
+        , time_msecs :=     TRUE
+        , url :=            "/testoutput/live_api/chatplane/sub?token=&visitorid=&visitordata=&visitorpermissions=&item=item%3A%7B%22channeltype%22%3A%22sub%22%2C%22id%22%3A%22BC-36z88N7c-LLks1NiAloVCw%22%7D%4030FBCB2E3752A148F7C500A4DE853B79C4AAF9BE"
+        , httpcode :=       200
+        , download :=       129i64
+        , upload :=         0i64
+        , referrer :=       ""
+        , useragent :=      "node"
+        , host :=           "webhare.moe.sf.webhare.dev"
+        , port :=           443
+        , trackingstamp :=  ""
+        , mimetype :=       "application/json"
+        , pagetime :=       2244i64
         , method :=         "GET"
         , username :=       ""
         ]
