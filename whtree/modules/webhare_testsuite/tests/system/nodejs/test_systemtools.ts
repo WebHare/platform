@@ -3,7 +3,7 @@ import { storeDiskFile, readDirRecursive, deleteRecursive } from "@webhare/syste
 import { mkdtemp } from 'node:fs/promises';
 import * as path from "node:path";
 import * as os from "node:os";
-import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { Readable } from "node:stream";
 
 
@@ -44,9 +44,7 @@ async function testFS() {
   await storeDiskFile(path.join(tempdir, "1.txt"), new Blob(["test 11"]), { overwrite: true });
   test.eq("test 11", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
 
-  mkdirSync(path.join(tempdir, "subdir"));
-  mkdirSync(path.join(tempdir, "subdir", "deeper"));
-  await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deepest.txt"), "Deepest file");
+  await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deepest.txt"), "Deepest file", { mkdir: true });
   await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deep2.txt"), "Deep file");
 
   symlinkSync(path.join(tempdir, "subdir"), path.join(tempdir, "subdir", "backup"));

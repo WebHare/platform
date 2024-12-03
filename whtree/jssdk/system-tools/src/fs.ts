@@ -1,15 +1,17 @@
 import { generateRandomId } from "@webhare/std";
-import type { Dirent } from "node:fs";
-import { open, type FileHandle, rename, unlink, readdir, rmdir, writeFile } from "node:fs/promises";
+import { type Dirent } from "node:fs";
+import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
 import type { Stream } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
 
 export interface StoreDiskFileOptions {
-  ///Overwrite if the file already exists? (other we would throw)
+  /** Overwrite if the file already exists? (other we would throw) */
   overwrite?: boolean;
-  ///Create/overwrite the file in place. Normally, a temporary file is generated first to allow atomic replacement
+  /** Create/overwrite the file in place. Normally, a temporary file is generated first to allow atomic replacement */
   inPlace?: boolean;
+  /** Create parent directory recursively if it doesn't exist */
+  mkdir?: boolean;
 }
 
 /** Store a file to disk (atomically if possible)
@@ -27,11 +29,15 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
   /* To provide both the atomicity guarantee of inplace := FALSE and the exlusive-create guarantee of overwrite := FALSE
      we need to hold handles to both versions */
   let reservefile: FileHandle | null = null;
-  if (usetemp && !options?.overwrite) {
-    reservefile = await open(path, "ax"); //ax = append exclusive (prevent truncation)
-  }
 
   try {
+    if (options?.mkdir)
+      await mkdir(parse(path).dir, { recursive: true });
+
+    if (usetemp && !options?.overwrite) {
+      reservefile = await open(path, "ax"); //ax = append exclusive (prevent truncation)
+    }
+
     await writeFile(writepath ?? path, (typeof data === "object" && "stream" in data) ? data.stream() : data, { flag: options?.overwrite ? "w" : "wx" });
     if (writepath) {
       await rename(writepath, path);
