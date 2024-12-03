@@ -22,6 +22,12 @@ void WebHareServer::FlushLogFiles()
         pxllog.Flush();
 }
 
+//Convert a num (0 to 9) to a digit ('0' to '9')
+inline char GetDigit(unsigned num)
+{
+        return static_cast<char>(num + '0');
+}
+
 template < class A >
  char *CopySafeString(A copyptr, A copylimit, char *pos, char *loglinelimit)
 {
@@ -81,58 +87,53 @@ struct LogLineBuilder
         }
 
         /// Append a string, url-encoding '"', '\r' and '\n'
-        void AppendSafeString(std::string const &value, unsigned maxlen)
+        void AppendQuotedString(std::string::const_iterator const &start, std::string::const_iterator const &end)
         {
-                AppendSafeStringInternal(value.begin(), value.end(), maxlen, false);
+                data.push_back('"');
+                Blex::EncodeJava(start, end, std::back_inserter(data));
+                data.push_back('"');
         }
-
-        void AppendSafeString(std::string::const_iterator begin, std::string::const_iterator end, unsigned maxlen)
+        void AppendQuotedString(std::string const &value, unsigned maxlen)
         {
-                AppendSafeStringInternal(begin, end, maxlen, false);
-        }
-
-        void AppendUnquotedSafeString(std::string const &value, unsigned maxlen)
-        {
-                AppendSafeStringInternal(value.begin(), value.end(), maxlen, true);
-        }
-
-        /// Append a string range, url-encoding '"', '\r' and '\n'
-        void AppendSafeStringInternal(std::string::const_iterator begin, std::string::const_iterator end, unsigned maxlen, bool encodespace)
-        {
-                unsigned sizenow = data.size();
-                data.resize(sizenow + maxlen);
-
-                char *writeitr = data.begin() + sizenow;
-
-                for (std::string::const_iterator it = begin; it != end && maxlen; ++it)
-                {
-                        if (*it=='"' || *it == '\n' || *it == '\r' || (*it == ' ' && encodespace)) //escape double quotes & line endings as they mess up parsing a quoted string
-                        {
-                                if (maxlen < 3)
-                                    break;
-
-                                *writeitr++ = '%';
-                                *writeitr++ = '0' + (unsigned(*it) / 10);
-                                *writeitr++ = '0' + (unsigned(*it) % 10);
-                                maxlen -= 3;
-                        }
-                        else
-                        {
-                                *writeitr++ = *it;
-                                --maxlen;
-                        }
-                }
-
-                data.resize(data.size() - maxlen);
+                AppendQuotedString(value.begin(), value.size() <= maxlen ? value.end() : value.begin() + maxlen);
         }
 
         /// Append a date
         void AppendLogDate(Blex::DateTime datetime)
         {
-                // Log date is max 30 bytes, just give 1K of room for safety
-                char buffer[1024];
-                char *bufferend = Blex::InsertLogDate(datetime, buffer);
-                data.insert(data.end(), buffer, bufferend);
+                // ISO 8601 datetime: YYYY-MM-DDTHH:MM:SS.mmmZ
+                char buffer[24];
+                struct std::tm time = datetime.GetTM();
+                unsigned year=time.tm_year+1900;
+                unsigned month=time.tm_mon+1;
+                buffer[ 0] = GetDigit(year / 1000);
+                buffer[ 1] = GetDigit(year % 1000 / 100);
+                buffer[ 2] = GetDigit(year % 100 / 10);
+                buffer[ 3] = GetDigit(year % 10);
+                buffer[ 4] = '-';
+                buffer[ 5] = GetDigit(month / 10);
+                buffer[ 6] = GetDigit(month % 10);
+                buffer[ 7] = '-';
+                buffer[ 8] = GetDigit(time.tm_mday / 10);
+                buffer[ 9] = GetDigit(time.tm_mday % 10);
+                buffer[10] = 'T';
+                buffer[11] = GetDigit(time.tm_hour / 10);
+                buffer[12] = GetDigit(time.tm_hour % 10);
+                buffer[13] = ':';
+                buffer[14] = GetDigit(time.tm_min / 10);
+                buffer[15] = GetDigit(time.tm_min % 10);
+                buffer[16] = ':';
+                buffer[17] = GetDigit(time.tm_sec / 10);
+                buffer[18] = GetDigit(time.tm_sec % 10);
+                buffer[19] = '.';
+
+                unsigned long msecs = datetime.GetMsecs() % 1000;
+                buffer[20] = GetDigit(msecs / 100);
+                buffer[21] = GetDigit((msecs / 10) % 10);
+                buffer[22] = GetDigit(msecs % 10);
+                buffer[23] = 'Z';
+
+                data.insert(data.end(), buffer, buffer+24);
         }
 };
 
@@ -143,6 +144,7 @@ void WebHareServer::AccessLogFunction(WebServer::Connection &conn, unsigned resp
         WebServer::Request const &request=conn.GetRequest();
         WebServer::RequestParser const &reqparser=conn.GetRequestParser();
         /*
+        {"@timestamp":}
         127.0.0.1 - rabbit [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0"
         200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"
         www.b-lex.com 80 0 trackingid "image/gif" 1435
@@ -150,98 +152,71 @@ void WebHareServer::AccessLogFunction(WebServer::Connection &conn, unsigned resp
 
         LogLineBuilder builder;
 
-        //Add IP address..
-        conn.GetRequest().remoteaddress.AppendIPAddress(&builder.data);
+        builder.Append("{\"@timestamp\":\"");         // { "@timestamp":
+        builder.AppendLogDate(now);
+        builder.Append("\",\"ip\":\""); // ","ip":"
+        conn.GetRequest().remoteaddress.AppendIPAddress(&builder.data); //doesn't require encoding
+        builder.Append("\""); //manually close IP field, it doesn't self close
 
-        //Now, add the " - username " sequence.
-        builder.Append(" - ");
-
-        //Don't log the username, unless it's a 401 Authorization required page
+        //401 Authorization required page: log attempted username. otherwise only log verified usernames
         std::string const &proper_user_field = responsecode == 401 && !request.authentication.seen_username.empty()
                                                  ? request.authentication.seen_username : request.verified_username;
         if(!proper_user_field.empty())
-            builder.AppendUnquotedSafeString(proper_user_field, 128);
-        else
-            builder.Append("-");
+        {
+                builder.Append(",\"user\":"); // ,"user":
+                builder.AppendQuotedString(proper_user_field, 128);
+        }
 
-        //Add the [date time].
-        builder.Append(" [");
-        builder.AppendLogDate(now);
-        builder.Append("] \"");
+        builder.Append(",\"method\":"); // ,"method":
+        builder.AppendQuotedString(reqparser.GetProtocolMethodString(), 40);
 
         //Add "url". Google allows 8192 characters, and we might url-encode some characters, so use 10000 chars as max-length
-        builder.AppendSafeString(reqparser.GetRequestLine(), 10000);
-        builder.Append("\" ");
+        builder.Append(",\"url\":"); // ,"url":
+        builder.AppendQuotedString(request.GetRequestURL(WebServer::RequestURLType::ForServer), 10000);
 
-        //Add response code.
+        builder.Append(",\"statusCode\":"); // ,"statusCode":
         builder.AppendNumber(responsecode);
-        builder.Append(" ");
-
-        //Add bytes sent.
-        if (bytessent)
-            builder.AppendNumber(bytessent);
-        else
-            builder.Append("-");
-        builder.Append(" \"");
+        if(bytessent > 0) {
+                builder.Append(",\"bodySent\":"); // ","bytesSent":
+                builder.AppendNumber(bytessent);
+        }
+        if(reqparser.GetBodyBytesReceived() > 0) {
+                builder.Append(",\"bodyReceived\":"); // ","bytesReceived":
+                builder.AppendNumber(reqparser.GetBodyBytesReceived());
+        }
 
         //Add referrer.
-        if (request.referrer == NULL)
-            builder.Append("-");
-        else
-            builder.AppendSafeString(*request.referrer, 600);
-        builder.Append("\" \"");
-
+        if (request.referrer)
+        {
+                builder.Append(",\"referrer\":"); // ,"referrer":
+                builder.AppendQuotedString(*request.referrer, 600);
+        }
         //Add user-agent.
-        if (request.user_agent == NULL)
-            builder.Append("-");
-        else
-            builder.AppendSafeString(*request.user_agent, 600);
-        builder.Append("\" ");
-
-        //Add hostname.
-        if (request.website && !request.website->hostname.empty())
+        if (request.user_agent)
         {
-                builder.AppendUnquotedSafeString(request.website->hostname, 100);
+                builder.Append(",\"userAgent\":"); // ,"userAgent":
+                builder.AppendQuotedString(*request.user_agent, 600);
         }
-        else
-        {
-                if (request.hostname.empty())
-                    builder.Append("-");
-                else
-                {
-                        std::string rawhost;
-                        Blex::EncodeJava(request.hostname.begin(), request.hostname.end(), std::back_inserter(rawhost));
-                        builder.AppendUnquotedSafeString(request.hostname, 100);
-                }
-        }
-        builder.Append(" ");
-        builder.AppendNumber(conn.GetLocalAddress().GetPort());
-        builder.Append(" ");
-        builder.AppendNumber(reqparser.GetBodyBytesReceived());
-        builder.Append(" - \""); //this used to be the tracking stamp position. it's free now!
-
         // Encode request mime type.
         std::string const *ctype = conn.GetPreparedHeader("Content-Type", 12);
         if(ctype)
         {
+                builder.Append(",\"mimeType\":"); // ,"mimeType":
                 std::string::const_iterator mimetypestart = ctype->begin();
                 std::string::const_iterator mimetypeend = std::min(std::find(ctype->begin(), ctype->end(), ';'), std::find(ctype->begin(), ctype->end(), ' '));
-                if(mimetypeend != mimetypestart)
-                    builder.AppendSafeString(mimetypestart, mimetypeend, 200);
+                builder.AppendQuotedString(mimetypestart, mimetypeend);
         }
-        builder.Append("\" ");
 
         // Encode request time.
         uint64_t requesttime = request.request_start ? (Blex::GetSystemCurrentTicks() - request.request_start)/ (Blex::GetSystemTickFrequency()/1000000) : 0;
-        if (requesttime > max_reported_requesttime)
-            builder.Append("-");
-        else
-            builder.AppendNumber(requesttime);
-
-        DEBUGPRINT(std::string(builder.data.begin(), builder.data.end()));
+        if (requesttime < max_reported_requesttime)
+        {
+                builder.Append(",\"responseTime\":"); // ,"responseTime":
+                builder.Append(std::to_string(double(requesttime) / 1000000)); //format as seconds with 6 decimal places
+        }
 
         // Add end of line.
-        builder.Append("\n");
+        builder.Append("}\n");
         accesslog.RawLog(builder.data.begin(), builder.data.end(), now);
 
         //aww no c++20 yet

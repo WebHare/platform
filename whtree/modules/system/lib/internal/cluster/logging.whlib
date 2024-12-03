@@ -5,6 +5,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -15,6 +16,124 @@ STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT)
 
 
 RECORD __auditcontext;
+
+RECORD FUNCTION DecodeClassicAccessLogLine(STRING line)
+{
+  STRING ARRAY parts := Tokenize(line, '"');
+  IF (LENGTH(parts) NOT IN [ 7, 9 ])
+    RETURN DEFAULT RECORD;
+
+  STRING ARRAY fparts := Tokenize(parts[0], " ");
+  IF (LENGTH(fparts) != 6)
+    RETURN DEFAULT RECORD;
+
+  STRING dtstamp := GetDateStamp(fparts[3]);
+  DATETIME time := MakeDateFromText(dtstamp);
+  BOOLEAN time_msecs := dtstamp LIKE "*.*";
+
+  STRING ARRAY mparts := Tokenize(parts[2], " ");
+  IF (LENGTH(mparts) != 4)
+    RETURN DEFAULT RECORD;
+
+  STRING ARRAY lastparts := Tokenize(parts[6], " ");
+  IF (LENGTH(lastparts) NOT IN [ 5, 6 ]) // might not have tracking id
+    RETURN DEFAULT RECORD;
+
+  BOOLEAN have_mimetype := LENGTH(parts) = 9;
+  BOOLEAN have_trackingstamp := LENGTH(lastparts) >= 6 OR have_mimetype;
+
+  STRING remoteip := fparts[0];
+  STRING host := lastparts[1];
+  INTEGER port := ToInteger(lastparts[2], 0);
+
+  INTEGER64 pagetime;
+  STRING trackingstamp;
+  STRING mimetype;
+
+  IF (have_trackingstamp)
+  {
+    trackingstamp := lastparts[4];
+    IF (have_mimetype)
+    {
+      mimetype := parts[7];
+      STRING ARRAY postmimeparts := Tokenize(parts[8], " ");
+      IF (LENGTH(postmimeparts) < 2)
+        RETURN DEFAULT RECORD;
+      pagetime := ToInteger64(postmimeparts[1], 0);
+    }
+    ELSE
+      pagetime := ToInteger64(lastparts[5], 0);
+  }
+  ELSE
+    pagetime := ToInteger64(lastparts[4], 0);
+
+  IF (trackingstamp IN [ "-", "" ])
+    trackingstamp := "";
+
+  INTEGER spos := SearchSubString(parts[1], " ") + 1;
+  STRING url := SubString(parts[1], spos, SearchLastSubString(parts[1], " ") - spos);
+
+/*
+0 'remoteip - username [01/Aug/2011:15:06:13 +0000] '
+1 'GET url HTTP/1.1'
+2 ' 200 bytessent '
+3 'referrer'
+4 ' '
+5 'useragent'
+6 ' hostname port bodyreceived [trackerid] ( pagetime /
+7 'mime-type'
+8 'pagetime' )
+*/
+  RETURN
+      [ stream :=           "hit"
+      , time :=             time
+      , time_msecs :=       time_msecs
+      , remoteip :=         fparts[0]
+      , username :=         fparts[2] != "-" ? fparts[2] : ""
+      , url :=              url
+      , host :=             host
+      , port :=             port
+      , upload :=           ToInteger64(lastparts[3], 0)
+      , download :=         ToInteger64(mparts[2], 0)
+      , httpcode :=         ToInteger(mparts[1], 0)
+      , referrer :=         parts[3] != "-" ? parts[3] : ""
+      , useragent :=        parts[5]
+      , pagetime :=         pagetime
+      , trackingstamp :=    trackingstamp
+      , mimetype :=         mimetype
+      , method :=           ToUppercase(Left(parts[1], spos-1))
+      ];
+}
+
+RECORD FUNCTION DecodeJSONAccessLogLine(STRING line)
+{
+  RECORD rec := DecodeJSON(line);
+  DATETIME time := MakeDateFromText(rec."@timestamp");
+  BOOLEAN time_msecs := rec."@timestamp" LIKE "*.*";
+  RECORD urlparts := UnpackURL(rec.url);
+
+  RETURN CELL
+      [ stream :=           "hit"
+      , time :=             time
+      , time_msecs :=       time_msecs
+      , remoteip :=         rec.ip
+      , username :=         CellExists(rec,'user') ? rec.user : ""
+      , url :=              "/" || urlparts.urlpath
+      , host :=             urlparts.host
+      , port :=             urlparts.port
+      , upload :=           CellExists(rec,'bodyReceived') ? INTEGER64(rec.bodyReceived):0i64
+      , download :=         CellExists(rec,'bodySent') ? INTEGER64(rec.bodySent):0i64
+      , httpcode :=         rec.statuscode
+      , referrer :=         CellExists(rec,'referrer') ? rec.referrer : ""
+      , useragent :=        CellExists(rec,'useragent') ? rec.useragent : ""
+      , pagetime :=         CellExists(rec,'responsetime') ? INTEGER64(rec.responsetime*1000000) : 0i64
+      , trackingstamp :=    ""
+      , mimetype :=         CellExists(rec,'mimetype') ? rec.mimetype : ""
+      , method :=           CellExists(rec,'method') ? rec.method : ""
+      ];
+
+}
+
 
 /** This object reads logfiles. It can read 3 types of logs:
     - access logs (type: 'access')
@@ -217,92 +336,11 @@ STATIC OBJECTTYPE LogFileReader
   {
     SWITCH (this->pvt_logtype)
     {
-    CASE "access"
+      CASE "access"
       {
-        STRING ARRAY parts := Tokenize(line, '"');
-        IF (LENGTH(parts) NOT IN [ 7, 9 ])
-          RETURN DEFAULT RECORD;
-
-        STRING ARRAY fparts := Tokenize(parts[0], " ");
-        IF (LENGTH(fparts) != 6)
-          RETURN DEFAULT RECORD;
-
-        STRING dtstamp := GetDateStamp(fparts[3]);
-        DATETIME time := MakeDateFromText(dtstamp);
-        BOOLEAN time_msecs := dtstamp LIKE "*.*";
-
-        STRING ARRAY mparts := Tokenize(parts[2], " ");
-        IF (LENGTH(mparts) != 4)
-          RETURN DEFAULT RECORD;
-
-        STRING ARRAY lastparts := Tokenize(parts[6], " ");
-        IF (LENGTH(lastparts) NOT IN [ 5, 6 ]) // might not have tracking id
-          RETURN DEFAULT RECORD;
-
-        BOOLEAN have_mimetype := LENGTH(parts) = 9;
-        BOOLEAN have_trackingstamp := LENGTH(lastparts) >= 6 OR have_mimetype;
-
-        STRING remoteip := fparts[0];
-        STRING host := lastparts[1];
-        INTEGER port := ToInteger(lastparts[2], 0);
-
-        INTEGER64 pagetime;
-        STRING trackingstamp;
-        STRING mimetype;
-
-        IF (have_trackingstamp)
-        {
-          trackingstamp := lastparts[4];
-          IF (have_mimetype)
-          {
-            mimetype := parts[7];
-            STRING ARRAY postmimeparts := Tokenize(parts[8], " ");
-            IF (LENGTH(postmimeparts) < 2)
-              RETURN DEFAULT RECORD;
-            pagetime := ToInteger64(postmimeparts[1], 0);
-          }
-          ELSE
-            pagetime := ToInteger64(lastparts[5], 0);
-        }
-        ELSE
-          pagetime := ToInteger64(lastparts[4], 0);
-
-        IF (trackingstamp IN [ "-", "" ])
-          trackingstamp := "";
-
-        INTEGER spos := SearchSubString(parts[1], " ") + 1;
-        STRING url := SubString(parts[1], spos, SearchLastSubString(parts[1], " ") - spos);
-
-/*
-0 'remoteip - username [01/Aug/2011:15:06:13 +0000] '
-1 'GET url HTTP/1.1'
-2 ' 200 bytessent '
-3 'referrer'
-4 ' '
-5 'useragent'
-6 ' hostname port bodyreceived [trackerid] ( pagetime /
-7 'mime-type'
-8 'pagetime' )
-*/
-        RETURN
-            [ stream :=           "hit"
-            , time :=             time
-            , time_msecs :=       time_msecs
-            , remoteip :=         fparts[0]
-            , username :=         fparts[2] != "-" ? fparts[2] : ""
-            , url :=              url
-            , host :=             host
-            , port :=             port
-            , upload :=           ToInteger64(lastparts[3], 0)
-            , download :=         ToInteger64(mparts[2], 0)
-            , httpcode :=         ToInteger(mparts[1], 0)
-            , referrer :=         parts[3] != "-" ? parts[3] : ""
-            , useragent :=        parts[5]
-            , pagetime :=         pagetime
-            , trackingstamp :=    trackingstamp
-            , mimetype :=         mimetype
-            , method :=           ToUppercase(Left(parts[1], spos-1))
-            ];
+        IF(Left(line,1) = '{')
+          RETURN DecodeJSONAccessLogLine(line);
+        RETURN DecodeClassicAccessLogLine(line);
       }
     CASE "modulelog"
       {
