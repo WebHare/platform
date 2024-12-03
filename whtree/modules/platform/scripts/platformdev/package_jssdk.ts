@@ -103,7 +103,8 @@ async function main() {
     const pkgroot = join(jssdkPath, pkgname);
     const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8"));
     packagejson.private = false;
-    packagejson.files = ["dist/", "bin/"];
+    //for eg @webhare/eslint-config we also need to include the manually written .d.ts file
+    packagejson.files = [...(packagejson.files || []), "dist/", "bin/"];
     Object.assign(packagejson, fixedsettings);
 
     if (verbose)
