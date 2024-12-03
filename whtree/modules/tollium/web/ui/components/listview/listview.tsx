@@ -10,6 +10,7 @@ import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import Keyboard from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
+import type { DataColumn } from '@mod-tollium/webdesigns/webinterface/components/list/list';
 require('./listview.css');
 const ListColumn = require('./listcolumns');
 
@@ -81,11 +82,13 @@ function translatePageCoordinatesToElement(event, element) {
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
+type WrappedDataColumn = {
+  src: DataColumn
+};
 
 let scrollbarwidth = null;
 export function getScrollbarWidth() {
-  if (scrollbarwidth === null) //not calculated yet
-  {
+  if (scrollbarwidth === null) { //not calculated yet
     const inner = document.createElement('p');
     inner.style.width = "100%";
     inner.style.height = "200px";
@@ -122,7 +125,7 @@ export function getScrollbarWidth() {
   return scrollbarwidth;
 }
 
-type VisibleRow = {
+export type VisibleRow = {
   cells: unknown[],
   node: HTMLDivElement,
   rownum: number,
@@ -137,7 +140,15 @@ export default class ListView {
   listbodyholder: HTMLDivElement | null = null;
   listinsertline: HTMLDivElement | null = null;
 
-  constructor(node, datasource, options) {
+  datacolumns = new Array<WrappedDataColumn>;
+
+  selectedidx = 0; // index of the cell containing the selected state
+  expandedidx = 0;
+  depthidx = 0;
+  searchidx = 0;
+  highlightidx = 0;
+
+  constructor(public node, datasource, options) {
     this.listcount = 0;
     this.vscroll_width = null; // null means it's not defined
     // 0 means the scrollbar is an overlay, not taking any space
@@ -170,8 +181,6 @@ export default class ListView {
     this.cols = [];
 
     // List of all source columns present (will be combined through rowlayout and mapped to the visible columns)
-    this.datacolumns = [];
-
     // cols & datacolumns for dragging
     this.dragdatacolumns = [];
 
@@ -185,12 +194,6 @@ export default class ListView {
 
     this.dragrowheight = 0;
     this.draglinesperrow = 1;
-
-    this.selectedidx = 0; // index of the cell containing the selected state
-    this.expandedidx = 0;
-    this.depthidx = 0;
-    this.searchidx = 0;
-    this.highlightidx = 0;
 
     this.cursorrow = -1;
     this.cursorcol = -1;
@@ -211,7 +214,6 @@ export default class ListView {
 
     this.listcount = ++globallistcount;
 
-    this.node = node;
     this.node.classList.add("wh-list"); //this is the new BEM anchor class. as we go, move other classes under us
     this.node.classList.add("wh-ui-listview");
     this.node.addEventListener("mouseover", evt => this.onMouseOver(evt));
@@ -349,7 +351,7 @@ export default class ListView {
 
 
   //reconfigure the list
-  resetList(force) {
+  resetList(force?: boolean) {
     if (this.options.delay_layout)
       return;
 
@@ -968,7 +970,7 @@ export default class ListView {
       /* label click, eg checkbox row - we only allow this if selectmode is none,
          otherwise we interfere too much with the selection process (but you really
            shouldn't build lists with checkboxes AND selectionmode) */
-      if (selectnode.listViewClickNeighbour && this.options.selectmode === 'none') {
+      if (selectnode.dataset.listViewClickNeighbour && this.options.selectmode === 'none') {
         let toclick = null;
         if (selectnode.previousSibling)
           toclick = selectnode.previousSibling.querySelector('input');
@@ -1201,7 +1203,7 @@ export default class ListView {
     return null;
   }
 
-  onDragStart(event) {
+  onDragStart(event: DragEvent) {
     dragdrop.fixupDNDEvent(event);
     const target = event.target.closest('div.listrow');
     const cells = target.classList.contains('listrow') ? this.visiblerows[target.propRow].cells : null;
@@ -2038,7 +2040,7 @@ export default class ListView {
       this.listheader.childNodes[childnr + 1 + idx].style.left = left + "px";
     });
   }
-  _applyRowColumnWidths(datacolumns, dragmode, visiblerow) {
+  _applyRowColumnWidths(datacolumns: WrappedDataColumn[], dragmode: boolean, visiblerow: VisibleRow) {
     let outpos = 0;
 
     for (let i = 0; i < datacolumns.length; ++i) {

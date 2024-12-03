@@ -29,7 +29,7 @@ interface FlatRowMeta {
   rowkey: unknown;
 }
 
-interface DataColumn {
+export interface DataColumn {
   align: string;
   checkbox: string;
   checkboxenabledidx: number;
@@ -52,7 +52,7 @@ interface DataColumn {
   tree: boolean;
   type: string;
   width: string;
-  render: unknown;
+  render: Base<unknown>;
   rowspan: number;
   colspan: number;
   x: number;
@@ -515,7 +515,7 @@ export default class ObjList extends ComponentBase {
       this.columnwidths.push(sizeobj);
     }
   }
-  getRendererByType(type) {
+  getRendererByType(type: string): Base {
     switch (type) {
       case "email":
         return new Email;
